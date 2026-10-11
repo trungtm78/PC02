@@ -12,7 +12,12 @@ describe('StatusQueryService', () => {
   const FAR_FUTURE = new Date('2099-01-01T00:00:00Z');
   const FAR_PAST = new Date('2020-01-01T00:00:00Z');
 
-  const FIELD = { fieldKey: 'Đội 3!C6', sheetKey: 'Đội 3', address: 'C6' };
+  const FIELD = {
+    fieldKey: 'Đội 3!C6',
+    sheetKey: 'Đội 3',
+    address: 'C6',
+    versionId: 'version1',
+  };
 
   function assignment(
     id: string,
@@ -34,7 +39,7 @@ describe('StatusQueryService', () => {
         endDate: new Date('2026-06-30T00:00:00Z'),
         dueAt: FAR_FUTURE,
         status: 'OPEN',
-        version: { fields: [FIELD] },
+        versionId: 'version1',
       },
       submission: {
         state: 'NOT_STARTED',
@@ -106,6 +111,11 @@ describe('StatusQueryService', () => {
         findMany: jest
           .fn<Promise<unknown>, unknown[]>()
           .mockResolvedValue(opts.reports ?? []),
+      },
+      dynReportField: {
+        findMany: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue([FIELD]),
       },
     };
     const service = new StatusQueryService(
@@ -221,7 +231,7 @@ describe('StatusQueryService', () => {
             endDate: new Date('2026-06-30T00:00:00Z'),
             dueAt: FAR_PAST,
             status: 'OPEN',
-            version: { fields: [FIELD] },
+            versionId: 'version1',
           },
           unlocks: [
             {

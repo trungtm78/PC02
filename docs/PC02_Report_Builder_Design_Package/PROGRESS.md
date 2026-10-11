@@ -576,13 +576,192 @@ coverage-driven, ưu tiên chất lượng.
 
 ## Hàng đợi task kế tiếp (PHA SAU của PR10, không phải việc của pha UAT viết+thực thi)
 1. ~~Vá gộp sổ A11Y~~ — **XONG, PR #590 merge+deploy xanh 11/10 16:58 UTC.**
-2. Benchmark/hiệu năng X04 (5.000 input/200 tổ/50 ghi đồng thời).
+2. ~~Benchmark/hiệu năng X04 (5.000 input/200 tổ/50 ghi đồng thời)~~ — **ĐO THẬT xong 11/10/2026,
+   xem mục "Benchmark X04 — đo thật lần đầu" ngay dưới đây. 1/3 chỉ số đạt, 2/3 KHÔNG đạt +
+   phát hiện 2 nợ kỹ thuật thật (không phải mất/nhân đôi dữ liệu).** **TÁI ĐO lần 2 sau vá
+   11-12/10/2026 (xem mục "Benchmark X04 — tái đo lần 2" ngay dưới mục lần 1): Finding-B
+   (status N+1) VÁ ĐÚNG, p95 3.775,6ms → ~500-570ms, ĐẠT vững qua 4 lượt đo. Finding-A (pool
+   10→20) CHỈ GIẢM BỚT, CHƯA GIẢI QUYẾT: autosave 50 đồng thời vẫn lỗi 500 (P2028 "Unable to
+   start a transaction in the given time") ở 3-9/50 lượt (6-18%) qua 4 lần đo lại, p95 vẫn
+   2.787-3.439ms — KHÔNG đạt target ≤1s. Việc này CẦN coordinator quyết hướng vá tiếp (không tự
+   vá thêm theo đúng chỉ đạo).**
 3. Runbook vận hành + rollback.
 4. Monkey test X06 — chạy ĐÚNG MỘT LẦN ở cuối toàn bộ PR10 (không chạy theo từng task).
 5. (Tuỳ chọn, nếu còn muốn tiếp tục phủ sâu hơn UAT): 28 dòng CHƯA LÀM còn lại trong
    `UAT-COVERAGE.md` (chủ yếu màn hình phụ S05-S08/S12/S14-S18/S20/S22-S32/S35 + X02/X07),
    GAP UX-01/UX-02 cần quyết định vá hay chấp nhận, GAP oracle X03 cần người quyết ý định
    thật trước khi viết lại TC.
+
+## Benchmark X04 — đo thật lần đầu (11/10/2026)
+
+Mục tiêu đề xuất ở `APPROVED_PLAN.md` dòng 281 ("workbook 5.000 input, 200 người/kỳ; mở
+form p95 ≤3s, autosave p95 ≤1s, aggregate/status p95 ≤3s, thử 50 người lưu đồng thời
+không mất/nhân đôi dữ liệu") **CHƯA từng đo trên hệ thống thật trước lượt này** — đây là
+lần đo đầu tiên, qua HTTP thật trên dev cục bộ, không ước lượng trên giấy.
+
+**Môi trường đo** (ghi rõ để không hiểu nhầm là production): Windows 11 Pro, CPU Intel
+Core i7-1280P (14 lõi/20 luồng), RAM 32GB, Node v24.14.0, PostgreSQL 18.1
+(`127.0.0.1:5433`), backend build `nest build` chạy `node dist/src/main.js` (không phải
+`npm run start:dev`), DB + backend trên CÙNG MÁY qua loopback (không có mạng thật, không
+có tải song song nào khác). **Số liệu dưới đây là chỉ số TƯƠNG ĐỐI trên máy dev, KHÔNG
+tương đương môi trường production thật** (VM Viettel Cloud cấu hình khác, DB/backend
+tách máy qua mạng thật).
+
+**Fixture** (seed trực tiếp qua Prisma, xoá sạch sau khi đo — không qua wizard UI):
+1 `DynReport` PUBLISHED + 1 `DynReportVersion` với đúng **5.000 `DynReportField` NUM** (5
+sheet × 1.000 field — đúng biên trên `DYN_REPORT_TEMPLATE_LIMITS.MAX_INPUT_CELLS` ở
+`backend/src/dynamic-reports/template/limits.ts`), 1 `DynReportPeriod` OPEN, **200 tổ ×
+200 `DynReportAssignment`/`DynReportAssignmentEditor`/`DynReportSubmission`** (mỗi tổ 1
+người nhập — 200 `User` mới, role OFFICER có sẵn `read:DynamicReport`), 1 `DynReportRole`
+MANAGER cho `admin`. JWT của 200 editor ký trực tiếp bằng RS256 + khoá riêng cục bộ
+(`backend/keys/private.pem`) — bỏ qua `/auth/login` cho 200 tài khoản để tránh đo lẫn chi
+phí login/bcrypt vào 3 chỉ số mục tiêu; token vẫn được `JwtStrategy` xác thực thật qua DB
+(tra `user.isActive`/`tokenVersion`) — không phải token giả lập.
+
+### Kết quả 3 chỉ số (so Target, đo qua `fetch` thật, p95 tính bằng sắp xếp mảng latency)
+
+| # | Chỉ số | Target | Đo được (p50 / p95 / p99) | Kết luận |
+|---|---|---|---|---|
+| 1 | Mở form S11 (`GET /bao-cao-dong/submissions/:assignmentId`, 1 báo cáo 5.000 field, 25 lượt gọi nối tiếp) | p95 ≤3s | p50=72,5ms / **p95=146,0ms** / p99=315,9ms (cold+warm, n=25); bỏ lần đầu: p95=121,1ms | **ĐẠT**, dư biên rất lớn (~20x) |
+| 2 | Autosave (`PATCH /bao-cao-dong/submissions/:assignmentId/values`, **50 lượt `Promise.all` đồng thời**, 50 assignment/editor khác nhau) | p95 ≤1s | p50=2.333,3ms / **p95=2.839,4ms** / p99=2.924,7ms (n=50); tổng thời gian treo hết 50 lượt: 2.934,0ms | **KHÔNG ĐẠT** (vượt target ~2,8 lần) — và **8/50 lượt (16%) trả lỗi 500**, xem BUG hạ tầng dưới đây |
+| 3 | Tổng hợp/màn C (`GET /bao-cao-dong/status?reportId=...&periodId=...&pageSize=200`, kỳ 200 tổ, 25 lượt gọi nối tiếp) | p95 ≤3s | p50=3.214,3ms / **p95=3.775,6ms** / p99=3.862,0ms (cold+warm, n=25); bỏ lần đầu: p95 không đổi | **KHÔNG ĐẠT** (vượt target ~26%) — latency ỔN ĐỊNH qua 25 lần, không phải cold-start, là chi phí có cấu trúc (xem phân tích dưới) |
+
+Số liệu ghi nguyên văn, không làm tròn có lợi — p95 ở chỉ số 2 và 3 đều vượt target thật.
+
+### Phát hiện khi đo (2 nợ kỹ thuật thật, KHÔNG tự vá — báo cáo để coordinator xác minh)
+
+**Finding-A (chỉ số 2 — autosave 50 đồng thời)**: 8/50 request `PATCH .../values` trả
+`500` với log server `[PrismaExceptionFilter] ... Transaction API error: Unable to start
+a transaction in the given time.` Đây là lỗi Prisma khi một `$transaction()` tương tác
+(`submission.service.ts#save()`, lock thứ tự period→submission bằng `FOR SHARE`/`FOR
+UPDATE`) không giành được connection trong pool trong `maxWait` mặc định (2000ms) —
+`PrismaService` (`backend/src/prisma/prisma.service.ts`) tạo `PrismaPg` KHÔNG truyền `max`
+cho pool `pg`, nên dùng mặc định của `node-postgres` là **10 connection**. 50 lượt lưu
+đồng thời cạnh tranh 10 connection → phần đuôi hàng đợi vượt 2s bị huỷ.
+**Đã xác minh KHÔNG mất/nhân đôi dữ liệu**: truy vấn DB sau đo cho đúng **42 submission có
+`currentRevision=1` + đúng 42 dòng `dyn_report_revisions` mới (không trùng `submissionId`
+nào có >1 dòng)**, 8 submission thất bại vẫn giữ `currentRevision=0` — transaction rollback
+sạch, lỗi "ồn" (500 rõ ràng) chứ không âm thầm hỏng dữ liệu. Vẫn là vấn đề thật: ở target
+"50 người lưu đồng thời" đúng nghĩa, 16% người dùng sẽ thấy lỗi lưu thất bại và phải bấm lại.
+Hướng vá gợi ý (chưa làm, để coordinator quyết): tăng `max` cho `PrismaPg`/pool `pg` trong
+`prisma.service.ts`, và/hoặc tăng `maxWait`/dùng transaction ngắn hơn.
+
+**Finding-B (chỉ số 3 — tổng hợp/màn C)**: cô lập bằng cách gọi trực tiếp đúng câu Prisma
+của `StatusQueryService#queryRows()` (`backend/src/dynamic-reports/status/
+status-query.service.ts` dòng 224-233) ngoài HTTP — latency của RIÊNG câu query này đã
+~2,7-3,3s (không tính HTTP/serialize). Nguyên nhân: `include: { period: { include: {
+report: true, version: { include: { fields: true } } } } }` nạp **toàn bộ danh sách field
+của version (5.000 field) lồng vào MỖI assignment** (200 assignment × 5.000 field = 1 triệu
+tham chiếu field dựng trong JS cho một request — đã đo trực tiếp bằng script cô lập,
+`total field refs across all rows=1000000`), chỉ để tính `dataCoverageLabel` (đếm
+`countNonBlank`/`countTotal`, dòng 283-288) — trong khi mọi assignment trong CÙNG một kỳ
+luôn trỏ tới CÙNG một `versionId`, nên 199/200 lần nạp là dư thừa hoàn toàn. Hướng vá gợi ý
+(chưa làm): tách truy vấn `dynReportField.findMany({ where: { versionId: { in:
+distinctVersionIds } } })` MỘT LẦN theo `versionId` duy nhất, lưu vào `Map<versionId,
+fields[]>`, rồi tra theo `a.period.versionId` trong vòng lặp dựng `rows` — đưa độ phức tạp
+từ O(assignments × fields) xuống O(distinctVersions × fields) ≈ O(fields) trong trường hợp
+phổ biến (1 version/kỳ). Đây là bug hiệu năng thật của code, không phải do máy đo yếu —
+latency ổn định y hệt qua 25 lần gọi (không giảm dần), khớp đúng với chi phí có cấu trúc
+chứ không phải JIT/cold-cache.
+
+**Không có hướng nào ở trên được tự vá trong lượt đo này** — đúng chỉ đạo "phát hiện
+BUG thì báo cáo, không tự vá, để coordinator xác minh và xử lý giống BUG-001/002/003".
+
+**Dọn dẹp sau đo**: đã xoá sạch toàn bộ fixture benchmark (`dr-bench-*`: 1 report, 1
+version, 5.000 field, 1 schedule, 1 period, 1 role, 200 team, 200 user, 200 assignment,
+200 editor-link, 200 submission, 42 revision) — DB về đúng baseline trước đo (3 user/2
+team/1 report/1 period/2 field, đúng fixture `dr-test-*` cũ, không đụng). Đã xoá script tạm
+(`backend/tmp-bench/`), tắt dev server tự khởi động (port 3000), không còn thay đổi
+`.env`/`keys/` nào mới (chỉ `backend/keys/public.pem` vẫn đang sửa từ phiên trước đó, không
+thuộc lượt đo này, không revert vì không phải việc của lượt này).
+
+## Benchmark X04 — tái đo lần 2, sau vá Finding-A+B (11-12/10/2026)
+
+Agent khác (coordinator) đã vá 2 phát hiện ở mục trên: (A) `PrismaService`
+(`backend/src/prisma/prisma.service.ts`) truyền `max` cho `PrismaPg` — mặc định 20, cấu
+hình qua env `DB_POOL_MAX` (trước đó không truyền `max` nên dùng mặc định 10 của
+`node-postgres`); (B) `StatusQueryService#queryRows()` (`backend/src/dynamic-reports/
+status/status-query.service.ts`) đổi từ `include: { version: { include: { fields: true } } }`
+lồng trong assignment sang tải field MỘT LẦN theo `versionId` rồi tra bằng `Map` — đúng
+O(distinct versions × fields) thay vì O(assignments × fields). Nhiệm vụ của lượt này là
+**TÁI ĐO ĐỘC LẬP**, không tin lời đã vá đúng — tự dựng lại fixture, tự đo qua HTTP thật, tự
+đối chiếu DB.
+
+**Môi trường đo**: cùng máy/điều kiện với lần đo đầu (Windows 11 Pro, Node v24.14.0,
+PostgreSQL 18 `127.0.0.1:5433`, backend build `nest build` chạy `node dist/src/main.js`
+mới build lại từ code đã vá — không phải `npm run start:dev`). Có 2 tiến trình `nest start
+--watch` cư trú sẵn trên máy (không rõ của ai, không phải do lượt đo này khởi động) —
+đã đo CPU delta qua 3 giây và xác nhận cả hai ĐANG RỖI (0% CPU), nên không phải nguồn
+nhiễu tải cho kết quả dưới đây; không chạm/tắt hai tiến trình đó vì không phải việc của
+lượt đo. Có 1 tiến trình `node dist/src/main` cũ (cổng 3000) đang chạy BẢN DỊCH TRƯỚC KHI
+VÁ — đã tắt (`taskkill`) và khởi động lại bản build MỚI từ code đã vá, để không đo nhầm
+code cũ.
+
+**Fixture**: dựng lại độc lập (script tạm `backend/tmp-bench/bench.ts`, tiền tố ID
+`drbench2-*` để không đụng fixture `dr-bench-*`/`dr-test-*` cũ), ĐÚNG hình dạng lần đầu —
+1 `DynReport` PUBLISHED + 1 version với 5.000 `DynReportField` NUM (5 sheet × 1.000), 1
+`DynReportPeriod` OPEN, 200 tổ × 200 assignment/editor/submission (200 `User` mới role
+OFFICER), 1 `DynReportRole` MANAGER cho `admin` có sẵn. JWT ký trực tiếp RS256 bằng
+`backend/keys/private.pem` (cùng cách bỏ qua `/auth/login` như lần đầu, token vẫn qua
+`JwtStrategy` xác thực thật qua DB). **Đo LẶP LẠI 4 lần** (không phải 1 lần) để tránh kết
+luận từ một lượt nhiễu — mỗi lần seed mới, đo, xác minh DB, rồi xoá sạch trước khi seed lại.
+
+### Kết quả 4 lượt đo (p95, so Target — số liệu nguyên văn, không làm tròn có lợi)
+
+| Lượt | #1 Mở form (target ≤3s) | #2 Autosave 50 đồng thời (target ≤1s) | #2 lỗi 500 | #3 Status/màn C (target ≤3s) |
+|---|---|---|---|---|
+| 1 | p95=161,70ms — ĐẠT | p95=3.438,9ms — KHÔNG ĐẠT | 4/50 (8%) | p95=570,06ms — ĐẠT |
+| 2 | p95=97,73ms — ĐẠT | p95=2.787,6ms — KHÔNG ĐẠT | 9/50 (18%) | p95=533,06ms — ĐẠT |
+| 3 | p95=122,27ms (*đo cùng lượt 4, xem dưới*) | *(không lưu đủ JSON — chỉ số lỗi) | 3/50 (6%) | *(không lưu đủ JSON)* |
+| 4 | p95=122,27ms — ĐẠT | p95=3.085,9ms — KHÔNG ĐẠT | 5/50 (10%) | p95=492,74ms — ĐẠT |
+
+(Lượt 3 chạy với lệnh `grep` lọc output nên chỉ log được số lỗi 500, không lưu JSON p95 đầy
+đủ — vẫn tính vào số trung bình của tỷ lệ lỗi vì số liệu đó có ghi log server-side khớp.)
+
+**Chỉ số 1 (Mở form) — ĐẠT vững, không đổi**: p95 66-296ms cả 3 lượt đo đủ, cùng bậc độ
+lớn với lần đầu (146,0ms) — dư biên ~10-45x so target. Không nằm trong phạm vi 2 vá nên
+không kỳ vọng đổi, và đúng như vậy.
+
+**Chỉ số 3 (Status/màn C) — ĐÃ ĐẠT, Finding-B VÁ ĐÚNG**: p95 492,7-570,1ms qua cả 3 lượt đo
+đủ, giảm từ p95=3.775,6ms (lần đầu, KHÔNG đạt ~26%) xuống ổn định dưới 600ms (~85% giảm),
+dư biên ~5-6x so target ≤3s. Cách vá (tải field 1 lần theo `versionId` + `Map` tra cứu) đúng
+như mô tả — đã xác nhận LẠI bằng đo độc lập, không chỉ tin code diff.
+
+**Chỉ số 2 (Autosave 50 đồng thời) — VẪN KHÔNG ĐẠT, Finding-A CHỈ GIẢM BỚT chứ CHƯA GIẢI
+QUYẾT**: p95 2.787,6-3.438,9ms cả 4 lượt — KHÔNG đạt target ≤1s ở MỌI lượt (vượt ~2,8-3,4
+lần), và còn lỗi 500 ở 3-9/50 (6-18%, trung bình ~10,5%) MỖI lượt — tức là vẫn CHƯA hết lỗi,
+chỉ giảm so với 8/50 (16%) trước vá, và lượt 2 (18%) còn CAO HƠN số trước vá. Log server xác
+nhận ĐÚNG lỗi Prisma `P2028` y hệt trước vá: `Transaction API error: Unable to start a
+transaction in the given time.` — nghĩa là pool tăng 10→20 có giúp (một số request giành
+được slot sớm hơn) nhưng KHÔNG đủ: `maxWait` mặc định của Prisma `$transaction()` vẫn là
+2000ms (không có nơi nào trong `submission.service.ts` truyền `{ maxWait, timeout }` cho
+`$transaction()` — đã kiểm bằng grep, 6 lời gọi `$transaction(async (tx) => {...})` đều
+không có options), và 50 lượt ghi đồng thời cạnh tranh 20 connection vẫn đủ để phần đuôi
+hàng đợi vượt 2000ms. Về toán hàng đợi: với pool=20 và 50 yêu cầu, round cuối phải chờ ít
+nhất một transaction trước hoàn tất; nếu một transaction thực tế mất ~900ms-1,5s (lock
+`FOR SHARE`/`FOR UPDATE` tuần tự trong `lockForWrite`), request cuối hàng đợi dễ vượt 2s.
+**Đã xác minh KHÔNG mất/nhân đôi dữ liệu ở cả 4 lượt** (`currentRevision` của submission
+thất bại vẫn là `0`, đúng 1 dòng `dyn_report_revisions`/submission thành công, 0 submission
+có >1 dòng revision — y hệt tính chất "lỗi ồn, không âm thầm hỏng" của lần đo đầu).
+
+**Kết luận chỉ số 2**: hướng vá hiện tại (chỉ tăng `max` pool) là ĐÚNG HƯỚNG nhưng CHƯA ĐỦ.
+Không tự vá thêm trong lượt đo này (đúng chỉ đạo "phát hiện thì báo cáo, không tự vá thêm,
+để coordinator quyết"). Hướng gợi ý để coordinator cân nhắc (chưa làm): (a) tăng `maxWait`
+cho riêng `$transaction()` trong `submission.service.ts#save()` (và các `$transaction` ghi
+khác) lên dư hơn biên độ burst kỳ vọng; (b) rút ngắn thời gian giữ transaction (ví dụ tách
+bước đọc/validate ra khỏi transaction, chỉ giữ transaction cho đúng phần ghi); (c) tăng
+pool thêm nữa (ví dụ 50+, bằng đúng số ghi đồng thời kỳ vọng) qua `DB_POOL_MAX` — nhưng cần
+đối chiếu với `max_connections` của Postgres (đang 100 ở máy đo này) và số backend instance
+thật trên production.
+
+**Dọn dẹp sau tái đo**: đã xoá sạch fixture `drbench2-*` sau MỖI lượt (try/finally trong
+script, không chỉ cuối cùng) — xác nhận lại bằng SQL COUNT sau lượt cuối: 0 dòng
+`dyn_reports`/`teams`/`users`/`dyn_report_fields` khớp tiền tố `drbench2`/`DRBENCH2`, DB về
+đúng baseline (3 user/2 team). Đã xoá script tạm (`backend/tmp-bench/`, cả thư mục). Đã tắt
+dev server build-mới tự khởi động (cổng 3000). `git status --short` sau cùng chỉ còn đúng 4
+file: 3 file code coordinator đã vá (`prisma.service.ts`, `status-query.service.ts`,
+`status-query.service.spec.ts`) + `backend/keys/public.pem` (không thuộc lượt này, không
+đụng) — cộng 2 file docs (`PROGRESS.md`, `UAT-COVERAGE.md`) tự cập nhật ở lượt này.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
