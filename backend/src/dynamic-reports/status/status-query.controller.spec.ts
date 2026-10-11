@@ -44,6 +44,9 @@ describe('StatusQueryController', () => {
         state: 'DRAFT',
         overdue: true,
         reopened: false,
+        editorUserId: 'user1',
+        managerUserId: 'user2',
+        periodType: 'MONTHLY',
         page: 2,
         pageSize: 50,
       },
@@ -60,6 +63,9 @@ describe('StatusQueryController', () => {
         state: 'DRAFT',
         overdue: true,
         reopened: false,
+        editorUserId: 'user1',
+        managerUserId: 'user2',
+        periodType: 'MONTHLY',
       },
       2,
       50,
@@ -155,6 +161,32 @@ describe('StatusQueryController', () => {
     expect(dataLine).toContain('HSLN');
     expect(dataLine).toContain('Đội 3');
     expect(res.end).toHaveBeenCalled();
+  });
+
+  it('export passes editorUserId/managerUserId/periodType through to queryAllForExport (S27, PR8 slice 8)', async () => {
+    service.queryAllForExport.mockResolvedValue({
+      rows: [],
+      asOf: '2026-06-15T10:00:00.000Z',
+    });
+    const res = buildRes();
+
+    await controller.export(
+      { editorUserId: 'user1', managerUserId: 'user2', periodType: 'MONTHLY' },
+      user,
+      res as never,
+    );
+
+    expect(service.queryAllForExport).toHaveBeenCalledWith('u1', 'r1', {
+      reportId: undefined,
+      periodId: undefined,
+      teamId: undefined,
+      state: undefined,
+      overdue: undefined,
+      reopened: undefined,
+      editorUserId: 'user1',
+      managerUserId: 'user2',
+      periodType: 'MONTHLY',
+    });
   });
 
   it('export (xlsx) sends a real workbook buffer with the spreadsheet content type', async () => {

@@ -24,10 +24,12 @@
  * PHẲNG (tái dùng đúng `GET /teams` + bộ lọc client `isActive && !wardId`
  * của `ReportTeamsStep.tsx`, S09), KHÔNG dựng cây tổ — repo chưa có
  * component cây tổ tái dùng nào, và dựng mới chỉ cho MỘT bộ lọc là việc
- * lớn hơn giá trị mang lại ở quy mô hiện tại. "Người nhập"/"quản lý"/
- * "loại kỳ" (phần còn lại của S27 drawer) vẫn để lại cho slice sau — cần
- * join `AssignmentEditor`/`DynReportRole`/`DynReportSchedule` mới ở
- * backend.
+ * lớn hơn giá trị mang lại ở quy mô hiện tại.
+ *
+ * PR8 slice 8 — 3 bộ lọc còn lại của S27: "người nhập"/"quản lý" (tái
+ * dùng `useOfficerOptions`, cùng khuôn `ReportTeamsStep.tsx` đã dùng cho
+ * cán bộ) và "loại kỳ" (nhãn có sẵn `DYN_REPORT_PERIOD_TYPE_LABEL`).
+ * S27 drawer coi như xong toàn bộ sau slice này.
  */
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -38,12 +40,15 @@ import type {
   AssignmentStatusRow,
   DynReportSubmissionState,
 } from '@/features/dynamic-reports/types';
+import type { DynReportPeriodType } from '@/shared/enums/generated';
 import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
+  DYN_REPORT_PERIOD_TYPE_LABEL,
 } from '@/shared/enums/status-labels';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import StatusMatrixPanel from './StatusMatrixPanel';
 
 const PAGE_SIZE = 25;
@@ -72,6 +77,10 @@ export default function StatusDashboardPage() {
   const page = Number(searchParams.get('status_page') ?? '1') || 1;
   const reportId = searchParams.get('reportId') ?? undefined;
   const teamId = searchParams.get('teamId') ?? undefined;
+  const editorUserId = searchParams.get('editorUserId') ?? undefined;
+  const managerUserId = searchParams.get('managerUserId') ?? undefined;
+  const periodType =
+    (searchParams.get('periodType') as DynReportPeriodType | null) ?? undefined;
   const state = (searchParams.get('state') as DynReportSubmissionState | null) ?? undefined;
   const overdue = searchParams.get('overdue') === 'true' ? true : undefined;
   const reopened = searchParams.get('reopened') === 'true' ? true : undefined;
@@ -93,10 +102,22 @@ export default function StatusDashboardPage() {
     queryFn: () => dynamicReportsApi.listTeamsForFilter(),
   });
 
+  const { data: officers } = useOfficerOptions();
+
+  const filters = {
+    reportId,
+    teamId,
+    editorUserId,
+    managerUserId,
+    periodType,
+    state,
+    overdue,
+    reopened,
+  };
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['dynamic-reports', 'status', { page, reportId, teamId, state, overdue, reopened }],
-    queryFn: () =>
-      dynamicReportsApi.listStatus({ reportId, teamId, state, overdue, reopened }, page, PAGE_SIZE),
+    queryKey: ['dynamic-reports', 'status', { page, ...filters }],
+    queryFn: () => dynamicReportsApi.listStatus(filters, page, PAGE_SIZE),
   });
 
   const [exportingFormat, setExportingFormat] = useState<'csv' | 'xlsx' | null>(null);
@@ -104,27 +125,27 @@ export default function StatusDashboardPage() {
   async function handleExport(format: 'csv' | 'xlsx') {
     setExportingFormat(format);
     try {
-      await dynamicReportsApi.exportStatus({ reportId, teamId, state, overdue, reopened }, format);
+      await dynamicReportsApi.exportStatus(filters, format);
     } finally {
       setExportingFormat(null);
     }
   }
 
-  function handleSelectReportFilter(nextReportId: string) {
-    const params = new URLSearchParams(searchParams);
-    if (nextReportId) params.set('reportId', nextReportId);
-    else params.delete('reportId');
-    params.set('status_page', '1');
-    setSearchParams(params);
+  function makeSelectFilterHandler(paramName: string) {
+    return (nextValue: string) => {
+      const params = new URLSearchParams(searchParams);
+      if (nextValue) params.set(paramName, nextValue);
+      else params.delete(paramName);
+      params.set('status_page', '1');
+      setSearchParams(params);
+    };
   }
 
-  function handleSelectTeamFilter(nextTeamId: string) {
-    const params = new URLSearchParams(searchParams);
-    if (nextTeamId) params.set('teamId', nextTeamId);
-    else params.delete('teamId');
-    params.set('status_page', '1');
-    setSearchParams(params);
-  }
+  const handleSelectReportFilter = makeSelectFilterHandler('reportId');
+  const handleSelectTeamFilter = makeSelectFilterHandler('teamId');
+  const handleSelectEditorFilter = makeSelectFilterHandler('editorUserId');
+  const handleSelectManagerFilter = makeSelectFilterHandler('managerUserId');
+  const handleSelectPeriodTypeFilter = makeSelectFilterHandler('periodType');
 
   function applyKpiFilter(key: KpiFilterKey) {
     const turningOff = activeKpi === key;
@@ -269,6 +290,63 @@ export default function StatusDashboardPage() {
                 {(teams ?? []).map((t) => (
                   <option key={t.teamId} value={t.teamId}>
                     {t.teamName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="editor-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
+                Người nhập
+              </label>
+              <select
+                id="editor-filter-select"
+                data-testid="editor-filter-select"
+                value={editorUserId ?? ''}
+                onChange={(e) => handleSelectEditorFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+              >
+                <option value="">— Mọi người nhập —</option>
+                {(officers ?? []).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="manager-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
+                Quản lý
+              </label>
+              <select
+                id="manager-filter-select"
+                data-testid="manager-filter-select"
+                value={managerUserId ?? ''}
+                onChange={(e) => handleSelectManagerFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+              >
+                <option value="">— Mọi quản lý —</option>
+                {(officers ?? []).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="period-type-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
+                Loại kỳ
+              </label>
+              <select
+                id="period-type-filter-select"
+                data-testid="period-type-filter-select"
+                value={periodType ?? ''}
+                onChange={(e) => handleSelectPeriodTypeFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+              >
+                <option value="">— Mọi loại kỳ —</option>
+                {Object.entries(DYN_REPORT_PERIOD_TYPE_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
                   </option>
                 ))}
               </select>
