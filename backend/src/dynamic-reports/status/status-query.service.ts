@@ -224,13 +224,35 @@ export class StatusQueryService {
     const assignments = await this.prisma.dynReportAssignment.findMany({
       where,
       include: {
-        period: {
-          include: { report: true, version: { include: { fields: true } } },
-        },
+        period: { include: { report: true } },
         submission: true,
         unlocks: { where: { kind: 'GRANT' }, orderBy: { startsAt: 'desc' } },
       },
     });
+
+    // Perf (X04 benchmark, PR10): every assignment in the same period shares
+    // ONE version, but nesting `version.fields` inside the assignment
+    // `include` above made Prisma hydrate a full copy of the version's
+    // fields PER assignment row — 200 assignments × 5,000 fields measured
+    // as ~26% over the p95 target. Fetching each distinct version's fields
+    // exactly once here is O(distinct versions × fields) instead of
+    // O(assignments × fields), typically O(fields) since one report/period
+    // normally has a single version.
+    const versionIds = [
+      ...new Set(assignments.map((a) => a.period.versionId)),
+    ];
+    const fieldRows =
+      versionIds.length > 0
+        ? await this.prisma.dynReportField.findMany({
+            where: { versionId: { in: versionIds } },
+          })
+        : [];
+    const fieldsByVersionId = new Map<string, typeof fieldRows>();
+    for (const f of fieldRows) {
+      const list = fieldsByVersionId.get(f.versionId) ?? [];
+      list.push(f);
+      fieldsByVersionId.set(f.versionId, list);
+    }
 
     const teamIds = [...new Set(assignments.map((a) => a.teamId))];
     const teams =
@@ -280,7 +302,7 @@ export class StatusQueryService {
           string,
           { v: string | null } | undefined
         >) ?? {};
-      const fields = a.period.version.fields;
+      const fields = fieldsByVersionId.get(a.period.versionId) ?? [];
       const countTotal = fields.length;
       const countNonBlank = fields.filter((f) => {
         const v = values[f.fieldKey]?.v;

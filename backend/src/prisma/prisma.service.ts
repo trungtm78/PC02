@@ -9,8 +9,19 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor() {
+    /*
+      Perf (X04 benchmark, PR10, dynamic-reports): `pg.Pool` defaults `max`
+      to 10 when not set. 50 concurrent writes measured 16% failing with
+      "Unable to start a transaction in the given time" — every
+      `$transaction()` call needs its own held connection for the
+      transaction's duration, so a burst bigger than the pool starves.
+      `DB_POOL_MAX` lets ops tune this per environment without a code
+      change; the default is raised from 10 to a value with headroom for
+      bursts like this on a single backend instance.
+    */
     const adapter = new PrismaPg({
       connectionString: process.env['DATABASE_URL'],
+      max: Number(process.env['DB_POOL_MAX']) || 20,
     });
     /*
       `omit` TOÀN CỤC cho cột bóng tìm kiếm — xem `cot-bong-an.ts`.
