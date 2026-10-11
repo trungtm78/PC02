@@ -14,6 +14,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     requestUnlock: vi.fn(),
     previewExcelImport: vi.fn(),
     applyExcelImport: vi.fn(),
+    exportOwnSubmission: vi.fn(),
   },
 }));
 
@@ -91,6 +92,31 @@ describe('SubmissionInputPage', () => {
     expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('5');
     // effectiveLockAt === dueAt here — a normal open period, not a reopen grant.
     expect(screen.queryByTestId('reopened-banner')).not.toBeInTheDocument();
+  });
+
+  it('"Xuất Excel" calls exportOwnSubmission with the current assignmentId', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.exportOwnSubmission).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-export-own-submission'));
+    fireEvent.click(screen.getByTestId('btn-export-own-submission'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.exportOwnSubmission).toHaveBeenCalledWith('assign1');
+    });
+  });
+
+  it('"Xuất Excel" stays available even when the submission is read-only (past the deadline)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      editable: false,
+    });
+    vi.mocked(dynamicReportsApi.exportOwnSubmission).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-export-own-submission'));
+    expect(screen.getByTestId('btn-export-own-submission')).not.toBeDisabled();
   });
 
   it('saves on blur with the typed value and the current revision, then updates to the new revision', async () => {

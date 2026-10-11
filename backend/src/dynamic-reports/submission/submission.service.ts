@@ -18,6 +18,11 @@ import type {
 import { validateFieldValue } from '../engine/values';
 import type { FieldDefinitionLike, TypedValue } from '../engine/values';
 import { readImportCellRaw } from '../engine/import-cell';
+import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
+import {
+  sanitizeSheetName,
+  sanitizeFileNamePart,
+} from '../export-filename.util';
 import type { ImportCellType } from '../engine/import-cell';
 import { applyTransition } from '../workflow/transitions';
 
@@ -942,6 +947,65 @@ export class SubmissionService {
         ? submission.updatedAt.toISOString()
         : null,
     };
+  }
+
+  /**
+   * "Xuất bản của tổ" — an editor's own single-sheet export of their
+   * team's current values for this period. Unlike `AggregateService
+   * #exportPeriod` (manager-only, every team's sheet in one workbook,
+   * persisted as a `DynReportExport` row with a 24h TTL for re-download),
+   * this is scoped to exactly one assignment the caller is an active
+   * editor of, and is cheap enough (one team, a few dozen fields at most)
+   * to generate synchronously on every request rather than persisting a
+   * row — there is nothing here worth re-downloading later.
+   */
+  async exportOwnSubmission(
+    assignmentId: string,
+    userId: string,
+  ): Promise<{ fileBuffer: Buffer; fileName: string }> {
+    const assignment = await this.loadEditorAssignment(
+      this.prisma,
+      assignmentId,
+      userId,
+    );
+    const { period, submission } = assignment;
+    if (!submission)
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+
+    const teamSnapshot = assignment.teamSnapshot as { name?: string } | null;
+    const teamName = teamSnapshot?.name || assignment.teamId;
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet(sanitizeSheetName(teamName));
+    sheet.columns = [
+      { header: 'Sheet', key: 'sheetKey', width: 20 },
+      { header: 'Chỉ tiêu', key: 'label', width: 32 },
+      { header: 'Giá trị', key: 'value', width: 18 },
+    ];
+    const values = (submission.values ?? {}) as Record<
+      string,
+      { t: string; v: string | null } | undefined
+    >;
+    for (const f of period.version.fields) {
+      const typed = values[f.fieldKey];
+      sheet.addRow({
+        sheetKey: f.sheetKey,
+        label: escapeXlsxCell(f.label || f.fieldKey),
+        value:
+          typed?.t === 'TEXT' ? escapeXlsxCell(typed.v) : (typed?.v ?? null),
+      });
+    }
+
+    const metaSheet = workbook.addWorksheet('Metadata');
+    metaSheet.addRow(['Báo cáo', period.report.name]);
+    metaSheet.addRow(['Tổ', teamName]);
+    metaSheet.addRow(['Kỳ', period.periodKey]);
+    metaSheet.addRow(['Trạng thái', submission.state]);
+    metaSheet.addRow(['Xuất lúc', new Date().toISOString()]);
+
+    const fileBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const fileName = `${sanitizeFileNamePart(period.report.name)}-${sanitizeFileNamePart(teamName)}-${period.periodKey}.xlsx`;
+    return { fileBuffer, fileName };
   }
 
   /**

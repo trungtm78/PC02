@@ -311,6 +311,66 @@ describe('SubmissionService', () => {
     });
   });
 
+  describe('exportOwnSubmission ("Xuất bản của tổ")', () => {
+    it('throws NotFoundException when the caller is not an active editor of the assignment', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.exportOwnSubmission('assign1', 'u1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns a real xlsx buffer containing only the caller team own fields', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          teamSnapshot: { name: 'Đội 3' },
+          submission: {
+            id: 'sub1',
+            state: 'SUBMITTED',
+            currentRevision: 1n,
+            values: { 'Đội 3!C6': { t: 'NUM', v: '12' } },
+            approvalLevel: 0,
+            returnDueAt: null,
+            firstSavedAt: new Date('2026-06-10T08:00:00Z'),
+          },
+        }),
+      );
+      const { service } = buildService(tx);
+
+      const { fileBuffer, fileName } = await service.exportOwnSubmission(
+        'assign1',
+        'u1',
+      );
+
+      expect(fileBuffer.length).toBeGreaterThan(0);
+      // xlsx files are zip archives — magic bytes "PK".
+      expect(fileBuffer.subarray(0, 2).toString('ascii')).toBe('PK');
+      expect(fileName).toContain('.xlsx');
+      expect(fileName).toContain('Đội-3');
+    });
+
+    it('throws NotFoundException when the assignment has no submission row', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({ submission: null }),
+      );
+      const { service } = buildService(tx);
+
+      await expect(
+        service.exportOwnSubmission('assign1', 'u1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
   describe('save', () => {
     it('throws NotFoundException when the caller is not an active editor', async () => {
       const tx = buildTx();
