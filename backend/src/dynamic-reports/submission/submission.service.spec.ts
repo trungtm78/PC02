@@ -33,7 +33,7 @@ describe('SubmissionService', () => {
       opensAt: new Date('2026-06-01T00:00:00Z'),
       dueAt: new Date('2026-07-05T17:00:00Z'),
       report: { id: 'report1', name: 'HSLN' },
-      version: { fields: [FIELD] },
+      version: { fields: [FIELD], rules: [], selectedSheets: ['Đội 3'] },
       periodKey: '2026-06',
       startDate: new Date('2026-06-01T00:00:00Z'),
       endDate: new Date('2026-06-30T00:00:00Z'),
@@ -536,6 +536,8 @@ describe('SubmissionService', () => {
                 FIELD,
                 { ...FIELD, fieldKey: 'Đội 3!C7', address: 'C7' },
               ],
+              rules: [],
+              selectedSheets: ['Đội 3'],
             },
           }),
         }),
@@ -739,7 +741,13 @@ describe('SubmissionService', () => {
       });
       tx.dynReportAssignment.findUnique.mockResolvedValue(
         baseAssignment({
-          period: basePeriod({ version: { fields: [requiredField] } }),
+          period: basePeriod({
+            version: {
+              fields: [requiredField],
+              rules: [],
+              selectedSheets: ['Đội 3'],
+            },
+          }),
         }),
       );
       tx.dynReportSubmission.findUnique.mockResolvedValue({
@@ -757,6 +765,91 @@ describe('SubmissionService', () => {
         code: 'CELL_VALIDATION',
       });
       expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects with VALIDATION_RULE_FAILED when an ERROR-severity rule is violated (S36)', async () => {
+      const tx = buildTx();
+      const errorRule = {
+        id: 'rule1',
+        name: 'C6 phải lớn hơn 10000',
+        leftExpr: 'C6',
+        operator: 'GT',
+        rightExpr: '10000',
+        severity: 'ERROR',
+        message: 'C6 chưa vượt ngưỡng',
+        missingStrategy: null,
+      };
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          period: basePeriod({
+            version: {
+              fields: [FIELD],
+              rules: [errorRule],
+              selectedSheets: ['Đội 3'],
+            },
+          }),
+        }),
+      );
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'DRAFT',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5000' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+      });
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '1')).rejects.toMatchObject({
+        code: 'VALIDATION_RULE_FAILED',
+      });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('does NOT block submit when only a WARNING-severity rule is violated', async () => {
+      const tx = buildTx();
+      const warningRule = {
+        id: 'rule1',
+        name: 'C6 nên lớn hơn 10000',
+        leftExpr: 'C6',
+        operator: 'GT',
+        rightExpr: '10000',
+        severity: 'WARNING',
+        message: 'C6 chưa vượt ngưỡng khuyến nghị',
+        missingStrategy: null,
+      };
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          period: basePeriod({
+            version: {
+              fields: [FIELD],
+              rules: [warningRule],
+              selectedSheets: ['Đội 3'],
+            },
+          }),
+        }),
+      );
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'DRAFT',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5000' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.submit('assign1', 'u1', '1');
+      expect(result.state).toBe('SUBMITTED');
+      expect(tx.dynReportSubmission.update).toHaveBeenCalled();
     });
 
     it('rejects a second submit while already SUBMITTED — blocked by the shared access check (SUBMITTED is not an editable state), never reaching the SUBMIT transition itself', async () => {
@@ -833,6 +926,77 @@ describe('SubmissionService', () => {
         'Đội 3!C6': { t: 'NUM', v: '5' },
       });
       expect(revisionCall.data.diff).toBeUndefined();
+    });
+  });
+
+  describe('validateForSubmit (S36, PR9 slice 1)', () => {
+    const RULE_ERROR = {
+      id: 'rule-err',
+      name: 'C6 phải lớn hơn 10000',
+      leftExpr: 'C6',
+      operator: 'GT',
+      rightExpr: '10000',
+      severity: 'ERROR',
+      message: 'C6 chưa vượt ngưỡng',
+      missingStrategy: null,
+    };
+    const RULE_WARNING = {
+      id: 'rule-warn',
+      name: 'C6 nên là số chẵn trăm',
+      leftExpr: 'C6',
+      operator: 'EQ',
+      rightExpr: 'C6',
+      severity: 'WARNING',
+      message: 'Chỉ cảnh báo',
+      missingStrategy: null,
+    };
+
+    it('splits violations into errors[] and warnings[] by severity', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          period: basePeriod({
+            version: {
+              fields: [FIELD],
+              rules: [RULE_ERROR, RULE_WARNING],
+              selectedSheets: ['Đội 3'],
+            },
+          }),
+          submission: {
+            id: 'sub1',
+            state: 'DRAFT',
+            values: { 'Đội 3!C6': { t: 'NUM', v: '5000' } },
+          },
+        }),
+      );
+      const { service } = buildService(tx);
+
+      const result = await service.validateForSubmit('assign1', 'u1');
+
+      expect(result.errors).toEqual([
+        {
+          ruleId: 'rule-err',
+          name: 'C6 phải lớn hơn 10000',
+          severity: 'ERROR',
+          message: 'C6 chưa vượt ngưỡng',
+        },
+      ]);
+      // RULE_WARNING compares C6 to itself (EQ) — never violated; proves
+      // only genuinely-violated rules surface, not every WARNING rule.
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('rejects (404) when the caller is not an active editor of this assignment', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.validateForSubmit('assign1', 'outsider'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

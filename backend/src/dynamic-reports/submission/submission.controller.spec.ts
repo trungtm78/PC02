@@ -18,6 +18,7 @@ describe('SubmissionController', () => {
     exportOwnSubmission: jest.fn(),
     save: jest.fn(),
     submit: jest.fn(),
+    validateForSubmit: jest.fn(),
     listMyAssignments: jest.fn(),
     listForManager: jest.fn(),
     getSubmissionForManager: jest.fn(),
@@ -208,6 +209,16 @@ describe('SubmissionController', () => {
     await expect(
       controller.submit('assign1', { expectedRevision: '1' }, user),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('GET :assignmentId/validate delegates to SubmissionService.validateForSubmit', async () => {
+    const result2 = { errors: [], warnings: [] };
+    service.validateForSubmit.mockResolvedValue(result2);
+
+    const result = await controller.validateForSubmit('assign1', user);
+
+    expect(service.validateForSubmit).toHaveBeenCalledWith('assign1', 'u1');
+    expect(result).toBe(result2);
   });
 
   it('GET manager delegates to SubmissionService.listForManager with the current user id and roleId', async () => {

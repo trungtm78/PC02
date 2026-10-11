@@ -45,6 +45,7 @@ function renderStep(onBack = vi.fn()) {
         schedule={SCHEDULE}
         roles={[{ userId: 'u1', role: 'MANAGER' }]}
         targets={[{ teamId: 't1', editorUserIds: ['u2'] }]}
+        rules={[]}
         onBack={onBack}
       />
     </MemoryRouter>,

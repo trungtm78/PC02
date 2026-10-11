@@ -26,6 +26,7 @@ import type {
   SubmissionView,
   SummaryMode,
   TemplatePreviewResult,
+  ValidateForSubmitResult,
   VersionListItem,
   UnlockRequestView,
   ViewablePeriodView,
@@ -124,6 +125,12 @@ export const dynamicReportsApi = {
       .post<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/submit`, {
         expectedRevision,
       })
+      .then((r) => r.data),
+
+  /** S36 (PR9 slice 1) — read-only rule-violation preview, called before "Nộp". */
+  validateForSubmit: (assignmentId: string) =>
+    api
+      .get<ValidateForSubmitResult>(`/bao-cao-dong/submissions/${assignmentId}/validate`)
       .then((r) => r.data),
 
   /** S33/PR7 — the manager's own list (any report they manage, or every report with admin:DynamicReport). */

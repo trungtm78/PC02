@@ -27,6 +27,9 @@ describe('ReportConfigService', () => {
       dynReportTargetEditor: {
         createMany: jest.fn<Promise<unknown>, [AnyData]>(),
       },
+      dynReportValidationRule: {
+        createMany: jest.fn<Promise<unknown>, [AnyData]>(),
+      },
       dynReportIdempotency: { upsert: jest.fn<Promise<unknown>, [AnyData]>() },
     };
   }
@@ -218,7 +221,7 @@ describe('ReportConfigService', () => {
     expect(tx.dynReport.create).not.toHaveBeenCalled();
   });
 
-  it('publishes a complete config: report+version PUBLISHED, fields/schedule/roles/targets/editors all written', async () => {
+  it('publishes a complete config: report+version PUBLISHED, fields/schedule/roles/targets/editors/rules all written', async () => {
     const tx = buildTx();
     tx.dynReport.create.mockResolvedValue({ id: 'rep1' });
     tx.dynReportVersion.create.mockResolvedValue({ id: 'ver1' });
@@ -226,7 +229,18 @@ describe('ReportConfigService', () => {
     const { service } = buildService(tx);
 
     const result = await service.save(
-      fullPublishableInput(),
+      fullPublishableInput({
+        rules: [
+          {
+            name: 'D10 phải bằng D11+D12',
+            leftExpr: 'D10',
+            operator: 'EQ',
+            rightExpr: 'D11+D12',
+            severity: 'ERROR',
+            message: 'D10 không khớp tổng D11+D12',
+          },
+        ],
+      }),
       BUF,
       'mau.xlsx',
       'actor1',
@@ -285,7 +299,39 @@ describe('ReportConfigService', () => {
     };
     expect(editorsData.data).toEqual([{ targetId: 'target1', userId: 'u2' }]);
 
+    const rulesData = tx.dynReportValidationRule.createMany.mock
+      .calls[0][0] as {
+      data: Array<{
+        versionId: string;
+        name: string;
+        operator: string;
+        severity: string;
+        origin: string;
+      }>;
+    };
+    expect(rulesData.data).toEqual([
+      expect.objectContaining({
+        versionId: 'ver1',
+        name: 'D10 phải bằng D11+D12',
+        operator: 'EQ',
+        severity: 'ERROR',
+        origin: 'MANUAL',
+      }),
+    ]);
+
     expect(tx.dynReportIdempotency.upsert).toHaveBeenCalled();
+  });
+
+  it('skips dynReportValidationRule.createMany entirely when no rules are given (not even an empty call)', async () => {
+    const tx = buildTx();
+    tx.dynReport.create.mockResolvedValue({ id: 'rep1' });
+    tx.dynReportVersion.create.mockResolvedValue({ id: 'ver1' });
+    tx.dynReportTarget.create.mockResolvedValue({ id: 'target1' });
+    const { service } = buildService(tx);
+
+    await service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1');
+
+    expect(tx.dynReportValidationRule.createMany).not.toHaveBeenCalled();
   });
 
   it('wraps a duplicate report code (P2002) as REPORT_CODE_TAKEN', async () => {

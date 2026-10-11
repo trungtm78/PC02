@@ -2,7 +2,7 @@
  * Mirrors backend/src/dynamic-reports/reports.service.ts response shapes
  * exactly, including field names — no renaming at the boundary.
  */
-import type { DynReportSubmissionState, DynReportPeriodType, DynReportVersionStatus } from '@/shared/enums/generated';
+import type { DynReportSubmissionState, DynReportPeriodType, DynReportVersionStatus, DynReportRuleOperator, DynReportRuleSeverity } from '@/shared/enums/generated';
 export type { DynReportSubmissionState };
 
 export type DynReportStatus = 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
@@ -100,6 +100,17 @@ export interface ReportTargetConfig {
   editorUserIds: string[];
 }
 
+/** S36 (PR9 slice 1) — manually-authored validation rule, part of the save payload. */
+export interface ReportRuleConfig {
+  name: string;
+  leftExpr: string;
+  operator: DynReportRuleOperator;
+  rightExpr: string;
+  severity: DynReportRuleSeverity;
+  message: string;
+  missingStrategy?: string;
+}
+
 export interface ReportScheduleConfig {
   periodType: string;
   periodStartDay?: number;
@@ -122,6 +133,7 @@ export interface SaveReportConfigPayload {
   schedule: ReportScheduleConfig;
   roles: ReportRoleConfig[];
   targets: ReportTargetConfig[];
+  rules?: ReportRuleConfig[];
   effectiveFrom: string;
   publish: boolean;
   idempotencyKey: string;
@@ -201,6 +213,19 @@ export interface ActiveGrantView {
   id: string;
   expiresAt: string;
   reason: string;
+}
+
+/** S36 (PR9 slice 1) — one violated rule, returned by both validate-before-submit and submit()'s VALIDATION_RULE_FAILED error. */
+export interface RuleViolation {
+  ruleId: string;
+  name: string;
+  severity: DynReportRuleSeverity;
+  message: string;
+}
+
+export interface ValidateForSubmitResult {
+  errors: RuleViolation[];
+  warnings: RuleViolation[];
 }
 
 export interface RevisionHistoryEntry {
