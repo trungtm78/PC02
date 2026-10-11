@@ -575,7 +575,7 @@ luồng P0 trọng yếu (27/56 dòng `UAT-COVERAGE.md` có bằng chứng thậ
 coverage-driven, ưu tiên chất lượng.
 
 ## Hàng đợi task kế tiếp (PHA SAU của PR10, không phải việc của pha UAT viết+thực thi)
-1. Vá gộp sổ A11Y (4 finding ở `_EXECUTION_REPORT.md` mục "SỔ A11Y GỘP") trong 1 PR duy nhất.
+1. ~~Vá gộp sổ A11Y~~ — **XONG, PR #590 merge+deploy xanh 11/10 16:58 UTC.**
 2. Benchmark/hiệu năng X04 (5.000 input/200 tổ/50 ghi đồng thời).
 3. Runbook vận hành + rollback.
 4. Monkey test X06 — chạy ĐÚNG MỘT LẦN ở cuối toàn bộ PR10 (không chạy theo từng task).
@@ -609,16 +609,15 @@ PR4 slice 1 (S01): đã bấm thử thật trên Chromium (xem Đã hoàn thành
 - Chưa có tài khoản quản lý/người nhập riêng cho UAT trên staging (chặn khâu UAT thật, không chặn viết code — xem spec §8).
 - **BUG-001 (P1/S2, phát hiện 11/10/2026 qua UAT execute live) — ĐÃ VÁ, ĐÃ ĐÓNG (PR #584)**: R21 phê duyệt nhiều cấp không chạy qua API thật — `submission.service.ts` hardcode `totalApprovalLevels:1`/`actingApprovalLevel:1` ở 8 vị trí. Chi tiết: "Checkpoint UAT 11/10/2026" ở trên + `_EXECUTION_REPORT.md`.
 - **BUG-002 (P1/S3, phát hiện 11/10/2026 lượt 4 qua full E2E live) — ĐÃ VÁ, ĐÃ ĐÓNG (PR #586)**: `aggregate.service.ts#finalizePeriod()` không kiểm bất kỳ submission nào đã SUBMITTED/APPROVED trước khi cho "chốt kỳ" — tái lập thật: tạo kỳ mới, lượt giao còn NOT_STARTED, gọi finalize → 201 FINALIZED ngay (snapshot rỗng). Vá (commit `db98c32b`, merge vào nhánh UAT): chặn chốt kỳ hoàn toàn trống, không ép 100% hoàn thành. Tôi đã tái lập + xác nhận độc lập qua API thật sau merge → 409 chặn đúng. **GAP UX còn lại (chưa vá)**: `window.confirm` vẫn không nêu tỷ lệ hoàn thành khi chốt MỘT PHẦN. Chi tiết: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 4"/BUG-002.
-- **BUG-003 (P1/S3, phát hiện 11/10/2026 lượt 8 qua X05, CHƯA VÁ)**:
+- **BUG-003 (P1/S3, phát hiện 11/10/2026 lượt 8 qua X05) — ĐÃ VÁ, ĐÃ ĐÓNG (PR #588)**:
   `report-config.service.ts#save()` không đọc lại `issues`/severity từ bước `preview` khi
   publish — chỉ kiểm "có ≥1 field". `EXTERNAL_LINK_DETECTED` (severity ERROR) chỉ cảnh báo ở
   `preview`, publish vẫn thành công (201) khi template có field hợp lệ + external link cùng
-  lúc — tái lập thật, đã dọn sạch report test. Macro/encrypted/zip-bomb (3/4 loại AC-039) vẫn
-  chặn đúng vì nằm ở tầng khác (`hostile-xlsx-guard.ts`, kiểm ngay lúc upload). Khuyến nghị
-  vá: publish nên chặn cứng nếu còn issue severity ERROR, không chỉ check field count — vá
-  tổng quát này tự động phủ luôn external-link và mọi issue ERROR tương lai. Gộp vào đợt vá
-  a11y+bug nhỏ chung 1 PR theo yêu cầu coordinator, không tạo PR riêng ngay. Chi tiết:
-  `_EXECUTION_REPORT.md` mục "Cập nhật lượt 8"/BUG-003.
+  lúc. Vá bằng `assertNoBlockingFeatureIssues()` — chặn publish nếu còn issue severity ERROR
+  (tổng quát, phủ luôn mọi issue ERROR tương lai, không chỉ external-link), merge `3ce1ffb4`
+  (CI 5/5, 20 test), deploy xanh — xác nhận 11/10 16:30 UTC.
+- [x] **Đã merge PR #589 (toàn bộ tài liệu/artifact UAT — `uat.json`, `_domain-pack.md`, `_coverage-ledger.md`, `_platform.json`, `_EXECUTION_REPORT.md`, `UAT-COVERAGE.md`) vào `main`** — chỉ docs/test-artifacts, 0 code (3 bug fix đã merge riêng từ trước), merge commit `7b10ef7f1191bc1ce02a906fbf1652527d354343`, 11/10/2026 16:37 UTC. Deploy xanh, health `buildId` khớp — xác nhận 16:48 UTC. **Pha viết+thực thi UAT đóng lại ở đây** (8 lượt, điểm dừng tự nhiên đã thoả thuận).
+- [x] **Đã merge PR #590 (vá gộp 4 phát hiện a11y từ UAT)** vào `main` — `TayNamKeo.tsx` (component dùng chung `ListPageShell`, thêm `aria-valuenow`/min/max cho tay nắm kéo cột), `CommentsPanel.tsx` (thêm `aria-label` cho select chọn ô ghi chú — sửa 1 nơi khắc phục cả S13+S33-review), `StatusDashboardPage.tsx` (đổi `role="tablist"` sai cấu trúc sang `role="group"` đúng hành vi công tắc chuyển view). 3 test mới, CI 5/5, merge commit `19995f2ff8d2fdc2b4515c499187aaf85b861c6f`, 11/10/2026 16:58 UTC. Deploy xanh, health `buildId` khớp — xác nhận 17:07 UTC. **Sổ A11Y đóng hoàn toàn.**
 - `/plan-eng-review` đầy đủ cho PR1/PR2 chưa chạy qua skill chính thức — nếu anh muốn chạy chính thức, gọi `/plan-eng-review` nhắm vào diff nhánh `feat/dynamic-reports-m1-engine` so với `origin/main`.
 - Test frontend chập chờn CÓ TRƯỚC (không do dynamic-reports): `frontend/src/features/cases/governance/__tests__/configuration-editors.test.tsx` — fail khi chạy cùng full suite (4884/4885) nhưng PASS 8/8 khi chạy riêng. Đã ghi vào gbrain learnings, không phải việc của dynamic-reports.
 - OFFICER's `read:DynamicReport` grant (seed.ts) chỉ nằm trong *bộ seed đầy đủ* — deploy.sh KHÔNG chạy `seed.ts` (chỉ `seed-quyen.ts`, cấp quyền cho ADMIN). Trên prod hiện tại, chỉ ADMIN có `read/manage/admin:DynamicReport` (qua seed-quyen.ts chạy mỗi lần deploy); OFFICER sẽ nhận quyền khi ai đó chạy `seed.ts` đầy đủ một lần (không khẩn, vì chưa có UI nào tiêu thụ quyền này).
