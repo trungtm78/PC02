@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import JSZip from 'jszip';
 import {
   ReportConfigService,
   ReportConfigError,
@@ -90,7 +91,16 @@ describe('ReportConfigService', () => {
     });
   }
 
-  const BUF = Buffer.from('fake-xlsx');
+  // BUG-003 fix: `save()` now re-scans the actual file bytes for blocking
+  // (ERROR-severity) features at publish time, which means the buffer has
+  // to be a real zip or `JSZip.loadAsync` throws — a plain string buffer
+  // no longer works here now that every publish path touches it.
+  let BUF: Buffer;
+  beforeAll(async () => {
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', '<Types/>');
+    BUF = await zip.generateAsync({ type: 'nodebuffer' });
+  });
 
   it('saves a draft with the minimum (code/name/selectedSheets), no fields/roles/targets required', async () => {
     const tx = buildTx();
@@ -332,6 +342,50 @@ describe('ReportConfigService', () => {
     await service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1');
 
     expect(tx.dynReportValidationRule.createMany).not.toHaveBeenCalled();
+  });
+
+  it('BUG-003 fix: rejects publish when the file contains an external link (ERROR severity), even though every other field/role/target check passes', async () => {
+    const tx = buildTx();
+    const { service } = buildService(tx);
+    const zipWithExternalLink = new JSZip();
+    zipWithExternalLink.file('[Content_Types].xml', '<Types/>');
+    zipWithExternalLink.file('xl/externalLinks/externalLink1.xml', '<x/>');
+    const bufWithExternalLink = await zipWithExternalLink.generateAsync({
+      type: 'nodebuffer',
+    });
+
+    await expect(
+      service.save(
+        fullPublishableInput(),
+        bufWithExternalLink,
+        'mau.xlsx',
+        'actor1',
+      ),
+    ).rejects.toMatchObject({ code: 'TEMPLATE_INVALID' });
+    expect(tx.dynReport.create).not.toHaveBeenCalled();
+  });
+
+  it('BUG-003 fix: still publishes when the file only has a WARNING-severity feature (e.g. an embedded image)', async () => {
+    const tx = buildTx();
+    tx.dynReport.create.mockResolvedValue({ id: 'rep1' });
+    tx.dynReportVersion.create.mockResolvedValue({ id: 'ver1' });
+    tx.dynReportTarget.create.mockResolvedValue({ id: 'target1' });
+    const { service } = buildService(tx);
+    const zipWithImage = new JSZip();
+    zipWithImage.file('[Content_Types].xml', '<Types/>');
+    zipWithImage.file('xl/media/image1.png', 'fake-png-bytes');
+    const bufWithImage = await zipWithImage.generateAsync({
+      type: 'nodebuffer',
+    });
+
+    const result = await service.save(
+      fullPublishableInput(),
+      bufWithImage,
+      'mau.xlsx',
+      'actor1',
+    );
+
+    expect(result.status).toBe('PUBLISHED');
   });
 
   it('wraps a duplicate report code (P2002) as REPORT_CODE_TAKEN', async () => {

@@ -6,6 +6,7 @@ import { computeSha256 } from '../../xlsx-imports/hostile-xlsx-guard';
 import { generatePeriods } from '../engine/period';
 import type { ScheduleRule } from '../engine/period';
 import type { SaveReportConfigDto } from './dto/save-report-config.dto';
+import { detectUnsupportedFeatures } from '../template/unsupported-features';
 
 export class ReportConfigError extends Error {
   constructor(
@@ -61,6 +62,28 @@ function toScheduleRule(s: SaveReportConfigDto['schedule']): ScheduleRule {
 @Injectable()
 export class ReportConfigService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * BUG-003 (found by the PR10 UAT agent via a real end-to-end API call):
+   * `detectUnsupportedFeatures` flags external links as ERROR severity —
+   * the comment on that function says plainly "a reject (same tier as
+   * macro/OLE)" — but nothing downstream ever acted on that severity.
+   * `/templates/preview` surfaces the issue to the wizard UI as a warning
+   * the user can simply ignore, and `save()` never re-checked the file at
+   * all before persisting it as PUBLISHED. Re-running the same zip-level
+   * scan here, on the actual bytes being persisted, closes that gap
+   * server-side — the one place a direct API call (bypassing the wizard
+   * entirely) can't route around it.
+   */
+  private async assertNoBlockingFeatureIssues(
+    fileBuffer: Buffer,
+  ): Promise<void> {
+    const issues = await detectUnsupportedFeatures(fileBuffer);
+    const blocking = issues.find((i) => i.severity === 'ERROR');
+    if (blocking) {
+      throw new ReportConfigError(blocking.message, 'TEMPLATE_INVALID');
+    }
+  }
 
   private validateForPublish(input: SaveReportConfigDto): void {
     if (input.fields.length === 0) {
@@ -141,6 +164,7 @@ export class ReportConfigService {
   ): Promise<SaveReportConfigResult> {
     if (input.publish) {
       this.validateForPublish(input);
+      await this.assertNoBlockingFeatureIssues(fileBuffer);
     } else if (input.fields.length === 0 && input.selectedSheets.length === 0) {
       throw new ReportConfigError(
         'Phải chọn ít nhất một sheet trước khi lưu nháp.',
