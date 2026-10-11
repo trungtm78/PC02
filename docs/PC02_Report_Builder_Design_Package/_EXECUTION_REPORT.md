@@ -215,7 +215,27 @@ trước sinh ra (không phải fixture cũ):
     lưu."**; thử finalize lần 2 → **409 INVALID_STATE_TRANSITION "Kỳ đã chốt rồi."** —
     **TC-S38 khoá-sau-chốt PASS thật, đúng D04**.
 
-### BUG-002 (P1/S3) — `finalizePeriod()` không kiểm tra đã đủ duyệt trước khi chốt kỳ
+### BUG-002 (P1/S3) — `finalizePeriod()` không kiểm tra đã đủ duyệt trước khi chốt kỳ — **ĐÃ VÁ (PR #586)**
+
+**Cập nhật: ĐÃ VÁ**, nhánh `fix/dynamic-reports-finalize-empty-period`, PR #586 (commit
+`db98c32b`, đang chờ CI), **đã merge vào nhánh UAT này** (merge thật, không cherry-pick —
+cùng lý do tránh trùng lặp khi rebase `main` như BUG-001). Cách vá: thêm guard trong
+`finalizePeriod()` — chặn chốt kỳ khi có ≥1 tổ `REQUIRED` mà KHÔNG tổ nào đạt
+`SUBMITTED`/`APPROVED`; kỳ toàn bộ `EXEMPT` hoặc đã có ≥1 tổ nộp (kể cả còn người chưa nộp)
+vẫn chốt được bình thường — **không ép 100% hoàn thành** vì spec không yêu cầu điều đó (chỉ
+chặn trường hợp hoàn toàn trống, không chặn trường hợp một phần). 2 unit test mới, full suite
+8223/8338 PASS, tsc sạch.
+
+**Tôi đã tái lập + xác nhận độc lập qua API thật** (không chỉ tin lời báo cáo): seed 1 kỳ mới
+trên `dr-test-report-1` với 1 lượt giao `NOT_STARTED` duy nhất, gọi `POST finalize` →
+**409 INVALID_STATE_TRANSITION: "Chưa có tổ nào nộp dữ liệu cho kỳ này — không thể chốt một
+kỳ trống."** — đúng như vá. Đã dọn sạch dữ liệu test ngay sau khi xác nhận.
+
+**GAP UX còn lại (CHƯA vá, ghi nhận rõ không lẫn với BUG-002)**: dialog `window.confirm` ở
+`ReportPeriodSummaryPage.tsx#handleFinalize()` vẫn CHƯA hiện tỷ lệ hoàn thành (vd "3/16 tổ đã
+nộp") — người dùng vẫn có thể chốt kỳ ở trạng thái MỘT PHẦN (vd 1/16 tổ) mà không được cảnh
+báo rõ, chỉ bị chặn ở trường hợp 0/16 tuyệt đối. Đây là GAP trải nghiệm riêng, không phải bug
+chức năng — xem mục "Đánh giá UI/UX" bên dưới.
 
 **Mô tả**: `backend/src/dynamic-reports/aggregate/aggregate.service.ts` dòng 527-560
 (`finalizePeriod`) chỉ kiểm `period.status !== 'OPEN'` trước khi cho chốt — **không có bất kỳ
@@ -265,7 +285,7 @@ làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị
 | # | Business rule quan trọng | Fault đã THẬT xảy ra (không phải giả định) | TC nào bắt được | Bắt được? |
 |---|---|---|---|---|
 | 1 | R21: APPROVE chỉ đúng cấp kế tiếp | `actingApprovalLevel`/`totalApprovalLevels` hardcode `1` (BUG-001, code thật trước PR #584) | TC-S33-01/02 (chạy live) | ✅ CÓ — phát hiện ngay trong lượt 1 |
-| 2 | D04: chốt kỳ chỉ sau khi đã duyệt | `finalizePeriod()` không kiểm trạng thái submission (BUG-002, code thật, CHƯA vá) | TC-S38-01 (chạy live, bản sửa cần viết thêm ở `uat.json`) | ✅ CÓ — phát hiện trong lượt này, TC gốc trong `uat.json` (viết trước khi biết bug) đã đủ để bắt nếu có `db_assert` kiểm `% approved trước finalize`; đã PHÁT HIỆN được qua chạy thật dù `uat.json` hiện chưa khai assert này — khuyến nghị bổ sung `db_assert` cho TC-S38-01 ở lượt sau |
+| 2 | D04: chốt kỳ chỉ sau khi đã có tổ nộp (không ép 100%) | `finalizePeriod()` không kiểm trạng thái submission (BUG-002, code thật) — **ĐÃ VÁ PR #586, đã tái lập xác nhận lại qua API thật: 409 chặn đúng** | TC-S38-01 (chạy live, bản sửa cần viết thêm ở `uat.json`) | ✅ CÓ — phát hiện trong lượt 4, vá xong lượt 5, tái xác nhận độc lập; khuyến nghị bổ sung `db_assert` cho TC-S38-01 ở lượt sau để TC tự biết nếu ai regress lại |
 | 3 | AC-002 sửa: khoá+token vẫn chặn publish | (chưa gặp fault thật — test template của tôi vô tình tạo đúng case "mọi ô đều locked" ở lần build đầu, hệ thống phản ứng đúng bằng WARNING `LOCKED_LOOKS_LIKE_TOKEN`, không phải lỗi) | TC-S02-04/TC-S03-02 | N/A — quan sát hành vi đúng, không phải fault-seed |
 | 4 | SUBMIT guard: NUM invalid bị chặn | Thử `'abc'` cho ô NUM | TC-S11-02 (chạy live) | ✅ CÓ — `400 CELL_VALIDATION` đúng |
 | 5 | D04: nộp thì khoá ngay, sau chốt không ai sửa được | Thử SAVE/SUBMIT/APPROVE lại sau khi đã `FINALIZED` | TC-S13-01/TC-S38-01 (chạy live) | ✅ CÓ — `409 REPORT_LOCKED` đúng mọi lần thử |

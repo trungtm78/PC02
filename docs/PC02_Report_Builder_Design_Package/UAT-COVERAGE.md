@@ -45,7 +45,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S35 | Nhập từ Excel (re-import có dấu __dr_meta) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S36 | Validation rules (soạn + gợi ý từ IF) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 1/5 (full E2E) | **Rule ERROR qua được khi khớp dữ liệu (SUBMIT 201)**; TC-S36-01/02 gốc trong `uat.json` thiết kế SAI kiến trúc (rule cross-sheet không bao giờ áp dụng được — `missingStrategy=SKIP`, xác nhận bằng đọc code) — không phải bug sản phẩm, cần SỬA TC ở lượt sau. TC-S36-03 (gợi ý từ IF) xác nhận qua chính comment trong code là **GAP có thật**: `suggest-rules.ts` viết + unit test nhưng "never wired to any endpoint or UI" — ghi oracle_type=GAP. |
 | S37 | Ghi chú/giải trình theo ô và theo bản nộp | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 3/4 (full E2E) | **PASS** — ghi chú theo ô (editor) và theo cả bản nộp (manager, fieldKey=null) đều tạo đúng (201), editor đọc được cả 2 loại. |
-| S38 | Chốt kỳ / mở chốt (ADJUSTMENT) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 2/4 (full E2E) | **BUG-002 tìm thấy (P1/S3) — CHƯA VÁ**: `finalizePeriod()` không kiểm submission đã APPROVED trước khi cho chốt kỳ — chốt được period với 0% đã nộp, cả API và UI (`window.confirm` không nêu tỷ lệ hoàn thành) đều thiếu rào chắn. **PASS phần khoá-sau-chốt**: SAVE/SUBMIT/APPROVE/finalize-lần-2 sau khi FINALIZED đều bị chặn đúng (409). Xem `_EXECUTION_REPORT.md`. |
+| S38 | Chốt kỳ / mở chốt (ADJUSTMENT) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 3/4 (full E2E + tái xác nhận vá) | **PASS — BUG-002 ĐÃ VÁ (PR #586)**: `finalizePeriod()` tìm thấy không kiểm submission trước khi chốt (P1/S3, lượt 4), đã vá chặn chốt kỳ hoàn toàn trống (2 unit test mới, full suite PASS); tôi tái lập lại qua API thật sau merge → **409 chặn đúng "Chưa có tổ nào nộp dữ liệu..."**. Không ép 100% hoàn thành (đúng theo spec — kỳ có ≥1 tổ nộp vẫn chốt được). **PASS phần khoá-sau-chốt**: SAVE/SUBMIT/APPROVE/finalize-lần-2 sau FINALIZED đều bị chặn đúng (409). **GAP UX còn lại (chưa vá)**: `window.confirm` không hiện tỷ lệ hoàn thành khi chốt kỳ MỘT PHẦN (vd 1/16 tổ) — xem `_EXECUTION_REPORT.md`. |
 
 ## B. Engine thuần (PR1 — không phải màn hình, nhưng là chức năng độc lập cần phủ)
 
@@ -76,16 +76,18 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
 **Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 4)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Checkpoint PR10 UAT 11/10/2026 (lượt 5)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
 item = 43,9%). Đã EXECUTE LIVE qua API + UI thật trên dev cục bộ (không phải 78/78 — ưu tiên
 chất lượng hơn số lượng theo đúng chỉ đạo):
 - **BUG-001** (S33/R21, totalApprovalLevels hardcode) — tìm thấy lượt 1, **ĐÃ VÁ PR #584,
   ĐÃ ĐÓNG HOÀN TOÀN** (tái lập độc lập cả 2 bước 2 cấp bằng thí nghiệm sạch — PASS).
-- **BUG-002 MỚI** (S38, `finalizePeriod()` không kiểm đã duyệt trước khi chốt kỳ, P1/S3) —
+- **BUG-002** (S38, `finalizePeriod()` không kiểm đã có tổ nộp trước khi chốt kỳ, P1/S3) —
   tìm thấy lượt 4 qua **full E2E journey thật** (upload→preview→publish→nhập→duyệt→chốt kỳ
-  nối tiếp qua API thật, không mock) — **CHƯA VÁ**, xem `_EXECUTION_REPORT.md`.
+  nối tiếp qua API thật, không mock), **ĐÃ VÁ PR #586, đã tái xác nhận độc lập qua API thật
+  — 409 chặn đúng**. GAP UX còn lại (chốt kỳ một phần không hiện tỷ lệ) CHƯA vá, xem
+  `_EXECUTION_REPORT.md`.
 - **5 E2E Playwright PASS thật** (J-REVIEW-01, S01, S13, S19, S34) + **1 full E2E API journey
   PASS qua 10 bước thật** (S02→S03→S09→S10→S11→S36→S37→S33→S38, bắt được BUG-002).
 - **PASS**: S21 audit trail, X01 một phần, clock guard, S37 (ghi chú theo ô/bản nộp), khoá
