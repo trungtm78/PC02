@@ -20,7 +20,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, FileSpreadsheet, Lock, Unlock, Send } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Download, FileSpreadsheet, Lock, Unlock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type {
   DynReportSubmissionState,
@@ -76,6 +76,7 @@ export default function SubmissionInputPage() {
   const [importPreview, setImportPreview] = useState<ImportPreviewResult | null>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'previewing' | 'applying' | 'error'>('idle');
   const [importError, setImportError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const dirtyRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -196,6 +197,17 @@ export default function SubmissionInputPage() {
     setConflict(null);
     setSaveStatus('idle');
     setSaveError(null);
+  }
+
+  /** "Xuất bản của tổ" — always available, even read-only after the deadline; export reflects whatever is currently saved. */
+  async function handleExportOwnSubmission() {
+    if (!assignmentId) return;
+    setIsExporting(true);
+    try {
+      await dynamicReportsApi.exportOwnSubmission(assignmentId);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   /** S35 — no DB write yet: shows the diff and waits for explicit confirmation. */
@@ -499,28 +511,40 @@ export default function SubmissionInputPage() {
             </>
           )}
         </div>
-        {editable && (
-          <>
-            <input
-              ref={importFileInputRef}
-              type="file"
-              accept=".xlsx"
-              data-testid="import-excel-input"
-              className="hidden"
-              onChange={(e) => void handleImportFileSelected(e)}
-            />
-            <button
-              type="button"
-              data-testid="btn-import-excel"
-              disabled={importStatus === 'previewing'}
-              onClick={() => importFileInputRef.current?.click()}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              {importStatus === 'previewing' ? 'Đang đọc file…' : 'Nhập từ Excel'}
-            </button>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="btn-export-own-submission"
+            disabled={isExporting}
+            onClick={() => void handleExportOwnSubmission()}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            {isExporting ? 'Đang xuất…' : 'Xuất Excel'}
+          </button>
+          {editable && (
+            <>
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".xlsx"
+                data-testid="import-excel-input"
+                className="hidden"
+                onChange={(e) => void handleImportFileSelected(e)}
+              />
+              <button
+                type="button"
+                data-testid="btn-import-excel"
+                disabled={importStatus === 'previewing'}
+                onClick={() => importFileInputRef.current?.click()}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                {importStatus === 'previewing' ? 'Đang đọc file…' : 'Nhập từ Excel'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {importError && (

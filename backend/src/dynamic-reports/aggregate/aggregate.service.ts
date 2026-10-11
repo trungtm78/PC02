@@ -11,21 +11,10 @@ import type { SubmissionState } from '../engine/access';
 import { SubmissionError } from '../submission/submission.service';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import { TeamsService } from '../../teams/teams.service';
-
-/** R18 — Excel sheet names: ≤31 chars, no `* ? : \ / [ ]`. */
-function sanitizeSheetName(name: string): string {
-  const cleaned = name.replace(/[*?:\\/[\]]/g, ' ').trim();
-  return (cleaned || 'To').slice(0, 31);
-}
-
-/** R18 — file names: ASCII/Vietnamese letters, digits, dashes only. */
-function sanitizeFileNamePart(value: string): string {
-  const cleaned = value
-    .replace(/[^a-zA-Z0-9À-ỹ\- ]/g, '')
-    .trim()
-    .replace(/\s+/g, '-');
-  return cleaned.slice(0, 60) || 'bao-cao';
-}
+import {
+  sanitizeSheetName,
+  sanitizeFileNamePart,
+} from '../export-filename.util';
 
 const EXPORT_TTL_MS = 24 * 60 * 60 * 1000;
 

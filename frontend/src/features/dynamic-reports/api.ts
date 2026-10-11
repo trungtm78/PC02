@@ -314,4 +314,13 @@ export const dynamicReportsApi = {
       .filter((t) => t.isActive !== false && t.wardId == null)
       .map((t) => ({ teamId: t.id, teamName: t.name }));
   },
+
+  /** "Xuất bản của tổ" — the editor's own single-sheet export of this assignment's current values. */
+  exportOwnSubmission: async (assignmentId: string) => {
+    const response = await api.get<Blob>(
+      `/bao-cao-dong/submissions/${assignmentId}/export`,
+      { responseType: 'blob' },
+    );
+    triggerDownload(response, 'xuat-ban-cua-to.xlsx');
+  },
 };

@@ -7,10 +7,12 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
@@ -140,6 +142,24 @@ export class SubmissionController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.submissionService.getSubmission(assignmentId, user.id);
+  }
+
+  /** "Xuất bản của tổ" — the editor's own single-sheet export of this assignment's current values. */
+  @Get(':assignmentId/export')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async exportOwn(
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const { fileBuffer, fileName } =
+      await this.submissionService.exportOwnSubmission(assignmentId, user.id);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(fileBuffer);
   }
 
   @Get(':assignmentId/review')

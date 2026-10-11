@@ -15,6 +15,7 @@ describe('SubmissionController', () => {
   let controller: SubmissionController;
   const service = {
     getSubmission: jest.fn(),
+    exportOwnSubmission: jest.fn(),
     save: jest.fn(),
     submit: jest.fn(),
     listMyAssignments: jest.fn(),
@@ -65,6 +66,31 @@ describe('SubmissionController', () => {
 
     expect(service.getSubmission).toHaveBeenCalledWith('assign1', 'u1');
     expect(result).toBe(view);
+  });
+
+  it('GET :assignmentId/export ("Xuất bản của tổ") streams the xlsx buffer with the right headers', async () => {
+    const fileBuffer = Buffer.from('fake-xlsx-bytes');
+    service.exportOwnSubmission.mockResolvedValue({
+      fileBuffer,
+      fileName: 'HSLN-Doi-3-2026-06.xlsx',
+    });
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    await controller.exportOwn('assign1', user, res as never);
+
+    expect(service.exportOwnSubmission).toHaveBeenCalledWith('assign1', 'u1');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="HSLN-Doi-3-2026-06.xlsx"',
+    );
+    expect(res.send).toHaveBeenCalledWith(fileBuffer);
   });
 
   it('PATCH delegates to SubmissionService.save with values and expectedRevision', async () => {
