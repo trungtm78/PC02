@@ -19,6 +19,8 @@ describe('SubmissionController', () => {
     save: jest.fn(),
     submit: jest.fn(),
     validateForSubmit: jest.fn(),
+    listComments: jest.fn(),
+    addComment: jest.fn(),
     listMyAssignments: jest.fn(),
     listForManager: jest.fn(),
     getSubmissionForManager: jest.fn(),
@@ -208,6 +210,60 @@ describe('SubmissionController', () => {
 
     await expect(
       controller.submit('assign1', { expectedRevision: '1' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('GET :assignmentId/comments delegates to SubmissionService.listComments', async () => {
+    const comments = [{ id: 'c1', body: 'hi' }];
+    service.listComments.mockResolvedValue(comments);
+
+    const result = await controller.listComments('assign1', user);
+
+    expect(service.listComments).toHaveBeenCalledWith('assign1', 'u1', 'r1');
+    expect(result).toBe(comments);
+  });
+
+  it('POST :assignmentId/comments delegates to SubmissionService.addComment', async () => {
+    const created = { id: 'c1', fieldKey: 'Đội 3!C6', body: 'hi' };
+    service.addComment.mockResolvedValue(created);
+
+    const result = await controller.addComment(
+      'assign1',
+      { fieldKey: 'Đội 3!C6', body: 'hi' },
+      user,
+    );
+
+    expect(service.addComment).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      'Đội 3!C6',
+      'hi',
+    );
+    expect(result).toBe(created);
+  });
+
+  it('POST :assignmentId/comments passes null fieldKey when omitted', async () => {
+    service.addComment.mockResolvedValue({});
+
+    await controller.addComment('assign1', { body: 'hi' }, user);
+
+    expect(service.addComment).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      null,
+      'hi',
+    );
+  });
+
+  it('translates CELL_VALIDATION from addComment into a 400', async () => {
+    service.addComment.mockRejectedValue(
+      new SubmissionError('blank body', 'CELL_VALIDATION'),
+    );
+
+    await expect(
+      controller.addComment('assign1', { body: '' }, user),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

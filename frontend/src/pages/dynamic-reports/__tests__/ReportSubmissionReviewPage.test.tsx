@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportSubmissionReviewPage from '../ReportSubmissionReviewPage';
@@ -14,6 +14,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     unapproveSubmission: vi.fn(),
     grantUnlock: vi.fn(),
     revokeUnlock: vi.fn(),
+    listComments: vi.fn(),
+    addComment: vi.fn(),
   },
 }));
 
@@ -66,6 +68,7 @@ const SUBMITTED_VIEW: SubmissionView = {
 describe('ReportSubmissionReviewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(dynamicReportsApi.listComments).mockResolvedValue([]);
   });
 
   it('renders field values read-only, grouped by sheet', async () => {
@@ -74,7 +77,11 @@ describe('ReportSubmissionReviewPage', () => {
 
     await waitFor(() => screen.getByTestId('value-Đội 3!C6'));
     expect(screen.getByTestId('value-Đội 3!C6')).toHaveTextContent('5');
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    // Scoped to the field-value row itself — the page DOES have an editable
+    // textarea elsewhere now (S37's comments panel), which is correct.
+    expect(
+      within(screen.getByTestId('value-Đội 3!C6')).queryByRole('textbox'),
+    ).not.toBeInTheDocument();
   });
 
   it('S16: shows the submission state badge and last-saved time', async () => {

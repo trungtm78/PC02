@@ -5,6 +5,7 @@ import type {
   AssignmentListItemView,
   AssignmentSummary,
   BulkGrantUnlockResult,
+  CommentView,
   ExportCreateResultView,
   FinalizeResultView,
   ImportPreviewResult,
@@ -131,6 +132,20 @@ export const dynamicReportsApi = {
   validateForSubmit: (assignmentId: string) =>
     api
       .get<ValidateForSubmitResult>(`/bao-cao-dong/submissions/${assignmentId}/validate`)
+      .then((r) => r.data),
+
+  /** S37 (PR9 slice 2) — "Ghi chú/giải trình", readable/writable by either the editor or the report's manager. */
+  listComments: (assignmentId: string) =>
+    api
+      .get<CommentView[]>(`/bao-cao-dong/submissions/${assignmentId}/comments`)
+      .then((r) => r.data),
+
+  addComment: (assignmentId: string, fieldKey: string | null, body: string) =>
+    api
+      .post<CommentView>(`/bao-cao-dong/submissions/${assignmentId}/comments`, {
+        fieldKey: fieldKey ?? undefined,
+        body,
+      })
       .then((r) => r.data),
 
   /** S33/PR7 — the manager's own list (any report they manage, or every report with admin:DynamicReport). */

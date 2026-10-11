@@ -186,6 +186,15 @@ export interface TypedValue {
   v: string | null;
 }
 
+/** S37 (PR9 slice 2) — "Ghi chú/giải trình". `fieldKey` null = ghi chú cho cả bản nộp. */
+export interface CommentView {
+  id: string;
+  fieldKey: string | null;
+  body: string;
+  authorName: string;
+  createdAt: string;
+}
+
 export interface SubmissionView {
   assignmentId: string;
   reportName: string;
