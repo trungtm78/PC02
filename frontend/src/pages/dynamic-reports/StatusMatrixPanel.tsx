@@ -20,6 +20,7 @@ import {
 } from '@/shared/enums/status-labels';
 import { formatVNDateTime } from '@/lib/dates';
 import { extractApiError } from '@/lib/api-errors';
+import StatusMatrixCharts from './StatusMatrixCharts';
 
 export default function StatusMatrixPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,6 +134,8 @@ export default function StatusMatrixPanel() {
           </table>
         </div>
       )}
+
+      {matrix && matrix.periods.length > 0 && <StatusMatrixCharts matrix={matrix} />}
     </div>
   );
 }
