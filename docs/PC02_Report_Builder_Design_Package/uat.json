@@ -1914,22 +1914,22 @@
       "severity_if_fail": "S2",
       "oracle_type": "Statute",
       "rule_ref": "D1-oracle-S36",
-      "oracle_source": "transitions.ts dòng 125-127 (applySubmit guard hasErrorSeverityRuleViolation) + brief PR9 'ERROR chặn nộp'",
-      "catches_bug": "Rule ERROR vi phạm vẫn cho SUBMIT thành công (guard không được service gọi đúng)",
+      "oracle_source": "transitions.ts dòng 125-127 (applySubmit guard hasErrorSeverityRuleViolation) + brief PR9 'ERROR chặn nộp'. SỬA ở lượt 4/5: rule PHẢI nằm TRONG CÙNG một lượt giao (submission.service.ts dòng ~1701-1706: evaluateRulesFor() chỉ nhận values của CHÍNH submission đó) — rule so sánh field của 2 tổ/sheet khác nhau sẽ luôn bị SKIP (engine/rules.ts missingStrategy mặc định 'SKIP' khi operand không resolve được), KHÔNG BAO GIỜ là vi phạm dù số liệu khác nhau. Đã tái lập thật ở lượt 4 (rule cross-sheet 'To 1!B2' EQ 'To 2!B2' bị SKIP khi submit, không chặn) — xác nhận là đúng thiết kế, không phải bug.",
+      "catches_bug": "Rule ERROR trong-cùng-lượt-giao vi phạm vẫn cho SUBMIT thành công (guard không được service gọi đúng)",
       "coverage_ids": [
         "COV-S36-01"
       ],
       "backend_policy": "live",
       "data_required": [
-        "submission.draft.D0.violates-error-rule"
+        "submission.draft.D0.violates-error-rule-samesheet"
       ],
       "transition": {
         "from": "DRAFT",
         "to": "SUBMITTED",
         "allowed": false
       },
-      "steps": "1. Cấu hình rule ERROR (vd D10 phải = D11+...+D16).\n2. Nhập số liệu vi phạm rule.\n3. Thử Nộp.",
-      "expected": "Bị chặn, hiện rõ rule vi phạm; không chuyển SUBMITTED.",
+      "steps": "1. Cấu hình rule ERROR TRONG CÙNG 1 sheet (vd field 'To 1!B2' phải <= hằng số 50, hoặc 'To 1!B2' EQ 'To 1!B5' nếu có ≥2 field cùng sheet) — KHÔNG so sánh field của sheet/tổ khác.\n2. Nhập số liệu vi phạm rule cho CHÍNH tổ đang submit.\n3. Thử Nộp.",
+      "expected": "Bị chặn (400, lỗi liệt kê đúng tên rule vi phạm trong message); không chuyển SUBMITTED. Nếu rule vô tình tham chiếu field ngoài phạm vi lượt giao (sheet khác) → SKIP, KHÔNG được coi là vi phạm (đây là hành vi đúng theo missingStrategy, không phải bug).",
       "evidence_required": [
         "screenshot-final"
       ]
@@ -1945,16 +1945,16 @@
       "severity_if_fail": "S3",
       "oracle_type": "Statute",
       "rule_ref": "D1-oracle-S36",
-      "oracle_source": "Brief PR9: 'WARNING cần xác nhận' (khác ERROR — không có trong guard applySubmit cứng, là UX-layer confirm)",
+      "oracle_source": "Brief PR9: 'WARNING cần xác nhận' (khác ERROR — không có trong guard applySubmit cứng, là UX-layer confirm). SỬA ở lượt 4/5: rule phải nằm trong cùng lượt giao, cùng lý do đã ghi ở TC-S36-01 (missingStrategy=SKIP cho operand ngoài phạm vi submission).",
       "catches_bug": "WARNING bị implement nhầm thành chặn cứng như ERROR (over-blocking), hoặc ngược lại bỏ qua không hỏi xác nhận gì",
       "coverage_ids": [
         "COV-S36-02"
       ],
       "backend_policy": "live",
       "data_required": [
-        "submission.draft.D0.violates-warning-rule"
+        "submission.draft.D0.violates-warning-rule-samesheet"
       ],
-      "steps": "1. Cấu hình rule WARNING.\n2. Nhập số liệu vi phạm rule WARNING (không vi phạm ERROR nào).\n3. Bấm Nộp.",
+      "steps": "1. Cấu hình rule WARNING TRONG CÙNG 1 sheet (vd field 'To 1!B2' <= hằng số).\n2. Nhập số liệu vi phạm rule WARNING cho CHÍNH tổ đang submit (không vi phạm ERROR nào).\n3. Bấm Nộp.",
       "expected": "Hiện dialog xác nhận liệt kê vi phạm WARNING; xác nhận tiếp tục → nộp thành công (không bị chặn cứng).",
       "evidence_required": [
         "screenshot-final"
@@ -2821,21 +2821,21 @@
       "outputs": {}
     },
     {
-      "fixture_id": "submission.draft.D0.violates-error-rule",
+      "fixture_id": "submission.draft.D0.violates-error-rule-samesheet",
       "state": "draft",
       "lifecycle": "D0",
       "shape": "normal",
-      "setup_recipe": "Rule ERROR cấu hình D10=SUM(D11:D16); nhập D10 khác tổng",
-      "cleanup_recipe": "Xoá submission test",
+      "setup_recipe": "Rule ERROR cấu hình TRONG CÙNG sheet (vd 'To 1!B2' LTE 50, hoặc field vs field cùng sheet); nhập giá trị vi phạm cho CHÍNH tổ submit. KHÔNG tham chiếu field sheet khác (xem bài học lượt 4: cross-sheet luôn bị SKIP, không phải vi phạm).",
+      "cleanup_recipe": "Xoá report/period/submission test (xoá đúng thứ tự FK: comments→revisions→assignment_editors→submissions→assignments→snapshots→periods→roles→fields→versions→report)",
       "outputs": {}
     },
     {
-      "fixture_id": "submission.draft.D0.violates-warning-rule",
+      "fixture_id": "submission.draft.D0.violates-warning-rule-samesheet",
       "state": "draft",
       "lifecycle": "D0",
       "shape": "normal",
-      "setup_recipe": "Rule WARNING (vd biến động bất thường >50% so kỳ trước); nhập vi phạm",
-      "cleanup_recipe": "Xoá submission test",
+      "setup_recipe": "Rule WARNING TRONG CÙNG sheet (vd field vượt ngưỡng hằng số); nhập vi phạm cho chính tổ submit, không tham chiếu field sheet khác",
+      "cleanup_recipe": "Xoá report/period/submission test (xoá đúng thứ tự FK)",
       "outputs": {}
     },
     {

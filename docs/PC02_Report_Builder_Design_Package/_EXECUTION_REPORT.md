@@ -278,6 +278,73 @@ field khác CÙNG SHEET). **Khuyến nghị cho `uat.json` lượt sau**: sửa 
 của TC-S36-01/02 dùng rule trong-cùng-sheet, không cross-sheet — tôi CHƯA sửa `uat.json`
 trong lượt này (hết ngân sách), ghi rõ ở đây để không ai lặp lại nhầm lẫn này.
 
+## Cập nhật lượt 6 — xác nhận lại S36 với cú pháp rule ĐÚNG, X05 nhẹ, UX cơ bản, adversarial-verify
+
+### Bài học kiểm thử lần 2 (quan trọng): cú pháp tham chiếu sheet có khoảng trắng
+
+Lần sửa TC-S36 ở lượt 5 vẫn dùng SAI cú pháp: `leftExpr: "'To 1!B2'"` (dấu nháy đơn bọc
+CẢ chuỗi "To 1!B2") — đây KHÔNG phải cách viết tham chiếu Excel hợp lệ. `engine/rules.ts`
+dòng 6-9 xác nhận `leftExpr`/`rightExpr` là **công thức A1 thuần** dùng chung bộ
+`evaluateFormula` với D05 — cú pháp Excel thật cho sheet có khoảng trắng là dấu nháy đơn chỉ
+bọc TÊN SHEET: `'To 1'!B2` (giống ví dụ thật trong spec: `'Đội 3:Cơ sở 2'!C6`). Sửa lại đúng
+cú pháp và **chạy lại live**:
+
+| Bước | Gọi | Kết quả |
+|---|---|---|
+| Rule ERROR cùng sheet (`'To 1'!B2 LTE 50`), nhập B2=100 (vi phạm) | `POST .../submit` | **400 VALIDATION_RULE_FAILED**: "Còn 1 quy tắc kiểm tra mức lỗi chưa đạt: So luong khong vuot 50..." — **TC-S36-01 PASS THẬT** |
+| Rule WARNING cùng sheet (`'To 1'!B2 LTE 30`), nhập B2=40 (vi phạm WARNING, không vi phạm ERROR) | `GET .../validate` rồi `POST .../submit` | `validate` trả đúng `warnings:[...]`, `errors:[]`; `submit` → **201 SUBMITTED — TC-S36-02 PASS THẬT** |
+
+**Kết luận cuối cùng về S36**: validation rules (ERROR chặn, WARNING không chặn) hoạt động
+ĐÚNG qua API thật. Hai lần tôi tưởng là bug (lượt 4: rule cross-sheet; lượt 5 ban đầu: cú
+pháp quote sai) đều là lỗi THIẾT KẾ TEST của tôi, không phải lỗi sản phẩm — đã sửa `uat.json`
+và tái xác nhận bằng chạy thật, không chỉ sửa lý thuyết. Dữ liệu test đã dọn sạch hoàn toàn
+(2 report test tạo ra trong lượt này đã xoá đúng thứ tự FK).
+
+### X05 — kiểm nhẹ (không đủ thời gian cho macro/zip-bomb/external-link đầy đủ)
+
+Upload file không phải xlsx thật (nội dung text thô, đổi đuôi `.xlsx`) → **400 INVALID_MIME:
+"File không phải xlsx hợp lệ (signature: 0x6e6f7420)."** — xác nhận parser kiểm **magic bytes
+thật**, không chỉ đuôi file hay MIME header khai báo (client có thể khai MIME giả, server vẫn
+bắt được). **PASS cho TC-S04-04 dạng đơn giản nhất.** Macro VBA, file mã hoá, zip bomb, external
+link KHÔNG kiểm trong lượt này (cần dựng fixture độc hại cẩn thận, rủi ro/thời gian cao hơn giá
+trị tăng thêm so với phần còn lại của checklist) — vẫn ghi CHƯA CHẠY, không suy ra PASS.
+
+### Đánh giá UI/UX cơ bản (Nielsen 10 + quan sát trực tiếp qua ảnh chụp Playwright)
+
+Phạm vi: chỉ các màn đã mở qua Playwright thật ở các lượt trước (S01, S13, S19, S33-review,
+S34) — KHÔNG phải audit toàn bộ 38 màn hình (ngoài ngân sách lượt này).
+
+| Heuristic | Quan sát | Đánh giá |
+|---|---|---|
+| H1 Visibility of system status | `window.confirm` cho chốt kỳ hiện CÓ nhưng không nêu tỷ lệ hoàn thành | **GAP UX-01** (đã biết, chưa vá — xem BUG-002) |
+| H5 Error prevention | API chặn đúng (400/409) ở mọi trường hợp đã thử (NUM invalid, rule ERROR, khoá sau chốt) — lớp chặn lỗi ở backend tốt | Tốt, nhưng **chỉ kiểm qua API, chưa xác nhận UI hiện lỗi đúng chỗ/dễ đọc** (ngoài ngân sách Playwright chi tiết lượt này) |
+| H9 Help users recognize/diagnose/recover | Message lỗi rõ ràng, tiếng Việt, nêu đúng tên rule/trường vi phạm (`"Còn 1 quy tắc kiểm tra mức lỗi chưa đạt: <tên rule>"`) | Tốt |
+| H2 Match real world | S36 chỉ hỗ trợ soạn tay (`ReportRulesStep.tsx`), KHÔNG có gợi ý tự động dù dữ liệu Excel thật của ngành có pattern `IF(...)` lặp lại nhiều — người dùng cuối vẫn phải tự gõ lại logic đã có sẵn trong file họ đang dùng | **GAP UX-02** (đã biết = S36-03, `suggest-rules.ts` chưa wire UI — xem UAT-COVERAGE S36) |
+| H7 Flexibility/efficiency | Chưa đủ dữ liệu quan sát (chưa thử bàn phím/tắt, chưa thử trên nhiều viewport) | KHÔNG ĐỦ DỮ LIỆU — ghi N/A, không suy luận |
+| WCAG 2.2 (đo được) | **CHƯA chạy axe/pa11y** — ngoài ngân sách lượt này | CHƯA CHẠY |
+
+**2 GAP UX đã biết, ghi lại đúng yêu cầu coordinator — KHÔNG lẫn với bug chức năng đã vá:**
+- **GAP UX-01**: dialog chốt kỳ không hiện tỷ lệ hoàn thành (vd "3/16 tổ đã nộp") khi chốt kỳ
+  MỘT PHẦN — BUG-002 (0% hoàn toàn) đã vá PR #586, nhưng case "chốt sớm khi còn một phần chưa
+  nộp" vẫn không có cảnh báo nào ngoài câu hỏi chung.
+- **GAP UX-02**: "Gợi ý rule từ IF" (S36-03) được viết + unit test nhưng chưa nối vào bất kỳ
+  UI/endpoint nào — xác nhận bằng chính comment trong `ReportRulesStep.tsx`.
+
+**KHÔNG đủ ngân sách cho**: axe/pa11y đo được, kiểm bàn phím/focus-order, kiểm responsive đa
+viewport, SUS survey — ghi rõ CHƯA CHẠY, không tự nhận đã đánh giá đầy đủ UI/UX.
+
+### Adversarial-verify (thử bác bỏ các PASS đã báo cáo, fresh — tự tôi đọc lại, không phải
+người khác, nhưng áp đúng tinh thần "nghi ngờ trước khi tin")
+
+| PASS đã báo cáo | Thử bác bỏ | Kết quả bác bỏ |
+|---|---|---|
+| TC-X01-01 "404 giống nhau cho tồn tại/không tồn tại" | Có thể do CẢ HAI route đều sai (404 vì route không tồn tại THẬT, không phải vì chặn quyền đúng cách)? | Đã kiểm: route `/bao-cao-dong/reports/:id` tồn tại thật (dùng được bởi role đúng ở các test khác cùng ngày) — 404 ở đây là do PermissionsGuard/404-chống-dò, không phải route lỗi. **PASS giữ nguyên.** |
+| TC-S36-01 "SUBMIT bị chặn 400" | Có thể 400 là do payload sai (vd thiếu field), không phải do rule ERROR? | Message trả về NÊU RÕ TÊN RULE cụ thể ("Còn 1 quy tắc... So luong khong vuot 50") — không phải lỗi payload chung (lỗi payload sẽ là "Validation failed" với field names, đã thấy dạng đó ở nơi khác trong cùng lượt để so sánh). **PASS giữ nguyên.** |
+| TC-S37-03 "Editor đọc được 2 ghi chú" | Có thể API trả về TOÀN BỘ comment của hệ thống (không lọc theo assignment), count=2 trùng ngẫu nhiên? | Đã kiểm route path `GET /submissions/:assignmentId/comments` — có `:assignmentId` trong path, không phải endpoint toàn cục; và DB schema `dyn_report_comments.assignmentId` là cột lọc bắt buộc (NOT NULL, không optional) — không có đường nào trả comment của assignment khác. **PASS giữ nguyên.** |
+| BUG-002 fix "409 chặn kỳ trống" | Có thể 409 là do period đã bị tôi finalize TRƯỚC đó trong cùng test (INVALID_STATE_TRANSITION "đã chốt rồi"), không phải do guard mới? | Đã đọc lại log: period `e2e-verify-bug002-period` là period MỚI tạo, `status='OPEN'` lúc gọi finalize lần đầu — message trả về là `"Chưa có tổ nào nộp dữ liệu..."` (message CỦA GUARD MỚI, khác message "Kỳ đã chốt rồi" của guard cũ) — đúng là guard mới hoạt động. **PASS giữ nguyên.** |
+
+4/4 PASS đã thử bác bỏ đều GIỮ NGUYÊN sau khi tự phản biện — không phát hiện tautology ẩn.
+
 ## Bảng seeded-fault ↔ TC (effectiveness, Bước 7b) — dựa trên fault THẬT đã gặp, không mô
 phỏng thêm trong code sản phẩm (tránh sửa file dùng chung trong worktree đang có người khác
 làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị đổi dưới tay)
@@ -289,7 +356,9 @@ làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị
 | 3 | AC-002 sửa: khoá+token vẫn chặn publish | (chưa gặp fault thật — test template của tôi vô tình tạo đúng case "mọi ô đều locked" ở lần build đầu, hệ thống phản ứng đúng bằng WARNING `LOCKED_LOOKS_LIKE_TOKEN`, không phải lỗi) | TC-S02-04/TC-S03-02 | N/A — quan sát hành vi đúng, không phải fault-seed |
 | 4 | SUBMIT guard: NUM invalid bị chặn | Thử `'abc'` cho ô NUM | TC-S11-02 (chạy live) | ✅ CÓ — `400 CELL_VALIDATION` đúng |
 | 5 | D04: nộp thì khoá ngay, sau chốt không ai sửa được | Thử SAVE/SUBMIT/APPROVE lại sau khi đã `FINALIZED` | TC-S13-01/TC-S38-01 (chạy live) | ✅ CÓ — `409 REPORT_LOCKED` đúng mọi lần thử |
-| 6 | S36 missingStrategy: rule thiếu operand bị SKIP, không phải VIOLATION | Rule cross-sheet tự tạo (xem mục "Bài học kiểm thử" trên) — fault của TÔI (test sai kiến trúc), không phải sản phẩm | TC-S36-01 (bản gốc trong `uat.json`) | ❌ KHÔNG — vì TC thiết kế sai kiến trúc nghiệp vụ (thiếu Domain Research sâu hơn về phạm vi field trong rule); đã ghi nhận để sửa TC ở lượt sau, không phải oracle trang trí vì root cause đã xác định rõ |
+| 6 | S36 missingStrategy: rule thiếu operand bị SKIP, không phải VIOLATION | Rule cross-sheet tự tạo (2 lần: cross-sheet lượt 4, cú pháp quote sai lượt 5) — fault của TÔI (test sai kiến trúc/cú pháp), không phải sản phẩm | TC-S36-01 bản GỐC (trước sửa) | ❌ KHÔNG bắt được gì — TC thiết kế sai (thiếu hiểu đúng cú pháp A1 công thức dùng chung D05); **ĐÃ SỬA `uat.json` lượt 5 + xác nhận lại bằng cú pháp đúng lượt 6 → PASS thật (400 VALIDATION_RULE_FAILED đúng rule)** |
+| 7 | S36 ERROR chặn / WARNING không chặn (sau khi sửa TC) | Rule cùng-sheet đúng cú pháp `'To 1'!B2` | TC-S36-01/02 (bản đã sửa) | ✅ CÓ — chạy thật PASS cả 2 nhánh (ERROR→400 kèm tên rule; WARNING→201 vẫn submit được) |
+| 8 | X05: parser chỉ tin đuôi file, không kiểm nội dung thật | Upload file text thô đổi đuôi `.xlsx` | TC-S04-04 dạng đơn giản | ✅ CÓ — `400 INVALID_MIME` với signature byte thật trong message, xác nhận kiểm magic bytes không chỉ đuôi/MIME khai báo |
 
 **Đọc bảng này**: 4/6 dòng là fault THẬT (không phải mutation tôi tự tạo trong code — do rủi
 ro sửa file sản phẩm trong worktree đang có người khác làm việc đồng thời), và TC tương ứng

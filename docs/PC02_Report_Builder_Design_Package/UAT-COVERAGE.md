@@ -43,7 +43,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 2/5 + 1 E2E Playwright + 1 thí nghiệm sạch 2 cấp | **PASS — BUG-001 đóng hoàn toàn.** Tìm thấy ở lượt 1 (P1/S2), vá ở PR #584 (commit `dcf4ed7f`, merge vào nhánh UAT này), 7 unit test mới + full suite 8221/8336 PASS. 1 cấp duyệt mặc định xác nhận đúng qua E2E Playwright thật. Kịch bản 2 cấp: lượt thử đầu của tôi "có vẻ bất thường" do fixture artifact còn sót từ thử nghiệm trước (approvalLevel đã =1 sẵn, không phải 0 như giả định) — KHÔNG phải bug. Kỹ sư PR #584 tái lập độc lập bằng thí nghiệm sạch (build lại loại cache, baseline sạch, gọi trực tiếp `SubmissionService.approve()` qua service/transition thật): **PASS cả 2 bước** (cấp 1 giữ SUBMITTED, cấp 2 mới APPROVED). UI cấu hình `approvalLevel>1` vẫn CHƯA tồn tại — GAP riêng, không phải BUG-001. |
 | S34 | Hàng chờ yêu cầu mở lại + mở khoá hàng loạt | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ CHẠY THẬT 1 API + 1 E2E Playwright | **PASS phần hiển thị** (trang tải không lỗi) **+ PASS phần state-gate** (yêu cầu mở lại không tự mở, xác nhận ở lượt 1). Luồng duyệt/từ chối hàng loạt CHƯA kiểm. |
 | S35 | Nhập từ Excel (re-import có dấu __dr_meta) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S36 | Validation rules (soạn + gợi ý từ IF) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 1/5 (full E2E) | **Rule ERROR qua được khi khớp dữ liệu (SUBMIT 201)**; TC-S36-01/02 gốc trong `uat.json` thiết kế SAI kiến trúc (rule cross-sheet không bao giờ áp dụng được — `missingStrategy=SKIP`, xác nhận bằng đọc code) — không phải bug sản phẩm, cần SỬA TC ở lượt sau. TC-S36-03 (gợi ý từ IF) xác nhận qua chính comment trong code là **GAP có thật**: `suggest-rules.ts` viết + unit test nhưng "never wired to any endpoint or UI" — ghi oracle_type=GAP. |
+| S36 | Validation rules (soạn + gợi ý từ IF) | ĐÃ VIẾT (5 TC, uat.json, đã SỬA TC-S36-01/02) | ĐÃ CHẠY THẬT 2/5 (full E2E, cú pháp rule đã sửa đúng) | **PASS — ERROR chặn SUBMIT (400, nêu đúng tên rule), WARNING không chặn (201)**, xác nhận live sau khi sửa 2 lỗi thiết kế TC liên tiếp (cross-sheet lượt 4, cú pháp quote Excel sai lượt 5) — chi tiết "Bài học kiểm thử lần 2" ở `_EXECUTION_REPORT.md`. **GAP UX-02 (đã biết, chưa vá)**: TC-S36-03 "gợi ý từ IF" — `suggest-rules.ts` viết + unit test nhưng chính comment trong code xác nhận "never wired to any endpoint or UI" — oracle_type=GAP. |
 | S37 | Ghi chú/giải trình theo ô và theo bản nộp | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 3/4 (full E2E) | **PASS** — ghi chú theo ô (editor) và theo cả bản nộp (manager, fieldKey=null) đều tạo đúng (201), editor đọc được cả 2 loại. |
 | S38 | Chốt kỳ / mở chốt (ADJUSTMENT) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 3/4 (full E2E + tái xác nhận vá) | **PASS — BUG-002 ĐÃ VÁ (PR #586)**: `finalizePeriod()` tìm thấy không kiểm submission trước khi chốt (P1/S3, lượt 4), đã vá chặn chốt kỳ hoàn toàn trống (2 unit test mới, full suite PASS); tôi tái lập lại qua API thật sau merge → **409 chặn đúng "Chưa có tổ nào nộp dữ liệu..."**. Không ép 100% hoàn thành (đúng theo spec — kỳ có ≥1 tổ nộp vẫn chốt được). **PASS phần khoá-sau-chốt**: SAVE/SUBMIT/APPROVE/finalize-lần-2 sau FINALIZED đều bị chặn đúng (409). **GAP UX còn lại (chưa vá)**: `window.confirm` không hiện tỷ lệ hoàn thành khi chốt kỳ MỘT PHẦN (vd 1/16 tổ) — xem `_EXECUTION_REPORT.md`. |
 
@@ -71,12 +71,12 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X02 | Đồng thời: lưu↔chốt kỳ, lưu↔D09, 2 editor cùng tổ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X03 | Audit không chứa số liệu | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ QUAN SÁT 1/2 qua DB thật | **CHƯA KẾT LUẬN — GAP cần người quyết**: kiến trúc thật KHÔNG có audit log tách biệt không chứa số liệu; audit trail (`dyn_report_revisions`) lưu `valuesFull` theo đúng mục đích (snapshot rollback). Oracle gốc của X03 giả định sai kiến trúc — cần người có thẩm quyền sản phẩm xác nhận lại ý định thật của X03 trước khi viết lại TC. Xem `_EXECUTION_REPORT.md`. |
 | X04 | Hiệu năng: 5.000 input/200 tổ/50 ghi đồng thời | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 1/4 (nhẹ) | **PASS cho trường hợp đơn giản**: file text thô đổi đuôi `.xlsx` → `400 INVALID_MIME` kèm signature byte thật trong message — xác nhận parser kiểm magic bytes, không chỉ đuôi/MIME khai báo. Macro VBA/mã hoá/zip-bomb/external-link CHƯA kiểm (cần dựng fixture độc hại, ngoài ngân sách lượt này) — CHƯA LÀM 3/4 còn lại, không suy ra PASS. |
 | X06 | Monkey test (chạy một lần cuối) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
 **Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 5)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Checkpoint PR10 UAT 11/10/2026 (lượt 6)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
 item = 43,9%). Đã EXECUTE LIVE qua API + UI thật trên dev cục bộ (không phải 78/78 — ưu tiên
@@ -92,11 +92,17 @@ chất lượng hơn số lượng theo đúng chỉ đạo):
   PASS qua 10 bước thật** (S02→S03→S09→S10→S11→S36→S37→S33→S38, bắt được BUG-002).
 - **PASS**: S21 audit trail, X01 một phần, clock guard, S37 (ghi chú theo ô/bản nộp), khoá
   đúng sau chốt kỳ (REPORT_LOCKED 409 mọi lần thử sau FINALIZED).
-- **1 GAP xác nhận bằng chính comment trong code** (S36-03 "gợi ý từ IF" — `suggest-rules.ts`
-  viết+test nhưng chưa wire UI/endpoint).
+- **S36 ERROR/WARNING đã sửa TC và xác nhận PASS thật** (2 lần sai thiết kế test liên tiếp —
+  cross-sheet rồi cú pháp quote Excel sai — đều tự phát hiện + tự sửa + tái xác nhận live).
+- **2 GAP UX đã biết, ghi theo đúng yêu cầu**: GAP UX-01 (chốt kỳ một phần không hiện tỷ lệ
+  hoàn thành) + GAP UX-02 (S36-03 "gợi ý từ IF" — `suggest-rules.ts` viết+test chưa wire
+  UI/endpoint, xác nhận bằng chính comment trong code).
 - **1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật).
-- **1 bài học tự sửa** (TC-S36-01/02 gốc thiết kế sai kiến trúc — rule cross-sheet không bao
-  giờ áp dụng được do `missingStrategy=SKIP`; không phải bug, cần viết lại TC).
+- **X05 nhẹ PASS** (file giả `.xlsx` bị chặn bởi kiểm magic bytes thật, không chỉ đuôi file).
+- **Adversarial-verify**: thử bác bỏ 4 PASS đã báo cáo (X01-01, S36-01, S37-03, BUG-002-fix)
+  — cả 4 đều giữ nguyên, không phát hiện tautology ẩn.
+- **Đánh giá UI/UX cơ bản** (Nielsen 10, phạm vi các màn đã Playwright) — xem
+  `_EXECUTION_REPORT.md`, CHƯA chạy axe/WCAG đo được.
 - **1 phát hiện hạ tầng đã tự vá** (khoá JWT lệch cặp sau restart).
 
 Chi tiết đầy đủ: `_EXECUTION_REPORT.md`. **CHƯA đạt 100% PASS — còn ở trạng thái

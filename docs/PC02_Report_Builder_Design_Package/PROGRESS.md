@@ -533,6 +533,16 @@ bảng seeded-fault↔TC: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 4".
 `dr-test-report-1`, gọi finalize) → **409 chặn đúng**, dọn sạch ngay sau xác nhận. BUG-002
 coi như đóng hoàn toàn (GAP UX tỷ lệ hoàn thành vẫn còn, ghi riêng không lẫn với bug).
 
+**Lượt 6**: sửa `uat.json` TC-S36-01/02 (rule cross-sheet sai kiến trúc → rule cùng sheet) +
+tái xác nhận live — lần sửa ĐẦU vẫn sai cú pháp Excel (`'To 1!B2'` thay vì đúng
+`'To 1'!B2` — nháy đơn chỉ bọc tên sheet, không bọc cả địa chỉ ô), tự phát hiện và sửa tiếp,
+kết quả cuối: **PASS thật** (ERROR chặn SUBMIT 400 kèm tên rule; WARNING không chặn, 201).
+X05 kiểm nhẹ: file giả `.xlsx` bị chặn đúng bởi kiểm magic bytes (400 INVALID_MIME). Đánh
+giá UI/UX cơ bản (Nielsen, phạm vi màn đã Playwright) + adversarial-verify 4 PASS (giữ
+nguyên cả 4). Ghi đủ 2 GAP UX theo yêu cầu: chốt-kỳ-không-hiện-tỷ-lệ + S36-03-chưa-wire-UI.
+Đã dọn sạch 2 report test tạo thêm trong lượt này. Chi tiết: `_EXECUTION_REPORT.md` mục
+"Cập nhật lượt 6".
+
 ## Hàng đợi task kế tiếp
 1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
    tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
