@@ -9,16 +9,16 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
 |---|---|---|---|---|
 | S01 | Danh sách thiết lập báo cáo | ĐÃ VIẾT (3 TC, uat.json) | ĐÃ CHẠY THẬT 1 E2E Playwright | **PASS phần hiển thị** (admin, render đúng dữ liệu, không lỗi). TC permission-scope (chỉ thấy báo cáo của mình) CHƯA kiểm. |
-| S02 | Upload mẫu Excel | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S03 | Preview và thuộc tính ô | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S02 | Upload mẫu Excel | ĐÃ VIẾT (6 TC, uat.json) | ĐÃ CHẠY THẬT (full E2E API, template thật 2 sheet 4 kiểu) | **PASS** — upload+sheets-detect đúng; 8 field TEXT/NUM/DATE/TIME phát hiện đúng qua token grammar. |
+| S03 | Preview và thuộc tính ô | ĐÃ VIẾT (7 TC, uat.json) | ĐÃ CHẠY THẬT 1/7 (full E2E) | **PASS phần phát hiện field** + phát hiện hành vi thật của `LOCKED_LOOKS_LIKE_TOKEN` (WARNING, không chặn) khi ô vô tình để locked — khớp đúng cảnh báo mô tả trong AC-002 sửa. |
 | S04 | Lỗi import và validation mẫu | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S05 | Cấu hình kỳ tuần | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S06 | Cấu hình kỳ tháng | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S07 | Cấu hình kỳ quý | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S08 | Cấu hình kỳ ngày cụ thể (+ DAILY mới) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S09 | Phân công quản lý/VIEWER và người nhập theo tổ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S10 | Xác nhận xuất bản | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S11 | Nhập báo cáo | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S09 | Phân công quản lý/VIEWER và người nhập theo tổ | ĐÃ VIẾT (7 TC, uat.json) | ĐÃ CHẠY THẬT (full E2E) | **PASS** — publish với 2 tổ + 1 manager qua config thật, DB tạo đúng `DynReportTarget`/`DynReportRole`. |
+| S10 | Xác nhận xuất bản | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT (full E2E) | **PASS** — `POST /reports` publish=true trả 201, report+version tạo thật. |
+| S11 | Nhập báo cáo | ĐÃ VIẾT (10 TC, uat.json) | ĐÃ CHẠY THẬT 3/10 (full E2E) | **PASS**: NUM invalid ("abc") → 400 CELL_VALIDATION đúng; giá trị hợp lệ TEXT/NUM/DATE/TIME lưu đúng (200). Autosave debounce/paste/boundary CHƯA kiểm. |
 | S12 | Kiểm tra dữ liệu nhập | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S13 | Báo cáo đã khoá | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 1 API + 1 E2E Playwright | **PASS phần API** (PATCH bị chặn 403/409 khi SUBMITTED — xác nhận ở lượt 1). **CHƯA kết luận phần UI** (trang mở đúng, nhưng chưa xác nhận chắc ô nhập có hiện readonly đúng — selector E2E quá rộng, cần làm lại với locator cụ thể). |
 | S14 | Báo cáo được mở lại | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -43,9 +43,9 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 2/5 + 1 E2E Playwright + 1 thí nghiệm sạch 2 cấp | **PASS — BUG-001 đóng hoàn toàn.** Tìm thấy ở lượt 1 (P1/S2), vá ở PR #584 (commit `dcf4ed7f`, merge vào nhánh UAT này), 7 unit test mới + full suite 8221/8336 PASS. 1 cấp duyệt mặc định xác nhận đúng qua E2E Playwright thật. Kịch bản 2 cấp: lượt thử đầu của tôi "có vẻ bất thường" do fixture artifact còn sót từ thử nghiệm trước (approvalLevel đã =1 sẵn, không phải 0 như giả định) — KHÔNG phải bug. Kỹ sư PR #584 tái lập độc lập bằng thí nghiệm sạch (build lại loại cache, baseline sạch, gọi trực tiếp `SubmissionService.approve()` qua service/transition thật): **PASS cả 2 bước** (cấp 1 giữ SUBMITTED, cấp 2 mới APPROVED). UI cấu hình `approvalLevel>1` vẫn CHƯA tồn tại — GAP riêng, không phải BUG-001. |
 | S34 | Hàng chờ yêu cầu mở lại + mở khoá hàng loạt | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ CHẠY THẬT 1 API + 1 E2E Playwright | **PASS phần hiển thị** (trang tải không lỗi) **+ PASS phần state-gate** (yêu cầu mở lại không tự mở, xác nhận ở lượt 1). Luồng duyệt/từ chối hàng loạt CHƯA kiểm. |
 | S35 | Nhập từ Excel (re-import có dấu __dr_meta) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S36 | Validation rules (soạn + gợi ý từ IF) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S37 | Ghi chú/giải trình theo ô và theo bản nộp | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S38 | Chốt kỳ / mở chốt (ADJUSTMENT) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S36 | Validation rules (soạn + gợi ý từ IF) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 1/5 (full E2E) | **Rule ERROR qua được khi khớp dữ liệu (SUBMIT 201)**; TC-S36-01/02 gốc trong `uat.json` thiết kế SAI kiến trúc (rule cross-sheet không bao giờ áp dụng được — `missingStrategy=SKIP`, xác nhận bằng đọc code) — không phải bug sản phẩm, cần SỬA TC ở lượt sau. TC-S36-03 (gợi ý từ IF) xác nhận qua chính comment trong code là **GAP có thật**: `suggest-rules.ts` viết + unit test nhưng "never wired to any endpoint or UI" — ghi oracle_type=GAP. |
+| S37 | Ghi chú/giải trình theo ô và theo bản nộp | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 3/4 (full E2E) | **PASS** — ghi chú theo ô (editor) và theo cả bản nộp (manager, fieldKey=null) đều tạo đúng (201), editor đọc được cả 2 loại. |
+| S38 | Chốt kỳ / mở chốt (ADJUSTMENT) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 2/4 (full E2E) | **BUG-002 tìm thấy (P1/S3) — CHƯA VÁ**: `finalizePeriod()` không kiểm submission đã APPROVED trước khi cho chốt kỳ — chốt được period với 0% đã nộp, cả API và UI (`window.confirm` không nêu tỷ lệ hoàn thành) đều thiếu rào chắn. **PASS phần khoá-sau-chốt**: SAVE/SUBMIT/APPROVE/finalize-lần-2 sau khi FINALIZED đều bị chặn đúng (409). Xem `_EXECUTION_REPORT.md`. |
 
 ## B. Engine thuần (PR1 — không phải màn hình, nhưng là chức năng độc lập cần phủ)
 
@@ -76,15 +76,27 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
 **Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 3)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Checkpoint PR10 UAT 11/10/2026 (lượt 4)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
-item = 43,9%). Đã EXECUTE LIVE một mẫu nhỏ qua API + UI thật trên dev cục bộ (không phải
-78/78): **BUG-001 tìm thấy (S33/R21), ĐÃ VÁ ở PR #584 và ĐÃ ĐÓNG HOÀN TOÀN** (merge vào nhánh UAT,
-tái lập độc lập cả 2 bước 2 cấp bằng thí nghiệm sạch — PASS), **5 E2E Playwright PASS thật**
-(J-REVIEW-01, S01, S13, S19, S34), **PASS** (S21 audit trail, X01 một phần, clock guard),
-**1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật), **1 phát hiện hạ
-tầng đã tự vá** (khoá JWT lệch cặp sau restart — xem `_EXECUTION_REPORT.md` lượt 3).
+item = 43,9%). Đã EXECUTE LIVE qua API + UI thật trên dev cục bộ (không phải 78/78 — ưu tiên
+chất lượng hơn số lượng theo đúng chỉ đạo):
+- **BUG-001** (S33/R21, totalApprovalLevels hardcode) — tìm thấy lượt 1, **ĐÃ VÁ PR #584,
+  ĐÃ ĐÓNG HOÀN TOÀN** (tái lập độc lập cả 2 bước 2 cấp bằng thí nghiệm sạch — PASS).
+- **BUG-002 MỚI** (S38, `finalizePeriod()` không kiểm đã duyệt trước khi chốt kỳ, P1/S3) —
+  tìm thấy lượt 4 qua **full E2E journey thật** (upload→preview→publish→nhập→duyệt→chốt kỳ
+  nối tiếp qua API thật, không mock) — **CHƯA VÁ**, xem `_EXECUTION_REPORT.md`.
+- **5 E2E Playwright PASS thật** (J-REVIEW-01, S01, S13, S19, S34) + **1 full E2E API journey
+  PASS qua 10 bước thật** (S02→S03→S09→S10→S11→S36→S37→S33→S38, bắt được BUG-002).
+- **PASS**: S21 audit trail, X01 một phần, clock guard, S37 (ghi chú theo ô/bản nộp), khoá
+  đúng sau chốt kỳ (REPORT_LOCKED 409 mọi lần thử sau FINALIZED).
+- **1 GAP xác nhận bằng chính comment trong code** (S36-03 "gợi ý từ IF" — `suggest-rules.ts`
+  viết+test nhưng chưa wire UI/endpoint).
+- **1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật).
+- **1 bài học tự sửa** (TC-S36-01/02 gốc thiết kế sai kiến trúc — rule cross-sheet không bao
+  giờ áp dụng được do `missingStrategy=SKIP`; không phải bug, cần viết lại TC).
+- **1 phát hiện hạ tầng đã tự vá** (khoá JWT lệch cặp sau restart).
+
 Chi tiết đầy đủ: `_EXECUTION_REPORT.md`. **CHƯA đạt 100% PASS — còn ở trạng thái
 SẴN SÀNG-KÈM-KHUYẾT**, không coi là xong; các dòng còn `CHƯA LÀM` thật sự chưa chạy, không
 suy ra PASS.

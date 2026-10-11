@@ -511,6 +511,18 @@ thêm **4 E2E Playwright thật** (S01, S13, S19, S34) — tất cả PASS phầ
 dữ liệu, không lỗi). Tổng cộng đã có **5 E2E PASS thật** qua các lượt. Chi tiết:
 `_EXECUTION_REPORT.md` mục "Cập nhật lượt 3".
 
+**Lượt 4**: dựng template Excel thật (`openpyxl`, 2 sheet × 4 kiểu TEXT/NUM/DATE/TIME, ô
+unlocked đúng chuẩn qua `Protection(locked=False)` — bài học: mặc định mọi ô là locked dù
+không bật sheet protection). Chạy **full E2E journey qua API thật nối tiếp 10 bước**:
+upload→preview→publish (2 tổ, 1 manager, 2 rule)→seed kỳ (scheduler cron giờ không kịp chạy
+trong phiên ngắn, tự chèn SQL additive mô phỏng đúng)→nhập liệu (NUM invalid chặn đúng, giá
+trị hợp lệ lưu đúng)→ghi chú theo ô/bản nộp (PASS cả 2)→duyệt 2 tổ→**chốt kỳ → phát hiện
+BUG-002** (xem "Nợ kỹ thuật" trên)→xác nhận khoá-sau-chốt đúng (409 mọi lần thử). Cũng phát
+hiện bài học tự sửa: TC-S36-01/02 gốc trong `uat.json` dùng rule cross-sheet — kiến trúc
+không cho phép (`missingStrategy=SKIP`), cần viết lại ở lượt sau, không phải bug. Đã dọn
+sạch hoàn toàn report/period/assignment test tạo ra (xoá đúng thứ tự FK). Chi tiết đầy đủ +
+bảng seeded-fault↔TC: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 4".
+
 ## Hàng đợi task kế tiếp
 1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
    tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
@@ -544,7 +556,8 @@ PR4 slice 1 (S01): đã bấm thử thật trên Chromium (xem Đã hoàn thành
 ## Nợ kỹ thuật / rủi ro
 - **Tên file xuất tiếng Việt bị lỗi mã hoá** (phát hiện khi bấm thử "Xuất bản của tổ" 11/10): `Content-Disposition: attachment; filename="..."` gửi thẳng byte UTF-8, không theo RFC 5987 (`filename*=UTF-8''...`) — trình duyệt hiểu theo Latin-1 nên tên file có dấu tiếng Việt ra "Býo-cýo…" thay vì "Báo-cáo…". Nội dung file vẫn ĐÚNG, chỉ tên file sai. Có ở MỌI endpoint xuất file dùng cùng quy ước trong repo: `export.controller.ts` (manager xuất kỳ), `audit.controller.ts`, và giờ thêm `submission.controller.ts` (xuất bản của tổ) — không phải lỗi riêng của dynamic-reports, không vá trong phạm vi module này vì ảnh hưởng nhiều nơi ngoài module. Cách vá đúng: thêm `filename*=UTF-8''${encodeURIComponent(fileName)}` cạnh `filename="..."` ASCII-fallback — đúng khuôn `resolveFilename` phía frontend (`document-templates/export.api.ts`) đã đọc đúng cả hai nhánh.
 - Chưa có tài khoản quản lý/người nhập riêng cho UAT trên staging (chặn khâu UAT thật, không chặn viết code — xem spec §8).
-- **BUG-001 (P1/S2, phát hiện 11/10/2026 qua UAT execute live)**: R21 phê duyệt nhiều cấp không chạy qua API thật — `submission.service.ts` hardcode `totalApprovalLevels:1`/`actingApprovalLevel:1` ở 8 vị trí. Chi tiết: "Checkpoint UAT 11/10/2026" ở trên + `_EXECUTION_REPORT.md`.
+- **BUG-001 (P1/S2, phát hiện 11/10/2026 qua UAT execute live) — ĐÃ VÁ, ĐÃ ĐÓNG (PR #584)**: R21 phê duyệt nhiều cấp không chạy qua API thật — `submission.service.ts` hardcode `totalApprovalLevels:1`/`actingApprovalLevel:1` ở 8 vị trí. Chi tiết: "Checkpoint UAT 11/10/2026" ở trên + `_EXECUTION_REPORT.md`.
+- **BUG-002 (P1/S3, phát hiện 11/10/2026 lượt 4 qua full E2E live) — CHƯA VÁ**: `aggregate.service.ts#finalizePeriod()` (dòng 527-560) chỉ kiểm `period.status==='OPEN'`, KHÔNG kiểm bất kỳ submission nào đã SUBMITTED/APPROVED trước khi cho "chốt kỳ" — tái lập thật: tạo kỳ mới, 2 lượt giao còn NOT_STARTED, gọi finalize → 201 FINALIZED ngay, snapshot APPROVED rỗng được tạo. UI (`ReportPeriodSummaryPage.tsx#handleFinalize`) có `window.confirm` nhưng không nêu tỷ lệ hoàn thành. Chi tiết đầy đủ + khuyến nghị vá: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 4".
 - `/plan-eng-review` đầy đủ cho PR1/PR2 chưa chạy qua skill chính thức — nếu anh muốn chạy chính thức, gọi `/plan-eng-review` nhắm vào diff nhánh `feat/dynamic-reports-m1-engine` so với `origin/main`.
 - Test frontend chập chờn CÓ TRƯỚC (không do dynamic-reports): `frontend/src/features/cases/governance/__tests__/configuration-editors.test.tsx` — fail khi chạy cùng full suite (4884/4885) nhưng PASS 8/8 khi chạy riêng. Đã ghi vào gbrain learnings, không phải việc của dynamic-reports.
 - OFFICER's `read:DynamicReport` grant (seed.ts) chỉ nằm trong *bộ seed đầy đủ* — deploy.sh KHÔNG chạy `seed.ts` (chỉ `seed-quyen.ts`, cấp quyền cho ADMIN). Trên prod hiện tại, chỉ ADMIN có `read/manage/admin:DynamicReport` (qua seed-quyen.ts chạy mỗi lần deploy); OFFICER sẽ nhận quyền khi ai đó chạy `seed.ts` đầy đủ một lần (không khẩn, vì chưa có UI nào tiêu thụ quyền này).

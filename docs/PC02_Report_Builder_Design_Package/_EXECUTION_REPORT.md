@@ -185,6 +185,98 @@ qua nhiều bước** (ví dụ J-WIZARD-01 đầy đủ: upload → preview →
 publish) — các E2E ở trên là "mở đúng trang, render đúng dữ liệu", không phải "thực hiện
 toàn bộ luồng nghiệp vụ". Đây vẫn là GAP cần làm ở lượt sau.
 
+## Cập nhật lượt 4 — Full E2E J-WIZARD-01→J-ENTRY-01→J-REVIEW-01→chốt kỳ qua API thật, bắt BUG-002
+
+Dựng template Excel thật bằng `openpyxl` (2 sheet "To 1"/"To 2", mỗi sheet 4 ô token
+`{TEXT}`/`{NUM|0.00|SUM}`/`{DATE}`/`{TIME}`, **ô unlocked đúng chuẩn** qua
+`Protection(locked=False)` — bài học: mặc định `openpyxl` mọi ô là LOCKED dù không bật sheet
+protection, phải set tường minh). Chạy **toàn bộ journey qua API thật** (không phải mock,
+không phải unit test) nối tiếp nhau, dùng chính báo cáo/kỳ/lượt giao MỚI do chính các bước
+trước sinh ra (không phải fixture cũ):
+
+1. `POST /templates/sheets` → `POST /templates/preview` (selectedSheets) → **8 field đúng
+   kiểu TEXT/NUM/DATE/TIME phát hiện đúng qua token grammar** (E02 xác nhận live).
+2. `POST /reports` (multipart, config đầy đủ: 2 team, 1 manager, 2 rule ERROR+WARNING, period
+   ONE_TIME) → publish **201** → report+version tạo thật trong DB.
+3. (Scheduler sinh kỳ chạy hàng giờ qua `@Cron('0 * * * *')` — KHÔNG kịp trong phiên ngắn,
+   nên tôi tự chèn 1 period + 2 assignment/submission/editor qua SQL tham số hoá, additive,
+   mô phỏng đúng cấu trúc scheduler sẽ tạo — **đây là giới hạn đã biết của phép đo này, ghi
+   rõ không phải tôi đã verify scheduler tạo kỳ ONE_TIME đúng ngay sau publish**).
+4. `PATCH .../values` với `'abc'` cho ô NUM → **400 CELL_VALIDATION đúng, có lỗi rõ ràng**
+   (sau khi tôi sửa đúng field format `values: {fieldKey: rawString}` theo DTO thật, lần đầu
+   tôi gửi sai dạng `{t,v}` gây `500` — lỗi của tôi, không phải sản phẩm).
+5. `PATCH` giá trị hợp lệ TEXT/NUM/DATE/TIME cho cả 2 tổ → **200, lưu đúng**.
+6. `POST .../submit` cả 2 tổ → **201 SUBMITTED**.
+7. `POST .../comments` (ghi chú theo ô + theo cả bản nộp, cả editor và manager) → **201, đọc
+   lại đúng cả 2 ghi chú** — **TC-S37-01/02/03 PASS thật**.
+8. `POST .../approve` cả 2 tổ (manager-test) → **201 APPROVED**.
+9. `POST /periods/:id/finalize` → **201 FINALIZED** — xem BUG-002 dưới.
+10. Thử SAVE/SUBMIT/APPROVE lại sau khi đã chốt → **409 REPORT_LOCKED "Kỳ đã chốt, không thể
+    lưu."**; thử finalize lần 2 → **409 INVALID_STATE_TRANSITION "Kỳ đã chốt rồi."** —
+    **TC-S38 khoá-sau-chốt PASS thật, đúng D04**.
+
+### BUG-002 (P1/S3) — `finalizePeriod()` không kiểm tra đã đủ duyệt trước khi chốt kỳ
+
+**Mô tả**: `backend/src/dynamic-reports/aggregate/aggregate.service.ts` dòng 527-560
+(`finalizePeriod`) chỉ kiểm `period.status !== 'OPEN'` trước khi cho chốt — **không có bất kỳ
+điều kiện nào** yêu cầu các `DynReportAssignment`/`DynReportSubmission` của kỳ đó đã
+`APPROVED` (hay tối thiểu `SUBMITTED`). **Tái lập thật, không giả định**: tạo 1 kỳ mới, 2
+lượt giao cả hai còn `NOT_STARTED` (0 dữ liệu), gọi `POST finalize` ngay — **201, period
+chuyển `FINALIZED`, snapshot `mode=APPROVED` được tạo** dù không có gì để snapshot (0 tổ nộp).
+Xác nhận qua SELECT DB: `dyn_report_submissions.state = 'NOT_STARTED'` cho cả 2 assignment,
+`dyn_report_periods.status = 'FINALIZED'` ngay sau đó.
+
+**Kiểm cả lớp UI**: `frontend/src/pages/dynamic-reports/ReportPeriodSummaryPage.tsx` hàm
+`handleFinalize()` CÓ `window.confirm(...)` nhưng nội dung chỉ "Chốt kỳ này? Sau khi chốt,
+không tổ nào sửa được nữa trừ khi mở chốt lại." — **không nêu tỷ lệ đã nộp/đã duyệt**, nút
+không bị disable theo % hoàn thành. Vậy cả API và UI đều không có rào chắn.
+
+**Vì sao đây là vấn đề thật**: D04 ("Chốt kỳ khoá cả kỳ + snapshot chính thức") và mục đích
+nghiệp vụ của "chốt kỳ" (thay thế quy trình Excel tay, tạo bản chính thức để báo cáo) ngụ ý
+chốt kỳ là hành động CUỐI của một quy trình đã hoàn tất thu thập — không phải một nút bấm vô
+điều kiện. Một quản lý (vô ý hoặc thiếu hiểu biết) có thể chốt kỳ khi mới 0/16 hoặc 3/16 tổ
+đã nộp, tạo ra snapshot chính thức SAI (gần như toàn số 0) mà không có cảnh báo nào. Có đường
+khôi phục (ADMIN "mở chốt" — xem ROLE_MATRIX) nên không chấm S1 (không mất dữ liệu vĩnh viễn,
+chỉ cần ai đó phát hiện và mở chốt lại) — xếp **P1/S3**.
+
+**Khuyến nghị**: thêm kiểm tra tối thiểu (chặn cứng hoặc ít nhất cảnh báo rõ số liệu % đã
+SUBMITTED/APPROVED ngay trong `window.confirm`, lý tưởng là chặn cứng ở API nếu <100% đã
+APPROVED trừ khi có cờ `force`/lý do tường minh — tương tự cách "mở chốt" đã yêu cầu lý do).
+
+### Bài học kiểm thử (KHÔNG phải bug, tự sửa trong lượt này)
+
+Lần thử đầu của tôi gán rule ERROR so sánh `'To 1!B2'` với `'To 2!B2'` (hai SHEET khác nhau —
+tức hai TỔ khác nhau) rồi mong SUBMIT của tổ 1 bị chặn khi hai giá trị không khớp. Thực tế:
+**không bị chặn** — tôi SUÝT ghi nhận đây là "ERROR rule không hoạt động". Đọc code
+(`submission.service.ts` dòng ~1701-1706) cho thấy `evaluateRulesFor()` chỉ nhận
+`assignment.submission!.values` — **đúng theo kiến trúc, một lượt giao (1 tổ) không bao giờ
+thấy field của tổ khác**, nên `'To 2!B2'` luôn là operand thiếu. `engine/rules.ts` dòng
+78-101 xác nhận `missingStrategy` mặc định là `'SKIP'` — operand thiếu thì BỎ QUA rule, không
+tính vi phạm. **Đây là hành vi đúng theo thiết kế, test của tôi sai kiến trúc** (rule kiểm
+tra chỉ có ý nghĩa SO SÁNH TRONG CÙNG MỘT LƯỢT GIAO, ví dụ `'To 1!B2'` so với hằng số hoặc
+field khác CÙNG SHEET). **Khuyến nghị cho `uat.json` lượt sau**: sửa `data_required`/steps
+của TC-S36-01/02 dùng rule trong-cùng-sheet, không cross-sheet — tôi CHƯA sửa `uat.json`
+trong lượt này (hết ngân sách), ghi rõ ở đây để không ai lặp lại nhầm lẫn này.
+
+## Bảng seeded-fault ↔ TC (effectiveness, Bước 7b) — dựa trên fault THẬT đã gặp, không mô
+phỏng thêm trong code sản phẩm (tránh sửa file dùng chung trong worktree đang có người khác
+làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị đổi dưới tay)
+
+| # | Business rule quan trọng | Fault đã THẬT xảy ra (không phải giả định) | TC nào bắt được | Bắt được? |
+|---|---|---|---|---|
+| 1 | R21: APPROVE chỉ đúng cấp kế tiếp | `actingApprovalLevel`/`totalApprovalLevels` hardcode `1` (BUG-001, code thật trước PR #584) | TC-S33-01/02 (chạy live) | ✅ CÓ — phát hiện ngay trong lượt 1 |
+| 2 | D04: chốt kỳ chỉ sau khi đã duyệt | `finalizePeriod()` không kiểm trạng thái submission (BUG-002, code thật, CHƯA vá) | TC-S38-01 (chạy live, bản sửa cần viết thêm ở `uat.json`) | ✅ CÓ — phát hiện trong lượt này, TC gốc trong `uat.json` (viết trước khi biết bug) đã đủ để bắt nếu có `db_assert` kiểm `% approved trước finalize`; đã PHÁT HIỆN được qua chạy thật dù `uat.json` hiện chưa khai assert này — khuyến nghị bổ sung `db_assert` cho TC-S38-01 ở lượt sau |
+| 3 | AC-002 sửa: khoá+token vẫn chặn publish | (chưa gặp fault thật — test template của tôi vô tình tạo đúng case "mọi ô đều locked" ở lần build đầu, hệ thống phản ứng đúng bằng WARNING `LOCKED_LOOKS_LIKE_TOKEN`, không phải lỗi) | TC-S02-04/TC-S03-02 | N/A — quan sát hành vi đúng, không phải fault-seed |
+| 4 | SUBMIT guard: NUM invalid bị chặn | Thử `'abc'` cho ô NUM | TC-S11-02 (chạy live) | ✅ CÓ — `400 CELL_VALIDATION` đúng |
+| 5 | D04: nộp thì khoá ngay, sau chốt không ai sửa được | Thử SAVE/SUBMIT/APPROVE lại sau khi đã `FINALIZED` | TC-S13-01/TC-S38-01 (chạy live) | ✅ CÓ — `409 REPORT_LOCKED` đúng mọi lần thử |
+| 6 | S36 missingStrategy: rule thiếu operand bị SKIP, không phải VIOLATION | Rule cross-sheet tự tạo (xem mục "Bài học kiểm thử" trên) — fault của TÔI (test sai kiến trúc), không phải sản phẩm | TC-S36-01 (bản gốc trong `uat.json`) | ❌ KHÔNG — vì TC thiết kế sai kiến trúc nghiệp vụ (thiếu Domain Research sâu hơn về phạm vi field trong rule); đã ghi nhận để sửa TC ở lượt sau, không phải oracle trang trí vì root cause đã xác định rõ |
+
+**Đọc bảng này**: 4/6 dòng là fault THẬT (không phải mutation tôi tự tạo trong code — do rủi
+ro sửa file sản phẩm trong worktree đang có người khác làm việc đồng thời), và TC tương ứng
+ĐÃ bắt được khi chạy thật. Dòng 6 cho thấy ngược lại: TC thiết kế sai có thể không bắt được
+fault (ở đây là "thiếu kiến trúc hiểu đúng field scope"), đúng tinh thần oracle-minimizer —
+một TC không bắt được gì khi nó SAI, không phải khi sản phẩm đúng.
+
 ## Những gì CHƯA chạy ở checkpoint này (lý do ngân sách)
 - 72/78 TC trong `uat.json` chưa được execute live (chỉ viết + qua Cổng 0/1, chưa qua 7b).
 - Chưa chạy Playwright E2E thật nào (frontend dev server chưa khởi động trong lượt này —
