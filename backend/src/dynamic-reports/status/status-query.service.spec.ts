@@ -453,6 +453,83 @@ describe('StatusQueryService', () => {
     });
   });
 
+  describe('S27 remaining filters: editor/manager/periodType (PR8 slice 8)', () => {
+    it('editorUserId narrows to assignments where that user is an active editor', async () => {
+      const { service, prisma } = buildService([assignment('a1')], {
+        isAdmin: true,
+      });
+
+      await service.listAssignmentStatuses('admin1', 'roleAdmin', {
+        editorUserId: 'user1',
+      });
+
+      const call = prisma.dynReportAssignment.findMany.mock.calls[0][0] as {
+        where: { editors: { some: { userId: string; isActive: boolean } } };
+      };
+      expect(call.where.editors).toEqual({
+        some: { userId: 'user1', isActive: true },
+      });
+    });
+
+    it('managerUserId narrows to periods whose report has that user as an active MANAGER', async () => {
+      const { service, prisma } = buildService([assignment('a1')], {
+        isAdmin: true,
+      });
+
+      await service.listAssignmentStatuses('admin1', 'roleAdmin', {
+        managerUserId: 'user2',
+      });
+
+      const call = prisma.dynReportAssignment.findMany.mock.calls[0][0] as {
+        where: {
+          period: {
+            report: { roles: { some: { userId: string; role: string } } };
+          };
+        };
+      };
+      expect(call.where.period.report.roles.some.userId).toBe('user2');
+      expect(call.where.period.report.roles.some.role).toBe('MANAGER');
+    });
+
+    it('periodType narrows against scheduleSnapshot.periodType', async () => {
+      const { service, prisma } = buildService([assignment('a1')], {
+        isAdmin: true,
+      });
+
+      await service.listAssignmentStatuses('admin1', 'roleAdmin', {
+        periodType: 'MONTHLY',
+      });
+
+      const call = prisma.dynReportAssignment.findMany.mock.calls[0][0] as {
+        where: {
+          period: { scheduleSnapshot: { path: string[]; equals: string } };
+        };
+      };
+      expect(call.where.period.scheduleSnapshot).toEqual({
+        path: ['periodType'],
+        equals: 'MONTHLY',
+      });
+    });
+
+    it('omits all three filters from the where clause when not provided', async () => {
+      const { service, prisma } = buildService([assignment('a1')], {
+        isAdmin: true,
+      });
+
+      await service.listAssignmentStatuses('admin1', 'roleAdmin', {});
+
+      const call = prisma.dynReportAssignment.findMany.mock.calls[0][0] as {
+        where: {
+          editors?: unknown;
+          period: { report?: unknown; scheduleSnapshot?: unknown };
+        };
+      };
+      expect(call.where.editors).toBeUndefined();
+      expect(call.where.period.report).toBeUndefined();
+      expect(call.where.period.scheduleSnapshot).toBeUndefined();
+    });
+  });
+
   describe('listReportsInScope (S20, PR8 slice 3)', () => {
     it('admin:DynamicReport sees every report, unfiltered', async () => {
       const { service, prisma } = buildService([], {

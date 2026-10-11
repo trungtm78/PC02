@@ -130,6 +130,9 @@ export class StatusQueryController {
         state: query.state,
         overdue: query.overdue,
         reopened: query.reopened,
+        editorUserId: query.editorUserId,
+        managerUserId: query.managerUserId,
+        periodType: query.periodType,
       },
       query.page,
       query.pageSize,
@@ -154,6 +157,9 @@ export class StatusQueryController {
         state: query.state,
         overdue: query.overdue,
         reopened: query.reopened,
+        editorUserId: query.editorUserId,
+        managerUserId: query.managerUserId,
+        periodType: query.periodType,
       },
     );
     const exportRows = rows.map(toExportRow);

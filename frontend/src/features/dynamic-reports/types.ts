@@ -2,7 +2,7 @@
  * Mirrors backend/src/dynamic-reports/reports.service.ts response shapes
  * exactly, including field names — no renaming at the boundary.
  */
-import type { DynReportSubmissionState } from '@/shared/enums/generated';
+import type { DynReportSubmissionState, DynReportPeriodType } from '@/shared/enums/generated';
 export type { DynReportSubmissionState };
 
 export type DynReportStatus = 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
@@ -398,6 +398,12 @@ export interface StatusListFilters {
   state?: DynReportSubmissionState;
   overdue?: boolean;
   reopened?: boolean;
+  /** S27 "người nhập" (PR8 slice 8). */
+  editorUserId?: string;
+  /** S27 "quản lý". */
+  managerUserId?: string;
+  /** S27 "loại kỳ". */
+  periodType?: DynReportPeriodType;
 }
 
 /** S20 ma trận (PR8 slice 3) — report picker option. */

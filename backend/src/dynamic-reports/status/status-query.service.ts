@@ -53,6 +53,12 @@ export interface StatusListFilters {
   state?: SubmissionState;
   overdue?: boolean;
   reopened?: boolean;
+  /** S27 "người nhập" (PR8 slice 8) — assignment has this user as an active editor. */
+  editorUserId?: string;
+  /** S27 "quản lý" — the assignment's report has this user as an active MANAGER role. */
+  managerUserId?: string;
+  /** S27 "loại kỳ" — matched against `DynReportPeriod.scheduleSnapshot.periodType`, captured when the period was generated. */
+  periodType?: string;
 }
 
 export interface StatusListResult {
@@ -183,9 +189,36 @@ export class StatusQueryService {
       period: {
         ...(reportIdCondition ? { reportId: reportIdCondition } : {}),
         ...(filters.periodId ? { id: filters.periodId } : {}),
+        ...(filters.periodType
+          ? {
+              scheduleSnapshot: {
+                path: ['periodType'],
+                equals: filters.periodType,
+              },
+            }
+          : {}),
+        ...(filters.managerUserId
+          ? {
+              report: {
+                roles: {
+                  some: {
+                    userId: filters.managerUserId,
+                    role: 'MANAGER',
+                    validFrom: { lte: now },
+                    OR: [{ validTo: null }, { validTo: { gt: now } }],
+                  },
+                },
+              },
+            }
+          : {}),
       },
       ...(teamIdFilter ? { teamId: { in: teamIdFilter } } : {}),
       ...(filters.state ? { submission: { state: filters.state } } : {}),
+      ...(filters.editorUserId
+        ? {
+            editors: { some: { userId: filters.editorUserId, isActive: true } },
+          }
+        : {}),
     };
 
     const assignments = await this.prisma.dynReportAssignment.findMany({

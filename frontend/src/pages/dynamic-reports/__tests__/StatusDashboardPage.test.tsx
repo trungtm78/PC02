@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import StatusDashboardPage from '../StatusDashboardPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import type { StatusListResult } from '@/features/dynamic-reports/types';
+
+vi.mock('@/hooks/useOfficerOptions', () => ({ useOfficerOptions: vi.fn() }));
 
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
@@ -74,6 +77,7 @@ const RESULT: StatusListResult = {
 describe('StatusDashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useOfficerOptions).mockReturnValue({ data: [], isLoading: false } as never);
   });
 
   it('renders the KPI cards and the status table', async () => {
@@ -273,6 +277,70 @@ describe('StatusDashboardPage', () => {
 
     await waitFor(() => {
       expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({ teamId: 'team1' }, 'csv');
+    });
+  });
+
+  it('filters the table by editor (người nhập) when selected from the dropdown (S27 slice 8)', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(useOfficerOptions).mockReturnValue({
+      data: [{ value: 'user1', label: 'Nguyễn Văn A', teams: [] }],
+      isLoading: false,
+    } as never);
+    renderPage();
+
+    await waitFor(() =>
+      within(screen.getByTestId('editor-filter-select')).getByRole('option', {
+        name: 'Nguyễn Văn A',
+      }),
+    );
+    await userEvent.selectOptions(screen.getByTestId('editor-filter-select'), 'user1');
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith(
+        { editorUserId: 'user1' },
+        1,
+        25,
+      );
+    });
+  });
+
+  it('filters the table by manager (quản lý) when selected from the dropdown (S27 slice 8)', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(useOfficerOptions).mockReturnValue({
+      data: [{ value: 'user2', label: 'Trần Thị B', teams: [] }],
+      isLoading: false,
+    } as never);
+    renderPage();
+
+    await waitFor(() =>
+      within(screen.getByTestId('manager-filter-select')).getByRole('option', {
+        name: 'Trần Thị B',
+      }),
+    );
+    await userEvent.selectOptions(screen.getByTestId('manager-filter-select'), 'user2');
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith(
+        { managerUserId: 'user2' },
+        1,
+        25,
+      );
+    });
+  });
+
+  it('filters the table by period type (loại kỳ) when selected from the dropdown (S27 slice 8)', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('period-type-filter-select'));
+    await userEvent.selectOptions(screen.getByTestId('period-type-filter-select'), 'MONTHLY');
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith(
+        { periodType: 'MONTHLY' },
+        1,
+        25,
+      );
     });
   });
 
