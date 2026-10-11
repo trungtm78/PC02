@@ -11,6 +11,12 @@ import {
   CaseAssignedEvent,
   CaseCreatedEvent,
   CaseStatusChangedEvent,
+  DynReportApprovedEvent,
+  DynReportDeadlineReminderEvent,
+  DynReportPeriodFinalizedEvent,
+  DynReportReturnedEvent,
+  DynReportUnlockGrantedEvent,
+  DynReportUnlockRequestedEvent,
   IncidentAssignedEvent,
   IncidentCreatedEvent,
   PetitionAssignedEvent,
@@ -118,6 +124,136 @@ export class NotificationEventService {
       );
     } catch (err) {
       this.logger.error('onCaseCreated failed', err);
+    }
+  }
+
+  // ── Dynamic Report Builder (Báo cáo động, PR9 slice 3) ──────────────────
+
+  @OnEvent('dyn-report.returned', { async: true })
+  async onDynReportReturned(event: DynReportReturnedEvent): Promise<void> {
+    try {
+      await Promise.all(
+        event.toUserIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.DYN_REPORT_RETURNED,
+            title: 'Bản nộp bị trả lại',
+            message: `Báo cáo "${event.reportName}" kỳ ${event.periodKey} bị trả lại: ${event.reason}`,
+            link: `/bao-cao-dong/nhap/${event.assignmentId}`,
+            metadata: { assignmentId: event.assignmentId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onDynReportReturned failed', err);
+    }
+  }
+
+  @OnEvent('dyn-report.approved', { async: true })
+  async onDynReportApproved(event: DynReportApprovedEvent): Promise<void> {
+    try {
+      await Promise.all(
+        event.toUserIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.DYN_REPORT_APPROVED,
+            title: 'Bản nộp đã được duyệt',
+            message: `Báo cáo "${event.reportName}" kỳ ${event.periodKey} đã được duyệt`,
+            link: `/bao-cao-dong/nhap/${event.assignmentId}`,
+            metadata: { assignmentId: event.assignmentId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onDynReportApproved failed', err);
+    }
+  }
+
+  @OnEvent('dyn-report.unlock-granted', { async: true })
+  async onDynReportUnlockGranted(
+    event: DynReportUnlockGrantedEvent,
+  ): Promise<void> {
+    try {
+      await Promise.all(
+        event.toUserIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.DYN_REPORT_UNLOCK_GRANTED,
+            title: 'Được mở lại để sửa',
+            message: `Báo cáo "${event.reportName}" kỳ ${event.periodKey} được mở lại đến ${event.expiresAt}`,
+            link: `/bao-cao-dong/nhap/${event.assignmentId}`,
+            metadata: { assignmentId: event.assignmentId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onDynReportUnlockGranted failed', err);
+    }
+  }
+
+  @OnEvent('dyn-report.unlock-requested', { async: true })
+  async onDynReportUnlockRequested(
+    event: DynReportUnlockRequestedEvent,
+  ): Promise<void> {
+    try {
+      await Promise.all(
+        event.toUserIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.DYN_REPORT_UNLOCK_REQUESTED,
+            title: 'Yêu cầu mở lại báo cáo',
+            message: `${event.byUserName} xin mở lại "${event.reportName}" kỳ ${event.periodKey}: ${event.reason}`,
+            link: `/bao-cao-dong/duyet/mo-khoa`,
+            metadata: { assignmentId: event.assignmentId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onDynReportUnlockRequested failed', err);
+    }
+  }
+
+  @OnEvent('dyn-report.period-finalized', { async: true })
+  async onDynReportPeriodFinalized(
+    event: DynReportPeriodFinalizedEvent,
+  ): Promise<void> {
+    try {
+      await Promise.all(
+        event.toUserIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.DYN_REPORT_PERIOD_FINALIZED,
+            title: 'Kỳ báo cáo đã chốt',
+            message: `Báo cáo "${event.reportName}" kỳ ${event.periodKey} đã được chốt`,
+            link: `/bao-cao-dong/duyet/tong-hop/${event.periodId}`,
+            metadata: { periodId: event.periodId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onDynReportPeriodFinalized failed', err);
+    }
+  }
+
+  @OnEvent('dyn-report.deadline-reminder', { async: true })
+  async onDynReportDeadlineReminder(
+    event: DynReportDeadlineReminderEvent,
+  ): Promise<void> {
+    try {
+      await Promise.all(
+        event.toUserIds.map((uid) =>
+          this.sendInApp({
+            toUserId: uid,
+            type: NotificationType.DYN_REPORT_DEADLINE_REMINDER,
+            title: 'Sắp đến hạn nộp báo cáo',
+            message: `Báo cáo "${event.reportName}" kỳ ${event.periodKey} chưa nộp, hạn ${event.dueAt}`,
+            link: `/bao-cao-dong/nhap/${event.assignmentId}`,
+            metadata: { assignmentId: event.assignmentId },
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.error('onDynReportDeadlineReminder failed', err);
     }
   }
 

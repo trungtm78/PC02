@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { AggregateService } from './aggregate.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TeamsService } from '../../teams/teams.service';
@@ -110,6 +111,7 @@ describe('AggregateService', () => {
     const service = new AggregateService(
       prisma as unknown as PrismaService,
       teamsService ?? buildTeamsServiceMock(),
+      { emit: jest.fn() } as unknown as EventEmitter2,
     );
     return { service, prisma };
   }
@@ -262,6 +264,7 @@ describe('AggregateService', () => {
     const service = new AggregateService(
       prisma as unknown as PrismaService,
       buildTeamsServiceMock(),
+      { emit: jest.fn() } as unknown as EventEmitter2,
     );
 
     const result = await service.getPeriodSummary(
@@ -348,6 +351,9 @@ describe('AggregateService', () => {
           findFirst: jest
             .fn<Promise<unknown>, unknown[]>()
             .mockResolvedValue(grants[0] ?? null),
+          findMany: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue([]),
         },
         dynReportSnapshot: {
           create: jest
@@ -359,11 +365,13 @@ describe('AggregateService', () => {
       const prisma = {
         $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
       };
+      const eventEmitter = { emit: jest.fn() };
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
+        eventEmitter as unknown as EventEmitter2,
       );
-      return { service, tx };
+      return { service, tx, eventEmitter };
     }
 
     it('finalizes an OPEN period, writes an official APPROVED snapshot, and flips status', async () => {
@@ -399,6 +407,20 @@ describe('AggregateService', () => {
       };
       expect(periodUpdateCall.data.status).toBe('FINALIZED');
       expect(periodUpdateCall.data.finalizedById).toBe('mgr1');
+    });
+
+    it('PR9 slice 3: emits dyn-report.period-finalized to every manager of the report', async () => {
+      const { service, tx, eventEmitter } = buildTxService(basePeriod(), [
+        { role: 'MANAGER' },
+      ]);
+      tx.dynReportRole.findMany.mockResolvedValue([{ userId: 'mgr1' }]);
+
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'dyn-report.period-finalized',
+        expect.objectContaining({ periodId: 'period1', toUserIds: ['mgr1'] }),
+      );
     });
 
     it('rejects with INVALID_STATE_TRANSITION when the period is already FINALIZED', async () => {
@@ -505,6 +527,7 @@ describe('AggregateService', () => {
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
+        { emit: jest.fn() } as unknown as EventEmitter2,
       );
       return { service, prisma };
     }
@@ -668,6 +691,7 @@ describe('AggregateService', () => {
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         teamsService ?? buildTeamsServiceMock(),
+        { emit: jest.fn() } as unknown as EventEmitter2,
       );
       return { service, prisma };
     }
@@ -875,6 +899,7 @@ describe('AggregateService', () => {
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
+        { emit: jest.fn() } as unknown as EventEmitter2,
       );
       return { service, prisma };
     }
@@ -1033,6 +1058,7 @@ describe('AggregateService', () => {
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
+        { emit: jest.fn() } as unknown as EventEmitter2,
       );
       return { service, tx, prisma };
     }
@@ -1309,6 +1335,7 @@ describe('AggregateService', () => {
         const service = new AggregateService(
           prisma as unknown as PrismaService,
           buildTeamsServiceMock(),
+          { emit: jest.fn() } as unknown as EventEmitter2,
         );
         return { service, tx };
       }

@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import * as ExcelJS from 'exceljs';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DynReportPeriodFinalizedEvent } from '../../notifications/events/notification.events';
 import { aggregateValues } from '../engine/aggregate';
 import type { Contribution } from '../engine/aggregate';
 import { computeKpiSummary } from '../engine/status';
@@ -209,6 +211,7 @@ export class AggregateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamsService: TeamsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private async resolveManagerRole(
@@ -526,12 +529,13 @@ export class AggregateService {
     userId: string,
     roleId: string,
   ): Promise<FinalizeResultView> {
-    return this.prisma.$transaction(async (tx) => {
+    const { result, notify } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
 
       const period = await tx.dynReportPeriod.findUnique({
         where: { id: periodId },
         include: {
+          report: true,
           version: { include: { fields: true } },
           assignments: { include: { submission: true } },
         },
@@ -582,13 +586,52 @@ export class AggregateService {
         data: { status: 'FINALIZED', finalizedAt: now, finalizedById: userId },
       });
 
+      const toUserIds = await this.managerIds(tx, period.reportId);
+
       return {
-        periodId,
-        status: 'FINALIZED',
-        finalizedAt: now.toISOString(),
-        snapshotId: snapshot.id,
+        result: {
+          periodId,
+          status: 'FINALIZED' as const,
+          finalizedAt: now.toISOString(),
+          snapshotId: snapshot.id,
+        },
+        notify: {
+          toUserIds,
+          reportName: period.report.name,
+          periodKey: period.periodKey,
+        },
       };
     });
+    if (notify.toUserIds.length > 0) {
+      this.eventEmitter.emit(
+        'dyn-report.period-finalized',
+        new DynReportPeriodFinalizedEvent(
+          periodId,
+          notify.reportName,
+          notify.periodKey,
+          notify.toUserIds,
+        ),
+      );
+    }
+    return result;
+  }
+
+  /** PR9 slice 3 — every active manager/admin of a report, for notification recipients. */
+  private async managerIds(
+    client: Prisma.TransactionClient | PrismaService,
+    reportId: string,
+  ): Promise<string[]> {
+    const now = new Date();
+    const roles = await client.dynReportRole.findMany({
+      where: {
+        reportId,
+        role: 'MANAGER',
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      select: { userId: true },
+    });
+    return roles.map((r) => r.userId);
   }
 
   /**

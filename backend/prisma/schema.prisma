@@ -4250,6 +4250,7 @@ model DynReportAssignment {
   submission   DynReportSubmission?
   unlocks      DynReportUnlock[]
   comments     DynReportComment[]
+  reminders    DynReportReminder[]
 
   @@unique([periodId, teamId])
   @@map("dyn_report_assignments")
@@ -4353,6 +4354,29 @@ model DynReportComment {
 
   @@index([assignmentId, fieldKey])
   @@map("dyn_report_comments")
+}
+
+enum DynReportReminderWindow {
+  T3D
+  T24H
+  T3H
+}
+
+/**
+ * PR9 slice 3 — chống gửi trùng nhắc hạn. Một dòng = đã gửi nhắc cho MỘT
+ * cửa sổ (T-3 ngày/T-24h/T-3h) của MỘT lượt giao; `ReminderSchedulerService`
+ * kiểm tồn tại trước khi gửi, không cần dọn/hết hạn vì mỗi kỳ chỉ có tối đa
+ * 3 dòng/lượt giao suốt vòng đời của nó.
+ */
+model DynReportReminder {
+  id           String              @id @default(cuid())
+  assignmentId String
+  assignment   DynReportAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  window       DynReportReminderWindow
+  sentAt       DateTime            @default(now())
+
+  @@unique([assignmentId, window])
+  @@map("dyn_report_reminders")
 }
 
 model DynReportSnapshot {

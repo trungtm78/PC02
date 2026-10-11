@@ -27,6 +27,9 @@ import {
   Loader2,
   Mail,
   ExternalLink,
+  FileSpreadsheet,
+  Unlock,
+  Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
@@ -45,7 +48,14 @@ type NotificationType =
   | 'INCIDENT_CREATED'
   | 'UTDT_ASSIGNED'
   | 'DOCUMENT_UPLOADED'
-  | 'SYSTEM';
+  | 'SYSTEM'
+  // Dynamic Report Builder (Báo cáo động, PR9 slice 3)
+  | 'DYN_REPORT_RETURNED'
+  | 'DYN_REPORT_APPROVED'
+  | 'DYN_REPORT_UNLOCK_GRANTED'
+  | 'DYN_REPORT_UNLOCK_REQUESTED'
+  | 'DYN_REPORT_PERIOD_FINALIZED'
+  | 'DYN_REPORT_DEADLINE_REMINDER';
 
 interface Notification {
   id: string;
@@ -125,6 +135,36 @@ const TYPE_CONFIG: Record<
     icon: <Info className="w-4 h-4" />,
     bg: 'bg-slate-100',
     text: 'text-slate-600',
+  },
+  DYN_REPORT_RETURNED: {
+    icon: <FileSpreadsheet className="w-4 h-4" />,
+    bg: 'bg-amber-100',
+    text: 'text-amber-600',
+  },
+  DYN_REPORT_APPROVED: {
+    icon: <FileSpreadsheet className="w-4 h-4" />,
+    bg: 'bg-green-100',
+    text: 'text-green-600',
+  },
+  DYN_REPORT_UNLOCK_GRANTED: {
+    icon: <Unlock className="w-4 h-4" />,
+    bg: 'bg-blue-100',
+    text: 'text-blue-600',
+  },
+  DYN_REPORT_UNLOCK_REQUESTED: {
+    icon: <Unlock className="w-4 h-4" />,
+    bg: 'bg-violet-100',
+    text: 'text-violet-600',
+  },
+  DYN_REPORT_PERIOD_FINALIZED: {
+    icon: <Lock className="w-4 h-4" />,
+    bg: 'bg-slate-100',
+    text: 'text-slate-600',
+  },
+  DYN_REPORT_DEADLINE_REMINDER: {
+    icon: <Clock className="w-4 h-4" />,
+    bg: 'bg-red-100',
+    text: 'text-red-600',
   },
 };
 

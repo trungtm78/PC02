@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import * as ExcelJS from 'exceljs';
 import { SubmissionService } from './submission.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -65,7 +66,7 @@ describe('SubmissionService', () => {
         .mockResolvedValue([{ now }]),
       dynReportAssignmentEditor: {
         findFirst: jest.fn<Promise<unknown>, unknown[]>(),
-        findMany: jest.fn<Promise<unknown>, unknown[]>(),
+        findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
       },
       dynReportAssignment: {
         findUnique: jest.fn<Promise<unknown>, unknown[]>(),
@@ -133,8 +134,12 @@ describe('SubmissionService', () => {
       dynReportIdempotency: tx.dynReportIdempotency,
       dynReportComment: tx.dynReportComment,
     };
-    const service = new SubmissionService(prisma as unknown as PrismaService);
-    return { service, prisma };
+    const eventEmitter = { emit: jest.fn() };
+    const service = new SubmissionService(
+      prisma as unknown as PrismaService,
+      eventEmitter as unknown as EventEmitter2,
+    );
+    return { service, prisma, eventEmitter };
   }
 
   describe('listMyAssignments', () => {
@@ -1081,6 +1086,59 @@ describe('SubmissionService', () => {
       expect(revisionCall.data.reason).toBe('OK');
     });
 
+    it('PR9 slice 3: emits dyn-report.approved to every active editor once the submission reaches APPROVED', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        { userId: 'editor1' },
+        { userId: 'editor2' },
+      ]);
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+      });
+      const { service, eventEmitter } = buildService(tx);
+
+      await service.approve('assign1', 'mgr1', 'roleMgr', '1', 'OK');
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'dyn-report.approved',
+        expect.objectContaining({
+          assignmentId: 'assign1',
+          toUserIds: ['editor1', 'editor2'],
+        }),
+      );
+    });
+
+    it('PR9 slice 3: does not emit when there are no active editors to notify', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([]);
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+      });
+      const { service, eventEmitter } = buildService(tx);
+
+      await service.approve('assign1', 'mgr1', 'roleMgr', '1', 'OK');
+
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
     it('approves via admin:DynamicReport even without a DynReportRole row', async () => {
       const tx = buildTx();
       tx.dynReportAssignment.findUnique.mockResolvedValue(
@@ -1209,6 +1267,44 @@ describe('SubmissionService', () => {
       );
     });
 
+    it('PR9 slice 3: emits dyn-report.returned with the reason to every active editor', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        { userId: 'editor1' },
+      ]);
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+      });
+      const { service, eventEmitter } = buildService(tx);
+
+      await service.returnSubmission(
+        'assign1',
+        'mgr1',
+        'roleMgr',
+        '1',
+        'Thiếu số liệu tổ 3',
+        '2026-06-20T17:00:00Z',
+      );
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'dyn-report.returned',
+        expect.objectContaining({
+          assignmentId: 'assign1',
+          toUserIds: ['editor1'],
+          reason: 'Thiếu số liệu tổ 3',
+        }),
+      );
+    });
+
     it('rejects with CELL_VALIDATION when returnDueAt is not in the future', async () => {
       const tx = buildTx();
       tx.dynReportAssignment.findUnique.mockResolvedValue(
@@ -1313,7 +1409,10 @@ describe('SubmissionService', () => {
           ]),
         },
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       const result = await service.listForManager('mgr1', 'roleMgr');
 
@@ -1339,7 +1438,10 @@ describe('SubmissionService', () => {
         dynReportRole: tx.dynReportRole,
         dynReport: tx.dynReport,
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       expect(await service.listForManager('u1', 'role1')).toEqual([]);
     });
@@ -1373,7 +1475,10 @@ describe('SubmissionService', () => {
             .mockResolvedValue([]),
         },
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       const result = await service.getSubmissionForManager(
         'assign1',
@@ -1396,7 +1501,10 @@ describe('SubmissionService', () => {
         rolePermission: tx.rolePermission,
         dynReportRole: tx.dynReportRole,
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       await expect(
         service.getSubmissionForManager('assign1', 'u1', 'role1'),
@@ -1429,7 +1537,10 @@ describe('SubmissionService', () => {
             .mockResolvedValue([]),
         },
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       const result = await service.getSubmissionForManager(
         'assign1',
@@ -1483,7 +1594,10 @@ describe('SubmissionService', () => {
           ]),
         },
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       const result = await service.getSubmissionForManager(
         'assign1',
@@ -1532,7 +1646,10 @@ describe('SubmissionService', () => {
             .mockResolvedValue([]),
         },
       };
-      const service = new SubmissionService(prisma as unknown as PrismaService);
+      const service = new SubmissionService(
+        prisma as unknown as PrismaService,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+      );
 
       const result = await service.getSubmissionForManager(
         'assign1',
@@ -1580,6 +1697,31 @@ describe('SubmissionService', () => {
       const deltaMs = createCall.data.expiresAt.getTime() - Date.now();
       expect(deltaMs).toBeGreaterThan(3 * 60 * 60 * 1000 - 5000);
       expect(deltaMs).toBeLessThan(3 * 60 * 60 * 1000 + 5000);
+    });
+
+    it('PR9 slice 3: emits dyn-report.unlock-granted to every active editor', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        { userId: 'editor1' },
+      ]);
+      tx.dynReportUnlock.create.mockResolvedValue({
+        id: 'unlock1',
+        expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        reason: 'Cho thêm giờ',
+      });
+      const { service, eventEmitter } = buildService(tx);
+
+      await service.grantUnlock('assign1', 'mgr1', 'roleMgr', 'Cho thêm giờ');
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'dyn-report.unlock-granted',
+        expect.objectContaining({
+          assignmentId: 'assign1',
+          toUserIds: ['editor1'],
+        }),
+      );
     });
 
     it('uses the given expiresAt when provided', async () => {
@@ -1738,6 +1880,40 @@ describe('SubmissionService', () => {
       expect(createCall.data.kind).toBe('REQUEST');
       expect(createCall.data.status).toBe('PENDING');
       expect(createCall.data.requestedById).toBe('u1');
+    });
+
+    it('PR9 slice 3: emits dyn-report.unlock-requested to every manager of the report', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({ teamId: 'team1', teamSnapshot: { name: 'Đội 3' } }),
+      );
+      tx.dynReportUnlock.create.mockResolvedValue({
+        id: 'req1',
+        reason: 'Nhập nhầm số',
+        createdAt: now,
+      });
+      tx.user.findUnique.mockResolvedValue({
+        firstName: 'Văn',
+        lastName: 'Nguyễn',
+        username: 'nv',
+      });
+      tx.dynReportRole.findMany.mockResolvedValue([{ userId: 'mgr1' }]);
+      const { service, eventEmitter } = buildService(tx);
+
+      await service.requestUnlock('assign1', 'u1', 'Nhập nhầm số');
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'dyn-report.unlock-requested',
+        expect.objectContaining({
+          assignmentId: 'assign1',
+          toUserIds: ['mgr1'],
+          byUserName: 'Văn Nguyễn',
+          reason: 'Nhập nhầm số',
+        }),
+      );
     });
 
     it('requestUnlock rejects (404) when the caller is not an active editor', async () => {
