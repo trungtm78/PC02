@@ -73,6 +73,80 @@ trạng thái `approvalLevel≥1` mà `state` vẫn `SUBMITTED` — đúng là t
 THỂ xảy ra nếu/khi R21 UI được thêm sau này mà không vá service trước. Xếp **P1** (không
 chặn luồng hiện tại) / **S2** (không workaround nào trong code hiện tại một khi kẹt).
 
+## Cập nhật lượt 2 (sau khi BUG-001 được vá ở PR #584)
+
+**BUG-001 đã được vá** (nhánh `fix/dynamic-reports-multilevel-approval`, PR #584, commit
+`dcf4ed7f`) — cột `DynReportRole.approvalLevel` (migration additive, default 1) +
+`resolveTotalApprovalLevels`/`resolveActingApprovalLevel` thay literal `1`. **Đã `git merge`
+nhánh vá vào `feat/dynamic-reports-pr10-uat`** (merge commit sau checkpoint lượt 1), đồng bộ
+schema bằng `prisma db push`, sinh lại cặp khoá JWT nhất quán, restart backend dev server —
+xác nhận `dist/.../submission.service.js` có đủ 2 hàm resolver mới.
+
+**Lưu ý quan trọng khi chạy lại thử nghiệm sau này**: merge (không cherry-pick) được chọn cố
+ý — giữ nguyên commit hash `dcf4ed7f`, nên khi `fix/dynamic-reports-multilevel-approval` merge
+vào `main` sau này và nhánh UAT này được rebase/merge `main` vào, git sẽ nhận diện đây là nội
+dung đã có, không tạo xung đột trùng lặp (khác cherry-pick, vốn tạo hash mới).
+
+**Quan sát CHƯA kết luận — cần kỹ sư xác nhận lại độc lập**: để kiểm chứng kịch bản thật 2
+cấp (chưa có DTO/UI nào tạo được cấu hình này, đúng như ghi chú — tôi tự tạo bằng INSERT SQL
+trực tiếp 1 dòng `DynReportRole` thứ hai, role=MANAGER, approvalLevel=2, cho user
+`viewer-test`, trên báo cáo `dr-test-report-1`), rồi cho `manager-test` (approvalLevel=1)
+duyệt lần 1 qua API thật. Kỳ vọng: dừng ở `SUBMITTED`, `approvalLevel=1` (chưa đủ 2 cấp).
+**Thực tế quan sát được: chuyển thẳng `APPROVED` ngay sau 1 lần duyệt** — như thể
+`totalApprovalLevels` vẫn được tính là 1, dù truy vấn SQL thủ công y hệt logic
+`resolveTotalApprovalLevels` (chạy trực tiếp qua `psql`) trả về đúng `MAX=2`. Tôi KHÔNG đủ
+thời gian trong checkpoint này để cô lập nguyên nhân (nghi vấn: cache Prisma, cấu hình đọc
+dữ liệu trong transaction, hoặc đơn giản là lỗi trong cách tôi dựng dữ liệu test qua INSERT
+tay — case này nằm NGOÀI luồng được hỗ trợ vì chưa có UI, nên rất dễ tôi dựng sai một chi
+tiết nhỏ). Đã dọn sạch dữ liệu test (xoá role chèn thêm, revert `dyn_report_submissions` về
+đúng trạng thái gốc `SUBMITTED/approvalLevel=0/currentRevision=4`) để không làm bẩn fixture
+cho phiên sau. **Khuyến nghị**: kỹ sư PR #584 tự tái lập kịch bản 2 cấp bằng cùng cách (hoặc
+cách sạch hơn, có kiểm soát) và xác nhận lại — đây là báo cáo "quan sát bất thường", KHÔNG
+phải khẳng định BUG-001 chưa vá hết (7 unit test mới + full suite xanh là bằng chứng mạnh hơn
+một lần thử tay của tôi với dữ liệu dựng ngoài luồng được hỗ trợ).
+
+## E2E Playwright thật — J-REVIEW-01 (TC-E2E-REVIEW-01)
+
+Dựng frontend dev server (`node_modules/.bin/vite.cmd --port 5179 --strictPort`, lưu ý: cấu
+hình root `playwright.config.ts` của repo hiện có lỗi cú pháp — thừa một `},` ở dòng 51 trong
+mảng `projects`, khiến `npx playwright test` không parse được config — đây là lỗi **có từ
+trước**, không phải do tôi, và tôi KHÔNG sửa vì đây là file dùng chung cho toàn bộ UAT khác
+của repo, không thuộc phạm vi module Báo cáo động; đã né bằng cách gọi trực tiếp
+`chromium.launch()` qua script, không qua `playwright test` runner).
+
+**Kết quả: PASS, bằng chứng thật (3 ảnh chụp, lưu ngoài repo ở thư mục tạm của phiên)**:
+1. Mở `http://localhost:5179/login`, điền `#username`/`#password` thật cho `manager-test`.
+2. Bấm submit → chuyển hướng tới `/dashboard` (đăng nhập thành công qua UI thật, không mock).
+3. Điều hướng tới `/bao-cao-dong/duyet/dr-test-assignment-1` (route S33/J-REVIEW-01 thật).
+4. Trang render đúng dữ liệu backend thật: tên báo cáo "Báo cáo test dán TSV", trạng thái
+   "Đã nộp", kỳ "2026-10" — KHÔNG phải trang lỗi/404, KHÔNG phải mock.
+
+Đây là **1 E2E PASS thật cho journey chính** (manager xem submission đã nộp) — thoả một phần
+luật #13 (E2E bắt buộc cho journey chính có UI), nhưng CHƯA phủ hết các journey chính khác
+(J-WIZARD-01, J-ENTRY-01, J-UNLOCK-01, J-DASH-01) — xem mục "CHƯA chạy" dưới.
+
+## S21/X03 — audit trail: phát hiện kiến trúc thật khác giả định ban đầu
+
+Kiểm trực tiếp DB: `dyn_report_revisions` (actorId + reason + kind + revision + committedAt)
+LÀ audit trail thật của module — có dữ liệu thật từ các lượt SAVE/SUBMIT/RETURN/APPROVE/
+UNAPPROVE trước đó, đủ actor+thời điểm+lý do+revision → **TC-S21-01 PASS thật** (quan sát
+trực tiếp, không cần dựng thêm fixture).
+
+Nhưng bảng `audit_logs` chung của hệ thống (dùng cho các module khác) có **0 dòng nào** liên
+quan dynamic-reports — toàn bộ audit của module này sống trong các bảng `dyn_report_*` riêng,
+không qua `audit_logs`. Đồng thời `dyn_report_revisions.valuesFull` LƯU ĐẦY ĐỦ giá trị số liệu
+(đúng mục đích — cần để khôi phục/so sánh theo revision).
+
+→ **TC-X03-01 ("Audit log KHÔNG chứa số liệu") cần CHUNG ONG lại, chưa kết luận PASS/FAIL**:
+oracle gốc trong `UAT-COVERAGE.md` giả định có một "audit log" tách biệt không chứa số liệu,
+nhưng kiến trúc thật KHÔNG có lớp audit-không-số-liệu tách riêng cho hành động SAVE/SUBMIT —
+giá trị nằm ngay trong bảng dùng để audit. Đây là **câu hỏi cần người có thẩm quyền sản phẩm
+trả lời**: ý định ban đầu của X03 là (a) chấp nhận audit trail chứa số liệu vì đó là thiết kế
+hợp lý (snapshot cho rollback), hay (b) có một endpoint/role xem audit riêng (không phải xem
+report) mà KHÔNG nên lộ số liệu qua đó dù dữ liệu nằm trong cùng bảng ở tầng lưu trữ? Ghi
+`oracle_type: GAP` cho TC-X03-01 ở lượt cập nhật `uat.json` kế tiếp, KHÔNG tự quyết định PASS
+hay FAIL.
+
 ## Những gì CHƯA chạy ở checkpoint này (lý do ngân sách)
 - 72/78 TC trong `uat.json` chưa được execute live (chỉ viết + qua Cổng 0/1, chưa qua 7b).
 - Chưa chạy Playwright E2E thật nào (frontend dev server chưa khởi động trong lượt này —

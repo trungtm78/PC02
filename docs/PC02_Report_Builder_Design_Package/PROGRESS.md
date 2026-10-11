@@ -483,6 +483,21 @@ nhưng cũng KHÔNG phải PASS toàn bộ — S33 = FAIL có bug, X01 = PASS ph
 thật, fault-seeding có hệ thống, adversarial-verify, đánh giá UI/UX đều CHƯA làm ở lượt này.
 Đây là checkpoint rõ ràng để tiếp tục, không phải kết luận UAT xong.
 
+**Lượt 2 (tiếp tục cùng ngày)**: BUG-001 đã được vá ở nhánh `fix/dynamic-reports-multilevel-
+approval` (PR #584, commit `dcf4ed7f` — cột `DynReportRole.approvalLevel` + 2 hàm resolver
+thay literal `1`, 7 unit test mới, full suite 8221/8336 PASS) — **đã `git merge` nhánh vá vào
+`feat/dynamic-reports-pr10-uat`** (giữ nguyên commit hash để tránh trùng lặp khi rebase `main`
+sau này). Đã chạy thêm: 1 E2E Playwright thật (`chromium.launch()` trực tiếp, né
+`playwright.config.ts` ở gốc repo đang có lỗi cú pháp có từ trước — thừa `},` dòng 51, KHÔNG
+sửa vì file dùng chung) cho journey J-REVIEW-01 → **PASS** (manager đăng nhập UI thật, xem
+đúng dữ liệu submission thật). Quan sát trực tiếp DB xác nhận S21 (audit trail
+`dyn_report_revisions`) **PASS**. Phát hiện X03 ("audit không chứa số liệu") oracle gốc
+không khớp kiến trúc thật — ghi **GAP cần người quyết**, không tự PASS/FAIL. Một lần thử tay
+dựng kịch bản phê duyệt 2 cấp qua INSERT SQL (chưa có UI hỗ trợ) cho kết quả bất thường
+(dừng sớm ở cấp 1 thay vì chờ cấp 2) — ghi là **quan sát chưa kết luận**, đã dọn sạch dữ liệu
+test, cần kỹ sư PR #584 tái lập độc lập để xác nhận có phải lỗi thật hay do cách dựng dữ liệu
+của tôi sai. Chi tiết đầy đủ: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 2".
+
 ## Hàng đợi task kế tiếp
 1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
    tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
