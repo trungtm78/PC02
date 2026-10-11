@@ -1,3 +1,4 @@
+import { randomUUID } from "@/lib/uuid";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
@@ -582,7 +583,7 @@ function CaseFormPage() {
         parityState,
         subjects: [...persisted.subjects, ...subjects],
         evidences: [...persisted.evidences, ...evidences],
-      }, (kind) => `${kind}-${crypto.randomUUID()}`), cloneSourceCaseId: id, expectedCloneSourceUpdatedAt: recordUpdatedAt ?? undefined };
+      }, (kind) => `${kind}-${randomUUID()}`), cloneSourceCaseId: id, expectedCloneSourceUpdatedAt: recordUpdatedAt ?? undefined };
       navigate(`/cases/new?caseProvenance=${encodeURIComponent(formData.caseProvenance)}`, {
         state: { cloneCase: cloned },
       });
@@ -649,7 +650,7 @@ function CaseFormPage() {
   const handleUploadMedia = (file: File, recordDate: string) => {
     const prepared = prepareMediaFile(file);
     const newFile: MediaFile = {
-      id: `MF-${crypto.randomUUID()}`,
+      id: `MF-${randomUUID()}`,
       name: prepared.name,
       type: prepared.type,
       size: `${(prepared.size / 1024 / 1024).toFixed(2)} MB`,
