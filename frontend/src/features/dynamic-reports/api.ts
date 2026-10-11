@@ -23,6 +23,7 @@ import type {
   SubmissionView,
   SummaryMode,
   TemplatePreviewResult,
+  VersionListItem,
   UnlockRequestView,
   ViewablePeriodView,
 } from './types';
@@ -83,6 +84,12 @@ export const dynamicReportsApi = {
   suspendReportGeneration: (reportId: string) =>
     api
       .post<{ status: 'SUSPENDED' }>(`/bao-cao-dong/reports/${reportId}/suspend`, {})
+      .then((r) => r.data),
+
+  /** S22 "Danh sách phiên bản" — read-only. */
+  listVersions: (reportId: string) =>
+    api
+      .get<VersionListItem[]>(`/bao-cao-dong/reports/${reportId}/versions`)
       .then((r) => r.data),
 
   /** S11 thanh trên's combo — every assignment the caller is an editor of. */

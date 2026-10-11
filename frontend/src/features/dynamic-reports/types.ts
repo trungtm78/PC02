@@ -2,7 +2,7 @@
  * Mirrors backend/src/dynamic-reports/reports.service.ts response shapes
  * exactly, including field names — no renaming at the boundary.
  */
-import type { DynReportSubmissionState, DynReportPeriodType } from '@/shared/enums/generated';
+import type { DynReportSubmissionState, DynReportPeriodType, DynReportVersionStatus } from '@/shared/enums/generated';
 export type { DynReportSubmissionState };
 
 export type DynReportStatus = 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
@@ -131,6 +131,16 @@ export interface SaveReportConfigResult {
   reportId: string;
   versionId: string;
   status: DynReportStatus;
+}
+
+/** S22 "Danh sách phiên bản" — read-only, every version + which periods used it. */
+export interface VersionListItem {
+  versionId: string;
+  version: number;
+  status: DynReportVersionStatus;
+  publishedAt: string | null;
+  createdAt: string;
+  periodKeys: string[];
 }
 
 export interface AssignmentSummary {

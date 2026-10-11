@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   NotFoundException,
   Param,
   Post,
@@ -89,6 +90,20 @@ export class ReportConfigController {
           throw new NotFoundException(err.message);
         }
         throw new BadRequestException({ code: err.code, message: err.message });
+      }
+      throw err;
+    }
+  }
+
+  /** S22 "Danh sách phiên bản" — read-only, every version + which periods used it. */
+  @Get(':reportId/versions')
+  @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
+  async listVersions(@Param('reportId') reportId: string) {
+    try {
+      return await this.configService.listVersions(reportId);
+    } catch (err) {
+      if (err instanceof ReportConfigError) {
+        throw new NotFoundException(err.message);
       }
       throw err;
     }

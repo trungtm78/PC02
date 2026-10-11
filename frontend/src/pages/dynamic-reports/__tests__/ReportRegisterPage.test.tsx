@@ -108,6 +108,18 @@ describe('ReportRegisterPage', () => {
     );
   });
 
+  it('"Phiên bản" links to the version list for that report (S22)', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-versions-HSLN'));
+
+    expect(screen.getByTestId('btn-versions-HSLN')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/thiet-lap/r1/phien-ban',
+    );
+  });
+
   it('clicking "Xem" on a row shows the same coming-soon note', async () => {
     vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
 

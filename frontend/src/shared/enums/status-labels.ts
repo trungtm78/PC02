@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType, DynReportSubmissionState } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType, DynReportSubmissionState, DynReportVersionStatus } from './generated';
 import { CATALOG_LEGAL, CATALOG_META } from '@/shared/catalog/catalog.generated';
 import { STATUS_PENDING_RESPONSE } from '@/constants/styles';
 
@@ -361,6 +361,18 @@ export const DYN_REPORT_STATUS_BADGE_CLASS: Record<DynReportStatus, string> = {
   [DynReportStatus.PUBLISHED]: 'bg-green-100 text-green-700',
   [DynReportStatus.SUSPENDED]: 'bg-amber-100 text-amber-700',
   [DynReportStatus.ARCHIVED]:  'bg-slate-100 text-slate-400',
+};
+
+export const DYN_REPORT_VERSION_STATUS_LABEL: Record<DynReportVersionStatus, string> = {
+  [DynReportVersionStatus.DRAFT]:     'Bản nháp',
+  [DynReportVersionStatus.PUBLISHED]: 'Đã xuất bản',
+  [DynReportVersionStatus.RETIRED]:   'Đã thay thế',
+};
+
+export const DYN_REPORT_VERSION_STATUS_BADGE_CLASS: Record<DynReportVersionStatus, string> = {
+  [DynReportVersionStatus.DRAFT]:     'bg-slate-100 text-slate-600',
+  [DynReportVersionStatus.PUBLISHED]: 'bg-green-100 text-green-700',
+  [DynReportVersionStatus.RETIRED]:   'bg-slate-100 text-slate-400',
 };
 
 export const DYN_REPORT_PERIOD_TYPE_LABEL: Record<DynReportPeriodType, string> = {

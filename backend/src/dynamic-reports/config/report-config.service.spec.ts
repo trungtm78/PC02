@@ -403,4 +403,106 @@ describe('ReportConfigService', () => {
       expect(result).toEqual({ status: 'SUSPENDED' });
     });
   });
+
+  describe('listVersions (S22 "Danh sách phiên bản")', () => {
+    function buildServiceWithData(report: unknown, versions: unknown[]) {
+      const prisma = {
+        $transaction: jest.fn(),
+        dynReportIdempotency: { findUnique: jest.fn().mockResolvedValue(null) },
+        dynReport: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(report),
+        },
+        dynReportVersion: {
+          findMany: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(versions),
+        },
+      };
+      const service = new ReportConfigService(
+        prisma as unknown as PrismaService,
+      );
+      return { service, prisma };
+    }
+
+    it('throws REPORT_NOT_FOUND when the report does not exist', async () => {
+      const { service } = buildServiceWithData(null, []);
+
+      await expect(service.listVersions('rep1')).rejects.toMatchObject({
+        code: 'REPORT_NOT_FOUND',
+      });
+    });
+
+    it('returns every version with the period keys that use it, newest first', async () => {
+      const { service, prisma } = buildServiceWithData({ id: 'rep1' }, [
+        {
+          id: 'ver2',
+          version: 2,
+          status: 'PUBLISHED',
+          publishedAt: new Date('2026-06-01T00:00:00Z'),
+          createdAt: new Date('2026-05-20T00:00:00Z'),
+          periods: [{ periodKey: '2026-06' }, { periodKey: '2026-07' }],
+        },
+        {
+          id: 'ver1',
+          version: 1,
+          status: 'RETIRED',
+          publishedAt: new Date('2026-01-01T00:00:00Z'),
+          createdAt: new Date('2025-12-20T00:00:00Z'),
+          periods: [{ periodKey: '2026-01' }, { periodKey: '2026-02' }],
+        },
+      ]);
+
+      const result = await service.listVersions('rep1');
+
+      expect(prisma.dynReportVersion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { reportId: 'rep1' } }),
+      );
+      expect(result).toEqual([
+        {
+          versionId: 'ver2',
+          version: 2,
+          status: 'PUBLISHED',
+          publishedAt: '2026-06-01T00:00:00.000Z',
+          createdAt: '2026-05-20T00:00:00.000Z',
+          periodKeys: ['2026-06', '2026-07'],
+        },
+        {
+          versionId: 'ver1',
+          version: 1,
+          status: 'RETIRED',
+          publishedAt: '2026-01-01T00:00:00.000Z',
+          createdAt: '2025-12-20T00:00:00.000Z',
+          periodKeys: ['2026-01', '2026-02'],
+        },
+      ]);
+    });
+
+    it('returns a DRAFT version (never published) with publishedAt=null and no periods', async () => {
+      const { service } = buildServiceWithData({ id: 'rep1' }, [
+        {
+          id: 'ver1',
+          version: 1,
+          status: 'DRAFT',
+          publishedAt: null,
+          createdAt: new Date('2026-06-01T00:00:00Z'),
+          periods: [],
+        },
+      ]);
+
+      const result = await service.listVersions('rep1');
+
+      expect(result).toEqual([
+        {
+          versionId: 'ver1',
+          version: 1,
+          status: 'DRAFT',
+          publishedAt: null,
+          createdAt: '2026-06-01T00:00:00.000Z',
+          periodKeys: [],
+        },
+      ]);
+    });
+  });
 });
