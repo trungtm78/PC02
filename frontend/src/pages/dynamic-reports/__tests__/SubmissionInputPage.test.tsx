@@ -16,6 +16,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     previewExcelImport: vi.fn(),
     applyExcelImport: vi.fn(),
     exportOwnSubmission: vi.fn(),
+    listComments: vi.fn(),
+    addComment: vi.fn(),
   },
 }));
 
@@ -89,6 +91,7 @@ describe('SubmissionInputPage', () => {
       errors: [],
       warnings: [],
     });
+    vi.mocked(dynamicReportsApi.listComments).mockResolvedValue([]);
   });
 
   it('renders fields grouped by sheet, prefilled from the current submission values', async () => {

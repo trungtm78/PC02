@@ -20,6 +20,7 @@ import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
+import CommentsPanel from './CommentsPanel';
 
 type ActionStatus = 'idle' | 'working' | 'error';
 
@@ -430,6 +431,15 @@ export default function ReportSubmissionReviewPage() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {assignmentId && (
+        <div className="mt-6">
+          <CommentsPanel
+            assignmentId={assignmentId}
+            fieldOptions={view.fields.map((f) => ({ fieldKey: f.fieldKey, label: f.label }))}
+          />
         </div>
       )}
     </div>

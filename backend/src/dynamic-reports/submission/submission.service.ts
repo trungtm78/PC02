@@ -165,6 +165,20 @@ export interface AssignmentSummary {
 }
 
 /**
+ * S37 (PR9 slice 2) — "Ghi chú/giải trình". `fieldKey` null = ghi chú cho
+ * cả bản nộp; có giá trị = ghi chú riêng cho một ô. Append-only trong
+ * slice này — không có đường sửa/xoá (giống lịch sử revision: một khi đã
+ * ghi là giữ nguyên).
+ */
+export interface CommentView {
+  id: string;
+  fieldKey: string | null;
+  body: string;
+  authorName: string;
+  createdAt: string;
+}
+
+/**
  * S11-S14 (spec §6.1 PR6). The first service to ever READ or WRITE a
  * `DynReportSubmission` — PR5's PeriodScheduler only ever creates one
  * (R5: eagerly, state NOT_STARTED).
@@ -307,6 +321,97 @@ export class SubmissionService {
       throw new NotFoundException('Không tìm thấy lượt giao này.');
     }
     return { assignment, actorRole };
+  }
+
+  /**
+   * S37 — comments are readable/writable by EITHER side of the same
+   * assignment: the editor who owns it, or a manager/admin of its report.
+   * Tries editor first (cheaper: one `findFirst` vs a role lookup), falls
+   * back to manager — 404 (never 403) if neither, same anti-probe
+   * convention as every other assignment-scoped read in this file.
+   */
+  private async resolveCommentAccess(
+    client: Prisma.TransactionClient | PrismaService,
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+  ) {
+    const editor = await client.dynReportAssignmentEditor.findFirst({
+      where: { assignmentId, userId, isActive: true },
+    });
+    const assignment = await client.dynReportAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { period: { include: { report: true } } },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+    }
+    if (editor) return assignment;
+
+    const actorRole = await this.resolveManagerRole(
+      client,
+      assignment.period.report.id,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+    }
+    return assignment;
+  }
+
+  /** S37 — mọi ghi chú của một lượt giao, cũ nhất trước (đọc thuần, không khoá). */
+  async listComments(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<CommentView[]> {
+    await this.resolveCommentAccess(this.prisma, assignmentId, userId, roleId);
+    const comments = await this.prisma.dynReportComment.findMany({
+      where: { assignmentId },
+      include: { author: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return comments.map((c) => ({
+      id: c.id,
+      fieldKey: c.fieldKey,
+      body: c.body,
+      authorName:
+        `${c.author.firstName ?? ''} ${c.author.lastName ?? ''}`.trim() ||
+        c.author.username,
+      createdAt: c.createdAt.toISOString(),
+    }));
+  }
+
+  /** S37 — thêm một ghi chú (theo ô nếu có `fieldKey`, theo cả bản nộp nếu không). */
+  async addComment(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    fieldKey: string | null,
+    body: string,
+  ): Promise<CommentView> {
+    if (!body.trim()) {
+      throw new SubmissionError(
+        'Nội dung ghi chú không được để trống.',
+        'CELL_VALIDATION',
+      );
+    }
+    await this.resolveCommentAccess(this.prisma, assignmentId, userId, roleId);
+    const author = await this.prisma.user.findUnique({ where: { id: userId } });
+    const comment = await this.prisma.dynReportComment.create({
+      data: { assignmentId, fieldKey, body: body.trim(), authorId: userId },
+    });
+    return {
+      id: comment.id,
+      fieldKey: comment.fieldKey,
+      body: comment.body,
+      authorName:
+        `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
+        author?.username ||
+        '',
+      createdAt: comment.createdAt.toISOString(),
+    };
   }
 
   /**

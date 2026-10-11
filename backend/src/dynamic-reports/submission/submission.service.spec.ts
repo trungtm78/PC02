@@ -113,6 +113,10 @@ describe('SubmissionService', () => {
           .mockResolvedValue(null),
         upsert: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
       },
+      dynReportComment: {
+        findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
+        create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+      },
     };
   }
 
@@ -127,6 +131,7 @@ describe('SubmissionService', () => {
       dynReportRole: tx.dynReportRole,
       dynReport: tx.dynReport,
       dynReportIdempotency: tx.dynReportIdempotency,
+      dynReportComment: tx.dynReportComment,
     };
     const service = new SubmissionService(prisma as unknown as PrismaService);
     return { service, prisma };
@@ -2195,6 +2200,187 @@ describe('SubmissionService', () => {
       await expect(
         service.applyExcelImport('assign1', 'u1', { 'Đội 3!C6': '12' }, '0'),
       ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+    });
+  });
+
+  describe('listComments / addComment (S37, PR9 slice 2)', () => {
+    const ASSIGNMENT = {
+      id: 'assign1',
+      period: { report: { id: 'report1' } },
+    };
+
+    it('(editor) lists comments oldest-first, with author name resolved', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      tx.dynReportComment.findMany.mockResolvedValue([
+        {
+          id: 'c1',
+          fieldKey: 'Đội 3!C6',
+          body: 'Số liệu tăng do mùa cao điểm',
+          createdAt: now,
+          author: { firstName: 'Văn A', lastName: 'Nguyễn', username: 'u1' },
+        },
+        {
+          id: 'c2',
+          fieldKey: null,
+          body: 'Đã đối soát với đội nghiệp vụ',
+          createdAt: now,
+          author: { firstName: '', lastName: '', username: 'mgr1' },
+        },
+      ]);
+      const { service } = buildService(tx);
+
+      const result = await service.listComments('assign1', 'u1', 'role1');
+
+      expect(result).toEqual([
+        {
+          id: 'c1',
+          fieldKey: 'Đội 3!C6',
+          body: 'Số liệu tăng do mùa cao điểm',
+          authorName: 'Văn A Nguyễn',
+          createdAt: now.toISOString(),
+        },
+        {
+          id: 'c2',
+          fieldKey: null,
+          body: 'Đã đối soát với đội nghiệp vụ',
+          authorName: 'mgr1',
+          createdAt: now.toISOString(),
+        },
+      ]);
+    });
+
+    it('(manager, not editor) can also list comments', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.listComments('assign1', 'mgr1', 'roleMgr'),
+      ).resolves.toEqual([]);
+    });
+
+    it('rejects (404) when the caller is neither editor nor manager', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.listComments('assign1', 'outsider', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects (404) when the assignment does not exist', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      tx.dynReportAssignment.findUnique.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.listComments('ghost', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('(editor) adds a per-field comment and returns it with the author name resolved', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      tx.user.findUnique.mockResolvedValue({
+        firstName: 'Văn A',
+        lastName: 'Nguyễn',
+        username: 'u1',
+      });
+      tx.dynReportComment.create.mockResolvedValue({
+        id: 'c1',
+        fieldKey: 'Đội 3!C6',
+        body: 'Số liệu tăng do mùa cao điểm',
+        createdAt: now,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.addComment(
+        'assign1',
+        'u1',
+        'role1',
+        'Đội 3!C6',
+        'Số liệu tăng do mùa cao điểm',
+      );
+
+      expect(result).toEqual({
+        id: 'c1',
+        fieldKey: 'Đội 3!C6',
+        body: 'Số liệu tăng do mùa cao điểm',
+        authorName: 'Văn A Nguyễn',
+        createdAt: now.toISOString(),
+      });
+      const createCall = tx.dynReportComment.create.mock.calls[0][0] as {
+        data: {
+          assignmentId: string;
+          fieldKey: string | null;
+          body: string;
+          authorId: string;
+        };
+      };
+      expect(createCall.data).toEqual({
+        assignmentId: 'assign1',
+        fieldKey: 'Đội 3!C6',
+        body: 'Số liệu tăng do mùa cao điểm',
+        authorId: 'u1',
+      });
+    });
+
+    it('adds a submission-level comment when fieldKey is null', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      tx.dynReportComment.create.mockResolvedValue({
+        id: 'c1',
+        fieldKey: null,
+        body: 'Ghi chú chung',
+        createdAt: now,
+      });
+      const { service } = buildService(tx);
+
+      await service.addComment('assign1', 'u1', 'role1', null, 'Ghi chú chung');
+
+      const createCall = tx.dynReportComment.create.mock.calls[0][0] as {
+        data: { fieldKey: string | null };
+      };
+      expect(createCall.data.fieldKey).toBeNull();
+    });
+
+    it('rejects with CELL_VALIDATION when the body is blank/whitespace-only', async () => {
+      const tx = buildTx();
+      const { service } = buildService(tx);
+
+      await expect(
+        service.addComment('assign1', 'u1', 'role1', null, '   '),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportComment.create).not.toHaveBeenCalled();
+      // Rejected before even checking access — no DB round trip wasted on an empty comment.
+      expect(tx.dynReportAssignment.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects (404) when the caller is neither editor nor manager', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.addComment('assign1', 'outsider', 'role1', null, 'hi'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(tx.dynReportComment.create).not.toHaveBeenCalled();
     });
   });
 });

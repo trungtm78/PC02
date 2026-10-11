@@ -36,6 +36,7 @@ import { validateFieldValue } from '@/features/dynamic-reports/engine/generated/
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import CommentsPanel from './CommentsPanel';
 
 const EDITABLE_STATES: readonly DynReportSubmissionState[] = ['NOT_STARTED', 'DRAFT', 'RETURNED'];
 
@@ -753,6 +754,15 @@ export default function SubmissionInputPage() {
           <CheckCircle2 className="w-4 h-4" />
           {state === 'APPROVED' ? 'Đã được duyệt.' : 'Đã nộp — không thể sửa thêm.'}
         </p>
+      )}
+
+      {assignmentId && (
+        <div className="mt-6">
+          <CommentsPanel
+            assignmentId={assignmentId}
+            fieldOptions={initial.fields.map((f) => ({ fieldKey: f.fieldKey, label: f.label }))}
+          />
+        </div>
       )}
     </div>
   );

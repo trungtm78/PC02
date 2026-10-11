@@ -38,6 +38,7 @@ import {
   DecideUnlockRequestDto,
   BulkGrantUnlockDto,
 } from './dto/review.dto';
+import { AddCommentDto } from './dto/add-comment.dto';
 import { XLSX_LIMITS } from '../../xlsx-imports/hostile-xlsx-guard';
 
 const UPLOAD_OPTIONS = {
@@ -189,6 +190,37 @@ export class SubmissionController {
         body.values,
         body.expectedRevision,
         body.idempotencyKey,
+      ),
+    );
+  }
+
+  /** S37 — mọi ghi chú của lượt giao này; cả người nhập lẫn quản lý đều đọc được. */
+  @Get(':assignmentId/comments')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listComments(
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.listComments(assignmentId, user.id, user.roleId),
+    );
+  }
+
+  /** S37 — thêm ghi chú; cả người nhập lẫn quản lý đều viết được. */
+  @Post(':assignmentId/comments')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async addComment(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: AddCommentDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.addComment(
+        assignmentId,
+        user.id,
+        user.roleId,
+        body.fieldKey ?? null,
+        body.body,
       ),
     );
   }
