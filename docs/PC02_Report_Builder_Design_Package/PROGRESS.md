@@ -590,7 +590,11 @@ coverage-driven, ưu tiên chất lượng.
    3 lượt đo độc lập. **CẢ 3/3 CHỈ SỐ ĐÃ ĐẠT** — X04 ĐÓNG, không còn vướng. (Lượt này cũng
    phát hiện+vá 1 trở ngại hạ tầng không liên quan: `keys/private.pem`/`keys/public.pem` lệch
    cặp chặn mọi đăng nhập cục bộ — xem chi tiết trong mục lần 3.)
-3. Runbook vận hành + rollback.
+3. ~~Runbook vận hành + rollback.~~ — **XONG, `RUNBOOK.md` mới**: cơ chế tắt flag `dynamic_reports`
+   (UPDATE trực tiếp `feature_flags`, cache 30s, không đụng dữ liệu `dyn_report_*`), và một vòng
+   backup→restore THẬT đã tự chạy trên dev (`pg_dump -Fc` → DB mới → `pg_restore` → đối chiếu
+   số dòng VÀ nội dung `dyn_reports`/`dyn_report_submissions`/`dyn_report_revisions` giữa DB gốc
+   và DB vừa restore — khớp chính xác tuyệt đối cả 2 bước đối chiếu), rồi dọn sạch DB/file tạm.
 4. Monkey test X06 — chạy ĐÚNG MỘT LẦN ở cuối toàn bộ PR10 (không chạy theo từng task).
 5. (Tuỳ chọn, nếu còn muốn tiếp tục phủ sâu hơn UAT): 28 dòng CHƯA LÀM còn lại trong
    `UAT-COVERAGE.md` (chủ yếu màn hình phụ S05-S08/S12/S14-S18/S20/S22-S32/S35 + X02/X07),
