@@ -584,7 +584,12 @@ coverage-driven, ưu tiên chất lượng.
    10→20) CHỈ GIẢM BỚT, CHƯA GIẢI QUYẾT: autosave 50 đồng thời vẫn lỗi 500 (P2028 "Unable to
    start a transaction in the given time") ở 3-9/50 lượt (6-18%) qua 4 lần đo lại, p95 vẫn
    2.787-3.439ms — KHÔNG đạt target ≤1s. Việc này CẦN coordinator quyết hướng vá tiếp (không tự
-   vá thêm theo đúng chỉ đạo).**
+   vá thêm theo đúng chỉ đạo).** **TÁI ĐO lần 3 sau thêm cache field theo `versionId` 12/10/2026
+   (xem mục "Benchmark X04 — tái đo lần 3" ngay dưới mục lần 2): Finding-A NAY GIẢI QUYẾT
+   XONG — autosave 50 đồng thời p95=936-970ms (ĐẠT target ≤1s) + 0/50 lỗi 500, ổn định qua cả
+   3 lượt đo độc lập. **CẢ 3/3 CHỈ SỐ ĐÃ ĐẠT** — X04 ĐÓNG, không còn vướng. (Lượt này cũng
+   phát hiện+vá 1 trở ngại hạ tầng không liên quan: `keys/private.pem`/`keys/public.pem` lệch
+   cặp chặn mọi đăng nhập cục bộ — xem chi tiết trong mục lần 3.)
 3. Runbook vận hành + rollback.
 4. Monkey test X06 — chạy ĐÚNG MỘT LẦN ở cuối toàn bộ PR10 (không chạy theo từng task).
 5. (Tuỳ chọn, nếu còn muốn tiếp tục phủ sâu hơn UAT): 28 dòng CHƯA LÀM còn lại trong
@@ -762,6 +767,92 @@ dev server build-mới tự khởi động (cổng 3000). `git status --short` s
 file: 3 file code coordinator đã vá (`prisma.service.ts`, `status-query.service.ts`,
 `status-query.service.spec.ts`) + `backend/keys/public.pem` (không thuộc lượt này, không
 đụng) — cộng 2 file docs (`PROGRESS.md`, `UAT-COVERAGE.md`) tự cập nhật ở lượt này.
+
+## Benchmark X04 — tái đo lần 3, sau thêm cache field theo `versionId` (12/10/2026)
+
+Coordinator vá thêm theo đúng 2 hướng gợi ý ở cuối mục "tái đo lần 2" — (b) rút ngắn thời
+gian giữ transaction, (c) tăng pool cho đủ 50: `VersionFieldsCacheService`
+(`backend/src/dynamic-reports/template/version-fields-cache.ts`, mới) cache
+`DynReportField[]`/`DynReportValidationRule[]` theo `versionId` trong bộ nhớ, KHÔNG TTL —
+an toàn vì 3 bảng này write-once (`grep -rn "dynReportField\.\(update\|delete\)" backend/src`
+ra 0 kết quả, chỉ `create`/`createMany`). `SubmissionService#loadEditorAssignment` (đường
+autosave, giữ khoá `FOR UPDATE`) và `#loadAssignmentForManager` đổi từ
+`include: { fields: true, rules: true }` (nạp lại 5.000 field MỖI lần gọi, trong lúc đang
+giữ khoá) sang tra cache. `prisma.service.ts` tăng `max` của pool `pg` từ 20 → **50** (mặc
+định mới, vẫn override được qua `DB_POOL_MAX`) — đúng bằng số ghi đồng thời mục tiêu của
+spec (§6.1 PR10: "thử 50 người lưu đồng thời"), có dư biên so `max_connections=100` của
+Postgres 18 đo được trên máy này. Nhiệm vụ của lượt này vẫn là **TÁI ĐO ĐỘC LẬP** — không
+tin lời đã vá đúng, tự dựng fixture, tự đo qua HTTP thật, tự đối chiếu DB, giống 2 lượt
+trước.
+
+**Trở ngại hạ tầng phát hiện ĐẦU lượt đo (không liên quan 2 bản vá trên)**: lượt gọi đầu
+tiên trả **401 Unauthorized ở cả 50/50 request** — cô lập bằng `jwt.verify()` thủ công thì
+ra `invalid signature`, rồi xác nhận bằng `crypto.createSign`/`createVerify` thủ công:
+`backend/keys/private.pem` và `backend/keys/public.pem` trên máy này **KHÔNG phải một cặp
+khớp nhau** (`public.pem` tracked trong git từ initial commit, `private.pem` gitignored —
+rất có thể `private.pem` cục bộ đã được tạo lại ở máy này mà không tạo lại `public.pem`
+tương ứng). `JwtStrategy` xác thực chữ ký bằng `public.pem`; vì không khớp, MỌI JWT ký bằng
+`private.pem` — kể cả do `/auth/login` thật ký — đều bị từ chối ở máy này, không riêng gì
+JWT tự ký của script đo. Đây là lỗi hạ tầng local-dev chặn hoàn toàn đăng nhập, không phải
+lỗi của 2 bản vá đang đo. Đã vá bằng cách tạo lại `public.pem` ĐÚNG từ `private.pem` hiện có
+(`openssl rsa -in keys/private.pem -pubout -out keys/public.pem`, xác nhận lại khớp cặp bằng
+`crypto.createSign`/`createVerify` thủ công trước khi đo tiếp) — không đổi `private.pem`,
+chỉ đổi `public.pem` để khớp lại đúng cặp đang có. Theo đúng tiền lệ 2 lượt đo trước (ghi
+"không thuộc lượt này, không đụng" ở phần dọn dẹp của cả 2 mục trên) — KHÔNG revert, để máy
+dev cục bộ còn đăng nhập được cho việc khác sau lượt đo này.
+
+**Môi trường đo**: cùng máy (Windows 11 Pro, Node v24.14.0, PostgreSQL 18 `127.0.0.1:5433`),
+backend build `nest build` chạy `node dist/src/main.js` build lại từ code đã vá — không phải
+`npm run start:dev`. PostgreSQL 18 ở trạng thái `Stopped` lúc bắt đầu lượt đo (không rõ do
+ai/khi nào) — đã khởi động lại qua Windows Service trước khi seed, không phải nhiễu tải từ
+lượt đo.
+
+**Fixture**: cùng hình dạng 2 lượt trước — 1 `DynReport` PUBLISHED + 1 version với 5.000
+`DynReportField` NUM (5 sheet × 1.000), 1 `DynReportPeriod` OPEN, 200 tổ × 200
+assignment/editor/submission (200 `User` mới role OFFICER, state `DRAFT` — vẫn nằm trong
+`EDITABLE_STATES` của `engine/access.ts`), JWT ký trực tiếp RS256 bằng `private.pem` (cùng
+cách bỏ qua `/auth/login`, token vẫn qua `JwtStrategy` xác thực thật qua DB). Tiền tố
+`drbench4-r{round}` (tránh đụng `drbench2-*`/`dr-bench-*`/`dr-test-*` cũ). **Đo 3 lượt độc
+lập** (seed mới → đo → xác minh DB → xoá sạch → lặp lại), mỗi lượt script seed riêng tạo
+fixture mới từ đầu.
+
+### Kết quả 3 lượt đo (p95 autosave, so Target ≤1s — số liệu nguyên văn)
+
+| Lượt | Autosave 50 đồng thời (target ≤1s) | Lỗi 500 | Tổng thời gian treo hết 50 lượt | Xác minh DB |
+|---|---|---|---|---|
+| 1 | p50=928ms / **p95=970ms** / p99=972ms — **ĐẠT** | 0/50 (0%) | 1.002ms | 50/50 submission `currentRevision=1`, đúng 50 dòng `dyn_report_revisions` mới, 0 trùng `submissionId` |
+| 2 | p50=889ms / **p95=936ms** / p99=938ms — **ĐẠT** | 0/50 (0%) | 967ms | 50/50 submission `currentRevision=1`, đúng 50 dòng `dyn_report_revisions` mới, 0 trùng `submissionId` |
+| 3 | p50=879ms / **p95=940ms** / p99=942ms — **ĐẠT** | 0/50 (0%) | 972ms | 50/50 submission `currentRevision=1`, đúng 50 dòng `dyn_report_revisions` mới, 0 trùng `submissionId` |
+
+**Kết luận chỉ số 2 — NAY ĐẠT vững qua cả 3 lượt đo độc lập**: p95 936-970ms, dưới target
+≤1s ở MỌI lượt (biên dư còn mỏng, ~3-6%, không phải dư biên lớn như chỉ số 1/3 — đáng để ý
+nếu tải thật tăng thêm, nhưng ĐẠT target hiện tại), và **0/50 lỗi 500 ở cả 3 lượt** (so với
+3-9/50, TB ~10,5%, trước đợt vá này) — hết hẳn lỗi `P2028 "Unable to start a transaction in
+the given time"` đã thấy ở 2 lượt đo trước. Hai bản vá cộng lại giải quyết đúng cơ chế đã
+phân tích ở mục "tái đo lần 2": pool đủ lớn (50 ≥ 50 ghi đồng thời) để không ai phải chờ
+quá `maxWait` 2000ms CỘNG với transaction giữ khoá ngắn hơn (bỏ hẳn việc nạp lại 5.000 field
+trong lúc giữ `FOR UPDATE`) nên mỗi transaction tự nó cũng nhanh hơn, giảm áp lực hàng đợi
+từ cả hai phía. **Đã xác minh KHÔNG mất/nhân đôi dữ liệu ở cả 3 lượt** (truy vấn DB trực
+tiếp, không suy từ response HTTP): đúng 50/50 submission tiến lên `currentRevision=1`, đúng
+50 dòng `dyn_report_revisions` mới mỗi lượt, `groupBy` theo `submissionId` xác nhận 0 dòng
+nào có >1 revision.
+
+(Chỉ số 1 — Mở form — và chỉ số 3 — Status/màn C — KHÔNG đo lại lượt này vì 2 bản vá của
+lượt này không chạm code đường đó; cả hai đã ĐẠT vững ở lượt đo lần 2 và không có thay đổi
+nào ảnh hưởng tới chúng từ đó tới nay.)
+
+**Dọn dẹp sau tái đo**: đã xoá sạch fixture `drbench4-r{1,2,3}` sau MỖI lượt (script
+`cleanup.ts` riêng, chạy ngay sau `verify.ts` mỗi lượt, không dồn tới cuối) — xác nhận lại
+bằng SQL COUNT trực tiếp sau lượt cuối: `SELECT count(*) FROM users WHERE username LIKE
+'drbench4%'` = 0, cùng cho `teams`/`dyn_reports` (code `LIKE 'drbench4%'`), và
+`dyn_report_fields` chỉ còn đúng 2 dòng (`dr-test-*` cũ, không đụng). Đã xoá script tạm
+(`backend/tmp-bench/`, cả thư mục, kể cả file backup `keys/public.pem.bak-mismatched` tạo ra
+lúc vá khoá). Đã tắt dev server build-mới tự khởi động (cổng 3000, xác nhận bằng `netstat`
+không còn LISTENING). `git status --short` sau cùng: 4 file code (`prisma.service.ts`,
+`dynamic-reports.module.ts`, `submission.service.ts`, `submission.service.spec.ts` — của
+coordinator, không đụng) + 1 file mới (`version-fields-cache.ts` — của coordinator, không
+đụng) + `backend/keys/public.pem` (vá trong lượt này, giữ nguyên không revert, lý do ở trên)
+— cộng 2 file docs tự cập nhật ở lượt này.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

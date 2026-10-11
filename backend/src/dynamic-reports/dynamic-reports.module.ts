@@ -7,6 +7,7 @@ import { ReminderSchedulerService } from './schedule/reminder-scheduler.service'
 import { SchedulePreviewController } from './schedule/schedule-preview.controller';
 import { TemplatesController } from './template/templates.controller';
 import { TemplateService } from './template/template.service';
+import { VersionFieldsCacheService } from './template/version-fields-cache';
 import { ReportConfigController } from './config/report-config.controller';
 import { ReportConfigService } from './config/report-config.service';
 import { SubmissionController } from './submission/submission.controller';
@@ -39,6 +40,7 @@ import { TeamsModule } from '../teams/teams.module';
     PeriodSchedulerService,
     ReminderSchedulerService,
     TemplateService,
+    VersionFieldsCacheService,
     ReportConfigService,
     SubmissionService,
     AggregateService,

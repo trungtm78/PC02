@@ -34,6 +34,7 @@ import {
 } from '../export-filename.util';
 import type { ImportCellType } from '../engine/import-cell';
 import { applyTransition } from '../workflow/transitions';
+import { VersionFieldsCacheService } from '../template/version-fields-cache';
 
 /** D07 — a manager-created grant's default window when no explicit expiresAt is given. */
 const DEFAULT_GRANT_HOURS = 3;
@@ -203,6 +204,7 @@ export class SubmissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly versionFieldsCache: VersionFieldsCacheService,
   ) {}
 
   private async loadEditorAssignment(
@@ -226,7 +228,7 @@ export class SubmissionService {
         period: {
           include: {
             report: true,
-            version: { include: { fields: true, rules: true } },
+            version: true,
           },
         },
         submission: true,
@@ -235,7 +237,20 @@ export class SubmissionService {
     if (!assignment || !assignment.submission) {
       throw new NotFoundException('Không tìm thấy lượt giao này.');
     }
-    return assignment;
+    // Perf (X04 round 4) — `fields`/`rules` come from a per-versionId cache
+    // instead of a per-call `include`: see `version-fields-cache.ts` for why
+    // that's safe to do forever (version/field/rule rows are write-once).
+    const { fields, rules } = await this.versionFieldsCache.getOrLoad(
+      client,
+      assignment.period.versionId,
+    );
+    return {
+      ...assignment,
+      period: {
+        ...assignment.period,
+        version: { ...assignment.period.version, fields, rules },
+      },
+    };
   }
 
   /**
@@ -313,7 +328,7 @@ export class SubmissionService {
       where: { id: assignmentId },
       include: {
         period: {
-          include: { report: true, version: { include: { fields: true } } },
+          include: { report: true, version: true },
         },
         submission: true,
       },
@@ -330,7 +345,25 @@ export class SubmissionService {
     if (!actorRole) {
       throw new NotFoundException('Không tìm thấy lượt giao này.');
     }
-    return { assignment, actorRole };
+    // Perf (X04 round 4) — same version-fields cache as `loadEditorAssignment`;
+    // `lockForManagerWrite` (approve/return/unapprove) holds the submission's
+    // `FOR UPDATE` lock across this call just like `lockForWrite` does, so
+    // the per-call `include: { fields: true }` was the same N-times-5,000-row
+    // reload under lock, just on the manager side.
+    const { fields, rules } = await this.versionFieldsCache.getOrLoad(
+      client,
+      assignment.period.versionId,
+    );
+    return {
+      assignment: {
+        ...assignment,
+        period: {
+          ...assignment.period,
+          version: { ...assignment.period.version, fields, rules },
+        },
+      },
+      actorRole,
+    };
   }
 
   /**
