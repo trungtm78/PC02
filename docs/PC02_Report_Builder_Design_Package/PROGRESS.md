@@ -390,6 +390,8 @@ BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr7-slice4` → `g
   - **Phát hiện phụ (KHÔNG vá, ghi nhận là nợ kỹ thuật có trước)**: tên file tải về bị lỗi mã hoá tiếng Việt ("Býo-cýo…" thay vì "Báo-cáo…") — do `Content-Disposition` gửi thẳng byte UTF-8 không theo chuẩn RFC 5987 (`filename*=UTF-8''...`). Đây là quy ước CŨ đã có ở `export.controller.ts` (manager) và `audit.controller.ts` — tôi chỉ lặp lại đúng quy ước sẵn có, không phải lỗi mới. Sửa tận gốc sẽ ảnh hưởng nhiều endpoint xuất file khác trong repo, ngoài phạm vi việc này — xem "Nợ kỹ thuật" dưới.
   - Đã dọn `.env`/`keys/private.pem` cục bộ + revert `keys/public.pem`, kill 2 dev server theo PID lắng nghe thật.
 
+- [x] **Đã merge PR #570 ("Xuất bản của tổ") vào `main`** — CI xanh 5/5, admin-merge (tiền lệ #522-569), merge commit `d4970807282e696b5d2db076871286e23301be4a`, 11/10/2026 02:48 UTC. Deploy xanh, health `buildId` khớp — xác nhận 02:57 UTC. Vẫn chưa có báo cáo thật nào trên prod (0 DynReport).
+
 ## Đang làm dở
 Task: Theo chỉ đạo "làm cho hết" của anh — tiếp tục hàng đợi module. Bước kế tiếp: scope PR4 slice 6 (S22 quản lý phiên bản + S30-S32 thêm tổ/miễn nộp/ngừng phát sinh giữa kỳ) — đọc code hiện có trước khi quyết định phạm vi. **Flag `dynamic_reports` vẫn ĐANG BẬT trên production — mọi deploy từ giờ có ảnh hưởng thật ngay nếu đã có báo cáo thật (hiện vẫn 0).**
 
