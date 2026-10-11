@@ -457,6 +457,8 @@ BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr7-slice4` → `g
 ## PR9 — HOÀN THÀNH TOÀN BỘ
 S36 (validation rules) + S37 (ghi chú) + ReminderScheduler + 6 thông báo trong ứng dụng đều đã merge vào `main`, deploy xanh. Chuyển sang PR10.
 
+- [x] **Đã merge PR #582 (PR9 slice 3 — ReminderScheduler + thông báo) vào `main`** — CI xanh 5/5, admin-merge (tiền lệ #522-580), merge commit `2e8542b19fa6e4ac11d3688ad095a9622ac18705`, 11/10/2026 12:29 UTC. Deploy xanh, health `buildId` khớp — xác nhận 12:38 UTC. **PR9 đóng hoàn toàn.**
+
 ## Đang làm dở
 Task: **PR10 — Hoàn thiện** (spec §6.1 PR10): benchmark/p95 (5.000 input/200 tổ/50 ghi đồng thời), visual QA 4 viewport, bàn phím/WCAG AA, metric vận hành + runbook rollback, UAT-001…042 (bản đã sửa §3.1) + ca cho phạm vi tăng (S36/S37/Reminder/thông báo/R21 nhiều cấp/R22 ReportingUnit=USER), UAT-903 walkthrough mọi Screen ID, UAT-905 ký nghiệm thu, **monkey test chạy ĐÚNG MỘT LẦN ở cuối** (không chạy theo từng task — xem `feedback_monkey_test_cuoi_cung`), pilot HSLN tháng đo lợi ích BRD. Vẫn chờ anh cấp tài khoản quản lý/người nhập riêng cho UAT trên staging (chặn khâu UAT thật, không chặn viết code). **Flag `dynamic_reports` vẫn ĐANG BẬT trên production.**
 
