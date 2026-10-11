@@ -21,6 +21,7 @@
  * security boundary (`submit()` only ever blocks on ERROR).
  */
 import { useMemo, useRef, useState } from 'react';
+import { randomUUID } from '@/lib/uuid';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Download, FileSpreadsheet, Lock, Unlock, Send } from 'lucide-react';
@@ -108,7 +109,7 @@ export default function SubmissionInputPage() {
     const idempotencyKey =
       idempotencyRef.current?.signature === signature
         ? idempotencyRef.current.key
-        : crypto.randomUUID();
+        : randomUUID();
     idempotencyRef.current = { signature, key: idempotencyKey };
 
     dirtyRef.current = new Set();

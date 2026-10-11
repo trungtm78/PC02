@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { randomUUID } from "@/lib/uuid";
 import { extractApiError } from "@/lib/api-errors";
 import { usePermission } from "@/hooks/usePermission";
 import { FeatureFlagsContext } from "@/lib/features/featureFlagsContextObject";
@@ -32,7 +33,7 @@ export function IncidentHandoffPanel({
   const [teams, setTeams] = useState<{ value: string; label: string }[]>([]);
   const [toTeamId, setToTeamId] = useState("");
   const [reason, setReason] = useState("");
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [requestKey, setRequestKey] = useState(() => randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -91,7 +92,7 @@ export function IncidentHandoffPanel({
           reason: reason || undefined,
         });
       }
-      setRequestKey(crypto.randomUUID());
+      setRequestKey(randomUUID());
       setToTeamId("");
       setReason("");
       onChanged();
@@ -129,7 +130,7 @@ export function IncidentHandoffPanel({
               value={toTeamId}
               onChange={(v) => {
                 setToTeamId(v);
-                setRequestKey(crypto.randomUUID());
+                setRequestKey(randomUUID());
               }}
               options={teams}
             />
@@ -141,7 +142,7 @@ export function IncidentHandoffPanel({
               value={reason}
               onChange={(e) => {
                 setReason(e.target.value);
-                setRequestKey(crypto.randomUUID());
+                setRequestKey(randomUUID());
               }}
               maxLength={2000}
             />

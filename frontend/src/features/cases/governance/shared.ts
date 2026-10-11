@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { randomUUID } from "@/lib/uuid";
 import { extractApiError } from "@/lib/api-errors";
 export interface Row extends Record<string, unknown> {
   id: string;
@@ -232,7 +233,7 @@ export function useCommand(refresh: () => Promise<void>) {
       ),
     ]);
     if (!attempt.current || attempt.current.signature !== signature)
-      attempt.current = { signature, key: crypto.randomUUID() };
+      attempt.current = { signature, key: randomUUID() };
     try {
       const response = await api[method]<{ data: unknown }>(
         path,

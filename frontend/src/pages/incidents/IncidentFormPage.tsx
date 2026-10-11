@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { randomUUID } from "@/lib/uuid";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
 import { RecordNameSuggestions } from "@/components/inputs/RecordNameSuggestions";
 import {
@@ -338,7 +339,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const effectiveId = id ?? createdId;
-  const createRequestKeyRef = useRef(globalThis.crypto.randomUUID());
+  const createRequestKeyRef = useRef(randomUUID());
   const duplicateReviewRef = useRef<RecordDuplicateReviewHandle>(null);
   const documentStageRef = useRef<PetitionStageHandle>(null);
   const [draftIncidentCode, setDraftIncidentCode] = useState("");

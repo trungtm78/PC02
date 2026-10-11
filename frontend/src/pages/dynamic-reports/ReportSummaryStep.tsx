@@ -5,6 +5,7 @@
  * the first time any of it reaches the database.
  */
 import { useState } from 'react';
+import { randomUUID } from '@/lib/uuid';
 import { ArrowLeft, CheckCircle2, Save, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
@@ -61,7 +62,7 @@ export default function ReportSummaryStep({
   // Stable across retries of the SAME attempt (so a double-click or a
   // network-error retry never double-publishes) — a fresh key only if the
   // user navigates away and starts a new wizard session.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => randomUUID());
   const [loading, setLoading] = useState<'draft' | 'publish' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ reportId: string; status: string } | null>(null);
