@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-11T18:30:00+07:00 | Milestone: **PR9 HOÀN TẤT TOÀN BỘ** (S36+S37+ReminderScheduler+6 thông báo) — chuyển sang PR10 (hoàn thiện+UAT thật+monkey test một lần cuối) — **flag `dynamic_reports` ĐANG BẬT trên production theo yêu cầu của anh** | Task: 0/~1
+Cập nhật: 2026-10-12T06:55:00+07:00 | Milestone: **PR0-PR10 HOÀN TẤT TOÀN BỘ** — UAT thật (3 bug tìm+vá), sổ a11y vá gộp, benchmark X04 3/3 chỉ số đạt, Runbook+backup/restore đã kiểm thật, monkey test cuối đã chạy (bắt thêm 1 bug nghiêm trọng `crypto.randomUUID` ảnh hưởng cả module này, đã vá xong) — **flag `dynamic_reports` ĐANG BẬT trên production**. Việc còn lại là TUỲ CHỌN (28 dòng UAT phụ + 2 GAP UX + 1 GAP oracle, xem mục 5 "Hàng đợi task kế tiếp"), không chặn coi PR10 là xong. | Task: 0/~1
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -595,7 +595,21 @@ coverage-driven, ưu tiên chất lượng.
    backup→restore THẬT đã tự chạy trên dev (`pg_dump -Fc` → DB mới → `pg_restore` → đối chiếu
    số dòng VÀ nội dung `dyn_reports`/`dyn_report_submissions`/`dyn_report_revisions` giữa DB gốc
    và DB vừa restore — khớp chính xác tuyệt đối cả 2 bước đối chiếu), rồi dọn sạch DB/file tạm.
-4. Monkey test X06 — chạy ĐÚNG MỘT LẦN ở cuối toàn bộ PR10 (không chạy theo từng task).
+4. ~~Monkey test X06~~ — **XONG, chạy ĐÚNG MỘT LẦN 11-12/10/2026 trên production thật** (`tools/
+   monkey-test`, tài khoản ADMIN tạm tự tạo qua CLI có sẵn + tự khoá lại ngay sau khi xong —
+   5 tài khoản thử cũ đều đã bị khoá từ 20/09). **Lượt đầu bắt được 1 bug thật nghiêm trọng, phạm
+   vi RỘNG HƠN module này**: `crypto.randomUUID()` chỉ chạy trong secure context (HTTPS/
+   localhost) — production hiện chỉ có HTTP (chưa có domain TLS) nên gọi thẳng throw
+   `TypeError`. Grep toàn frontend tìm thêm 6 vị trí khác (ngoài cái monkey test bắt được ở
+   `IncidentFormPage`/`IncidentHandoffPanel`), **2 trong đó thuộc CHÍNH module Báo cáo động**:
+   `ReportSummaryStep.tsx` (bước xuất bản, crash ngay lúc render — không ai xuất bản được báo
+   cáo mới trên production) và `SubmissionInputPage.tsx` (mọi lần autosave). Đã vá bằng
+   `frontend/src/lib/uuid.ts#randomUUID()` dùng chung (fallback qua `crypto.getRandomValues`
+   khi `randomUUID` không có) — PR #595 ở repo gốc `pc02-case-management` (không phải worktree
+   này), merge `a569c2fc`, deploy xanh. **Tái chạy monkey test lần 2 sau vá: 0 lỗi
+   `randomUUID`** — xác nhận đúng. (246 mục "đáng ngờ" ở lượt 2 hầu hết là nhiễu 429 do tự chạy
+   liên tiếp 2 lượt trong thời gian ngắn, không phải lỗi sản phẩm; 4 mục còn lại trùng với phát
+   hiện cũ ở lượt 1 — không phải regression mới, không thuộc phạm vi module này.)
 5. (Tuỳ chọn, nếu còn muốn tiếp tục phủ sâu hơn UAT): 28 dòng CHƯA LÀM còn lại trong
    `UAT-COVERAGE.md` (chủ yếu màn hình phụ S05-S08/S12/S14-S18/S20/S22-S32/S35 + X02/X07),
    GAP UX-01/UX-02 cần quyết định vá hay chấp nhận, GAP oracle X03 cần người quyết ý định
