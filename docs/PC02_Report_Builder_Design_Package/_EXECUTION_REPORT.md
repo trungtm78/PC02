@@ -87,23 +87,29 @@ xác nhận `dist/.../submission.service.js` có đủ 2 hàm resolver mới.
 vào `main` sau này và nhánh UAT này được rebase/merge `main` vào, git sẽ nhận diện đây là nội
 dung đã có, không tạo xung đột trùng lặp (khác cherry-pick, vốn tạo hash mới).
 
-**Quan sát CHƯA kết luận — cần kỹ sư xác nhận lại độc lập**: để kiểm chứng kịch bản thật 2
-cấp (chưa có DTO/UI nào tạo được cấu hình này, đúng như ghi chú — tôi tự tạo bằng INSERT SQL
-trực tiếp 1 dòng `DynReportRole` thứ hai, role=MANAGER, approvalLevel=2, cho user
-`viewer-test`, trên báo cáo `dr-test-report-1`), rồi cho `manager-test` (approvalLevel=1)
-duyệt lần 1 qua API thật. Kỳ vọng: dừng ở `SUBMITTED`, `approvalLevel=1` (chưa đủ 2 cấp).
-**Thực tế quan sát được: chuyển thẳng `APPROVED` ngay sau 1 lần duyệt** — như thể
-`totalApprovalLevels` vẫn được tính là 1, dù truy vấn SQL thủ công y hệt logic
-`resolveTotalApprovalLevels` (chạy trực tiếp qua `psql`) trả về đúng `MAX=2`. Tôi KHÔNG đủ
-thời gian trong checkpoint này để cô lập nguyên nhân (nghi vấn: cache Prisma, cấu hình đọc
-dữ liệu trong transaction, hoặc đơn giản là lỗi trong cách tôi dựng dữ liệu test qua INSERT
-tay — case này nằm NGOÀI luồng được hỗ trợ vì chưa có UI, nên rất dễ tôi dựng sai một chi
-tiết nhỏ). Đã dọn sạch dữ liệu test (xoá role chèn thêm, revert `dyn_report_submissions` về
-đúng trạng thái gốc `SUBMITTED/approvalLevel=0/currentRevision=4`) để không làm bẩn fixture
-cho phiên sau. **Khuyến nghị**: kỹ sư PR #584 tự tái lập kịch bản 2 cấp bằng cùng cách (hoặc
-cách sạch hơn, có kiểm soát) và xác nhận lại — đây là báo cáo "quan sát bất thường", KHÔNG
-phải khẳng định BUG-001 chưa vá hết (7 unit test mới + full suite xanh là bằng chứng mạnh hơn
-một lần thử tay của tôi với dữ liệu dựng ngoài luồng được hỗ trợ).
+**ĐÃ XÁC NHẬN: KHÔNG phải bug — BUG-001 coi như đóng hoàn toàn.** Lượt thử tay đầu tiên của
+tôi (dựng role MANAGER cấp 2 qua INSERT SQL rồi cho `manager-test` duyệt lần 1 qua API) cho
+kết quả chuyển thẳng `APPROVED` sau 1 lần duyệt, trái kỳ vọng ban đầu — nhưng nguyên nhân THẬT
+là **fixture artifact có sẵn từ một thử nghiệm trước chưa dọn hết**: ngay trước lượt thử của
+tôi, submission đã ở `approvalLevel=1` (không phải `0` như tôi giả định khi tính kỳ vọng) do
+một dòng `DynReportRevision` orphan (`revision=6, kind=APPROVE`) không khớp
+`currentRevision=5` lúc đó còn sót lại. Với `approvalLevel` thật đã là `1` và
+`totalApprovalLevels=2`, một lần duyệt nữa (`nextApprovalLevel = 1+1 = 2 >= 2`) **ĐÚNG RA**
+phải chuyển `APPROVED` ngay — đây là hành vi đúng của code, không phải lỗi. Lỗi nằm ở phép đo
+của tôi (không kiểm kỹ trạng thái fixture trước khi gán kỳ vọng), không phải ở sản phẩm.
+
+Kỹ sư PR #584 đã tái lập độc lập bằng thí nghiệm sạch: dừng + build lại backend từ đầu (loại
+cache), dọn fixture về đúng baseline gốc (`approvalLevel=0`), chèn 1 role MANAGER cấp 2 cho
+`dr-test-viewer-user-1`, gọi trực tiếp `SubmissionService.approve()` qua tầng service/
+transition thật (Prisma thật, không mock). Kết quả: **PASS cả 2 bước** — duyệt cấp 1 giữ
+đúng `SUBMITTED` (approvalLevel 0→1), chỉ duyệt cấp 2 mới chuyển `APPROVED` (1→2). Đã dọn
+sạch hoàn toàn dữ liệu thí nghiệm (xoá role chèn thêm, xoá 2 revision test, phục hồi
+submission về đúng `SUBMITTED/approvalLevel=0/currentRevision=5`, xác nhận lại qua SELECT).
+
+**Kết luận cuối**: R21 multi-level hoạt động đúng qua API/service thật sau vá PR #584.
+TC-S33-01/02/03 (multi-level) có thể coi là **PASS** cho đường cơ chế lõi (dù UI cấu hình
+`approvalLevel>1` vẫn CHƯA tồn tại — đây là GAP khác, không phải BUG-001, xem ghi chú PR #584
+"chỉ có hạ tầng engine/DB đúng, chưa lộ ra cho người dùng"). KHÔNG cần điều tra thêm BUG-001.
 
 ## E2E Playwright thật — J-REVIEW-01 (TC-E2E-REVIEW-01)
 
@@ -146,6 +152,38 @@ hợp lý (snapshot cho rollback), hay (b) có một endpoint/role xem audit ri�
 report) mà KHÔNG nên lộ số liệu qua đó dù dữ liệu nằm trong cùng bảng ở tầng lưu trữ? Ghi
 `oracle_type: GAP` cho TC-X03-01 ở lượt cập nhật `uat.json` kế tiếp, KHÔNG tự quyết định PASS
 hay FAIL.
+
+## Cập nhật lượt 3 — thêm 4 E2E Playwright thật + phát hiện hạ tầng (khoá JWT)
+
+**Phát hiện hạ tầng (không phải bug sản phẩm)**: sau khi coordinator restart backend "build
+lại từ đầu" để kiểm BUG-001 sạch, login UI bắt đầu thất bại cho MỌI tài khoản (login API trả
+200 + token hợp lệ về hình thức, nhưng request kế tiếp `/auth/me` dùng đúng token đó trả
+`401`). Nguyên nhân: **tôi** đã để lại `backend/keys/private.pem` (mới, tự sinh) và
+`backend/keys/public.pem` (revert về bản đã commit trong git) KHÔNG khớp cặp — vì tôi tưởng
+"server đang chạy đã nạp khoá cũ vào RAM, không cần khớp file trên đĩa" ở 2 lượt trước, nhưng
+không tính tới việc **ai đó restart lại server** sẽ đọc lại file TRÊN ĐĨA (lúc đó đã lệch cặp)
+ngay từ đầu. Đã sửa: sinh lại cặp khoá NHẤT QUÁN (`openssl genrsa` + `openssl rsa -pubout`),
+**lần này KHÔNG revert `public.pem` về bản git nữa** (chỉ để local, không commit) để tránh lặp
+lại lỗi này nếu backend bị restart lần nữa trong phiên sau. Xác nhận lại bằng
+`login → /auth/me` qua `fetch` thật: `200`. **Ghi chú cho phiên sau**: `backend/keys/
+public.pem` hiện có thay đổi local chưa commit (khớp `private.pem` hiện tại, cả hai đều chỉ
+dùng cho dev cục bộ) — ĐỪNG `git checkout -- backend/keys/public.pem` nếu chưa chắc
+`private.pem` nào đang khớp, luôn sinh lại CẢ HAI cùng lúc.
+
+**4 E2E Playwright thật mới (sau khi khoá đã khớp), đều PASS**:
+| Screen/journey | Tài khoản | Kết quả |
+|---|---|---|
+| S01 (danh sách thiết lập) | admin | PASS — hiện đúng "Báo cáo test dán TSV", không lỗi |
+| S13 (mở báo cáo đã khoá qua route nhập) | admin (là editor active của assignment) | PASS — trang render đúng submission, không 404/500. *Không kết luận được việc input có bị khoá đúng hay không* — selector của tôi (`input[type=text/number]`) quá rộng, nhiều khả năng bắt trúng ô tìm kiếm chung của layout chứ không phải ô dữ liệu báo cáo; cần locator cụ thể hơn (theo `data-testid`/`fieldKey`) ở lượt sau để kết luận chắc |
+| S19 (dashboard tình trạng, J-DASH-01) | manager-test | PASS — hiện đúng dữ liệu thật |
+| S34 (hàng chờ mở khoá) | manager-test | PASS — trang tải không lỗi |
+
+Cộng với J-REVIEW-01 (lượt 2) → **tổng 5 E2E Playwright thật PASS** qua 4/10 journey chính
+trong `_domain-pack.md` (J-REVIEW-01, J-DASH-01, J-UNLOCK-01 một phần, và phần hiển thị của
+J-WIZARD-01/J-ENTRY-01 qua S01/S13). **CHƯA có E2E nào đi hết một journey từ đầu tới cuối
+qua nhiều bước** (ví dụ J-WIZARD-01 đầy đủ: upload → preview → cấu hình kỳ → phân công →
+publish) — các E2E ở trên là "mở đúng trang, render đúng dữ liệu", không phải "thực hiện
+toàn bộ luồng nghiệp vụ". Đây vẫn là GAP cần làm ở lượt sau.
 
 ## Những gì CHƯA chạy ở checkpoint này (lý do ngân sách)
 - 72/78 TC trong `uat.json` chưa được execute live (chỉ viết + qua Cổng 0/1, chưa qua 7b).

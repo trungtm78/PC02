@@ -8,7 +8,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 
 | ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
 |---|---|---|---|---|
-| S01 | Danh sách thiết lập báo cáo | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S01 | Danh sách thiết lập báo cáo | ĐÃ VIẾT (3 TC, uat.json) | ĐÃ CHẠY THẬT 1 E2E Playwright | **PASS phần hiển thị** (admin, render đúng dữ liệu, không lỗi). TC permission-scope (chỉ thấy báo cáo của mình) CHƯA kiểm. |
 | S02 | Upload mẫu Excel | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S03 | Preview và thuộc tính ô | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S04 | Lỗi import và validation mẫu | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -20,13 +20,13 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S10 | Xác nhận xuất bản | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S11 | Nhập báo cáo | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S12 | Kiểm tra dữ liệu nhập | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S13 | Báo cáo đã khoá | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S13 | Báo cáo đã khoá | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 1 API + 1 E2E Playwright | **PASS phần API** (PATCH bị chặn 403/409 khi SUBMITTED — xác nhận ở lượt 1). **CHƯA kết luận phần UI** (trang mở đúng, nhưng chưa xác nhận chắc ô nhập có hiện readonly đúng — selector E2E quá rộng, cần làm lại với locator cụ thể). |
 | S14 | Báo cáo được mở lại | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S15 | Tổng hợp của người quản lý | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S16 | Xem cá nhân (tổ) chỉ đọc | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S17 | Dialog mở khoá | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S18 | Nguồn số tổng | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S19 | Dashboard tình trạng | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S19 | Dashboard tình trạng | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 1 E2E Playwright | **PASS phần hiển thị** (manager-test, render đúng dữ liệu thật, không lỗi). Chi tiết số liệu KPI/mẫu số CHƯA kiểm. |
 | S20 | Ma trận người/tổ và báo cáo | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S21 | Lịch sử và audit | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ CHẠY THẬT 1/2 (quan sát DB trực tiếp) | **PASS** — `dyn_report_revisions` (actor+reason+kind+revision+thời điểm) có dữ liệu thật đầy đủ từ các lượt SAVE/SUBMIT/RETURN/APPROVE/UNAPPROVE trước đó. |
 | S22 | Quản lý phiên bản | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -40,8 +40,8 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S30 | Điều chỉnh và miễn nghĩa vụ giữa kỳ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S31 | Ngừng phát sinh và thu hồi grant | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S32 | Lưới template và ràng buộc field (quét vùng web) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 2/5 + 1 E2E Playwright | **BUG-001 tìm thấy ở lượt 1 (P1/S2) — ĐÃ VÁ ở PR #584 (commit `dcf4ed7f`, merge vào nhánh UAT này), 7 unit test mới + full suite 8221/8336 PASS.** 1 cấp duyệt mặc định (đường chính, không cấu hình nhiều cấp) đã xác nhận chạy đúng qua E2E Playwright thật (manager xem + journey render đúng dữ liệu). Kịch bản THẬT ≥2 cấp CHƯA có UI để cấu hình (xác nhận đúng ghi chú PR #584) — một lần thử tay dựng dữ liệu 2 cấp qua SQL cho kết quả bất thường (xem `_EXECUTION_REPORT.md` mục "Quan sát CHƯA kết luận"), cần kỹ sư xác nhận lại độc lập, KHÔNG tính là FAIL mới vì cách dựng dữ liệu nằm ngoài luồng được hỗ trợ. |
-| S34 | Hàng chờ yêu cầu mở lại + mở khoá hàng loạt | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 2/5 + 1 E2E Playwright + 1 thí nghiệm sạch 2 cấp | **PASS — BUG-001 đóng hoàn toàn.** Tìm thấy ở lượt 1 (P1/S2), vá ở PR #584 (commit `dcf4ed7f`, merge vào nhánh UAT này), 7 unit test mới + full suite 8221/8336 PASS. 1 cấp duyệt mặc định xác nhận đúng qua E2E Playwright thật. Kịch bản 2 cấp: lượt thử đầu của tôi "có vẻ bất thường" do fixture artifact còn sót từ thử nghiệm trước (approvalLevel đã =1 sẵn, không phải 0 như giả định) — KHÔNG phải bug. Kỹ sư PR #584 tái lập độc lập bằng thí nghiệm sạch (build lại loại cache, baseline sạch, gọi trực tiếp `SubmissionService.approve()` qua service/transition thật): **PASS cả 2 bước** (cấp 1 giữ SUBMITTED, cấp 2 mới APPROVED). UI cấu hình `approvalLevel>1` vẫn CHƯA tồn tại — GAP riêng, không phải BUG-001. |
+| S34 | Hàng chờ yêu cầu mở lại + mở khoá hàng loạt | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ CHẠY THẬT 1 API + 1 E2E Playwright | **PASS phần hiển thị** (trang tải không lỗi) **+ PASS phần state-gate** (yêu cầu mở lại không tự mở, xác nhận ở lượt 1). Luồng duyệt/từ chối hàng loạt CHƯA kiểm. |
 | S35 | Nhập từ Excel (re-import có dấu __dr_meta) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S36 | Validation rules (soạn + gợi ý từ IF) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S37 | Ghi chú/giải trình theo ô và theo bản nộp | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -76,14 +76,15 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
 **Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 2)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Checkpoint PR10 UAT 11/10/2026 (lượt 3)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
 item = 43,9%). Đã EXECUTE LIVE một mẫu nhỏ qua API + UI thật trên dev cục bộ (không phải
-78/78): **BUG-001 tìm thấy (S33/R21) và ĐÃ VÁ ở PR #584** (merge vào nhánh UAT), **1 E2E
-Playwright PASS thật** (J-REVIEW-01), **PASS** (S21 audit trail, X01 một phần, clock guard),
-**1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật), **1 quan sát bất
-thường chưa kết luận** (kịch bản 2 cấp dựng tay qua SQL, cần kỹ sư PR #584 tái lập độc lập).
+78/78): **BUG-001 tìm thấy (S33/R21), ĐÃ VÁ ở PR #584 và ĐÃ ĐÓNG HOÀN TOÀN** (merge vào nhánh UAT,
+tái lập độc lập cả 2 bước 2 cấp bằng thí nghiệm sạch — PASS), **5 E2E Playwright PASS thật**
+(J-REVIEW-01, S01, S13, S19, S34), **PASS** (S21 audit trail, X01 một phần, clock guard),
+**1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật), **1 phát hiện hạ
+tầng đã tự vá** (khoá JWT lệch cặp sau restart — xem `_EXECUTION_REPORT.md` lượt 3).
 Chi tiết đầy đủ: `_EXECUTION_REPORT.md`. **CHƯA đạt 100% PASS — còn ở trạng thái
 SẴN SÀNG-KÈM-KHUYẾT**, không coi là xong; các dòng còn `CHƯA LÀM` thật sự chưa chạy, không
 suy ra PASS.

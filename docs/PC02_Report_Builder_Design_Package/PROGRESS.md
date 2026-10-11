@@ -492,11 +492,24 @@ sau này). Đã chạy thêm: 1 E2E Playwright thật (`chromium.launch()` trự
 sửa vì file dùng chung) cho journey J-REVIEW-01 → **PASS** (manager đăng nhập UI thật, xem
 đúng dữ liệu submission thật). Quan sát trực tiếp DB xác nhận S21 (audit trail
 `dyn_report_revisions`) **PASS**. Phát hiện X03 ("audit không chứa số liệu") oracle gốc
-không khớp kiến trúc thật — ghi **GAP cần người quyết**, không tự PASS/FAIL. Một lần thử tay
-dựng kịch bản phê duyệt 2 cấp qua INSERT SQL (chưa có UI hỗ trợ) cho kết quả bất thường
-(dừng sớm ở cấp 1 thay vì chờ cấp 2) — ghi là **quan sát chưa kết luận**, đã dọn sạch dữ liệu
-test, cần kỹ sư PR #584 tái lập độc lập để xác nhận có phải lỗi thật hay do cách dựng dữ liệu
-của tôi sai. Chi tiết đầy đủ: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 2".
+không khớp kiến trúc thật — ghi **GAP cần người quyết**, không tự PASS/FAIL.
+
+**BUG-001 ĐÓNG HOÀN TOÀN**: lần thử tay dựng kịch bản 2 cấp của tôi (INSERT SQL, chưa có UI
+hỗ trợ) "có vẻ bất thường" (dừng sớm ở cấp 1) hoá ra do fixture artifact còn sót từ thử
+nghiệm trước (approvalLevel đã =1 sẵn lúc tôi bắt đầu, không phải 0 như tôi giả định), KHÔNG
+phải bug sản phẩm. Kỹ sư PR #584 tái lập độc lập bằng thí nghiệm sạch (build lại loại cache,
+baseline sạch, gọi trực tiếp `SubmissionService.approve()` qua service/transition thật) →
+**PASS cả 2 bước** (cấp 1 giữ SUBMITTED, cấp 2 mới APPROVED). Không cần điều tra thêm. Chi
+tiết đầy đủ: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 2".
+
+**Lượt 3**: phát hiện + tự vá lỗi hạ tầng (không phải bug sản phẩm) — sau khi backend bị
+restart, login UI gãy cho MỌI tài khoản (`/auth/me` 401 ngay sau login 200) vì cặp khoá JWT
+cục bộ bị lệch (`private.pem` mới của tôi nhưng `public.pem` bị tôi `git checkout` về bản cũ
+ở 2 lượt trước — bài học: PHẢI sinh lại CẢ HAI cùng lúc, không revert riêng `public.pem`).
+Đã sinh lại cặp khoá nhất quán, restart backend, xác nhận login hoạt động lại. Sau đó chạy
+thêm **4 E2E Playwright thật** (S01, S13, S19, S34) — tất cả PASS phần hiển thị (render đúng
+dữ liệu, không lỗi). Tổng cộng đã có **5 E2E PASS thật** qua các lượt. Chi tiết:
+`_EXECUTION_REPORT.md` mục "Cập nhật lượt 3".
 
 ## Hàng đợi task kế tiếp
 1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
