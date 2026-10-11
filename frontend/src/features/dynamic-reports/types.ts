@@ -284,6 +284,44 @@ export interface ReopenResultView {
   status: 'OPEN';
 }
 
+/** S30 (PR4 slice 6) — 1 dòng trong danh sách tổ của kỳ, để chọn tổ thêm/miễn nộp. */
+export interface AssignmentListItemView {
+  assignmentId: string;
+  teamId: string;
+  teamName: string;
+  obligation: 'REQUIRED' | 'EXEMPT';
+  state: DynReportSubmissionState;
+}
+
+/** S30 — "trước/sau" cho 1 field khi thêm tổ hoặc miễn nộp giữa kỳ. */
+export interface MidPeriodFieldImpact {
+  fieldKey: string;
+  label: string;
+  beforeCountTotal: number;
+  afterCountTotal: number;
+  beforeValue: string | null;
+  afterValue: string | null;
+}
+
+/** S30 (D09) — xem trước tác động lên mẫu số trước khi xác nhận thêm tổ/miễn nộp. */
+export interface MidPeriodImpactPreview {
+  periodId: string;
+  teamId: string;
+  teamName: string;
+  requiredCountBefore: number;
+  requiredCountAfter: number;
+  contributingCountBefore: number;
+  contributingCountAfter: number;
+  fields: MidPeriodFieldImpact[];
+}
+
+export interface MidPeriodAssignmentView {
+  assignmentId: string;
+  teamId: string;
+  teamName: string;
+  obligation: 'REQUIRED' | 'EXEMPT';
+}
+
 /** S25 (PR7 slice 7) — created by POST .../export, then downloaded via GET .../exports/:exportId/download. */
 export interface ExportCreateResultView {
   exportId: string;

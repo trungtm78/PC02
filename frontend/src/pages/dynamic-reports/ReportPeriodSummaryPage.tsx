@@ -18,6 +18,7 @@ import {
   Loader2,
   Lock,
   Unlock,
+  Users,
 } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { SummaryMode } from '@/features/dynamic-reports/types';
@@ -123,14 +124,24 @@ export default function ReportPeriodSummaryPage() {
           <ArrowLeft className="w-4 h-4" />
           Quay lại danh sách duyệt
         </Link>
-        <Link
-          to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/lich-su`}
-          data-testid="link-report-history"
-          className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
-        >
-          <History className="w-4 h-4" />
-          Xem lịch sử
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/to`}
+            data-testid="link-period-teams"
+            className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
+          >
+            <Users className="w-4 h-4" />
+            Thêm tổ / Miễn nộp
+          </Link>
+          <Link
+            to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/lich-su`}
+            data-testid="link-report-history"
+            className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
+          >
+            <History className="w-4 h-4" />
+            Xem lịch sử
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-2 mb-1">

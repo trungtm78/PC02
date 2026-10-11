@@ -15,6 +15,11 @@ describe('AggregateController', () => {
     exportPeriod: jest.fn(),
     getReportHistory: jest.fn(),
     listPeriodsForViewer: jest.fn(),
+    previewAddTeam: jest.fn(),
+    previewExemptTeam: jest.fn(),
+    addTeamMidPeriod: jest.fn(),
+    exemptTeamMidPeriod: jest.fn(),
+    listAssignmentsForPeriod: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -115,6 +120,135 @@ describe('AggregateController', () => {
     await expect(
       controller.reopen('period1', { reason: 'r' }, user),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  describe('S30 — add-team / exempt-team mid-period', () => {
+    it('GET assignments delegates to AggregateService.listAssignmentsForPeriod', async () => {
+      const list = [{ assignmentId: 'a1', teamName: 'Team a1' }];
+      service.listAssignmentsForPeriod.mockResolvedValue(list);
+
+      const result = await controller.listAssignments('period1', user);
+
+      expect(service.listAssignmentsForPeriod).toHaveBeenCalledWith(
+        'period1',
+        'u1',
+        'r1',
+      );
+      expect(result).toBe(list);
+    });
+
+    it('POST assignments/add-team/preview delegates with teamId', async () => {
+      const preview = { teamId: 'team-new', requiredCountBefore: 3 };
+      service.previewAddTeam.mockResolvedValue(preview);
+
+      const result = await controller.previewAddTeam(
+        'period1',
+        { teamId: 'team-new' },
+        user,
+      );
+
+      expect(service.previewAddTeam).toHaveBeenCalledWith(
+        'period1',
+        'u1',
+        'r1',
+        'team-new',
+      );
+      expect(result).toBe(preview);
+    });
+
+    it('POST assignments/add-team delegates with teamId + reason', async () => {
+      const created = { assignmentId: 'new1', obligation: 'REQUIRED' };
+      service.addTeamMidPeriod.mockResolvedValue(created);
+
+      const result = await controller.addTeamMidPeriod(
+        'period1',
+        { teamId: 'team-new', reason: 'Bổ sung tổ' },
+        user,
+      );
+
+      expect(service.addTeamMidPeriod).toHaveBeenCalledWith(
+        'period1',
+        'u1',
+        'r1',
+        'team-new',
+        'Bổ sung tổ',
+      );
+      expect(result).toBe(created);
+    });
+
+    it('translates TEAM_ALREADY_ASSIGNED from addTeamMidPeriod into a 400', async () => {
+      service.addTeamMidPeriod.mockRejectedValue(
+        new SubmissionError('already assigned', 'TEAM_ALREADY_ASSIGNED'),
+      );
+
+      await expect(
+        controller.addTeamMidPeriod(
+          'period1',
+          { teamId: 'team-a1', reason: 'r' },
+          user,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('translates INVALID_STATE_TRANSITION from addTeamMidPeriod into a 409', async () => {
+      service.addTeamMidPeriod.mockRejectedValue(
+        new SubmissionError('locked', 'INVALID_STATE_TRANSITION'),
+      );
+
+      await expect(
+        controller.addTeamMidPeriod(
+          'period1',
+          { teamId: 'team-new', reason: 'r' },
+          user,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('POST assignments/:assignmentId/exempt/preview delegates with assignmentId', async () => {
+      const preview = { teamId: 'team-a1', requiredCountBefore: 3 };
+      service.previewExemptTeam.mockResolvedValue(preview);
+
+      const result = await controller.previewExemptTeam('period1', 'a1', user);
+
+      expect(service.previewExemptTeam).toHaveBeenCalledWith(
+        'period1',
+        'u1',
+        'r1',
+        'a1',
+      );
+      expect(result).toBe(preview);
+    });
+
+    it('POST assignments/:assignmentId/exempt delegates with reason', async () => {
+      const updated = { assignmentId: 'a1', obligation: 'EXEMPT' };
+      service.exemptTeamMidPeriod.mockResolvedValue(updated);
+
+      const result = await controller.exemptTeamMidPeriod(
+        'period1',
+        'a1',
+        { reason: 'Tổ giải thể' },
+        user,
+      );
+
+      expect(service.exemptTeamMidPeriod).toHaveBeenCalledWith(
+        'period1',
+        'u1',
+        'r1',
+        'a1',
+        'Tổ giải thể',
+      );
+      expect(result).toBe(updated);
+    });
+
+    it('translates ALREADY_EXEMPT from exemptTeamMidPeriod into a 400', async () => {
+      service.exemptTeamMidPeriod.mockRejectedValue(
+        new SubmissionError('already exempt', 'ALREADY_EXEMPT'),
+      );
+
+      await expect(
+        controller.exemptTeamMidPeriod('period1', 'a1', { reason: 'r' }, user),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   it('POST export delegates to AggregateService.exportPeriod', async () => {
