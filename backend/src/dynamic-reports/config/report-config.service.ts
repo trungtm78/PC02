@@ -123,6 +123,7 @@ export class ReportConfigService {
       schedule: input.schedule,
       roles: input.roles,
       targets: input.targets,
+      rules: input.rules,
       effectiveFrom: input.effectiveFrom,
       publish: input.publish,
     };
@@ -281,6 +282,22 @@ export class ReportConfigService {
             })),
           });
         }
+      }
+
+      if (input.rules && input.rules.length > 0) {
+        await tx.dynReportValidationRule.createMany({
+          data: input.rules.map((r) => ({
+            versionId: version.id,
+            name: r.name,
+            leftExpr: r.leftExpr,
+            operator: r.operator,
+            rightExpr: r.rightExpr,
+            severity: r.severity,
+            message: r.message,
+            missingStrategy: r.missingStrategy ?? null,
+            origin: 'MANUAL',
+          })),
+        });
       }
 
       const payload: SaveReportConfigResult = {

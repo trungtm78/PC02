@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType, DynReportSubmissionState, DynReportVersionStatus } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType, DynReportSubmissionState, DynReportVersionStatus, DynReportRuleOperator, DynReportRuleSeverity } from './generated';
 import { CATALOG_LEGAL, CATALOG_META } from '@/shared/catalog/catalog.generated';
 import { STATUS_PENDING_RESPONSE } from '@/constants/styles';
 
@@ -373,6 +373,28 @@ export const DYN_REPORT_VERSION_STATUS_BADGE_CLASS: Record<DynReportVersionStatu
   [DynReportVersionStatus.DRAFT]:     'bg-slate-100 text-slate-600',
   [DynReportVersionStatus.PUBLISHED]: 'bg-green-100 text-green-700',
   [DynReportVersionStatus.RETIRED]:   'bg-slate-100 text-slate-400',
+};
+
+/** S36 (PR9 slice 1) — comparison label shown next to the two expression inputs when authoring a rule. */
+export const DYN_REPORT_RULE_OPERATOR_LABEL: Record<DynReportRuleOperator, string> = {
+  [DynReportRuleOperator.EQ]:              'Bằng (=)',
+  [DynReportRuleOperator.NEQ]:             'Khác (≠)',
+  [DynReportRuleOperator.GT]:              'Lớn hơn (>)',
+  [DynReportRuleOperator.GTE]:             'Lớn hơn hoặc bằng (≥)',
+  [DynReportRuleOperator.LT]:              'Nhỏ hơn (<)',
+  [DynReportRuleOperator.LTE]:             'Nhỏ hơn hoặc bằng (≤)',
+  [DynReportRuleOperator.COMPULSORY_PAIR]: 'Bắt buộc đi cùng nhau (chưa hỗ trợ)',
+  [DynReportRuleOperator.EXCLUSIVE_PAIR]:  'Loại trừ lẫn nhau (chưa hỗ trợ)',
+};
+
+export const DYN_REPORT_RULE_SEVERITY_LABEL: Record<DynReportRuleSeverity, string> = {
+  [DynReportRuleSeverity.ERROR]:   'Lỗi — chặn nộp',
+  [DynReportRuleSeverity.WARNING]: 'Cảnh báo — cần xác nhận',
+};
+
+export const DYN_REPORT_RULE_SEVERITY_BADGE_CLASS: Record<DynReportRuleSeverity, string> = {
+  [DynReportRuleSeverity.ERROR]:   'bg-red-100 text-red-700',
+  [DynReportRuleSeverity.WARNING]: 'bg-amber-100 text-amber-700',
 };
 
 export const DYN_REPORT_PERIOD_TYPE_LABEL: Record<DynReportPeriodType, string> = {

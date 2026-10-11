@@ -18,6 +18,8 @@ import type {
 import { validateFieldValue } from '../engine/values';
 import type { FieldDefinitionLike, TypedValue } from '../engine/values';
 import { readImportCellRaw } from '../engine/import-cell';
+import { evaluateRules } from '../engine/rules';
+import type { RuleOperator, RuleViolation } from '../engine/rules';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import {
   sanitizeSheetName,
@@ -198,7 +200,10 @@ export class SubmissionService {
       where: { id: assignmentId },
       include: {
         period: {
-          include: { report: true, version: { include: { fields: true } } },
+          include: {
+            report: true,
+            version: { include: { fields: true, rules: true } },
+          },
         },
         submission: true,
       },
@@ -207,6 +212,17 @@ export class SubmissionService {
       throw new NotFoundException('Không tìm thấy lượt giao này.');
     }
     return assignment;
+  }
+
+  /**
+   * S36 (PR9 slice 1) — defaults to the version's single selected sheet
+   * when a rule's expression has no explicit "Sheet!Cell" prefix; with
+   * more than one selected sheet there's no unambiguous default, so a
+   * bare cell ref only resolves if the rule itself prefixes it.
+   */
+  private defaultSheetFor(selectedSheets: unknown): string | null {
+    const sheets = Array.isArray(selectedSheets) ? selectedSheets : [];
+    return sheets.length === 1 ? (sheets[0] as string) : null;
   }
 
   private async grantsFor(
@@ -1481,14 +1497,74 @@ export class SubmissionService {
   }
 
   /**
+   * S36 (PR9 slice 1) — real rule evaluation, reused by both `submit()`
+   * (ERROR-severity only, blocking) and `validateForSubmit()` (every
+   * severity, read-only preview for the "Nộp" confirm flow).
+   */
+  private evaluateRulesFor(
+    rules: Array<{
+      id: string;
+      name: string;
+      leftExpr: string;
+      operator: string;
+      rightExpr: string;
+      severity: string;
+      message: string;
+      missingStrategy: string | null;
+    }>,
+    values: Record<string, TypedValue>,
+    selectedSheets: unknown,
+  ): RuleViolation[] {
+    return evaluateRules(
+      rules.map((r) => ({
+        id: r.id,
+        name: r.name,
+        leftExpr: r.leftExpr,
+        operator: r.operator as RuleOperator,
+        rightExpr: r.rightExpr,
+        severity: r.severity as 'ERROR' | 'WARNING',
+        message: r.message,
+        missingStrategy: r.missingStrategy,
+      })),
+      values,
+      this.defaultSheetFor(selectedSheets),
+    );
+  }
+
+  /**
+   * S36 — read-only preview of validation-rule violations for the "Nộp"
+   * confirm flow: ERROR-severity blocks (mirrors what `submit()` itself
+   * will reject), WARNING-severity is shown so the editor can confirm
+   * before calling `submit()` — the server does not require a
+   * confirmation flag back, because WARNING is a UX nicety, not a
+   * security boundary (`submit()` only ever blocks on ERROR).
+   */
+  async validateForSubmit(
+    assignmentId: string,
+    userId: string,
+  ): Promise<{ errors: RuleViolation[]; warnings: RuleViolation[] }> {
+    const assignment = await this.loadEditorAssignment(
+      this.prisma,
+      assignmentId,
+      userId,
+    );
+    const values =
+      (assignment.submission!.values as Record<string, TypedValue>) ?? {};
+    const violations = this.evaluateRulesFor(
+      assignment.period.version.rules,
+      values,
+      assignment.period.version.selectedSheets,
+    );
+    return {
+      errors: violations.filter((v) => v.severity === 'ERROR'),
+      warnings: violations.filter((v) => v.severity === 'WARNING'),
+    };
+  }
+
+  /**
    * S29 (spec §6.1 PR6). Takes no value patch — the frontend flushes any
    * pending autosave before calling this, same as the spec's own "chờ
-   * autosave xong" requirement. `hasErrorSeverityRuleViolation` is always
-   * false: `DynReportValidationRule` has no evaluation path wired yet
-   * (needs `engine/expr.ts`, PR9 S36) and, more to the point, no UI
-   * exists anywhere to create a rule row, so this can never actually be
-   * true in practice today — not a shortcut, just an honest reflection
-   * of what's reachable.
+   * autosave xong" requirement.
    */
   async submit(
     assignmentId: string,
@@ -1508,7 +1584,12 @@ export class SubmissionService {
         (f) => f.required && !values[f.fieldKey]?.v,
       );
       const hasRequiredFieldsValid = missingRequired.length === 0;
-      const hasErrorSeverityRuleViolation = false;
+      const errorViolations = this.evaluateRulesFor(
+        period.version.rules,
+        values,
+        period.version.selectedSheets,
+      ).filter((v) => v.severity === 'ERROR');
+      const hasErrorSeverityRuleViolation = errorViolations.length > 0;
 
       const transition = applyTransition('SUBMIT', {
         state: submission.state,
@@ -1525,6 +1606,14 @@ export class SubmissionService {
               .map((f) => f.label || f.fieldKey)
               .join(', ')}`,
             'CELL_VALIDATION',
+          );
+        }
+        if (hasErrorSeverityRuleViolation) {
+          throw new SubmissionError(
+            `Còn ${errorViolations.length} quy tắc kiểm tra mức lỗi chưa đạt: ${errorViolations
+              .map((v) => v.name)
+              .join(', ')}`,
+            'VALIDATION_RULE_FAILED',
           );
         }
         throw new SubmissionError(transition.message, transition.code);

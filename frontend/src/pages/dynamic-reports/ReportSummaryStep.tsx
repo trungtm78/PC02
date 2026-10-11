@@ -14,6 +14,7 @@ import type {
   ParsedField,
   ParsedFormulaCell,
   ReportRoleConfig,
+  ReportRuleConfig,
   ReportTargetConfig,
   TemplateLayout,
 } from '@/features/dynamic-reports/types';
@@ -32,6 +33,7 @@ interface Props {
   schedule: ScheduleRule;
   roles: ReportRoleConfig[];
   targets: ReportTargetConfig[];
+  rules: ReportRuleConfig[];
   onBack: () => void;
 }
 
@@ -52,6 +54,7 @@ export default function ReportSummaryStep({
   schedule,
   roles,
   targets,
+  rules,
   onBack,
 }: Props) {
   const [effectiveFrom, setEffectiveFrom] = useState(todayDateOnly());
@@ -86,6 +89,7 @@ export default function ReportSummaryStep({
         },
         roles,
         targets,
+        rules: rules.length > 0 ? rules : undefined,
         effectiveFrom: `${effectiveFrom}T00:00:00.000Z`,
         publish,
         idempotencyKey,
@@ -135,6 +139,7 @@ export default function ReportSummaryStep({
         <SummaryRow label="Mã / Tên" value={`${code} — ${name}`} />
         <SummaryRow label="Sheet đã chọn" value={selectedSheets.join(', ')} />
         <SummaryRow label="Ô nhập" value={String(fields.length)} />
+        <SummaryRow label="Quy tắc kiểm tra" value={String(rules.length)} />
         <SummaryRow label="Loại kỳ" value={schedule.periodType} />
         <SummaryRow label="Quản lý" value={String(roles.filter((r) => r.role === 'MANAGER').length)} />
         <SummaryRow label="Người chỉ xem" value={String(roles.filter((r) => r.role === 'VIEWER').length)} />

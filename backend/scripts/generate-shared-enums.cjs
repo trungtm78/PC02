@@ -70,6 +70,8 @@ const SHARED_ENUMS = [
   'DynReportPeriodType', // PR4 — S01 cột "Loại kỳ"
   'DynReportSubmissionState', // PR6 — S11 trạng thái bản nộp
   'DynReportVersionStatus', // PR4 slice 6 — S22 Danh sách phiên bản
+  'DynReportRuleOperator', // PR9 slice 1 — S36 Quy tắc kiểm tra
+  'DynReportRuleSeverity', // PR9 slice 1 — S36 Quy tắc kiểm tra
 ];
 
 function parseEnums(schemaSource) {

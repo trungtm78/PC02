@@ -69,6 +69,29 @@ export class ReportTargetConfigDto {
   @IsArray() @IsString({ each: true }) editorUserIds!: string[];
 }
 
+const RULE_OPERATORS = [
+  'EQ',
+  'NEQ',
+  'GT',
+  'GTE',
+  'LT',
+  'LTE',
+  'COMPULSORY_PAIR',
+  'EXCLUSIVE_PAIR',
+] as const;
+const RULE_SEVERITIES = ['ERROR', 'WARNING'] as const;
+
+/** S36 (PR9 slice 1) — manual rule authoring in the wizard; `origin` is always MANUAL here (server-assigned, not client-chosen). */
+export class ReportRuleConfigDto {
+  @IsString() @IsNotEmpty() name!: string;
+  @IsString() @IsNotEmpty() leftExpr!: string;
+  @IsIn(RULE_OPERATORS) operator!: (typeof RULE_OPERATORS)[number];
+  @IsString() @IsNotEmpty() rightExpr!: string;
+  @IsIn(RULE_SEVERITIES) severity!: (typeof RULE_SEVERITIES)[number];
+  @IsString() @IsNotEmpty() message!: string;
+  @IsOptional() @IsString() missingStrategy?: string;
+}
+
 /**
  * S09/S10 publish/save-draft payload (spec §6.1 PR4 bước 4/4). Multipart
  * body: this DTO's fields travel as a JSON string in the `config` field
@@ -119,6 +142,12 @@ export class SaveReportConfigDto {
   @ValidateNested({ each: true })
   @Type(() => ReportTargetConfigDto)
   targets!: ReportTargetConfigDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReportRuleConfigDto)
+  rules?: ReportRuleConfigDto[];
 
   @IsNgayThat() effectiveFrom!: string;
   @IsBoolean() publish!: boolean;

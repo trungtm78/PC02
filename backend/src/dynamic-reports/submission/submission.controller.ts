@@ -193,6 +193,18 @@ export class SubmissionController {
     );
   }
 
+  /** S36 — read-only rule-violation preview, called before "Nộp" so the editor sees ERROR/WARNING before confirming. */
+  @Get(':assignmentId/validate')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async validateForSubmit(
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.validateForSubmit(assignmentId, user.id),
+    );
+  }
+
   @Post(':assignmentId/submit')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async submit(

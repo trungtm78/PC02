@@ -35,13 +35,14 @@ import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import ReportScheduleStep from './ReportScheduleStep';
 import ReportTeamsStep from './ReportTeamsStep';
+import ReportRulesStep from './ReportRulesStep';
 import ReportSummaryStep from './ReportSummaryStep';
-import type { ReportRoleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
+import type { ReportRoleConfig, ReportRuleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
 
 const MAX_SELECTED_SHEETS = 5;
 const FIELD_TYPES: ParsedFieldType[] = ['NUM', 'TEXT', 'DATE', 'TIME'];
 
-type Step = 'upload' | 'sheets' | 'preview' | 'schedule' | 'teams' | 'summary';
+type Step = 'upload' | 'sheets' | 'preview' | 'schedule' | 'teams' | 'rules' | 'summary';
 
 export default function ReportTemplateUploadPage() {
   const [step, setStep] = useState<Step>('upload');
@@ -65,6 +66,7 @@ export default function ReportTemplateUploadPage() {
   const [schedule, setSchedule] = useState<ScheduleRule | null>(null);
   const [roles, setRoles] = useState<ReportRoleConfig[]>([]);
   const [targets, setTargets] = useState<ReportTargetConfig[]>([]);
+  const [rules, setRules] = useState<ReportRuleConfig[]>([]);
 
   async function handleFileChange(f: File | null) {
     setError(null);
@@ -477,6 +479,18 @@ export default function ReportTemplateUploadPage() {
               onNext={(r, t) => {
                 setRoles(r);
                 setTargets(t);
+                setStep('rules');
+              }}
+            />
+          </div>
+        )}
+
+        {step === 'rules' && (
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <ReportRulesStep
+              onBack={() => setStep('teams')}
+              onNext={(r) => {
+                setRules(r);
                 setStep('summary');
               }}
             />
@@ -498,7 +512,8 @@ export default function ReportTemplateUploadPage() {
               schedule={schedule}
               roles={roles}
               targets={targets}
-              onBack={() => setStep('teams')}
+              rules={rules}
+              onBack={() => setStep('rules')}
             />
           </div>
         )}

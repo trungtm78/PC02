@@ -12,10 +12,13 @@
  * for S04's candidate list instead of a grid.
  *
  * SUBMIT (S29) takes no value patch — any pending autosave is flushed
- * first, matching the spec's own "chờ autosave xong" requirement.
- * `hasErrorSeverityRuleViolation` is always false server-side (no
- * validation rule can exist yet — PR9), so the only guard that can
- * actually block a submit today is a missing required field.
+ * first, matching the spec's own "chờ autosave xong" requirement. Before
+ * confirming, `GET .../validate` (S36, PR9 slice 1) previews rule
+ * violations: an ERROR violation blocks "Nộp" outright (same as a missing
+ * required field); a WARNING violation shows a confirm dialog, same shape
+ * as the existing "N ô trống tính là 0" confirm — the server itself never
+ * requires a confirmation flag back, since WARNING is a UX nicety, not a
+ * security boundary (`submit()` only ever blocks on ERROR).
  */
 import { useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
@@ -77,6 +80,7 @@ export default function SubmissionInputPage() {
   const [importStatus, setImportStatus] = useState<'idle' | 'previewing' | 'applying' | 'error'>('idle');
   const [importError, setImportError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [ruleErrors, setRuleErrors] = useState<string[]>([]);
   const dirtyRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -272,6 +276,24 @@ export default function SubmissionInputPage() {
     if (timerRef.current) clearTimeout(timerRef.current);
     await flush(values);
 
+    setRuleErrors([]);
+    try {
+      const { errors, warnings } = await dynamicReportsApi.validateForSubmit(assignmentId);
+      if (errors.length > 0) {
+        setRuleErrors(errors.map((e) => `${e.name}: ${e.message}`));
+        return;
+      }
+      if (warnings.length > 0) {
+        const ok = window.confirm(
+          `${warnings.length} cảnh báo: ${warnings.map((w) => w.message).join('; ')}\n\nTiếp tục nộp?`,
+        );
+        if (!ok) return;
+      }
+    } catch (err) {
+      setSaveError(extractApiError(err).message);
+      return;
+    }
+
     const blankOptional = initial.fields.filter(
       (f) => !f.required && !(values[f.fieldKey] ?? initial.values[f.fieldKey]?.v ?? '').trim(),
     );
@@ -300,6 +322,8 @@ export default function SubmissionInputPage() {
       } else if (apiError.code === 'REPORT_LOCKED') {
         setEditableOverride(false);
         setSaveError('Thay đổi này chưa được lưu do hết hạn.');
+      } else if (apiError.code === 'VALIDATION_RULE_FAILED') {
+        setRuleErrors([apiError.message]);
       } else {
         setSaveError(apiError.message);
       }
@@ -700,6 +724,17 @@ export default function SubmissionInputPage() {
         >
           Tải lại
         </button>
+      )}
+
+      {ruleErrors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3" data-testid="rule-errors">
+          <p className="text-sm font-medium text-red-800 mb-1">Chưa thể nộp — còn vi phạm quy tắc kiểm tra:</p>
+          <ul className="text-sm text-red-700 list-disc list-inside">
+            {ruleErrors.map((msg, i) => (
+              <li key={i}>{msg}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {EDITABLE_STATES.includes(state) ? (

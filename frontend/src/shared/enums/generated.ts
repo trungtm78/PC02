@@ -346,3 +346,21 @@ export const DynReportVersionStatus = {
   RETIRED: 'RETIRED',
 } as const;
 export type DynReportVersionStatus = (typeof DynReportVersionStatus)[keyof typeof DynReportVersionStatus];
+
+export const DynReportRuleOperator = {
+  EQ: 'EQ',
+  NEQ: 'NEQ',
+  GT: 'GT',
+  GTE: 'GTE',
+  LT: 'LT',
+  LTE: 'LTE',
+  COMPULSORY_PAIR: 'COMPULSORY_PAIR',
+  EXCLUSIVE_PAIR: 'EXCLUSIVE_PAIR',
+} as const;
+export type DynReportRuleOperator = (typeof DynReportRuleOperator)[keyof typeof DynReportRuleOperator];
+
+export const DynReportRuleSeverity = {
+  ERROR: 'ERROR',
+  WARNING: 'WARNING',
+} as const;
+export type DynReportRuleSeverity = (typeof DynReportRuleSeverity)[keyof typeof DynReportRuleSeverity];

@@ -11,6 +11,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getSubmission: vi.fn(),
     saveSubmissionValues: vi.fn(),
     submitSubmission: vi.fn(),
+    validateForSubmit: vi.fn(),
     requestUnlock: vi.fn(),
     previewExcelImport: vi.fn(),
     applyExcelImport: vi.fn(),
@@ -81,6 +82,13 @@ const VIEW: SubmissionView = {
 describe('SubmissionInputPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // S36 (PR9 slice 1) — handleSubmit always calls this first; default to
+    // "no violations" so every pre-existing submit test still reaches the
+    // normal confirm/submit flow unchanged.
+    vi.mocked(dynamicReportsApi.validateForSubmit).mockResolvedValue({
+      errors: [],
+      warnings: [],
+    });
   });
 
   it('renders fields grouped by sheet, prefilled from the current submission values', async () => {
@@ -411,6 +419,72 @@ describe('SubmissionInputPage', () => {
         expect.stringContaining('ô để trống sẽ tính là 0'),
       );
     });
+    confirmSpy.mockRestore();
+  });
+
+  it('blocks "Nộp" and shows the rule list when validate returns ERROR violations (S36)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.validateForSubmit).mockResolvedValue({
+      errors: [
+        { ruleId: 'r1', name: 'D10 phải khớp tổng', severity: 'ERROR', message: 'D10 không khớp D11+D12' },
+      ],
+      warnings: [],
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => screen.getByTestId('rule-errors'));
+    expect(screen.getByTestId('rule-errors')).toHaveTextContent('D10 không khớp D11+D12');
+    expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
+    // Never even reaches the blank-optional/submit confirm dialogs.
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a confirm dialog listing WARNING violations, proceeds to submit on confirm', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.validateForSubmit).mockResolvedValue({
+      errors: [],
+      warnings: [{ ruleId: 'r1', name: 'Cảnh báo nhẹ', severity: 'WARNING', message: 'Giá trị hơi bất thường' }],
+    });
+    vi.mocked(dynamicReportsApi.submitSubmission).mockResolvedValue({
+      revision: '2',
+      state: 'SUBMITTED',
+      savedAt: '2026-10-10T10:00:02.000Z',
+      serverTime: '2026-10-10T10:00:02.000Z',
+      effectiveLockAt: null,
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => {
+      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Giá trị hơi bất thường'));
+    });
+    await waitFor(() => screen.getByTestId('submitted-note'));
+    expect(dynamicReportsApi.submitSubmission).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('declining the WARNING confirm dialog never calls submit', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.validateForSubmit).mockResolvedValue({
+      errors: [],
+      warnings: [{ ruleId: 'r1', name: 'Cảnh báo nhẹ', severity: 'WARNING', message: 'Giá trị hơi bất thường' }],
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 
