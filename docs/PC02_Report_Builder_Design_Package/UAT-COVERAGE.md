@@ -40,7 +40,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S30 | Điều chỉnh và miễn nghĩa vụ giữa kỳ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S31 | Ngừng phát sinh và thu hồi grant | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S32 | Lưới template và ràng buộc field (quét vùng web) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 1/5 (TC-S33-02 qua API live) | **FAIL — bug thật P1/S2**: `totalApprovalLevels`/`actingApprovalLevel` bị hardcode `1` ở `submission.service.ts` (6 nơi gọi `applyTransition`) dù `workflow/transitions.ts` hỗ trợ đúng N cấp và có unit test riêng. Chạy thật trên fixture `dr-test-assignment-1` (state=SUBMITTED, approvalLevel=1 có từ trước) → MANAGER approve bị từ chối `GUARD_FAILED: "Chưa đến lượt cấp 1 duyệt (đang chờ cấp 2)"` — **không ai duyệt tiếp được nữa qua API thật** khi approvalLevel≥1. R21 multi-level chỉ tồn tại ở lớp thuần (pure function + unit test), KHÔNG được service thật sử dụng. Xem `_EXECUTION_REPORT.md`. |
 | S34 | Hàng chờ yêu cầu mở lại + mở khoá hàng loạt | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S35 | Nhập từ Excel (re-import có dấu __dr_meta) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S36 | Validation rules (soạn + gợi ý từ IF) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -67,7 +67,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 
 | ID | Chức năng | Viết test | Chạy test | Kết quả |
 |---|---|---|---|---|
-| X01 | Quyền: route-quyền gate, 404 chống dò, VIEWER theo phạm vi | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| X01 | Quyền: route-quyền gate, 404 chống dò, VIEWER theo phạm vi | ĐÃ VIẾT (6 TC, uat.json) | ĐÃ CHẠY THẬT 2/6 qua API live | **PASS cho 2 ca đã chạy**: (1) vô danh không token GET report tồn tại vs không tồn tại → cả hai 404 giống nhau (không lộ tồn tại). (2) VIEWER GET `/submissions/:id/review` của báo cáo mình KHÔNG có vai phù hợp → 404 "Không tìm thấy lượt giao này" (an toàn, không lộ). 4/6 TC còn lại (scope theo team, admin read-only, dual-role mode bypass) CHƯA chạy — cần set up thêm fixture nhiều tổ. |
 | X02 | Đồng thời: lưu↔chốt kỳ, lưu↔D09, 2 editor cùng tổ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X03 | Audit không chứa số liệu | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X04 | Hiệu năng: 5.000 input/200 tổ/50 ghi đồng thời | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -75,6 +75,13 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X06 | Monkey test (chạy một lần cuối) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
-**Tổng: 53 dòng. PASS: 10/53** (toàn bộ engine thuần PR1; các màn hình/chức năng còn lại chờ PR2-10).
+**Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
+**Checkpoint PR10 UAT 11/10/2026**: Bước 0→7 (`uat-test-writer`) đã chạy — `_domain-pack.md`,
+`_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0 `validate_uat_json.py`
+và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage item = 43,9%). Đã
+EXECUTE LIVE một mẫu nhỏ qua API thật trên dev cục bộ (không phải 78/78): **1 FAIL thật**
+(S33/R21 — xem trên) + **nhiều PASS** (X01 một phần, clock guard). Chi tiết đầy đủ:
+`_EXECUTION_REPORT.md`. **CHƯA đạt 100% PASS — còn ở trạng thái SẴN SÀNG-KÈM-KHUYẾT**, không
+coi là xong; các dòng còn `CHƯA LÀM` thật sự chưa chạy, không suy ra PASS.
 
 **Lưu ý về "PASS" ở mục B (engine):** đây là kết quả `jest` cấp đơn vị (TDD trong lúc code), không phải UAT đầy đủ theo giao thức §9 (viết bởi `/uat-test-writer`, chạy bởi `/uat-test-runner`/`/uat-test-only` trên hệ thống thật đang chạy). Các dòng này **không tự động coi là "100% PASS" của UAT** — khi tới PR10 (giai đoạn UAT), phải chạy `/uat-test-writer` cho toàn bộ ma trận rồi `/uat-test-runner` thật trên staging, kể cả với phần engine đã xanh ở đây.

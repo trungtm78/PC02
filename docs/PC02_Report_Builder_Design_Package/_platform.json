@@ -1,0 +1,23 @@
+{
+  "platforms": ["web"],
+  "evidence": {
+    "web": "frontend/ là Vite+React SPA (frontend/vite.config.ts, frontend/package.json react+vite); route dynamic-reports chỉ có trong frontend/src/pages/dynamic-reports/*; không tìm thấy pubspec.yaml / app.json(RN) / AndroidManifest / *.xcodeproj / capacitor.config tham chiếu module này"
+  },
+  "packages": ["backend", "frontend"],
+  "appId": null,
+  "buildCmds": {
+    "backend_dev": "cd backend && npm run start:dev",
+    "backend_test": "cd backend && npx jest --no-coverage",
+    "frontend_dev": "cd frontend && npm run dev",
+    "frontend_test": "cd frontend && npx vitest run --no-coverage",
+    "e2e": "cd frontend && npx playwright test"
+  },
+  "apiBaseUrl": "http://127.0.0.1:3000",
+  "host": {
+    "os": "windows",
+    "iosPossible": false,
+    "note": "Không áp dụng — platform là web only, không cần iOS/Android host capability"
+  },
+  "blockers": [],
+  "mobile_only_categories_status": "N/A toàn bộ 12 danh mục MOBILE-ONLY — module Dynamic Report Builder không có bản mobile. Lý do chi tiết trong _domain-pack.md § Mobile."
+}

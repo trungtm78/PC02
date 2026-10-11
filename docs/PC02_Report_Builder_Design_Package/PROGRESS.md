@@ -465,8 +465,33 @@ Task: **PR10 — Hoàn thiện** (spec §6.1 PR10): benchmark/p95 (5.000 input/2
 Ghi chú môi trường bấm-thử-thật (áp dụng mọi slice còn lại):
 Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) lặp lại được ngay mỗi lần (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới bằng `openssl genrsa`/`openssl rsa -pubout` ngay trong `backend/keys/`; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData`; login dùng `#username`/`#password`; dùng `waitUntil:'load'` không phải `'networkidle'` vì SSE giữ connection mở; ElementHandle Playwright không có `.blur()` — dùng `el.evaluate(e=>e.blur())`; dùng `page.on('dialog', d=>d.accept())` để tự xác nhận `window.confirm()` khi bấm thử nút Nộp; **`.env` cục bộ dùng `DATABASE_URL` postgresql://postgres:postgres@127.0.0.1:5433/`pc02_dynamic_reports_test` (không phải `pc02_db` — xem lý do ở mục PR6 slice 5 trên), `JWT_PUBLIC_KEY_PATH`/`JWT_PRIVATE_KEY_PATH` trỏ tới cặp khoá trên, `THROTTLE_DISABLE=true`, `PORT=3000`, `SEED_ADMIN_PASSWORD` để seed tạo được admin**; user thử có sẵn trong `pc02_dynamic_reports_test` (`admin`, `manager-test`, `viewer-test` — đổi mật khẩu qua UPDATE trực tiếp cột `passwordHash` bằng `bcrypt.hash(..., 4)` khi cần đăng nhập lại, nhớ tắt luôn `twoFaSetupRequired`/`mustChangePassword` cho tài khoản thử); xoá dữ liệu thử nhiều bảng phải dùng `DELETE ... USING` theo đúng thứ tự phụ thuộc trong MỘT lệnh `psql -c`, không xoá rời từng câu — một câu lỗi cuốn rollback toàn bộ các câu trước trong cùng lệnh gọi; **chèn tay timestamp: kiểm `node -e "console.log(Intl.DateTimeFormat().resolvedOptions().timeZone)"` so với `SHOW timezone` của psql trước — TRÙNG múi (như máy Windows cục bộ này, cả hai đều Asia/Bangkok) thì dùng `now()::timestamp + interval '...'` trực tiếp; LỆCH múi (ví dụ Node chạy UTC) thì mới cần `(now() AT TIME ZONE 'UTC') + interval '...'`** (xem phát hiện chi tiết ở mục PR6 slice 7 trên — ghi chú cũ nói chung cho mọi máy là SAI, chỉ đúng khi Node ở UTC); **chèn tay chuỗi tiếng Việt (ví dụ `values` JSON chứa "Đội 3") qua đối số dòng lệnh `psql -c "..."` trong Bash có thể hỏng encoding thành "??i 3" (gặp lại ở PR6 slice 8, sau khi đã gặp một lần với tên tổ ở slice 7 Xuất Excel) — PHẢI chèn qua script Node dùng `pg` driver với tham số hoá (`client.query('... \$1 ...', [value])`), không nối chuỗi UTF-8 vào đối số shell**; sau khi thêm/sửa bất kỳ file trong `backend/src/dynamic-reports/engine/` PHẢI chạy `npm run gen:dr-engine` trước khi chạy full suite — cổng `gen-dr-engine.gate.spec.ts` (R2) bắt lỗi này ngay, quên chạy là lỗi thật chứ không phải chập chờn; full suite backend cục bộ có thể timeout ngẫu nhiên ở file dùng exceljs/`worker_threads` nặng dù máy rảnh — không phải lỗi thật, CI Linux xác nhận sạch; dev server cục bộ có thể tự crash giữa phiên làm việc dài — kiểm `netstat`/health lại trước khi bấm thử, đừng tin task notification cũ; tiến trình thật lắng nghe cổng phải tìm bằng `netstat -ano | grep LISTENING` rồi `taskkill //F //PID`, không lọc theo tên lệnh — process con cháu `node dist/src/main`/`vite` không khớp commandline filter của `wmic`).
 
+## Checkpoint UAT 11/10/2026 (uat-test-writer Bước 0→7 + mẫu nhỏ Bước 7b)
+`_domain-pack.md`, `_platform.json` (web-only, N/A 12 danh mục mobile), `_coverage-ledger.md`
+(M1=214 item đếm máy qua `coverage_calc.py`, M4=120 risk-tier, TC_min=214, phủ 94/214=43,9%),
+`uat.json` (78 TC qua Cổng 0 `validate_uat_json.py` sạch) đã tạo trong
+`docs/PC02_Report_Builder_Design_Package/`. `self_audit.py` → **SẴN SÀNG-KÈM-KHUYẾT** (đúng,
+không tự tích). Đã EXECUTE LIVE một mẫu nhỏ (6 lượt gọi API thật trên dev cục bộ, backend
+server có sẵn từ phiên trước, DB `pc02_dynamic_reports_test`) — bắt được
+**BUG-001 (P1/S2, thật, không phải giả định)**: R21 phê duyệt nhiều cấp không chạy được qua
+API vì `submission.service.ts` hardcode `totalApprovalLevels:1`/`actingApprovalLevel:1` ở
+8 vị trí, trong khi `workflow/transitions.ts` hỗ trợ đúng N cấp (có unit test riêng cho
+3 cấp) — tính năng R21 trên thực tế **chưa từng chạy qua hệ thống thật một lần nào**, chỉ
+chạy trong unit test gọi thẳng hàm thuần. Chi tiết đầy đủ + log raw: `_EXECUTION_REPORT.md`.
+`UAT-COVERAGE.md` đã cập nhật đúng trạng thái thật cho S33/X01 (không phải CHƯA LÀM nữa,
+nhưng cũng KHÔNG phải PASS toàn bộ — S33 = FAIL có bug, X01 = PASS phần đã chạy).
+**72/78 TC còn lại trong `uat.json` CHƯA execute** (chỉ viết + qua Cổng 0/1) — Playwright E2E
+thật, fault-seeding có hệ thống, adversarial-verify, đánh giá UI/UX đều CHƯA làm ở lượt này.
+Đây là checkpoint rõ ràng để tiếp tục, không phải kết luận UAT xong.
+
 ## Hàng đợi task kế tiếp
-1. PR10: Hoàn thiện + UAT (`/uat-test-writer` → `/uat-test-only` thật, KHÔNG dùng engine unit test làm UAT) + monkey test một lần cuối — xem "Đang làm dở"
+1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
+   tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
+   thật cho J-WIZARD-01/J-ENTRY-01 (bắt buộc theo luật #13 của skill, chưa làm ở checkpoint
+   này); (c) execute live 72 TC còn lại trong `uat.json`, ưu tiên S11-S14/S36-S38/X03/X05;
+   (d) fault-seeding bảng đầy đủ + adversarial-verify + đánh giá UX; (e) cập nhật
+   `UAT-COVERAGE.md` 53 dòng đến khi 100% PASS thật mới coi PR10 UAT xong (`/uat-test-only`
+   thật, KHÔNG dùng engine unit test làm UAT) — xem "Đang làm dở" + "Checkpoint UAT
+   11/10/2026" phía trên.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
@@ -491,6 +516,7 @@ PR4 slice 1 (S01): đã bấm thử thật trên Chromium (xem Đã hoàn thành
 ## Nợ kỹ thuật / rủi ro
 - **Tên file xuất tiếng Việt bị lỗi mã hoá** (phát hiện khi bấm thử "Xuất bản của tổ" 11/10): `Content-Disposition: attachment; filename="..."` gửi thẳng byte UTF-8, không theo RFC 5987 (`filename*=UTF-8''...`) — trình duyệt hiểu theo Latin-1 nên tên file có dấu tiếng Việt ra "Býo-cýo…" thay vì "Báo-cáo…". Nội dung file vẫn ĐÚNG, chỉ tên file sai. Có ở MỌI endpoint xuất file dùng cùng quy ước trong repo: `export.controller.ts` (manager xuất kỳ), `audit.controller.ts`, và giờ thêm `submission.controller.ts` (xuất bản của tổ) — không phải lỗi riêng của dynamic-reports, không vá trong phạm vi module này vì ảnh hưởng nhiều nơi ngoài module. Cách vá đúng: thêm `filename*=UTF-8''${encodeURIComponent(fileName)}` cạnh `filename="..."` ASCII-fallback — đúng khuôn `resolveFilename` phía frontend (`document-templates/export.api.ts`) đã đọc đúng cả hai nhánh.
 - Chưa có tài khoản quản lý/người nhập riêng cho UAT trên staging (chặn khâu UAT thật, không chặn viết code — xem spec §8).
+- **BUG-001 (P1/S2, phát hiện 11/10/2026 qua UAT execute live)**: R21 phê duyệt nhiều cấp không chạy qua API thật — `submission.service.ts` hardcode `totalApprovalLevels:1`/`actingApprovalLevel:1` ở 8 vị trí. Chi tiết: "Checkpoint UAT 11/10/2026" ở trên + `_EXECUTION_REPORT.md`.
 - `/plan-eng-review` đầy đủ cho PR1/PR2 chưa chạy qua skill chính thức — nếu anh muốn chạy chính thức, gọi `/plan-eng-review` nhắm vào diff nhánh `feat/dynamic-reports-m1-engine` so với `origin/main`.
 - Test frontend chập chờn CÓ TRƯỚC (không do dynamic-reports): `frontend/src/features/cases/governance/__tests__/configuration-editors.test.tsx` — fail khi chạy cùng full suite (4884/4885) nhưng PASS 8/8 khi chạy riêng. Đã ghi vào gbrain learnings, không phải việc của dynamic-reports.
 - OFFICER's `read:DynamicReport` grant (seed.ts) chỉ nằm trong *bộ seed đầy đủ* — deploy.sh KHÔNG chạy `seed.ts` (chỉ `seed-quyen.ts`, cấp quyền cho ADMIN). Trên prod hiện tại, chỉ ADMIN có `read/manage/admin:DynamicReport` (qua seed-quyen.ts chạy mỗi lần deploy); OFFICER sẽ nhận quyền khi ai đó chạy `seed.ts` đầy đủ một lần (không khẩn, vì chưa có UI nào tiêu thụ quyền này).
