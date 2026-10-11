@@ -142,6 +142,18 @@ describe('TayNamKeo', () => {
       expect(nam).toHaveAttribute('tabindex', '0');
     });
 
+    /**
+     * axe-core (`aria-required-attr`) bắt được 10/10 tay nắm trên S01 Báo cáo động thiếu
+     * `aria-valuenow` — `role="separator"` focusable bị ARIA coi như slider ảo, nên bắt buộc
+     * phải khai giá trị hiện tại/biên, không chỉ nhãn.
+     */
+    it('khai đủ aria-valuenow/valuemin/valuemax theo bề rộng hiện tại (axe aria-required-attr)', () => {
+      const { nam } = dungTayNam({ beRongHienTai: 250 });
+      expect(nam).toHaveAttribute('aria-valuenow', '250');
+      expect(nam).toHaveAttribute('aria-valuemin', String(BE_RONG_TOI_THIEU));
+      expect(nam).toHaveAttribute('aria-valuemax', String(BE_RONG_TOI_DA));
+    });
+
     it('phím khác không làm gì', () => {
       const { xong, nam } = dungTayNam();
       fireEvent.keyDown(nam, { key: 'Enter' });

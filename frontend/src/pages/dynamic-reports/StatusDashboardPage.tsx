@@ -222,7 +222,7 @@ export default function StatusDashboardPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 mb-4" role="tablist" aria-label="Chế độ xem">
+      <div className="flex items-center gap-1 mb-4" role="group" aria-label="Chế độ xem">
         <button
           type="button"
           data-testid="btn-view-table"

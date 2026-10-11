@@ -90,6 +90,7 @@ export default function CommentsPanel({ assignmentId, fieldOptions = [] }: Props
         {fieldOptions.length > 0 && (
           <select
             data-testid="comment-field-select"
+            aria-label="Chọn ô để ghi chú"
             value={fieldKey}
             onChange={(e) => setFieldKey(e.target.value)}
             className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"

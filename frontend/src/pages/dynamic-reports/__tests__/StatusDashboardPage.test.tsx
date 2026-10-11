@@ -358,4 +358,20 @@ describe('StatusDashboardPage', () => {
     fireEvent.click(screen.getByTestId('btn-view-table'));
     await waitFor(() => screen.getByTestId('status-table'));
   });
+
+  /**
+   * axe-core (`aria-required-children`) bắt được `role="tablist"` ở đây — hai nút dùng
+   * `aria-pressed` (toggle-button) chứ không phải `role="tab"`/`aria-selected`, nên đổi
+   * wrapper sang `role="group"` (không có yêu cầu children bắt buộc) thay vì dựng cả bộ
+   * tab/tabpanel chỉ cho hai công tắc chuyển bảng/ma trận.
+   */
+  it('the view-switcher uses role=group, not tablist (axe aria-required-children)', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue([]);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-view-matrix'));
+    expect(screen.getByRole('group', { name: 'Chế độ xem' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  });
 });
