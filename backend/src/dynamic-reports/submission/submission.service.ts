@@ -1889,6 +1889,57 @@ export class SubmissionService {
     return editors.map((e) => e.userId);
   }
 
+  /**
+   * R21 — how many levels this report's approval chain requires: the
+   * highest `approvalLevel` configured among its active MANAGER roles.
+   * Reports that never set a level stay at the default 1 (single-level,
+   * unchanged behavior).
+   */
+  private async resolveTotalApprovalLevels(
+    client: Prisma.TransactionClient | PrismaService,
+    reportId: string,
+  ): Promise<number> {
+    const now = new Date();
+    const result = await client.dynReportRole.aggregate({
+      where: {
+        reportId,
+        role: 'MANAGER',
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      _max: { approvalLevel: true },
+    });
+    return result._max.approvalLevel ?? 1;
+  }
+
+  /**
+   * R21 — the level the acting manager is authorized to act at. ADMIN acts
+   * via `admin:DynamicReport` oversight, not a `DynReportRole` row, so it
+   * is treated as holding whichever level is currently required
+   * (`pendingLevel`) rather than being blocked by a chain it isn't part of.
+   */
+  private async resolveActingApprovalLevel(
+    client: Prisma.TransactionClient | PrismaService,
+    reportId: string,
+    userId: string,
+    actorRole: 'ADMIN' | 'MANAGER',
+    pendingLevel: number,
+  ): Promise<number> {
+    if (actorRole === 'ADMIN') return pendingLevel;
+    const now = new Date();
+    const managerRole = await client.dynReportRole.findFirst({
+      where: {
+        reportId,
+        userId,
+        role: 'MANAGER',
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      select: { approvalLevel: true },
+    });
+    return managerRole?.approvalLevel ?? 1;
+  }
+
   /** PR9 slice 3 — every active manager/admin of a report, for notification recipients. */
   private async managerIds(
     client: Prisma.TransactionClient | PrismaService,
@@ -1925,12 +1976,25 @@ export class SubmissionService {
           expectedRevision,
         );
 
+      const reportId = assignment.period.report.id;
+      const totalApprovalLevels = await this.resolveTotalApprovalLevels(
+        tx,
+        reportId,
+      );
+      const actingApprovalLevel = await this.resolveActingApprovalLevel(
+        tx,
+        reportId,
+        userId,
+        actorRole,
+        submission.approvalLevel + 1,
+      );
+
       const transition = applyTransition('APPROVE', {
         state: submission.state,
         approvalLevel: submission.approvalLevel,
-        totalApprovalLevels: 1,
+        totalApprovalLevels,
         actorRole,
-        actingApprovalLevel: 1,
+        actingApprovalLevel,
         hasRequiredFieldsValid: true,
         hasErrorSeverityRuleViolation: false,
       });
@@ -2103,20 +2167,34 @@ export class SubmissionService {
     reason?: string,
   ): Promise<SaveValuesResult> {
     return this.prisma.$transaction(async (tx) => {
-      const { submission, now, actorRole } = await this.lockForManagerWrite(
+      const { submission, now, actorRole, assignment } =
+        await this.lockForManagerWrite(
+          tx,
+          assignmentId,
+          userId,
+          roleId,
+          expectedRevision,
+        );
+
+      const reportId = assignment.period.report.id;
+      const totalApprovalLevels = await this.resolveTotalApprovalLevels(
         tx,
-        assignmentId,
+        reportId,
+      );
+      const actingApprovalLevel = await this.resolveActingApprovalLevel(
+        tx,
+        reportId,
         userId,
-        roleId,
-        expectedRevision,
+        actorRole,
+        submission.approvalLevel,
       );
 
       const transition = applyTransition('UNAPPROVE', {
         state: submission.state,
         approvalLevel: submission.approvalLevel,
-        totalApprovalLevels: 1,
+        totalApprovalLevels,
         actorRole,
-        actingApprovalLevel: 1,
+        actingApprovalLevel,
         hasRequiredFieldsValid: true,
         hasErrorSeverityRuleViolation: false,
       });
