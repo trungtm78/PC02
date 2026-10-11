@@ -3,6 +3,8 @@ import {
   Body,
   ConflictException,
   Controller,
+  NotFoundException,
+  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -68,6 +70,23 @@ export class ReportConfigController {
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_CODE_TAKEN') {
           throw new ConflictException({ code: err.code, message: err.message });
+        }
+        throw new BadRequestException({ code: err.code, message: err.message });
+      }
+      throw err;
+    }
+  }
+
+  /** S31 "Ngừng phát sinh" — stops future periods for this report; any already-OPEN period keeps running unchanged. */
+  @Post(':reportId/suspend')
+  @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
+  async suspend(@Param('reportId') reportId: string) {
+    try {
+      return await this.configService.suspendGeneration(reportId);
+    } catch (err) {
+      if (err instanceof ReportConfigError) {
+        if (err.code === 'REPORT_NOT_FOUND') {
+          throw new NotFoundException(err.message);
         }
         throw new BadRequestException({ code: err.code, message: err.message });
       }

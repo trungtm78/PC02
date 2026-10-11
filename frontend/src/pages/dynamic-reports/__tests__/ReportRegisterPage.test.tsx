@@ -9,6 +9,7 @@ import type { ReportSetupSummary } from '@/features/dynamic-reports/types';
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
     listForSetup: vi.fn(),
+    suspendReportGeneration: vi.fn(),
   },
 }));
 
@@ -115,5 +116,63 @@ describe('ReportRegisterPage', () => {
     fireEvent.click(screen.getByTestId('btn-view-HSLN'));
 
     expect(screen.getByTestId('action-note')).toHaveTextContent('đang được phát triển');
+  });
+
+  it('"Ngừng phát sinh" only shows for a PUBLISHED report, never DRAFT/SUSPENDED/ARCHIVED', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([
+      SAMPLE,
+      { ...SAMPLE, id: 'r2', code: 'DRAFT1', status: 'DRAFT' },
+    ]);
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-view-HSLN'));
+
+    expect(screen.getByTestId('btn-suspend-HSLN')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-suspend-DRAFT1')).not.toBeInTheDocument();
+  });
+
+  it('"Ngừng phát sinh" calls the API after confirmation and refetches the list (S31)', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
+    vi.mocked(dynamicReportsApi.suspendReportGeneration).mockResolvedValue({
+      status: 'SUSPENDED',
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-suspend-HSLN'));
+    fireEvent.click(screen.getByTestId('btn-suspend-HSLN'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.suspendReportGeneration).toHaveBeenCalledWith('r1');
+    });
+    // Refetch after success (same queryKey) — confirms the list is invalidated, not just a local state flip.
+    await waitFor(() => {
+      expect(dynamicReportsApi.listForSetup).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('"Ngừng phát sinh" does nothing when the confirm dialog is declined', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-suspend-HSLN'));
+    fireEvent.click(screen.getByTestId('btn-suspend-HSLN'));
+
+    expect(dynamicReportsApi.suspendReportGeneration).not.toHaveBeenCalled();
+  });
+
+  it('"Ngừng phát sinh" shows an error note when the API call fails', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
+    vi.mocked(dynamicReportsApi.suspendReportGeneration).mockRejectedValue(new Error('boom'));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-suspend-HSLN'));
+    fireEvent.click(screen.getByTestId('btn-suspend-HSLN'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('action-note')).toHaveTextContent('Không ngừng phát sinh được');
+    });
   });
 });

@@ -6,15 +6,19 @@
  * shape of use as DeadlineRulesListPage — an org configures at most a
  * handful of report templates, never thousands.
  *
- * "Tạo báo cáo" links to the upload step (S02/S03, PR4 slice 3). The rest
- * of the action buttons (Xem / Sửa nháp / Tạo phiên bản / Sao chép cấu
- * hình / Ngừng phát sinh) are still NOT wired — the rest of the wizard
- * (S04-S10) that they lead to doesn't exist yet. They render with an
- * inline note rather than linking to a page that 404s.
+ * "Tạo báo cáo" links to the upload step (S02/S03, PR4 slice 3). "Xem" /
+ * "Sửa nháp" / "Tạo phiên bản" / "Sao chép cấu hình" are still NOT wired —
+ * the rest of the wizard (S04-S10) that they lead to doesn't exist yet.
+ * They render with an inline note rather than linking to a page that 404s.
+ *
+ * "Ngừng phát sinh" (S31, PR4 slice 6) IS wired — it needs no wizard,
+ * just one state flip (`DynReport.status` PUBLISHED → SUSPENDED) that
+ * `PeriodSchedulerService` already checks before generating a report's
+ * next period.
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileSpreadsheet, AlertCircle, Plus } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { ReportSetupSummary } from '@/features/dynamic-reports/types';
@@ -47,6 +51,8 @@ function ManagersCell({ managers }: { managers: string[] }) {
 
 export default function ReportRegisterPage() {
   const [actionNote, setActionNote] = useState<string | null>(null);
+  const [suspendingId, setSuspendingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const listQ = useQuery({
     queryKey: DYN_REPORTS_QUERY_KEY,
@@ -62,6 +68,26 @@ export default function ReportRegisterPage() {
   const announceComingSoon = (action: string) => {
     setActionNote(`${action}: chức năng đang được phát triển ở PR tiếp theo.`);
   };
+
+  async function handleSuspend(report: ReportSetupSummary) {
+    if (
+      !window.confirm(
+        `Ngừng phát sinh báo cáo "${report.name}"? Sẽ không sinh kỳ mới nữa — kỳ đang mở vẫn tiếp tục hoạt động như cũ.`,
+      )
+    ) {
+      return;
+    }
+    setSuspendingId(report.id);
+    setActionNote(null);
+    try {
+      await dynamicReportsApi.suspendReportGeneration(report.id);
+      await queryClient.invalidateQueries({ queryKey: DYN_REPORTS_QUERY_KEY });
+    } catch {
+      setActionNote(`Không ngừng phát sinh được "${report.name}" — vui lòng thử lại.`);
+    } finally {
+      setSuspendingId(null);
+    }
+  }
 
   const columns: ColumnDef<ReportSetupSummary>[] = useMemo(
     () => [
@@ -109,10 +135,22 @@ export default function ReportRegisterPage() {
             >
               Xem
             </button>
+            {r.status === 'PUBLISHED' && (
+              <button
+                type="button"
+                className={`px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 rounded disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                data-testid={`btn-suspend-${r.code}`}
+                disabled={suspendingId === r.id}
+                onClick={() => void handleSuspend(r)}
+              >
+                Ngừng phát sinh
+              </button>
+            )}
           </div>
         ) },
     ],
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSuspend closes over stable setters/queryClient only; adding it would recompute columns every render for no behavioral change.
+    [suspendingId],
   );
 
   const {

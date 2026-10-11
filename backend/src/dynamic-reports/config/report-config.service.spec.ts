@@ -349,4 +349,58 @@ describe('ReportConfigService', () => {
       service.save(baseDraftInput(), BUF, 'mau.xlsx', 'actor1'),
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_MISMATCH' });
   });
+
+  describe('suspendGeneration (S31 "Ngừng phát sinh")', () => {
+    function buildServiceWithReport(report: unknown) {
+      const prisma = {
+        $transaction: jest.fn(),
+        dynReportIdempotency: { findUnique: jest.fn().mockResolvedValue(null) },
+        dynReport: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(report),
+          update: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+      };
+      const service = new ReportConfigService(
+        prisma as unknown as PrismaService,
+      );
+      return { service, prisma };
+    }
+
+    it('throws REPORT_NOT_FOUND when the report does not exist', async () => {
+      const { service } = buildServiceWithReport(null);
+
+      await expect(service.suspendGeneration('rep1')).rejects.toMatchObject({
+        code: 'REPORT_NOT_FOUND',
+      });
+    });
+
+    it('throws INVALID_STATE when the report is not currently PUBLISHED', async () => {
+      const { service, prisma } = buildServiceWithReport({
+        id: 'rep1',
+        status: 'DRAFT',
+      });
+
+      await expect(service.suspendGeneration('rep1')).rejects.toMatchObject({
+        code: 'INVALID_STATE',
+      });
+      expect(prisma.dynReport.update).not.toHaveBeenCalled();
+    });
+
+    it('sets status to SUSPENDED for a PUBLISHED report', async () => {
+      const { service, prisma } = buildServiceWithReport({
+        id: 'rep1',
+        status: 'PUBLISHED',
+      });
+
+      const result = await service.suspendGeneration('rep1');
+
+      expect(prisma.dynReport.update).toHaveBeenCalledWith({
+        where: { id: 'rep1' },
+        data: { status: 'SUSPENDED' },
+      });
+      expect(result).toEqual({ status: 'SUSPENDED' });
+    });
+  });
 });
