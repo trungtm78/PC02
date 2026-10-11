@@ -11,7 +11,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S01 | Danh sách thiết lập báo cáo | ĐÃ VIẾT (3 TC, uat.json) | ĐÃ CHẠY THẬT 1 E2E Playwright | **PASS phần hiển thị** (admin, render đúng dữ liệu, không lỗi). TC permission-scope (chỉ thấy báo cáo của mình) CHƯA kiểm. |
 | S02 | Upload mẫu Excel | ĐÃ VIẾT (6 TC, uat.json) | ĐÃ CHẠY THẬT (full E2E API, template thật 2 sheet 4 kiểu) | **PASS** — upload+sheets-detect đúng; 8 field TEXT/NUM/DATE/TIME phát hiện đúng qua token grammar. |
 | S03 | Preview và thuộc tính ô | ĐÃ VIẾT (7 TC, uat.json) | ĐÃ CHẠY THẬT 1/7 (full E2E) | **PASS phần phát hiện field** + phát hiện hành vi thật của `LOCKED_LOOKS_LIKE_TOKEN` (WARNING, không chặn) khi ô vô tình để locked — khớp đúng cảnh báo mô tả trong AC-002 sửa. |
-| S04 | Lỗi import và validation mẫu | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| S04 | Lỗi import và validation mẫu | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 2/5 (fixture độc hại thật PR0) | **PASS**: macro (`renamed_macro_as_xlsx.xlsx`) → `400 MACRO_DETECTED`; encrypted (`password_encrypted.xlsx`) → `400 INVALID_MIME`. Dùng fixture thật có sẵn `backend/test/fixtures/dynamic-reports/hostile/`, không tự dựng. |
 | S05 | Cấu hình kỳ tuần | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S06 | Cấu hình kỳ tháng | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S07 | Cấu hình kỳ quý | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
@@ -71,12 +71,12 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X02 | Đồng thời: lưu↔chốt kỳ, lưu↔D09, 2 editor cùng tổ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X03 | Audit không chứa số liệu | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ QUAN SÁT 1/2 qua DB thật | **CHƯA KẾT LUẬN — GAP cần người quyết**: kiến trúc thật KHÔNG có audit log tách biệt không chứa số liệu; audit trail (`dyn_report_revisions`) lưu `valuesFull` theo đúng mục đích (snapshot rollback). Oracle gốc của X03 giả định sai kiến trúc — cần người có thẩm quyền sản phẩm xác nhận lại ý định thật của X03 trước khi viết lại TC. Xem `_EXECUTION_REPORT.md`. |
 | X04 | Hiệu năng: 5.000 input/200 tổ/50 ghi đồng thời | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 1/4 (nhẹ) | **PASS cho trường hợp đơn giản**: file text thô đổi đuôi `.xlsx` → `400 INVALID_MIME` kèm signature byte thật trong message — xác nhận parser kiểm magic bytes, không chỉ đuôi/MIME khai báo. Macro VBA/mã hoá/zip-bomb/external-link CHƯA kiểm (cần dựng fixture độc hại, ngoài ngân sách lượt này) — CHƯA LÀM 3/4 còn lại, không suy ra PASS. |
+| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 4/4 (fixture độc hại thật PR0) | **PASS cả 4**: zip-bomb (`zip_bomb.xlsx`, 298.7K) → `400 ZIP_BOMB_RATIO` (tỷ lệ giải nén 1028.3 > trần 100), chặn ở 12ms không giải nén thật; external-link (`external_link.xlsx`) → phát hiện đúng ở tầng preview (`EXTERNAL_LINK_DETECTED`, ERROR) — CHƯA xác nhận 100% chắc chắn việc này tự nó chặn `publish` khi template có field thật (thử publish bị chặn vì lý do khác — fixture test không có field). Macro/encrypted trùng với S04-03/04. |
 | X06 | Monkey test (chạy một lần cuối) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
 **Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 6)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Checkpoint PR10 UAT 11/10/2026 (lượt 7)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
 item = 43,9%). Đã EXECUTE LIVE qua API + UI thật trên dev cục bộ (không phải 78/78 — ưu tiên
@@ -98,11 +98,16 @@ chất lượng hơn số lượng theo đúng chỉ đạo):
   hoàn thành) + GAP UX-02 (S36-03 "gợi ý từ IF" — `suggest-rules.ts` viết+test chưa wire
   UI/endpoint, xác nhận bằng chính comment trong code).
 - **1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật).
-- **X05 nhẹ PASS** (file giả `.xlsx` bị chặn bởi kiểm magic bytes thật, không chỉ đuôi file).
+- **X05/S04 đầy đủ 4/4 bằng fixture độc hại THẬT có sẵn từ PR0** (`hostile/*.xlsx`, không tự
+  dựng): macro→`MACRO_DETECTED`, encrypted→`INVALID_MIME`, zip-bomb→`ZIP_BOMB_RATIO` (12ms,
+  không giải nén thật), external-link→`EXTERNAL_LINK_DETECTED` (preview, ERROR) — tất cả PASS.
 - **Adversarial-verify**: thử bác bỏ 4 PASS đã báo cáo (X01-01, S36-01, S37-03, BUG-002-fix)
   — cả 4 đều giữ nguyên, không phát hiện tautology ẩn.
-- **Đánh giá UI/UX cơ bản** (Nielsen 10, phạm vi các màn đã Playwright) — xem
-  `_EXECUTION_REPORT.md`, CHƯA chạy axe/WCAG đo được.
+- **axe-core thật cho 5 màn đã Playwright** (S01/S13/S19/S33-review/S34): phát hiện mới
+  **S01 thiếu `aria-valuenow` trên 10/10 tay nắm kéo cột** (critical, CỦA MODULE, actionable)
+  + `select-name` thiếu trên S13/S33-review + `aria-required-children` trên S19. Phân loại
+  rõ: `aria-allowed-attr`/`color-contrast`/`target-size` xuất hiện mọi màn là CHUNG TOÀN APP
+  (header/design-token chung), không phải lỗi riêng của module — xem `_EXECUTION_REPORT.md`.
 - **1 phát hiện hạ tầng đã tự vá** (khoá JWT lệch cặp sau restart).
 
 Chi tiết đầy đủ: `_EXECUTION_REPORT.md`. **CHƯA đạt 100% PASS — còn ở trạng thái

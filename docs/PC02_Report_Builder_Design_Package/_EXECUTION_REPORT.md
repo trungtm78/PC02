@@ -345,6 +345,63 @@ người khác, nhưng áp đúng tinh thần "nghi ngờ trước khi tin")
 
 4/4 PASS đã thử bác bỏ đều GIỮ NGUYÊN sau khi tự phản biện — không phát hiện tautology ẩn.
 
+## Cập nhật lượt 7 — X05/S04 với fixture độc hại thật có sẵn, axe-core cho 5 màn đã Playwright
+
+### X05/S04 — 4/4 fixture độc hại thật (`backend/test/fixtures/dynamic-reports/hostile/`), KHÔNG tự dựng nữa
+
+| Fixture | TC | Gọi | Kết quả |
+|---|---|---|---|
+| `renamed_macro_as_xlsx.xlsx` | TC-S04-03 | `POST /templates/sheets` | **400 MACRO_DETECTED**: "File có macro (VBA) — không được hỗ trợ." — **PASS** |
+| `password_encrypted.xlsx` | TC-S04-04 | `POST /templates/sheets` | **400 INVALID_MIME** (signature `0xd0cf11e0` = OLE2 compound file, không phải OOXML) — **PASS** |
+| `zip_bomb.xlsx` (298.7K nén, tỷ lệ giải nén cao) | TC-X05-01 | `POST /templates/sheets` | **400 ZIP_BOMB_RATIO**: "compression ratio 1028.3 exceeds cap 100." — chặn ở 12ms, không giải nén thật, không treo server — **PASS** |
+| `external_link.xlsx` | TC-X05-02 | `POST /templates/sheets` (201, chỉ liệt kê sheet — chưa phải lỗi) → `POST /templates/preview` | **Preview**: `issues:[{code:"EXTERNAL_LINK_DETECTED", severity:"ERROR", message:"File có tham chiếu tới workbook ngoài..."}]` — phát hiện ĐÚNG ở tầng preview (tầng `sheets` chỉ liệt kê tên sheet, chưa parse formula nên không phát hiện ở đó — đúng thiết kế, không phải thiếu sót). Đã thử `POST /reports publish=true` với template này — bị chặn (400 `TEMPLATE_INVALID`) nhưng vì lý do khác ("chưa có ô nhập") do fixture test của tôi không có field nào — **CHƯA xác nhận chắc chắn `EXTERNAL_LINK_DETECTED` tự nó chặn publish khi template có field thật**; để **CHƯA KẾT LUẬN HOÀN TOÀN** phần "chặn publish", chỉ PASS phần "phát hiện đúng ở preview". |
+
+**4/4 fixture độc hại thật đều phản ứng có kiểm soát** (không crash, không treo, phản hồi
+nhanh <350ms, message không lộ thông tin nhạy cảm) — đúng AC-039/UAT-039. Không cần tự dựng
+zip-bomb/macro nữa (coordinator đúng — fixture PR0 đã có sẵn và đầy đủ hơn tôi tự tạo).
+
+### axe-core (`@axe-core/playwright`, cài tạm `npm install --no-save` — KHÔNG lưu vào
+`package.json`/lock, chỉ nằm cục bộ `node_modules`) cho 5 màn đã Playwright thật
+
+| Màn | Violations | Breakdown |
+|---|---|---|
+| S01 | 4 | 2 critical, 2 serious |
+| S13 | 4 | 2 critical, 2 serious |
+| S19 | 4 | 2 critical, 2 serious |
+| S33-review | 4 | 2 critical, 2 serious |
+| S34 | 3 | 1 critical, 2 serious |
+
+**Phân loại rõ: CHUNG TOÀN APP (ngoài phạm vi module) vs RIÊNG MODULE (thật, cần sửa trong
+dynamic-reports)** — quan trọng để không đổ lỗi sai chỗ:
+
+- **`aria-allowed-attr` (critical, mọi màn, 1 node)** — `data-testid="global-search-input"`,
+  ô tìm kiếm toàn hệ thống ở header chung (`aria-expanded`/`aria-haspopup` trên `<input>` không
+  hợp ARIA). **CHUNG TOÀN APP**, không phải lỗi của module Báo cáo động — ghi nhận để người
+  phụ trách phần header chung biết, không tính vào phạm vi UAT này.
+- **`color-contrast` (serious, mọi màn)** — class Tailwind `text-slate-400` trên nền trắng,
+  tỷ lệ đo được 2.63 (cần ≥4.5), ví dụ chữ "Chưa đặt lịch" ở S01. Token màu CHUNG của design
+  system — ảnh hưởng cả module nhưng root cause ở tầng design token, không phải logic riêng
+  của Báo cáo động.
+- **`target-size` (serious, mọi màn, 2 node)** — vài nút/control dưới 24px — cần đo cụ thể
+  từng control ở lượt sau để biết có phải control riêng của module hay component chung.
+- **`aria-required-attr` (critical, CHỈ S01, 10 node) — THẬT SỰ CỦA MODULE**: 10 tay-nắm kéo
+  giãn cột (`data-testid="tay-nam-keo-*"`, `role="separator"` có `tabindex`/focusable) đều
+  THIẾU `aria-valuenow` bắt buộc theo ARIA khi `role="separator"` focusable (ARIA coi đây như
+  slider ảo). Đây là code CỦA module (lưới danh sách báo cáo S01) — **finding mới, cụ thể,
+  actionable**: thêm `aria-valuenow`/`aria-valuemin`/`aria-valuemax` (tính theo % độ rộng cột
+  hiện tại) cho cả 10 tay nắm, hoặc đổi `role` nếu không định hỗ trợ điều khiển bàn phím
+  resize thật.
+- **`select-name` (critical, S13 + S33-review, 1 node mỗi màn) — CỦA MODULE**: có 1 `<select>`
+  không có accessible name (không `aria-label`/`<label>` liên kết) ở mỗi màn — cần Explore
+  thêm ở lượt sau để xác định chính xác đây là select nào (lọc? chọn kỳ?) và thêm label.
+- **`aria-required-children` (critical, chỉ S19, 1 node) — CỦA MODULE**: 1 phần tử role ARIA
+  thiếu children bắt buộc trên dashboard — cần Explore thêm để định vị chính xác.
+
+**Giới hạn đã biết của axe (ghi theo luật #16 skill)**: axe chỉ bắt được publicly-documented
+~57% lớp lỗi a11y; `incomplete: 0` ở cả 5 lần quét (không có mục cần người quyết thêm), nhưng
+đây KHÔNG thay thế việc kiểm bằng tay (bàn phím, screen reader, focus order) — các mục đó vẫn
+CHƯA làm (ngoài ngân sách lượt này).
+
 ## Bảng seeded-fault ↔ TC (effectiveness, Bước 7b) — dựa trên fault THẬT đã gặp, không mô
 phỏng thêm trong code sản phẩm (tránh sửa file dùng chung trong worktree đang có người khác
 làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị đổi dưới tay)
@@ -359,6 +416,8 @@ làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị
 | 6 | S36 missingStrategy: rule thiếu operand bị SKIP, không phải VIOLATION | Rule cross-sheet tự tạo (2 lần: cross-sheet lượt 4, cú pháp quote sai lượt 5) — fault của TÔI (test sai kiến trúc/cú pháp), không phải sản phẩm | TC-S36-01 bản GỐC (trước sửa) | ❌ KHÔNG bắt được gì — TC thiết kế sai (thiếu hiểu đúng cú pháp A1 công thức dùng chung D05); **ĐÃ SỬA `uat.json` lượt 5 + xác nhận lại bằng cú pháp đúng lượt 6 → PASS thật (400 VALIDATION_RULE_FAILED đúng rule)** |
 | 7 | S36 ERROR chặn / WARNING không chặn (sau khi sửa TC) | Rule cùng-sheet đúng cú pháp `'To 1'!B2` | TC-S36-01/02 (bản đã sửa) | ✅ CÓ — chạy thật PASS cả 2 nhánh (ERROR→400 kèm tên rule; WARNING→201 vẫn submit được) |
 | 8 | X05: parser chỉ tin đuôi file, không kiểm nội dung thật | Upload file text thô đổi đuôi `.xlsx` | TC-S04-04 dạng đơn giản | ✅ CÓ — `400 INVALID_MIME` với signature byte thật trong message, xác nhận kiểm magic bytes không chỉ đuôi/MIME khai báo |
+| 9 | S04/X05: macro/encrypted/zip-bomb/external-link phải phản ứng có kiểm soát | 4 fixture độc hại THẬT từ PR0 (`hostile/*.xlsx`) | TC-S04-03/04, TC-X05-01/02 | ✅ CÓ cả 4 — macro→`MACRO_DETECTED`, encrypted→`INVALID_MIME`, zip-bomb→`ZIP_BOMB_RATIO` (12ms, không giải nén thật), external-link→`EXTERNAL_LINK_DETECTED` (ERROR, ở tầng preview) |
+| 10 | S01: tay nắm kéo cột phải đủ ARIA cho người dùng screen-reader/bàn phím | axe-core quét thật trên trang đã Playwright | (chưa có TC riêng — phát hiện mới, cần thêm TC A11Y) | ✅ CÓ — `aria-required-attr` critical, 10/10 tay nắm kéo thiếu `aria-valuenow`; finding mới, khuyến nghị thêm TC-A11Y-S01-01 ở lượt sau |
 
 **Đọc bảng này**: 4/6 dòng là fault THẬT (không phải mutation tôi tự tạo trong code — do rủi
 ro sửa file sản phẩm trong worktree đang có người khác làm việc đồng thời), và TC tương ứng

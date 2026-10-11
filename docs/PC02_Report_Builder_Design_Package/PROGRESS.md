@@ -543,6 +543,16 @@ nguyên cả 4). Ghi đủ 2 GAP UX theo yêu cầu: chốt-kỳ-không-hiện-t
 Đã dọn sạch 2 report test tạo thêm trong lượt này. Chi tiết: `_EXECUTION_REPORT.md` mục
 "Cập nhật lượt 6".
 
+**Lượt 7**: dùng fixture độc hại THẬT có sẵn từ PR0 (`backend/test/fixtures/dynamic-reports/
+hostile/*.xlsx`) thay vì tự dựng — X05/S04 đầy đủ 4/4, PASS cả 4 (macro/encrypted/zip-bomb/
+external-link đều phản ứng có kiểm soát, không crash/treo). Cài `@axe-core/playwright` tạm
+(`npm install --no-save`, không lưu `package.json`/lock) và quét thật 5 màn đã Playwright —
+phát hiện mới: **S01 thiếu `aria-valuenow` trên 10/10 tay nắm kéo giãn cột** (critical, của
+module, actionable) + `select-name` thiếu ở S13/S33-review + `aria-required-children` ở S19;
+phân loại rõ 3 violation xuất hiện mọi màn (`aria-allowed-attr`/`color-contrast`/
+`target-size`) là lỗi CHUNG TOÀN APP (header/design-token), không đổ nhầm vào module. Chi
+tiết đầy đủ: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 7".
+
 ## Hàng đợi task kế tiếp
 1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
    tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
