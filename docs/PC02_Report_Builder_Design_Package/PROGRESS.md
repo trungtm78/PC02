@@ -377,6 +377,8 @@ BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr7-slice4` → `g
   - Toàn bộ xanh cục bộ: backend 8115/8230 pass/0 fail + `tsc --noEmit` sạch + `eslint --fix` sạch. Frontend full suite 5041/5044 pass (3 fail đều lỗi chập chờn CPU có trước khi chạy CHUNG — 1 cái ở module này, 2 cái hoàn toàn không liên quan tới dynamic-reports (`pages/reports`, `cases/governance`) — cả 3 xác nhận lại PASS 43/43 khi chạy riêng) + `tsc -b` sạch + `eslint --fix` sạch.
   - **Đã bấm thử thật bằng Playwright (Chromium)**: mở `/bao-cao-dong/duyet/dr-test-assignment-1` (fixture đã nộp) → badge hiện đúng "Đã nộp" → câu "Lưu lần cuối {giờ thật}" hiện đúng. 0 lỗi console/page. Đã dọn `.env`/`keys/private.pem` cục bộ + revert `keys/public.pem`, kill 2 dev server theo PID lắng nghe thật.
 
+- [x] **Đã merge PR #568 (S16 vá "lưu lần cuối"+"trạng thái") vào `main`** — CI xanh 5/5, admin-merge (tiền lệ #522-567), merge commit `9bd60932582126fc65d9bd8e25ea4f6b857a4827`, 11/10/2026 02:10 UTC. Deploy xanh, health `buildId` khớp — xác nhận 02:20 UTC. Vẫn chưa có báo cáo thật nào trên prod (0 DynReport).
+
 ## Đang làm dở
 Task: Theo chỉ đạo "làm cho hết" của anh — tiếp tục hàng đợi module. Bước kế tiếp: scope "Xuất bản của tổ" (đọc `aggregate.service.ts#exportPeriod` và màn liên quan trước khi quyết định phạm vi). **Flag `dynamic_reports` vẫn ĐANG BẬT trên production — mọi deploy từ giờ có ảnh hưởng thật ngay nếu đã có báo cáo thật (hiện vẫn 0).**
 
