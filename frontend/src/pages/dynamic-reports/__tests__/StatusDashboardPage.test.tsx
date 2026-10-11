@@ -12,6 +12,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     listStatus: vi.fn(),
     exportStatus: vi.fn(),
     listStatusReports: vi.fn(),
+    listTeamsForFilter: vi.fn(),
     getStatusMatrix: vi.fn(),
   },
 }));
@@ -236,6 +237,42 @@ describe('StatusDashboardPage', () => {
 
     await waitFor(() => {
       expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({ reportId: 'report1' }, 'csv');
+    });
+  });
+
+  it('filters the table by team when a team is selected from the dropdown (S27)', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.listTeamsForFilter).mockResolvedValue([
+      { teamId: 'team1', teamName: 'Đội 1' },
+    ]);
+    renderPage();
+
+    await waitFor(() => screen.getByRole('option', { name: 'Đội 1' }));
+    await userEvent.selectOptions(screen.getByTestId('team-filter-select'), 'team1');
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith({ teamId: 'team1' }, 1, 25);
+    });
+  });
+
+  it('includes the selected team filter when exporting (S27)', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.listTeamsForFilter).mockResolvedValue([
+      { teamId: 'team1', teamName: 'Đội 1' },
+    ]);
+    vi.mocked(dynamicReportsApi.exportStatus).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByRole('option', { name: 'Đội 1' }));
+    await userEvent.selectOptions(screen.getByTestId('team-filter-select'), 'team1');
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith({ teamId: 'team1' }, 1, 25);
+    });
+
+    fireEvent.click(screen.getByTestId('btn-export-csv'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({ teamId: 'team1' }, 'csv');
     });
   });
 
