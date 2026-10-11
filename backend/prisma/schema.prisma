@@ -4169,6 +4169,7 @@ model DynReportRole {
   user         User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   role         DynReportRoleType
   teamScopeId  String?            // R13: VIEWER limited to one team subtree; null = whole report
+  approvalLevel Int               @default(1) // R21: for MANAGER roles, the position in the multi-level approval chain (1 = first/only level)
   validFrom    DateTime           @default(now())
   validTo      DateTime?
 

@@ -104,6 +104,9 @@ describe('SubmissionService', () => {
           .fn<Promise<unknown>, unknown[]>()
           .mockResolvedValue(null),
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
+        aggregate: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue({ _max: { approvalLevel: 1 } }),
       },
       dynReport: {
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
@@ -1086,6 +1089,127 @@ describe('SubmissionService', () => {
       expect(revisionCall.data.reason).toBe('OK');
     });
 
+    it('BUG-001 fix (R21): a level-1 manager approving a 2-level chain moves SUBMITTED -> SUBMITTED (not yet final), approvalLevel 0 -> 1', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({
+        role: 'MANAGER',
+        approvalLevel: 1,
+      });
+      tx.dynReportRole.aggregate.mockResolvedValue({
+        _max: { approvalLevel: 2 },
+      });
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.approve('assign1', 'mgr1', 'roleMgr', '1');
+
+      expect(result.state).toBe('SUBMITTED');
+      const updateCall = tx.dynReportSubmission.update.mock.calls[0][0] as {
+        data: { state: string; approvalLevel: number };
+      };
+      expect(updateCall.data.state).toBe('SUBMITTED');
+      expect(updateCall.data.approvalLevel).toBe(1);
+    });
+
+    it('BUG-001 fix (R21): the level-2 manager completes a 2-level chain after level 1 has already signed off, SUBMITTED -> APPROVED', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({
+        role: 'MANAGER',
+        approvalLevel: 2,
+      });
+      tx.dynReportRole.aggregate.mockResolvedValue({
+        _max: { approvalLevel: 2 },
+      });
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+        approvalLevel: 1,
+        returnDueAt: null,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.approve('assign1', 'mgr2', 'roleMgr', '1');
+
+      expect(result.state).toBe('APPROVED');
+      const updateCall = tx.dynReportSubmission.update.mock.calls[0][0] as {
+        data: { state: string; approvalLevel: number };
+      };
+      expect(updateCall.data.approvalLevel).toBe(2);
+    });
+
+    it('BUG-001 fix (R21): a level-2 manager cannot jump ahead of a level-1 manager who has not signed off yet', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({
+        role: 'MANAGER',
+        approvalLevel: 2,
+      });
+      tx.dynReportRole.aggregate.mockResolvedValue({
+        _max: { approvalLevel: 2 },
+      });
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+      });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.approve('assign1', 'mgr2', 'roleMgr', '1'),
+      ).rejects.toMatchObject({ code: 'GUARD_FAILED' });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('BUG-001 fix (R21): an ADMIN can approve at whichever level is currently pending in a 2-level chain', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment(),
+      );
+      tx.rolePermission.findFirst.mockResolvedValue({ id: 'grant1' });
+      tx.dynReportRole.aggregate.mockResolvedValue({
+        _max: { approvalLevel: 2 },
+      });
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.approve('assign1', 'admin1', 'roleAdmin', '1');
+
+      expect(result.state).toBe('SUBMITTED');
+      const updateCall = tx.dynReportSubmission.update.mock.calls[0][0] as {
+        data: { approvalLevel: number };
+      };
+      expect(updateCall.data.approvalLevel).toBe(1);
+      // resolveActingApprovalLevel short-circuits for ADMIN — no DynReportRole lookup needed.
+      expect(tx.dynReportRole.findFirst).not.toHaveBeenCalled();
+    });
+
     it('PR9 slice 3: emits dyn-report.approved to every active editor once the submission reaches APPROVED', async () => {
       const tx = buildTx();
       tx.dynReportAssignment.findUnique.mockResolvedValue(
@@ -1380,6 +1504,83 @@ describe('SubmissionService', () => {
       expect(updateCall.data.approvalLevel).toBe(0);
       expect(updateCall.data.approvedAt).toBeNull();
       expect(updateCall.data.approvedById).toBeNull();
+    });
+
+    it('BUG-001 fix (R21): in a 2-level chain, only the level-2 manager who gave the last approval can unapprove', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'APPROVED',
+            currentRevision: 2n,
+            values: {},
+            approvalLevel: 2,
+            returnDueAt: null,
+          },
+        }),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({
+        role: 'MANAGER',
+        approvalLevel: 2,
+      });
+      tx.dynReportRole.aggregate.mockResolvedValue({
+        _max: { approvalLevel: 2 },
+      });
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'APPROVED',
+        currentRevision: 2n,
+        values: {},
+        approvalLevel: 2,
+        returnDueAt: null,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.unapprove('assign1', 'mgr2', 'roleMgr', '2');
+
+      expect(result.state).toBe('SUBMITTED');
+      const updateCall = tx.dynReportSubmission.update.mock.calls[0][0] as {
+        data: { approvalLevel: number };
+      };
+      expect(updateCall.data.approvalLevel).toBe(1);
+    });
+
+    it('BUG-001 fix (R21): the level-1 manager cannot unapprove a chain whose last signature was level 2', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        submittedAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'APPROVED',
+            currentRevision: 2n,
+            values: {},
+            approvalLevel: 2,
+            returnDueAt: null,
+          },
+        }),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({
+        role: 'MANAGER',
+        approvalLevel: 1,
+      });
+      tx.dynReportRole.aggregate.mockResolvedValue({
+        _max: { approvalLevel: 2 },
+      });
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'APPROVED',
+        currentRevision: 2n,
+        values: {},
+        approvalLevel: 2,
+        returnDueAt: null,
+      });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.unapprove('assign1', 'mgr1', 'roleMgr', '2'),
+      ).rejects.toMatchObject({ code: 'GUARD_FAILED' });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
     });
   });
 
