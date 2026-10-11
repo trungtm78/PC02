@@ -23,6 +23,15 @@ export interface SaveReportConfigResult {
   status: 'DRAFT' | 'PUBLISHED';
 }
 
+export interface VersionListItem {
+  versionId: string;
+  version: number;
+  status: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
+  publishedAt: string | null;
+  createdAt: string;
+  periodKeys: string[];
+}
+
 const PARSER_VERSION = 'pr3-v1';
 const ENGINE_VERSION = 'pr1-v1';
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -340,5 +349,42 @@ export class ReportConfigService {
       data: { status: 'SUSPENDED' },
     });
     return { status: 'SUSPENDED' };
+  }
+
+  /**
+   * S22 "Danh sách phiên bản" — read-only. Shows every version of this
+   * report and which periods were generated against it, newest first.
+   * Deliberately scoped to the LIST half of S22 only: "tạo phiên bản
+   * mới" (D09 — apply immediately if no team has data yet, else from
+   * the next period) and "tiếp tục nháp" are separate mutating actions
+   * left for a later slice — this one has no write path at all.
+   */
+  async listVersions(reportId: string): Promise<VersionListItem[]> {
+    const report = await this.prisma.dynReport.findUnique({
+      where: { id: reportId },
+    });
+    if (!report) {
+      throw new ReportConfigError(
+        'Không tìm thấy báo cáo này.',
+        'REPORT_NOT_FOUND',
+      );
+    }
+
+    const versions = await this.prisma.dynReportVersion.findMany({
+      where: { reportId },
+      orderBy: { version: 'desc' },
+      include: {
+        periods: { select: { periodKey: true }, orderBy: { startDate: 'asc' } },
+      },
+    });
+
+    return versions.map((v) => ({
+      versionId: v.id,
+      version: v.version,
+      status: v.status,
+      publishedAt: v.publishedAt?.toISOString() ?? null,
+      createdAt: v.createdAt.toISOString(),
+      periodKeys: v.periods.map((p) => p.periodKey),
+    }));
   }
 }

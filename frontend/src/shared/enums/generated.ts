@@ -339,3 +339,10 @@ export const DynReportSubmissionState = {
   APPROVED: 'APPROVED',
 } as const;
 export type DynReportSubmissionState = (typeof DynReportSubmissionState)[keyof typeof DynReportSubmissionState];
+
+export const DynReportVersionStatus = {
+  DRAFT: 'DRAFT',
+  PUBLISHED: 'PUBLISHED',
+  RETIRED: 'RETIRED',
+} as const;
+export type DynReportVersionStatus = (typeof DynReportVersionStatus)[keyof typeof DynReportVersionStatus];

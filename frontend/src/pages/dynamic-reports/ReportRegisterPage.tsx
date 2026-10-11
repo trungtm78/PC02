@@ -135,6 +135,13 @@ export default function ReportRegisterPage() {
             >
               Xem
             </button>
+            <Link
+              to={`/bao-cao-dong/thiet-lap/${r.id}/phien-ban`}
+              className={`px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
+              data-testid={`btn-versions-${r.code}`}
+            >
+              Phiên bản
+            </Link>
             {r.status === 'PUBLISHED' && (
               <button
                 type="button"

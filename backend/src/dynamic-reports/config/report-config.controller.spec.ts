@@ -20,7 +20,11 @@ import type { SaveReportConfigRequestDto } from './dto/save-report-config.dto';
  */
 describe('ReportConfigController', () => {
   let controller: ReportConfigController;
-  const service = { save: jest.fn(), suspendGeneration: jest.fn() };
+  const service = {
+    save: jest.fn(),
+    suspendGeneration: jest.fn(),
+    listVersions: jest.fn(),
+  };
   const user = { id: 'actor1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -124,6 +128,40 @@ describe('ReportConfigController', () => {
         status: 400,
         response: { code: 'INVALID_STATE', message: 'Sai trạng thái' },
       });
+    });
+  });
+
+  describe('listVersions (S22 "Danh sách phiên bản")', () => {
+    it('delegates to ReportConfigService.listVersions with the reportId', async () => {
+      const versions = [
+        {
+          versionId: 'ver1',
+          version: 1,
+          status: 'PUBLISHED',
+          publishedAt: null,
+          createdAt: 'x',
+          periodKeys: [],
+        },
+      ];
+      service.listVersions.mockResolvedValue(versions);
+
+      const result = await controller.listVersions('rep1');
+
+      expect(service.listVersions).toHaveBeenCalledWith('rep1');
+      expect(result).toBe(versions);
+    });
+
+    it('translates REPORT_NOT_FOUND into a 404', async () => {
+      service.listVersions.mockRejectedValue(
+        new ReportConfigError(
+          'Không tìm thấy báo cáo này.',
+          'REPORT_NOT_FOUND',
+        ),
+      );
+
+      await expect(controller.listVersions('rep1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });
