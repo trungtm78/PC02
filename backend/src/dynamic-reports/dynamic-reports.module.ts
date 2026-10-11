@@ -3,6 +3,7 @@ import { ClockController } from './clock.controller';
 import { ReportsController } from './reports.controller';
 import { DynamicReportsRegistryService } from './reports.service';
 import { PeriodSchedulerService } from './schedule/period-scheduler.service';
+import { ReminderSchedulerService } from './schedule/reminder-scheduler.service';
 import { SchedulePreviewController } from './schedule/schedule-preview.controller';
 import { TemplatesController } from './template/templates.controller';
 import { TemplateService } from './template/template.service';
@@ -36,6 +37,7 @@ import { TeamsModule } from '../teams/teams.module';
   providers: [
     DynamicReportsRegistryService,
     PeriodSchedulerService,
+    ReminderSchedulerService,
     TemplateService,
     ReportConfigService,
     SubmissionService,

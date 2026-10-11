@@ -1,8 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  DynReportApprovedEvent,
+  DynReportReturnedEvent,
+  DynReportUnlockGrantedEvent,
+  DynReportUnlockRequestedEvent,
+} from '../../notifications/events/notification.events';
 import {
   assertMagicBytes,
   assertCompressedSize,
@@ -193,7 +200,10 @@ export interface CommentView {
  */
 @Injectable()
 export class SubmissionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   private async loadEditorAssignment(
     client: Prisma.TransactionClient | PrismaService,
@@ -632,6 +642,21 @@ export class SubmissionService {
         decidedById: userId,
       },
     });
+
+    const toUserIds = await this.activeEditorIds(this.prisma, assignmentId);
+    if (toUserIds.length > 0) {
+      this.eventEmitter.emit(
+        'dyn-report.unlock-granted',
+        new DynReportUnlockGrantedEvent(
+          assignmentId,
+          assignment.period.report.name,
+          assignment.period.periodKey,
+          toUserIds,
+          resolvedExpiresAt.toISOString(),
+        ),
+      );
+    }
+
     return {
       id: unlock.id,
       expiresAt: unlock.expiresAt.toISOString(),
@@ -725,6 +750,29 @@ export class SubmissionService {
         select: { firstName: true, lastName: true, username: true },
       }),
     ]);
+    const requestedByName = requester
+      ? `${requester.firstName ?? ''} ${requester.lastName ?? ''}`.trim() ||
+        requester.username
+      : '';
+
+    const toUserIds = await this.managerIds(
+      this.prisma,
+      assignment.period.report.id,
+    );
+    if (toUserIds.length > 0) {
+      this.eventEmitter.emit(
+        'dyn-report.unlock-requested',
+        new DynReportUnlockRequestedEvent(
+          assignmentId,
+          assignment.period.report.name,
+          assignment.period.periodKey,
+          toUserIds,
+          requestedByName,
+          reason,
+        ),
+      );
+    }
+
     return {
       id: unlock.id,
       assignmentId,
@@ -735,10 +783,7 @@ export class SubmissionService {
         assignment.teamId,
       reason: unlock.reason,
       requestedAt: unlock.createdAt.toISOString(),
-      requestedByName: requester
-        ? `${requester.firstName ?? ''} ${requester.lastName ?? ''}`.trim() ||
-          requester.username
-        : '',
+      requestedByName,
     };
   }
 
@@ -1829,7 +1874,37 @@ export class SubmissionService {
       );
     }
 
-    return { submission, now, actorRole };
+    return { submission, now, actorRole, assignment };
+  }
+
+  /** PR9 slice 3 — active editors of an assignment, for notification recipients. */
+  private async activeEditorIds(
+    client: Prisma.TransactionClient | PrismaService,
+    assignmentId: string,
+  ): Promise<string[]> {
+    const editors = await client.dynReportAssignmentEditor.findMany({
+      where: { assignmentId, isActive: true },
+      select: { userId: true },
+    });
+    return editors.map((e) => e.userId);
+  }
+
+  /** PR9 slice 3 — every active manager/admin of a report, for notification recipients. */
+  private async managerIds(
+    client: Prisma.TransactionClient | PrismaService,
+    reportId: string,
+  ): Promise<string[]> {
+    const now = new Date();
+    const roles = await client.dynReportRole.findMany({
+      where: {
+        reportId,
+        role: 'MANAGER',
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      select: { userId: true },
+    });
+    return roles.map((r) => r.userId);
   }
 
   /** S33 — manager approves a SUBMITTED submission. */
@@ -1840,14 +1915,15 @@ export class SubmissionService {
     expectedRevision: string,
     reason?: string,
   ): Promise<SaveValuesResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const { submission, now, actorRole } = await this.lockForManagerWrite(
-        tx,
-        assignmentId,
-        userId,
-        roleId,
-        expectedRevision,
-      );
+    const { result, notify } = await this.prisma.$transaction(async (tx) => {
+      const { submission, now, actorRole, assignment } =
+        await this.lockForManagerWrite(
+          tx,
+          assignmentId,
+          userId,
+          roleId,
+          expectedRevision,
+        );
 
       const transition = applyTransition('APPROVE', {
         state: submission.state,
@@ -1888,14 +1964,38 @@ export class SubmissionService {
         },
       });
 
+      const notify =
+        transition.next === 'APPROVED'
+          ? {
+              toUserIds: await this.activeEditorIds(tx, assignmentId),
+              reportName: assignment.period.report.name,
+              periodKey: assignment.period.periodKey,
+            }
+          : null;
+
       return {
-        revision: nextRevision.toString(),
-        state: transition.next,
-        savedAt: now.toISOString(),
-        serverTime: now.toISOString(),
-        effectiveLockAt: null,
+        result: {
+          revision: nextRevision.toString(),
+          state: transition.next,
+          savedAt: now.toISOString(),
+          serverTime: now.toISOString(),
+          effectiveLockAt: null,
+        },
+        notify,
       };
     });
+    if (notify && notify.toUserIds.length > 0) {
+      this.eventEmitter.emit(
+        'dyn-report.approved',
+        new DynReportApprovedEvent(
+          assignmentId,
+          notify.reportName,
+          notify.periodKey,
+          notify.toUserIds,
+        ),
+      );
+    }
+    return result;
   }
 
   /** S33 — manager returns a SUBMITTED submission with a reason and a new edit deadline. */
@@ -1908,14 +2008,15 @@ export class SubmissionService {
     returnDueAt: string,
   ): Promise<SaveValuesResult> {
     const parsedReturnDueAt = new Date(returnDueAt);
-    return this.prisma.$transaction(async (tx) => {
-      const { submission, now, actorRole } = await this.lockForManagerWrite(
-        tx,
-        assignmentId,
-        userId,
-        roleId,
-        expectedRevision,
-      );
+    const { result, notify } = await this.prisma.$transaction(async (tx) => {
+      const { submission, now, actorRole, assignment } =
+        await this.lockForManagerWrite(
+          tx,
+          assignmentId,
+          userId,
+          roleId,
+          expectedRevision,
+        );
 
       if (parsedReturnDueAt.getTime() <= now.getTime()) {
         throw new SubmissionError(
@@ -1961,14 +2062,36 @@ export class SubmissionService {
         },
       });
 
+      const notify = {
+        toUserIds: await this.activeEditorIds(tx, assignmentId),
+        reportName: assignment.period.report.name,
+        periodKey: assignment.period.periodKey,
+      };
+
       return {
-        revision: nextRevision.toString(),
-        state: transition.next,
-        savedAt: now.toISOString(),
-        serverTime: now.toISOString(),
-        effectiveLockAt: parsedReturnDueAt.toISOString(),
+        result: {
+          revision: nextRevision.toString(),
+          state: transition.next,
+          savedAt: now.toISOString(),
+          serverTime: now.toISOString(),
+          effectiveLockAt: parsedReturnDueAt.toISOString(),
+        },
+        notify,
       };
     });
+    if (notify && notify.toUserIds.length > 0) {
+      this.eventEmitter.emit(
+        'dyn-report.returned',
+        new DynReportReturnedEvent(
+          assignmentId,
+          notify.reportName,
+          notify.periodKey,
+          notify.toUserIds,
+          reason,
+        ),
+      );
+    }
+    return result;
   }
 
   /** S33 — manager undoes their own already-given approval. */

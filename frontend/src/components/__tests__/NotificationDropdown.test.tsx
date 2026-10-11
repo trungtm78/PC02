@@ -112,4 +112,29 @@ describe('NotificationDropdown — handleNotificationClick', () => {
       );
     });
   });
+
+  it('PR9 slice 3: renders a DYN_REPORT_* notification without falling back to the generic SYSTEM look', async () => {
+    const reminder = {
+      id: 'notif-reminder',
+      type: 'DYN_REPORT_DEADLINE_REMINDER',
+      title: 'Sắp đến hạn nộp báo cáo',
+      message: 'Báo cáo "HSLN" kỳ 2026-06 chưa nộp, hạn 2026-06-20T17:00:00.000Z',
+      isRead: false,
+      link: '/bao-cao-dong/nhap/assign1',
+      createdAt: new Date().toISOString(),
+    };
+
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.includes('unread-count')) return Promise.resolve({ data: { unreadCount: 1 } });
+      return Promise.resolve({ data: { data: [reminder], unreadCount: 1 } });
+    });
+
+    renderDropdown();
+    fireEvent.click(screen.getByTestId('notification-bell'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Sắp đến hạn nộp báo cáo')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/chưa nộp, hạn/)).toBeInTheDocument();
+  });
 });

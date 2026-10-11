@@ -73,3 +73,67 @@ export class IncidentCreatedEvent {
     public readonly byUserId: string,
   ) {}
 }
+
+// Dynamic Report Builder (Báo cáo động, PR9 slice 3) — `toUserIds` is a
+// list (every active editor of the assignment, or every manager of the
+// report), never a single recipient: an assignment can have >1 editor and
+// a report can have >1 manager (D10 — "≥1 quản lý").
+export class DynReportReturnedEvent {
+  constructor(
+    public readonly assignmentId: string,
+    public readonly reportName: string,
+    public readonly periodKey: string,
+    public readonly toUserIds: string[],
+    public readonly reason: string,
+  ) {}
+}
+
+export class DynReportApprovedEvent {
+  constructor(
+    public readonly assignmentId: string,
+    public readonly reportName: string,
+    public readonly periodKey: string,
+    public readonly toUserIds: string[],
+  ) {}
+}
+
+export class DynReportUnlockGrantedEvent {
+  constructor(
+    public readonly assignmentId: string,
+    public readonly reportName: string,
+    public readonly periodKey: string,
+    public readonly toUserIds: string[],
+    public readonly expiresAt: string,
+  ) {}
+}
+
+export class DynReportUnlockRequestedEvent {
+  constructor(
+    public readonly assignmentId: string,
+    public readonly reportName: string,
+    public readonly periodKey: string,
+    public readonly toUserIds: string[],
+    public readonly byUserName: string,
+    public readonly reason: string,
+  ) {}
+}
+
+export class DynReportPeriodFinalizedEvent {
+  constructor(
+    public readonly periodId: string,
+    public readonly reportName: string,
+    public readonly periodKey: string,
+    public readonly toUserIds: string[],
+  ) {}
+}
+
+export class DynReportDeadlineReminderEvent {
+  constructor(
+    public readonly assignmentId: string,
+    public readonly reportName: string,
+    public readonly periodKey: string,
+    public readonly toUserIds: string[],
+    public readonly dueAt: string,
+    public readonly windowLabel: string,
+  ) {}
+}
