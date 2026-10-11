@@ -68,6 +68,14 @@ export interface SubmissionView {
   editable: boolean;
   effectiveLockAt: string | null;
   serverTime: string;
+  /**
+   * S16 — "lưu lần cuối". `null` when `firstSavedAt` is still null (R5
+   * creates the submission row eagerly at assignment time, so
+   * `updatedAt` itself is always set — but showing that creation
+   * instant as "lưu lần cuối" before anyone has actually saved anything
+   * would be misleading).
+   */
+  updatedAt: string | null;
   /** S16 (PR7 slice 3) — only ever populated on the manager's read, never the editor's. */
   history?: RevisionHistoryEntry[];
   /** S17 (PR7 slice 4) — the currently ACTIVE grant, if any; only the manager's read. */
@@ -421,6 +429,9 @@ export class SubmissionService {
       editable: false,
       effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
       serverTime: now.toISOString(),
+      updatedAt: submission.firstSavedAt
+        ? submission.updatedAt.toISOString()
+        : null,
       history,
       activeGrant,
     };
@@ -927,6 +938,9 @@ export class SubmissionService {
       editable: access.canEdit,
       effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
       serverTime: now.toISOString(),
+      updatedAt: submission.firstSavedAt
+        ? submission.updatedAt.toISOString()
+        : null,
     };
   }
 

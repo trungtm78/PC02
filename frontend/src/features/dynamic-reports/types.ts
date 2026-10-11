@@ -179,6 +179,8 @@ export interface SubmissionView {
   editable: boolean;
   effectiveLockAt: string | null;
   serverTime: string;
+  /** S16 — "lưu lần cuối". `null` when nothing has ever been saved. */
+  updatedAt: string | null;
   /** S16 (PR7 slice 3) — only populated on the manager's read. */
   history?: RevisionHistoryEntry[];
   /** S17 (PR7 slice 4) — the currently active grant, if any; only the manager's read. */
