@@ -559,6 +559,31 @@ export class AggregateService {
         );
       }
 
+      // BUG-002 (found by the PR10 UAT agent via a real end-to-end API run):
+      // finalize had no guard at all — a brand-new period with every
+      // assignment still NOT_STARTED could be chốt kỳ immediately, creating
+      // an "official" snapshot of nothing. Block finalize only when NO
+      // required team has reached SUBMITTED/APPROVED yet; a period where
+      // every team is EXEMPT, or where at least one has submitted and the
+      // manager is deliberately closing despite stragglers, is still
+      // allowed — this is the narrowest guard that rejects the demonstrated
+      // "finalize an empty period" case without inventing a 100%-completion
+      // requirement the spec never asked for.
+      const requiredAssignments = period.assignments.filter(
+        (a) => a.obligation === 'REQUIRED',
+      );
+      const anyRequiredSubmitted = requiredAssignments.some((a) =>
+        (['SUBMITTED', 'APPROVED'] as string[]).includes(
+          a.submission?.state ?? '',
+        ),
+      );
+      if (requiredAssignments.length > 0 && !anyRequiredSubmitted) {
+        throw new SubmissionError(
+          'Chưa có tổ nào nộp dữ liệu cho kỳ này — không thể chốt một kỳ trống.',
+          'INVALID_STATE_TRANSITION',
+        );
+      }
+
       const {
         snapshotValues,
         sourceRevisions,
