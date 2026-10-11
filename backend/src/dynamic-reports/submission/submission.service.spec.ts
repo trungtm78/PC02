@@ -3,6 +3,7 @@ import type { EventEmitter2 } from '@nestjs/event-emitter';
 import * as ExcelJS from 'exceljs';
 import { SubmissionService } from './submission.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { VersionFieldsCacheService } from '../template/version-fields-cache';
 
 /**
  * SubmissionService (spec §6.1 PR6 S11-S14) — the first service to ever
@@ -124,6 +125,36 @@ describe('SubmissionService', () => {
     };
   }
 
+  /**
+   * `loadEditorAssignment`/`loadAssignmentForManager` now get `fields`/
+   * `rules` from `VersionFieldsCacheService` instead of a Prisma `include`
+   * (perf X04 round 4) — this mock derives the right fixture per test for
+   * free by reading them straight back off the *already-resolved*
+   * `dynReportAssignment.findUnique` call (production code always calls
+   * `findUnique` before `getOrLoad`), so every existing
+   * `basePeriod({ version: { fields, rules, ... } })` override still
+   * drives the right data without each test having to configure the cache
+   * mock separately.
+   */
+  function buildVersionFieldsCacheMock(findUniqueMock: {
+    mock: { results: Array<{ type: string; value: unknown }> };
+  }) {
+    return {
+      getOrLoad: jest.fn(async () => {
+        const results = findUniqueMock.mock.results;
+        const last = results[results.length - 1];
+        const assignment =
+          last?.type === 'return' ? await last.value : null;
+        const version = (
+          assignment as {
+            period?: { version?: { fields?: unknown[]; rules?: unknown[] } };
+          } | null
+        )?.period?.version;
+        return { fields: version?.fields ?? [], rules: version?.rules ?? [] };
+      }),
+    };
+  }
+
   function buildService(tx: ReturnType<typeof buildTx>) {
     const prisma = {
       $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
@@ -138,11 +169,15 @@ describe('SubmissionService', () => {
       dynReportComment: tx.dynReportComment,
     };
     const eventEmitter = { emit: jest.fn() };
+    const versionFieldsCache = buildVersionFieldsCacheMock(
+      tx.dynReportAssignment.findUnique,
+    );
     const service = new SubmissionService(
       prisma as unknown as PrismaService,
       eventEmitter as unknown as EventEmitter2,
+      versionFieldsCache as unknown as VersionFieldsCacheService,
     );
-    return { service, prisma, eventEmitter };
+    return { service, prisma, eventEmitter, versionFieldsCache };
   }
 
   describe('listMyAssignments', () => {
@@ -1613,6 +1648,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       const result = await service.listForManager('mgr1', 'roleMgr');
@@ -1642,6 +1680,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       expect(await service.listForManager('u1', 'role1')).toEqual([]);
@@ -1679,6 +1720,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -1705,6 +1749,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       await expect(
@@ -1741,6 +1788,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -1798,6 +1848,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -1850,6 +1903,9 @@ describe('SubmissionService', () => {
       const service = new SubmissionService(
         prisma as unknown as PrismaService,
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildVersionFieldsCacheMock(
+          tx.dynReportAssignment.findUnique,
+        ) as unknown as VersionFieldsCacheService,
       );
 
       const result = await service.getSubmissionForManager(
