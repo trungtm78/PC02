@@ -114,6 +114,15 @@ describe('CommentsPanel (S37, PR9 slice 2)', () => {
     });
   });
 
+  /** axe-core (`select-name`) bắt được select này ở cả S13 và S33-review vì CommentsPanel dùng chung. */
+  it('the field picker has an accessible name (axe select-name)', async () => {
+    vi.mocked(dynamicReportsApi.listComments).mockResolvedValue([]);
+    renderPanel({ fieldOptions: [{ fieldKey: 'Đội 3!C6', label: 'Số vụ mới' }] });
+    await waitFor(() => screen.getByTestId('comments-empty'));
+
+    expect(screen.getByTestId('comment-field-select')).toHaveAccessibleName();
+  });
+
   it('shows an error note when adding a comment fails', async () => {
     vi.mocked(dynamicReportsApi.listComments).mockResolvedValue([]);
     vi.mocked(dynamicReportsApi.addComment).mockRejectedValue(new Error('boom'));

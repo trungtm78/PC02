@@ -106,6 +106,9 @@ export function TayNamKeo({
       role="separator"
       aria-orientation="vertical"
       aria-label={`Kéo giãn cột ${nhanCot}`}
+      aria-valuenow={beRongHienTai}
+      aria-valuemin={BE_RONG_TOI_THIEU}
+      aria-valuemax={BE_RONG_TOI_DA}
       tabIndex={0}
       onPointerDown={batDau}
       onPointerMove={diChuyen}
