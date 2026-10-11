@@ -441,6 +441,39 @@ describe('AggregateService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
+    it('BUG-002 fix: rejects finalizing an empty period — no REQUIRED assignment has reached SUBMITTED/APPROVED', async () => {
+      const { service } = buildTxService(
+        basePeriod({
+          assignments: [
+            assignment('a1', 'NOT_STARTED', null),
+            assignment('a2', 'DRAFT', '5'),
+            assignment('a3', 'NOT_STARTED', null, { obligation: 'EXEMPT' }),
+          ],
+        }),
+        [{ role: 'MANAGER' }],
+      );
+
+      await expect(
+        service.finalizePeriod('period1', 'mgr1', 'roleMgr'),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+    });
+
+    it('BUG-002 fix: allows finalizing a period where every assignment is EXEMPT (nothing was ever required)', async () => {
+      const { service, tx } = buildTxService(
+        basePeriod({
+          assignments: [
+            assignment('a1', 'NOT_STARTED', null, { obligation: 'EXEMPT' }),
+          ],
+        }),
+        [{ role: 'MANAGER' }],
+      );
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.status).toBe('FINALIZED');
+      expect(tx.dynReportPeriod.update).toHaveBeenCalled();
+    });
+
     it('reopens a FINALIZED period as admin, invalidating the prior snapshot with a reason', async () => {
       const { service, tx } = buildTxService(
         basePeriod({ status: 'FINALIZED' }),
