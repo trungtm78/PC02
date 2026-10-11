@@ -79,6 +79,12 @@ export const dynamicReportsApi = {
       .then((r) => r.data);
   },
 
+  /** S31 "Ngừng phát sinh" — stops future periods; any already-OPEN period keeps running. */
+  suspendReportGeneration: (reportId: string) =>
+    api
+      .post<{ status: 'SUSPENDED' }>(`/bao-cao-dong/reports/${reportId}/suspend`, {})
+      .then((r) => r.data),
+
   /** S11 thanh trên's combo — every assignment the caller is an editor of. */
   listMySubmissions: () =>
     api.get<AssignmentSummary[]>('/bao-cao-dong/submissions').then((r) => r.data),

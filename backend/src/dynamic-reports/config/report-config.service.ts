@@ -307,4 +307,38 @@ export class ReportConfigService {
 
     return result;
   }
+
+  /**
+   * S31 "Ngừng phát sinh" (spec §6.1 PR4 slice 6, D09). Flips
+   * `DynReport.status` PUBLISHED → SUSPENDED, which is the ONLY thing
+   * `PeriodSchedulerService.generateForAllReports` checks
+   * (`where: { status: 'PUBLISHED' }`) before generating a report's next
+   * period — so this alone is enough to stop future periods. It does
+   * NOT touch any already-generated period/assignment/submission: a kỳ
+   * that's already OPEN keeps running exactly as before (spec: "không tự
+   * đóng kỳ đang mở; đóng kỳ là thao tác riêng có nhật ký" — that's S38
+   * chốt kỳ, a different action entirely).
+   */
+  async suspendGeneration(reportId: string): Promise<{ status: 'SUSPENDED' }> {
+    const report = await this.prisma.dynReport.findUnique({
+      where: { id: reportId },
+    });
+    if (!report) {
+      throw new ReportConfigError(
+        'Không tìm thấy báo cáo này.',
+        'REPORT_NOT_FOUND',
+      );
+    }
+    if (report.status !== 'PUBLISHED') {
+      throw new ReportConfigError(
+        'Chỉ ngừng phát sinh được báo cáo đang ở trạng thái "Đã xuất bản".',
+        'INVALID_STATE',
+      );
+    }
+    await this.prisma.dynReport.update({
+      where: { id: reportId },
+      data: { status: 'SUSPENDED' },
+    });
+    return { status: 'SUSPENDED' };
+  }
 }

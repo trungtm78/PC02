@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportConfigController } from './report-config.controller';
 import {
@@ -16,7 +20,7 @@ import type { SaveReportConfigRequestDto } from './dto/save-report-config.dto';
  */
 describe('ReportConfigController', () => {
   let controller: ReportConfigController;
-  const service = { save: jest.fn() };
+  const service = { save: jest.fn(), suspendGeneration: jest.fn() };
   const user = { id: 'actor1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -86,5 +90,40 @@ describe('ReportConfigController', () => {
   it('rethrows an unexpected error unwrapped', async () => {
     service.save.mockRejectedValue(new Error('boom'));
     await expect(controller.save(file, body, user)).rejects.toThrow('boom');
+  });
+
+  describe('suspend (S31 "Ngừng phát sinh")', () => {
+    it('delegates to ReportConfigService.suspendGeneration with the reportId', async () => {
+      service.suspendGeneration.mockResolvedValue({ status: 'SUSPENDED' });
+
+      const result = await controller.suspend('rep1');
+
+      expect(service.suspendGeneration).toHaveBeenCalledWith('rep1');
+      expect(result).toEqual({ status: 'SUSPENDED' });
+    });
+
+    it('translates REPORT_NOT_FOUND into a 404', async () => {
+      service.suspendGeneration.mockRejectedValue(
+        new ReportConfigError(
+          'Không tìm thấy báo cáo này.',
+          'REPORT_NOT_FOUND',
+        ),
+      );
+
+      await expect(controller.suspend('rep1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('translates INVALID_STATE into a 400 carrying its code', async () => {
+      service.suspendGeneration.mockRejectedValue(
+        new ReportConfigError('Sai trạng thái', 'INVALID_STATE'),
+      );
+
+      await expect(controller.suspend('rep1')).rejects.toMatchObject({
+        status: 400,
+        response: { code: 'INVALID_STATE', message: 'Sai trạng thái' },
+      });
+    });
   });
 });
