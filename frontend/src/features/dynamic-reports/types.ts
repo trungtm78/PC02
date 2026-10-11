@@ -406,6 +406,12 @@ export interface ReportOption {
   reportName: string;
 }
 
+/** S27 "đơn vị" filter (PR8 slice 7) — flat team picker option. */
+export interface TeamFilterOption {
+  teamId: string;
+  teamName: string;
+}
+
 export interface StatusMatrixCell {
   /** `true` → team has no assignment for this period at all ("Không giao"), distinct from `state: 'NOT_STARTED'` ("Chưa nhập"). */
   notAssigned: boolean;

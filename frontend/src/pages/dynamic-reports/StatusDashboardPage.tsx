@@ -17,8 +17,17 @@
  * PR8 slice 4: thêm bộ lọc "Báo cáo" cho bảng S19 (tái dùng
  * `listStatusReports` đã có từ slice 3) — trước đó `reportId` ĐÃ được
  * `StatusQueryService` hỗ trợ nhưng bảng chưa có ô chọn nào để gửi lên.
- * Bộ lọc "đơn vị"/"người nhập"/"quản lý"/"loại kỳ" dạng drawer S27 vẫn
- * để lại cho slice sau — cần picker cây tổ riêng, chưa có trong repo.
+ *
+ * PR8 slice 7 — thêm bộ lọc "Đơn vị" (S27, phần đầu tiên — `teamId` đã
+ * được `StatusQueryService` hỗ trợ từ slice 1 kèm `getDescendantIds`,
+ * chỉ thiếu UI). **Quyết định phạm vi có chủ đích**: dùng `<select>`
+ * PHẲNG (tái dùng đúng `GET /teams` + bộ lọc client `isActive && !wardId`
+ * của `ReportTeamsStep.tsx`, S09), KHÔNG dựng cây tổ — repo chưa có
+ * component cây tổ tái dùng nào, và dựng mới chỉ cho MỘT bộ lọc là việc
+ * lớn hơn giá trị mang lại ở quy mô hiện tại. "Người nhập"/"quản lý"/
+ * "loại kỳ" (phần còn lại của S27 drawer) vẫn để lại cho slice sau — cần
+ * join `AssignmentEditor`/`DynReportRole`/`DynReportSchedule` mới ở
+ * backend.
  */
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -62,6 +71,7 @@ export default function StatusDashboardPage() {
   const view: ViewMode = searchParams.get('view') === 'matrix' ? 'matrix' : 'table';
   const page = Number(searchParams.get('status_page') ?? '1') || 1;
   const reportId = searchParams.get('reportId') ?? undefined;
+  const teamId = searchParams.get('teamId') ?? undefined;
   const state = (searchParams.get('state') as DynReportSubmissionState | null) ?? undefined;
   const overdue = searchParams.get('overdue') === 'true' ? true : undefined;
   const reopened = searchParams.get('reopened') === 'true' ? true : undefined;
@@ -78,10 +88,15 @@ export default function StatusDashboardPage() {
     queryFn: () => dynamicReportsApi.listStatusReports(),
   });
 
+  const { data: teams } = useQuery({
+    queryKey: ['dynamic-reports', 'status-teams'],
+    queryFn: () => dynamicReportsApi.listTeamsForFilter(),
+  });
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['dynamic-reports', 'status', { page, reportId, state, overdue, reopened }],
+    queryKey: ['dynamic-reports', 'status', { page, reportId, teamId, state, overdue, reopened }],
     queryFn: () =>
-      dynamicReportsApi.listStatus({ reportId, state, overdue, reopened }, page, PAGE_SIZE),
+      dynamicReportsApi.listStatus({ reportId, teamId, state, overdue, reopened }, page, PAGE_SIZE),
   });
 
   const [exportingFormat, setExportingFormat] = useState<'csv' | 'xlsx' | null>(null);
@@ -89,7 +104,7 @@ export default function StatusDashboardPage() {
   async function handleExport(format: 'csv' | 'xlsx') {
     setExportingFormat(format);
     try {
-      await dynamicReportsApi.exportStatus({ reportId, state, overdue, reopened }, format);
+      await dynamicReportsApi.exportStatus({ reportId, teamId, state, overdue, reopened }, format);
     } finally {
       setExportingFormat(null);
     }
@@ -99,6 +114,14 @@ export default function StatusDashboardPage() {
     const params = new URLSearchParams(searchParams);
     if (nextReportId) params.set('reportId', nextReportId);
     else params.delete('reportId');
+    params.set('status_page', '1');
+    setSearchParams(params);
+  }
+
+  function handleSelectTeamFilter(nextTeamId: string) {
+    const params = new URLSearchParams(searchParams);
+    if (nextTeamId) params.set('teamId', nextTeamId);
+    else params.delete('teamId');
     params.set('status_page', '1');
     setSearchParams(params);
   }
@@ -211,24 +234,45 @@ export default function StatusDashboardPage() {
         <StatusMatrixPanel />
       ) : (
         <>
-          <div className="mb-4">
-            <label htmlFor="report-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
-              Báo cáo
-            </label>
-            <select
-              id="report-filter-select"
-              data-testid="report-filter-select"
-              value={reportId ?? ''}
-              onChange={(e) => handleSelectReportFilter(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
-            >
-              <option value="">— Mọi báo cáo —</option>
-              {(reports ?? []).map((r) => (
-                <option key={r.reportId} value={r.reportId}>
-                  {r.reportName}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div>
+              <label htmlFor="report-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
+                Báo cáo
+              </label>
+              <select
+                id="report-filter-select"
+                data-testid="report-filter-select"
+                value={reportId ?? ''}
+                onChange={(e) => handleSelectReportFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+              >
+                <option value="">— Mọi báo cáo —</option>
+                {(reports ?? []).map((r) => (
+                  <option key={r.reportId} value={r.reportId}>
+                    {r.reportName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="team-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
+                Đơn vị
+              </label>
+              <select
+                id="team-filter-select"
+                data-testid="team-filter-select"
+                value={teamId ?? ''}
+                onChange={(e) => handleSelectTeamFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+              >
+                <option value="">— Mọi đơn vị —</option>
+                {(teams ?? []).map((t) => (
+                  <option key={t.teamId} value={t.teamId}>
+                    {t.teamName}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {data && (

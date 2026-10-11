@@ -12,6 +12,7 @@ import type {
   ReportHistoryView,
   ReportOption,
   ReportSetupSummary,
+  TeamFilterOption,
   SaveReportConfigPayload,
   SaveReportConfigResult,
   SaveValuesResult,
@@ -293,4 +294,24 @@ export const dynamicReportsApi = {
     api
       .get<StatusMatrixView>('/bao-cao-dong/status/matrix', { params: { reportId } })
       .then((r) => r.data),
+
+  /**
+   * S27 "đơn vị" filter (PR8 slice 7) — flat team list, same `GET /teams` +
+   * client-side filter (`isActive !== false && wardId == null`) already used
+   * by `ReportTeamsStep.tsx` (S09 wizard). A deliberately scoped-down first
+   * version of S27: a real tree picker (parent/child collapse) is a separate
+   * future task if a flat list proves too long in practice — see PROGRESS.md.
+   */
+  listTeamsForFilter: async (): Promise<TeamFilterOption[]> => {
+    const res = await api.get('/teams');
+    const items = (Array.isArray(res.data) ? res.data : res.data?.data ?? []) as Array<{
+      id: string;
+      name: string;
+      isActive?: boolean;
+      wardId?: string | null;
+    }>;
+    return items
+      .filter((t) => t.isActive !== false && t.wardId == null)
+      .map((t) => ({ teamId: t.id, teamName: t.name }));
+  },
 };
