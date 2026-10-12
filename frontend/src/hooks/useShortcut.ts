@@ -17,6 +17,22 @@ export interface UseShortcutOptions {
 }
 
 /**
+ * Marks a region that owns the keyboard (the spreadsheet grid: F2 edits a
+ * cell, Shift+Enter commits upwards, Escape cancels, Ctrl+K is not a search).
+ * Events that originate inside such a region never reach a registry shortcut,
+ * except the actions listed here — add one only after checking it cannot
+ * collide with a spreadsheet key.
+ */
+export const KEYBOARD_ZONE_ATTRIBUTE = 'data-shortcut-zone';
+export const GRID_ZONE_ALLOWED_ACTIONS: ReadonlySet<ShortcutAction> = new Set<ShortcutAction>();
+
+function isInsideGridZone(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element && target.closest(`[${KEYBOARD_ZONE_ATTRIBUTE}="grid"]`) !== null
+  );
+}
+
+/**
  * Convert canonical binding ("Ctrl+Shift+S", "Shift+Slash", "F9") to the format
  * react-hotkeys-hook expects ("ctrl+shift+s", "shift+slash", "f9").
  */
@@ -61,6 +77,10 @@ export function useShortcut(
 
       // Skip key-repeat and IME composition events.
       if (event.repeat || event.isComposing) return;
+
+      // The grid owns its keys: a global shortcut firing while an officer types
+      // in a cell would open the search box or save mid-entry.
+      if (isInsideGridZone(event.target) && !GRID_ZONE_ALLOWED_ACTIONS.has(action)) return;
 
       // Modal priority: when a dialog is open, only modal-scope shortcuts fire.
       const modalOpen = !!document.querySelector(
