@@ -175,8 +175,16 @@ export interface GridSheet {
   showZeros: boolean;
   /** Percent, 100 = actual size. */
   zoom: number;
-  /** Keyed by A1 address. */
+  /**
+   * Keyed by A1 address. Holds the cells that exist in the file. A cell that
+   * is absent is drawn with its row's style, else its column's (Excel's
+   * rule); only when neither exists is it plain.
+   */
   cells: Record<string, GridCell>;
+  /** Style index for every column in an inclusive 0-based range (a `<col style>`). */
+  colStyles: Array<{ min: number; max: number; s: number }>;
+  /** Style index by 0-based row, for rows with their own formatting. */
+  rowStyles: Record<number, number>;
   conditionalFormats: GridConditionalFormat[];
   validations: GridValidation[];
 }
@@ -189,7 +197,15 @@ export interface GridModel {
   sheetOrder: string[];
   /** Sheets the report left out; a reference into one is "out of scope". */
   excludedSheets: string[];
-  /** Style table, de-duplicated; `GridCell.s` indexes into it. */
+  /** Style table, de-duplicated; `GridCell.s` indexes into it. Entry 0 is always the empty style. */
   styles: GridStyle[];
+  /** The workbook's Normal font: text with no font of its own is drawn in it. */
+  defaultFont: { name: string; sizePt: number };
   sheets: GridSheet[];
+  /**
+   * What the extractor met and could not reproduce (an unsupported
+   * conditional-format type, a fill pattern it approximated…), as
+   * "Sheet!A1: reason". The grid says so instead of silently drawing less.
+   */
+  warnings: string[];
 }
