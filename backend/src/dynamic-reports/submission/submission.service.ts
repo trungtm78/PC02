@@ -794,22 +794,26 @@ export class SubmissionService {
     actorRole: 'ADMIN' | 'MANAGER',
     expiresAt: Date,
     reason: string,
-  ): Promise<void> {
-    await tx.$queryRaw`
-      SELECT id FROM "dyn_report_periods" WHERE id = (
+  ): Promise<bigint | null> {
+    const periodRows = await tx.$queryRaw<{ status: string }[]>`
+      SELECT status FROM "dyn_report_periods" WHERE id = (
         SELECT "periodId" FROM "dyn_report_assignments" WHERE id = ${assignmentId}
       ) FOR SHARE`;
+    // The caller checked the period before this transaction; closing the period may have committed since.
+    if (periodRows[0] && periodRows[0].status !== 'OPEN') {
+      throw new SubmissionError('Kỳ đã chốt, không thể mở khoá.', 'REPORT_LOCKED');
+    }
     await tx.$queryRaw`
       SELECT id FROM "dyn_report_submissions" WHERE "assignmentId" = ${assignmentId} FOR UPDATE`;
     const submission = await tx.dynReportSubmission.findUnique({ where: { assignmentId } });
-    if (!submission) return;
+    if (!submission) return null;
     if (submission.state === 'APPROVED') {
       throw new SubmissionError(
         'Bản này đã được duyệt. Hãy "Huỷ duyệt" trước, rồi mở lại để người nhập sửa.',
         'INVALID_STATE_TRANSITION',
       );
     }
-    if (submission.state !== 'SUBMITTED') return;
+    if (submission.state !== 'SUBMITTED') return null;
 
     const transition = applyTransition('RETURN', {
       state: submission.state,
@@ -842,6 +846,7 @@ export class SubmissionService {
         reason,
       },
     });
+    return nextRevision;
   }
 
   /** S17 — manager extends a team's write window past where it would otherwise be blocked (D07). */
@@ -878,7 +883,7 @@ export class SubmissionService {
 
     const unlock = await this.prisma.$transaction(async (tx) => {
       // A submission already handed in is returned first (see `reopenForGrant`); an approved one is refused here.
-      await this.reopenForGrant(tx, assignmentId, userId, actorRole, resolvedExpiresAt, reason);
+      const reopenedRevision = await this.reopenForGrant(tx, assignmentId, userId, actorRole, resolvedExpiresAt, reason);
       return tx.dynReportUnlock.create({
         data: {
           assignmentId,
@@ -888,6 +893,7 @@ export class SubmissionService {
           expiresAt: resolvedExpiresAt,
           reason,
           decidedById: userId,
+          reopenedRevision,
         },
       });
     });
@@ -937,6 +943,13 @@ export class SubmissionService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // The module's lock order (period, then submission) before the unlock row, as deleting a period does.
+      await tx.$queryRaw`
+        SELECT id FROM "dyn_report_periods" WHERE id = (
+          SELECT "periodId" FROM "dyn_report_assignments" WHERE id = ${assignmentId}
+        ) FOR SHARE`;
+      await tx.$queryRaw`
+        SELECT id FROM "dyn_report_submissions" WHERE "assignmentId" = ${assignmentId} FOR UPDATE`;
       await tx.dynReportUnlock.update({
         where: { id: activeGrant.id },
         data: {
@@ -947,15 +960,23 @@ export class SubmissionService {
         },
       });
       // A grant on a handed-in submission worked by returning it with the grant's expiry as the deadline; revoking
-      // the grant must close that window too, or the editor would keep typing until the original expiry.
-      await tx.dynReportSubmission.updateMany({
-        where: {
-          assignmentId,
-          state: 'RETURNED',
-          returnDueAt: new Date(activeGrant.expiresAt),
-        },
-        data: { returnDueAt: now },
+      // the grant must close that window too, or the editor would keep typing until the original expiry. Only the
+      // return this very grant made (nothing saved since): a return a manager issued on its own keeps its deadline.
+      const madeReturn = await tx.dynReportUnlock.findUnique({
+        where: { id: activeGrant.id },
+        select: { reopenedRevision: true },
       });
+      if (madeReturn?.reopenedRevision != null) {
+        await tx.dynReportSubmission.updateMany({
+          where: {
+            assignmentId,
+            state: 'RETURNED',
+            currentRevision: madeReturn.reopenedRevision,
+            returnDueAt: new Date(activeGrant.expiresAt),
+          },
+          data: { returnDueAt: now },
+        });
+      }
     });
   }
 
@@ -1173,7 +1194,7 @@ export class SubmissionService {
     // One transaction: the request becomes an active grant AND a handed-in submission is returned (see
     // `reopenForGrant`). If the submission cannot be reopened (approved), nothing changes and the request stays PENDING.
     await this.prisma.$transaction(async (tx) => {
-      await this.reopenForGrant(
+      const reopenedRevision = await this.reopenForGrant(
         tx,
         row.assignmentId,
         userId,
@@ -1189,6 +1210,7 @@ export class SubmissionService {
           expiresAt: resolvedExpiresAt,
           decidedById: userId,
           decisionReason,
+          reopenedRevision,
         },
         tx,
       );
@@ -1259,7 +1281,7 @@ export class SubmissionService {
 
         await this.prisma.$transaction(async (tx) => {
           // One that cannot be reopened (an approved one) is reported in `skipped` with the reason.
-          await this.reopenForGrant(tx, assignmentId, userId, actorRole, resolvedExpiresAt, reason);
+          const reopenedRevision = await this.reopenForGrant(tx, assignmentId, userId, actorRole, resolvedExpiresAt, reason);
           await tx.dynReportUnlock.create({
             data: {
               assignmentId,
@@ -1270,6 +1292,7 @@ export class SubmissionService {
               reason,
               decidedById: userId,
               bulkBatchId,
+              reopenedRevision,
             },
           });
         });

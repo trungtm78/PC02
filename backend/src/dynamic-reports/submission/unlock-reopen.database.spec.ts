@@ -193,6 +193,31 @@ run('reopening a submission on PostgreSQL', () => {
     expect((await view(assignmentId)).editable).toBe(true);
   });
 
+  it('revoking a grant leaves alone a return the manager issued on its own, even with the same deadline (found by Codex)', async () => {
+    const { assignmentId } = await build('own-return', 'SUBMITTED');
+    const sub = await state(assignmentId);
+    const until = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    await svc.returnSubmission(assignmentId, user.mgr, roleUser, sub.currentRevision.toString(), 'Sửa lại', until);
+    await svc.grantUnlock(assignmentId, user.mgr, roleUser, 'Thêm giờ', until); // already RETURNED: the grant returns nothing
+
+    await svc.revokeActiveGrant(assignmentId, user.mgr, roleUser, 'Thu hồi');
+
+    expect((await state(assignmentId)).returnDueAt?.toISOString()).toBe(until);
+    expect((await view(assignmentId)).editable).toBe(true);
+  });
+
+  it('a request approved after the period was finalized is refused and stays PENDING (found by Codex)', async () => {
+    const { assignmentId } = await build('finalized-late', 'SUBMITTED');
+    const req = await svc.requestUnlock(assignmentId, user.editor, 'Nhập nhầm');
+    const asg = await db.dynReportAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
+    await db.dynReportPeriod.update({ where: { id: asg.periodId }, data: { status: 'FINALIZED' } });
+
+    await expect(svc.decideRequest(req.id, user.mgr, roleUser, 'APPROVE')).rejects.toMatchObject({ code: 'REPORT_LOCKED' });
+
+    expect((await db.dynReportUnlock.findUnique({ where: { id: req.id } }))?.status).toBe('PENDING');
+    expect((await state(assignmentId)).state).toBe('SUBMITTED');
+  });
+
   it('a never-started submission past its deadline is opened the same way', async () => {
     const { assignmentId } = await build('late-new', 'NOT_STARTED', new Date('2026-01-01T00:00:00Z'));
     await requestAndApprove(assignmentId);

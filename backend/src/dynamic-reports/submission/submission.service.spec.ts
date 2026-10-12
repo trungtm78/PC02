@@ -66,7 +66,7 @@ describe('SubmissionService', () => {
     return {
       $queryRaw: jest
         .fn<Promise<unknown>, unknown[]>()
-        .mockResolvedValue([{ now }]),
+        .mockResolvedValue([{ now, status: 'OPEN' }]),
       dynReportAssignmentEditor: {
         findFirst: jest.fn<Promise<unknown>, unknown[]>(),
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
@@ -2181,6 +2181,7 @@ describe('SubmissionService', () => {
         expiresAt: new Date(Date.now() + 1000 * 60 * 60),
         reason: 'Cho thêm giờ',
       });
+      tx.dynReportUnlock.findUnique.mockResolvedValue({ reopenedRevision: BigInt(2) });
       const { service } = buildService(tx);
 
       await service.revokeActiveGrant(
@@ -2203,7 +2204,7 @@ describe('SubmissionService', () => {
         where: { assignmentId: string; state: string };
         data: { returnDueAt: Date };
       };
-      expect(cut.where).toMatchObject({ assignmentId: 'assign1', state: 'RETURNED' });
+      expect(cut.where).toMatchObject({ assignmentId: 'assign1', state: 'RETURNED', currentRevision: BigInt(2) });
       expect(cut.data.returnDueAt).toBeInstanceOf(Date);
     });
 
