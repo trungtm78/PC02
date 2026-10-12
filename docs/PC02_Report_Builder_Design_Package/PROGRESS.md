@@ -1240,11 +1240,28 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
+| 2026-10-13 | **Tiêu chuẩn "tạo thì phải sửa và xoá"** (anh chốt) áp cho mọi đối tượng người dùng tạo trong module: sửa (hoặc phiên bản mới nếu bất biến), xoá cứng khi chưa có dữ liệu, lưu trữ / xoá kèm số liệu (admin, gõ lại mã, audit) khi đã có; thao tác ngược cho mọi thao tác một chiều (Tiếp tục, Khôi phục, Bỏ miễn, Rút lại) | Trước đó báo cáo tạo xong chỉ xem/ngừng được: "Xem" báo "đang phát triển", không cập nhật được mẫu, không xoá được | Mỗi PR có thao tác Tạo phải kèm Sửa + Xoá/Gỡ (cổng review); bản kiểm kê các đối tượng còn thiếu nằm ở mục "Kiểm kê tạo/sửa/xoá" bên dưới |
 | 2026-10-09 | PROGRESS/UAT-COVERAGE của module sống ở `docs/PC02_Report_Builder_Design_Package/`, không phải gốc repo | File gốc repo đang theo dõi việc khác | Resume đọc đúng file này |
 | 2026-10-09 | Worktree riêng `C:\PC02\pc02-dynamic-reports` từ `origin/main`, nhánh `feat/dynamic-reports-m1-engine` | Nhánh `fix/petition-all-column-search` có ~1.000 file thay đổi chưa commit không liên quan | Không đụng việc khác; CHƯA push/tạo PR lên GitHub (cần anh xác nhận trước khi push, theo §8(c) giao thức) |
 | 2026-10-09 | `/review` và `/codex` đầy đủ chạy MỘT LẦN ở ranh giới PR; `/plan-eng-review` cho PR1 thay bằng tự rà soát diff-vs-spec | Hai skill dựng cho duyệt diff/plan hoàn chỉnh so với base branch, có dàn chuyên gia phụ rất nặng | Mỗi engine/task vẫn tự rà soát kỹ + cổng coverage/lint/tsc |
 | 2026-10-09 | Migration PR2 sinh bằng `prisma migrate diff` thay vì `migrate dev`, vì lỗi lịch sử migration có sẵn trên nhánh (không phải do tôi) | `migrate dev`/`migrate deploy` đều cần replay 135 migration cũ từ DB rỗng, một migration cũ giả định bảng đã tồn tại | Đã kiểm chứng kỹ bằng db push + áp SQL trực tiếp, không ảnh hưởng đến deploy thật (deploy thật chạy trên DB đã có sẵn lịch sử, không phải DB rỗng) |
 | 2026-10-09 | `GET /bao-cao-dong/clock` không qua `PermissionsGuard` | Không lộ dữ liệu báo cáo nào, chỉ trả giờ máy chủ — giống `/health` | Route-quyền gate (`cong-route-co-quyen.spec.ts`) không yêu cầu `@RequirePermissions` ở đây vì thiếu `PermissionsGuard` trong chuỗi guard |
+
+## Kiểm kê tạo / sửa / xoá (13/10/2026)
+| Đối tượng | Tạo | Sửa | Xoá / gỡ | Trạng thái |
+|---|---|---|---|---|
+| Báo cáo | wizard (POST /reports) | Sửa tên/mô tả/lịch/quản lý/tổ (PATCH) | Xoá / Lưu trữ / Xoá kèm số liệu (admin) | Xoá + lưu trữ + khôi phục: xong (PR này); sửa: PR kế |
+| Phiên bản mẫu | wizard (v1) | **Cập nhật mẫu = phiên bản mới** (D09) | Xoá bản nháp | Đang làm |
+| Ngừng phát sinh | S31 | — | **Tiếp tục phát sinh** | Xong (PR này) |
+| Lịch / quản lý / tổ + người nhập | wizard | Sửa cấu hình (áp từ kỳ kế) | Gỡ tổ / gỡ người (đặt hạn cuối) | Đang làm |
+| Sao chép cấu hình | — | — | — | Đang làm |
+| Ghi chú (comment) | S37 | Sửa ghi chú của chính mình | Xoá ghi chú của chính mình | Chưa làm |
+| Kỳ | tự sinh | — | Xoá kỳ chưa có số liệu | Chưa làm |
+| Lượt giao (thêm tổ giữa kỳ / miễn nộp) | S30 | Thay người nhập (R14) | **Bỏ miễn nộp**, gỡ tổ thêm nhầm | Chưa làm |
+| Yêu cầu mở lại | S34 | — | **Rút lại yêu cầu** | Chưa làm |
+| Mở khoá (grant) | S17 | — | Thu hồi (đã có) | Đủ |
+| Tệp xuất | S25 | — | Xoá tệp xuất của mình | Chưa làm |
+| Bản nộp / số liệu | S11 | Sửa tới khi nộp; Trả lại / Huỷ duyệt | Xoá giá trị ô (Delete) | Đủ |
 
 ## Assumption đã tự quyết
 | Điểm mơ hồ | Diễn giải đã chọn | Căn cứ trong spec |

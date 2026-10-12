@@ -10,6 +10,11 @@ vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
     listForSetup: vi.fn(),
     suspendReportGeneration: vi.fn(),
+    resumeReportGeneration: vi.fn(),
+    getReportDeletionImpact: vi.fn(),
+    deleteReport: vi.fn(),
+    deleteReportWithData: vi.fn(),
+    archiveReport: vi.fn(),
   },
 }));
 
@@ -120,14 +125,46 @@ describe('ReportRegisterPage', () => {
     );
   });
 
-  it('clicking "Xem" on a row shows the same coming-soon note', async () => {
+  it('"Xem" opens the report detail page — it is a real link now, not a coming-soon note', async () => {
     vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
 
     renderPage();
     await waitFor(() => screen.getByTestId('btn-view-HSLN'));
-    fireEvent.click(screen.getByTestId('btn-view-HSLN'));
 
-    expect(screen.getByTestId('action-note')).toHaveTextContent('đang được phát triển');
+    expect(screen.getByTestId('btn-view-HSLN')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1');
+    expect(screen.queryByTestId('action-note')).not.toBeInTheDocument();
+  });
+
+  it('a suspended report offers "Tiếp tục phát sinh" (the way back from "Ngừng phát sinh") and calls the API', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([{ ...SAMPLE, status: 'SUSPENDED' }]);
+    vi.mocked(dynamicReportsApi.resumeReportGeneration).mockResolvedValue({ status: 'PUBLISHED' });
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-resume-HSLN'));
+    expect(screen.queryByTestId('btn-suspend-HSLN')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-resume-HSLN'));
+
+    await waitFor(() => expect(dynamicReportsApi.resumeReportGeneration).toHaveBeenCalledWith('r1'));
+    await waitFor(() => expect(dynamicReportsApi.listForSetup).toHaveBeenCalledTimes(2));
+  });
+
+  it('"Xoá" opens the delete dialog for that report and deleting refreshes the list', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
+    vi.mocked(dynamicReportsApi.getReportDeletionImpact).mockResolvedValue({
+      reportId: 'r1', code: 'HSLN', name: SAMPLE.name, versions: 1, periods: 0, finalizedPeriods: 0,
+      assignments: 0, submissionsWithData: 0, revisions: 0, comments: 0, unlocks: 0, hasData: false,
+    });
+    vi.mocked(dynamicReportsApi.deleteReport).mockResolvedValue({ deleted: true });
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-delete-HSLN'));
+    fireEvent.click(screen.getByTestId('btn-delete-HSLN'));
+    await waitFor(() => screen.getByTestId('btn-delete'));
+    fireEvent.click(screen.getByTestId('btn-delete'));
+
+    await waitFor(() => expect(dynamicReportsApi.deleteReport).toHaveBeenCalledWith('r1'));
+    await waitFor(() => expect(screen.getByTestId('action-note')).toHaveTextContent('Đã xoá báo cáo'));
+    await waitFor(() => expect(dynamicReportsApi.listForSetup).toHaveBeenCalledTimes(2));
   });
 
   it('"Ngừng phát sinh" only shows for a PUBLISHED report, never DRAFT/SUSPENDED/ARCHIVED', async () => {

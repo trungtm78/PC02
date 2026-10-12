@@ -32,6 +32,9 @@ const ReportHistoryPage = lazy(
 const StatusDashboardPage = lazy(
   () => import('@/pages/dynamic-reports/StatusDashboardPage'),
 );
+const ReportDetailPage = lazy(
+  () => import('@/pages/dynamic-reports/ReportDetailPage'),
+);
 const ReportVersionsPage = lazy(
   () => import('@/pages/dynamic-reports/ReportVersionsPage'),
 );
@@ -45,6 +48,11 @@ export function renderDynamicReportsRoutes(): ReactElement[] {
       key="dynamic-reports-setup"
       path="/bao-cao-dong/thiet-lap"
       element={wrapRoute(<ReportRegisterPage />)}
+    />,
+    <Route
+      key="dynamic-reports-detail"
+      path="/bao-cao-dong/thiet-lap/:reportId"
+      element={wrapRoute(<ReportDetailPage />)}
     />,
     <Route
       key="dynamic-reports-new"
