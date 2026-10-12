@@ -1059,6 +1059,14 @@ Các mô-đun thuần (không React) mà màn nhập trên lưới sẽ dùng; c
   NỘP (đã có sẵn), kèm ca hồi quy; cả form danh sách cũ cũng hết lỗi này; (4) Ctrl+mũi tên giữ nguyên làn khi băng qua ô gộp;
   (5) Shift+mũi tên đi từ mép vùng chọn thay vì từ ô tiêu điểm; (6) Ctrl+Shift+; nhận phím `:` mà trình duyệt báo; (7) Ctrl+Tab
   không còn bị coi là chuyển ô.
+### G3b — tách hook lưu/nộp khỏi màn nhập (12/10/2026, không đổi hành vi)
+`useSubmissionEditor` (features/dynamic-reports) nhận trọn bộ máy lưu của S11: hàng đợi lưu tuần tự, tự lưu 2 giây, khoá
+idempotency theo (bản vá, revision), xử lý 409 / hết hạn / mất mạng, nhập Excel, tải lại, nộp. Màn danh sách và lưới nhập sắp
+tới sửa số liệu qua CÙNG một đường — một hàng đợi, một bộ ref, một định nghĩa "đã lưu". Chuyển nguyên văn từ
+`SubmissionInputPage` (còn ~400 dòng ít hơn); **196 ca của các trang dynamic-reports chạy nguyên văn, không sửa dòng test nào**.
+Thêm `applyValues` (nhiều ô một lượt: dán / hoàn tác / xoá vùng, lưu ngay một yêu cầu), `reportProblem`, `valueOf`,
+`peekValue` cho lưới; 5 ca mới cho hook (gộp hai thao tác cùng nhịp vào một yêu cầu, lần sau dùng revision vừa được xác nhận,
+lưu lỗi vẫn giữ chữ đã gõ).
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
