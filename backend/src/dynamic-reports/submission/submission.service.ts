@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
@@ -35,6 +35,8 @@ import {
 import type { ImportCellType } from '../engine/import-cell';
 import { applyTransition } from '../workflow/transitions';
 import { VersionFieldsCacheService } from '../template/version-fields-cache';
+import { TemplateExportService } from '../export/template-export.service';
+import { readExportMeta } from '../export/template-export';
 
 /** D07 — a manager-created grant's default window when no explicit expiresAt is given. */
 const DEFAULT_GRANT_HOURS = 3;
@@ -203,10 +205,13 @@ export interface CommentView {
  */
 @Injectable()
 export class SubmissionService {
+  private readonly logger = new Logger(SubmissionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly versionFieldsCache: VersionFieldsCacheService,
+    private readonly templateExport: TemplateExportService,
   ) {}
 
   private async loadEditorAssignment(
@@ -1154,14 +1159,16 @@ export class SubmissionService {
   }
 
   /**
-   * "Xuất bản của tổ" — an editor's own single-sheet export of their
-   * team's current values for this period. Unlike `AggregateService
-   * #exportPeriod` (manager-only, every team's sheet in one workbook,
-   * persisted as a `DynReportExport` row with a 24h TTL for re-download),
-   * this is scoped to exactly one assignment the caller is an active
-   * editor of, and is cheap enough (one team, a few dozen fields at most)
-   * to generate synchronously on every request rather than persisting a
-   * row — there is nothing here worth re-downloading later.
+   * "Xuất bản của tổ" — an editor's own export of their team's current values
+   * for this period: the report's ORIGINAL template with the numbers filled in
+   * (same merged cells, borders, fonts, widths, formulas), so it can be sent
+   * on or filed as the form it always was. Scoped to exactly one assignment
+   * the caller is an active editor of.
+   *
+   * If the template cannot be loaded or rewritten (the grid is too large, the
+   * worker is busy or timed out, the file is damaged) the export still
+   * succeeds with a plain list of "indicator, value" rows rather than failing
+   * at the moment someone needs the numbers; the problem is logged.
    */
   async exportOwnSubmission(
     assignmentId: string,
@@ -1178,19 +1185,63 @@ export class SubmissionService {
 
     const teamSnapshot = assignment.teamSnapshot as { name?: string } | null;
     const teamName = teamSnapshot?.name || assignment.teamId;
+    const values = (submission.values ?? {}) as Record<
+      string,
+      { t: string; v: string | null } | undefined
+    >;
 
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await this.templateExport.buildTeamFile({
+        versionId: period.versionId,
+        fields: period.version.fields.map((f) => ({
+          sheetKey: f.sheetKey,
+          address: f.address,
+          fieldKey: f.fieldKey,
+          type: f.type as ImportCellType,
+        })),
+        values: Object.fromEntries(
+          period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null]),
+        ),
+        meta: {
+          kind: 'TEAM',
+          reportId: period.report.id,
+          versionId: period.versionId,
+          periodKey: period.periodKey,
+          assignmentId,
+          teamId: assignment.teamId,
+          exportedAt: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Xuất theo mẫu thất bại cho lượt giao ${assignmentId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      fileBuffer = await this.buildListWorkbook(
+        period.version.fields,
+        values,
+        { reportName: period.report.name, teamName, periodKey: period.periodKey, state: submission.state },
+      );
+    }
+
+    const fileName = `${sanitizeFileNamePart(period.report.name)}-${sanitizeFileNamePart(teamName)}-${period.periodKey}.xlsx`;
+    return { fileBuffer, fileName };
+  }
+
+  /** The plain "Sheet / Chỉ tiêu / Giá trị" workbook: the fallback when the template itself cannot be used. */
+  private async buildListWorkbook(
+    fields: ReadonlyArray<{ fieldKey: string; sheetKey: string; label: string | null }>,
+    values: Record<string, { t: string; v: string | null } | undefined>,
+    info: { reportName: string; teamName: string; periodKey: string; state: string },
+  ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet(sanitizeSheetName(teamName));
+    const sheet = workbook.addWorksheet(sanitizeSheetName(info.teamName));
     sheet.columns = [
       { header: 'Sheet', key: 'sheetKey', width: 20 },
       { header: 'Chỉ tiêu', key: 'label', width: 32 },
       { header: 'Giá trị', key: 'value', width: 18 },
     ];
-    const values = (submission.values ?? {}) as Record<
-      string,
-      { t: string; v: string | null } | undefined
-    >;
-    for (const f of period.version.fields) {
+    for (const f of fields) {
       const typed = values[f.fieldKey];
       sheet.addRow({
         sheetKey: f.sheetKey,
@@ -1201,15 +1252,13 @@ export class SubmissionService {
     }
 
     const metaSheet = workbook.addWorksheet('Metadata');
-    metaSheet.addRow(['Báo cáo', period.report.name]);
-    metaSheet.addRow(['Tổ', teamName]);
-    metaSheet.addRow(['Kỳ', period.periodKey]);
-    metaSheet.addRow(['Trạng thái', submission.state]);
+    metaSheet.addRow(['Báo cáo', info.reportName]);
+    metaSheet.addRow(['Tổ', info.teamName]);
+    metaSheet.addRow(['Kỳ', info.periodKey]);
+    metaSheet.addRow(['Trạng thái', info.state]);
     metaSheet.addRow(['Xuất lúc', new Date().toISOString()]);
 
-    const fileBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-    const fileName = `${sanitizeFileNamePart(period.report.name)}-${sanitizeFileNamePart(teamName)}-${period.periodKey}.xlsx`;
-    return { fileBuffer, fileName };
+    return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   /**
@@ -1501,6 +1550,24 @@ export class SubmissionService {
         'Không đọc được file Excel — vui lòng kiểm tra lại file.',
         'TEMPLATE_INVALID',
       );
+    }
+
+    // A file the system itself exported says what it is. One from another template version, report or team
+    // would put figures into the wrong cells without a single error, so it is refused with a plain reason.
+    const meta = readExportMeta(workbook);
+    if (meta) {
+      if (meta.versionId && meta.versionId !== period.versionId) {
+        throw new SubmissionError(
+          'File này được xuất từ một phiên bản mẫu khác với kỳ báo cáo này. Hãy bấm "Xuất Excel" ở kỳ này để lấy file đúng.',
+          'TEMPLATE_INVALID',
+        );
+      }
+      if (meta.assignmentId && meta.assignmentId !== assignmentId) {
+        throw new SubmissionError(
+          'File này được xuất cho một lượt giao khác (kỳ hoặc tổ khác). Hãy dùng file xuất từ chính lượt giao đang mở.',
+          'TEMPLATE_INVALID',
+        );
+      }
     }
 
     const currentValues =

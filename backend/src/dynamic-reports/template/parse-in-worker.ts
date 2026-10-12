@@ -5,6 +5,7 @@ import { BoundedRunner } from './bounded-runner';
 import type { ParseTemplateResult } from './types';
 import type { GridModel } from '../engine/grid-types';
 import type { WorkerMessage } from './parse-worker';
+import type { TemplateExportRequest } from '../export/template-export';
 
 /**
  * Main-thread side of the worker_threads isolation (spec §10 R6). Spawns
@@ -68,10 +69,11 @@ function hydrateError(error: { message: string; code?: string }): Error {
 export type WorkbookSource = Buffer | (() => Promise<Buffer>);
 
 function runInWorker<T>(
-  mode: 'parse' | 'grid',
+  mode: 'parse' | 'grid' | 'export',
   source: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number,
+  exportRequest?: TemplateExportRequest,
 ): Promise<T> {
   return runner.run(async () => {
     // Fetched only now, inside the slot: a request that is queued — or refused
@@ -81,7 +83,7 @@ function runInWorker<T>(
     return new Promise<T>((resolve, reject) => {
       const isTs = path.extname(__filename) === '.ts';
       const worker = new Worker(workerFilePath(), {
-        workerData: { mode, buffer, selectedSheetNames },
+        workerData: { mode, buffer, selectedSheetNames, exportRequest },
         execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
         resourceLimits: { maxOldGenerationSizeMb: WORKER_MAX_OLD_GEN_MB },
       });
@@ -139,4 +141,18 @@ export function buildGridInWorker(
   timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
 ): Promise<GridModel> {
   return runInWorker<GridModel>('grid', buffer, selectedSheetNames, timeoutMs);
+}
+
+/**
+ * Fills the original template with a request's values in an isolated, bounded
+ * worker and returns the finished .xlsx. The bytes cross the thread boundary as
+ * a plain Uint8Array; the caller gets a Buffer.
+ */
+export async function exportTemplateInWorker(
+  source: WorkbookSource,
+  request: TemplateExportRequest,
+  timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
+): Promise<Buffer> {
+  const bytes = await runInWorker<Uint8Array>('export', source, [], timeoutMs, request);
+  return Buffer.from(bytes);
 }

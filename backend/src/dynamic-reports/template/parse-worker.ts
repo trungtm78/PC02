@@ -5,6 +5,8 @@ import { extractGridModel } from './grid-extract';
 import { readRawGridInfo } from './grid-raw';
 import type { ParseTemplateResult } from './types';
 import type { GridModel } from '../engine/grid-types';
+import { buildTemplateWorkbook } from '../export/template-export';
+import type { TemplateExportRequest } from '../export/template-export';
 
 /**
  * worker_threads entry point (spec §10 R6: "Parse trong worker_threads có
@@ -17,13 +19,14 @@ import type { GridModel } from '../engine/grid-types';
  * `parse-in-worker.ts` also handles, but keeping both paths narrow here
  * means the caller only ever has to interpret ONE message shape.
  *
- * Two modes share the thread plumbing: `parse` (template upload / preview)
- * and `grid` (render-ready GridModel for the entry grid, G1).
+ * Three modes share the thread plumbing: `parse` (template upload / preview),
+ * `grid` (render-ready GridModel for the entry grid, G1) and `export` (the
+ * template filled in with a team's values, G5).
  */
 
 export interface WorkerSuccessMessage {
   ok: true;
-  result: ParseTemplateResult | GridModel;
+  result: ParseTemplateResult | GridModel | Uint8Array;
 }
 
 export interface WorkerFailureMessage {
@@ -34,9 +37,10 @@ export interface WorkerFailureMessage {
 export type WorkerMessage = WorkerSuccessMessage | WorkerFailureMessage;
 
 interface WorkerData {
-  mode?: 'parse' | 'grid';
+  mode?: 'parse' | 'grid' | 'export';
   buffer: Buffer;
   selectedSheetNames: string[];
+  exportRequest?: TemplateExportRequest;
 }
 
 async function buildGrid(buffer: Buffer, selectedSheetNames: string[]): Promise<GridModel> {
@@ -51,12 +55,17 @@ async function buildGrid(buffer: Buffer, selectedSheetNames: string[]): Promise<
 }
 
 async function run(): Promise<void> {
-  const { mode, buffer, selectedSheetNames } = workerData as WorkerData;
+  const { mode, buffer, selectedSheetNames, exportRequest } = workerData as WorkerData;
   try {
-    const result =
-      mode === 'grid'
-        ? await buildGrid(buffer, selectedSheetNames)
-        : await parseTemplate(buffer, selectedSheetNames);
+    let result: WorkerSuccessMessage['result'];
+    if (mode === 'export') {
+      if (!exportRequest) throw new Error('Thiếu yêu cầu xuất file.');
+      result = (await buildTemplateWorkbook(buffer, exportRequest)).buffer;
+    } else if (mode === 'grid') {
+      result = await buildGrid(buffer, selectedSheetNames);
+    } else {
+      result = await parseTemplate(buffer, selectedSheetNames);
+    }
     const message: WorkerSuccessMessage = { ok: true, result };
     parentPort?.postMessage(message);
   } catch (err) {

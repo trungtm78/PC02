@@ -4,6 +4,7 @@ import * as ExcelJS from 'exceljs';
 import { SubmissionService } from './submission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { VersionFieldsCacheService } from '../template/version-fields-cache';
+import type { TemplateExportService } from '../export/template-export.service';
 
 /**
  * SubmissionService (spec §6.1 PR6 S11-S14) — the first service to ever
@@ -173,12 +174,17 @@ describe('SubmissionService', () => {
     const versionFieldsCache = buildVersionFieldsCacheMock(
       tx.dynReportAssignment.findUnique,
     );
+    // By default the template cannot be used, so exports take the plain-list fallback path.
+    const templateExport = {
+      buildTeamFile: jest.fn().mockRejectedValue(new Error('no template in this test')),
+    };
     const service = new SubmissionService(
       prisma as unknown as PrismaService,
       eventEmitter as unknown as EventEmitter2,
       versionFieldsCache as unknown as VersionFieldsCacheService,
+      templateExport as unknown as TemplateExportService,
     );
-    return { service, prisma, eventEmitter, versionFieldsCache };
+    return { service, prisma, eventEmitter, versionFieldsCache, templateExport };
   }
 
   describe('listMyAssignments', () => {
@@ -388,7 +394,7 @@ describe('SubmissionService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('returns a real xlsx buffer containing only the caller team own fields', async () => {
+    it('falls back to a plain list workbook when the template cannot be used', async () => {
       const tx = buildTx();
       tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
         userId: 'u1',
@@ -419,6 +425,57 @@ describe('SubmissionService', () => {
       expect(fileBuffer.subarray(0, 2).toString('ascii')).toBe('PK');
       expect(fileName).toContain('.xlsx');
       expect(fileName).toContain('Đội-3');
+    });
+
+    it('hands back the template filled in, built from the caller\'s own values and identity', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          teamSnapshot: { name: 'Đội 3' },
+          submission: {
+            id: 'sub1',
+            state: 'SUBMITTED',
+            currentRevision: 1n,
+            values: { 'Đội 3!C6': { t: 'NUM', v: '12' } },
+            approvalLevel: 0,
+            returnDueAt: null,
+            firstSavedAt: new Date('2026-06-10T08:00:00Z'),
+          },
+        }),
+      );
+      const { service, templateExport } = buildService(tx);
+      const filled = Buffer.from('PK-filled-template');
+      templateExport.buildTeamFile.mockResolvedValue(filled);
+
+      const { fileBuffer } = await service.exportOwnSubmission('assign1', 'u1');
+
+      expect(fileBuffer).toBe(filled);
+      const call = templateExport.buildTeamFile.mock.calls[0][0] as {
+        versionId: string;
+        fields: Array<{ fieldKey: string }>;
+        values: Record<string, string | null>;
+        meta: Record<string, string>;
+      };
+      expect(call.fields.map((f) => f.fieldKey)).toContain('Đội 3!C6');
+      expect(call.values['Đội 3!C6']).toBe('12');
+      expect(call.meta).toMatchObject({ kind: 'TEAM', assignmentId: 'assign1' });
+      expect(call.meta.reportId).toBeTruthy();
+      expect(call.meta.versionId).toBe(call.versionId);
+    });
+
+    it('a field the team never filled in is passed as blank, not omitted', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment({ teamSnapshot: { name: 'Đội 3' } }));
+      const { service, templateExport } = buildService(tx);
+      templateExport.buildTeamFile.mockResolvedValue(Buffer.from('PK'));
+
+      await service.exportOwnSubmission('assign1', 'u1');
+
+      const call = templateExport.buildTeamFile.mock.calls[0][0] as { values: Record<string, string | null> };
+      expect(Object.values(call.values).every((v) => v === null || typeof v === 'string')).toBe(true);
+      expect(Object.keys(call.values).length).toBeGreaterThan(0);
     });
 
     it('throws NotFoundException when the assignment has no submission row', async () => {
@@ -1711,6 +1768,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       const result = await service.listForManager('mgr1', 'roleMgr');
@@ -1743,6 +1801,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       expect(await service.listForManager('u1', 'role1')).toEqual([]);
@@ -1783,6 +1842,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -1812,6 +1872,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       await expect(
@@ -1851,6 +1912,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -1911,6 +1973,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -1966,6 +2029,7 @@ describe('SubmissionService', () => {
         buildVersionFieldsCacheMock(
           tx.dynReportAssignment.findUnique,
         ) as unknown as VersionFieldsCacheService,
+        { buildTeamFile: jest.fn() } as unknown as TemplateExportService,
       );
 
       const result = await service.getSubmissionForManager(
@@ -2547,6 +2611,57 @@ describe('SubmissionService', () => {
       const result = await service.previewExcelImport('assign1', 'u1', buffer);
 
       expect(result.diff).toEqual([]);
+    });
+
+    describe('files the system exported carry their identity (__dr_meta)', () => {
+      async function exportedBuffer(meta: Record<string, string>): Promise<Buffer> {
+        const wb = new ExcelJS.Workbook();
+        wb.addWorksheet('Đội 3').getCell('C6').value = 12;
+        const sheet = wb.addWorksheet('__dr_meta', { state: 'veryHidden' });
+        for (const [k, v] of Object.entries(meta)) sheet.addRow([k, v]);
+        return Buffer.from(await wb.xlsx.writeBuffer());
+      }
+
+      function setup() {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+        return buildService(tx).service;
+      }
+
+      it('accepts a file exported from this very assignment', async () => {
+        const service = setup();
+        const buffer = await exportedBuffer({ versionId: 'version1', assignmentId: 'assign1' });
+        const result = await service.previewExcelImport('assign1', 'u1', buffer);
+        expect(result.values).toEqual({ 'Đội 3!C6': '12' });
+      });
+
+      it('refuses a file exported from another template version, saying why', async () => {
+        const service = setup();
+        const buffer = await exportedBuffer({ versionId: 'version-OLD', assignmentId: 'assign1' });
+        await expect(service.previewExcelImport('assign1', 'u1', buffer)).rejects.toMatchObject({
+          code: 'TEMPLATE_INVALID',
+          message: expect.stringContaining('phiên bản mẫu khác'),
+        });
+      });
+
+      it('refuses a file exported for another team or period', async () => {
+        const service = setup();
+        const buffer = await exportedBuffer({ versionId: 'version1', assignmentId: 'assign-OTHER' });
+        await expect(service.previewExcelImport('assign1', 'u1', buffer)).rejects.toMatchObject({
+          code: 'TEMPLATE_INVALID',
+          message: expect.stringContaining('lượt giao khác'),
+        });
+      });
+
+      it('a plain workbook with no identity is still judged by its structure (as before)', async () => {
+        const service = setup();
+        const wb = new ExcelJS.Workbook();
+        wb.addWorksheet('Đội 3').getCell('C6').value = 7;
+        const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+        const result = await service.previewExcelImport('assign1', 'u1', buffer);
+        expect(result.values).toEqual({ 'Đội 3!C6': '7' });
+      });
     });
 
     it('previewExcelImport rejects the whole file when a required sheet is missing', async () => {
