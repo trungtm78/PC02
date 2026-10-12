@@ -748,4 +748,235 @@ describe('SubmissionInputPage', () => {
     await waitFor(() => screen.getByTestId('locked-banner'));
     expect(screen.queryByTestId('btn-import-excel')).not.toBeInTheDocument();
   });
+
+  // PR H0 — save/submit sequencing. Before this fix a failed or still-in-flight
+  // autosave did not stop "Nộp": the submit went out against the stale revision
+  // and silently left the latest typed values out of the submitted version.
+  describe('save queue (H0)', () => {
+    const SAVED_2 = {
+      revision: '2',
+      state: 'DRAFT' as const,
+      savedAt: '2026-10-10T10:00:01.000Z',
+      serverTime: '2026-10-10T10:00:01.000Z',
+      effectiveLockAt: '2026-11-05T17:00:00.000Z',
+    };
+    const SUBMITTED_3 = {
+      revision: '3',
+      state: 'SUBMITTED' as const,
+      savedAt: '2026-10-10T10:00:03.000Z',
+      serverTime: '2026-10-10T10:00:03.000Z',
+      effectiveLockAt: null,
+    };
+
+    it('does not submit when the pre-submit save fails — the typed value would be dropped', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+      vi.mocked(dynamicReportsApi.saveSubmissionValues).mockRejectedValue({
+        isAxiosError: true,
+        response: undefined,
+      });
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+      fireEvent.change(screen.getByTestId('input-Đội 3!C6'), { target: { value: '99' } });
+      fireEvent.click(screen.getByTestId('btn-submit'));
+
+      await waitFor(() => screen.getByTestId('save-error'));
+      expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
+      expect(dynamicReportsApi.validateForSubmit).not.toHaveBeenCalled();
+      expect(screen.getByTestId('btn-retry-save')).toBeInTheDocument();
+      confirmSpy.mockRestore();
+    });
+
+    it('does not submit when the pre-submit save is rejected by CELL_VALIDATION', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+      vi.mocked(dynamicReportsApi.saveSubmissionValues).mockRejectedValue({
+        isAxiosError: true,
+        response: {
+          status: 400,
+          data: { error: { code: 'CELL_VALIDATION', message: 'Ô "Đội 3!C6": không phải số hợp lệ.' } },
+        },
+      });
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+      fireEvent.change(screen.getByTestId('input-Đội 3!C6'), { target: { value: 'abc' } });
+      fireEvent.click(screen.getByTestId('btn-submit'));
+
+      await waitFor(() => screen.getByTestId('save-error'));
+      expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it('waits for an in-flight autosave, then submits against the ACKNOWLEDGED revision', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+      let releaseSave!: (v: typeof SAVED_2) => void;
+      vi.mocked(dynamicReportsApi.saveSubmissionValues).mockImplementationOnce(
+        () => new Promise((resolve) => { releaseSave = resolve; }),
+      );
+      vi.mocked(dynamicReportsApi.submitSubmission).mockResolvedValue(SUBMITTED_3);
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+      const input = screen.getByTestId('input-Đội 3!C6');
+      fireEvent.change(input, { target: { value: '12' } });
+      fireEvent.blur(input); // autosave starts and stays in flight
+      await waitFor(() => expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(1));
+
+      fireEvent.click(screen.getByTestId('btn-submit'));
+      // The in-flight save has not been acknowledged: nothing may be submitted yet.
+      await Promise.resolve();
+      expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
+
+      releaseSave(SAVED_2);
+      await waitFor(() => screen.getByTestId('submitted-note'));
+      expect(dynamicReportsApi.submitSubmission).toHaveBeenCalledWith('assign1', '2');
+      expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(1);
+      confirmSpy.mockRestore();
+    });
+
+    it('serialises saves: a value typed during a save is sent after it, with the new revision', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+      let releaseFirst!: (v: typeof SAVED_2) => void;
+      vi.mocked(dynamicReportsApi.saveSubmissionValues)
+        .mockImplementationOnce(() => new Promise((resolve) => { releaseFirst = resolve; }))
+        .mockResolvedValueOnce({ ...SAVED_2, revision: '3' });
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+      const c6 = screen.getByTestId('input-Đội 3!C6');
+      const c7 = screen.getByTestId('input-Đội 3!C7');
+      fireEvent.change(c6, { target: { value: '12' } });
+      fireEvent.blur(c6);
+      await waitFor(() => expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(1));
+
+      // Typed + blurred while save #1 is still unacknowledged.
+      fireEvent.change(c7, { target: { value: '7' } });
+      fireEvent.blur(c7);
+      await Promise.resolve();
+      expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(1);
+
+      releaseFirst(SAVED_2);
+      await waitFor(() => expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(2));
+      const second = vi.mocked(dynamicReportsApi.saveSubmissionValues).mock.calls[1];
+      expect(second[1]).toEqual({ 'Đội 3!C7': '7' });
+      expect(second[2]).toBe('2'); // never the stale '1' → no self-inflicted 409
+    });
+
+    it('keeps the unsaved value pending after a failed save so the next save resends it', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+      vi.mocked(dynamicReportsApi.saveSubmissionValues)
+        .mockRejectedValueOnce({
+          isAxiosError: true,
+          response: { status: 500, data: { error: { code: 'INTERNAL', message: 'Lỗi máy chủ' } } },
+        })
+        .mockResolvedValueOnce(SAVED_2);
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+      const c6 = screen.getByTestId('input-Đội 3!C6');
+      fireEvent.change(c6, { target: { value: '12' } });
+      fireEvent.blur(c6);
+      await waitFor(() => screen.getByTestId('btn-retry-save'));
+
+      fireEvent.click(screen.getByTestId('btn-retry-save'));
+      await waitFor(() => expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(2));
+      const [first, second] = vi.mocked(dynamicReportsApi.saveSubmissionValues).mock.calls;
+      expect(second[1]).toEqual(first[1]);
+      expect(second[3]).toBe(first[3]); // 5xx may have committed — same idempotency key
+      await waitFor(() => screen.getByText('Đã lưu'));
+    });
+
+    it('locks inputs and "Nộp" while an Excel import is being applied, then shows the imported value', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+      vi.mocked(dynamicReportsApi.previewExcelImport).mockResolvedValue({
+        values: { 'Đội 3!C6': '12' },
+        diff: [
+          { fieldKey: 'Đội 3!C6', sheetKey: 'Đội 3', address: 'C6', label: 'Số vụ mới', current: '5', imported: '12' },
+        ],
+      });
+      let releaseImport!: (v: typeof SAVED_2) => void;
+      vi.mocked(dynamicReportsApi.applyExcelImport).mockImplementationOnce(
+        () => new Promise((resolve) => { releaseImport = resolve; }),
+      );
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('btn-import-excel'));
+      fireEvent.change(screen.getByTestId('import-excel-input'), {
+        target: { files: [new File(['fake'], 'HSLN.xlsx')] },
+      });
+      await waitFor(() => screen.getByTestId('btn-import-apply'));
+      fireEvent.click(screen.getByTestId('btn-import-apply'));
+
+      // A value typed now would be overwritten by the import response, and a
+      // submit now would lock the pre-import server copy if the import fails.
+      await waitFor(() => expect(screen.getByTestId('input-Đội 3!C6')).toBeDisabled());
+      expect(screen.getByTestId('btn-submit')).toBeDisabled();
+
+      releaseImport(SAVED_2);
+      await waitFor(() => expect(screen.getByTestId('input-Đội 3!C6')).not.toBeDisabled());
+      expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('12');
+      expect(screen.getByTestId('btn-submit')).not.toBeDisabled();
+    });
+
+    it('"Dùng bản trên máy chủ" shows the SERVER\'s current value, not the stale cached one', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission)
+        .mockResolvedValueOnce(VIEW) // initial load: C6 = 5
+        .mockResolvedValue({
+          ...VIEW,
+          revision: '2',
+          values: { 'Đội 3!C6': { t: 'NUM', v: '12' } }, // someone else saved 12
+        });
+      vi.mocked(dynamicReportsApi.saveSubmissionValues).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: { error: { code: 'REVISION_CONFLICT', message: 'conflict' } } },
+      });
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+      fireEvent.change(screen.getByTestId('input-Đội 3!C6'), { target: { value: '99' } });
+      fireEvent.blur(screen.getByTestId('input-Đội 3!C6'));
+      await waitFor(() => screen.getByTestId('conflict-dialog'));
+
+      fireEvent.click(screen.getByTestId('btn-conflict-use-server'));
+
+      expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('12');
+    });
+
+    it('"Tải lại" adopts the fresh server snapshot: next save uses the fresh revision and values', async () => {
+      vi.mocked(dynamicReportsApi.getSubmission)
+        .mockResolvedValueOnce(VIEW) // revision 1
+        .mockResolvedValue({
+          ...VIEW,
+          revision: '7',
+          values: { 'Đội 3!C6': { t: 'NUM', v: '9' } },
+        });
+      vi.mocked(dynamicReportsApi.submitSubmission).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: { error: { code: 'REVISION_CONFLICT', message: 'x' } } },
+      });
+      vi.mocked(dynamicReportsApi.saveSubmissionValues).mockResolvedValue({
+        ...SAVED_2,
+        revision: '8',
+      });
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('btn-submit'));
+      fireEvent.click(screen.getByTestId('btn-submit'));
+      await waitFor(() => screen.getByTestId('btn-reload'));
+
+      fireEvent.click(screen.getByTestId('btn-reload'));
+      await waitFor(() => expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('9'));
+
+      const c7 = screen.getByTestId('input-Đội 3!C7');
+      fireEvent.change(c7, { target: { value: '3' } });
+      fireEvent.blur(c7);
+      await waitFor(() => expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalled());
+      expect(vi.mocked(dynamicReportsApi.saveSubmissionValues).mock.calls[0][2]).toBe('7');
+      confirmSpy.mockRestore();
+    });
+  });
 });

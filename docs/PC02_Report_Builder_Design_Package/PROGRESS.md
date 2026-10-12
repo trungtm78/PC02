@@ -872,6 +872,53 @@ coordinator, không đụng) + 1 file mới (`version-fields-cache.ts` — của
 đụng) + `backend/keys/public.pem` (vá trong lượt này, giữ nguyên không revert, lý do ở trên)
 — cộng 2 file docs tự cập nhật ở lượt này.
 
+## EPIC "Nhập & tổng hợp trên lưới giống hệt Excel mẫu" (mở 12/10/2026)
+
+**Yêu cầu của anh:** cán bộ các tổ nhập trên màn web có cảm giác như đang nhập trên chính file
+Excel mẫu (ô gộp, viền, font, màu, độ rộng cột, cố định dòng/cột, kiểu số/chữ/ngày đúng định
+dạng Excel, bàn phím như Excel); tổng hợp hiện y như sheet mẫu; file xuất là chính file mẫu đã
+điền số. Phạm vi chốt: toàn vòng đời (S11 nhập + S16 xem bản tổ + S15 tổng hợp + xuất theo mẫu
++ wizard S03/S04), bàn phím như Excel đầy đủ, tự xây và máy chủ đọc thẳng file mẫu gốc.
+
+**Hiện trạng trước epic:** chưa có. S11 là form danh sách nhãn+ô; S15/S16 là bảng danh sách;
+không có `GridRenderer`; xuất Excel tạo workbook dạng danh sách. Đây là phạm vi PR4/PR6/PR7 đã
+dời lại vì tưởng mẫu thật chỉ là danh sách — sai với mẫu 2 chiều A09/A10/PL7.
+
+**Kế hoạch + review kỹ thuật:** `/plan-eng-review` 12/10/2026 (Claude: 6 kiến trúc + 4 chất
+lượng mã + 3 hiệu năng + 22 chỗ thiếu ca kiểm; Codex `gpt-6-astra`: 10 phát hiện, chấp nhận
+cả 10). 0 critical gap. Chia PR: **H0** (vá lưu/nộp) → G0 engine → G1 backend lưới → G2 lưới
+chỉ đọc + S16 → G3 S11 nhập trên lưới → G5 xuất theo mẫu ∥ G4 S15 ∥ G6 wizard → G7 mobile/
+visual QA/hiệu năng/GA/quay lại clip HDSD/monkey test. Ước lượng ~43 ngày công (+20%).
+
+**Quyết định kiến trúc chính của epic (đã duyệt):**
+- Máy chủ chạy `workbook-eval` trên công thức trích từ `fileBytes` và là nguồn số chính thức;
+  snapshot đóng băng `formulaValues` + `calcEngineVersion` khi chốt kỳ. FE chỉ tính xem trước.
+- Ô nhập/công thức được sinh lại từ `fileBytes` khi xuất bản, không tin payload client.
+- Lưới dựng lỗi → `422 GRID_UNAVAILABLE` và tự về "Dạng danh sách" (giữ vĩnh viễn làm dự phòng).
+- Phím tắt toàn cục (Ctrl+K, F9, F10) bị chặn trong vùng lưới.
+- Decimal là chuỗi xuyên suốt eval/tổng hợp; xuất bộ sheet đầy đủ cho mẫu nhiều sheet; sheet
+  TỔNG dạng hằng (Excel tính lại không đè số tổng hợp).
+
+### H0 — vá lưu/nộp chạy đua (12/10/2026) — lỗi ĐANG CÓ trên prod, Codex OV2
+Tái lập bằng ca kiểm: (1) lưu thất bại (mất mạng/5xx/CELL_VALIDATION) rồi bấm "Nộp" → `flush()`
+nuốt lỗi, vẫn validate + nộp, bản nộp THIẾU giá trị vừa gõ; (2) bấm "Nộp" khi autosave còn bay
+→ nộp trước khi được máy chủ xác nhận, dùng `revisionOverride` cũ của closure render → 409 giả
+"đã sửa ở phiên khác"; (3) hai lần lưu chồng nhau cùng đọc revision cũ → tự đụng 409; (4) mọi
+nhánh lỗi ngoài mất mạng/409 xoá dirty → giá trị gõ mất âm thầm.
+
+Vá (`SubmissionInputPage.tsx` + `features/dynamic-reports/saveQueue.ts` mới): mọi lưu/nhập
+Excel/nộp đi qua MỘT hàng đợi tuần tự; revision và giá trị đọc từ ref tại lúc chạy; lỗi giữ
+nguyên dirty (gửi lại ở lần lưu kế tiếp); `flushAll()` trả `false` khi còn gì chưa lưu và "Nộp"
+dừng; 5xx giữ nguyên idempotency key + hiện nút "Thử lại"; ô nhập bị khoá từ lúc bấm "Nộp".
+
+Codex review diff H0 (read-only, `gpt-6-astra`) bắt thêm 5 lỗi còn sót, đã vá cùng PR:
+nhập Excel đang chạy mà vẫn gõ được (phản hồi import đè mất giá trị gõ sau), lỗi import không
+chặn "Nộp", "Nộp" chụp revision trước khi tới lượt hàng đợi, refetch không đồng bộ revision ref,
+"Dùng bản trên máy chủ" hiện giá trị cache cũ. Vá: khoá ô nhập + nút "Nộp" khi import đang áp,
+đọc revision bên trong tác vụ hàng đợi, ref bám theo query cho tới lần xác nhận đầu tiên, nút
+"Tải lại" đặt lại toàn bộ baseline, "Dùng bản máy chủ" nhận snapshot của hộp thoại xung đột.
+12 ca kiểm mới (8 ở trang + 4 ở hàng đợi), 207/207 ca module xanh, `tsc -b` sạch.
+
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
