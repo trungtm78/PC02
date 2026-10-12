@@ -242,3 +242,78 @@ describe('formatFormula / rewriteSheetRefs', () => {
     expect(formatFormula(rewriteSheetRefs(p.expr, (n) => `x${n}`))).toBe('A1+B2');
   });
 });
+
+describe('absolute references ($) — Excel formulas copied down a column are full of them', () => {
+  const abs = (col: boolean, row: boolean) => ({ col, row });
+
+  it.each([
+    ['$A$1', { kind: 'cell', cell: 'A1', abs: abs(true, true) }],
+    ['A$1', { kind: 'cell', cell: 'A1', abs: abs(false, true) }],
+    ['$A1', { kind: 'cell', cell: 'A1', abs: abs(true, false) }],
+    ['A1', { kind: 'cell', cell: 'A1' }],
+    ["Sheet2!$C$6", { kind: 'cell', sheet: 'Sheet2', cell: 'C6', abs: abs(true, true) }],
+    ["'Đội 3'!$C$6", { kind: 'cell', sheet: 'Đội 3', cell: 'C6', abs: abs(true, true) }],
+  ])('parses %s', (src, expected) => {
+    const p = parseFormula(src);
+    expect(p.ok).toBe(true);
+    if (p.ok) expect(p.expr).toMatchObject(expected as object);
+  });
+
+  it('parses an absolute range and keeps which corner is anchored', () => {
+    const p = parseFormula('SUM($C$6:C$9)');
+    expect(p.ok).toBe(true);
+    if (!p.ok || p.expr.kind !== 'call') return;
+    expect(p.expr.args[0]).toMatchObject({
+      kind: 'range',
+      cellFrom: 'C6',
+      cellTo: 'C9',
+      absFrom: { col: true, row: true },
+      absTo: { col: false, row: true },
+    });
+  });
+
+  it('evaluates exactly like the same formula without the dollars', () => {
+    const ctx = ctxOf(
+      { A1: { kind: 'value', value: 4 }, B2: { kind: 'value', value: 5 } },
+      {
+        resolveCell: (ref) =>
+          ref.cell === 'A1' ? { kind: 'value', value: 4 } : ref.cell === 'B2' ? { kind: 'value', value: 5 } : { kind: 'blank' },
+      },
+    );
+    expect(evalOk('$A$1+B$2', ctx)).toEqual(evalOk('A1+B2', ctx));
+    expect(evalOk('$A$1+B$2', ctx)).toMatchObject({ type: 'number' });
+  });
+
+  it('round-trips through formatFormula with the dollars intact', () => {
+    for (const src of ['$A$1', 'A$1', '$A1', 'SUM($C$6:$C$9)', 'SUM(C$6:$C9)', "'Đội 3'!$C$6+1", 'Sheet2!A$1:B$2']) {
+      const p = parseFormula(src);
+      expect(p.ok).toBe(true);
+      if (p.ok) expect(formatFormula(p.expr)).toBe(src);
+    }
+  });
+
+  it('collectRefs reports clean addresses', () => {
+    const p = parseFormula('$A$1+SUM($B$2:C$3)');
+    if (!p.ok) throw new Error('parse');
+    const refs = collectRefs(p.expr);
+    expect(refs.cells).toEqual([{ sheet: undefined, cell: 'A1' }]);
+    expect(refs.ranges).toEqual([
+      { sheetFrom: undefined, sheetTo: undefined, cellFrom: 'B2', cellTo: 'C3' },
+    ]);
+  });
+
+  it('rewriteSheetRefs keeps the anchors', () => {
+    const p = parseFormula("'Đội 3'!$C$6");
+    if (!p.ok) throw new Error('parse');
+    expect(formatFormula(rewriteSheetRefs(p.expr, (n) => `${n}2`))).toBe("'Đội 32'!$C$6");
+  });
+
+  it('a dollar sign inside a string literal is just text', () => {
+    const ctx = ctxOf({ A1: { kind: 'value', value: 5 } });
+    expect(evalOk('"US$"&A1', ctx)).toEqual({ type: 'string', value: 'US$5' });
+  });
+
+  it.each(['$', 'A$', '$$A1', 'A1$', '$A$', '1$A'])('rejects the malformed reference %s', (src) => {
+    expect(parseFormula(src).ok).toBe(false);
+  });
+});
