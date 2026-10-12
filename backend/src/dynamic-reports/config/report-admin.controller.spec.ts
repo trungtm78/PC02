@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ReportAdminController } from './report-admin.controller';
 import { ReportConfigService, ReportConfigError } from './report-config.service';
 import { ReportDetailService } from './report-detail.service';
 import { ReportLifecycleService } from './report-lifecycle.service';
+import { ReportVersioningService } from './report-versioning.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -11,6 +12,7 @@ describe('ReportAdminController', () => {
   const config = { resumeGeneration: jest.fn() };
   const detail = { getDetail: jest.fn(), getVersionFile: jest.fn() };
   const lifecycle = { getDeletionImpact: jest.fn(), archive: jest.fn(), unarchive: jest.fn(), deleteReport: jest.fn() };
+  const versioning = { createVersion: jest.fn(), deleteVersion: jest.fn() };
   const user = { id: 'actor1' };
   let controller: ReportAdminController;
 
@@ -22,6 +24,7 @@ describe('ReportAdminController', () => {
         { provide: ReportConfigService, useValue: config },
         { provide: ReportDetailService, useValue: detail },
         { provide: ReportLifecycleService, useValue: lifecycle },
+        { provide: ReportVersioningService, useValue: versioning },
         { provide: FeatureFlagsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
       ],
@@ -84,6 +87,38 @@ describe('ReportAdminController', () => {
       await expect(controller.unarchive('r1')).resolves.toEqual({ status: 'SUSPENDED' });
       lifecycle.getDeletionImpact.mockRejectedValue(new ReportConfigError('x', 'REPORT_NOT_FOUND'));
       await expect(controller.deletionImpact('r1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('versions', () => {
+    const file = { buffer: Buffer.from('xlsx'), originalname: 'mau moi.xlsx' } as Express.Multer.File;
+    const body = { config: { publish: true } } as never;
+
+    it('a new version needs the file', () => {
+      expect(() => controller.createVersion('r1', undefined, body, user)).toThrow(BadRequestException);
+      expect(versioning.createVersion).not.toHaveBeenCalled();
+    });
+
+    it('passes the report, config, bytes, file name and actor to the service', async () => {
+      versioning.createVersion.mockResolvedValue({ version: 2 });
+      await expect(controller.createVersion('r1', file, body, user)).resolves.toEqual({ version: 2 });
+      expect(versioning.createVersion).toHaveBeenCalledWith('r1', (body as { config: unknown }).config, file.buffer, 'mau moi.xlsx', 'actor1');
+    });
+
+    it('a saturated worker is a 503 the screen can retry, a bad template a 400', async () => {
+      versioning.createVersion.mockRejectedValueOnce(new ReportConfigError('bận', 'WORKER_BUSY'));
+      await expect(controller.createVersion('r1', file, body, user)).rejects.toBeInstanceOf(ServiceUnavailableException);
+      versioning.createVersion.mockRejectedValueOnce(new ReportConfigError('sai mẫu', 'TEMPLATE_INVALID'));
+      await expect(controller.createVersion('r1', file, body, user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('deleting the current or a used version is a 409, a missing one a 404', async () => {
+      versioning.deleteVersion.mockRejectedValueOnce(new ReportConfigError('x', 'VERSION_CURRENT'));
+      await expect(controller.deleteVersion('r1', 'v1')).rejects.toBeInstanceOf(ConflictException);
+      versioning.deleteVersion.mockRejectedValueOnce(new ReportConfigError('x', 'VERSION_IN_USE'));
+      await expect(controller.deleteVersion('r1', 'v1')).rejects.toBeInstanceOf(ConflictException);
+      versioning.deleteVersion.mockRejectedValueOnce(new ReportConfigError('x', 'REPORT_NOT_FOUND'));
+      await expect(controller.deleteVersion('r1', 'v1')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

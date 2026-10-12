@@ -7,10 +7,17 @@ import {
   NotFoundException,
   Param,
   Post,
+  Body,
   Query,
   Res,
+  ServiceUnavailableException,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
@@ -21,6 +28,9 @@ import { attachmentDisposition } from '../attachment-disposition.util';
 import { ReportConfigService, ReportConfigError } from './report-config.service';
 import { ReportDetailService } from './report-detail.service';
 import { ReportLifecycleService } from './report-lifecycle.service';
+import { ReportVersioningService } from './report-versioning.service';
+import { SaveReportVersionRequestDto } from './dto/save-report-version.dto';
+import { XLSX_LIMITS } from '../../xlsx-imports/hostile-xlsx-guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 /**
@@ -36,6 +46,7 @@ export class ReportAdminController {
     private readonly configService: ReportConfigService,
     private readonly detailService: ReportDetailService,
     private readonly lifecycleService: ReportLifecycleService,
+    private readonly versioningService: ReportVersioningService,
   ) {}
 
   /** Maps the service's error codes onto HTTP: a missing report is 404, "has data" is a 409 the screen can explain. */
@@ -45,7 +56,11 @@ export class ReportAdminController {
     } catch (err) {
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_NOT_FOUND') throw new NotFoundException(err.message);
-        if (err.code === 'HAS_DATA') throw new ConflictException({ code: err.code, message: err.message });
+        if (['HAS_DATA', 'VERSION_CURRENT', 'VERSION_IN_USE'].includes(err.code)) {
+          throw new ConflictException({ code: err.code, message: err.message });
+        }
+        // The server is saturated, not the request wrong: the screen should offer a retry.
+        if (err.code === 'WORKER_BUSY') throw new ServiceUnavailableException({ code: err.code, message: err.message });
         throw new BadRequestException({ code: err.code, message: err.message });
       }
       throw err;
@@ -140,5 +155,36 @@ export class ReportAdminController {
     @CurrentUser() user: { id: string },
   ) {
     return this.guard(() => this.lifecycleService.deleteReport(reportId, { withData: true, confirmCode }, user.id));
+  }
+
+  /** "Cập nhật mẫu" — a new version of the report's template (D09 decides which open periods take it at once). */
+  @Post(':reportId/versions')
+  @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: XLSX_LIMITS.MAX_COMPRESSED_BYTES },
+    }),
+  )
+  createVersion(
+    @Param('reportId') reportId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: SaveReportVersionRequestDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Thiếu file mẫu (field "file").');
+    }
+    return this.guard(() =>
+      this.versioningService.createVersion(reportId, body.config, file.buffer, file.originalname, user.id),
+    );
+  }
+
+  /** Remove a version nobody depends on: a draft, or a retired one no period was generated from. */
+  @Delete(':reportId/versions/:versionId')
+  @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
+  deleteVersion(@Param('reportId') reportId: string, @Param('versionId') versionId: string) {
+    return this.guard(() => this.versioningService.deleteVersion(reportId, versionId));
   }
 }

@@ -13,6 +13,7 @@ import { ReportAdminController } from './config/report-admin.controller';
 import { ReportConfigService } from './config/report-config.service';
 import { ReportDetailService } from './config/report-detail.service';
 import { ReportLifecycleService } from './config/report-lifecycle.service';
+import { ReportVersioningService } from './config/report-versioning.service';
 import { AuditModule } from '../audit/audit.module';
 import { SubmissionController } from './submission/submission.controller';
 import { SubmissionService } from './submission/submission.service';
@@ -58,6 +59,7 @@ import { TeamsModule } from '../teams/teams.module';
     ReportConfigService,
     ReportDetailService,
     ReportLifecycleService,
+    ReportVersioningService,
     SubmissionService,
     AggregateService,
     FormulaEvaluationService,
