@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Undo2, Send, History, Unlock, Lock } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Undo2, Send, History, Unlock, Lock, Table2, List } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
@@ -21,6 +21,8 @@ import {
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
 import CommentsPanel from './CommentsPanel';
+import GridViewer from '@/features/dynamic-reports/grid/GridViewer';
+import type { GridField } from '@/features/dynamic-reports/grid/gridEvaluation';
 
 type ActionStatus = 'idle' | 'working' | 'error';
 
@@ -65,6 +67,9 @@ export default function ReportSubmissionReviewPage() {
   const [showUnlockForm, setShowUnlockForm] = useState(false);
   const [unlockReason, setUnlockReason] = useState('');
   const [unlockExpiresAtLocal, setUnlockExpiresAtLocal] = useState('');
+  // The grid is opt-in until it is the default: the list stays the safe view.
+  const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list');
+  const [gridUnavailable, setGridUnavailable] = useState(false);
 
   const bySheet = useMemo(() => {
     const groups = new Map<string, typeof view extends undefined ? never : NonNullable<typeof view>['fields']>();
@@ -75,6 +80,19 @@ export default function ReportSubmissionReviewPage() {
     }
     return Array.from(groups.entries());
   }, [view]);
+
+  const gridFields = useMemo<GridField[]>(
+    () =>
+      (view?.fields ?? []).map((f) => ({
+        sheetKey: f.sheetKey,
+        address: f.address,
+        fieldKey: f.fieldKey,
+        type: f.type,
+        required: f.required,
+        label: f.label,
+      })),
+    [view],
+  );
 
   async function handleApprove() {
     if (!assignmentId || !view) return;
@@ -223,13 +241,61 @@ export default function ReportSubmissionReviewPage() {
         </p>
       )}
 
+      {gridUnavailable && (
+        <p className="text-sm text-amber-700 mb-3" data-testid="grid-fallback-note">
+          Chưa dựng được lưới cho mẫu này — đang dùng dạng danh sách.
+        </p>
+      )}
+
       {actionError && (
         <p className="text-sm text-red-700 mb-4" data-testid="action-error">
           {actionError}
         </p>
       )}
 
-      {bySheet.map(([sheetKey, fields]) => (
+      <div className="flex gap-2 mb-3" role="group" aria-label="Cách hiển thị số liệu">
+        <button
+          type="button"
+          data-testid="layout-list"
+          aria-pressed={layoutMode === 'list'}
+          onClick={() => setLayoutMode('list')}
+          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border ${
+            layoutMode === 'list' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
+          } ${A11Y_FOCUS_RING}`}
+        >
+          <List className="w-3.5 h-3.5" />
+          Dạng danh sách
+        </button>
+        <button
+          type="button"
+          data-testid="layout-grid"
+          aria-pressed={layoutMode === 'grid'}
+          disabled={gridUnavailable}
+          onClick={() => setLayoutMode('grid')}
+          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border disabled:opacity-50 ${
+            layoutMode === 'grid' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
+          } ${A11Y_FOCUS_RING}`}
+        >
+          <Table2 className="w-3.5 h-3.5" />
+          Dạng lưới (thử nghiệm)
+        </button>
+      </div>
+
+      {layoutMode === 'grid' && !gridUnavailable && (
+        <div className="mb-4" data-testid="grid-section">
+          <GridViewer
+            versionId={view.versionId}
+            fields={gridFields}
+            values={view.values}
+            onUnavailable={() => {
+              setGridUnavailable(true);
+              setLayoutMode('list');
+            }}
+          />
+        </div>
+      )}
+
+      {layoutMode === 'list' && bySheet.map(([sheetKey, fields]) => (
         <div key={sheetKey} className="bg-white border border-slate-200 rounded-lg p-4 mb-4">
           <h2 className="text-sm font-semibold text-slate-700 mb-3">{sheetKey}</h2>
           <div className="space-y-2">

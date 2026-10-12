@@ -1012,6 +1012,19 @@ Bộ phân tích công thức từ chối ký tự đô-la, nên mọi công th�
 kéo xuống cột — báo lỗi cả ô. Nay hỗ trợ `$A$1`, `A$1`, `$A1` và vùng `$A$1:B$2` (cả khi có tên sheet): AST giữ cờ neo
 (`abs` / `absFrom` / `absTo`) để xuất lại đúng như tác giả viết; tính toán bỏ qua neo; chuỗi có dấu đô-la (`"US$"`) không
 bị ảnh hưởng; địa chỉ hỏng (`A$`, `$$A1`, `A1$`) bị từ chối. 24 ca mới.
+### G2 — bảng chỉ đọc vẽ lại tờ Excel mẫu + màn S16 (12/10/2026)
+Quản lý xem bản nộp của một tổ có thêm nút **"Dạng lưới (thử nghiệm)"** cạnh "Dạng danh sách" (mặc định vẫn là danh sách,
+chưa ai bị đổi giao diện). Lưới vẽ đúng tờ mẫu: ô gộp, viền, màu nền, font, độ rộng cột/chiều cao dòng, dòng/cột cố định,
+dòng/cột ẩn, đầu cột A/B/C và số dòng như Excel, định dạng số vi-VN, định dạng có điều kiện (`cellIs`, `expression`),
+`showZeros`. Ô nhập hiện **giá trị tổ đã nộp** (không phải số mẫu nằm trong file); ô công thức được tính lại từ các giá trị đó.
+- `grid/gridIndex.ts` (chỉ số dòng/cột nhìn thấy, vị trí cộng dồn, ô gộp co lại khi có dòng/cột ẩn), `styleToCss.ts`
+  (font dự phòng cùng số đo: Times→Liberation Serif/Tinos, Calibri→Carlito; viền theo độ dày Excel), `gridEvaluation.ts`
+  (model → workbook, ô nhập do FIELD quyết định chứ không do file), `conditional.ts` (công thức tương đối dịch theo ô,
+  neo `$` giữ nguyên, ưu tiên + stopIfTrue), `GridTable.tsx`, `GridViewer.tsx`.
+- Kẻ ô bằng bóng trong (inset box-shadow) chứ không bằng border: border của ô gộp/cố định sẽ lệch khi cuộn.
+- Lưới hỏng không bao giờ thành màn trắng: `422 GRID_UNAVAILABLE` / `503 GRID_BUSY` → banner + tự về danh sách, nút lưới bị khoá.
+- Kiểm: 65 ca vitest mới (mô hình 23, định dạng có điều kiện 25, bảng 18, khung xem 7) + 3 ca trang S16. Toàn bộ FE
+  `tsc -b` sạch; `vitest` toàn bộ chỉ đỏ 2 ca quá giờ khi chạy chung (configuration-editors, StatusDashboardPage), chạy riêng xanh.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
