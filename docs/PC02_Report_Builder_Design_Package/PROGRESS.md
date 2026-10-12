@@ -1100,6 +1100,42 @@ như file Excel gốc. Mặc định vẫn là danh sách (chưa ai bị đổi 
   nhả khi gõ lại đúng giá trị cũ hoặc khi khoá → luôn nhả khi xác nhận được/khi bỏ chữ; Ctrl+Z bị từ chối lúc khoá vẫn tiêu một
   bước lịch sử → kiểm khoá TRƯỚC khi lấy bước; ô trống trong khối gộp không còn "xung đột" với giá trị thật khi dán lại chính
   thứ vừa sao chép; Ctrl+mũi tên nhận ô gộp neo ẩn là ô đầy. 8 ca hồi quy, gieo thêm 7 lỗi đều bị bắt.
+### G5a — "Xuất bản của tổ" là CHÍNH FILE MẪU đã điền số (12/10/2026)
+Trước đây file xuất của tổ là một danh sách "Sheet / Chỉ tiêu / Giá trị" — không nhập lại được qua S35 và không giống mẫu. Nay
+`exportOwnSubmission` nạp lại file mẫu gốc, bỏ các sheet không thuộc báo cáo, ghi giá trị vào đúng ô nhập và giữ nguyên mọi
+thứ khác (ô gộp, viền, màu, font, độ rộng, định dạng số, dòng cố định, chính các công thức).
+- `engine/grid-workbook.ts` (dùng chung web/máy chủ/file xuất, sao sang FE bằng `gen:dr-engine`): `toWorkbookModel` +
+  `evaluateGridWorkbook`. Màn hình, số lưu và số trong file xuất cùng MỘT phép tính (GA1). FE `gridEvaluation` nay gọi hàm này
+  thay vì bản sao riêng. Đối chiếu với giá trị Excel đã lưu trong 5 mẫu thật qua cả chuỗi xlsx → lưới → cầu nối → bộ tính.
+- `export/template-export.ts` (chạy trong worker có giới hạn, chế độ `export` mới): số ghi dạng số khi Excel giữ được chính xác
+  (≤15 chữ số có nghĩa), vượt thì ghi dạng chữ + liệt kê ở sheet ẩn (không bao giờ làm tròn im lặng); ngày/giờ ghi dạng ngày/giờ
+  thật và ô chưa có định dạng ngày/giờ được gán `dd/mm/yyyy` / `hh:mm` (để đọc lại được); chữ giữ nguyên là chữ, không bao giờ thành
+  công thức; công thức giữ nguyên kèm KẾT QUẢ mới tính (xem trước trên điện thoại/thư không cần tính lại) và `fullCalcOnLoad`.
+- Sheet `__dr_meta` (veryHidden) ghi danh tính file: loại, báo cáo, phiên bản mẫu, kỳ, lượt giao, tổ, giờ xuất.
+- **S35 nhập lại:** file có `__dr_meta` từ phiên bản mẫu khác hoặc lượt giao khác bị TỪ CHỐI với lý do rõ ràng (trước đó sẽ đổ
+  số vào sai ô mà không báo lỗi); file không có dấu vẫn xét theo cấu trúc như cũ. File xuất nay có tên sheet gốc nên nhập lại khớp.
+- Không dùng được mẫu (lưới quá lớn / worker bận / hết giờ / file hỏng) → vẫn xuất danh sách như cũ, ghi log: xuất không bao giờ
+  hỏng đúng lúc cần số.
+- Kiểm: 34 ca xuất (mẫu thật pl7/a10/hsln: mọi kiểu giá trị, khứ hồi qua bộ đọc nhập, giữ nguyên hình dạng/ô gộp/kiểu từng ô,
+  ô tĩnh không đổi, công thức còn là công thức, kết quả 0/FALSE/"" nằm trong file) + worker thật; xác minh độc lập bằng openpyxl
+  (ô gộp, độ rộng, kiểu, trạng thái sheet khớp mẫu); gieo 11 lỗi → đều bị bắt (1 lỗi đồng nghĩa đã bỏ nhánh thừa).
+- **Giới hạn đã biết (ghi nhận, không giấu):** exceljs không đọc lại kết quả công thức FALSE/0 (file thì ghi đúng); bộ tính coi TRUE
+  trong phép tính trực tiếp là lỗi thay vì 1 như Excel (từ chối còn hơn đoán). Còn lại cho G5b: xuất của QUẢN LÝ (TỔNG ghi hằng +
+  mỗi tổ một bộ sheet, nhân bản sheet, viết lại tham chiếu chéo sheet).
+- **Codex review G5a (12 phát hiện) — sửa 10, ghi nhận 2:**
+  (1) *P1 riêng tư:* `removeWorksheet` của exceljs để lại ẢNH của sheet bị bỏ trong gói → lộ ảnh của tổ khác khi đổi đuôi .zip; nay
+  cắt mọi tệp `xl/media` không còn được phần nào tham chiếu. (2) *P1 tài nguyên:* việc tính công thức chạy ở luồng chính trước khi
+  vào worker → chuyển trọn vào worker (yêu cầu mang mô hình lưới, không mang kết quả). (3) công thức chưa chắc đúng (mảng, hàm ngoài
+  ngữ pháp, ngày dùng trong phép tính) không còn ghi số đoán mò: chỉ ghi `#DIV/0!` khi thật sự chia 0, còn lại KHÔNG ghi giá trị lưu sẵn
+  (trống khi xem trước còn hơn sai). (4) ô SỐ đặt trong ô có định dạng ngày → đổi về General để nhập lại đọc ra số. (5) lịch 1904: giờ/ngày
+  dùng đúng mốc của sổ, không còn serial âm. (6) số thập phân rất nhỏ (`0,0000001`) nhập lại không còn thành `1e-7`. (7) chữ dài hơn 32.767 ký
+  tự (trần của một ô Excel) bị cắt + ghi vào sheet danh tính thay vì làm Excel báo hỏng file; danh sách ô chữ-số mỗi ô một dòng. (8) tên
+  mọi tên định nghĩa trỏ vào sheet đã bỏ được xoá. (9) sheet có dấu nháy đơn ('): exceljs ghi sai vùng in → bỏ vùng in/tiêu đề in của sheet đó.
+  (10) tên sheet `__dr_meta` được dành riêng: mẫu chọn sheet này bị chặn lúc xuất bản (lỗi `RESERVED_SHEET_NAME`); lượt xuất rơi về danh sách
+  nay có header `X-Export-Format: LIST` để giao diện báo cho cán bộ.
+  **Ghi nhận, chưa sửa:** (a) ô nhập số quá 15 chữ số ghi dạng chữ nên công thức SUM trong Excel bỏ qua ô đó khi tính lại — đúng với quyết
+  định OV4 (không làm tròn im lặng) nhưng tổng sẽ khác web; nên cảnh báo ở bước thiết lập; (b) công thức mảng (array formula) không được
+  hỗ trợ ở bộ tính; các ô theo sau của mảng giữ số mẫu cũ — nên chặn/cảnh báo mẫu có công thức mảng lúc xuất bản.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

@@ -76,6 +76,7 @@ describe('SubmissionController', () => {
     service.exportOwnSubmission.mockResolvedValue({
       fileBuffer,
       fileName: 'HSLN-Doi-3-2026-06.xlsx',
+      format: 'LIST',
     });
     const res = {
       setHeader: jest.fn(),
@@ -93,6 +94,8 @@ describe('SubmissionController', () => {
       'Content-Disposition',
       'attachment; filename="HSLN-Doi-3-2026-06.xlsx"',
     );
+    // The plain-list fallback is announced so a client can tell the officer the template was not used.
+    expect(res.setHeader).toHaveBeenCalledWith('X-Export-Format', 'LIST');
     expect(res.send).toHaveBeenCalledWith(fileBuffer);
   });
 

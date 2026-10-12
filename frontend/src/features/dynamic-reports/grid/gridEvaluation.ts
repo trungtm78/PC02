@@ -1,11 +1,7 @@
 import type { GridCell, GridModel, GridSheet, GridStyle } from '../engine/generated/grid-types';
-import { WorkbookEvaluator } from '../engine/generated/workbook-eval';
-import type {
-  CellOutcome,
-  InputType,
-  WorkbookCell,
-  WorkbookModel,
-} from '../engine/generated/workbook-eval';
+import { evaluateGridWorkbook, toWorkbookModel } from '../engine/generated/grid-workbook';
+import type { WorkbookEvaluator } from '../engine/generated/workbook-eval';
+import type { CellOutcome, InputType } from '../engine/generated/workbook-eval';
 import {
   describeFormulaError,
   formatForDisplay,
@@ -45,38 +41,7 @@ export interface GridEvaluation {
 
 const cellKey = (sheet: string, address: string) => `${sheet}!${address}`;
 
-function toWorkbookCell(cell: GridCell): WorkbookCell | null {
-  switch (cell.k) {
-    case 'num':
-      return { kind: 'number', value: cell.v };
-    case 'bool':
-      return { kind: 'boolean', value: cell.v };
-    case 'text':
-      return { kind: 'text', value: cell.v };
-    case 'formula':
-      return { kind: 'formula', source: cell.f };
-    case 'empty':
-      return null;
-  }
-}
-
-export function toWorkbookModel(grid: GridModel, fields: readonly GridField[]): WorkbookModel {
-  return {
-    sheets: grid.sheets.map((sheet) => {
-      const cells: Record<string, WorkbookCell> = {};
-      for (const [address, cell] of Object.entries(sheet.cells)) {
-        const wc = toWorkbookCell(cell);
-        if (wc) cells[address] = wc;
-      }
-      // An input overrides whatever the file holds there (a sample value, a label…).
-      for (const f of fields) {
-        if (f.sheetKey === sheet.name) cells[f.address] = { kind: 'input', type: f.type };
-      }
-      return { name: sheet.name, cells };
-    }),
-    excludedSheets: grid.excludedSheets,
-  };
-}
+export { toWorkbookModel };
 
 export function evaluateGrid(
   grid: GridModel,
@@ -84,9 +49,13 @@ export function evaluateGrid(
   values: SubmittedValues,
   blankAs: 'blank' | 'none' = 'blank',
 ): GridEvaluation {
-  const inputs: Record<string, string | null> = {};
-  for (const f of fields) inputs[f.fieldKey] = values[f.fieldKey]?.v ?? null;
-  const evaluator = new WorkbookEvaluator(toWorkbookModel(grid, fields), inputs, { blankAs });
+  // The same calculation the server and the exported file use (engine/grid-workbook).
+  const { evaluator, inputs } = evaluateGridWorkbook(
+    grid,
+    fields,
+    Object.fromEntries(fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null])),
+    blankAs,
+  );
   return {
     grid,
     evaluator,

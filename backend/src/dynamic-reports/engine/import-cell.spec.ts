@@ -12,6 +12,13 @@ describe('readImportCellRaw (S35, PR6 slice 8)', () => {
       expect(readImportCellRaw({ value: 12.5 }, 'NUM')).toBe('12.5');
     });
 
+    it('reads a tiny or huge number as a plain decimal, never with an exponent', () => {
+      expect(readImportCellRaw({ value: 1e-7 }, 'NUM')).toBe('0.0000001');
+      expect(readImportCellRaw({ value: 1.5e-9 }, 'NUM')).toBe('0.0000000015');
+      expect(readImportCellRaw({ value: 1e21 }, 'NUM')).toBe('1000000000000000000000');
+      expect(readImportCellRaw({ value: -2.5e-8 }, 'NUM')).toBe('-0.000000025');
+    });
+
     it('reads a numeric-looking string cell', () => {
       expect(readImportCellRaw({ value: ' 42 ' }, 'NUM')).toBe('42');
     });

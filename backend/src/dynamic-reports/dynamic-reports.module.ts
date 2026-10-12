@@ -20,6 +20,7 @@ import { StatusQueryService } from './status/status-query.service';
 import { GridController } from './grid/grid.controller';
 import { GridAccessService } from './grid/grid-access.service';
 import { GridModelService } from './grid/grid-model.service';
+import { TemplateExportService } from './export/template-export.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarEventsModule } from '../calendar-events/calendar-events.module';
@@ -42,6 +43,7 @@ import { TeamsModule } from '../teams/teams.module';
   providers: [
     GridAccessService,
     GridModelService,
+    TemplateExportService,
     DynamicReportsRegistryService,
     PeriodSchedulerService,
     ReminderSchedulerService,
