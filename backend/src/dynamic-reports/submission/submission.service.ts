@@ -1071,10 +1071,7 @@ export class SubmissionService {
           'CELL_VALIDATION',
         );
       }
-      await this.prisma.dynReportUnlock.update({
-        where: { id: unlockId },
-        data: { status: 'REJECTED', decidedById: userId, decisionReason },
-      });
+      await this.leavePending(unlockId, { status: 'REJECTED', decidedById: userId, decisionReason });
       return;
     }
 
@@ -1088,16 +1085,28 @@ export class SubmissionService {
         'CELL_VALIDATION',
       );
     }
-    await this.prisma.dynReportUnlock.update({
-      where: { id: unlockId },
-      data: {
-        status: 'ACTIVE',
-        startsAt: now,
-        expiresAt: resolvedExpiresAt,
-        decidedById: userId,
-        decisionReason,
-      },
+    await this.leavePending(unlockId, {
+      status: 'ACTIVE',
+      startsAt: now,
+      expiresAt: resolvedExpiresAt,
+      decidedById: userId,
+      decisionReason,
     });
+  }
+
+  /**
+   * A request leaves PENDING exactly once: a manager's decision and the editor's withdrawal both go through a write
+   * conditioned on PENDING, so when they race one wins and the other is told the request is no longer waiting —
+   * never an "approved" row carrying a withdrawal's timestamp.
+   */
+  private async leavePending(unlockId: string, data: Prisma.DynReportUnlockUncheckedUpdateManyInput): Promise<void> {
+    const moved = await this.prisma.dynReportUnlock.updateMany({
+      where: { id: unlockId, kind: 'REQUEST', status: 'PENDING' },
+      data,
+    });
+    if (moved.count === 0) {
+      throw new SubmissionError('Yêu cầu này đã được xử lý hoặc đã được rút lại.', 'INVALID_STATE_TRANSITION');
+    }
   }
 
   /**

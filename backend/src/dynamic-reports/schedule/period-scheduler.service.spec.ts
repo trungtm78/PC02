@@ -130,6 +130,34 @@ describe('PeriodSchedulerService', () => {
     expect(tx.dynReportSchedule.update).not.toHaveBeenCalled();
   });
 
+  it('a one-time schedule that already made its period is done: deleting that period must not bring it back (found by Codex)', async () => {
+    const tx = buildTx();
+    tx.dynReport.findMany.mockResolvedValue([
+      {
+        id: 'rep1',
+        schedules: [
+          {
+            id: 'sch1',
+            periodType: 'ONE_TIME',
+            periodStartDay: null,
+            dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
+            openRule: { kind: 'AT_PERIOD_START' },
+            shiftNonWorking: false,
+            oneTimeDate: '2026-10-15',
+            lastGeneratedThrough: new Date('2026-10-16T00:00:00Z'), // set when the one period was made
+            effectiveFrom: new Date('2026-10-01T00:00:00Z'),
+          },
+        ],
+      },
+    ]);
+    const { service } = buildService(tx, true);
+
+    await service.run();
+
+    expect(tx.dynReportVersion.findFirst).not.toHaveBeenCalled();
+    expect(tx.dynReportPeriod.create).not.toHaveBeenCalled();
+  });
+
   it('does nothing when there are no PUBLISHED reports', async () => {
     const tx = buildTx();
     tx.dynReport.findMany.mockResolvedValue([]);

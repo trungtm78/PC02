@@ -839,6 +839,12 @@ describe('AggregateService', () => {
         // The export row goes in under a FOR SHARE lock on the period (a deleted report's figures must not come back).
         $queryRaw: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([{ id: 'period1' }]),
         $transaction: jest.fn<Promise<unknown>, [(t: unknown) => Promise<unknown>]>(),
+        // The teams of the period as they are when the file is stored: the same as when it was read, unless a test says otherwise.
+        dynReportAssignment: {
+          findMany: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(((period as { assignments?: Array<{ id: string }> } | null)?.assignments ?? []).map((a) => ({ id: a.id }))),
+        },
         ...overrides,
       };
       prisma.$transaction.mockImplementation((fn) => fn(prisma));
@@ -851,6 +857,14 @@ describe('AggregateService', () => {
       );
       return { service, prisma };
     }
+
+    it('writes nothing when a team was added or taken back while the workbook was being rendered (found by Codex)', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }]);
+      prisma.dynReportAssignment.findMany.mockResolvedValue([{ id: 'a1' }, { id: 'a2' }]); // fewer teams than when it was read
+
+      await expect(service.exportPeriod('period1', 'mgr1', 'roleMgr')).rejects.toThrow(/Hãy xuất lại/);
+      expect(prisma.dynReportExport.create).not.toHaveBeenCalled();
+    });
 
     it('writes nothing when the period was deleted while the workbook was being rendered', async () => {
       const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }]);

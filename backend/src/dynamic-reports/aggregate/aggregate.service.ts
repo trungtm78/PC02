@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import * as ExcelJS from 'exceljs';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -1389,11 +1389,13 @@ export class AggregateService {
       // Editors and reminders go with the assignment (Cascade); the submission is Restrict, so it goes first.
       await tx.dynReportSubmission.deleteMany({ where: { assignmentId } });
       await tx.dynReportAssignment.delete({ where: { id: assignmentId } });
-      // What was summed with this team in it is no longer true.
+      // What was summed with this team in it is no longer true, and neither are the files made with it: a downloadable
+      // export would still carry the removed team's sheet (its figures, empty as they were, change no contributor hash).
       await tx.dynReportSnapshot.updateMany({
         where: { periodId, invalidatedAt: null },
         data: { invalidatedAt: new Date(), invalidatedReason: 'TEAM_REMOVED' },
       });
+      await tx.dynReportExport.deleteMany({ where: { scope: { path: ['periodId'], equals: periodId } } });
       const teamSnapshot = assignment.teamSnapshot as { name?: string } | null;
       return { removed: true as const, teamName: teamSnapshot?.name ?? '' };
     });
@@ -1437,6 +1439,8 @@ export class AggregateService {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
     }
 
+    // The teams this file is made from; checked again when it is stored (see below).
+    const assignmentIdsAtRead = period.assignments.map((x) => x.id).sort().join(',');
     const computed = this.computeApprovedSnapshot(period);
     let snapshotValues = computed.snapshotValues;
     let snapshotId: string | null = null;
@@ -1545,6 +1549,14 @@ export class AggregateService {
       `;
       if (alive.length === 0) {
         throw new NotFoundException('Kỳ báo cáo không còn tồn tại.');
+      }
+      // Teams added or taken back while the workbook was being rendered: the file lists the teams it was made from.
+      const nowIds = (await tx.dynReportAssignment.findMany({ where: { periodId }, select: { id: true } }))
+        .map((a) => a.id)
+        .sort()
+        .join(',');
+      if (nowIds !== assignmentIdsAtRead) {
+        throw new ConflictException('Danh sách tổ của kỳ vừa thay đổi trong lúc xuất. Hãy xuất lại.');
       }
       return tx.dynReportExport.create({
         data: {

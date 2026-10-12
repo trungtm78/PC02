@@ -190,7 +190,7 @@ export class ReportLifecycleService {
   /** Children before parents: every relation under a report is Restrict, so the order is the whole job. */
   private async removeAll(tx: Prisma.TransactionClient, reportId: string): Promise<void> {
     const periods = await tx.dynReportPeriod.findMany({ where: { reportId }, select: { id: true } });
-    await this.removePeriodRows(tx, reportId, periods.map((p) => p.id));
+    await this.removePeriodRows(tx, reportId, periods.map((p) => p.id), true);
     // Fields, rules and the cached grid go with their version (Cascade).
     await tx.dynReportVersion.deleteMany({ where: { reportId } });
     // Target editors go with their target (Cascade).
@@ -201,7 +201,12 @@ export class ReportLifecycleService {
   }
 
   /** Everything that hangs off these periods, then the periods. Children before parents: every relation is Restrict. */
-  private async removePeriodRows(tx: Prisma.TransactionClient, reportId: string, periodIds: string[]): Promise<void> {
+  private async removePeriodRows(
+    tx: Prisma.TransactionClient,
+    reportId: string,
+    periodIds: string[],
+    wholeReport: boolean,
+  ): Promise<void> {
     const assignments = await tx.dynReportAssignment.findMany({
       where: { periodId: { in: periodIds } },
       select: { id: true },
@@ -223,7 +228,9 @@ export class ReportLifecycleService {
       where: {
         OR: [
           { snapshotId: { in: snapshotIds } },
-          { scope: { path: ['reportId'], equals: reportId } },
+          // Every manager export carries the report id, so that predicate is for deleting the whole report only: one
+          // period's deletion must leave the other periods' files alone.
+          ...(wholeReport ? [{ scope: { path: ['reportId'], equals: reportId } }] : []),
           ...periodIds.map((id) => ({ scope: { path: ['periodId'], equals: id } })),
           ...assignmentIds.map((id) => ({ scope: { path: ['assignmentId'], equals: id } })),
         ],
@@ -274,7 +281,7 @@ export class ReportLifecycleService {
           throw new ReportConfigError('Phải gõ đúng mã kỳ để xác nhận xoá kèm số liệu.', 'CONFIRMATION_REQUIRED');
         }
       }
-      await this.removePeriodRows(tx, found.reportId, [periodId]);
+      await this.removePeriodRows(tx, found.reportId, [periodId], false);
       await this.audit.log(
         {
           userId: actor.id,

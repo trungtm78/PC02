@@ -134,6 +134,23 @@ run('reverse actions on PostgreSQL', () => {
       expect((await db.dynReportSnapshot.findFirst({ where: { periodId: f.periodId } }))?.invalidatedReason).toBe('TEAM_REMOVED');
     });
 
+    it('exports of this period are dropped when a team is taken back (they would still list the removed team); other periods\' are not (found by Codex)', async () => {
+      const f = await build('rm-exports', { added: true });
+      const version = (await db.dynReportVersion.findFirst({ where: { reportId: f.reportId } }))!;
+      const other = await db.dynReportPeriod.create({
+        data: { reportId: f.reportId, periodKey: `${tag}-rm-exports-P2`, startDate: new Date('2026-11-01'), endDate: new Date('2026-11-30'), opensAt: past, dueAt: future, versionId: version.id, scheduleSnapshot: {} },
+      });
+      const exp = (periodId: string) =>
+        db.dynReportExport.create({ data: { requestedById: user.mgr, kind: 'MANAGER_FULL', scope: { periodId, reportId: f.reportId } } });
+      const stale = await exp(f.periodId);
+      const unrelated = await exp(other.id);
+
+      await aggregate.removeAddedTeamMidPeriod(f.periodId, user.mgr, roleManager, f.added);
+
+      expect(await db.dynReportExport.count({ where: { id: stale.id } })).toBe(0);
+      expect(await db.dynReportExport.count({ where: { id: unrelated.id } })).toBe(1);
+    });
+
     it('refuses a team that has figures, a comment or an unlock request — those are exempted, not erased', async () => {
       const touched = await build('rm-data', { added: true, touchAdded: true });
       await expect(aggregate.removeAddedTeamMidPeriod(touched.periodId, user.mgr, roleManager, touched.added)).rejects.toMatchObject({ code: 'HAS_DATA' });
@@ -154,6 +171,23 @@ run('reverse actions on PostgreSQL', () => {
   });
 
   describe('xoá kỳ', () => {
+    it('deleting one period leaves the other periods\' exports alone (found by Codex)', async () => {
+      const f = await build('per-exports');
+      const version = (await db.dynReportVersion.findFirst({ where: { reportId: f.reportId } }))!;
+      const other = await db.dynReportPeriod.create({
+        data: { reportId: f.reportId, periodKey: `${tag}-per-exports-P2`, startDate: new Date('2026-11-01'), endDate: new Date('2026-11-30'), opensAt: past, dueAt: future, versionId: version.id, scheduleSnapshot: {}, status: 'FINALIZED' },
+      });
+      const exp = (periodId: string) =>
+        db.dynReportExport.create({ data: { requestedById: user.mgr, kind: 'MANAGER_FULL', scope: { periodId, reportId: f.reportId } } });
+      const mine = await exp(f.periodId);
+      const theirs = await exp(other.id);
+
+      await lifecycle.deletePeriod(f.periodId, { withData: false }, mgr());
+
+      expect(await db.dynReportExport.count({ where: { id: mine.id } })).toBe(0);
+      expect(await db.dynReportExport.count({ where: { id: theirs.id } })).toBe(1);
+    });
+
     it('a manager deletes a period nobody entered anything in; the rest of the report stays', async () => {
       const f = await build('per-empty');
       const keep = await db.dynReportPeriod.create({

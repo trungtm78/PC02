@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -302,6 +303,8 @@ export class AggregateController {
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_NOT_FOUND') throw new NotFoundException(err.message);
         if (err.code === 'HAS_DATA') throw new ConflictException({ code: err.code, message: err.message });
+        // A valid request refused for lack of standing is a refusal, not a malformed request.
+        if (err.code === 'ADMIN_REQUIRED') throw new ForbiddenException({ code: err.code, message: err.message });
         throw new BadRequestException({ code: err.code, message: err.message });
       }
       throw err;

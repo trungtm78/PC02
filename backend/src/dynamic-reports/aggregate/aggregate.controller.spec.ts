@@ -1,4 +1,4 @@
-import { ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConflictException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AggregateController } from './aggregate.controller';
 import { AggregateService } from './aggregate.service';
@@ -330,12 +330,14 @@ describe('AggregateController', () => {
       expect(lifecycle.deletePeriod).toHaveBeenCalledWith('p1', { withData: true, confirmKey: '2026-10' }, user);
     });
 
-    it('period delete errors: missing/not yours is 404, has data 409, not admin or wrong key 400', async () => {
+    it('period delete errors: missing/not yours is 404, has data 409, not an admin 403, a wrong key 400', async () => {
       lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'REPORT_NOT_FOUND'));
       await expect(controller.deletePeriod('p1', user)).rejects.toBeInstanceOf(NotFoundException);
       lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'HAS_DATA'));
       await expect(controller.deletePeriod('p1', user)).rejects.toBeInstanceOf(ConflictException);
       lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'ADMIN_REQUIRED'));
+      await expect(controller.deletePeriodWithData('p1', 'k', user)).rejects.toBeInstanceOf(ForbiddenException);
+      lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'CONFIRMATION_REQUIRED'));
       await expect(controller.deletePeriodWithData('p1', 'k', user)).rejects.toBeInstanceOf(BadRequestException);
       lifecycle.getPeriodDeletionImpact.mockResolvedValueOnce({ hasData: false });
       await expect(controller.periodDeletionImpact('p1', user)).resolves.toEqual({ hasData: false });

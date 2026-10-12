@@ -155,7 +155,11 @@ export class ReportConfigUpdateService {
         (current.periodStartDay ?? 1) !== (next.periodStartDay ?? 1) ||
         (current.oneTimeDate ?? null) !== (next.oneTimeDate ?? null));
     let cursor = current?.lastGeneratedThrough ?? null;
-    if (geometryChanged) {
+    // A one-time schedule is done once its cursor is set, so a NEW one-time schedule starts without a cursor and makes
+    // its period; an unchanged one keeps the cursor it has (its period was made, or deliberately deleted).
+    if (next.periodType === 'ONE_TIME' && geometryChanged) {
+      cursor = null;
+    } else if (geometryChanged) {
       const last = await tx.dynReportPeriod.aggregate({ where: { reportId }, _max: { endDate: true } });
       if (last._max.endDate) {
         const dayAfter = new Date(last._max.endDate.getTime() + 86_400_000);
