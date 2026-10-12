@@ -5,10 +5,13 @@ import { dynamicReportsApi } from '../api';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import GridTable from './GridTable';
+import type { CellActivation } from './GridTable';
 import GridEntry from './GridEntry';
 import type { GridEntryProps } from './GridEntry';
-import { evaluateGrid } from './gridEvaluation';
+import GridContributorsPopover from './GridContributorsPopover';
+import { evaluateAggregate, evaluateGrid } from './gridEvaluation';
 import type { GridField, SubmittedValues } from './gridEvaluation';
+import type { FieldAggregateView, FormulaCellView, FormulaSource } from '../types';
 
 /**
  * The read-only template grid with its chrome: sheet tabs, zoom, and the
@@ -29,17 +32,52 @@ export type GridEntryBinding = Pick<
   'fields' | 'editable' | 'valueOf' | 'onChange' | 'onChangeMany' | 'onLeave' | 'onProblem' | 'serverErrors'
 >;
 
+/**
+ * The aggregate (S15) view of a period: input cells carry the AGGREGATED figures and formula cells the figures
+ * the server worked out; clicking a figure lists the teams behind it. Nothing is typed and nothing is recalculated.
+ */
+export interface GridAggregateBinding {
+  fields: readonly FieldAggregateView[];
+  formulaValues: Readonly<Record<string, FormulaCellView>> | null;
+  formulaSource: FormulaSource;
+  calcEngineVersion: number | null;
+}
+
 export interface GridViewerProps {
   versionId: string;
-  fields: readonly GridField[];
-  values: SubmittedValues;
+  /** The submission's fields and values (entry / read-only views). Not used by the aggregate view. */
+  fields?: readonly GridField[];
+  values?: SubmittedValues;
+  /** Present: the aggregate view. */
+  aggregate?: GridAggregateBinding;
   /** Present: the grid can be typed into. Absent: a read-only view. */
   entry?: GridEntryBinding;
   /** Called once if the grid cannot be shown, so the caller can show the list instead. */
   onUnavailable?: (reason: string) => void;
 }
 
-export default function GridViewer({ versionId, fields, values, entry, onUnavailable }: GridViewerProps) {
+const NO_FIELDS: readonly GridField[] = [];
+const NO_VALUES: SubmittedValues = {};
+
+function formulaSourceNote(aggregate: GridAggregateBinding): string {
+  switch (aggregate.formulaSource) {
+    case 'LIVE':
+      return 'Số ở các ô công thức được tính từ tổng đang hiển thị.';
+    case 'FROZEN':
+      return `Số ở các ô công thức là số đã chốt khi chốt kỳ (bộ tính v${aggregate.calcEngineVersion ?? '?'}).`;
+    case 'UNAVAILABLE':
+      return 'Chưa có số công thức cho kỳ này — các ô công thức hiện dấu —.';
+  }
+}
+
+export default function GridViewer({
+  versionId,
+  fields = NO_FIELDS,
+  values = NO_VALUES,
+  aggregate,
+  entry,
+  onUnavailable,
+}: GridViewerProps) {
   const { data: grid, isLoading, error } = useQuery({
     queryKey: ['dynamic-reports', 'grid', versionId],
     queryFn: () => dynamicReportsApi.getVersionGrid(versionId),
@@ -52,10 +90,22 @@ export default function GridViewer({ versionId, fields, values, entry, onUnavail
   const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>(100);
   const [onlyInputRows, setOnlyInputRows] = useState(false);
 
-  const evaluation = useMemo(
-    () => (grid ? evaluateGrid(grid, fields, values) : null),
-    [grid, fields, values],
+  const evaluation = useMemo(() => {
+    if (!grid) return null;
+    return aggregate
+      ? evaluateAggregate(grid, aggregate.fields, aggregate.formulaValues)
+      : evaluateGrid(grid, fields, values);
+  }, [grid, aggregate, fields, values]);
+
+  // The figure whose teams are listed; a second click on the same cell closes it.
+  const [opened, setOpened] = useState<{ fieldKey: string; element: HTMLElement } | null>(null);
+  const openedField = useMemo(
+    () => (opened && aggregate ? (aggregate.fields.find((f) => f.fieldKey === opened.fieldKey) ?? null) : null),
+    [opened, aggregate],
   );
+  function activate(a: CellActivation) {
+    setOpened((cur) => (cur?.fieldKey === a.field.fieldKey ? null : { fieldKey: a.field.fieldKey, element: a.element }));
+  }
 
   const unavailableMessage = useMemo(() => {
     if (isLoading) return null;
@@ -118,7 +168,10 @@ export default function GridViewer({ versionId, fields, values, entry, onUnavail
                 role="tab"
                 aria-selected={name === sheetName}
                 data-testid={`grid-tab-${name}`}
-                onClick={() => setSheetChoice(name)}
+                onClick={() => {
+                  setSheetChoice(name);
+                  setOpened(null);
+                }}
                 className={`px-3 py-1 text-xs rounded-t border border-b-0 ${
                   name === sheetName
                     ? 'bg-white border-slate-300 font-semibold text-slate-800'
@@ -135,7 +188,10 @@ export default function GridViewer({ versionId, fields, values, entry, onUnavail
           <select
             data-testid="grid-zoom"
             value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value) as (typeof ZOOMS)[number])}
+            onChange={(e) => {
+              setZoom(Number(e.target.value) as (typeof ZOOMS)[number]);
+              setOpened(null);
+            }}
             className={`border border-slate-300 rounded px-1 py-0.5 text-xs ${A11Y_FOCUS_RING}`}
           >
             {ZOOMS.map((z) => (
@@ -150,7 +206,10 @@ export default function GridViewer({ versionId, fields, values, entry, onUnavail
             type="checkbox"
             data-testid="grid-only-inputs"
             checked={onlyInputRows}
-            onChange={(e) => setOnlyInputRows(e.target.checked)}
+            onChange={(e) => {
+              setOnlyInputRows(e.target.checked);
+              setOpened(null);
+            }}
           />
           Chỉ hiện dòng có ô nhập
         </label>
@@ -159,6 +218,12 @@ export default function GridViewer({ versionId, fields, values, entry, onUnavail
       {grid.warnings.length > 0 && (
         <p className="text-xs text-amber-700 mb-2" data-testid="grid-warnings">
           Một số định dạng của mẫu chưa vẽ được ({grid.warnings.length}).
+        </p>
+      )}
+
+      {aggregate && (
+        <p className="text-xs text-slate-500 mb-2" data-testid="formula-source-note">
+          {formulaSourceNote(aggregate)}
         </p>
       )}
 
@@ -178,7 +243,11 @@ export default function GridViewer({ versionId, fields, values, entry, onUnavail
           evaluation={evaluation}
           zoom={zoom}
           onlyInputRows={onlyInputRows}
+          onCellActivate={aggregate ? activate : undefined}
         />
+      )}
+      {opened && openedField && (
+        <GridContributorsPopover field={openedField} anchor={opened.element} onClose={() => setOpened(null)} />
       )}
     </div>
   );

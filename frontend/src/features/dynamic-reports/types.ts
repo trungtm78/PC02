@@ -263,6 +263,7 @@ export interface FieldAggregateView {
   sheetKey: string;
   address: string;
   label: string;
+  type: 'NUM' | 'TEXT' | 'DATE' | 'TIME';
   value: string | null;
   displayNotAggregated: boolean;
   countTotal: number;

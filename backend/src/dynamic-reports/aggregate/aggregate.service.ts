@@ -30,6 +30,8 @@ export interface FieldAggregateView {
   sheetKey: string;
   address: string;
   label: string;
+  /** What the field holds, so a client can show an aggregated number, date or time the way its cell is formatted. */
+  type: 'NUM' | 'TEXT' | 'DATE' | 'TIME';
   value: string | null;
   displayNotAggregated: boolean;
   countTotal: number;
@@ -511,6 +513,7 @@ export class AggregateService {
         sheetKey: f.sheetKey,
         address: f.address,
         label: f.label,
+        type: f.type as FieldAggregateView['type'],
         value: result.value,
         displayNotAggregated: result.displayNotAggregated,
         countTotal: result.countTotal,

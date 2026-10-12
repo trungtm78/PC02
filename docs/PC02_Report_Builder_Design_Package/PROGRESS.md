@@ -1166,6 +1166,21 @@ nhau. Nay `FormulaEvaluationService` (cache LRU 100, khoá = phiên bản mẫu 
 - VIEWER bị giới hạn theo tổ (`teamScopeId`) KHÔNG nhận số đóng băng của toàn kỳ (số ấy tính từ mọi tổ — sẽ lộ số ngoài phạm vi): họ luôn nhận `LIVE` tính từ đúng các tổ họ được xem (tự rà soát bắt, có ca kiểm).
 - Chưa làm (thuộc G4/G5b): màn S15 chưa vẽ `formulaValues` lên lưới; file xuất của quản lý chưa ghi số này vào sheet TỔNG.
 
+### G4 — màn tổng hợp (S15) trên lưới + danh sách tổ đóng góp (12/10/2026)
+Màn tổng hợp có nút "Dạng lưới (thử nghiệm)" (mặc định vẫn là danh sách, như S11/S16 — lưới chỉ thành mặc định ở G7). Lưới vẽ lại chính
+mẫu Excel: ô nhập mang **số tổng hợp** (định dạng theo ô: số, ngày, giờ), ô công thức mang **số chính thức của máy chủ** (OV1/OV10,
+`formulaValues`) — trình duyệt KHÔNG tự tính lại ô công thức nên màn hình, file xuất và snapshot không thể lệch nhau. Chỉ tiêu AGG=NONE hiện
+"—"; công thức không có số từ máy chủ hiện "—" kèm lời giải thích, không bịa số. Dòng chú thích dưới thanh công cụ nói số công thức lấy từ đâu
+(tính từ tổng đang hiển thị / số đã chốt lúc chốt kỳ kèm phiên bản bộ tính / chưa có).
+- Bấm (hoặc Enter/Space khi đang focus) vào một ô nhập → hộp thoại `GridContributorsPopover` liệt kê đúng các tổ đã tạo nên con số đó
+  (tên, giá trị, trạng thái, thời điểm cập nhật), tổng và "số tổ có số liệu x/y"; Esc / bấm ra ngoài / nút Đóng để đóng, bấm lại chính ô đó
+  cũng đóng, đóng xong trả focus về ô. `GridTable` thêm `onCellActivate` (chỉ ô nhập, chỉ khi không có `interaction`).
+- API: `FieldAggregateView` thêm `type` (NUM/TEXT/DATE/TIME) để định dạng số tổng hợp như ô của nó.
+- Lưới không dựng được (422) tự về danh sách + ghi chú, như S11/S16.
+- Kiểm: 10 ca `gridAggregate`, 5 ca `GridTableActivate`, 10 ca popover, 7 ca `GridViewerAggregate`, 4 ca trang S15; gieo 13 lỗi (mutation) đều bị bắt;
+  bấm thử thật trên Chromium với mẫu PL7: lưới + ô công thức đúng ("Thiếu dữ liệu" khi chưa tổ nào nộp ở chế độ SUBMITTED, TRUE ở ALL_SAVED), popover mở/đóng bằng Esc.
+- Giới hạn đã biết: định dạng có điều kiện của ô vẫn tính bằng bộ tính ở trình duyệt (cùng engine, cùng số; chỉ khác khi kỳ đã chốt bằng bộ tính cũ).
+
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|

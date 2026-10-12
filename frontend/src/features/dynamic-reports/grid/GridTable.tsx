@@ -6,7 +6,7 @@ import { buildSheetIndex, key, layoutMerges } from './gridIndex';
 import type { SheetIndex } from './gridIndex';
 import { cssForDxf, cssForStyle } from './styleToCss';
 import { viewOf } from './gridEvaluation';
-import type { CellView, GridEvaluation } from './gridEvaluation';
+import type { CellView, GridEvaluation, GridField } from './gridEvaluation';
 import { overlayFor } from './conditional';
 import { drawnRowsOf, inputRowSet, rectsOverlap } from './gridLayout';
 import type { Pos, Rect } from './navigation';
@@ -40,6 +40,14 @@ export interface GridInteraction {
   onCellDoubleClick: (pos: Pos, e: MouseEvent) => void;
 }
 
+/** An input cell the reader opened (click, Enter or Space): which field, and the element to anchor a popover to. */
+export interface CellActivation {
+  field: GridField;
+  sheetName: string;
+  address: string;
+  element: HTMLElement;
+}
+
 export interface GridTableProps {
   grid: GridModel;
   sheetName: string;
@@ -53,6 +61,11 @@ export interface GridTableProps {
   /** CSS max-height of the scroll area. */
   maxHeight?: string;
   interaction?: GridInteraction;
+  /**
+   * Read-only table whose input cells can be opened (the aggregate view lists the teams behind a figure).
+   * Reachable from the keyboard: opened cells take focus and respond to Enter / Space.
+   */
+  onCellActivate?: (activation: CellActivation) => void;
   /** The scroll area, for callers that need to measure cells or scroll them into view. */
   containerRef?: Ref<HTMLDivElement>;
   /** Drawn on top of the table inside the scrolling area (the cell editor). */
@@ -109,6 +122,7 @@ export default function GridTable({
   onlyInputRows = false,
   maxHeight = '70vh',
   interaction,
+  onCellActivate,
   containerRef,
   children,
 }: GridTableProps) {
@@ -311,6 +325,9 @@ export default function GridTable({
                   css.outlineOffset = '-2px';
                 }
 
+                const activatable = !!onCellActivate && !interaction && view.kind === 'input' && !!view.field;
+                if (activatable) css.cursor = 'pointer';
+
                 const frozenRow = r < freezeRows;
                 const frozenCol = c < freezeCols;
                 if (frozenRow || frozenCol) {
@@ -362,6 +379,33 @@ export default function GridTable({
                     onMouseDown={interaction ? (e) => interaction.onCellMouseDown({ row: r, col: c }, e) : undefined}
                     onMouseEnter={interaction ? (e) => interaction.onCellMouseEnter({ row: r, col: c }, e) : undefined}
                     onDoubleClick={interaction ? (e) => interaction.onCellDoubleClick({ row: r, col: c }, e) : undefined}
+                    tabIndex={activatable ? 0 : undefined}
+                    aria-haspopup={activatable ? 'dialog' : undefined}
+                    onClick={
+                      activatable
+                        ? (e) =>
+                            onCellActivate?.({
+                              field: view.field as GridField,
+                              sheetName: sheet.name,
+                              address,
+                              element: e.currentTarget,
+                            })
+                        : undefined
+                    }
+                    onKeyDown={
+                      activatable
+                        ? (e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return;
+                            e.preventDefault();
+                            onCellActivate?.({
+                              field: view.field as GridField,
+                              sheetName: sheet.name,
+                              address,
+                              element: e.currentTarget,
+                            });
+                          }
+                        : undefined
+                    }
                     rowSpan={span.rowSpan > 1 ? span.rowSpan : undefined}
                     colSpan={span.colSpan > 1 ? span.colSpan : undefined}
                     style={css}
