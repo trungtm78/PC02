@@ -8,6 +8,7 @@ import type { ScheduleRule } from '../engine/period';
 import type { SaveReportConfigDto } from './dto/save-report-config.dto';
 import { detectUnsupportedFeatures } from '../template/unsupported-features';
 import { parseTemplateInWorker, TemplateParseTimeoutError } from '../template/parse-in-worker';
+import { RunnerBusyError } from '../template/bounded-runner';
 import { TemplateLimitError } from '../template/limits';
 import { reconcileFieldsWithWorkbook } from './publish-reconcile';
 import type { ParseTemplateResult } from '../template/types';
@@ -105,6 +106,11 @@ export class ReportConfigService {
     try {
       parsed = await parseTemplateInWorker(fileBuffer, input.selectedSheets);
     } catch (err) {
+      // Saturation is the server's condition, not a flaw in the file: say so, so the
+      // client retries instead of sending the user off to fix a template.
+      if (err instanceof RunnerBusyError) {
+        throw new ReportConfigError(err.message, 'WORKER_BUSY');
+      }
       if (err instanceof TemplateLimitError || err instanceof TemplateParseTimeoutError) {
         throw new ReportConfigError(err.message, 'TEMPLATE_INVALID');
       }
@@ -213,18 +219,6 @@ export class ReportConfigService {
     fileName: string,
     actorId: string,
   ): Promise<SaveReportConfigResult> {
-    let derived: ParseTemplateResult | null = null;
-    if (input.publish) {
-      this.validateForPublish(input);
-      await this.assertNoBlockingFeatureIssues(fileBuffer);
-      derived = await this.reconcileWithFile(input, fileBuffer);
-    } else if (input.fields.length === 0 && input.selectedSheets.length === 0) {
-      throw new ReportConfigError(
-        'Phải chọn ít nhất một sheet trước khi lưu nháp.',
-        'TEMPLATE_INVALID',
-      );
-    }
-
     const requestHash = this.requestHash(input, fileBuffer);
     const existingIdempotency =
       await this.prisma.dynReportIdempotency.findUnique({
@@ -248,6 +242,18 @@ export class ReportConfigService {
           existingIdempotency.resultRef,
         ) as SaveReportConfigResult;
       }
+    }
+
+    let derived: ParseTemplateResult | null = null;
+    if (input.publish) {
+      this.validateForPublish(input);
+      await this.assertNoBlockingFeatureIssues(fileBuffer);
+      derived = await this.reconcileWithFile(input, fileBuffer);
+    } else if (input.fields.length === 0 && input.selectedSheets.length === 0) {
+      throw new ReportConfigError(
+        'Phải chọn ít nhất một sheet trước khi lưu nháp.',
+        'TEMPLATE_INVALID',
+      );
     }
 
     const status = input.publish ? 'PUBLISHED' : 'DRAFT';

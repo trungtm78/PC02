@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { SaveReportConfigDto } from './dto/save-report-config.dto';
 import * as inWorker from '../template/parse-in-worker';
 import { TemplateLimitError } from '../template/limits';
+import { RunnerBusyError } from '../template/bounded-runner';
 import type { ParseTemplateResult } from '../template/types';
 
 // `save()` re-reads the uploaded file in a worker at publish time (OV3). These
@@ -741,6 +742,48 @@ describe('ReportConfigService', () => {
       expect(parseInWorker).not.toHaveBeenCalled();
       const stored = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { layout: { layout: unknown } } }).data.layout;
       expect(stored.layout).toEqual({ sheetOrder: ['Đội 3'], sheets: [] });
+    });
+  });
+  describe('retries and saturation around the publish-time parse (Codex G1c)', () => {
+    it('an identical retry of a COMPLETED publish returns the cached result without re-parsing', async () => {
+      const input = fullPublishableInput();
+      const tx = buildTx();
+      const { service, prisma } = buildService(tx);
+      // First call computes the hash the service stores; reuse it as the cached row.
+      const hash = (service as unknown as {
+        requestHash(i: SaveReportConfigDto, b: Buffer): string;
+      }).requestHash(input, BUF);
+      prisma.dynReportIdempotency.findUnique.mockResolvedValue({
+        requestHash: hash,
+        resultRef: JSON.stringify({ reportId: 'rep1', versionId: 'ver1', status: 'PUBLISHED' }),
+      });
+      // Workers saturated: a retry must not depend on them.
+      parseInWorker.mockRejectedValue(new RunnerBusyError());
+
+      await expect(service.save(input, BUF, 'mau.xlsx', 'actor1')).resolves.toEqual({
+        reportId: 'rep1',
+        versionId: 'ver1',
+        status: 'PUBLISHED',
+      });
+      expect(parseInWorker).not.toHaveBeenCalled();
+      expect(tx.dynReport.create).not.toHaveBeenCalled();
+    });
+
+    it('a changed request under a used key is still rejected as a mismatch, before any parse', async () => {
+      const { service, prisma } = buildService(buildTx());
+      prisma.dynReportIdempotency.findUnique.mockResolvedValue({ requestHash: 'something-else', resultRef: '{}' });
+      await expect(service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1')).rejects.toMatchObject({
+        code: 'IDEMPOTENCY_MISMATCH',
+      });
+      expect(parseInWorker).not.toHaveBeenCalled();
+    });
+
+    it('worker saturation is reported as WORKER_BUSY (retry later), never as an invalid template', async () => {
+      parseInWorker.mockRejectedValue(new RunnerBusyError());
+      const { service } = buildService(buildTx());
+      await expect(service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1')).rejects.toMatchObject({
+        code: 'WORKER_BUSY',
+      });
     });
   });
 });

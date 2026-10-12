@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  ServiceUnavailableException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -71,6 +72,10 @@ export class ReportConfigController {
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_CODE_TAKEN') {
           throw new ConflictException({ code: err.code, message: err.message });
+        }
+        if (err.code === 'WORKER_BUSY') {
+          // Retry later: nothing is wrong with what the user sent.
+          throw new ServiceUnavailableException({ code: err.code, message: err.message });
         }
         throw new BadRequestException({ code: err.code, message: err.message });
       }
