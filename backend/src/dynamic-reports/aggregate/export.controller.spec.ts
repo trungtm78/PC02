@@ -57,9 +57,30 @@ describe('ExportController', () => {
     );
     expect(res.setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
-      'attachment; filename="HSLN-2026-06.xlsx"',
+      `attachment; filename="HSLN-2026-06.xlsx"; filename*=UTF-8''HSLN-2026-06.xlsx`,
     );
     expect(res.send).toHaveBeenCalledWith(fileBytes);
+  });
+
+  it('a Vietnamese report name does not make the download fail (Node rejects letters above U+00FF in a header)', async () => {
+    service.getExportForDownload.mockResolvedValue({
+      fileBytes: Buffer.from('x'),
+      fileName: 'Thống-kê-vụ-việc-2026-11.xlsx',
+    });
+    const headers: Record<string, string> = {};
+    const strictRes = {
+      setHeader: (k: string, v: string) => {
+        // What Node itself does with a header value.
+        if (/[^	 -~-ÿ]/.test(v)) throw new TypeError('ERR_INVALID_CHAR');
+        headers[k] = v;
+      },
+      send: jest.fn(),
+    };
+
+    await controller.download('export1', user, strictRes as never);
+
+    expect(headers['Content-Disposition']).toContain(`filename*=UTF-8''${encodeURIComponent('Thống-kê-vụ-việc-2026-11.xlsx')}`);
+    expect(strictRes.send).toHaveBeenCalled();
   });
 
   it('rethrows a 404 unchanged (anti-probe — no SubmissionError wrapping)', async () => {

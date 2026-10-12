@@ -92,7 +92,7 @@ describe('SubmissionController', () => {
     );
     expect(res.setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
-      'attachment; filename="HSLN-Doi-3-2026-06.xlsx"',
+      `attachment; filename="HSLN-Doi-3-2026-06.xlsx"; filename*=UTF-8''HSLN-Doi-3-2026-06.xlsx`,
     );
     // The plain-list fallback is announced so a client can tell the officer the template was not used.
     expect(res.setHeader).toHaveBeenCalledWith('X-Export-Format', 'LIST');

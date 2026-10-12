@@ -16,6 +16,7 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AggregateService } from './aggregate.service';
 import { SubmissionError } from '../submission/submission.service';
+import { attachmentDisposition } from '../attachment-disposition.util';
 
 interface AuthenticatedUser {
   id: string;
@@ -52,10 +53,7 @@ export class ExportController {
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${fileName}"`,
-      );
+      res.setHeader('Content-Disposition', attachmentDisposition(fileName));
       res.send(fileBytes);
     } catch (err) {
       if (err instanceof NotFoundException) throw err;

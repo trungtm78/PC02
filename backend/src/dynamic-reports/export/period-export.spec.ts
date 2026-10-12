@@ -2,7 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-import { buildPeriodWorkbook, PeriodExportTooLargeError, PERIOD_EXPORT_MAX_SHEETS } from './period-export';
+import {
+  buildPeriodWorkbook,
+  PeriodExportTooLargeError,
+  PeriodExportUnsupportedError,
+  PERIOD_EXPORT_MAX_SHEETS,
+} from './period-export';
 import type { PeriodExportRequest, PeriodExportScope } from './period-export';
 import { META_SHEET_NAME, readExportMeta } from './template-export';
 import type { ExportField } from './template-export';
@@ -408,5 +413,137 @@ describe('buildPeriodWorkbook — every copy of a real template looks like the t
         }
       }
     }
+  });
+});
+
+/**
+ * Found by review (Codex, G5b), each reproduced: places where a copy could quietly read or show somebody
+ * else's number, or the build could fail on an ordinary template.
+ */
+describe('buildPeriodWorkbook — templates that are not tidy', () => {
+  async function build(
+    make: (wb: ExcelJS.Workbook) => void,
+    selected: string[],
+    fields: ExportField[],
+    teamLabel = 'Beta',
+    totalOutcomes: Record<string, FormulaOutcome> | null = {},
+  ) {
+    const wb = new ExcelJS.Workbook();
+    make(wb);
+    const template = Buffer.from(await wb.xlsx.writeBuffer());
+    const grid = await gridOf(template);
+    const req: PeriodExportRequest = {
+      selectedSheets: selected,
+      fields,
+      scopes: [
+        { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: {} },
+        { scope: 't1', label: teamLabel, kind: 'TEAM', values: {} },
+      ],
+      grid,
+      totalOutcomes,
+      meta: { kind: 'PERIOD' },
+    };
+    const built = await buildPeriodWorkbook(template, req);
+    return { ...built, wb: await reload(built.buffer) };
+  }
+
+  const formulaOf = (wb: ExcelJS.Workbook, sheet: string, addr: string) =>
+    (wb.getWorksheet(sheet)?.getCell(addr).value as { formula?: string } | null)?.formula;
+
+  it('a reference to a sheet that is not in the report cannot land on a copy that happens to carry its name', async () => {
+    // "Alpha" is dropped (not selected) — and a team is called "Alpha", so a sheet named "Alpha" exists in the file.
+    const { wb, outcome } = await build(
+      (b) => {
+        b.addWorksheet('Input').getCell('B1').value = { formula: 'Alpha!A1+1', result: 2 };
+        b.addWorksheet('Alpha').getCell('A1').value = 1;
+      },
+      ['Input'],
+      [],
+      'Alpha',
+    );
+    expect(wb.getWorksheet('Alpha')).toBeDefined(); // the team's copy
+    expect(formulaOf(wb, 'Alpha', 'B1')).toBe('#REF!A1+1');
+    expect(outcome.unrewritten).toContain('Input!B1');
+  });
+
+  it('a reference spelt in another case still finds the report sheet it means', async () => {
+    const { wb } = await build(
+      (b) => {
+        b.addWorksheet('Input').getCell('A1').value = 5;
+        b.addWorksheet('Calc').getCell('A1').value = { formula: 'input!A1*2', result: 10 };
+      },
+      ['Input', 'Calc'],
+      [],
+    );
+    expect(formulaOf(wb, 'Beta - Calc', 'A1')).toBe("'Beta - Input'!A1*2");
+  });
+
+  it('a team called like the one sheet of the template does not stop the build', async () => {
+    const { wb } = await build(
+      (b) => {
+        b.addWorksheet('Alpha').getCell('A1').value = 5;
+      },
+      ['Alpha'],
+      [],
+      'Alpha',
+    );
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['TỔNG', 'Alpha', META_SHEET_NAME]);
+  });
+
+  it('the cells an array formula fills hold no stale sample number in either kind of copy', async () => {
+    const { wb } = await build(
+      (b) => {
+        const ws = b.addWorksheet('Input');
+        ws.getCell('A1').value = 1;
+        ws.getCell('A2').value = 2;
+        ws.getCell('B1').value = { formula: 'A1:A2*2', result: 2, shareType: 'array', ref: 'B1:B2' } as ExcelJS.CellValue;
+        ws.getCell('B2').value = 88; // the sample result of the second row
+      },
+      ['Input'],
+      [],
+    );
+    expect(wb.getWorksheet('TỔNG')?.getCell('B1').value).toBeNull();
+    expect(wb.getWorksheet('TỔNG')?.getCell('B2').value).toBeNull();
+    expect(wb.getWorksheet('Beta')?.getCell('B2').value).toBeNull();
+    expect(wb.getWorksheet('Beta')?.getCell('A1').value).toBe(1); // the rest of the sheet is untouched
+  });
+
+  it('a template whose formulas use a named range is refused, rather than exported with #NAME? in every team file', async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Input').getCell('A1').value = 5;
+    wb.addWorksheet('Calc').getCell('A1').value = { formula: 'Amount*2', result: 10 };
+    wb.definedNames.add('Input!$A$1', 'Amount');
+    const template = Buffer.from(await wb.xlsx.writeBuffer());
+    const grid = await gridOf(template);
+    await expect(
+      buildPeriodWorkbook(template, {
+        selectedSheets: ['Input', 'Calc'],
+        fields: [],
+        scopes: [{ scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: {} }],
+        grid,
+        totalOutcomes: {},
+        meta: {},
+      }),
+    ).rejects.toBeInstanceOf(PeriodExportUnsupportedError);
+  });
+
+  it('a defined name no formula uses (or the word inside a string or another name) does not block the export', async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Input').getCell('A1').value = 5;
+    const calc = wb.addWorksheet('Calc');
+    calc.getCell('A1').value = { formula: 'IF(1=1,"Amount","x")', result: 'Amount' };
+    calc.getCell('A2').value = { formula: 'AmountTotal+1', result: 1 };
+    wb.definedNames.add('Input!$A$1', 'Amount');
+    const template = Buffer.from(await wb.xlsx.writeBuffer());
+    const grid = await gridOf(template);
+    const { buffer } = await buildPeriodWorkbook(template, {
+      selectedSheets: ['Input', 'Calc'],
+      fields: [],
+      scopes: [{ scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: {} }],
+      grid,
+      totalOutcomes: {},
+      meta: {},
+    });
+    expect(buffer.length).toBeGreaterThan(0);
   });
 });

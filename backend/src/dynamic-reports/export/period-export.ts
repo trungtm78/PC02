@@ -70,6 +70,15 @@ export interface PeriodExportOutcome extends TemplateExportOutcome {
 export const PERIOD_EXPORT_MAX_SHEETS = 600;
 export const PERIOD_EXPORT_MAX_CELLS = 3_000_000;
 
+/** The template does something this export cannot reproduce faithfully; the caller falls back to a plain list. */
+export class PeriodExportUnsupportedError extends Error {
+  readonly code = 'EXPORT_UNSUPPORTED';
+  constructor(message: string) {
+    super(message);
+    this.name = 'PeriodExportUnsupportedError';
+  }
+}
+
 export class PeriodExportTooLargeError extends Error {
   readonly code = 'EXPORT_TOO_LARGE';
   constructor(message: string) {
@@ -117,6 +126,41 @@ function cloneSheet(workbook: ExcelJS.Workbook, source: ExcelJS.Worksheet, name:
   return copy;
 }
 
+/**
+ * A reference to a sheet that is not part of the report. Dropped with the sheet, it must not be left naming it:
+ * a team or total copy could carry the same name and the formula would quietly read that one. Excel's own
+ * spelling of a reference to a deleted sheet is `#REF!`.
+ */
+const DANGLING_SHEET = '__dr_dangling__';
+
+/**
+ * The cells an array formula fills besides its first one hold only its last result — for a template, the
+ * sample numbers of whoever made it. They are cleared (Excel fills them again when it recalculates) so no
+ * viewer shows a stale number as if it were a result.
+ */
+function clearArrayResults(ws: ExcelJS.Worksheet): void {
+  const ranges: Array<{ master: string; ref: string }> = [];
+  ws.eachRow({ includeEmpty: false }, (row) =>
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      const v = cell.value as unknown as { ref?: string; shareType?: string } | null;
+      if (v && typeof v === 'object' && v.shareType === 'array' && typeof v.ref === 'string') {
+        ranges.push({ master: cell.address, ref: v.ref });
+      }
+    }),
+  );
+  for (const { master, ref } of ranges) {
+    const [tl, br] = ref.split(':');
+    const a = decodeAddress(tl);
+    const b = decodeAddress(br ?? tl);
+    for (let r = a.row; r <= b.row; r++) {
+      for (let c = a.col; c <= b.col; c++) {
+        const cell = ws.getCell(r, c);
+        if (cell.address !== master) cell.value = null;
+      }
+    }
+  }
+}
+
 /** Re-points every explicit sheet name in the formulas of a copy at the copy of its own scope. */
 function rewriteFormulas(
   copy: ExcelJS.Worksheet,
@@ -133,10 +177,53 @@ function rewriteFormulas(
         if (v.formula.includes('!')) out.unrewritten.push(`${original}!${cell.address}`);
         return;
       }
-      const text = formatFormula(rewriteSheetRefs(parsed.expr, rename));
+      let dangling = false;
+      const text = formatFormula(
+        rewriteSheetRefs(parsed.expr, (sheet) => {
+          const target = rename(sheet);
+          if (target === DANGLING_SHEET) dangling = true;
+          return target;
+        }),
+      ).split(`${DANGLING_SHEET}!`).join('#REF!');
+      if (dangling) out.unrewritten.push(`${original}!${cell.address}`);
       if (text !== v.formula) cell.value = { ...(v as object), formula: text } as ExcelJS.CellValue;
     }),
   );
+}
+
+/** A formula's text without string literals and quoted sheet names, where a bare word can only be a name. */
+function bareWords(formula: string): string {
+  return formula.replace(/"(?:[^"]|"")*"/g, '""').replace(/'(?:[^']|'')*'/g, "''");
+}
+
+/**
+ * Workbook-level names the formulas of the report use (`Amount*2`). The copies would lose the names the originals
+ * had (a name points at ONE sheet, and the originals are replaced by one copy per scope), leaving `#NAME?` in every
+ * team's file; the export says it cannot reproduce such a template rather than hand out a quietly broken one.
+ */
+function assertNoNamedRangesInUse(workbook: ExcelJS.Workbook, originals: ExcelJS.Worksheet[]): void {
+  const model = (workbook.definedNames as unknown as { model?: Array<{ name: string }> }).model ?? [];
+  const names = model.map((n) => n.name).filter((n) => n && !n.startsWith('_xlnm.'));
+  if (names.length === 0) return;
+  const pattern = new RegExp(
+    `(?<![A-Za-z0-9_.!$'])(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![A-Za-z0-9_.(!'])`,
+    'i',
+  );
+  for (const ws of originals) {
+    let found: string | null = null;
+    ws.eachRow({ includeEmpty: false }, (row) =>
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        const v = cell.value as unknown;
+        if (found || !isFormulaValue(v) || typeof v.formula !== 'string') return;
+        if (pattern.test(bareWords(v.formula))) found = `${ws.name}!${cell.address}`;
+      }),
+    );
+    if (found) {
+      throw new PeriodExportUnsupportedError(
+        `Mẫu dùng tên vùng (named range) trong công thức (${found}) — file tổng hợp theo mẫu chưa tái tạo được.`,
+      );
+    }
+  }
 }
 
 /** What a totals cell shows in place of a formula: the figure the system reported, as a plain value. */
@@ -206,13 +293,24 @@ export async function buildPeriodWorkbook(
   const outcome: PeriodExportOutcome = { textNumbers: [], truncated: [], unresolvedTotals: [], unrewritten: [] };
   const names = allocateSheetNames(request.scopes, present);
   const originals = present.map((n) => workbook.getWorksheet(n) as ExcelJS.Worksheet);
+  assertNoNamedRangesInUse(workbook, originals);
 
-  // Copies are taken from the untouched originals, before any number is written anywhere.
+  // Excel compares sheet names case-insensitively: `input!A1` names the sheet "Input".
+  const canonical = new Map(present.map((n) => [n.toLowerCase(), n]));
+
+  // Copies are taken from the untouched originals, before any number is written anywhere. They are made
+  // under temporary names: a generated name (a team called like a template sheet — HSLN sheets ARE team
+  // names) would collide with the original that is still there.
   const copies = new Map<string, ExcelJS.Worksheet>();
+  let temporary = 0;
   for (const scope of request.scopes) {
-    const rename = (sheet: string): string => names.get(sheetNameKey(scope.scope, sheet)) ?? sheet;
+    const rename = (sheet: string): string => {
+      const original = canonical.get(sheet.toLowerCase());
+      return (original && names.get(sheetNameKey(scope.scope, original))) || DANGLING_SHEET;
+    };
     for (const original of originals) {
-      const copy = cloneSheet(workbook, original, rename(original.name));
+      const copy = cloneSheet(workbook, original, `__dr_tmp_${temporary++}`);
+      clearArrayResults(copy);
       if (scope.kind === 'TEAM') rewriteFormulas(copy, original.name, rename, outcome);
       copies.set(sheetNameKey(scope.scope, original.name), copy);
     }
@@ -223,6 +321,7 @@ export async function buildPeriodWorkbook(
     workbook.removeWorksheet(original.id);
   }
   dropNamesOfRemovedSheets(workbook, removed);
+  for (const [key, copy] of copies) copy.name = names.get(key) as string;
 
   for (const ws of workbook.worksheets) {
     // exceljs writes print areas / titles of a sheet whose name has an apostrophe with broken quoting,

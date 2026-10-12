@@ -40,6 +40,7 @@ import {
 } from './dto/review.dto';
 import { AddCommentDto } from './dto/add-comment.dto';
 import { XLSX_LIMITS } from '../../xlsx-imports/hostile-xlsx-guard';
+import { attachmentDisposition } from '../attachment-disposition.util';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
@@ -161,7 +162,7 @@ export class SubmissionController {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.send(fileBuffer);
   }
 
