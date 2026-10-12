@@ -11,10 +11,19 @@
  * own documented boundary ("không tự động chuyển đổi số ngày Excel").
  */
 
+import Decimal from 'decimal.js';
+
 export type ImportCellType = 'NUM' | 'TEXT' | 'DATE' | 'TIME';
 
 interface CellLike {
   value: unknown;
+}
+
+/** 1e-7 → "0.0000001": the canonical wire format never carries an exponent. */
+function numberToPlainDecimal(n: number): string {
+  const text = String(n);
+  if (!/e/i.test(text)) return text;
+  return new Decimal(n).toFixed();
 }
 
 function pad2(n: number): string {
@@ -53,7 +62,7 @@ export function readImportCellRaw(
 
   switch (type) {
     case 'NUM': {
-      if (typeof raw === 'number') return String(raw);
+      if (typeof raw === 'number') return numberToPlainDecimal(raw);
       if (typeof raw === 'string' && raw.trim() !== '') return raw.trim();
       return undefined;
     }

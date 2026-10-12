@@ -1122,6 +1122,20 @@ thứ khác (ô gộp, viền, màu, font, độ rộng, định dạng số, d�
 - **Giới hạn đã biết (ghi nhận, không giấu):** exceljs không đọc lại kết quả công thức FALSE/0 (file thì ghi đúng); bộ tính coi TRUE
   trong phép tính trực tiếp là lỗi thay vì 1 như Excel (từ chối còn hơn đoán). Còn lại cho G5b: xuất của QUẢN LÝ (TỔNG ghi hằng +
   mỗi tổ một bộ sheet, nhân bản sheet, viết lại tham chiếu chéo sheet).
+- **Codex review G5a (12 phát hiện) — sửa 10, ghi nhận 2:**
+  (1) *P1 riêng tư:* `removeWorksheet` của exceljs để lại ẢNH của sheet bị bỏ trong gói → lộ ảnh của tổ khác khi đổi đuôi .zip; nay
+  cắt mọi tệp `xl/media` không còn được phần nào tham chiếu. (2) *P1 tài nguyên:* việc tính công thức chạy ở luồng chính trước khi
+  vào worker → chuyển trọn vào worker (yêu cầu mang mô hình lưới, không mang kết quả). (3) công thức chưa chắc đúng (mảng, hàm ngoài
+  ngữ pháp, ngày dùng trong phép tính) không còn ghi số đoán mò: chỉ ghi `#DIV/0!` khi thật sự chia 0, còn lại KHÔNG ghi giá trị lưu sẵn
+  (trống khi xem trước còn hơn sai). (4) ô SỐ đặt trong ô có định dạng ngày → đổi về General để nhập lại đọc ra số. (5) lịch 1904: giờ/ngày
+  dùng đúng mốc của sổ, không còn serial âm. (6) số thập phân rất nhỏ (`0,0000001`) nhập lại không còn thành `1e-7`. (7) chữ dài hơn 32.767 ký
+  tự (trần của một ô Excel) bị cắt + ghi vào sheet danh tính thay vì làm Excel báo hỏng file; danh sách ô chữ-số mỗi ô một dòng. (8) tên
+  mọi tên định nghĩa trỏ vào sheet đã bỏ được xoá. (9) sheet có dấu nháy đơn ('): exceljs ghi sai vùng in → bỏ vùng in/tiêu đề in của sheet đó.
+  (10) tên sheet `__dr_meta` được dành riêng: mẫu chọn sheet này bị chặn lúc xuất bản (lỗi `RESERVED_SHEET_NAME`); lượt xuất rơi về danh sách
+  nay có header `X-Export-Format: LIST` để giao diện báo cho cán bộ.
+  **Ghi nhận, chưa sửa:** (a) ô nhập số quá 15 chữ số ghi dạng chữ nên công thức SUM trong Excel bỏ qua ô đó khi tính lại — đúng với quyết
+  định OV4 (không làm tròn im lặng) nhưng tổng sẽ khác web; nên cảnh báo ở bước thiết lập; (b) công thức mảng (array formula) không được
+  hỗ trợ ở bộ tính; các ô theo sau của mảng giữ số mẫu cũ — nên chặn/cảnh báo mẫu có công thức mảng lúc xuất bản.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

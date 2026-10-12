@@ -153,8 +153,10 @@ export class SubmissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ) {
-    const { fileBuffer, fileName } =
+    const { fileBuffer, fileName, format } =
       await this.submissionService.exportOwnSubmission(assignmentId, user.id);
+    // LIST = the template could not be used and this is the plain fallback; clients may say so.
+    res.setHeader('X-Export-Format', format);
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

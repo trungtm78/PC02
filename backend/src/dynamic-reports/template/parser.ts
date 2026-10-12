@@ -1,4 +1,5 @@
 import * as ExcelJS from 'exceljs';
+import { META_SHEET_NAME } from '../export/meta-sheet';
 import { resolveEffectiveLocked } from './locked';
 import { classifyCell } from './classify';
 import { inferLabel } from './label';
@@ -86,6 +87,16 @@ export async function parseTemplate(
   let inputCellCount = 0;
 
   for (const sheetName of selectedSheetNames) {
+    if (sheetName === META_SHEET_NAME) {
+      issues.push({
+        sheetKey: sheetName,
+        address: '',
+        code: 'RESERVED_SHEET_NAME',
+        severity: 'ERROR',
+        message: `Tên sheet "${META_SHEET_NAME}" được hệ thống dành riêng cho file xuất. Hãy đổi tên sheet này trong file Excel rồi tải lên lại.`,
+      });
+      continue;
+    }
     const sheet = workbook.getWorksheet(sheetName);
     if (!sheet) {
       issues.push({

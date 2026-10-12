@@ -24,6 +24,9 @@ import type { GridModel } from '../engine/grid-types';
  */
 
 const REAL = path.join(__dirname, '../../../test/fixtures/dynamic-reports/real');
+
+// Loading a 17-sheet workbook takes seconds on a busy runner; jest's default 5 s is too tight.
+jest.setTimeout(30_000);
 const load = (stem: string) => fs.readFileSync(path.join(REAL, `${stem}.xlsx`));
 
 async function gridOf(buffer: Buffer, sheets?: string[]): Promise<GridModel> {

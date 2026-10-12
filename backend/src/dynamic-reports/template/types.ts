@@ -38,7 +38,8 @@ export type ParsedIssueCode =
   | CellIssueCode
   | 'LABEL_REQUIRED'
   | 'EXTERNAL_LINK_DETECTED'
-  | 'UNSUPPORTED_FEATURE';
+  | 'UNSUPPORTED_FEATURE'
+  | 'RESERVED_SHEET_NAME';
 
 export interface ParsedIssue {
   sheetKey: string;

@@ -199,3 +199,25 @@ describe('parseTemplate — real fixtures', () => {
     );
   });
 });
+
+describe('parseTemplate — the reserved sheet name', () => {
+  it('refuses a template whose chosen sheets include __dr_meta (the name exported files use for their identity)', async () => {
+    const buffer = await buildWorkbookBuffer((wb) => {
+      wb.addWorksheet('S').getCell('A1').value = 'x';
+      wb.addWorksheet('__dr_meta').getCell('A1').value = 'y';
+    });
+    const result = await parseTemplate(buffer, ['S', '__dr_meta']);
+    const issue = result.issues.find((i) => i.code === 'RESERVED_SHEET_NAME');
+    expect(issue).toMatchObject({ severity: 'ERROR', sheetKey: '__dr_meta' });
+    expect(issue?.message).toContain('dành riêng');
+  });
+
+  it('is fine when that sheet is merely present in the file but not chosen', async () => {
+    const buffer = await buildWorkbookBuffer((wb) => {
+      wb.addWorksheet('S').getCell('A1').value = 'x';
+      wb.addWorksheet('__dr_meta').getCell('A1').value = 'y';
+    });
+    const result = await parseTemplate(buffer, ['S']);
+    expect(result.issues.find((i) => i.code === 'RESERVED_SHEET_NAME')).toBeUndefined();
+  });
+});

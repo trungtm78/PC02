@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ExcelJS from 'exceljs';
-import { TemplateExportService, computeFormulaResults } from './template-export.service';
+import { TemplateExportService } from './template-export.service';
+import { computeFormulaResults } from './formula-results';
 import { META_SHEET_NAME } from './template-export';
 import { extractGridModel } from '../template/grid-extract';
 import { readRawGridInfo } from '../template/grid-raw';
@@ -11,6 +12,9 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import type { GridModelService } from '../grid/grid-model.service';
 
 const REAL = path.join(__dirname, '../../../test/fixtures/dynamic-reports/real');
+
+// The real worker compiles TypeScript on start-up; under a busy runner that takes longer than jest's default 5 s.
+jest.setTimeout(30_000);
 
 function sheet(name: string, cells: GridSheet['cells']): GridSheet {
   return {
@@ -62,6 +66,7 @@ describe('computeFormulaResults', () => {
       A3: { k: 'formula', f: '1/A1', s: 0 },
       A4: { k: 'formula', f: 'IF(A1>0,"dương","không")', s: 0 },
       A5: { k: 'formula', f: 'A1>0', s: 0 },
+      A6: { k: 'formula', f: '"abc"*2', s: 0 },
     }),
   ]);
 
@@ -85,9 +90,14 @@ describe('computeFormulaResults', () => {
     expect(r['S!A3']).toEqual({ kind: 'error', value: '#DIV/0!' });
   });
 
+  it('a formula the engine cannot judge gets NO cached value rather than a confident wrong one', () => {
+    const r = computeFormulaResults(model, [input('A1')], { 'S!A1': '1' });
+    expect(r['S!A6']).toEqual({ kind: 'none' });
+  });
+
   it('every formula of the model gets a result, and nothing else does', () => {
     const r = computeFormulaResults(model, [input('A1')], { 'S!A1': '1' });
-    expect(Object.keys(r).sort()).toEqual(['S!A2', 'S!A3', 'S!A4', 'S!A5']);
+    expect(Object.keys(r).sort()).toEqual(['S!A2', 'S!A3', 'S!A4', 'S!A5', 'S!A6']);
   });
 });
 

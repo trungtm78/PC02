@@ -1173,7 +1173,7 @@ export class SubmissionService {
   async exportOwnSubmission(
     assignmentId: string,
     userId: string,
-  ): Promise<{ fileBuffer: Buffer; fileName: string }> {
+  ): Promise<{ fileBuffer: Buffer; fileName: string; format: 'TEMPLATE' | 'LIST' }> {
     const assignment = await this.loadEditorAssignment(
       this.prisma,
       assignmentId,
@@ -1191,6 +1191,7 @@ export class SubmissionService {
     >;
 
     let fileBuffer: Buffer;
+    let format: 'TEMPLATE' | 'LIST' = 'TEMPLATE';
     try {
       fileBuffer = await this.templateExport.buildTeamFile({
         versionId: period.versionId,
@@ -1217,6 +1218,7 @@ export class SubmissionService {
       this.logger.warn(
         `Xuất theo mẫu thất bại cho lượt giao ${assignmentId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
       );
+      format = 'LIST';
       fileBuffer = await this.buildListWorkbook(
         period.version.fields,
         values,
@@ -1225,7 +1227,7 @@ export class SubmissionService {
     }
 
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${sanitizeFileNamePart(teamName)}-${period.periodKey}.xlsx`;
-    return { fileBuffer, fileName };
+    return { fileBuffer, fileName, format };
   }
 
   /** The plain "Sheet / Chỉ tiêu / Giá trị" workbook: the fallback when the template itself cannot be used. */
