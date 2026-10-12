@@ -31,8 +31,21 @@ describe('PeriodSchedulerService', () => {
     };
   }
 
-  function buildService(tx: ReturnType<typeof buildTx>, locked = true) {
-    tx.$queryRaw.mockResolvedValue([{ locked }]);
+  function buildService(
+    tx: ReturnType<typeof buildTx>,
+    locked = true,
+    reportStatus: string | null = 'PUBLISHED',
+  ) {
+    // Two raw queries: the advisory lock, and the per-report status re-read under FOR SHARE.
+    tx.$queryRaw.mockImplementation((strings: TemplateStringsArray) =>
+      Promise.resolve(
+        strings.join(' ').includes('pg_try_advisory')
+          ? [{ locked }]
+          : reportStatus === null
+            ? []
+            : [{ status: reportStatus }],
+      ),
+    );
     const prisma = {
       $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
     };
@@ -53,6 +66,36 @@ describe('PeriodSchedulerService', () => {
     await service.run();
 
     expect(tx.dynReport.findMany).not.toHaveBeenCalled();
+  });
+
+  it('does not generate for a report archived or suspended after the tick read it (the status is re-read under lock)', async () => {
+    const tx = buildTx();
+    tx.dynReport.findMany.mockResolvedValue([
+      {
+        id: 'rep1',
+        schedules: [
+          {
+            id: 'sch1',
+            periodType: 'MONTHLY',
+            periodStartDay: null,
+            dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
+            openRule: { kind: 'AT_PERIOD_START' },
+            shiftNonWorking: false,
+            oneTimeDate: null,
+            lastGeneratedThrough: null,
+            effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+          },
+        ],
+      },
+    ]);
+    for (const status of ['ARCHIVED', 'SUSPENDED', null]) {
+      const { service } = buildService(tx, true, status);
+      await service.run();
+    }
+
+    expect(tx.dynReportVersion.findFirst).not.toHaveBeenCalled();
+    expect(tx.dynReportPeriod.create).not.toHaveBeenCalled();
+    expect(tx.dynReportSchedule.update).not.toHaveBeenCalled();
   });
 
   it('does nothing when there are no PUBLISHED reports', async () => {

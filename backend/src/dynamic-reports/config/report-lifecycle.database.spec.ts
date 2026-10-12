@@ -203,6 +203,29 @@ run('ReportLifecycleService on PostgreSQL', () => {
     );
   });
 
+  it('a figure saved while the delete is waiting is not deleted: the check is made again under lock (found by Codex)', async () => {
+    const id = await buildReport('race', false); // nobody has entered anything yet, so the early check passes
+
+    // An editor saving: a save holds its period FOR SHARE, writes the submission, and is still open for a moment.
+    const save = db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM dyn_report_periods WHERE "reportId" = ${id} FOR SHARE`;
+      await tx.dynReportSubmission.updateMany({
+        where: { assignment: { period: { reportId: id } } },
+        data: { state: 'DRAFT', currentRevision: 1 },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200)); // let the save take its locks first
+
+    const removal = svc.deleteReport(id, { withData: false }, userId);
+
+    await expect(removal).rejects.toMatchObject({ code: 'HAS_DATA' });
+    await save;
+    expect((await rowsLeft(id)).report).toBe(1);
+    expect((await rowsLeft(id)).submissions).toBe(1);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it('a report that does not exist is REPORT_NOT_FOUND', async () => {
     await expect(svc.deleteReport('missing', { withData: false }, userId)).rejects.toMatchObject({ code: 'REPORT_NOT_FOUND' });
   });

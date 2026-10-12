@@ -4,6 +4,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { ReportConfigError } from './report-config.service';
 
+/** Either the connection or a transaction on it: the same queries run against both. */
+type DbClient = PrismaService | Prisma.TransactionClient;
+
 export interface ReportDeletionImpact {
   reportId: string;
   code: string;
@@ -37,32 +40,37 @@ export class ReportLifecycleService {
     private readonly audit: AuditService,
   ) {}
 
-  private async loadReport(reportId: string) {
-    const report = await this.prisma.dynReport.findUnique({ where: { id: reportId } });
+  private async loadReport(reportId: string, client: DbClient = this.prisma) {
+    const report = await client.dynReport.findUnique({ where: { id: reportId } });
     if (!report) {
       throw new ReportConfigError('Không tìm thấy báo cáo này.', 'REPORT_NOT_FOUND');
     }
     return report;
   }
 
-  async getDeletionImpact(reportId: string): Promise<ReportDeletionImpact> {
-    const report = await this.loadReport(reportId);
+  getDeletionImpact(reportId: string): Promise<ReportDeletionImpact> {
+    return this.computeImpact(this.prisma, reportId);
+  }
+
+  /** Counts through whichever client it is given, so the delete can recount INSIDE its own transaction, under lock. */
+  private async computeImpact(client: DbClient, reportId: string): Promise<ReportDeletionImpact> {
+    const report = await this.loadReport(reportId, client);
     const periodWhere = { period: { reportId } };
     const [versions, periods, finalizedPeriods, assignments, submissionsWithData, revisions, comments, unlocks] =
       await Promise.all([
-        this.prisma.dynReportVersion.count({ where: { reportId } }),
-        this.prisma.dynReportPeriod.count({ where: { reportId } }),
-        this.prisma.dynReportPeriod.count({ where: { reportId, status: 'FINALIZED' } }),
-        this.prisma.dynReportAssignment.count({ where: periodWhere }),
-        this.prisma.dynReportSubmission.count({
+        client.dynReportVersion.count({ where: { reportId } }),
+        client.dynReportPeriod.count({ where: { reportId } }),
+        client.dynReportPeriod.count({ where: { reportId, status: 'FINALIZED' } }),
+        client.dynReportAssignment.count({ where: periodWhere }),
+        client.dynReportSubmission.count({
           where: {
             assignment: periodWhere,
             OR: [{ state: { not: 'NOT_STARTED' } }, { currentRevision: { gt: 0 } }],
           },
         }),
-        this.prisma.dynReportRevision.count({ where: { submission: { assignment: periodWhere } } }),
-        this.prisma.dynReportComment.count({ where: { assignment: periodWhere } }),
-        this.prisma.dynReportUnlock.count({ where: { assignment: periodWhere } }),
+        client.dynReportRevision.count({ where: { submission: { assignment: periodWhere } } }),
+        client.dynReportComment.count({ where: { assignment: periodWhere } }),
+        client.dynReportUnlock.count({ where: { assignment: periodWhere } }),
       ]);
     return {
       reportId,
@@ -116,23 +124,18 @@ export class ReportLifecycleService {
     opts: { withData: boolean; confirmCode?: string },
     actorId: string,
   ): Promise<{ deleted: true; impact: ReportDeletionImpact }> {
-    const impact = await this.getDeletionImpact(reportId);
-    if (impact.hasData && !opts.withData) {
-      throw new ReportConfigError(
-        'Báo cáo đã có số liệu nên không xoá thường được. Hãy lưu trữ báo cáo, hoặc xoá kèm số liệu (chỉ quản trị viên).',
-        'HAS_DATA',
-      );
-    }
-    if (opts.withData && opts.confirmCode !== impact.code) {
-      throw new ReportConfigError(
-        'Phải gõ đúng mã báo cáo để xác nhận xoá kèm số liệu.',
-        'CONFIRMATION_REQUIRED',
-      );
-    }
+    // A quick refusal before any lock is taken; the decision that counts is made again below, under lock.
+    const early = await this.getDeletionImpact(reportId);
+    this.assertMayDelete(early, opts);
 
-    await this.prisma.$transaction(async (tx) => {
-      // Lock the report row so a scheduler tick or a concurrent save cannot add rows under it half-way through.
+    const impact = await this.prisma.$transaction(async (tx) => {
+      // Lock order: report, then its periods. A figure being saved holds its period (FOR SHARE) before it touches
+      // the submission, so taking the periods FOR UPDATE here waits for every save in flight to commit, and holds
+      // back the next ones until the rows are gone. Only THEN is the question "has anybody entered anything" asked.
       await tx.$queryRaw`SELECT id FROM dyn_reports WHERE id = ${reportId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM dyn_report_periods WHERE "reportId" = ${reportId} FOR UPDATE`;
+      const impact = await this.computeImpact(tx, reportId);
+      this.assertMayDelete(impact, opts);
       await this.removeAll(tx, reportId);
       await this.audit.log(
         {
@@ -153,8 +156,21 @@ export class ReportLifecycleService {
         },
         tx,
       );
+      return impact;
     });
     return { deleted: true, impact };
+  }
+
+  private assertMayDelete(impact: ReportDeletionImpact, opts: { withData: boolean; confirmCode?: string }): void {
+    if (impact.hasData && !opts.withData) {
+      throw new ReportConfigError(
+        'Báo cáo đã có số liệu nên không xoá thường được. Hãy lưu trữ báo cáo, hoặc xoá kèm số liệu (chỉ quản trị viên).',
+        'HAS_DATA',
+      );
+    }
+    if (opts.withData && opts.confirmCode !== impact.code) {
+      throw new ReportConfigError('Phải gõ đúng mã báo cáo để xác nhận xoá kèm số liệu.', 'CONFIRMATION_REQUIRED');
+    }
   }
 
   /** Children before parents: every relation under a report is Restrict, so the order is the whole job. */

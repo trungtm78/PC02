@@ -836,8 +836,12 @@ describe('AggregateService', () => {
           findUnique: jest.fn<Promise<unknown>, unknown[]>(),
         },
         team: { findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]) },
+        // The export row goes in under a FOR SHARE lock on the period (a deleted report's figures must not come back).
+        $queryRaw: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([{ id: 'period1' }]),
+        $transaction: jest.fn<Promise<unknown>, [(t: unknown) => Promise<unknown>]>(),
         ...overrides,
       };
+      prisma.$transaction.mockImplementation((fn) => fn(prisma));
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
@@ -847,6 +851,14 @@ describe('AggregateService', () => {
       );
       return { service, prisma };
     }
+
+    it('writes nothing when the period was deleted while the workbook was being rendered', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }]);
+      prisma.$queryRaw.mockResolvedValue([]); // the period row is gone
+
+      await expect(service.exportPeriod('period1', 'mgr1', 'roleMgr')).rejects.toThrow(/không còn tồn tại/);
+      expect(prisma.dynReportExport.create).not.toHaveBeenCalled();
+    });
 
     it('creates an export with the correct file name using the live APPROVED aggregate for an OPEN period', async () => {
       const { service, prisma } = buildExportService(basePeriod(), [
