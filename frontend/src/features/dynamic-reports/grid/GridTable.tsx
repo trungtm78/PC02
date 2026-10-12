@@ -456,11 +456,11 @@ function GridSheetView({
   const freezeRows = sheet.freeze.rows;
   const freezeCols = sheet.freeze.cols;
 
-  const rows = drawnRowsOf(index, inputRows, onlyInputRows);
+  const rows = useMemo(() => drawnRowsOf(index, inputRows, onlyInputRows), [index, inputRows, onlyInputRows]);
 
   // Merged blocks are placed on what is actually drawn: a hidden or filtered-out
   // anchor row/column must not leave the block's remaining cells shifted.
-  const merges = layoutMerges(sheet, rows, index.visibleCols);
+  const merges = useMemo(() => layoutMerges(sheet, rows, index.visibleCols), [sheet, rows, index]);
 
   // The rows actually drawn: all of them, or — for a very large sheet — the window plus a spacer for each skipped stretch.
   let entries: ReadonlyArray<number | { gap: number }> = rows;
@@ -503,30 +503,36 @@ function GridSheetView({
 
   // A frozen row sticks just below the headers and the frozen rows above it.
   // Frozen rows are never filtered out, so they always stack the same way.
-  const frozenTop = (r: number): number => {
-    let top = headerH;
-    for (const vr of index.visibleRows) {
-      if (vr >= r) break;
-      if (vr < freezeRows) top += Math.round((sheet.rowHeightsPx[vr] ?? 0) * z);
-    }
-    return top;
-  };
+  const frozenTop = useMemo(
+    () =>
+      (r: number): number => {
+        let top = headerH;
+        for (const vr of index.visibleRows) {
+          if (vr >= r) break;
+          if (vr < freezeRows) top += Math.round((sheet.rowHeightsPx[vr] ?? 0) * z);
+        }
+        return top;
+      },
+    [headerH, index, freezeRows, sheet, z],
+  );
 
   const handlersRef = useRef<RowHandlers>({});
   handlersRef.current = { interaction, pick, onCellActivate };
   const shared = useMemo<RowShared>(
     () => ({ grid, sheet, index, evaluation, z, showHeaders, merges, rows, frozenTop }),
-    // `frozenTop` and `rows`/`merges` are rebuilt on each render but only change meaning with these inputs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [grid, sheet, index, evaluation, z, showHeaders, onlyInputRows, inputRows],
+    [grid, sheet, index, evaluation, z, showHeaders, merges, rows, frozenTop],
   );
   // The selected block shades only the rows it touches, so a move of the cursor rebuilds those rows alone.
   const shadedBlock = interaction?.selection ?? pick?.selection ?? null;
+  // Keyed by the row that DRAWS a block (its first drawn row — not its anchor when the anchor's row is hidden).
   const blockBottom = useMemo(() => {
     const out = new Map<number, number>();
-    for (const m of sheet.merges) out.set(m.top, Math.max(out.get(m.top) ?? m.top, m.bottom));
+    for (const [ownerKey, drawn] of merges.owners) {
+      const row = Number(ownerKey.slice(0, ownerKey.indexOf(',')));
+      out.set(row, Math.max(out.get(row) ?? row, drawn.merge.bottom));
+    }
     return out;
-  }, [sheet]);
+  }, [merges]);
   const rowShaded = (row: number): Rect | null =>
     shadedBlock && shadedBlock.bottom >= row && shadedBlock.top <= (blockBottom.get(row) ?? row) ? shadedBlock : null;
 

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { FeatureFlagsContext } from '@/lib/features/featureFlagsContextObject';
 
 /**
  * Which way the figures of a dynamic report are shown: the template as a grid (the form the officers already
@@ -47,7 +48,11 @@ export function useGridLayout(): {
   /** False when the emergency switch is off: the grid cannot be opened and no switch is offered. */
   gridAllowed: boolean;
 } {
-  const gridAllowed = useFeatureBatMacDinh(GRID_FLAG);
+  const switchedOn = useFeatureBatMacDinh(GRID_FLAG);
+  // Until the flags have been read, the emergency switch cannot be known: the safe view (the list) is shown rather
+  // than a grid that may be about to be switched off. Without a flag provider there is nothing to wait for.
+  const flagsLoading = useContext(FeatureFlagsContext)?.isLoading === true;
+  const gridAllowed = switchedOn && !flagsLoading;
   const [choice, setChoice] = useState<LayoutMode>(initialChoice);
   return {
     layoutMode: gridAllowed ? choice : 'list',

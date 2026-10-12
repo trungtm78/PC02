@@ -1228,6 +1228,8 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
   trang sẵn sàng 1,2 s (gồm tải ứng dụng + tải/phân tích mô hình), lưới hiện thêm ~100 ms; DOM chỉ 56 dòng/1.082 ô khi mở, 80 dòng/1.540 ô sau khi cuộn tới cuối (không phải 49.900); gõ → vẽ **45 ms**
   (đo trong trang); cuộn bằng bánh xe 60 lần × 120 px: **60 fps, 0/90 khung quá 33 ms** (trung vị 16,7 ms). Bản đầu đo được 4,5–12 fps vì mỗi lần cuộn dựng lại mọi ô đang vẽ: nay mỗi dòng là một
   `memo` (`GridRow`) chỉ dựng lại khi dữ liệu của chính nó đổi, khối chọn chỉ tô các dòng nó chạm, cửa sổ đi theo bước 100 px.
+- Codex vòng 2 (hàng `memo` + công tắc): 3 phát hiện đã vá — khối ô gộp có dòng neo bị ẩn không được tô khi vùng chọn chỉ chạm dòng sau (`blockBottom` nay lấy từ khối ĐÃ vẽ, có ca kiểm đỏ trên mã cũ);
+  `invalid`/`required` của `GridEntry` là `Set` mới mỗi lần vẽ làm `memo` vô hiệu trong lưới nhập (nay `useMemo`); công tắc khẩn: khi cờ đang tải thì hiện danh sách chứ không dựng lưới rồi mới biết cờ tắt.
 - **Kiểm bằng trình duyệt thật cho lưới nhập (S11), 3 engine** (báo cáo 6 dòng chữ+số đã xuất bản thật; origin HTTP): gõ số + Enter/Tab, Enter xuống dòng, công thức SUM tính lại, F2 + Esc không đổi giá trị, Delete/Ctrl+Z/Ctrl+Y,
   gõ vào ô khoá không đổi gì, Ctrl+K trong lưới KHÔNG mở tìm kiếm toàn cục, chữ tiếng Việt "Việt" (Chromium: ghép IME qua CDP `imeSetComposition`; WebKit/Firefox: `insertText`), dán 2 dòng, tự lưu rồi tải lại vẫn còn.
   **Chromium 15/15, WebKit 15/15, Firefox 14/14 — riêng bước dán trên Firefox CHƯA KIỂM** (engine không cho script dựng ClipboardEvent có dữ liệu; đường dán đã có ca kiểm đơn vị và chạy thật trên 2 engine kia). Gõ tiếng Việt bằng bộ gõ thật (Unikey/Telex) trên máy người dùng vẫn nên thử tay.

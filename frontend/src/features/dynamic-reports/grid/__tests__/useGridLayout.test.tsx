@@ -56,6 +56,21 @@ describe('useGridLayout', () => {
     expect(result.current.layoutMode).toBe('list');
   });
 
+  it('while the flags are still being read the list is shown, then the grid opens (never a grid that is about to be switched off)', () => {
+    stubScreen(false);
+    let loading = true;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <FeatureFlagsContext.Provider value={{ flags: new Map(), isLoading: loading } as never}>{children}</FeatureFlagsContext.Provider>
+    );
+    const { result, rerender } = renderHook(() => useGridLayout(), { wrapper });
+    expect(result.current.layoutMode).toBe('list');
+    expect(result.current.gridAllowed).toBe(false);
+    loading = false;
+    rerender();
+    expect(result.current.gridAllowed).toBe(true);
+    expect(result.current.layoutMode).toBe('grid');
+  });
+
   it('the emergency switch brings the list back for everyone, and the grid cannot be opened', () => {
     stubScreen(false);
     const { result } = renderHook(() => useGridLayout(), { wrapper: flagsWith(false) });
