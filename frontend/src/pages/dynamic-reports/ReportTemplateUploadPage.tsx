@@ -645,7 +645,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
         {step === 'schedule' && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportScheduleStep
-              initial={copyFrom?.schedule ? scheduleOf(copyFrom.schedule) : undefined}
+              initial={schedule ?? (copyFrom?.schedule ? scheduleOf(copyFrom.schedule) : undefined)}
               onBack={() => setStep('preview')}
               onNext={(rule) => {
                 setSchedule(rule);
@@ -658,12 +658,20 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
         {step === 'teams' && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportTeamsStep
-              initialRoles={copyFrom?.roles.map((r) => ({
-                userId: r.userId,
-                role: r.role,
-                ...(r.teamScopeId ? { teamScopeId: r.teamScopeId } : {}),
-              }))}
-              initialTargets={copyFrom?.targets.map((t) => ({ teamId: t.teamId, editorUserIds: t.editors.map((e) => e.userId) }))}
+              initialRoles={
+                roles.length > 0
+                  ? roles
+                  : copyFrom?.roles.map((r) => ({
+                      userId: r.userId,
+                      role: r.role,
+                      ...(r.teamScopeId ? { teamScopeId: r.teamScopeId } : {}),
+                    }))
+              }
+              initialTargets={
+                targets.length > 0
+                  ? targets
+                  : copyFrom?.targets.map((t) => ({ teamId: t.teamId, editorUserIds: t.editors.map((e) => e.userId) }))
+              }
               teamNames={copyFrom ? Object.fromEntries(copyFrom.targets.map((t) => [t.teamId, t.teamName])) : undefined}
               onBack={() => setStep('schedule')}
               onNext={(r, t) => {
