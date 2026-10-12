@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Colour resolution for the grid model (G1). A workbook stores a colour four
  * ways — literal ARGB, a slot in the theme palette plus a tint, an index into
  * the legacy 64-colour palette, or "automatic" — and the browser understands
@@ -138,19 +138,21 @@ export function resolveColor(
   ctx: ColorContext,
 ): string | undefined {
   if (!color) return undefined;
+  // The tint attribute is part of every colour kind, not only theme slots.
+  const tint = typeof color.tint === 'number' ? color.tint : 0;
   if (typeof color.argb === 'string' && /^[0-9A-Fa-f]{6,8}$/.test(color.argb)) {
     const rgb = color.argb.length === 8 ? color.argb.slice(2) : color.argb;
-    return `#${rgb.toUpperCase()}`;
+    return `#${applyTint(rgb.toUpperCase(), tint)}`;
   }
   if (typeof color.theme === 'number') {
     const base = ctx.theme[color.theme];
     if (!base) return undefined;
-    return `#${applyTint(base, color.tint ?? 0)}`;
+    return `#${applyTint(base, tint)}`;
   }
   if (typeof color.indexed === 'number') {
     const palette = ctx.indexed ?? INDEXED_PALETTE;
     const hex = palette[color.indexed] ?? INDEXED_PALETTE[color.indexed];
-    return hex ? `#${hex.toUpperCase()}` : undefined;
+    return hex ? `#${applyTint(hex.toUpperCase(), tint)}` : undefined;
   }
   return undefined;
 }

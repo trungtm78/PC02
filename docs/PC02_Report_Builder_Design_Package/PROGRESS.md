@@ -1,4 +1,4 @@
-﻿# PROGRESS — Dynamic Report Builder (Báo cáo động)
+# PROGRESS — Dynamic Report Builder (Báo cáo động)
 Cập nhật: 2026-10-12T06:55:00+07:00 | Milestone: **PR0-PR10 HOÀN TẤT TOÀN BỘ** — UAT thật (3 bug tìm+vá), sổ a11y vá gộp, benchmark X04 3/3 chỉ số đạt, Runbook+backup/restore đã kiểm thật, monkey test cuối đã chạy (bắt thêm 1 bug nghiêm trọng `crypto.randomUUID` ảnh hưởng cả module này, đã vá xong) — **flag `dynamic_reports` ĐANG BẬT trên production**. Việc còn lại là TUỲ CHỌN (28 dòng UAT phụ + 2 GAP UX + 1 GAP oracle, xem mục 5 "Hàng đợi task kế tiếp"), không chặn coi PR10 là xong. | Task: 0/~1
 
 ## Đã hoàn thành

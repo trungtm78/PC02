@@ -1,4 +1,4 @@
-﻿import {
+import {
   columnWidthToPx,
   defaultColumnWidthPx,
   defaultRowHeightPt,

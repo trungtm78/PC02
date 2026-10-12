@@ -1,4 +1,4 @@
-﻿import { describeFormulaError, formatForDisplay } from './numfmt';
+import { describeFormulaError, formatForDisplay } from './numfmt';
 import type { DisplayValue } from './numfmt';
 
 /**

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Independent formula oracle for the dynamic-reports workbook evaluator (G0).
 
 For each real template it dumps, per sheet, every constant cell and every

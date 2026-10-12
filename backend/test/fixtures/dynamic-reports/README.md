@@ -1,4 +1,4 @@
-﻿# Dynamic reports test fixtures
+# Dynamic reports test fixtures
 
 Referenced by spec `docs/superpowers/specs/2026-10-09-dynamic-report-builder-design.md` §6.1/§8 and
 `docs/PC02_Report_Builder_Design_Package/UAT-COVERAGE.md`. Regenerate the derived files with:

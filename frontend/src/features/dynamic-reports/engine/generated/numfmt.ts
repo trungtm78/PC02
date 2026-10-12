@@ -1,4 +1,4 @@
-﻿import Decimal from 'decimal.js';
+import Decimal from 'decimal.js';
 
 /**
  * Excel number-format display (G0). The entry grid must show a cell the way

@@ -1,4 +1,4 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import JSZip from 'jszip';
 import { readRawGridInfo } from './grid-raw';

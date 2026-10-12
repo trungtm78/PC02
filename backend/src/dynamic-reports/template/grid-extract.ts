@@ -1,4 +1,4 @@
-﻿import * as ExcelJS from 'exceljs';
+import * as ExcelJS from 'exceljs';
 import Decimal from 'decimal.js';
 import { GRID_ENGINE_VERSION } from '../engine/grid-types';
 import type {
@@ -178,7 +178,13 @@ function toGridStyle(
     else if (v === 'distributed' || v === 'justify') out.vAlign = 'middle';
     if (a.wrapText) out.wrap = true;
     if (typeof a.indent === 'number' && a.indent > 0) out.indent = a.indent;
-    const rot = typeof a.textRotation === 'number' ? a.textRotation : undefined;
+    // Excel's "vertical text" (letters stacked upright) is rotation 255.
+    const rot =
+      typeof a.textRotation === 'number'
+        ? a.textRotation
+        : a.textRotation === 'vertical'
+          ? 255
+          : undefined;
     if (rot) out.rotation = rot;
   }
 

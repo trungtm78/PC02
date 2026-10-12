@@ -1,4 +1,4 @@
-﻿import { evaluateRule, evaluateRules } from './rules';
+import { evaluateRule, evaluateRules } from './rules';
 import type { RuleDefinitionLike, SubmissionValuesLike } from './rules';
 import type { WorkbookModel } from './workbook-eval';
 

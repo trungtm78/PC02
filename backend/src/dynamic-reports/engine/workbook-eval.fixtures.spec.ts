@@ -1,4 +1,4 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { evaluateWorkbook } from './workbook-eval';
 import type { CellOutcome, WorkbookCell, WorkbookModel } from './workbook-eval';
