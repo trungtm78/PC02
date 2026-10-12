@@ -6,6 +6,9 @@ import { inferLabel } from './label';
 import { detectUnsupportedFeatures } from './unsupported-features';
 import { assertTemplateLimits } from './limits';
 import { extractLayout } from './layout';
+import { extractSheetValidations } from './grid-extract';
+import { readRawGridInfo } from './grid-raw';
+import type { SheetValidations } from './validation-constraints';
 import type {
   MarkableCell,
   ParsedField,
@@ -72,6 +75,7 @@ export async function parseTemplate(
   // Same cast as xlsx-parser.service.ts — exceljs's bundled @types expect an
   // older Buffer/ArrayBuffer shape than the project's current @types/node.
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  const raw = await readRawGridInfo(buffer);
 
   const dateSystem: ParseTemplateResult['dateSystem'] = (
     workbook as unknown as { properties?: { date1904?: boolean } }
@@ -82,6 +86,7 @@ export async function parseTemplate(
   const fields: ParsedField[] = [];
   const formulas: ParsedFormulaCell[] = [];
   const markableCells: MarkableCell[] = [];
+  const dataValidations: SheetValidations[] = [];
   const issues: ParsedIssue[] = await detectUnsupportedFeatures(buffer);
   let totalCells = 0;
   let inputCellCount = 0;
@@ -108,6 +113,11 @@ export async function parseTemplate(
       });
       continue;
     }
+
+    dataValidations.push({
+      sheetKey: sheetName,
+      validations: extractSheetValidations(sheet, sheetName, [], raw.dataValidations[sheetName]),
+    });
 
     const getCellText = (row: number, col: number): string | number | null => {
       const v = cellPlainText(sheet.getCell(row, col));
@@ -202,5 +212,6 @@ export async function parseTemplate(
     totalCells,
     inputCellCount,
     layout,
+    dataValidations,
   };
 }

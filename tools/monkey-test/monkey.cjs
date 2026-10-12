@@ -155,6 +155,11 @@ async function giaiDuong(duong, cfg, token, boNho) {
   const m = /\{([A-Z_]+)\}/.exec(duong);
   if (!m) return duong;
   const nhan = m[1];
+  // Báo cáo động không có API "lấy một bản ghi bất kỳ": mã lượt giao / kỳ do người chạy cho qua MONKEY_<NHÃN>
+  // (gieo bằng dữ liệu local), và không cho thì đường bị bỏ + ghi CHƯA KIỂM như mọi đường thiếu bản ghi.
+  const tuMoiTruong = process.env[`MONKEY_${nhan}`];
+  if (tuMoiTruong) return duong.replace(m[0], encodeURIComponent(tuMoiTruong));
+  if (nhan.startsWith('BC_')) return null;
   const DUONG_API = { DON_THU: '/petitions?limit=1', VU_VIEC: '/incidents?limit=1', VU_AN: '/cases?limit=1' };
   const api = DUONG_API[nhan];
   if (!api) return null;
@@ -561,6 +566,6 @@ function maThoat(kq) {
   return kq.phatHien.length > 0 || kq.chuaKiem.length > 0 ? 1 : 0;
 }
 
-module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung, boQuaManTrang, layPhien };
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung, boQuaManTrang, layPhien, giaiDuong };
 
 if (require.main === module) void main();

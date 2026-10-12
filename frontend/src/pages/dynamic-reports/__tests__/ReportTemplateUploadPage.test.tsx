@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ReportTemplateUploadPage from '../ReportTemplateUploadPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { SheetInfo, TemplatePreviewResult } from '@/features/dynamic-reports/types';
+import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
@@ -14,10 +16,13 @@ vi.mock('@/features/dynamic-reports/api', () => ({
 }));
 
 function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
-      <ReportTemplateUploadPage />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <ReportTemplateUploadPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -175,9 +180,9 @@ describe('ReportTemplateUploadPage', () => {
     expect(screen.getByTestId('btn-preview')).toBeDisabled();
   });
 
-  async function getToPreview() {
+  async function getToPreview(result: TemplatePreviewResult = PREVIEW) {
     vi.mocked(dynamicReportsApi.listTemplateSheets).mockResolvedValue(SHEETS);
-    vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue(PREVIEW);
+    vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue(result);
     renderPage();
     fireEvent.change(screen.getByTestId('input-report-code'), { target: { value: 'HSLN' } });
     fireEvent.change(screen.getByTestId('input-report-name'), {
@@ -238,5 +243,68 @@ describe('ReportTemplateUploadPage', () => {
     fireEvent.click(screen.getByTestId('btn-go-to-schedule'));
 
     expect(screen.getByTestId('schedule-step')).toBeInTheDocument();
+  });
+
+  describe('the template as a grid (G6)', () => {
+    async function getToPreviewWithGrid() {
+      await getToPreview({
+        ...PREVIEW,
+        markableCells: [
+          { sheetKey: 'Đội 3', address: 'C4', suggestedLabel: null },
+          { sheetKey: 'Đội 3', address: 'C7', suggestedLabel: null },
+        ],
+        grid: makeGrid(),
+      });
+    }
+
+    it('shows the template as the officer will see it, next to the list', async () => {
+      await getToPreviewWithGrid();
+      expect(screen.getByTestId('template-grid-section')).toBeInTheDocument();
+      expect(screen.getByTestId('grid-viewer')).toBeInTheDocument();
+      expect(screen.getByTestId('markable-cells-section')).toBeInTheDocument(); // the keyboard route stays
+    });
+
+    it('dragging over cells on the grid ticks them in the list, ready for label, type and aggregate', async () => {
+      await getToPreviewWithGrid();
+      fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0, buttons: 1 });
+      fireEvent.mouseEnter(screen.getByTestId('cell-C7'), { buttons: 1 });
+      fireEvent.mouseUp(document);
+
+      expect(screen.getByTestId('candidate-checkbox-Đội 3!C4')).toBeChecked();
+      expect(screen.getByTestId('candidate-checkbox-Đội 3!C7')).toBeChecked();
+      expect(screen.getByTestId('btn-apply-marks')).toHaveTextContent('(2)');
+    });
+
+    it('a new drag replaces the choice, Ctrl adds to it', async () => {
+      await getToPreviewWithGrid();
+      fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0 });
+      fireEvent.mouseUp(document);
+      fireEvent.mouseDown(screen.getByTestId('cell-C7'), { button: 0 });
+      fireEvent.mouseUp(document);
+      expect(screen.getByTestId('candidate-checkbox-Đội 3!C4')).not.toBeChecked();
+      expect(screen.getByTestId('candidate-checkbox-Đội 3!C7')).toBeChecked();
+
+      fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0, ctrlKey: true });
+      fireEvent.mouseUp(document);
+      expect(screen.getByTestId('candidate-checkbox-Đội 3!C4')).toBeChecked();
+      expect(screen.getByTestId('candidate-checkbox-Đội 3!C7')).toBeChecked();
+    });
+
+    it('marking what was picked turns those cells into inputs on the grid', async () => {
+      await getToPreviewWithGrid();
+      fireEvent.mouseDown(screen.getByTestId('cell-C7'), { button: 0 });
+      fireEvent.mouseUp(document);
+      fireEvent.change(screen.getByTestId('candidate-label-Đội 3!C7'), { target: { value: 'Ghi chú' } });
+      fireEvent.click(screen.getByTestId('btn-apply-marks'));
+
+      expect(screen.getByTestId('cell-C7')).toHaveAttribute('data-kind', 'input');
+      expect(screen.getByTestId('cell-C7')).not.toHaveAttribute('data-mark');
+    });
+
+    it('without a grid from the server the wizard is the list it always was', async () => {
+      await getToPreview({ ...PREVIEW, grid: null });
+      expect(screen.queryByTestId('template-grid-section')).not.toBeInTheDocument();
+      expect(screen.getByTestId('markable-cells-section')).toBeInTheDocument();
+    });
   });
 });

@@ -22,6 +22,7 @@ function parsedOf(over: Partial<ParseTemplateResult> = {}): ParseTemplateResult 
     totalCells: 10,
     inputCellCount: 1,
     layout: { sheetOrder: ['S'], sheets: [] },
+    dataValidations: [],
     ...over,
   };
 }

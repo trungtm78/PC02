@@ -1198,6 +1198,42 @@ mẫu Excel: ô nhập mang **số tổng hợp** (định dạng theo ô: số,
 - Giới hạn đã biết: sheet gốc dùng công thức 3-D / công thức ở ô dữ liệu hợp lệ trỏ sheet khác ngoài bộ chọn không được viết lại (ghi `unrewritten|…` ở metadata); hình ảnh chỉ nhân bản nếu exceljs mô hình hoá được; exceljs ghi lại font mặc định của workbook (Times New Roman → Calibri) và ghi tên font vào các ô dựa vào nó — nhìn không đổi.
 - Kiểm: 22 ca `period-export` (cấu trúc, tên, giữ nguyên diện mạo, hằng số TỔNG, công thức trỏ đúng bộ, kết quả tính sẵn theo từng tổ, metadata, quá lớn, + 6 mẫu thật), 9 ca `sheet-names`,
   4 ca dịch vụ qua worker thật, 7 ca `exportPeriod` (thứ tự cây tổ, số chính thức đóng băng/trực tiếp/không có, rơi về danh sách), 1 ca S35, 2 ca trang S15.
+### G6 — wizard S03/S04 đánh dấu ô nhập trên chính mẫu (12/10/2026)
+Bước xem trước của wizard trả thêm `grid` (mẫu vẽ như người nhập sẽ thấy, dựng trong worker; không dựng được thì `null` và wizard vẫn chạy bằng danh sách như cũ). Kéo chuột trên bảng
+chọn các ô có thể đánh dấu (Ctrl/⌘ để thêm vào, kéo mới thì thay) → các ô ấy được tick trong danh sách "Ô có thể đánh dấu"; nhãn/kiểu/tổng hợp vẫn nhập ở form bên dưới và `applyWebMarks`
+vẫn là nơi DUY NHẤT đánh dấu (lưới chỉ CHỌN, nên lưới và danh sách không thể lệch nhau; danh sách vẫn là đường dùng bàn phím). Ô gạch đứt = có thể đánh dấu, ô vàng = đã chọn, ô xanh = ô nhập đã có.
+`GridTable.pick` (lớp chọn chỉ-đọc, không phím, không `data-shortcut-zone`), `GridViewer` nhận `grid` dựng sẵn và `mark`. Kiểm: 12 ca lưới, 4 ca trang wizard; bấm thử thật trên Chromium với mẫu A09 (1.204 ô có thể đánh dấu): kéo 6 ô → "Đánh dấu (2)".
+
+### OV7 — tiếp quản `dataValidation` của Excel (12/10/2026)
+Quy tắc nhập liệu gốc của mẫu ("số nguyên ≥ 0", "hàng 43 ≤ hàng 42") nay ràng buộc người nhập trên web mà tác giả không phải gõ lại:
+- đọc thẳng XML (`grid-raw.readDataValidations`) vì exceljs đọc công thức của quy tắc whole/decimal thành SỐ — vế là tham chiếu ô (`giữa 0 và Q50`, dạng phổ biến trong mẫu thật) ra `NaN` — và tách quy tắc theo từng ô, mất khối mà công thức tương đối neo vào;
+- `validation-constraints.deriveFromValidations` (thuần): vế hằng ⇒ khoảng của chính trường (min/max/số nguyên/độ dài chữ) + lời nhắc của mẫu làm `helpText`; vế là ô khác ⇒ gợi ý **quy tắc kiểm tra** (tham chiếu tương đối dịch theo từng ô như Excel áp xuống cả khối; luôn kèm tên sheet); quy tắc "giữa 0 và Q50" cho cả hai; ô danh sách/ngày/giờ/công thức tuỳ chỉnh/"ngoài khoảng"/biểu thức → báo rõ là chưa tiếp quản (cảnh báo ở bước xem trước), không bỏ lặng lẽ;
+- **xuất bản** (máy chủ là nguồn thật): `DynReportField.min/max/scale/maxLength/helpText` điền từ mẫu khi tác giả chưa đặt (giá trị tác giả đặt luôn thắng); `save`/import kiểm giá trị theo khoảng ấy như mọi trường khác;
+- **bước Quy tắc** của wizard lần đầu dùng được gợi ý (trước đây `suggestValidationRules` chỉ có trong mã, không nối vào đâu): "Gợi ý từ file mẫu" với nút "Dùng"; gợi ý từ `IF(a=b,TRUE,FALSE)` nay có tên sheet đầy đủ (quy tắc không có sheet mặc định riêng) và là cảnh báo; gợi ý từ dataValidation là LỖI (Excel cũng chặn người nhập) và chỉ hiện khi ô đó đã là ô nhập.
+- Kiểm: 38 ca `validation-constraints` (kể cả 2 mẫu thật A10 & A09 đi qua parser), 3 ca `grid-raw`, 3 ca xem trước, 3 ca xuất bản, 3 ca bước Quy tắc.
+
+### G3d — cửa sổ dòng cho lưới lớn (12/10/2026)
+Sheet lớn hơn 2.000 ô (dòng vẽ × cột hiện) chỉ vẽ các dòng quanh khung nhìn + 400 px đệm + dòng cố định + dòng đang có con trỏ/vùng chọn, mỗi đoạn bị bỏ là MỘT dòng đệm cao đúng bằng tổng
+nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn được vẽ trọn (kéo theo khối kế tiếp nếu chồng nhau); mẫu thường (HSLN 258×3, A09 93×53) KHÔNG đổi gì. `virtualWindow.planRows` thuần (13 ca) + `GridTable` (7 ca: dòng đệm
+ẩn khỏi trình đọc màn hình, dòng cố định luôn có, cuộn đổi dòng vẽ, khối gộp trọn, dòng con trỏ luôn có). Chưa đo hiệu năng trên 50.000 ô thật (thuộc G7).
+
+### G7 (một phần) — dạng lưới thành MẶC ĐỊNH + công tắc khẩn + đo hiệu năng (12/10/2026)
+- **Mặc định đổi sang lưới** ở S11/S15/S16 (`useGridLayout`): bật trừ khi quản trị TẮT cờ `dynamic_reports_grid` (cờ chưa seed vẫn là bật — đúng kiểu `useFeatureBatMacDinh` của công tắc khẩn
+  `TIM_KIEM_THE`); tắt cờ ⇒ mọi màn về danh sách NGAY, không deploy, và nút chuyển lưới biến mất. Màn hẹp (<768 px) và nơi không đo được màn hình (jsdom) mở bằng danh sách; lựa chọn của từng người
+  được nhớ theo máy (chỉ là tiện ích: bộ nhớ trình duyệt hỏng không đổi gì). Cờ khai ở `dynamic-reports/grid/feature.manifest.ts` (có ca kiểm sổ đăng ký). **Việc cần làm một lần sau deploy:**
+  `npm run db:seed:features` để quản trị có dòng cờ mà tắt (chưa seed thì lưới vẫn bật, chỉ là chưa có công tắc).
+- **S24 (điện thoại):** quyết định giữ **dạng danh sách làm trình sửa từng ô** cho màn hẹp (đã dùng được trên điện thoại: một ô một dòng, bàn phím số, Trước/Sau theo thứ tự ô nhập) thay vì dựng thêm bottom-sheet
+  trên lưới — lưới vẫn mở được bằng nút chuyển và là lựa chọn nhớ theo máy.
+- **Đo hiệu năng** (bản dựng production, Chromium headless, mẫu tổng hợp 49.900 ô / 4.990 ô nhập / 1.000 công thức đã xuất bản thật qua API): mô hình lưới 1,78 MB thô → **209 KB gzip** (<300 KB);
+  trang sẵn sàng 1,2 s (gồm tải ứng dụng + tải/phân tích mô hình), lưới hiện thêm ~100 ms; DOM chỉ 56 dòng/1.082 ô khi mở, 80 dòng/1.540 ô sau khi cuộn tới cuối (không phải 49.900); gõ → vẽ **45 ms**
+  (đo trong trang); cuộn bằng bánh xe 60 lần × 120 px: **60 fps, 0/90 khung quá 33 ms** (trung vị 16,7 ms). Bản đầu đo được 4,5–12 fps vì mỗi lần cuộn dựng lại mọi ô đang vẽ: nay mỗi dòng là một
+  `memo` (`GridRow`) chỉ dựng lại khi dữ liệu của chính nó đổi, khối chọn chỉ tô các dòng nó chạm, cửa sổ đi theo bước 100 px.
+- Codex vòng 2 (hàng `memo` + công tắc): 3 phát hiện đã vá — khối ô gộp có dòng neo bị ẩn không được tô khi vùng chọn chỉ chạm dòng sau (`blockBottom` nay lấy từ khối ĐÃ vẽ, có ca kiểm đỏ trên mã cũ);
+  `invalid`/`required` của `GridEntry` là `Set` mới mỗi lần vẽ làm `memo` vô hiệu trong lưới nhập (nay `useMemo`); công tắc khẩn: khi cờ đang tải thì hiện danh sách chứ không dựng lưới rồi mới biết cờ tắt.
+- **Kiểm bằng trình duyệt thật cho lưới nhập (S11), 3 engine** (báo cáo 6 dòng chữ+số đã xuất bản thật; origin HTTP): gõ số + Enter/Tab, Enter xuống dòng, công thức SUM tính lại, F2 + Esc không đổi giá trị, Delete/Ctrl+Z/Ctrl+Y,
+  gõ vào ô khoá không đổi gì, Ctrl+K trong lưới KHÔNG mở tìm kiếm toàn cục, chữ tiếng Việt "Việt" (Chromium: ghép IME qua CDP `imeSetComposition`; WebKit/Firefox: `insertText`), dán 2 dòng, tự lưu rồi tải lại vẫn còn.
+  **Chromium 15/15, WebKit 15/15, Firefox 14/14 — riêng bước dán trên Firefox CHƯA KIỂM** (engine không cho script dựng ClipboardEvent có dữ liệu; đường dán đã có ca kiểm đơn vị và chạy thật trên 2 engine kia). Gõ tiếng Việt bằng bộ gõ thật (Unikey/Telex) trên máy người dùng vẫn nên thử tay.
+- Chưa làm (còn lại của G7): chụp trực quan 4 viewport + so với LibreOffice (máy này chưa có LibreOffice), quay lại clip HDSD theo lưới mới, monkey test một lần cuối.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

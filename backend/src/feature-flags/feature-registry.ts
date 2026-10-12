@@ -49,6 +49,7 @@ import { UY_THAC_DIEU_TRA_MANIFEST } from '../uy-thac-dieu-tra/feature.manifest'
 import { DOCUMENT_TEMPLATES_MANIFEST } from '../document-templates/feature.manifest'; // v0.69 (fix: flag chưa seed → menu admin ẩn)
 import { TIM_KIEM_THE_MANIFEST } from '../common/tim-kiem/feature.manifest'; // 15/09/2026 công tắc khẩn ô thẻ
 import { DYNAMIC_REPORTS_MANIFEST } from '../dynamic-reports/feature.manifest'; // PR2
+import { DYNAMIC_REPORTS_GRID_MANIFEST } from '../dynamic-reports/grid/feature.manifest'; // G7: công tắc khẩn của lưới
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -90,6 +91,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   DOCUMENT_TEMPLATES_MANIFEST, // v0.69 — flag cho menu admin Mẫu chứng từ động
   TIM_KIEM_THE_MANIFEST, // 15/09/2026 — công tắc khẩn ô tìm kiếm dạng thẻ
   DYNAMIC_REPORTS_MANIFEST, // PR2 — tắt mặc định, bật khi PR6+ xong luồng nhập
+  DYNAMIC_REPORTS_GRID_MANIFEST, // G7 — công tắc khẩn của lưới Excel
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

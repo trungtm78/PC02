@@ -1,14 +1,15 @@
-import { useMemo } from 'react';
-import type { CSSProperties, MouseEvent, ReactNode, Ref } from 'react';
-import type { GridCell, GridModel, GridRun, GridStyle } from '../engine/generated/grid-types';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, MouseEvent, MutableRefObject, ReactNode, Ref } from 'react';
+import type { GridCell, GridModel, GridRun, GridSheet, GridStyle } from '../engine/generated/grid-types';
 import { formatAddress } from '../engine/generated/paste';
 import { buildSheetIndex, key, layoutMerges } from './gridIndex';
-import type { SheetIndex } from './gridIndex';
+import type { MergeLayout, SheetIndex } from './gridIndex';
 import { cssForDxf, cssForStyle } from './styleToCss';
 import { viewOf } from './gridEvaluation';
 import type { CellView, GridEvaluation, GridField } from './gridEvaluation';
 import { overlayFor } from './conditional';
 import { drawnRowsOf, inputRowSet, rectsOverlap } from './gridLayout';
+import { planRows, shouldVirtualize } from './virtualWindow';
 import type { Pos, Rect } from './navigation';
 
 /**
@@ -40,6 +41,19 @@ export interface GridInteraction {
   onCellDoubleClick: (pos: Pos, e: MouseEvent) => void;
 }
 
+/**
+ * A read-only table whose cells can be PICKED by dragging (the wizard marks input cells this way). Unlike
+ * `interaction` it makes nothing editable and takes no keyboard: the table stays a plain read-only grid.
+ */
+export interface GridPick {
+  /** Address on THIS sheet → why it is drawn differently: markable, or chosen to be marked. */
+  markers: ReadonlyMap<string, 'candidate' | 'chosen'>;
+  /** The block being dragged over, shaded like a selection. */
+  selection: Rect | null;
+  onCellMouseDown: (pos: Pos, e: MouseEvent) => void;
+  onCellMouseEnter: (pos: Pos, e: MouseEvent) => void;
+}
+
 /** An input cell the reader opened (click, Enter or Space): which field, and the element to anchor a popover to. */
 export interface CellActivation {
   field: GridField;
@@ -66,12 +80,18 @@ export interface GridTableProps {
    * Reachable from the keyboard: opened cells take focus and respond to Enter / Space.
    */
   onCellActivate?: (activation: CellActivation) => void;
+  /** Drag over cells to pick them (see `GridPick`). */
+  pick?: GridPick;
   /** The scroll area, for callers that need to measure cells or scroll them into view. */
   containerRef?: Ref<HTMLDivElement>;
   /** Drawn on top of the table inside the scrolling area (the cell editor). */
   children?: ReactNode;
 }
 
+/** Pixels drawn above and below the viewport of a windowed sheet, so a quick scroll never shows blank rows. */
+const WINDOW_OVERSCAN_PX = 400;
+/** The window follows the scroll position in steps of this many pixels, not on every pixel. */
+const SCROLL_STEP_PX = 100;
 const HEADER_BG = '#f1f3f4';
 const HEADER_COLOR = '#5f6368';
 const GRIDLINE = '#d9d9d9';
@@ -113,129 +133,66 @@ function styleOfCell(
   return colStyle ? (grid.styles[colStyle.s] ?? {}) : {};
 }
 
-export default function GridTable({
-  grid,
-  sheetName,
-  evaluation,
-  zoom = 100,
-  showHeaders = true,
-  onlyInputRows = false,
-  maxHeight = '70vh',
-  interaction,
-  onCellActivate,
-  containerRef,
-  children,
-}: GridTableProps) {
-  const sheet = grid.sheets.find((s) => s.name === sheetName);
-  const index = useMemo(() => (sheet ? buildSheetIndex(sheet) : null), [sheet]);
+/** Everything one row needs that does not change while the reader scrolls: shared, so a row can be skipped. */
+interface RowShared {
+  grid: GridModel;
+  sheet: GridSheet;
+  index: SheetIndex;
+  evaluation: GridEvaluation;
+  z: number;
+  showHeaders: boolean;
+  merges: MergeLayout;
+  rows: readonly number[];
+  frozenTop: (r: number) => number;
+}
 
-  const inputRows = useMemo(
-    () => (sheet ? inputRowSet(sheet.name, evaluation.fieldAt.values()) : new Set<number>()),
-    [sheet, evaluation],
-  );
+interface RowProps {
+  shared: RowShared;
+  r: number;
+  /** The column of the cursor when it is on this row. */
+  activeCol: number | null;
+  /** The selected block, only for rows it touches. */
+  shaded: Rect | null;
+  markers: ReadonlyMap<string, 'candidate' | 'chosen'> | undefined;
+  invalid: ReadonlySet<string> | undefined;
+  required: ReadonlySet<string> | undefined;
+  interactive: boolean;
+  picking: boolean;
+  canActivate: boolean;
+  handlers: MutableRefObject<RowHandlers>;
+}
 
-  if (!sheet || !index) return null;
+interface RowHandlers {
+  interaction?: GridInteraction;
+  pick?: GridPick;
+  onCellActivate?: (activation: CellActivation) => void;
+}
 
-  const z = zoom / 100;
+/**
+ * One drawn row. A row whose inputs did not change is not rebuilt: scrolling a large sheet draws a handful of new
+ * rows instead of rebuilding every cell on screen at each step.
+ */
+const GridRow = memo(function GridRow({
+  shared,
+  r,
+  activeCol,
+  shaded,
+  markers,
+  invalid,
+  required,
+  interactive,
+  picking,
+  canActivate,
+  handlers,
+}: RowProps) {
+  const { grid, sheet, index, evaluation, z, showHeaders, merges, rows, frozenTop } = shared;
   const cssCtx = { defaultFont: grid.defaultFont, z };
-  const headerH = showHeaders ? Math.round(20 * z) : 0;
   const headerW = showHeaders ? Math.round(40 * z) : 0;
   const freezeRows = sheet.freeze.rows;
   const freezeCols = sheet.freeze.cols;
   const ctx = evaluation.evaluator.contextFor(sheet.name);
-
-  const rows = drawnRowsOf(index, inputRows, onlyInputRows);
-
-  // Merged blocks are placed on what is actually drawn: a hidden or filtered-out
-  // anchor row/column must not leave the block's remaining cells shifted.
-  const merges = layoutMerges(sheet, rows, index.visibleCols);
-
-  // A frozen row sticks just below the headers and the frozen rows above it.
-  // Frozen rows are never filtered out, so they always stack the same way.
-  const frozenTop = (r: number): number => {
-    let top = headerH;
-    for (const vr of index.visibleRows) {
-      if (vr >= r) break;
-      if (vr < freezeRows) top += Math.round((sheet.rowHeightsPx[vr] ?? 0) * z);
-    }
-    return top;
-  };
-
-  const tableStyle: CSSProperties = {
-    tableLayout: 'fixed',
-    borderCollapse: 'collapse',
-    width: Math.round(index.totalWidth * z) + headerW,
-    backgroundColor: '#fff',
-  };
-
   return (
-    <div
-      ref={containerRef}
-      className="overflow-auto border border-slate-300 rounded bg-white"
-      style={{ maxHeight }}
-      data-testid={`grid-scroll-${sheet.name}`}
-      // The spreadsheet keyboard belongs to the grid: F2 edits a cell here, it does not "Save".
-      {...(interaction ? { 'data-shortcut-zone': 'grid' } : {})}
-    >
-      <div data-grid-surface style={{ position: 'relative', width: tableStyle.width }}>
-      <table
-        style={tableStyle}
-        role="grid"
-        aria-readonly={interaction ? undefined : 'true'}
-        aria-label={`Bảng ${sheet.name}`}
-        aria-rowcount={sheet.rows + (showHeaders ? 1 : 0)}
-        aria-colcount={sheet.cols + (showHeaders ? 1 : 0)}
-        data-testid="grid-table"
-      >
-        <colgroup>
-          {showHeaders && <col style={{ width: headerW }} />}
-          {index.visibleCols.map((c) => (
-            <col key={c} style={{ width: Math.round((sheet.colWidthsPx[c] ?? 0) * z) }} />
-          ))}
-        </colgroup>
-
-        {showHeaders && (
-          <thead>
-            <tr style={{ height: headerH }} aria-rowindex={1}>
-              <th
-                scope="col"
-                aria-colindex={1}
-                style={{
-                  position: 'sticky',
-                  top: 0,
-                  left: 0,
-                  zIndex: 4,
-                  background: HEADER_BG,
-                  border: `1px solid ${GRIDLINE}`,
-                }}
-              />
-              {index.visibleCols.map((c) => (
-                <th
-                  key={c}
-                  scope="col"
-                  aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: c < freezeCols ? 3 : 2,
-                    left: c < freezeCols ? headerW + Math.round((index.colLeft.get(c) ?? 0) * z) : undefined,
-                    background: HEADER_BG,
-                    color: HEADER_COLOR,
-                    fontWeight: 400,
-                    fontSize: `${11 * z}px`,
-                    border: `1px solid ${GRIDLINE}`,
-                  }}
-                >
-                  {columnLetters(c)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-        )}
-
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r} style={{ height: Math.round((sheet.rowHeightsPx[r] ?? 0) * z) }} aria-rowindex={r + 1 + (showHeaders ? 1 : 0)}>
+    <tr style={{ height: Math.round((sheet.rowHeightsPx[r] ?? 0) * z) }} aria-rowindex={r + 1 + (showHeaders ? 1 : 0)}>
               {showHeaders && (
                 <th
                   scope="row"
@@ -309,9 +266,19 @@ export default function GridTable({
                 const block: Rect = drawn
                   ? { top: drawn.merge.top, left: drawn.merge.left, bottom: drawn.merge.bottom, right: drawn.merge.right }
                   : { top: r, left: c, bottom: r, right: c };
-                const isActive = !!interaction?.active && interaction.active.row === r && interaction.active.col === c;
-                const isSelected = !!interaction?.selection && rectsOverlap(block, interaction.selection);
-                const isInvalid = !!interaction?.invalid.has(address);
+                const isActive = activeCol === c;
+                                const isSelected = !!shaded && rectsOverlap(block, shaded);
+                const mark = markers?.get(address);
+                if (mark === 'candidate') {
+                  css.outline = '2px dashed #d97706';
+                  css.outlineOffset = '-2px';
+                } else if (mark === 'chosen') {
+                  css.outline = '2px solid #d97706';
+                  css.outlineOffset = '-2px';
+                  css.backgroundColor = '#fde68a';
+                }
+                if (picking) css.cursor = 'cell';
+                const isInvalid = !!invalid?.has(address);
                 if (isSelected && !isActive) {
                   // Shade over the cell's own fill instead of replacing it.
                   css.backgroundImage = 'linear-gradient(rgba(37,99,235,0.14), rgba(37,99,235,0.14))';
@@ -325,7 +292,7 @@ export default function GridTable({
                   css.outlineOffset = '-2px';
                 }
 
-                const activatable = !!onCellActivate && !interaction && view.kind === 'input' && !!view.field;
+                const activatable = canActivate && view.kind === 'input' && !!view.field;
                 if (activatable) css.cursor = 'pointer';
 
                 const frozenRow = r < freezeRows;
@@ -336,7 +303,7 @@ export default function GridTable({
                   if (frozenCol) css.left = headerW + Math.round((index.colLeft.get(c) ?? 0) * z);
                   css.zIndex = frozenRow && frozenCol ? 3 : 2;
                   if (!css.backgroundColor) css.backgroundColor = '#fff';
-                } else if (interaction) {
+                } else if (interactive) {
                   css.position = 'relative'; // the "*" marker of a required cell is placed against the cell
                 }
 
@@ -372,19 +339,27 @@ export default function GridTable({
                     id={`gcell-${sheet.name}-${r}-${c}`}
                     role="gridcell"
                     aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
-                    aria-readonly={interaction && view.kind === 'input' ? undefined : 'true'}
-                    aria-selected={interaction ? isSelected : undefined}
+                    aria-readonly={interactive && view.kind === 'input' ? undefined : 'true'}
+                    aria-selected={interactive ? isSelected : undefined}
                     aria-invalid={isInvalid ? true : undefined}
                     data-pos={`${r},${c}`}
-                    onMouseDown={interaction ? (e) => interaction.onCellMouseDown({ row: r, col: c }, e) : undefined}
-                    onMouseEnter={interaction ? (e) => interaction.onCellMouseEnter({ row: r, col: c }, e) : undefined}
-                    onDoubleClick={interaction ? (e) => interaction.onCellDoubleClick({ row: r, col: c }, e) : undefined}
+                    onMouseDown={
+                      interactive || picking
+                        ? (e) => (handlers.current.interaction ?? handlers.current.pick)?.onCellMouseDown({ row: r, col: c }, e)
+                        : undefined
+                    }
+                    onMouseEnter={
+                      interactive || picking
+                        ? (e) => (handlers.current.interaction ?? handlers.current.pick)?.onCellMouseEnter({ row: r, col: c }, e)
+                        : undefined
+                    }
+                    onDoubleClick={interactive ? (e) => handlers.current.interaction?.onCellDoubleClick({ row: r, col: c }, e) : undefined}
                     tabIndex={activatable ? 0 : undefined}
                     aria-haspopup={activatable ? 'dialog' : undefined}
                     onClick={
                       activatable
                         ? (e) =>
-                            onCellActivate?.({
+                            handlers.current.onCellActivate?.({
                               field: view.field as GridField,
                               sheetName: sheet.name,
                               address,
@@ -397,7 +372,7 @@ export default function GridTable({
                         ? (e) => {
                             if (e.key !== 'Enter' && e.key !== ' ') return;
                             e.preventDefault();
-                            onCellActivate?.({
+                            handlers.current.onCellActivate?.({
                               field: view.field as GridField,
                               sheetName: sheet.name,
                               address,
@@ -412,10 +387,11 @@ export default function GridTable({
                     title={view.isError ? view.hint : view.formula ? `=${view.formula}` : undefined}
                     data-testid={`cell-${address}`}
                     data-kind={view.kind}
+                    data-mark={mark}
                     data-error={view.isError ? 'true' : undefined}
                   >
                     <div style={wrapStyle}>{content}</div>
-                    {interaction?.required.has(address) && view.kind === 'input' && (
+                    {required?.has(address) && view.kind === 'input' && (
                       <span aria-hidden="true" style={{ position: 'absolute', top: 0, right: 2, color: '#dc2626', fontSize: 10, lineHeight: 1 }}>
                         *
                       </span>
@@ -424,7 +400,245 @@ export default function GridTable({
                 );
               })}
             </tr>
+  );
+});
+
+type GridSheetViewProps = Omit<GridTableProps, 'sheetName'> & {
+  sheet: GridSheet;
+  index: SheetIndex;
+  inputRows: ReadonlySet<number>;
+};
+
+function GridSheetView({
+  grid,
+  sheet,
+  index,
+  inputRows,
+  evaluation,
+  zoom = 100,
+  showHeaders = true,
+  onlyInputRows = false,
+  maxHeight = '70vh',
+  interaction,
+  onCellActivate,
+  pick,
+  containerRef,
+  children,
+}: GridSheetViewProps) {
+  // A very large sheet is drawn through a window (see virtualWindow.ts): the scroll position and size are watched.
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 800 });
+  const windowed = shouldVirtualize(index.visibleRows.length, index.visibleCols.length);
+  useEffect(() => {
+    if (!windowed) return;
+    const box = scrollBoxRef.current;
+    if (!box) return;
+    const measure = () => {
+      const height = box.clientHeight || 800;
+      // In steps: the overscan covers the difference, and a step is a re-draw of the rows that moved into the window.
+      const top = Math.floor(box.scrollTop / SCROLL_STEP_PX) * SCROLL_STEP_PX;
+      setViewport((prev) => (prev.top === top && prev.height === height ? prev : { top, height }));
+    };
+    measure();
+    box.addEventListener('scroll', measure, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(box);
+    return () => {
+      box.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, [windowed]);
+
+
+  const z = zoom / 100;
+  const headerH = showHeaders ? Math.round(20 * z) : 0;
+  const headerW = showHeaders ? Math.round(40 * z) : 0;
+  const freezeRows = sheet.freeze.rows;
+  const freezeCols = sheet.freeze.cols;
+
+  const rows = useMemo(() => drawnRowsOf(index, inputRows, onlyInputRows), [index, inputRows, onlyInputRows]);
+
+  // Merged blocks are placed on what is actually drawn: a hidden or filtered-out
+  // anchor row/column must not leave the block's remaining cells shifted.
+  const merges = useMemo(() => layoutMerges(sheet, rows, index.visibleCols), [sheet, rows, index]);
+
+  // The rows actually drawn: all of them, or — for a very large sheet — the window plus a spacer for each skipped stretch.
+  let entries: ReadonlyArray<number | { gap: number }> = rows;
+  if (shouldVirtualize(rows.length, index.visibleCols.length)) {
+    const heights = rows.map((r) => Math.round((sheet.rowHeightsPx[r] ?? 0) * z));
+    const position = new Map(rows.map((r, i) => [r, i]));
+    const blocks = sheet.merges.flatMap((m) => {
+      const inside: number[] = [];
+      for (let r = m.top; r <= m.bottom; r++) {
+        const at = position.get(r);
+        if (at !== undefined) inside.push(at);
+      }
+      return inside.length > 1 ? [{ top: inside[0], bottom: inside[inside.length - 1] }] : [];
+    });
+    const keep: number[] = [];
+    const remember = (row: number | undefined) => {
+      const at = row === undefined ? undefined : position.get(row);
+      if (at !== undefined) keep.push(at);
+    };
+    remember(interaction?.active?.row);
+    remember(interaction?.selection?.top);
+    remember(interaction?.selection?.bottom);
+    remember(pick?.selection?.top);
+    remember(pick?.selection?.bottom);
+    let frozenCount = 0;
+    while (frozenCount < rows.length && rows[frozenCount] < sheet.freeze.rows) frozenCount++;
+    const plan = planRows({
+      heights,
+      frozen: frozenCount,
+      scrollTop: Math.max(0, viewport.top - headerH),
+      viewport: viewport.height,
+      overscan: WINDOW_OVERSCAN_PX,
+      blocks,
+      keep,
+    });
+    entries = plan.flatMap<number | { gap: number }>((seg) =>
+      seg.kind === 'gap' ? [{ gap: seg.height }] : rows.slice(seg.from, seg.to + 1),
+    );
+  }
+
+  // A frozen row sticks just below the headers and the frozen rows above it.
+  // Frozen rows are never filtered out, so they always stack the same way.
+  const frozenTop = useMemo(
+    () =>
+      (r: number): number => {
+        let top = headerH;
+        for (const vr of index.visibleRows) {
+          if (vr >= r) break;
+          if (vr < freezeRows) top += Math.round((sheet.rowHeightsPx[vr] ?? 0) * z);
+        }
+        return top;
+      },
+    [headerH, index, freezeRows, sheet, z],
+  );
+
+  const handlersRef = useRef<RowHandlers>({});
+  handlersRef.current = { interaction, pick, onCellActivate };
+  const shared = useMemo<RowShared>(
+    () => ({ grid, sheet, index, evaluation, z, showHeaders, merges, rows, frozenTop }),
+    [grid, sheet, index, evaluation, z, showHeaders, merges, rows, frozenTop],
+  );
+  // The selected block shades only the rows it touches, so a move of the cursor rebuilds those rows alone.
+  const shadedBlock = interaction?.selection ?? pick?.selection ?? null;
+  // Keyed by the row that DRAWS a block (its first drawn row — not its anchor when the anchor's row is hidden).
+  const blockBottom = useMemo(() => {
+    const out = new Map<number, number>();
+    for (const [ownerKey, drawn] of merges.owners) {
+      const row = Number(ownerKey.slice(0, ownerKey.indexOf(',')));
+      out.set(row, Math.max(out.get(row) ?? row, drawn.merge.bottom));
+    }
+    return out;
+  }, [merges]);
+  const rowShaded = (row: number): Rect | null =>
+    shadedBlock && shadedBlock.bottom >= row && shadedBlock.top <= (blockBottom.get(row) ?? row) ? shadedBlock : null;
+
+  const tableStyle: CSSProperties = {
+    tableLayout: 'fixed',
+    borderCollapse: 'collapse',
+    width: Math.round(index.totalWidth * z) + headerW,
+    backgroundColor: '#fff',
+  };
+
+  return (
+    <div
+      ref={(el) => {
+        scrollBoxRef.current = el;
+        if (typeof containerRef === 'function') containerRef(el);
+        else if (containerRef) (containerRef as { current: HTMLDivElement | null }).current = el;
+      }}
+      className="overflow-auto border border-slate-300 rounded bg-white"
+      style={{ maxHeight }}
+      data-testid={`grid-scroll-${sheet.name}`}
+      // The spreadsheet keyboard belongs to the grid: F2 edits a cell here, it does not "Save".
+      {...(interaction ? { 'data-shortcut-zone': 'grid' } : {})}
+    >
+      <div data-grid-surface style={{ position: 'relative', width: tableStyle.width }}>
+      <table
+        style={tableStyle}
+        role="grid"
+        aria-readonly={interaction ? undefined : 'true'}
+        aria-label={`Bảng ${sheet.name}`}
+        aria-rowcount={sheet.rows + (showHeaders ? 1 : 0)}
+        aria-colcount={sheet.cols + (showHeaders ? 1 : 0)}
+        data-testid="grid-table"
+      >
+        <colgroup>
+          {showHeaders && <col style={{ width: headerW }} />}
+          {index.visibleCols.map((c) => (
+            <col key={c} style={{ width: Math.round((sheet.colWidthsPx[c] ?? 0) * z) }} />
           ))}
+        </colgroup>
+
+        {showHeaders && (
+          <thead>
+            <tr style={{ height: headerH }} aria-rowindex={1}>
+              <th
+                scope="col"
+                aria-colindex={1}
+                style={{
+                  position: 'sticky',
+                  top: 0,
+                  left: 0,
+                  zIndex: 4,
+                  background: HEADER_BG,
+                  border: `1px solid ${GRIDLINE}`,
+                }}
+              />
+              {index.visibleCols.map((c) => (
+                <th
+                  key={c}
+                  scope="col"
+                  aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: c < freezeCols ? 3 : 2,
+                    left: c < freezeCols ? headerW + Math.round((index.colLeft.get(c) ?? 0) * z) : undefined,
+                    background: HEADER_BG,
+                    color: HEADER_COLOR,
+                    fontWeight: 400,
+                    fontSize: `${11 * z}px`,
+                    border: `1px solid ${GRIDLINE}`,
+                  }}
+                >
+                  {columnLetters(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+
+        <tbody>
+          {entries.map((entry, entryIndex) => {
+            if (typeof entry !== 'number') {
+              return (
+                <tr key={`gap-${entryIndex}`} data-testid="grid-gap" aria-hidden="true" style={{ height: entry.gap }}>
+                  <td colSpan={index.visibleCols.length + (showHeaders ? 1 : 0)} style={{ padding: 0, border: 0, height: entry.gap }} />
+                </tr>
+              );
+            }
+            const r = entry;
+            return (
+              <GridRow
+                key={r}
+                r={r}
+                shared={shared}
+                activeCol={interaction?.active?.row === r ? interaction.active.col : null}
+                shaded={rowShaded(r)}
+                markers={pick?.markers}
+                invalid={interaction?.invalid}
+                required={interaction?.required}
+                interactive={!!interaction}
+                picking={!!pick}
+                canActivate={!!onCellActivate && !interaction}
+                handlers={handlersRef}
+              />
+            );
+          })}
         </tbody>
       </table>
       {children}
@@ -432,3 +646,18 @@ export default function GridTable({
     </div>
   );
 }
+
+export default function GridTable(props: GridTableProps) {
+  const { grid, sheetName, evaluation } = props;
+  const sheet = grid.sheets.find((s) => s.name === sheetName);
+  const index = useMemo(() => (sheet ? buildSheetIndex(sheet) : null), [sheet]);
+
+  const inputRows = useMemo(
+    () => (sheet ? inputRowSet(sheet.name, evaluation.fieldAt.values()) : new Set<number>()),
+    [sheet, evaluation],
+  );
+
+  if (!sheet || !index) return null;
+  return <GridSheetView {...props} sheet={sheet} index={index} inputRows={inputRows} />;
+}
+

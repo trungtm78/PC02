@@ -18,7 +18,7 @@
  * (slice 5), the same "client preview, server is the authoritative source"
  * split already used throughout spec §10 R2.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Upload, AlertCircle, CheckCircle2, Tag, X } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
@@ -31,6 +31,8 @@ import type {
 import { applyWebMarks, removeWebMarks } from '@/features/dynamic-reports/markRegion';
 import { TYPE_AGGREGATE_COMPATIBILITY } from '@/features/dynamic-reports/engine/generated/token';
 import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/period';
+import GridViewer from '@/features/dynamic-reports/grid/GridViewer';
+import type { GridField } from '@/features/dynamic-reports/grid/gridEvaluation';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import ReportScheduleStep from './ReportScheduleStep';
@@ -122,6 +124,35 @@ export default function ReportTemplateUploadPage() {
     }
   }
 
+  // The grid draws the fields already marked as input cells, and offers the markable cells for picking.
+  const gridFields = useMemo<GridField[]>(
+    () =>
+      (preview?.fields ?? []).map((f) => ({
+        sheetKey: f.sheetKey,
+        address: f.address,
+        fieldKey: f.fieldKey,
+        type: f.type,
+        label: f.label,
+      })),
+    [preview?.fields],
+  );
+  const candidateKeys = useMemo(
+    () => new Set((preview?.markableCells ?? []).map((c) => `${c.sheetKey}!${c.address}`)),
+    [preview?.markableCells],
+  );
+
+  // A data-validation suggestion is about the cell that carries it, so it is offered once that cell is an input.
+  const ruleSuggestions = useMemo(() => {
+    const fieldKeys = new Set((preview?.fields ?? []).map((f) => f.fieldKey));
+    return (preview?.suggestedRules ?? []).filter(
+      (s) => s.origin !== 'DATA_VALIDATION' || fieldKeys.has(`${s.sheetKey}!${s.address}`),
+    );
+  }, [preview?.suggestedRules, preview?.fields]);
+
+  function pickCandidates(keys: string[], additive: boolean) {
+    setSelectedCandidates((prev) => (additive ? new Set([...prev, ...keys]) : new Set(keys)));
+  }
+
   function toggleCandidate(key: string) {
     setSelectedCandidates((prev) => {
       const next = new Set(prev);
@@ -160,7 +191,10 @@ export default function ReportTemplateUploadPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6" data-testid="report-template-upload-page">
+    <div
+      className={`${step === 'preview' && preview?.grid ? 'max-w-6xl' : 'max-w-3xl'} mx-auto p-6`}
+      data-testid="report-template-upload-page"
+    >
       <Link
         to="/bao-cao-dong/thiet-lap"
         className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4 ${A11Y_FOCUS_RING}`}
@@ -316,6 +350,22 @@ export default function ReportTemplateUploadPage() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {preview.grid && (
+              <div className="mt-6" data-testid="template-grid-section">
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">Mẫu như người nhập sẽ thấy</h3>
+                <GridViewer
+                  versionId="preview"
+                  grid={preview.grid}
+                  fields={gridFields}
+                  values={{}}
+                  mark={{ candidates: candidateKeys, chosen: selectedCandidates, onPick: pickCandidates }}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Chọn ô trên bảng rồi nhập nhãn, kiểu và cách tổng hợp ở danh sách bên dưới (dùng được cả bằng bàn phím).
+                </p>
+              </div>
             )}
 
             {preview.fields.length > 0 && (
@@ -488,6 +538,7 @@ export default function ReportTemplateUploadPage() {
         {step === 'rules' && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportRulesStep
+              suggestions={ruleSuggestions}
               onBack={() => setStep('teams')}
               onNext={(r) => {
                 setRules(r);

@@ -82,4 +82,61 @@ describe('ReportRulesStep (S36, PR9 slice 1)', () => {
 
     expect(onBack).toHaveBeenCalled();
   });
+
+  describe('suggestions from the template', () => {
+    const IF_RULE = {
+      sheetKey: 'Đội 3',
+      address: 'G10',
+      name: "'Đội 3'!G10: D10 = D11+D12",
+      leftExpr: "'Đội 3'!D10",
+      operator: 'EQ' as const,
+      rightExpr: "'Đội 3'!D11+'Đội 3'!D12",
+      message: 'Kiểm tra ô G10 không đạt.',
+      origin: 'IF_FORMULA' as const,
+    };
+    const DV_RULE = {
+      sheetKey: 'A09',
+      address: 'Q51',
+      name: 'Q51 <= Q50',
+      leftExpr: 'A09!Q51',
+      operator: 'LTE' as const,
+      rightExpr: 'A09!Q50',
+      message: 'Số bị can khởi tố không vượt quá số đã xác minh',
+      origin: 'DATA_VALIDATION' as const,
+    };
+
+    it('offers each suggestion and turns the chosen one into a rule with the right severity', () => {
+      const onNext = vi.fn();
+      render(<ReportRulesStep onBack={() => {}} onNext={onNext} suggestions={[IF_RULE, DV_RULE]} />);
+      expect(screen.getByTestId('rule-suggestions')).toHaveTextContent('Gợi ý từ file mẫu (2)');
+
+      fireEvent.click(screen.getByTestId(`btn-use-suggestion-${DV_RULE.name}`));
+      fireEvent.click(screen.getByTestId(`btn-use-suggestion-${IF_RULE.name}`));
+      fireEvent.click(screen.getByTestId('btn-rules-next'));
+
+      expect(onNext).toHaveBeenCalledWith([
+        expect.objectContaining({
+          name: DV_RULE.name,
+          leftExpr: 'A09!Q51',
+          operator: 'LTE',
+          rightExpr: 'A09!Q50',
+          severity: 'ERROR', // Excel stops an officer at its own data validation
+          message: DV_RULE.message,
+        }),
+        expect.objectContaining({ name: IF_RULE.name, operator: 'EQ', severity: 'WARNING' }),
+      ]);
+    });
+
+    it('a used suggestion is not offered again', () => {
+      render(<ReportRulesStep onBack={() => {}} onNext={() => {}} suggestions={[IF_RULE]} />);
+      fireEvent.click(screen.getByTestId(`btn-use-suggestion-${IF_RULE.name}`));
+      expect(screen.queryByTestId('rule-suggestions')).not.toBeInTheDocument();
+      expect(screen.getByTestId('rule-row-0')).toBeInTheDocument();
+    });
+
+    it('shows nothing when the template suggests nothing', () => {
+      render(<ReportRulesStep onBack={() => {}} onNext={() => {}} />);
+      expect(screen.queryByTestId('rule-suggestions')).not.toBeInTheDocument();
+    });
+  });
 });

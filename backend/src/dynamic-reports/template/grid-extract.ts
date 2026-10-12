@@ -17,7 +17,7 @@ import type {
 import { formatAddress, parseAddress } from '../engine/paste';
 import { parseThemeColors, resolveColor } from './grid-color';
 import type { ColorContext, ExcelColor } from './grid-color';
-import type { RawGridInfo } from './grid-raw';
+import type { RawDataValidation, RawGridInfo } from './grid-raw';
 import {
   columnWidthToPx,
   defaultColumnWidthPx,
@@ -350,6 +350,73 @@ function formulaText(v: unknown): string | undefined {
   return undefined;
 }
 
+/** The Excel data validation of a sheet, one entry per distinct rule with the cells it covers (OV7). */
+export function extractSheetValidations(
+  ws: ExcelJS.Worksheet,
+  name: string,
+  warnings: string[] = [],
+  raw?: readonly RawDataValidation[],
+): GridValidation[] {
+  const validations: GridValidation[] = [];
+  if (raw) {
+    // As written in the file: the blocks keep their order (relative formulas are anchored at the first) and a
+    // bound that is a cell reference stays text.
+    for (const r of raw) {
+      if (!['whole', 'decimal', 'list', 'date', 'time', 'textLength', 'custom'].includes(r.type)) {
+        warnings.push(`${name}!${r.sqref[0]}: quy tắc nhập liệu "${r.type}" chưa được hỗ trợ`);
+        continue;
+      }
+      validations.push({
+        ranges: r.sqref,
+        type: r.type as GridValidation['type'],
+        operator: (r.operator ?? (r.type === 'list' || r.type === 'custom' ? undefined : 'between')) as GridValidation['operator'],
+        formula1: r.formula1,
+        formula2: r.formula2,
+        allowBlank: r.allowBlank,
+        showErrorMessage: r.showErrorMessage,
+        errorTitle: r.errorTitle,
+        errorMessage: r.error,
+        promptTitle: r.promptTitle,
+        prompt: r.prompt,
+      });
+    }
+    return validations;
+  }
+  const dv =
+    (ws as unknown as { dataValidations?: { model?: Record<string, Record<string, unknown>> } }).dataValidations
+      ?.model ?? {};
+  const groups = new Map<string, { sample: Record<string, unknown>; addrs: string[] }>();
+  for (const [addr, rule] of Object.entries(dv)) {
+    const key = JSON.stringify(rule);
+    const g = groups.get(key) ?? { sample: rule, addrs: [] };
+    g.addrs.push(addr);
+    groups.set(key, g);
+  }
+  for (const { sample, addrs } of groups.values()) {
+    const type = String(sample.type);
+    if (!['whole', 'decimal', 'list', 'date', 'time', 'textLength', 'custom'].includes(type)) {
+      warnings.push(`${name}!${addrs[0]}: quy tắc nhập liệu "${type}" chưa được hỗ trợ`);
+      continue;
+    }
+    const f = (sample.formulae as unknown[] | undefined) ?? [];
+    validations.push({
+      ranges: compressAddresses(addrs),
+      type: type as GridValidation['type'],
+      operator: sample.operator as GridValidation['operator'],
+      formula1: formulaText(f[0]),
+      formula2: formulaText(f[1]),
+      allowBlank: sample.allowBlank === true,
+      showErrorMessage: sample.showErrorMessage === true,
+      errorTitle: typeof sample.errorTitle === 'string' ? sample.errorTitle : undefined,
+      errorMessage: typeof sample.error === 'string' ? sample.error : undefined,
+      promptTitle: typeof sample.promptTitle === 'string' ? sample.promptTitle : undefined,
+      prompt: typeof sample.prompt === 'string' ? sample.prompt : undefined,
+    });
+  }
+  return validations;
+}
+
+
 export function extractGridModel(
   workbook: ExcelJS.Workbook,
   options: GridExtractOptions,
@@ -576,38 +643,7 @@ export function extractGridModel(
       }
     }
 
-    const validations: GridValidation[] = [];
-    const dv =
-      (ws as unknown as { dataValidations?: { model?: Record<string, Dict> } }).dataValidations
-        ?.model ?? {};
-    const groups = new Map<string, { sample: Dict; addrs: string[] }>();
-    for (const [addr, rule] of Object.entries(dv)) {
-      const key = JSON.stringify(rule);
-      const g = groups.get(key) ?? { sample: rule, addrs: [] };
-      g.addrs.push(addr);
-      groups.set(key, g);
-    }
-    for (const { sample, addrs } of groups.values()) {
-      const type = String(sample.type);
-      if (!['whole', 'decimal', 'list', 'date', 'time', 'textLength', 'custom'].includes(type)) {
-        warnings.push(`${name}!${addrs[0]}: quy tắc nhập liệu "${type}" chưa được hỗ trợ`);
-        continue;
-      }
-      const f = (sample.formulae as unknown[] | undefined) ?? [];
-      validations.push({
-        ranges: compressAddresses(addrs),
-        type: type as GridValidation['type'],
-        operator: sample.operator as GridValidation['operator'],
-        formula1: formulaText(f[0]),
-        formula2: formulaText(f[1]),
-        allowBlank: sample.allowBlank === true,
-        showErrorMessage: sample.showErrorMessage === true,
-        errorTitle: typeof sample.errorTitle === 'string' ? sample.errorTitle : undefined,
-        errorMessage: typeof sample.error === 'string' ? sample.error : undefined,
-        promptTitle: typeof sample.promptTitle === 'string' ? sample.promptTitle : undefined,
-        prompt: typeof sample.prompt === 'string' ? sample.prompt : undefined,
-      });
-    }
+    const validations = extractSheetValidations(ws, name, warnings, raw.dataValidations[name]);
 
     // ---- view ------------------------------------------------------------------
     const view = (ws.views?.[0] ?? {}) as {

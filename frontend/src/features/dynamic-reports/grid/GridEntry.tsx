@@ -351,6 +351,20 @@ export default function GridEntry(props: GridEntryProps) {
     if (keyboardIsHere && focused !== ta) ta.focus({ preventScroll: true });
   }, [sel, mode]);
 
+  // Handed to the table's memoized rows: a new Set at every render would make every row look changed.
+  const invalidAddresses = useMemo(() => {
+    const out = new Set<string>();
+    for (const k of [...invalid.keys(), ...Object.keys(serverErrors ?? {})]) {
+      const f = sheetFields.find((x) => x.fieldKey === k);
+      if (f) out.add(f.address);
+    }
+    return out;
+  }, [invalid, serverErrors, sheetFields]);
+  const requiredAddresses = useMemo(
+    () => new Set(sheetFields.filter((f) => f.required).map((f) => f.address)),
+    [sheetFields],
+  );
+
   // A mouse drag ends wherever the button is released.
   useEffect(() => {
     const stop = () => {
@@ -606,16 +620,11 @@ export default function GridEntry(props: GridEntryProps) {
   }
 
   // ---- mouse ----------------------------------------------------------------------------
-  const invalidAddresses = new Set<string>();
-  for (const k of [...invalid.keys(), ...Object.keys(serverErrors ?? {})]) {
-    const f = sheetFields.find((x) => x.fieldKey === k);
-    if (f) invalidAddresses.add(f.address);
-  }
   const interaction: GridInteraction = {
     selection: rect,
     active,
     invalid: invalidAddresses,
-    required: new Set(sheetFields.filter((f) => f.required).map((f) => f.address)),
+    required: requiredAddresses,
     onCellMouseDown: (pos: Pos, e: MouseEvent) => {
       if (e.button !== 0) return;
       if (mode !== 'nav' && !commitDraft()) {

@@ -1,6 +1,7 @@
 import type { FieldType, AggregateType } from '../engine/token';
 import type { CellIssueCode } from './classify';
 import type { Layout } from './layout';
+import type { SheetValidations } from './validation-constraints';
 
 export type FieldSource = 'TOKEN' | 'WEB';
 
@@ -59,4 +60,6 @@ export interface ParseTemplateResult {
   totalCells: number;
   inputCellCount: number;
   layout: Layout;
+  /** Excel's own data validation of each selected sheet (OV7): what a cell may hold. */
+  dataValidations: SheetValidations[];
 }

@@ -1,0 +1,14 @@
+{
+  "ten": "bao-cao-dong",
+  "moTa": "Báo cáo động: nhập trên lưới Excel (S11), xem/duyệt bản của tổ, tổng hợp (S15), thiết lập (wizard), tình trạng. Chỉ bất biến chung: không pageerror/5xx/màn trắng/màn lỗi. Cần MONKEY_BC_LUOT_GIAO và MONKEY_BC_KY (mã thật gieo ở máy local).",
+  "tuyen": [
+    "/bao-cao-dong/nhap/{BC_LUOT_GIAO}",
+    "/bao-cao-dong/duyet/tong-hop/{BC_KY}",
+    "/bao-cao-dong/duyet/tong-hop/{BC_KY}/to",
+    "/bao-cao-dong/duyet/tong-hop/{BC_KY}/lich-su",
+    "/bao-cao-dong/thiet-lap",
+    "/bao-cao-dong/thiet-lap/moi",
+    "/bao-cao-dong/tinh-trang"
+  ],
+  "batBien": []
+}
