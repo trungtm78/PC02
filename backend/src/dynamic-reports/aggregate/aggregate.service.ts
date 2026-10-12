@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
 import * as ExcelJS from 'exceljs';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DynReportPeriodFinalizedEvent } from '../../notifications/events/notification.events';
 import { aggregateValues } from '../engine/aggregate';
+import { CALC_ENGINE_VERSION } from '../engine/grid-workbook';
+import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
+import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -71,6 +74,14 @@ export interface PeriodSummaryView {
   mode: SummaryMode;
   kpi: KpiSummaryView;
   fields: FieldAggregateView[];
+  /**
+   * The OFFICIAL figure of every formula cell of the template, worked out from the aggregated values by the
+   * server (GA1): LIVE while the period is open, FROZEN once it is closed (the figures it was closed with),
+   * UNAVAILABLE for a period closed before this existed or when the template cannot be calculated.
+   */
+  formulaValues: Record<string, FormulaCellView> | null;
+  formulaSource: FormulaSource;
+  calcEngineVersion: number | null;
   serverTime: string;
 }
 
@@ -191,6 +202,18 @@ export interface ViewablePeriodView {
 /** S38 — snapshot engine version tag, bumped only if the snapshot's own shape changes. */
 const SNAPSHOT_ENGINE_VERSION = 'v1';
 
+/** How many times a close is redone when the numbers change under the formulas that were worked out for it. */
+const FINALIZE_MAX_ATTEMPTS = 3;
+
+/** Formula figures worked out outside the transaction, with the hash of the numbers they came from. */
+interface FrozenFormulaPlan {
+  sourceHash: string;
+  formulas: Prisma.InputJsonValue;
+}
+
+/** Thrown inside the close transaction (rolling it back) when someone saved after the figures were worked out. */
+class StaleFormulaPlanError extends Error {}
+
 /** Which submission states count as a "live" contribution under each S15 mode (D03). */
 const CONTRIBUTING_STATES: Record<SummaryMode, readonly SubmissionState[]> = {
   SUBMITTED: ['SUBMITTED', 'APPROVED'],
@@ -210,10 +233,13 @@ const CONTRIBUTING_STATES: Record<SummaryMode, readonly SubmissionState[]> = {
  */
 @Injectable()
 export class AggregateService {
+  private readonly logger = new Logger(AggregateService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly formulas: FormulaEvaluationService,
   ) {}
 
   private async resolveManagerRole(
@@ -493,6 +519,13 @@ export class AggregateService {
       };
     });
 
+    const formulaPart = await this.resolveFormulas(
+      { id: period.id, versionId: period.versionId, status: period.status },
+      mode,
+      fields,
+      allowedTeamIds !== null,
+    );
+
     return {
       reportId: period.reportId,
       versionId: period.versionId,
@@ -506,8 +539,64 @@ export class AggregateService {
       mode,
       kpi,
       fields,
+      ...formulaPart,
       serverTime: now.toISOString(),
     };
+  }
+
+  /**
+   * The official formula figures for a summary. A closed period shows the figures it was closed with (frozen in
+   * its snapshot — a better calculator must never rewrite a number that was already reported); an open one
+   * calculates them now from the aggregated values. Failing to calculate (a template too large to draw, a busy
+   * worker) must never take the summary down with it: the figures are simply reported as unavailable.
+   */
+  private async resolveFormulas(
+    period: { id: string; versionId: string; status: string },
+    mode: SummaryMode,
+    fields: ReadonlyArray<{ fieldKey: string; value: string | null }>,
+    scopedToSomeTeams: boolean,
+  ): Promise<{
+    formulaValues: Record<string, FormulaCellView> | null;
+    formulaSource: FormulaSource;
+    calcEngineVersion: number | null;
+  }> {
+    const unavailable = { formulaValues: null, formulaSource: 'UNAVAILABLE' as const, calcEngineVersion: null };
+    try {
+      // The frozen figures were worked out from EVERY team's numbers. A viewer limited to some teams is shown the
+      // totals of those teams only, so for them the figures are worked out live from what they can see.
+      if (period.status === 'FINALIZED' && mode === 'APPROVED' && !scopedToSomeTeams) {
+        const snapshot = await this.prisma.dynReportSnapshot.findFirst({
+          where: { periodId: period.id, official: true, invalidatedAt: null },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (snapshot) {
+          if (!snapshot.formulaValues) return unavailable; // closed before formula figures were frozen: say so, never recompute
+          return {
+            formulaValues: toFormulaView(snapshot.formulaValues as unknown as Parameters<typeof toFormulaView>[0]),
+            formulaSource: 'FROZEN',
+            calcEngineVersion: snapshot.calcEngineVersion,
+          };
+        }
+        // Closed, yet no official snapshot (a reopen raced this read): the frozen figures are the only ones a
+        // closed period may show, so say there are none rather than working out new ones.
+        return unavailable;
+      }
+      const outcomes = await this.formulas.evaluate(
+        period.versionId,
+        Object.fromEntries(fields.map((f) => [f.fieldKey, f.value])),
+        'none',
+      );
+      return {
+        formulaValues: toFormulaView(outcomes),
+        formulaSource: 'LIVE',
+        calcEngineVersion: CALC_ENGINE_VERSION,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Không tính được công thức của kỳ ${period.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return unavailable;
+    }
   }
 
   /**
@@ -525,6 +614,65 @@ export class AggregateService {
     periodId: string,
     userId: string,
     roleId: string,
+  ): Promise<FinalizeResultView> {
+    // The formulas are worked out BEFORE the transaction: it holds the period row lock and a pooled connection,
+    // and the calculation waits for a worker (and may need more connections to load the grid). Inside the
+    // transaction the figures are only checked against the numbers they were worked out from; if someone saved
+    // in between, the whole thing is simply done again with fresh numbers.
+    for (let attempt = 1; ; attempt++) {
+      const plan = await this.planFrozenFormulas(periodId, userId, roleId);
+      try {
+        return await this.finalizeOnce(periodId, userId, roleId, plan, attempt < FINALIZE_MAX_ATTEMPTS);
+      } catch (err) {
+        if (err instanceof StaleFormulaPlanError) continue;
+        throw err;
+      }
+    }
+  }
+
+  /**
+   * The formula figures for the period as it stands now, together with the hash of the numbers they came from.
+   * Best effort and unlocked: a caller who may not close the period, or a template that cannot be calculated,
+   * simply yields no plan (the transaction then raises the real error, or closes the period without figures).
+   */
+  private async planFrozenFormulas(
+    periodId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<FrozenFormulaPlan | null> {
+    try {
+      const period = await this.prisma.dynReportPeriod.findUnique({
+        where: { id: periodId },
+        include: {
+          report: true,
+          version: { omit: { fileBytes: true }, include: { fields: true } },
+          assignments: { include: { submission: true } },
+        },
+      });
+      if (!period || period.status !== 'OPEN') return null;
+      const actorRole = await this.resolveManagerRole(this.prisma, period.reportId, userId, roleId);
+      if (!actorRole) return null; // do not spend a worker on someone who will be told 404
+      const { snapshotValues, sourceHash } = this.computeApprovedSnapshot(period);
+      const outcomes = await this.formulas.evaluate(
+        period.versionId,
+        Object.fromEntries(Object.entries(snapshotValues).map(([k, v]) => [k, v.value])),
+        'none',
+      );
+      return { sourceHash, formulas: outcomes as unknown as Prisma.InputJsonValue };
+    } catch (err) {
+      this.logger.warn(
+        `Chốt kỳ ${periodId}: chưa tính được số công thức (${err instanceof Error ? err.message : String(err)}).`,
+      );
+      return null;
+    }
+  }
+
+  private async finalizeOnce(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    plan: FrozenFormulaPlan | null,
+    mayRetry: boolean,
   ): Promise<FinalizeResultView> {
     const { result, notify } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
@@ -588,6 +736,20 @@ export class AggregateService {
         sourceHash,
       } = this.computeApprovedSnapshot(period);
 
+      // Freeze the formula figures with the snapshot (OV1/OV10), but only figures worked out from exactly these
+      // numbers. No plan (the template could not be calculated) still closes the period — its aggregated figures
+      // are what matter — and the snapshot says it has none.
+      let frozenFormulas: Prisma.InputJsonValue | undefined;
+      if (plan) {
+        if (plan.sourceHash === sourceHash) {
+          frozenFormulas = plan.formulas;
+        } else if (mayRetry) {
+          throw new StaleFormulaPlanError();
+        } else {
+          this.logger.warn(`Chốt kỳ ${periodId}: số liệu vẫn đổi giữa các lần tính, đóng băng không kèm số công thức.`);
+        }
+      }
+
       const now = new Date();
       const snapshot = await tx.dynReportSnapshot.create({
         data: {
@@ -600,6 +762,8 @@ export class AggregateService {
           engineVersion: SNAPSHOT_ENGINE_VERSION,
           asOf: now,
           official: true,
+          formulaValues: frozenFormulas,
+          calcEngineVersion: frozenFormulas ? CALC_ENGINE_VERSION : undefined,
         },
       });
 

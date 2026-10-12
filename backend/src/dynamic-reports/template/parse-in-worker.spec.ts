@@ -23,10 +23,12 @@ import * as path from 'path';
 import * as ExcelJS from 'exceljs';
 import {
   buildGridInWorker,
+  evaluateFormulasInWorker,
   parseTemplateInWorker,
   TemplateParseTimeoutError,
 } from './parse-in-worker';
 import { parseTemplate } from './parser';
+import { evaluateAllFormulas } from '../engine/grid-workbook';
 import { TemplateLimitError } from './limits';
 
 const FIXTURES = path.join(__dirname, '../../../test/fixtures/dynamic-reports');
@@ -183,5 +185,28 @@ describe('buildGridInWorker accepts a lazy loader (Codex G1b P1)', () => {
     await expect(buildGridInWorker(async () => { throw new Error('db down'); }, ['x'])).rejects.toThrow('db down');
     const ok = await buildGridInWorker(readFixture('real/pl7.xlsx'), ['Thống kê sl vụ việc']);
     expect(ok.sheets).toHaveLength(1);
+  });
+});
+
+describe('evaluateFormulasInWorker (official formula figures)', () => {
+  jest.setTimeout(30_000);
+
+  it('gives the same figures in a worker as in-process, for both blank rules', async () => {
+    const model = await buildGridInWorker(readFixture('real/pl7.xlsx'), ['Thống kê sl vụ việc']);
+    const inProcess = evaluateAllFormulas(model, [], {}, 'blank');
+    expect(Object.keys(inProcess).length).toBeGreaterThan(0); // the comparison must be about something
+
+    const viaWorker = await evaluateFormulasInWorker({ grid: model, fields: [], values: {}, blankAs: 'blank' });
+    expect(viaWorker).toEqual(inProcess);
+
+    const none = await evaluateFormulasInWorker({ grid: model, fields: [], values: {}, blankAs: 'none' });
+    expect(none).toEqual(evaluateAllFormulas(model, [], {}, 'none'));
+  });
+
+  it('terminates on timeout like the other modes', async () => {
+    const model = await buildGridInWorker(readFixture('real/pl7.xlsx'), ['Thống kê sl vụ việc']);
+    await expect(
+      evaluateFormulasInWorker({ grid: model, fields: [], values: {}, blankAs: 'blank' }, 1),
+    ).rejects.toBeInstanceOf(TemplateParseTimeoutError);
   });
 });

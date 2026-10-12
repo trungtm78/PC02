@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ExcelJS from 'exceljs';
-import { evaluateGridWorkbook, toWorkbookModel } from './grid-workbook';
+import { CALC_ENGINE_VERSION, evaluateAllFormulas, evaluateGridWorkbook, toWorkbookModel } from './grid-workbook';
 import type { InputFieldRef } from './grid-workbook';
 import type { GridModel, GridSheet } from './grid-types';
 import { extractGridModel } from '../template/grid-extract';
@@ -147,6 +147,51 @@ describe('evaluateGridWorkbook', () => {
     ]);
     const { evaluator } = evaluateGridWorkbook(two, [field('A1')], { 'S!A1': '21' });
     expect(numberAt(evaluator, 'TỔNG', 'A1')).toBe('42');
+  });
+});
+
+describe('evaluateAllFormulas (official figures, review OV1/OV10)', () => {
+  const g = grid([
+    sheet('S', {
+      A1: { k: 'empty', s: 0 },
+      A2: { k: 'empty', s: 0 },
+      A3: { k: 'formula', f: 'A1+A2', s: 0 },
+      A4: { k: 'formula', f: 'A1/A2', s: 0 },
+      A5: { k: 'formula', f: 'IF(A3=10,"Đúng","Sai")', s: 0 },
+      A6: { k: 'formula', f: 'A3=10', s: 0 },
+      A7: { k: 'num', v: '1', s: 0 },
+    }),
+  ]);
+  const fields = [field('A1'), field('A2')];
+
+  it('reports every formula cell, keyed Sheet!Address, and nothing else', () => {
+    const out = evaluateAllFormulas(g, fields, { 'S!A1': '4', 'S!A2': '6' });
+    expect(Object.keys(out).sort()).toEqual(['S!A3', 'S!A4', 'S!A5', 'S!A6']);
+    expect(out['S!A3']).toEqual({ ok: true, type: 'number', value: '10' });
+    expect(out['S!A5']).toEqual({ ok: true, type: 'string', value: 'Đúng' });
+    expect(out['S!A6']).toEqual({ ok: true, type: 'boolean', value: true });
+  });
+
+  it('keeps every digit of a number: values cross the thread as decimal text', () => {
+    const out = evaluateAllFormulas(g, fields, { 'S!A1': '900719925474099300', 'S!A2': '1.5' });
+    expect(out['S!A3']).toEqual({ ok: true, type: 'number', value: '900719925474099301.5' });
+  });
+
+  it('a failing formula carries the code of the engine, and does not stop the others', () => {
+    const out = evaluateAllFormulas(g, fields, { 'S!A1': '4', 'S!A2': '0' });
+    expect(out['S!A4']).toEqual({ ok: false, code: 'DIV_BY_ZERO' });
+    expect(out['S!A3']).toEqual({ ok: true, type: 'number', value: '4' });
+  });
+
+  it('a missing contribution is reported when aggregating, not silently counted as 0', () => {
+    const none = evaluateAllFormulas(g, fields, { 'S!A1': '4', 'S!A2': null }, 'none');
+    expect(none['S!A3'].ok).toBe(false);
+    const blank = evaluateAllFormulas(g, fields, { 'S!A1': '4', 'S!A2': null }, 'blank');
+    expect(blank['S!A3']).toEqual({ ok: true, type: 'number', value: '4' });
+  });
+
+  it('names the calculator that produced the figures', () => {
+    expect(CALC_ENGINE_VERSION).toBe(1);
   });
 });
 

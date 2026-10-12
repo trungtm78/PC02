@@ -71,6 +71,9 @@ const VIEW: PeriodSummaryView = {
       ],
     },
   ],
+  formulaValues: null,
+  formulaSource: 'UNAVAILABLE',
+  calcEngineVersion: null,
   serverTime: '2026-06-15T10:00:00.000Z',
 };
 

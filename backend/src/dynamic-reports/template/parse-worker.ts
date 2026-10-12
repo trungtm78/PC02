@@ -7,6 +7,8 @@ import type { ParseTemplateResult } from './types';
 import type { GridModel } from '../engine/grid-types';
 import { buildTemplateWorkbook } from '../export/template-export';
 import type { TemplateExportRequest } from '../export/template-export';
+import { evaluateAllFormulas } from '../engine/grid-workbook';
+import type { FormulaOutcome, InputFieldRef } from '../engine/grid-workbook';
 
 /**
  * worker_threads entry point (spec §10 R6: "Parse trong worker_threads có
@@ -19,14 +21,14 @@ import type { TemplateExportRequest } from '../export/template-export';
  * `parse-in-worker.ts` also handles, but keeping both paths narrow here
  * means the caller only ever has to interpret ONE message shape.
  *
- * Three modes share the thread plumbing: `parse` (template upload / preview),
+ * Four modes share the thread plumbing (`evaluate` works out every formula of a template for a set of values — no file involved): `parse` (template upload / preview),
  * `grid` (render-ready GridModel for the entry grid, G1) and `export` (the
  * template filled in with a team's values, G5).
  */
 
 export interface WorkerSuccessMessage {
   ok: true;
-  result: ParseTemplateResult | GridModel | Uint8Array;
+  result: ParseTemplateResult | GridModel | Uint8Array | Record<string, FormulaOutcome>;
 }
 
 export interface WorkerFailureMessage {
@@ -36,11 +38,19 @@ export interface WorkerFailureMessage {
 
 export type WorkerMessage = WorkerSuccessMessage | WorkerFailureMessage;
 
+export interface EvaluateRequest {
+  grid: GridModel;
+  fields: InputFieldRef[];
+  values: Record<string, string | null>;
+  blankAs: 'blank' | 'none';
+}
+
 interface WorkerData {
-  mode?: 'parse' | 'grid' | 'export';
+  mode?: 'parse' | 'grid' | 'export' | 'evaluate';
   buffer: Buffer;
   selectedSheetNames: string[];
   exportRequest?: TemplateExportRequest;
+  evaluateRequest?: EvaluateRequest;
 }
 
 async function buildGrid(buffer: Buffer, selectedSheetNames: string[]): Promise<GridModel> {
@@ -55,10 +65,14 @@ async function buildGrid(buffer: Buffer, selectedSheetNames: string[]): Promise<
 }
 
 async function run(): Promise<void> {
-  const { mode, buffer, selectedSheetNames, exportRequest } = workerData as WorkerData;
+  const { mode, buffer, selectedSheetNames, exportRequest, evaluateRequest } = workerData as WorkerData;
   try {
     let result: WorkerSuccessMessage['result'];
-    if (mode === 'export') {
+    if (mode === 'evaluate') {
+      if (!evaluateRequest) throw new Error('Thiếu yêu cầu tính công thức.');
+      const { grid, fields, values, blankAs } = evaluateRequest;
+      result = evaluateAllFormulas(grid, fields, values, blankAs);
+    } else if (mode === 'export') {
       if (!exportRequest) throw new Error('Thiếu yêu cầu xuất file.');
       result = (await buildTemplateWorkbook(buffer, exportRequest)).buffer;
     } else if (mode === 'grid') {

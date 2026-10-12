@@ -292,6 +292,18 @@ export interface KpiSummaryView {
   dataCoverageLabel: string;
 }
 
+/** What the server worked out for one formula cell (numbers stay decimal text — no digit lost). */
+export type FormulaCellView =
+  | { ok: true; type: 'number' | 'string'; value: string }
+  | { ok: true; type: 'boolean'; value: boolean }
+  | { ok: false; code: string; text: string };
+
+/**
+ * Where the formula figures of a summary came from: `LIVE` worked out now from the totals shown, `FROZEN`
+ * the figures a closed period was closed with (never recalculated), `UNAVAILABLE` could not be had.
+ */
+export type FormulaSource = 'LIVE' | 'FROZEN' | 'UNAVAILABLE';
+
 export interface PeriodSummaryView {
   reportId: string;
   /** Template version of this period; the key for the grid model endpoint. */
@@ -307,6 +319,11 @@ export interface PeriodSummaryView {
   mode: SummaryMode;
   kpi: KpiSummaryView;
   fields: FieldAggregateView[];
+  /** Keyed `Sheet!Address`; null when `formulaSource` is UNAVAILABLE. */
+  formulaValues: Record<string, FormulaCellView> | null;
+  formulaSource: FormulaSource;
+  /** The calculator that produced `formulaValues` (a closed period keeps the one of its closing day). */
+  calcEngineVersion: number | null;
   serverTime: string;
 }
 

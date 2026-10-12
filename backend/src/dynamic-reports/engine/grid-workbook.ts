@@ -81,3 +81,51 @@ export function evaluateGridWorkbook(
   const evaluator = new WorkbookEvaluator(toWorkbookModel(grid, fields), inputs, { blankAs });
   return { evaluator, inputs };
 }
+
+/**
+ * Bump when the way formulas are calculated changes in a way that could alter
+ * a result (a new function, a different rounding rule). A closed period keeps
+ * the figures it was closed with — they are stored together with this number
+ * and never recomputed (review OV10): a better calculator must not rewrite
+ * history.
+ */
+export const CALC_ENGINE_VERSION = 1;
+
+/**
+ * What one formula came to, in a form that crosses a thread or a network
+ * boundary: numbers stay decimal STRINGS (no digit lost), failures carry the
+ * engine's own code so each screen can say it in its own words ("Thiếu dữ
+ * liệu để tính" on the aggregate view, `#DIV/0!` in a file).
+ */
+export type FormulaOutcome =
+  | { ok: true; type: 'number'; value: string }
+  | { ok: true; type: 'string'; value: string }
+  | { ok: true; type: 'boolean'; value: boolean }
+  | { ok: false; code: string };
+
+/** Every formula cell of every sheet in the model, worked out against the values. */
+export function evaluateAllFormulas(
+  grid: GridModel,
+  fields: readonly InputFieldRef[],
+  values: Readonly<Record<string, string | null | undefined>>,
+  blankAs: 'blank' | 'none' = 'blank',
+): Record<string, FormulaOutcome> {
+  const { evaluator } = evaluateGridWorkbook(grid, fields, values, blankAs);
+  const out: Record<string, FormulaOutcome> = {};
+  for (const sheet of grid.sheets) {
+    for (const [address, cell] of Object.entries(sheet.cells)) {
+      if (cell.k !== 'formula') continue;
+      const outcome = evaluator.get(sheet.name, address);
+      const key = `${sheet.name}!${address}`;
+      if (!outcome || !outcome.ok) {
+        out[key] = { ok: false, code: outcome && !outcome.ok ? outcome.error.code : 'CYCLE_DETECTED' };
+        continue;
+      }
+      const v = outcome.value;
+      if (v.type === 'number') out[key] = { ok: true, type: 'number', value: v.value };
+      else if (v.type === 'string') out[key] = { ok: true, type: 'string', value: v.value };
+      else out[key] = { ok: true, type: 'boolean', value: v.value };
+    }
+  }
+  return out;
+}
