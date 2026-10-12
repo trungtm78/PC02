@@ -382,6 +382,11 @@ export interface MidPeriodAssignmentView {
 export interface ExportCreateResultView {
   exportId: string;
   fileName: string;
+  /**
+   * TEMPLATE: the report's own sheets, once for the totals and once for every team. LIST: the plain
+   * "Sheet / Chỉ tiêu / Giá trị" workbook, when the template could not be drawn or the file would be too large.
+   */
+  format: 'TEMPLATE' | 'LIST';
 }
 
 /** S34 (PR7 slice 8) — the manager's reopen-request queue. */

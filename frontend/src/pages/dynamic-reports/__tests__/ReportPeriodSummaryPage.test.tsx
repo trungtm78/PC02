@@ -286,6 +286,7 @@ describe('ReportPeriodSummaryPage', () => {
     vi.mocked(dynamicReportsApi.exportPeriod).mockResolvedValue({
       exportId: 'export1',
       fileName: 'HSLN-2026-06.xlsx',
+      format: 'TEMPLATE',
     });
     vi.mocked(dynamicReportsApi.downloadExport).mockResolvedValue(undefined);
     renderPage();
@@ -298,6 +299,28 @@ describe('ReportPeriodSummaryPage', () => {
       expect(dynamicReportsApi.downloadExport).toHaveBeenCalledWith('export1', 'HSLN-2026-06.xlsx');
     });
     expect(screen.queryByTestId('export-error')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('export-list-note')).not.toBeInTheDocument();
+  });
+
+  it('says so when the file had to be the plain list instead of the report template', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.exportPeriod).mockResolvedValue({
+      exportId: 'export1',
+      fileName: 'HSLN-2026-06.xlsx',
+      format: 'LIST',
+    });
+    vi.mocked(dynamicReportsApi.downloadExport).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-export'));
+    fireEvent.click(screen.getByTestId('btn-export'));
+
+    await waitFor(() => screen.getByTestId('export-list-note'));
+    expect(screen.getByTestId('export-list-note')).toHaveTextContent(/dạng danh sách/);
+    // The next export starts clean.
+    vi.mocked(dynamicReportsApi.exportPeriod).mockRejectedValue(new Error('x'));
+    fireEvent.click(screen.getByTestId('btn-export'));
+    await waitFor(() => expect(screen.queryByTestId('export-list-note')).not.toBeInTheDocument());
   });
 
   it('shows an error message when export fails (e.g. scope changed / expired on download)', async () => {

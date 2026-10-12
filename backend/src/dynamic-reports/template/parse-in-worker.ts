@@ -4,9 +4,11 @@ import { TemplateLimitError } from './limits';
 import { BoundedRunner } from './bounded-runner';
 import type { ParseTemplateResult } from './types';
 import type { GridModel } from '../engine/grid-types';
-import type { EvaluateRequest, WorkerMessage } from './parse-worker';
+import type { EvaluateRequest, PeriodExportWorkerResult, WorkerMessage } from './parse-worker';
 import type { FormulaOutcome } from '../engine/grid-workbook';
 import type { TemplateExportRequest } from '../export/template-export';
+import { PeriodExportTooLargeError } from '../export/period-export';
+import type { PeriodExportRequest } from '../export/period-export';
 
 /**
  * Main-thread side of the worker_threads isolation (spec §10 R6). Spawns
@@ -63,6 +65,7 @@ function hydrateError(error: { message: string; code?: string }): Error {
     return new TemplateLimitError(error.message, error.code);
   }
   if (error.code === 'GRID_TOO_LARGE') return new GridTooLargeWorkerError(error.message);
+  if (error.code === 'EXPORT_TOO_LARGE') return new PeriodExportTooLargeError(error.message);
   return new Error(error.message);
 }
 
@@ -70,12 +73,13 @@ function hydrateError(error: { message: string; code?: string }): Error {
 export type WorkbookSource = Buffer | (() => Promise<Buffer>);
 
 function runInWorker<T>(
-  mode: 'parse' | 'grid' | 'export' | 'evaluate',
+  mode: 'parse' | 'grid' | 'export' | 'exportPeriod' | 'evaluate',
   source: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number,
   exportRequest?: TemplateExportRequest,
   evaluateRequest?: EvaluateRequest,
+  periodExportRequest?: PeriodExportRequest,
 ): Promise<T> {
   return runner.run(async () => {
     // Fetched only now, inside the slot: a request that is queued — or refused
@@ -85,7 +89,7 @@ function runInWorker<T>(
     return new Promise<T>((resolve, reject) => {
       const isTs = path.extname(__filename) === '.ts';
       const worker = new Worker(workerFilePath(), {
-        workerData: { mode, buffer, selectedSheetNames, exportRequest, evaluateRequest },
+        workerData: { mode, buffer, selectedSheetNames, exportRequest, evaluateRequest, periodExportRequest },
         execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
         resourceLimits: { maxOldGenerationSizeMb: WORKER_MAX_OLD_GEN_MB },
       });
@@ -169,4 +173,25 @@ export function evaluateFormulasInWorker(
   timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
 ): Promise<Record<string, FormulaOutcome>> {
   return runInWorker<Record<string, FormulaOutcome>>('evaluate', Buffer.alloc(0), [], timeoutMs, undefined, request);
+}
+
+/**
+ * Builds a manager's file — the totals and every team in one workbook — in an isolated, bounded worker. The
+ * workbook bytes are fetched once the job is admitted, like the single-team export.
+ */
+export async function exportPeriodInWorker(
+  source: WorkbookSource,
+  request: PeriodExportRequest,
+  timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
+): Promise<{ buffer: Buffer; outcome: PeriodExportWorkerResult['outcome']; names: Map<string, string> }> {
+  const built = await runInWorker<PeriodExportWorkerResult>(
+    'exportPeriod',
+    source,
+    [],
+    timeoutMs,
+    undefined,
+    undefined,
+    request,
+  );
+  return { buffer: Buffer.from(built.buffer), outcome: built.outcome, names: new Map(built.names) };
 }

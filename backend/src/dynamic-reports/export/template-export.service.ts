@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GridModelService } from '../grid/grid-model.service';
-import type { InputFieldRef } from '../engine/grid-workbook';
-import { exportTemplateInWorker } from '../template/parse-in-worker';
+import type { FormulaOutcome, InputFieldRef } from '../engine/grid-workbook';
+import { exportPeriodInWorker, exportTemplateInWorker } from '../template/parse-in-worker';
 import type { TemplateExportRequest } from './template-export';
+import type { PeriodExportOutcome, PeriodExportScope } from './period-export';
 
 /**
  * Builds the file an officer or a manager actually wants: the report's own
@@ -18,6 +19,17 @@ export interface TeamExportInput {
   fields: InputFieldRef[];
   /** Field key → stored text, null/'' for blank. */
   values: Readonly<Record<string, string | null | undefined>>;
+  /** Written to the hidden `__dr_meta` sheet. */
+  meta: Record<string, string>;
+}
+
+export interface PeriodExportInput {
+  versionId: string;
+  fields: InputFieldRef[];
+  /** The totals first, then the teams in the order they should appear. */
+  scopes: PeriodExportScope[];
+  /** The official figure of every formula for the totals; null when the system has none. */
+  totalOutcomes: Record<string, FormulaOutcome> | null;
   /** Written to the hidden `__dr_meta` sheet. */
   meta: Record<string, string>;
 }
@@ -61,5 +73,41 @@ export class TemplateExportService {
       },
       request,
     );
+  }
+
+  /**
+   * A manager's file: the report's sheets once for the totals and once for every team, each filled in
+   * (see period-export.ts). May refuse (too large / busy / unbuildable): the caller falls back to a list.
+   */
+  async buildPeriodFile(input: PeriodExportInput): Promise<{ buffer: Buffer; outcome: PeriodExportOutcome }> {
+    const version = await this.prisma.dynReportVersion.findUnique({
+      where: { id: input.versionId },
+      select: { selectedSheets: true },
+    });
+    if (!version) throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
+    const selectedSheets = (version.selectedSheets as unknown as string[]) ?? [];
+
+    const { model } = await this.grids.getForVersion(input.versionId);
+
+    const { buffer, outcome } = await exportPeriodInWorker(
+      // Fetched inside the worker slot, so a queued export never holds a copy of the workbook.
+      async () => {
+        const row = await this.prisma.dynReportVersion.findUnique({
+          where: { id: input.versionId },
+          select: { fileBytes: true },
+        });
+        if (!row) throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
+        return Buffer.from(row.fileBytes);
+      },
+      {
+        selectedSheets,
+        fields: input.fields,
+        scopes: input.scopes,
+        grid: model,
+        totalOutcomes: input.totalOutcomes,
+        meta: input.meta,
+      },
+    );
+    return { buffer, outcome };
   }
 }

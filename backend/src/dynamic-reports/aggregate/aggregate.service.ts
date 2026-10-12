@@ -7,6 +7,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DynReportPeriodFinalizedEvent } from '../../notifications/events/notification.events';
 import { aggregateValues } from '../engine/aggregate';
 import { CALC_ENGINE_VERSION } from '../engine/grid-workbook';
+import type { FormulaOutcome } from '../engine/grid-workbook';
+import { TemplateExportService } from '../export/template-export.service';
+import type { PeriodExportScope } from '../export/period-export';
 import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
 import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
@@ -147,6 +150,11 @@ export interface AssignmentListItemView {
 export interface ExportCreateResultView {
   exportId: string;
   fileName: string;
+  /**
+   * TEMPLATE: the report's own sheets, once for the totals and once for every team. LIST: the plain
+   * "Sheet / Chỉ tiêu / Giá trị" workbook, used when the template cannot be drawn or the file would be too large.
+   */
+  format: 'TEMPLATE' | 'LIST';
 }
 
 /**
@@ -242,6 +250,7 @@ export class AggregateService {
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly formulas: FormulaEvaluationService,
+    private readonly templateExport: TemplateExportService,
   ) {}
 
   private async resolveManagerRole(
@@ -1322,6 +1331,7 @@ export class AggregateService {
     const computed = this.computeApprovedSnapshot(period);
     let snapshotValues = computed.snapshotValues;
     let snapshotId: string | null = null;
+    let officialFormulaValues: Record<string, FormulaOutcome> | null = null;
     if (period.status === 'FINALIZED') {
       // Once chốt, the export must show the FROZEN official numbers, not
       // a live recompute — the whole point of chốt kỳ is that the number
@@ -1333,9 +1343,150 @@ export class AggregateService {
       if (officialSnapshot) {
         snapshotValues = officialSnapshot.values as typeof snapshotValues;
         snapshotId = officialSnapshot.id;
+        officialFormulaValues = (officialSnapshot.formulaValues as Record<string, FormulaOutcome> | null) ?? null;
       }
     }
 
+    // The totals' formulas are the figures the screen shows: the ones frozen at close for a closed period,
+    // worked out now from the same aggregated numbers for an open one. A closed period without frozen
+    // figures has none to offer (the file says so rather than inventing them).
+    let totalOutcomes: Record<string, FormulaOutcome> | null = null;
+    if (period.status === 'FINALIZED') {
+      if (officialFormulaValues) totalOutcomes = officialFormulaValues;
+    } else {
+      try {
+        totalOutcomes = await this.formulas.evaluate(
+          period.versionId,
+          Object.fromEntries(
+            Object.entries(snapshotValues).map(([k, v]) => [k, (v as { value: string | null }).value]),
+          ),
+          'none',
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Xuất kỳ ${periodId}: chưa tính được số công thức (${err instanceof Error ? err.message : String(err)}).`,
+        );
+      }
+    }
+
+    const teams = await this.assignmentsInTeamOrder(period.assignments);
+    const scopes: PeriodExportScope[] = [
+      {
+        scope: 'TOTAL',
+        label: 'TỔNG',
+        kind: 'TOTAL',
+        values: Object.fromEntries(
+          period.version.fields.map((f) => [
+            f.fieldKey,
+            (snapshotValues[f.fieldKey] as { value: string | null } | undefined)?.value ?? null,
+          ]),
+        ),
+      },
+      ...teams.map((a) => {
+        const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+        const values = (a.submission?.values ?? {}) as Record<string, { t: string; v: string | null } | undefined>;
+        return {
+          scope: a.teamId,
+          label: teamSnapshot?.name || a.teamId,
+          kind: 'TEAM' as const,
+          values: Object.fromEntries(period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null])),
+        };
+      }),
+    ];
+
+    let fileBuffer: Buffer;
+    let format: 'TEMPLATE' | 'LIST' = 'TEMPLATE';
+    try {
+      ({ buffer: fileBuffer } = await this.templateExport.buildPeriodFile({
+        versionId: period.versionId,
+        fields: period.version.fields.map((f) => ({
+          sheetKey: f.sheetKey,
+          address: f.address,
+          fieldKey: f.fieldKey,
+          type: f.type as 'NUM' | 'TEXT' | 'DATE' | 'TIME',
+        })),
+        scopes,
+        totalOutcomes,
+        meta: {
+          kind: 'PERIOD',
+          reportId: period.reportId,
+          versionId: period.versionId,
+          periodId,
+          periodKey: period.periodKey,
+          mode: 'APPROVED',
+          snapshotId: snapshotId ?? '',
+          exportedAt: new Date().toISOString(),
+        },
+      }));
+    } catch (err) {
+      this.logger.warn(
+        `Xuất theo mẫu thất bại cho kỳ ${periodId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      format = 'LIST';
+      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams);
+    }
+    const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
+
+    const exportRow = await this.prisma.dynReportExport.create({
+      data: {
+        requestedById: userId,
+        kind: 'MANAGER_FULL',
+        scope: { periodId, reportId: period.reportId },
+        snapshotId,
+        status: 'READY',
+        fileBytes: fileBuffer as unknown as Uint8Array<ArrayBuffer>,
+        fileName,
+        contributorSetHash: computed.contributorSetHash,
+        expiresAt: new Date(Date.now() + EXPORT_TTL_MS),
+      },
+    });
+
+    return { exportId: exportRow.id, fileName, format };
+  }
+
+  /** The assignments in the order of the team tree (parents before their children, siblings by `order`, then name). */
+  private async assignmentsInTeamOrder<T extends { teamId: string }>(assignments: T[]): Promise<T[]> {
+    const teams = await this.prisma.team.findMany({
+      select: { id: true, name: true, parentId: true, order: true },
+    });
+    const known = new Set(teams.map((t) => t.id));
+    const children = new Map<string | null, typeof teams>();
+    for (const t of teams) {
+      const key = t.parentId && known.has(t.parentId) ? t.parentId : null;
+      children.set(key, [...(children.get(key) ?? []), t]);
+    }
+    const rank = new Map<string, number>();
+    const walk = (parent: string | null) => {
+      const list = [...(children.get(parent) ?? [])].sort(
+        (a, b) => a.order - b.order || a.name.localeCompare(b.name, 'vi'),
+      );
+      for (const t of list) {
+        rank.set(t.id, rank.size);
+        walk(t.id);
+      }
+    };
+    walk(null);
+    // A team that is not in the tree any more keeps its relative place, after every team that is.
+    return assignments
+      .map((a, i) => ({ a, i }))
+      .sort((x, y) => (rank.get(x.a.teamId) ?? Infinity) - (rank.get(y.a.teamId) ?? Infinity) || x.i - y.i)
+      .map((x) => x.a);
+  }
+
+  /** The plain list workbook: used when the template itself cannot be drawn or the file would be too large. */
+  private async buildPeriodListWorkbook(
+    period: {
+      report: { name: string };
+      periodKey: string;
+      startDate: Date;
+      endDate: Date;
+      status: string;
+      versionId: string;
+      version: { fields: Array<{ fieldKey: string; sheetKey: string; label: string | null }> };
+    },
+    snapshotValues: Record<string, unknown>,
+    teams: Array<{ teamId: string; teamSnapshot: unknown; submission: { values: unknown } | null }>,
+  ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
 
     const totalSheet = workbook.addWorksheet('TỔNG');
@@ -1357,7 +1508,7 @@ export class AggregateService {
       });
     }
 
-    for (const a of period.assignments) {
+    for (const a of teams) {
       const teamSnapshot = a.teamSnapshot as { name?: string } | null;
       const teamName = teamSnapshot?.name || a.teamId;
       const sheet = workbook.addWorksheet(sanitizeSheetName(teamName));
@@ -1393,24 +1544,7 @@ export class AggregateService {
     metaSheet.addRow(['Xuất lúc', new Date().toISOString()]);
     metaSheet.addRow(['Phiên bản mẫu', period.versionId]);
 
-    const fileBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-    const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
-
-    const exportRow = await this.prisma.dynReportExport.create({
-      data: {
-        requestedById: userId,
-        kind: 'MANAGER_FULL',
-        scope: { periodId, reportId: period.reportId },
-        snapshotId,
-        status: 'READY',
-        fileBytes: fileBuffer as unknown as Uint8Array<ArrayBuffer>,
-        fileName,
-        contributorSetHash: computed.contributorSetHash,
-        expiresAt: new Date(Date.now() + EXPORT_TTL_MS),
-      },
-    });
-
-    return { exportId: exportRow.id, fileName };
+    return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   /**

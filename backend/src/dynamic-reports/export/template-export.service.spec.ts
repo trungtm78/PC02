@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as ExcelJS from 'exceljs';
 import { TemplateExportService } from './template-export.service';
 import { computeFormulaResults } from './formula-results';
-import { META_SHEET_NAME } from './template-export';
+import { META_SHEET_NAME, readExportMeta } from './template-export';
+import { PeriodExportTooLargeError } from './period-export';
 import { extractGridModel } from '../template/grid-extract';
 import { readRawGridInfo } from '../template/grid-raw';
 import type { GridModel, GridSheet } from '../engine/grid-types';
@@ -178,6 +179,68 @@ describe('TemplateExportService (real worker, real template)', () => {
     await expect(
       service.buildTeamFile({ versionId: 'v1', fields: [], values: {}, meta: {} }),
     ).rejects.toThrow('GRID_BUSY');
+  });
+
+  describe('buildPeriodFile (the manager file)', () => {
+    it('builds the totals and every team in one workbook through the real worker', async () => {
+      const { service } = build();
+      const sheetName = model.sheets[0].name;
+      const field = input(firstNumber, sheetName);
+      const { buffer, outcome } = await service.buildPeriodFile({
+        versionId: 'v1',
+        fields: [field],
+        scopes: [
+          { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { [field.fieldKey]: '300' } },
+          { scope: 't1', label: 'Đội 3', kind: 'TEAM', values: { [field.fieldKey]: '100' } },
+          { scope: 't2', label: 'Đội 4', kind: 'TEAM', values: { [field.fieldKey]: '200' } },
+        ],
+        totalOutcomes: {},
+        meta: { kind: 'PERIOD', versionId: 'v1' },
+      });
+
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+      expect(wb.worksheets.map((w) => w.name)).toEqual(['TỔNG', 'Đội 3', 'Đội 4', META_SHEET_NAME]);
+      expect(wb.getWorksheet('TỔNG')?.getCell(firstNumber).value).toBe(300);
+      expect(wb.getWorksheet('Đội 3')?.getCell(firstNumber).value).toBe(100);
+      expect(wb.getWorksheet('Đội 4')?.getCell(firstNumber).value).toBe(200);
+      expect((readExportMeta(wb) as Record<string, string>).kind).toBe('PERIOD');
+      // The template's formulas had no figure from the system for the totals: blanked, and said so.
+      expect(outcome.unresolvedTotals.length).toBeGreaterThan(0);
+    });
+
+    it('reads the workbook bytes only once the worker has a slot', async () => {
+      const { service, prisma } = build();
+      await service.buildPeriodFile({
+        versionId: 'v1',
+        fields: [],
+        scopes: [{ scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: {} }],
+        totalOutcomes: null,
+        meta: {},
+      });
+      const calls = prisma.dynReportVersion.findUnique.mock.calls.map((c) => Object.keys(c[0].select).join(','));
+      expect(calls).toEqual(['selectedSheets', 'fileBytes']);
+    });
+
+    it('a file too large for one workbook is refused with its own error, from inside the worker', async () => {
+      const { service } = build();
+      const many = Array.from({ length: 700 }, (_, i) => ({
+        scope: `t${i}`,
+        label: `Tổ ${i}`,
+        kind: 'TEAM' as const,
+        values: {},
+      }));
+      await expect(
+        service.buildPeriodFile({ versionId: 'v1', fields: [], scopes: many, totalOutcomes: null, meta: {} }),
+      ).rejects.toBeInstanceOf(PeriodExportTooLargeError);
+    });
+
+    it('lets a refusal to build the grid reach the caller, who falls back to a plain list', async () => {
+      const { service } = build({ getForVersion: jest.fn().mockRejectedValue(new Error('GRID_BUSY')) });
+      await expect(
+        service.buildPeriodFile({ versionId: 'v1', fields: [], scopes: [], totalOutcomes: null, meta: {} }),
+      ).rejects.toThrow('GRID_BUSY');
+    });
   });
 
   it('an unknown version is a plain not-found', async () => {

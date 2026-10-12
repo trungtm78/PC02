@@ -4,6 +4,7 @@ import { AggregateService } from './aggregate.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TeamsService } from '../../teams/teams.service';
 import type { FormulaEvaluationService } from './formula-evaluation.service';
+import type { TemplateExportService } from '../export/template-export.service';
 
 /** By default the template's formulas have nothing to say (no formula cells), so summaries are unaffected. */
 function buildFormulaMock(outcomes: Record<string, unknown> = {}) {
@@ -11,6 +12,19 @@ function buildFormulaMock(outcomes: Record<string, unknown> = {}) {
     evaluate: jest.fn().mockResolvedValue(outcomes),
     calcEngineVersion: 1,
   } as unknown as FormulaEvaluationService;
+}
+
+/**
+ * By default the template file cannot be built (the real thing needs a worker and a workbook), so an export falls
+ * back to the plain list — which is what the older export tests were written against.
+ */
+function buildTemplateExportMock(
+  result: { buffer: Buffer } | Error = new Error('GRID_UNAVAILABLE'),
+) {
+  const buildPeriodFile = jest.fn();
+  if (result instanceof Error) buildPeriodFile.mockRejectedValue(result);
+  else buildPeriodFile.mockResolvedValue({ buffer: result.buffer, outcome: {} });
+  return { buildPeriodFile } as unknown as TemplateExportService;
 }
 
 /** R13 (PR7 slice 9) — default has no VIEWER scope in play, so `getDescendantIds` is never called by existing tests. */
@@ -127,6 +141,7 @@ describe('AggregateService', () => {
       teamsService ?? buildTeamsServiceMock(),
       { emit: jest.fn() } as unknown as EventEmitter2,
       extra.formulas ?? buildFormulaMock(),
+      buildTemplateExportMock(),
     );
     return { service, prisma };
   }
@@ -421,6 +436,7 @@ describe('AggregateService', () => {
       buildTeamsServiceMock(),
       { emit: jest.fn() } as unknown as EventEmitter2,
       buildFormulaMock(),
+      buildTemplateExportMock(),
     );
 
     const result = await service.getPeriodSummary(
@@ -535,6 +551,7 @@ describe('AggregateService', () => {
         buildTeamsServiceMock(),
         eventEmitter as unknown as EventEmitter2,
         formulas,
+        buildTemplateExportMock(),
       );
       return { service, tx, eventEmitter, prisma };
     }
@@ -788,6 +805,8 @@ describe('AggregateService', () => {
       period: unknown,
       grants: unknown[] = [],
       overrides: Partial<Record<string, unknown>> = {},
+      templateExport: TemplateExportService = buildTemplateExportMock(),
+      formulas: FormulaEvaluationService = buildFormulaMock(),
     ) {
       const prisma = {
         dynReportPeriod: {
@@ -816,13 +835,15 @@ describe('AggregateService', () => {
             .mockResolvedValue({ id: 'export1' }),
           findUnique: jest.fn<Promise<unknown>, unknown[]>(),
         },
+        team: { findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]) },
         ...overrides,
       };
       const service = new AggregateService(
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
-        buildFormulaMock(),
+        formulas,
+        templateExport,
       );
       return { service, prisma };
     }
@@ -865,6 +886,132 @@ describe('AggregateService', () => {
         data: { snapshotId: string };
       };
       expect(createCall.data.snapshotId).toBe('snapshot1');
+    });
+
+    describe('the file is the report template, once for the totals and once for every team (G5b)', () => {
+      const FILE = { buffer: Buffer.from('template-xlsx') };
+      const request = (te: TemplateExportService) =>
+        (te.buildPeriodFile as jest.Mock).mock.calls[0][0] as {
+          versionId: string;
+          scopes: Array<{ scope: string; label: string; kind: string; values: Record<string, string | null> }>;
+          totalOutcomes: Record<string, unknown> | null;
+          meta: Record<string, string>;
+          fields: Array<{ fieldKey: string; type: string }>;
+        };
+
+      it('hands over the totals first, then the teams with their own numbers, and says it is a period file', async () => {
+        const te = buildTemplateExportMock(FILE);
+        const { service } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+
+        const result = await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        expect(result.format).toBe('TEMPLATE');
+        const req = request(te);
+        expect(req.versionId).toBe('version1');
+        expect(req.fields).toEqual([
+          { sheetKey: 'Đội 3', address: 'C6', fieldKey: FIELD.fieldKey, type: 'NUM' },
+        ]);
+        expect(req.scopes.map((s) => [s.scope, s.kind])).toEqual([
+          ['TOTAL', 'TOTAL'],
+          ['team-a1', 'TEAM'],
+          ['team-a2', 'TEAM'],
+          ['team-a3', 'TEAM'],
+          ['team-a4', 'TEAM'],
+        ]);
+        // The totals carry the APPROVED aggregate (only a2 → 20); each team its own number.
+        expect(req.scopes[0].values).toEqual({ [FIELD.fieldKey]: '20' });
+        expect(req.scopes[1]).toMatchObject({ label: 'Team a1', values: { [FIELD.fieldKey]: '10' } });
+        expect(req.scopes[3].values).toEqual({ [FIELD.fieldKey]: '5' });
+        expect(req.scopes[4].values).toEqual({ [FIELD.fieldKey]: null }); // exempt, never started
+        expect(req.meta).toMatchObject({ kind: 'PERIOD', periodId: 'period1', versionId: 'version1', mode: 'APPROVED' });
+      });
+
+      it('an open period gets the totals\' formula figures worked out now, from the aggregate it shows', async () => {
+        const te = buildTemplateExportMock(FILE);
+        const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
+        const { service } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te, formulas);
+
+        await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        expect(formulas.evaluate).toHaveBeenCalledWith('version1', { [FIELD.fieldKey]: '20' }, 'none');
+        expect(request(te).totalOutcomes).toEqual({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
+      });
+
+      it('a closed period uses the figures it was closed with and never recalculates', async () => {
+        const te = buildTemplateExportMock(FILE);
+        const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: false } });
+        const { service, prisma } = buildExportService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], {}, te, formulas);
+        prisma.dynReportSnapshot.findFirst.mockResolvedValue({
+          id: 'snapshot1',
+          values: { [FIELD.fieldKey]: { value: '999', countTotal: 1, countNonBlank: 1 } },
+          formulaValues: { 'Đội 3!D12': { ok: true, type: 'number', value: '42' } },
+        });
+
+        await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        const req = request(te);
+        expect(req.totalOutcomes).toEqual({ 'Đội 3!D12': { ok: true, type: 'number', value: '42' } });
+        expect(req.scopes[0].values).toEqual({ [FIELD.fieldKey]: '999' });
+        expect(req.meta.snapshotId).toBe('snapshot1');
+        expect(formulas.evaluate).not.toHaveBeenCalled();
+      });
+
+      it('a period closed before figures were frozen offers none: the totals\' formulas are left blank, not invented', async () => {
+        const te = buildTemplateExportMock(FILE);
+        const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
+        const { service, prisma } = buildExportService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], {}, te, formulas);
+        prisma.dynReportSnapshot.findFirst.mockResolvedValue({
+          id: 'snapshot1',
+          values: { [FIELD.fieldKey]: { value: '999', countTotal: 1, countNonBlank: 1 } },
+          formulaValues: null,
+        });
+
+        await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        expect(request(te).totalOutcomes).toBeNull();
+        expect(formulas.evaluate).not.toHaveBeenCalled();
+      });
+
+      it('lists the teams in the order of the team tree, parents before children', async () => {
+        const te = buildTemplateExportMock(FILE);
+        const { service } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {
+          team: {
+            findMany: jest.fn().mockResolvedValue([
+              { id: 'team-a1', name: 'Đội 3', parentId: 'root', order: 2 },
+              { id: 'team-a2', name: 'Đội 4', parentId: 'root', order: 1 },
+              { id: 'root', name: 'Phòng', parentId: null, order: 0 },
+              { id: 'team-a3', name: 'Tổ 1', parentId: 'team-a2', order: 0 },
+            ]),
+          },
+        }, te);
+
+        await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        // root (not an assignment) → a2 (order 1) → its child a3 → a1 (order 2); a4 is not in the tree: last.
+        expect(request(te).scopes.slice(1).map((s) => s.scope)).toEqual(['team-a2', 'team-a3', 'team-a1', 'team-a4']);
+      });
+
+      it('falls back to the plain list when the template cannot be used, and still stores the file', async () => {
+        const te = buildTemplateExportMock(new Error('GRID_UNAVAILABLE'));
+        const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+
+        const result = await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        expect(result.format).toBe('LIST');
+        const created = prisma.dynReportExport.create.mock.calls[0][0] as { data: { fileBytes: Buffer; status: string } };
+        expect(created.data.status).toBe('READY');
+        expect(Buffer.from(created.data.fileBytes).subarray(0, 2).toString()).toBe('PK'); // a real xlsx
+      });
+
+      it('stores the template file when it could be built', async () => {
+        const te = buildTemplateExportMock(FILE);
+        const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+
+        await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+        const created = prisma.dynReportExport.create.mock.calls[0][0] as { data: { fileBytes: Buffer } };
+        expect(Buffer.from(created.data.fileBytes).toString()).toBe('template-xlsx');
+      });
     });
 
     it('rejects (404) when the caller is not a manager of this report', async () => {
@@ -988,6 +1135,7 @@ describe('AggregateService', () => {
         teamsService ?? buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
         buildFormulaMock(),
+        buildTemplateExportMock(),
       );
       return { service, prisma };
     }
@@ -1197,6 +1345,7 @@ describe('AggregateService', () => {
         buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
         buildFormulaMock(),
+        buildTemplateExportMock(),
       );
       return { service, prisma };
     }
@@ -1357,6 +1506,7 @@ describe('AggregateService', () => {
         buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
         buildFormulaMock(),
+        buildTemplateExportMock(),
       );
       return { service, tx, prisma };
     }
@@ -1635,6 +1785,7 @@ describe('AggregateService', () => {
           buildTeamsServiceMock(),
           { emit: jest.fn() } as unknown as EventEmitter2,
           buildFormulaMock(),
+          buildTemplateExportMock(),
         );
         return { service, tx };
       }
