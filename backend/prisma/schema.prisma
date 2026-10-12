@@ -4352,6 +4352,9 @@ model DynReportUnlock {
   revokedAt       DateTime?
   revokeReason    String?
   bulkBatchId     String?
+  /// The revision this grant created by returning a handed-in submission (null when it returned nothing). Revoking cuts
+  /// the return deadline only for a return the grant itself made, never for one a manager issued on its own.
+  reopenedRevision BigInt?
   createdAt       DateTime                @default(now())
 
   @@index([assignmentId, status, expiresAt])
