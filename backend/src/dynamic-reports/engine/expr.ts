@@ -1,4 +1,4 @@
-import Decimal from 'decimal.js';
+﻿import Decimal from 'decimal.js';
 
 /**
  * Expr engine — formula parser/evaluator shared by cell formulas AND
@@ -36,6 +36,7 @@ export type BinaryOp =
 
 export type Expr =
   | { kind: 'number'; value: number }
+  | { kind: 'string'; value: string }
   | { kind: 'boolean'; value: boolean }
   | { kind: 'cell'; sheet?: string; cell: string }
   | {
@@ -70,6 +71,7 @@ export type FunctionName = (typeof ALLOWED_FUNCTIONS)[number];
 
 type TokenType =
   | 'number'
+  | 'string'
   | 'ident'
   | 'quotedSheetRange'
   | 'op'
@@ -95,15 +97,55 @@ function tokenize(source: string): Token[] {
       i++;
       continue;
     }
+    if (c === '"') {
+      // String literal; a doubled quote inside stands for one literal quote.
+      let j = i + 1;
+      let text = '';
+      let closed = false;
+      while (j < s.length) {
+        if (s[j] === '"') {
+          if (s[j + 1] === '"') {
+            text += '"';
+            j += 2;
+            continue;
+          }
+          closed = true;
+          j++;
+          break;
+        }
+        text += s[j];
+        j++;
+      }
+      if (!closed) {
+        throw new ParseFailure(
+          'NOT_A_FORMULA',
+          `Thiếu dấu nháy kép đóng trong "${source}".`,
+        );
+      }
+      tokens.push({ type: 'string', text });
+      i = j;
+      continue;
+    }
     if (c === "'") {
       // Quoted sheet name or 3-D sheet range, e.g. 'Team1:Team3' or 'Sheet 1'.
-      const end = s.indexOf("'", i + 1);
-      if (end === -1)
+      // A doubled single quote inside stands for one literal quote (Excel).
+      let end = i + 1;
+      while (end < s.length) {
+        if (s[end] === "'") {
+          if (s[end + 1] === "'") {
+            end += 2;
+            continue;
+          }
+          break;
+        }
+        end++;
+      }
+      if (end >= s.length)
         throw new ParseFailure(
           'NOT_A_FORMULA',
           `Thiếu dấu nháy đơn đóng trong "${source}".`,
         );
-      const quoted = s.slice(i + 1, end);
+      const quoted = s.slice(i + 1, end).replace(/''/g, "'");
       if (quoted.includes('[') || quoted.includes(']')) {
         // Excel external-workbook reference, e.g. '[Book1.xlsx]Sheet1' — never allowed, quoted or not.
         throw new ParseFailure(
@@ -122,9 +164,10 @@ function tokenize(source: string): Token[] {
       i = j;
       continue;
     }
-    if (/[A-Za-z_]/.test(c)) {
+    if (/[\p{L}_]/u.test(c)) {
+      // Unicode letters allowed: Excel accepts an unquoted sheet name such as Tổng!A1.
       let j = i;
-      while (j < s.length && /[A-Za-z0-9_]/.test(s[j])) j++;
+      while (j < s.length && /[\p{L}\p{N}_]/u.test(s[j])) j++;
       tokens.push({ type: 'ident', text: s.slice(i, j) });
       i = j;
       continue;
@@ -354,6 +397,11 @@ class Parser {
       return { kind: 'number', value: Number(t.text) };
     }
 
+    if (t.type === 'string') {
+      this.next();
+      return { kind: 'string', value: t.text };
+    }
+
     if (t.type === 'lparen') {
       this.next();
       const inner = this.parseComparison();
@@ -516,12 +564,27 @@ export interface RangeReference {
 }
 
 export type CellResolution =
-  | { kind: 'value'; value: number }
+  // A number or a canonical decimal string. Pass a string for anything that
+  // can carry more than 15 significant digits: it is parsed by decimal.js
+  // without ever passing through a double (OV4).
+  | { kind: 'value'; value: Decimal.Value }
+  | { kind: 'text'; value: string } // text cell: ignored by range aggregates, #VALUE! in arithmetic
+  | { kind: 'boolean'; value: boolean } // a formula cell that returned TRUE/FALSE: ignored by range aggregates
   | { kind: 'blank' } // empty cell — behaves as 0 in direct arithmetic (Excel convention), excluded from AVERAGE/COUNT's denominator
   | { kind: 'none' } // NONE-aggregate field, or genuinely missing data (e.g. no previous period) — always an error in arithmetic
   | { kind: 'not_found' }
   | { kind: 'out_of_scope' }
-  | { kind: 'cycle' };
+  | { kind: 'cycle' }
+  // An upstream formula cell that itself failed: its error propagates (Excel).
+  | { kind: 'error'; code: EvalErrorCode };
+
+/**
+ * Thrown by an `EvalContext.expandRange` implementation that refuses to
+ * allocate a reference list above its cap. Checked BEFORE allocating, so a
+ * formula such as SUM(A1:XFD1048576) cannot exhaust memory ahead of the step
+ * budget (OV9). The evaluator reports it as STEP_LIMIT_EXCEEDED.
+ */
+export class RangeLimitError extends Error {}
 
 export interface EvalContext {
   resolveCell(ref: CellReference): CellResolution;
@@ -541,7 +604,11 @@ const DEFAULT_MAX_STEPS = 100_000;
 
 export type EvalValue =
   | { type: 'number'; value: Decimal }
+  | { type: 'string'; value: string }
   | { type: 'boolean'; value: boolean };
+
+/** Internal only: an empty cell stays distinct until a consumer decides if it is 0 or "". */
+type Scalar = EvalValue | { type: 'blank' };
 
 export type EvalErrorCode =
   | 'DIV_BY_ZERO'
@@ -585,10 +652,33 @@ class Budget {
   }
 }
 
-function resolutionToNumberOrNull(resolution: CellResolution): number | null {
+const ERROR_MESSAGES: Record<EvalErrorCode, string> = {
+  DIV_BY_ZERO: 'Không tính được: chia cho 0.',
+  MISSING_DATA: 'Thiếu dữ liệu để tính.',
+  OUT_OF_SCOPE_REFERENCE: 'Ô tham chiếu nằm ngoài phạm vi báo cáo.',
+  CYCLE_DETECTED: 'Công thức tham chiếu vòng lặp.',
+  NOT_FOUND_REFERENCE: 'Địa chỉ ô không tồn tại trong mẫu.',
+  STEP_LIMIT_EXCEEDED: 'Công thức vượt quá giới hạn bước tính.',
+  TYPE_ERROR: 'Mong đợi giá trị số.',
+};
+
+/**
+ * Number a resolution stands for, `null` for a blank, and — for a text cell —
+ * `'text'` so each caller picks its own rule (aggregates skip it, arithmetic
+ * rejects it). Every failure kind throws its own code, which is what lets an
+ * upstream formula error propagate unchanged.
+ */
+function resolutionToNumberOrNull(
+  resolution: CellResolution,
+): Decimal | null | 'text' {
   switch (resolution.kind) {
     case 'value':
-      return resolution.value;
+      return new Decimal(resolution.value);
+    case 'text':
+    case 'boolean':
+      return 'text'; // not a number: aggregates skip it, arithmetic rejects it
+    case 'error':
+      throw new EvalFailure(resolution.code, ERROR_MESSAGES[resolution.code]);
     case 'blank':
       return null; // caller decides: 0 for direct arithmetic, excluded for aggregates
     case 'none':
@@ -608,17 +698,33 @@ function resolutionToNumberOrNull(resolution: CellResolution): number | null {
   }
 }
 
-function asNumber(value: EvalValue): Decimal {
+function asNumber(value: Scalar): Decimal {
+  if (value.type === 'blank') return new Decimal(0);
   if (value.type !== 'number') {
     throw new EvalFailure('TYPE_ERROR', 'Mong đợi giá trị số.');
   }
   return value.value;
 }
 
-function asBoolean(value: EvalValue): boolean {
+function asBoolean(value: Scalar): boolean {
+  if (value.type === 'blank') return false;
   if (value.type === 'boolean') return value.value;
   if (value.type === 'number') return !value.value.isZero();
   throw new EvalFailure('TYPE_ERROR', 'Mong đợi giá trị đúng/sai.');
+}
+
+/** Text a value contributes to `&` and to text comparison (General format, Excel TRUE/FALSE). */
+function asText(value: Scalar): string {
+  switch (value.type) {
+    case 'blank':
+      return '';
+    case 'string':
+      return value.value;
+    case 'boolean':
+      return value.value ? 'TRUE' : 'FALSE';
+    case 'number':
+      return value.value.toFixed();
+  }
 }
 
 function num(n: Decimal.Value): EvalValue {
@@ -626,6 +732,9 @@ function num(n: Decimal.Value): EvalValue {
 }
 function bool(b: boolean): EvalValue {
   return { type: 'boolean', value: b };
+}
+function str(s: string): EvalValue {
+  return { type: 'string', value: s };
 }
 
 class Evaluator {
@@ -636,40 +745,69 @@ class Evaluator {
     this.budget = budget;
   }
 
-  evalCellForArithmetic(ref: CellReference): Decimal {
-    const n = resolutionToNumberOrNull(this.ctx.resolveCell(ref));
-    return new Decimal(n ?? 0);
+  /** A referenced cell as a scalar: blank stays blank, text stays text. */
+  evalCell(ref: CellReference): Scalar {
+    const resolution = this.ctx.resolveCell(ref);
+    if (resolution.kind === 'boolean') return bool(resolution.value);
+    const n = resolutionToNumberOrNull(resolution);
+    if (n === null) return { type: 'blank' };
+    if (n === 'text') {
+      return str(resolution.kind === 'text' ? resolution.value : '');
+    }
+    return num(n);
   }
 
-  /** Flattens a range reference to its contained numbers, dropping blanks. Used by SUM/AVERAGE/MIN/MAX/COUNT. */
-  flattenRangeValues(range: Extract<Expr, { kind: 'range' }>): number[] {
-    const refs = this.ctx.expandRange({
-      sheetFrom: range.sheetFrom,
-      sheetTo: range.sheetTo,
-      cellFrom: range.cellFrom,
-      cellTo: range.cellTo,
-    });
-    const values: number[] = [];
+  /**
+   * Flattens a range to the numbers it contains, the way SUM/AVERAGE/MIN/
+   * MAX/COUNT see it: blanks and text cells are skipped (Excel), a failed
+   * cell propagates its own error.
+   */
+  flattenRangeValues(range: Extract<Expr, { kind: 'range' }>): Decimal[] {
+    let refs: CellReference[];
+    try {
+      refs = this.ctx.expandRange({
+        sheetFrom: range.sheetFrom,
+        sheetTo: range.sheetTo,
+        cellFrom: range.cellFrom,
+        cellTo: range.cellTo,
+      });
+    } catch (e) {
+      if (e instanceof RangeLimitError) {
+        throw new EvalFailure('STEP_LIMIT_EXCEEDED', ERROR_MESSAGES.STEP_LIMIT_EXCEEDED);
+      }
+      throw e;
+    }
+    return this.numbersOf(refs);
+  }
+
+  private numbersOf(refs: CellReference[]): Decimal[] {
+    const values: Decimal[] = [];
     for (const ref of refs) {
       this.budget.consume();
       const n = resolutionToNumberOrNull(this.ctx.resolveCell(ref));
-      if (n !== null) values.push(n);
+      if (n !== null && n !== 'text') values.push(n);
     }
     return values;
   }
 
-  eval(expr: Expr): EvalValue {
+  /** Public entry: a formula never yields "blank" — Excel shows 0 for `=A1` over an empty A1. */
+  evalFinal(expr: Expr): EvalValue {
+    const v = this.eval(expr);
+    return v.type === 'blank' ? num(0) : v;
+  }
+
+  eval(expr: Expr): Scalar {
     this.budget.consume();
 
     switch (expr.kind) {
       case 'number':
         return num(expr.value);
+      case 'string':
+        return str(expr.value);
       case 'boolean':
         return bool(expr.value);
       case 'cell':
-        return num(
-          this.evalCellForArithmetic({ sheet: expr.sheet, cell: expr.cell }),
-        );
+        return this.evalCell({ sheet: expr.sheet, cell: expr.cell });
       case 'range': {
         // A bare range used outside an aggregate function (e.g. "=A1:A3")
         // has no single scalar value in this grammar.
@@ -698,25 +836,21 @@ class Evaluator {
           cell: expr.ref.cell,
         });
         const n = resolutionToNumberOrNull(resolution);
+        if (n === 'text') {
+          throw new EvalFailure('TYPE_ERROR', 'Mong đợi giá trị số.');
+        }
         return num(n ?? 0);
       }
     }
   }
 
-  private evalBinary(expr: Extract<Expr, { kind: 'binary' }>): EvalValue {
-    if (expr.op === '&') {
-      // Text concatenation is accepted by the grammar but this engine's
-      // scalar values are number/boolean only (TEXT fields never feed
-      // formulas, FRD §4.5) — treat '&' as string-forming for completeness
-      // but callers that need a TEXT result read raw cell values directly.
-      throw new EvalFailure(
-        'TYPE_ERROR',
-        'Nối chuỗi "&" chưa hỗ trợ trong engine số.',
-      );
-    }
-
+  private evalBinary(expr: Extract<Expr, { kind: 'binary' }>): Scalar {
     const left = this.eval(expr.left);
     const right = this.eval(expr.right);
+
+    if (expr.op === '&') {
+      return str(asText(left) + asText(right));
+    }
 
     if (['=', '<>', '<', '<=', '>', '>='].includes(expr.op)) {
       return bool(this.compare(expr.op, left, right));
@@ -744,7 +878,44 @@ class Evaluator {
     }
   }
 
-  private compare(op: BinaryOp, left: EvalValue, right: EvalValue): boolean {
+  private compare(op: BinaryOp, left: Scalar, right: Scalar): boolean {
+    if (left.type === 'string' || right.type === 'string') {
+      // A number or boolean never equals text and sorts before it (Excel);
+      // a blank is the empty string against text. Text compares
+      // case-insensitively.
+      const leftIsText = left.type === 'string' || left.type === 'blank';
+      const rightIsText = right.type === 'string' || right.type === 'blank';
+      if (!leftIsText || !rightIsText) {
+        const order = leftIsText ? 1 : -1; // text sorts after numbers
+        switch (op) {
+          case '=':
+            return false;
+          case '<>':
+            return true;
+          case '<':
+          case '<=':
+            return order < 0;
+          default:
+            return order > 0;
+        }
+      }
+      const l = asText(left).toLowerCase();
+      const r = asText(right).toLowerCase();
+      switch (op) {
+        case '=':
+          return l === r;
+        case '<>':
+          return l !== r;
+        case '<':
+          return l < r;
+        case '<=':
+          return l <= r;
+        case '>':
+          return l > r;
+        default:
+          return l >= r;
+      }
+    }
     if (left.type === 'boolean' || right.type === 'boolean') {
       const l = asBoolean(left);
       const r = asBoolean(right);
@@ -783,11 +954,16 @@ class Evaluator {
     }
   }
 
-  private evalCall(expr: Extract<Expr, { kind: 'call' }>): EvalValue {
-    const collectRangeNumbers = (arg: Expr): number[] => {
+  private evalCall(expr: Extract<Expr, { kind: 'call' }>): Scalar {
+    const collectRangeNumbers = (arg: Expr): Decimal[] => {
       if (arg.kind === 'range') return this.flattenRangeValues(arg);
-      const v = asNumber(this.eval(arg));
-      return [v.toNumber()];
+      // A lone cell reference behaves like a one-cell range (Excel): a
+      // blank or text cell is skipped rather than counted as 0.
+      if (arg.kind === 'cell') {
+        this.budget.consume();
+        return this.numbersOf([{ sheet: arg.sheet, cell: arg.cell }]);
+      }
+      return [asNumber(this.eval(arg))];
     };
 
     switch (expr.name) {
@@ -848,6 +1024,25 @@ class Evaluator {
   }
 }
 
+/** Evaluates an already-parsed tree — the workbook evaluator parses each formula once and re-runs it many times. */
+export function evaluateExpr(
+  expr: Expr,
+  ctx: EvalContext,
+  options: EvalOptions = {},
+): EvalResult {
+  const budget = new Budget(options.maxSteps ?? DEFAULT_MAX_STEPS);
+  const evaluator = new Evaluator(ctx, budget);
+  try {
+    const value = evaluator.evalFinal(expr);
+    return { ok: true, value };
+  } catch (e) {
+    if (e instanceof EvalFailure) {
+      return { ok: false, error: { code: e.code, message: e.message } };
+    }
+    throw e;
+  }
+}
+
 export function evaluateFormula(
   source: string,
   ctx: EvalContext,
@@ -863,15 +1058,169 @@ export function evaluateFormula(
       },
     };
   }
-  const budget = new Budget(options.maxSteps ?? DEFAULT_MAX_STEPS);
-  const evaluator = new Evaluator(ctx, budget);
-  try {
-    const value = evaluator.eval(parsed.expr);
-    return { ok: true, value };
-  } catch (e) {
-    if (e instanceof EvalFailure) {
-      return { ok: false, error: { code: e.code, message: e.message } };
+  return evaluateExpr(parsed.expr, ctx, options);
+}
+
+// ---------------------------------------------------------------------------
+// Reference utilities (workbook graph, template export)
+// ---------------------------------------------------------------------------
+
+export interface FormulaRefs {
+  cells: CellReference[];
+  ranges: RangeReference[];
+}
+
+/**
+ * Every cell and range a formula mentions, in source order. `PREV(ref)`
+ * points at the previous PERIOD, not at this workbook, so a dependency graph
+ * passes `includePrev: false`.
+ */
+export function collectRefs(
+  expr: Expr,
+  options: { includePrev?: boolean } = {},
+): FormulaRefs {
+  const includePrev = options.includePrev ?? true;
+  const out: FormulaRefs = { cells: [], ranges: [] };
+  const visit = (e: Expr): void => {
+    switch (e.kind) {
+      case 'cell':
+        out.cells.push({ sheet: e.sheet, cell: e.cell });
+        return;
+      case 'range':
+        out.ranges.push({
+          sheetFrom: e.sheetFrom,
+          sheetTo: e.sheetTo,
+          cellFrom: e.cellFrom,
+          cellTo: e.cellTo,
+        });
+        return;
+      case 'binary':
+        visit(e.left);
+        visit(e.right);
+        return;
+      case 'unary':
+        visit(e.operand);
+        return;
+      case 'call':
+        e.args.forEach(visit);
+        return;
+      case 'prev':
+        if (includePrev) visit(e.ref);
+        return;
+      default:
+        return;
     }
-    throw e;
+  };
+  visit(expr);
+  return out;
+}
+
+const BARE_SHEET_RE = /^[\p{L}_][\p{L}\p{N}_]*$/u;
+// Excel only quotes a name that could be read as a cell address (columns run A..XFD, so at most 3 letters).
+const CELL_LIKE_RE = /^[A-Za-z]{1,3}[0-9]+$/;
+
+function sheetPrefix(name: string): string {
+  const bare =
+    BARE_SHEET_RE.test(name) &&
+    !CELL_LIKE_RE.test(name) &&
+    !['TRUE', 'FALSE', 'PREV'].includes(name.toUpperCase());
+  return bare ? `${name}!` : `'${name.replace(/'/g, "''")}'!`;
+}
+
+const BINARY_PRECEDENCE: Record<BinaryOp, number> = {
+  '=': 1,
+  '<>': 1,
+  '<': 1,
+  '<=': 1,
+  '>': 1,
+  '>=': 1,
+  '&': 2,
+  '+': 3,
+  '-': 3,
+  '*': 4,
+  '/': 4,
+};
+const UNARY_PRECEDENCE = 5;
+
+function precedenceOf(e: Expr): number {
+  if (e.kind === 'binary') return BINARY_PRECEDENCE[e.op];
+  if (e.kind === 'unary') return UNARY_PRECEDENCE;
+  return 99;
+}
+
+/**
+ * Inverse of `parseFormula`: canonical formula text (no leading "="), with
+ * parentheses only where precedence requires them. The template export
+ * writes this back into cells after sheet names are rewritten.
+ */
+export function formatFormula(expr: Expr): string {
+  const wrap = (child: Expr, minPrecedence: number): string => {
+    const text = formatFormula(child);
+    return precedenceOf(child) < minPrecedence ? `(${text})` : text;
+  };
+  switch (expr.kind) {
+    case 'number':
+      return String(expr.value);
+    case 'string':
+      return `"${expr.value.replace(/"/g, '""')}"`;
+    case 'boolean':
+      return expr.value ? 'TRUE' : 'FALSE';
+    case 'cell':
+      return `${expr.sheet ? sheetPrefix(expr.sheet) : ''}${expr.cell}`;
+    case 'range': {
+      const body = expr.cellTo ? `${expr.cellFrom}:${expr.cellTo}` : expr.cellFrom;
+      if (!expr.sheetFrom) return body;
+      if (expr.sheetTo && expr.sheetTo !== expr.sheetFrom) {
+        const joined = `${expr.sheetFrom}:${expr.sheetTo}`.replace(/'/g, "''");
+        return `'${joined}'!${body}`;
+      }
+      return `${sheetPrefix(expr.sheetFrom)}${body}`;
+    }
+    case 'unary':
+      return `-${wrap(expr.operand, UNARY_PRECEDENCE)}`;
+    case 'binary': {
+      const p = BINARY_PRECEDENCE[expr.op];
+      // All binary operators here are left-associative: a same-precedence
+      // right operand needs parentheses, a same-precedence left one does not.
+      return `${wrap(expr.left, p)}${expr.op}${wrap(expr.right, p + 1)}`;
+    }
+    case 'call':
+      return `${expr.name}(${expr.args.map(formatFormula).join(',')})`;
+    case 'prev':
+      return `PREV(${formatFormula(expr.ref)})`;
   }
+}
+
+/**
+ * New tree with every explicit sheet name passed through `rename`. An
+ * unqualified reference keeps meaning "this sheet", so it is left alone —
+ * which is exactly what a sheet clone needs.
+ */
+export function rewriteSheetRefs(
+  expr: Expr,
+  rename: (sheet: string) => string,
+): Expr {
+  const go = (e: Expr): Expr => {
+    switch (e.kind) {
+      case 'cell':
+        return e.sheet ? { ...e, sheet: rename(e.sheet) } : e;
+      case 'range':
+        return {
+          ...e,
+          sheetFrom: e.sheetFrom ? rename(e.sheetFrom) : e.sheetFrom,
+          sheetTo: e.sheetTo ? rename(e.sheetTo) : e.sheetTo,
+        };
+      case 'binary':
+        return { ...e, left: go(e.left), right: go(e.right) };
+      case 'unary':
+        return { ...e, operand: go(e.operand) };
+      case 'call':
+        return { ...e, args: e.args.map(go) };
+      case 'prev':
+        return { ...e, ref: go(e.ref) };
+      default:
+        return e;
+    }
+  };
+  return go(expr);
 }

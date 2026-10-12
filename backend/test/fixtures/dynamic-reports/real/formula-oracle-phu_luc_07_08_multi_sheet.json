@@ -1,0 +1,435 @@
+{
+ "source": "phu_luc_07_08_multi_sheet.xlsx",
+ "sheets": [
+  {
+   "name": "Thống kê sl vụ việc",
+   "constants": {
+    "A1": "Đơn vị",
+    "C1": "THỐNG KÊ SỐ LIỆU VỤ VIỆC TẠM ĐÌNH CHỈ",
+    "B2": "Mốc thời gian:  từ ngày               /2026 đến ngày             /2026  ",
+    "D3": "(Phụ lục số 07)",
+    "G3": "Kiểm tra số liệu của toàn tỉnh",
+    "A4": "STT",
+    "B4": "Danh mục thống kê",
+    "D4": "Tổng số",
+    "E4": "Ghi chú",
+    "A5": 1,
+    "B5": "Số vụ việc TĐC, TDGQ đầu kỳ",
+    "A6": 1.1,
+    "B6": "Trong đó, số vụ \"Công nghệ cao\"",
+    "A7": 1.2,
+    "B7": "Trong đó, số tạm dừng giải quyết",
+    "A8": 1.3,
+    "B8": "Trong đó, số hết thời hiệu",
+    "G8": "KT 2= 2.1+ 2.2+ 2.3+ 2.4+ 2.5+ 2.6",
+    "A9": 2,
+    "B9": "Số ra QĐ tạm đình chỉ trong kỳ (gồm cả tạm đình chỉ vụ việc được phục hồi; 2= 2.1+ 2.2+ 2.3+ 2.4+ 2.5+ 2.6)",
+    "A10": "2.1",
+    "B10": "Do chưa có kết quả trưng cầu giám định",
+    "A11": "2.2",
+    "B11": "Do chưa có kết quả yêu cầu định giá tài sản",
+    "A12": "2.3",
+    "B12": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp",
+    "A13": "2.4",
+    "B13": "Đã yêu cầu cơ quan, tổ chức, cá nhân cung cấp tài liệu, đồ vật quan trọng có ý nghĩa quyết định đối với vụ việc nhưng chưa có kết quả",
+    "A14": "2.5",
+    "B14": "Do bất khả kháng do thiên tai, dịch bệnh",
+    "A15": "2.6",
+    "B15": "Căn cứ tạm đình chỉ khác",
+    "A16": 3,
+    "B16": "Số ra QĐ phục hồi trong kỳ thống kê",
+    "B17": "Giải quyết vụ việc TDGQ, TĐC phục hồi",
+    "A18": 3.1,
+    "B18": "Số đang điều tra vụ việc được phục hồi kỳ trước chuyển sang \n(mục 3.3.4 của kỳ trước)",
+    "A19": 3.2,
+    "B19": "Cơ quan điều tra khác chuyển đến các vụ việc phục hồi giải quyết",
+    "G19": "KT 3.3= 3.3.1+ 3.3.2+…",
+    "H19": "KT 3.3= 3+ 3.1+ 3.2",
+    "A20": 3.3,
+    "B20": "Kết quả giải quyết\n(3.3= 3+ 3.1+ 3.2)\n(3.3= 3.3.1 + 3.3.2+ 3.3.3+ 3.3.4+ 3.3.5)",
+    "A21": "3.3.1",
+    "B21": "Quyết định khởi tố VAHS",
+    "A22": "3.3.2",
+    "B22": "Quyết định không khởi tố VAHS",
+    "A23": "3.3.3",
+    "B23": "Tạm đình chỉ vụ việc được phục hồi ",
+    "A24": "3.3.4",
+    "B24": "Đang xác minh vụ việc được phục hồi",
+    "A25": "3.3.5",
+    "B25": "Chuyển Cơ quan điều tra khác",
+    "A26": 4,
+    "B26": "Số ra QĐ không khởi tố do hết thời hiệu truy cứu TNHS",
+    "G26": "KT 5= 1+2-3-4",
+    "A27": 5,
+    "B27": "Số vụ việc TĐC, TDGQ cuối kỳ\n(5= 1+2-3-4)",
+    "A28": 5.1,
+    "B28": "Trong đó, số vụ \"Công nghệ cao\"",
+    "A29": 5.2,
+    "B29": "Trong đó, số tạm dừng giải quyết",
+    "A30": 5.3,
+    "B30": "Trong đó, số hết thời hiệu chưa giải quyết",
+    "A31": 5.4,
+    "B31": "Trong đó, số hồ sơ đã rà soát, kiểm danh, kiểm diện",
+    "A32": 5.5,
+    "B32": "Trong đó, số vụ có biên bản trao đổi với VKS, có báo cáo, kế hoạch khắc phục lý do TĐC (số vụ đã kiểm tra, đánh giá)",
+    "A33": 5.6,
+    "B33": "Trong đó, số vụ bảo đảm thực hiện biện pháp, tiến độ khắc phục lý do TĐC theo báo cáo, kế hoạch",
+    "G33": "KT 5.7= 5= 5.7.1+ 5.7.2+ 5.7.3+ 5.7.4+ 5.7.5+ 5.7.6",
+    "A34": 5.7,
+    "B34": "Trong đó lý do tạm đình chỉ\n(5.7= 5= 5.7.1+ 5.7.2+ 5.7.3+ 5.7.4+ 5.7.5+ 5.7.6)",
+    "A35": "5.7.1",
+    "B35": "Do chưa có kết quả trưng cầu giám định",
+    "A36": "5.7.2",
+    "B36": "Do chưa có kết quả yêu cầu định giá tài sản",
+    "A37": "5.7.3",
+    "B37": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp",
+    "A38": "5.7.4",
+    "B38": "Đã yêu cầu cơ quan, tổ chức, cá nhân cung cấp tài liệu, đồ vật quan trọng có ý nghĩa quyết định đối với vụ việc nhưng chưa có kết quả",
+    "A39": "5.7.5",
+    "B39": "Do bất khả kháng do thiên tai, dịch bệnh",
+    "A40": "5.7.6",
+    "B40": "Căn cứ tạm đình chỉ khác",
+    "A42": " ",
+    "C42": "………., ngày …... tháng …...năm ……",
+    "B43": "CÁN BỘ THỐNG KÊ",
+    "C43": "P.THỦ TRƯỞNG ĐƠN VỊ",
+    "B44": "(Ký, ghi rõ họ tên)",
+    "C44": "(Ký, ghi rõ họ tên)"
+   },
+   "formulas": {
+    "G9": {
+     "f": "IF(D9=D10+D11+D12+D13+D14+D15,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "G20": {
+     "f": "IF(D20=D21+D22+D23+D24+D25,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "H20": {
+     "f": "IF(D20=D16+D18+D19,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "G27": {
+     "f": "IF(D27=D5+D9-D16-D26,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "G34": {
+     "f": "IF(D34=D35+D36+D37+D38+D39+D40,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    }
+   }
+  },
+  {
+   "name": "Thống kê sl vụ án",
+   "constants": {
+    "A1": "Đơn vị",
+    "C1": "THỐNG KÊ SỐ LIỆU VỤ ÁN TẠM ĐÌNH CHỈ ĐIỀU TRA",
+    "C2": "Mốc thời gian:  từ ngày               /2026 đến ngày             /2026  ",
+    "E3": "(Phụ lục số 08)",
+    "H3": "Kiểm tra số liệu của toàn tỉnh",
+    "A4": "STT",
+    "B4": "Danh mục thống kê",
+    "D4": "Tổng số",
+    "F4": "Ghi chú",
+    "D5": "Vụ",
+    "E5": "Bc",
+    "A6": 1,
+    "B6": "Số tạm đình chỉ đầu kỳ",
+    "A7": 1.1,
+    "B7": "Trong đó, số vụ \"Công nghệ cao\"",
+    "A8": 1.2,
+    "B8": "Trong đó, số hết thời hiệu đầu kỳ",
+    "H8": "KT 2= 2.1+ 2.2+ 2.3+ 2.4+ 2.5+ 2.6+ 2.7+ 2.8",
+    "A9": 2,
+    "B9": "Số ra QĐ tạm đình chỉ trong kỳ (gồm cả tạm đình chỉ vụ án được phục hồi; 2= 2.1+ 2.2+ 2.3+ 2.4+ 2.5+ 2.6+ 2.7+ 2.8)",
+    "A10": "2.1",
+    "B10": "Khi chưa xác định được bị can",
+    "A11": "2.2",
+    "B11": "Khi không biết rõ bị can đang ở đâu nhưng đã hết thời hạn điều tra vụ án",
+    "A12": "2.3",
+    "B12": "Khi có kết luận giám định tư pháp xác định bị can bị bệnh tâm thần hoặc hiểm nghèo",
+    "A13": "2.4",
+    "B13": "Do chưa có kết quả trưng cầu giám định",
+    "A14": "2.5",
+    "B14": "Do chưa có kết quả yêu cầu định giá tài sản",
+    "A15": "2.6",
+    "B15": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp",
+    "A16": "2.7",
+    "B16": "Do bất khả kháng do thiên tai, dịch bệnh",
+    "A17": "2.8",
+    "B17": "Lý do khác",
+    "A18": 3,
+    "B18": "Số ra QĐ phục hồi trong kỳ thống kê",
+    "B19": "Giải quyết vụ án TĐC phục hồi",
+    "A20": 3.1,
+    "B20": "Số đang điều tra vụ án được phục hồi kỳ trước chuyển sang \n(mục 3.3.4 của kỳ trước)",
+    "A21": 3.2,
+    "B21": "Cơ quan điều tra khác chuyển đến các vụ án phục hồi giải quyết",
+    "H21": "KT 3.3= 3.3.1+ 3.3.2+ 3.3.3+ 3.3.4+ 3.3.5",
+    "J21": "KT 3.3= 3+ 3.1+ 3.2",
+    "A22": 3.3,
+    "B22": "Kết quả giải quyết\n(3.3= 3+ 3.1+ 3.2)\n(3.3= 3.3.1 + 3.3.2+ 3.3.3+ 3.3.4+ 3.3.5)",
+    "A23": "3.3.1",
+    "B23": "Kết luận điều tra đề nghị truy tố",
+    "A24": "3.3.2",
+    "B24": "Đình chỉ điều tra",
+    "A25": "3.3.3",
+    "B25": "Tạm đình chỉ điều tra vụ án được phục hồi",
+    "A26": "3.3.4",
+    "B26": "Đang điều tra, xác minh vụ án được phục hồi",
+    "A27": "3.3.5",
+    "B27": "Chuyển Cơ quan điều tra khác",
+    "A28": 4,
+    "B28": "Số ra QĐ đình chỉ do hết thời hiệu truy cứu TNHS",
+    "H28": "KT 5= 1+2-3-4",
+    "A29": 5,
+    "B29": "Số tạm đình chỉ cuối kỳ\n(5= 1+2-3-4)",
+    "A30": 5.1,
+    "B30": "Trong đó, số vụ \"Công nghệ cao\"",
+    "A31": 5.2,
+    "B31": "Trong đó, số hết thời hiệu chưa giải quyết",
+    "A32": 5.3,
+    "B32": "Trong đó, số hồ sơ đã rà soát, kiểm danh, kiểm diện",
+    "A33": 5.4,
+    "B33": "Trong đó, số vụ có biên bản trao đổi với VKS, báo cáo, kế hoạch khắc phục lý do TĐC (số vụ đã kiểm tra, đánh giá)",
+    "A34": 5.5,
+    "B34": "Trong đó, số vụ bảo đảm thực hiện biện pháp, tiến độ khắc phục lý do TĐC theo báo cáo, kế hoạch",
+    "H34": "KT 5.6= 5= 5.6.1+ 5.6.2+ 5.6.3+ 5.6.4+ 5.6.5+ 5.6.6+ 5.6.7+ 5.6.8",
+    "A35": 5.6,
+    "B35": "Trong đó lý do tạm đình chỉ \n(5.6= 5= 5.6.1+ 5.6.2+ 5.6.3+ 5.6.4+ 5.6.5+ 5.6.6+ 5.6.7+ 5.6.8)",
+    "A36": "5.6.1",
+    "B36": "Khi chưa xác định được bị can",
+    "A37": "5.6.2",
+    "B37": "Khi không biết rõ bị can đang ở đâu nhưng đã hết thời hạn điều tra vụ án",
+    "A38": "5.6.3",
+    "B38": "Khi có kết luận giám định tư pháp xác định bị can bị bệnh tâm thần hoặc hiểm nghèo",
+    "A39": "5.6.4",
+    "B39": "Do chưa có kết quả trưng cầu giám định",
+    "A40": "5.6.5",
+    "B40": "Do chưa có kết quả yêu cầu định giá tài sản",
+    "A41": "5.6.6",
+    "B41": "Do chưa có kết quả yêu cầu nước ngoài tương trợ tư pháp",
+    "A42": "5.6.7",
+    "B42": "Do bất khả kháng do thiên tai, dịch bệnh",
+    "A43": "5.6.8",
+    "B43": "Lý do khác",
+    "A45": " ",
+    "C45": "………., ngày …... tháng …...năm ……",
+    "B46": "CÁN BỘ THỐNG KÊ",
+    "C46": "P.THỦ TRƯỞNG ĐƠN VỊ",
+    "B47": "(Ký, ghi rõ họ tên)",
+    "C47": "(Ký, ghi rõ họ tên)"
+   },
+   "formulas": {
+    "H9": {
+     "f": "IF(D9=D10+D11+D12+D13+D14+D15+D16+D17,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "I9": {
+     "f": "IF(E9=E10+E11+E12+E13+E14+E15+E16+E17,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "H22": {
+     "f": "IF(D22=D23+D24+D25+D26+D27,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "I22": {
+     "f": "IF(E22=E23+E24+E25+E26+E27,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "J22": {
+     "f": "IF(D22=D18+D20+D21,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "K22": {
+     "f": "IF(E22=E18+E20+E21,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "H29": {
+     "f": "IF(D29=D6+D9-D18-D28,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "I29": {
+     "f": "IF(E29=E6+E9-E18-E28,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "H35": {
+     "f": "IF(D35=D36+D37+D38+D39+D40+D41+D42+D43,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    },
+    "I35": {
+     "f": "IF(E35=E36+E37+E38+E39+E40+E41+E42+E43,TRUE,FALSE)",
+     "cached": {
+      "bool": true
+     }
+    }
+   }
+  }
+ ],
+ "filledOracle": {
+  "source": "phu_luc_07_08_multi_sheet.xlsx",
+  "filled": {
+   "Thống kê sl vụ việc!D9": 44,
+   "Thống kê sl vụ việc!D10": 17,
+   "Thống kê sl vụ việc!D11": 9,
+   "Thống kê sl vụ việc!D12": 33,
+   "Thống kê sl vụ việc!D13": 7,
+   "Thống kê sl vụ việc!D14": 12,
+   "Thống kê sl vụ việc!D15": 6,
+   "Thống kê sl vụ việc!D20": 48,
+   "Thống kê sl vụ việc!D21": 44,
+   "Thống kê sl vụ việc!D22": 28,
+   "Thống kê sl vụ việc!D23": 4,
+   "Thống kê sl vụ việc!D24": 43,
+   "Thống kê sl vụ việc!D25": 17,
+   "Thống kê sl vụ việc!D16": 12,
+   "Thống kê sl vụ việc!D18": 23,
+   "Thống kê sl vụ việc!D19": 7,
+   "Thống kê sl vụ việc!D27": 29,
+   "Thống kê sl vụ việc!D5": 33,
+   "Thống kê sl vụ việc!D26": 15,
+   "Thống kê sl vụ việc!D34": 26,
+   "Thống kê sl vụ việc!D35": 30,
+   "Thống kê sl vụ việc!D36": 20,
+   "Thống kê sl vụ việc!D37": 34,
+   "Thống kê sl vụ việc!D38": 47,
+   "Thống kê sl vụ việc!D39": 47,
+   "Thống kê sl vụ việc!D40": 4,
+   "Thống kê sl vụ án!D9": 13,
+   "Thống kê sl vụ án!D10": 23,
+   "Thống kê sl vụ án!D11": 17,
+   "Thống kê sl vụ án!D12": 41,
+   "Thống kê sl vụ án!D13": 25,
+   "Thống kê sl vụ án!D14": 46,
+   "Thống kê sl vụ án!D15": 16,
+   "Thống kê sl vụ án!D16": 22,
+   "Thống kê sl vụ án!D17": 36,
+   "Thống kê sl vụ án!E9": 28,
+   "Thống kê sl vụ án!E10": 4,
+   "Thống kê sl vụ án!E11": 12,
+   "Thống kê sl vụ án!E12": 44,
+   "Thống kê sl vụ án!E13": 6,
+   "Thống kê sl vụ án!E14": 1,
+   "Thống kê sl vụ án!E15": 35,
+   "Thống kê sl vụ án!E16": 13,
+   "Thống kê sl vụ án!E17": 5,
+   "Thống kê sl vụ án!D22": 42,
+   "Thống kê sl vụ án!D23": 2,
+   "Thống kê sl vụ án!D24": 29,
+   "Thống kê sl vụ án!D25": 35,
+   "Thống kê sl vụ án!D26": 43,
+   "Thống kê sl vụ án!D27": 43,
+   "Thống kê sl vụ án!E22": 15,
+   "Thống kê sl vụ án!E23": 25,
+   "Thống kê sl vụ án!E24": 22,
+   "Thống kê sl vụ án!E25": 36,
+   "Thống kê sl vụ án!E26": 8,
+   "Thống kê sl vụ án!E27": 30,
+   "Thống kê sl vụ án!D18": 21,
+   "Thống kê sl vụ án!D20": 46,
+   "Thống kê sl vụ án!D21": 20,
+   "Thống kê sl vụ án!E18": 6,
+   "Thống kê sl vụ án!E20": 33,
+   "Thống kê sl vụ án!E21": 43,
+   "Thống kê sl vụ án!D29": 36,
+   "Thống kê sl vụ án!D6": 8,
+   "Thống kê sl vụ án!D28": 2,
+   "Thống kê sl vụ án!E29": 11,
+   "Thống kê sl vụ án!E6": 43,
+   "Thống kê sl vụ án!E28": 1,
+   "Thống kê sl vụ án!D35": 40,
+   "Thống kê sl vụ án!D36": 26,
+   "Thống kê sl vụ án!D37": 32,
+   "Thống kê sl vụ án!D38": 49,
+   "Thống kê sl vụ án!D39": 35,
+   "Thống kê sl vụ án!D40": 30,
+   "Thống kê sl vụ án!D41": 50,
+   "Thống kê sl vụ án!D42": 36,
+   "Thống kê sl vụ án!D43": 44,
+   "Thống kê sl vụ án!E35": 11,
+   "Thống kê sl vụ án!E36": 47,
+   "Thống kê sl vụ án!E37": 9,
+   "Thống kê sl vụ án!E38": 4,
+   "Thống kê sl vụ án!E39": 8,
+   "Thống kê sl vụ án!E40": 21,
+   "Thống kê sl vụ án!E41": 33,
+   "Thống kê sl vụ án!E42": 27,
+   "Thống kê sl vụ án!E43": 13
+  },
+  "expected": {
+   "Thống kê sl vụ việc!G9": {
+    "bool": false
+   },
+   "Thống kê sl vụ việc!G20": {
+    "bool": false
+   },
+   "Thống kê sl vụ việc!H20": {
+    "bool": false
+   },
+   "Thống kê sl vụ việc!G27": {
+    "bool": false
+   },
+   "Thống kê sl vụ việc!G34": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!H9": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!I9": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!H22": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!I22": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!J22": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!K22": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!H29": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!I29": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!H35": {
+    "bool": false
+   },
+   "Thống kê sl vụ án!I35": {
+    "bool": false
+   }
+  }
+ }
+}

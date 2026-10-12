@@ -1,4 +1,4 @@
-# PROGRESS — Dynamic Report Builder (Báo cáo động)
+﻿# PROGRESS — Dynamic Report Builder (Báo cáo động)
 Cập nhật: 2026-10-12T06:55:00+07:00 | Milestone: **PR0-PR10 HOÀN TẤT TOÀN BỘ** — UAT thật (3 bug tìm+vá), sổ a11y vá gộp, benchmark X04 3/3 chỉ số đạt, Runbook+backup/restore đã kiểm thật, monkey test cuối đã chạy (bắt thêm 1 bug nghiêm trọng `crypto.randomUUID` ảnh hưởng cả module này, đã vá xong) — **flag `dynamic_reports` ĐANG BẬT trên production**. Việc còn lại là TUỲ CHỌN (28 dòng UAT phụ + 2 GAP UX + 1 GAP oracle, xem mục 5 "Hàng đợi task kế tiếp"), không chặn coi PR10 là xong. | Task: 0/~1
 
 ## Đã hoàn thành
@@ -919,6 +919,32 @@ chặn "Nộp", "Nộp" chụp revision trước khi tới lượt hàng đợi,
 "Tải lại" đặt lại toàn bộ baseline, "Dùng bản máy chủ" nhận snapshot của hộp thoại xung đột.
 12 ca kiểm mới (8 ở trang + 4 ở hàng đợi), 207/207 ca module xanh, `tsc -b` sạch.
 
+### G0 — engine cho lưới (12/10/2026)
+Mở rộng engine thuần (sao sang FE qua `gen:dr-engine`, cổng byte vẫn xanh):
+- `expr.ts`: chuỗi `"…"` (nháy kép đôi), toán tử `&`, so sánh chuỗi không phân biệt hoa thường
+  (ô trống = "" khi so với chữ, = 0 khi so với số), giá trị ô là **chuỗi decimal** (OV4: không qua
+  double), `CellResolution` thêm `text` / `boolean` / `error` (lỗi ô thượng nguồn lan xuống đúng mã),
+  `RangeLimitError` (OV9: chặn vùng quá lớn TRƯỚC khi cấp phát), `evaluateExpr`, `collectRefs`,
+  `formatFormula`, `rewriteSheetRefs`; SUM/COUNT… coi tham chiếu một ô như vùng một ô (bỏ ô trống/chữ).
+- `workbook-eval.ts` (mới): đồ thị phụ thuộc toàn sổ, thứ tự Kahn (không đệ quy → chuỗi 3.000 ô
+  không tràn stack), vùng 2-D + 3-D theo thứ tự tab, phát hiện vòng lặp, `blankAs: 'blank' | 'none'`
+  (nhập / tổng hợp — thiếu dữ liệu lan lỗi thay vì ngầm thành 0), `excludedSheets` phân biệt
+  "ngoài phạm vi" với "không tồn tại", tính lại tăng dần `setInput`.
+- `numfmt.ts` (mới): `formatForDisplay` kiểu vi-VN (General 11 ký tự, `0.00`, `#,##0`, `%`, literal,
+  4 đoạn `0;-0;;@`, `[Red]`, ngày/giờ, serial 1900/1904 gồm ngày 29/02/1900 giả), mã lạ → General +
+  cảnh báo; `describeFormulaError`.
+- `grid-types.ts` (mới): `GridModel` (kiểu thuần; gồm `showZeros`, định dạng có điều kiện,
+  dataValidation theo OV7/OV8). Ô nhập KHÔNG nằm trong model.
+- `rules.ts`: **vá lỗi** `expandRange: () => []` (SUM(range) luôn = 0) và nhận ngữ cảnh sổ tuỳ chọn
+  để rule thấy ô công thức / hằng số tĩnh (OV1). Truy vấn prod: 0 rule → vá không đổi hành vi nào đang chạy.
+
+Oracle độc lập (không lấy từ engine): `generate-formula-oracle.py` dump giá trị Excel đã cache của
+370 công thức thật (5 mẫu) **và** tự tính lại bằng bộ đánh giá Python riêng (Fraction, bộ phân tích
+khác) trên đầu vào điền sẵn; HSLN 16 tổ × 228 hàng 3-D đối chiếu `hsln-oracle.json`. Gieo lỗi vòng
+lặp hàng của `expandRangeRefs` → 3 ca đỏ (oracle thật sự bắt lỗi).
+Kiểm: engine 525 ca xanh (phủ expr 92%, workbook-eval 97%, numfmt 96%, rules 98% dòng), backend
+full 8.421 xanh + 2 suite chập chờn xanh khi chạy riêng, FE 5.097 (4 file chập chờn xanh riêng),
+`tsc --noEmit` + `tsc -b` sạch.
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|

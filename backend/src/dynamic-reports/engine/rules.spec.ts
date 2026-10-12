@@ -1,5 +1,6 @@
-import { evaluateRule, evaluateRules } from './rules';
+﻿import { evaluateRule, evaluateRules } from './rules';
 import type { RuleDefinitionLike, SubmissionValuesLike } from './rules';
+import type { WorkbookModel } from './workbook-eval';
 
 function rule(overrides: Partial<RuleDefinitionLike> = {}): RuleDefinitionLike {
   return {
@@ -187,5 +188,80 @@ describe('evaluateRules — collects violations across many rules', () => {
     const rules = [rule({ leftExpr: 'D10', rightExpr: 'D10' })];
     const violations = evaluateRules(rules, values({ D10: '5' }), SHEET);
     expect(violations).toEqual([]);
+  });
+});
+
+describe('evaluateRule — ranges (G0 regression: expandRange used to return [] so SUM(range) was always 0)', () => {
+  it('SUM(D11:D12) on the left of EQ is the real sum, not 0', () => {
+    const r = rule({ leftExpr: 'SUM(D11:D12)', operator: 'EQ', rightExpr: 'D10' });
+    // 4 + 6 = 10: satisfied. Before the fix the left side was 0 and this was a false violation.
+    expect(evaluateRule(r, values({ D10: '10', D11: '4', D12: '6' }), SHEET).violated).toBe(false);
+    expect(evaluateRule(r, values({ D10: '11', D11: '4', D12: '6' }), SHEET).violated).toBe(true);
+  });
+
+  it('a rectangle spans rows and columns', () => {
+    const r = rule({ leftExpr: 'SUM(A1:B2)', operator: 'EQ', rightExpr: '10' });
+    expect(
+      evaluateRule(r, values({ A1: '1', B1: '2', A2: '3', B2: '4' }), SHEET).violated,
+    ).toBe(false);
+  });
+
+  it('a 3-D span follows the order the sheets first appear in the values', () => {
+    const r = rule({ leftExpr: "SUM('T1:T3'!C6)", operator: 'EQ', rightExpr: '6' });
+    const v: SubmissionValuesLike = {
+      'T1!C6': { v: '1' },
+      'T2!C6': { v: '2' },
+      'T3!C6': { v: '3' },
+    };
+    expect(evaluateRule(r, v, 'T1').violated).toBe(false);
+  });
+
+  it('an oversized range does not allocate; the rule is unresolvable, so SKIP by default', () => {
+    const r = rule({ leftExpr: 'SUM(A1:XFD1048576)', operator: 'EQ', rightExpr: '0' });
+    expect(evaluateRule(r, values({}), SHEET).violated).toBe(false);
+    expect(
+      evaluateRule({ ...r, missingStrategy: 'BLOCK' }, values({}), SHEET).violated,
+    ).toBe(true);
+  });
+});
+
+describe('evaluateRule — workbook context (OV1: rules see formula cells and static constants)', () => {
+  const workbook: WorkbookModel = {
+    sheets: [
+      {
+        name: SHEET,
+        cells: {
+          D11: { kind: 'input', type: 'NUM' },
+          D12: { kind: 'input', type: 'NUM' },
+          D10: { kind: 'formula', source: 'D11+D12' },
+          E1: { kind: 'number', value: '10' },
+        },
+      },
+    ],
+  };
+
+  it('a rule can read a formula cell: D10 is D11+D12 = 10', () => {
+    const r = rule({ leftExpr: 'D10', operator: 'EQ', rightExpr: 'E1' });
+    expect(
+      evaluateRule(r, values({ D11: '4', D12: '6' }), SHEET, workbook).violated,
+    ).toBe(false);
+    expect(
+      evaluateRule(r, values({ D11: '4', D12: '7' }), SHEET, workbook).violated,
+    ).toBe(true);
+  });
+
+  it('without the workbook the same rule cannot see the formula cell or the constant (blank = 0)', () => {
+    const r = rule({ leftExpr: 'D10', operator: 'EQ', rightExpr: 'E1' });
+    // Both read as empty → 0 = 0 → "satisfied" for the wrong reason: exactly the gap OV1 describes.
+    expect(evaluateRule(r, values({ D11: '4', D12: '7' }), SHEET).violated).toBe(false);
+  });
+
+  it('evaluateRules shares one evaluator across rules', () => {
+    const rules = [
+      rule({ id: 'a', leftExpr: 'D10', operator: 'EQ', rightExpr: 'E1' }),
+      rule({ id: 'b', leftExpr: 'D10', operator: 'GT', rightExpr: '5' }),
+    ];
+    const out = evaluateRules(rules, values({ D11: '4', D12: '7' }), SHEET, workbook);
+    expect(out.map((x) => x.ruleId)).toEqual(['a']);
   });
 });
