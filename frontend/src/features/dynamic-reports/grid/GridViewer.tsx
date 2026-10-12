@@ -188,7 +188,10 @@ export default function GridViewer({
           <select
             data-testid="grid-zoom"
             value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value) as (typeof ZOOMS)[number])}
+            onChange={(e) => {
+              setZoom(Number(e.target.value) as (typeof ZOOMS)[number]);
+              setOpened(null);
+            }}
             className={`border border-slate-300 rounded px-1 py-0.5 text-xs ${A11Y_FOCUS_RING}`}
           >
             {ZOOMS.map((z) => (
@@ -203,7 +206,10 @@ export default function GridViewer({
             type="checkbox"
             data-testid="grid-only-inputs"
             checked={onlyInputRows}
-            onChange={(e) => setOnlyInputRows(e.target.checked)}
+            onChange={(e) => {
+              setOnlyInputRows(e.target.checked);
+              setOpened(null);
+            }}
           />
           Chỉ hiện dòng có ô nhập
         </label>

@@ -64,6 +64,44 @@ describe('GridContributorsPopover', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('Escape closes it even when the focus is no longer inside (after Shift+Tab into the grid)', () => {
+    const { onClose } = open();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes when the focus moves to somewhere else, but not back to the cell it came from', () => {
+    const { anchor, onClose } = open();
+    const dialog = screen.getByRole('dialog');
+    fireEvent.blur(dialog, { relatedTarget: anchor });
+    expect(onClose).not.toHaveBeenCalled();
+    const elsewhere = document.createElement('button');
+    document.body.appendChild(elsewhere);
+    fireEvent.blur(dialog, { relatedTarget: elsewhere });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes when the page scrolls under it or the window is resized, but not when its own list scrolls', () => {
+    const { onClose } = open();
+    fireEvent.scroll(screen.getByTestId('contributors-popover'));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.scroll(document.body);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent(window, new Event('resize'));
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('closes when the cell it came from is no longer on the page', () => {
+    const onClose = vi.fn();
+    const anchor = document.createElement('td');
+    document.body.appendChild(anchor);
+    const { rerender } = render(<GridContributorsPopover field={FIELD} anchor={anchor} onClose={onClose} />);
+    expect(onClose).not.toHaveBeenCalled();
+    anchor.remove();
+    rerender(<GridContributorsPopover field={{ ...FIELD }} anchor={anchor} onClose={onClose} />);
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('a click outside closes it, a click inside does not', () => {
     const { onClose } = open();
     fireEvent.mouseDown(screen.getByRole('dialog'));

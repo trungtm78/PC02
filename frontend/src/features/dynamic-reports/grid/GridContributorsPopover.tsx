@@ -44,10 +44,38 @@ export default function GridContributorsPopover({ field, anchor, onClose }: Grid
     setPos({ left, top });
   }, [anchor, field]);
 
+  // Focus goes in once, and back to the cell it was last opened from when the popover goes away. Opening it on
+  // another figure re-anchors the same popover: that must not hand the focus back to the previous cell.
+  const anchorRef = useRef(anchor);
+  anchorRef.current = anchor;
   useEffect(() => {
     ref.current?.focus();
-    return () => anchor.focus();
-  }, [anchor]);
+    return () => anchorRef.current.focus();
+  }, []);
+
+  // A popover that outlives its cell would explain the wrong figure: close it when the cell is gone (the
+  // table redrew without it), when anything but the popover itself scrolls, and when the window is resized.
+  useEffect(() => {
+    if (!anchor.isConnected) onClose();
+  });
+  useEffect(() => {
+    const onMove = (e: Event) => {
+      if (e.target instanceof Node && ref.current?.contains(e.target)) return; // the list inside it may scroll
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      // Not only from inside: after a Shift+Tab into the grid the focus is elsewhere and Escape must still work.
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('scroll', onMove, true);
+    window.addEventListener('resize', onMove);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', onMove, true);
+      window.removeEventListener('resize', onMove);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -66,11 +94,11 @@ export default function GridContributorsPopover({ field, anchor, onClose }: Grid
       role="dialog"
       aria-label={`Các tổ đóng góp cho ${field.label || field.fieldKey}`}
       tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.stopPropagation();
-          onClose();
-        }
+      onBlur={(e) => {
+        // Focus left for somewhere else: a popover nobody is looking at must not stay up. The cell it came
+        // from is the exception — focus going back there (Shift+Tab) keeps it open, Escape still closes it.
+        const next = e.relatedTarget as Node | null;
+        if (next && !ref.current?.contains(next) && !anchor.contains(next)) onClose();
       }}
       data-testid="contributors-popover"
       className={`fixed z-50 bg-white border border-slate-300 rounded-lg shadow-lg p-3 text-xs ${A11Y_FOCUS_RING}`}
