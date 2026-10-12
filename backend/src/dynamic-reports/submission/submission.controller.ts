@@ -229,6 +229,16 @@ export class SubmissionController {
     );
   }
 
+  /** S34 — người nhập rút lại yêu cầu mở lại của chính mình khi còn chờ duyệt. */
+  @Delete(':assignmentId/unlock/request')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async withdrawUnlockRequest(
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() => this.submissionService.withdrawUnlockRequest(assignmentId, user.id));
+  }
+
   /** S37 — sửa ghi chú của chính mình. */
   @Patch(':assignmentId/comments/:commentId')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })

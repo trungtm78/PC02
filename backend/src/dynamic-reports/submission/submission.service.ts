@@ -71,6 +71,8 @@ export interface SubmissionFieldView {
 }
 
 export interface SubmissionView {
+  /** The reopening request the caller made that is still waiting for a manager; they can take it back. */
+  pendingUnlockRequest: PendingUnlockRequestView | null;
   assignmentId: string;
   /** The template version this period was generated from — key for `GET versions/:versionId/grid`. */
   versionId: string;
@@ -182,6 +184,13 @@ export interface AssignmentSummary {
  * slice này — không có đường sửa/xoá (giống lịch sử revision: một khi đã
  * ghi là giữ nguyên).
  */
+/** An unlock request the caller made and that is still waiting for a manager. */
+export interface PendingUnlockRequestView {
+  id: string;
+  reason: string;
+  createdAt: string;
+}
+
 export interface CommentView {
   id: string;
   fieldKey: string | null;
@@ -482,6 +491,29 @@ export class SubmissionService {
   }
 
   /**
+   * Design standard "created ⇒ can be taken back": the editor who asked for a reopening can withdraw the request while
+   * it is still waiting. Nothing is deleted — the row becomes REVOKED with who and when, so the manager's queue
+   * (PENDING only) no longer shows it and the history still does.
+   */
+  async withdrawUnlockRequest(assignmentId: string, userId: string): Promise<{ withdrawn: true }> {
+    await this.loadEditorAssignment(this.prisma, assignmentId, userId);
+    const done = await this.prisma.dynReportUnlock.updateMany({
+      where: { assignmentId, kind: 'REQUEST', status: 'PENDING', requestedById: userId },
+      data: {
+        status: 'REVOKED',
+        revokedById: userId,
+        revokedAt: new Date(),
+        revokeReason: 'Người yêu cầu đã rút lại',
+      },
+    });
+    if (done.count === 0) {
+      // Decided or withdrawn in the meantime: say so rather than pretend.
+      throw new SubmissionError('Không còn yêu cầu mở lại nào đang chờ để rút lại.', 'INVALID_STATE_TRANSITION');
+    }
+    return { withdrawn: true };
+  }
+
+  /**
    * Finds one comment of this assignment for editing/deleting. A comment of an assignment the caller cannot see is
    * "not found" (same rule as listing); a closed period's comments are part of the closed record and stay as they are.
    */
@@ -692,6 +724,8 @@ export class SubmissionService {
     const activeGrant = await this.findActiveGrant(assignmentId, now);
 
     return {
+      // A manager reads the team's submission; the request in question is the editor's own to withdraw.
+      pendingUnlockRequest: null,
       assignmentId,
       versionId: period.versionId,
       reportName: period.report.name,
@@ -1037,10 +1071,7 @@ export class SubmissionService {
           'CELL_VALIDATION',
         );
       }
-      await this.prisma.dynReportUnlock.update({
-        where: { id: unlockId },
-        data: { status: 'REJECTED', decidedById: userId, decisionReason },
-      });
+      await this.leavePending(unlockId, { status: 'REJECTED', decidedById: userId, decisionReason });
       return;
     }
 
@@ -1054,16 +1085,28 @@ export class SubmissionService {
         'CELL_VALIDATION',
       );
     }
-    await this.prisma.dynReportUnlock.update({
-      where: { id: unlockId },
-      data: {
-        status: 'ACTIVE',
-        startsAt: now,
-        expiresAt: resolvedExpiresAt,
-        decidedById: userId,
-        decisionReason,
-      },
+    await this.leavePending(unlockId, {
+      status: 'ACTIVE',
+      startsAt: now,
+      expiresAt: resolvedExpiresAt,
+      decidedById: userId,
+      decisionReason,
     });
+  }
+
+  /**
+   * A request leaves PENDING exactly once: a manager's decision and the editor's withdrawal both go through a write
+   * conditioned on PENDING, so when they race one wins and the other is told the request is no longer waiting —
+   * never an "approved" row carrying a withdrawal's timestamp.
+   */
+  private async leavePending(unlockId: string, data: Prisma.DynReportUnlockUncheckedUpdateManyInput): Promise<void> {
+    const moved = await this.prisma.dynReportUnlock.updateMany({
+      where: { id: unlockId, kind: 'REQUEST', status: 'PENDING' },
+      data,
+    });
+    if (moved.count === 0) {
+      throw new SubmissionError('Yêu cầu này đã được xử lý hoặc đã được rút lại.', 'INVALID_STATE_TRANSITION');
+    }
   }
 
   /**
@@ -1224,6 +1267,10 @@ export class SubmissionService {
     });
     const grants = await this.grantsFor(this.prisma, assignmentId);
     const now = new Date();
+    const pending = await this.prisma.dynReportUnlock.findFirst({
+      where: { assignmentId, kind: 'REQUEST', status: 'PENDING', requestedById: userId },
+      orderBy: { createdAt: 'desc' },
+    });
 
     const access = resolveAccess({
       state: submission.state,
@@ -1237,6 +1284,9 @@ export class SubmissionService {
     });
 
     return {
+      pendingUnlockRequest: pending
+        ? { id: pending.id, reason: pending.reason, createdAt: pending.createdAt.toISOString() }
+        : null,
       assignmentId,
       versionId: period.versionId,
       reportName: period.report.name,

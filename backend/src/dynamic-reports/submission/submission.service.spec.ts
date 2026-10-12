@@ -91,6 +91,7 @@ describe('SubmissionService', () => {
           .mockResolvedValue(null),
         create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
         update: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+        updateMany: jest.fn<Promise<unknown>, [Record<string, unknown>]>().mockResolvedValue({ count: 1 }),
       },
       user: {
         findUnique: jest
@@ -2394,13 +2395,33 @@ describe('SubmissionService', () => {
 
       await service.decideRequest('req1', 'mgr1', 'roleMgr', 'APPROVE');
 
-      const updateCall = tx.dynReportUnlock.update.mock.calls[0][0] as {
-        where: { id: string };
+      const updateCall = tx.dynReportUnlock.updateMany.mock.calls[0][0] as {
+        where: { id: string; status: string };
         data: { status: string; decidedById: string };
       };
-      expect(updateCall.where.id).toBe('req1');
+      expect(updateCall.where).toMatchObject({ id: 'req1', status: 'PENDING' });
       expect(updateCall.data.status).toBe('ACTIVE');
       expect(updateCall.data.decidedById).toBe('mgr1');
+    });
+
+    it('a decision that loses the race with a withdrawal is told the request is no longer waiting (found by Codex)', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue({
+        id: 'req1',
+        kind: 'REQUEST',
+        status: 'PENDING', // read as PENDING…
+        assignment: { period: { report: { id: 'report1' } } },
+      });
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportUnlock.updateMany.mockResolvedValue({ count: 0 }); // …but the editor withdrew it in between
+      const { service } = buildService(tx);
+
+      await expect(service.decideRequest('req1', 'mgr1', 'roleMgr', 'APPROVE')).rejects.toMatchObject({
+        code: 'INVALID_STATE_TRANSITION',
+      });
+      await expect(service.decideRequest('req1', 'mgr1', 'roleMgr', 'REJECT', 'x')).rejects.toMatchObject({
+        code: 'INVALID_STATE_TRANSITION',
+      });
     });
 
     it('decideRequest REJECT requires a decisionReason', async () => {
@@ -2439,7 +2460,7 @@ describe('SubmissionService', () => {
         'Không hợp lệ',
       );
 
-      const updateCall = tx.dynReportUnlock.update.mock.calls[0][0] as {
+      const updateCall = tx.dynReportUnlock.updateMany.mock.calls[0][0] as {
         data: { status: string; decisionReason: string };
       };
       expect(updateCall.data.status).toBe('REJECTED');

@@ -141,6 +141,10 @@ export class PeriodSchedulerService {
     },
     now: Date,
   ): Promise<void> {
+    // "Một lần" means once: the engine hands back the same single period whatever the cursor, so a schedule that has
+    // already made it (its cursor is set) is done. Without this, deleting that period would bring it back at the next tick.
+    if (schedule.periodType === 'ONE_TIME' && schedule.lastGeneratedThrough) return;
+
     const version = await tx.dynReportVersion.findFirst({
       where: { reportId, status: 'PUBLISHED' },
       orderBy: { version: 'desc' },

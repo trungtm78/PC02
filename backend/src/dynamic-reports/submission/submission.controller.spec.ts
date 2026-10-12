@@ -23,6 +23,7 @@ describe('SubmissionController', () => {
     addComment: jest.fn(),
     updateComment: jest.fn(),
     deleteComment: jest.fn(),
+    withdrawUnlockRequest: jest.fn(),
     listMyAssignments: jest.fn(),
     listForManager: jest.fn(),
     getSubmissionForManager: jest.fn(),
@@ -263,6 +264,15 @@ describe('SubmissionController', () => {
     await expect(controller.deleteComment('assign1', 'c1', user)).rejects.toBeInstanceOf(ConflictException);
     service.deleteComment.mockRejectedValueOnce(new SubmissionError('không phải tác giả', 'NOT_AUTHOR'));
     await expect(controller.deleteComment('assign1', 'c1', user)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('DELETE :assignmentId/unlock/request withdraws the caller\'s own pending request; one already decided is a 409', async () => {
+    service.withdrawUnlockRequest.mockResolvedValueOnce({ withdrawn: true });
+    await expect(controller.withdrawUnlockRequest('assign1', user)).resolves.toEqual({ withdrawn: true });
+    expect(service.withdrawUnlockRequest).toHaveBeenCalledWith('assign1', 'u1');
+
+    service.withdrawUnlockRequest.mockRejectedValueOnce(new SubmissionError('đã duyệt', 'INVALID_STATE_TRANSITION'));
+    await expect(controller.withdrawUnlockRequest('assign1', user)).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('POST :assignmentId/comments passes null fieldKey when omitted', async () => {

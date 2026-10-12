@@ -136,6 +136,21 @@ run('ReportConfigUpdateService on PostgreSQL', () => {
     expect(now.lastGeneratedThrough?.toISOString().slice(0, 10)).toBe('2026-11-02');
   });
 
+  it('a NEW one-time schedule starts without a cursor (so it makes its period); an unchanged one keeps its cursor (found by Codex)', async () => {
+    const id = await buildReport('onetime-cursor');
+    const oneTime = { ...SCHEDULE, periodType: 'ONE_TIME' as const, oneTimeDate: '2026-12-15' };
+    await svc.updateConfig(id, baseline({ schedule: oneTime }));
+    let now = (await db.dynReportSchedule.findMany({ where: { reportId: id, supersededAt: null } }))[0];
+    expect(now.lastGeneratedThrough).toBeNull();
+
+    // The scheduler makes the period and sets the cursor; editing only the deadline afterwards must keep it.
+    const marked = new Date('2026-12-16T00:00:00Z');
+    await db.dynReportSchedule.update({ where: { id: now.id }, data: { lastGeneratedThrough: marked } });
+    await svc.updateConfig(id, { expectedConfigVersion: 4, schedule: { ...oneTime, dueRule: { kind: 'DAYS_AFTER_END', days: 9, time: '10:00' } } });
+    now = (await db.dynReportSchedule.findMany({ where: { reportId: id, supersededAt: null } }))[0];
+    expect(now.lastGeneratedThrough?.toISOString()).toBe(marked.toISOString());
+  });
+
   it('when the calendar does not change, the cursor stays where it was (only deadlines changed)', async () => {
     const id = await buildReport('calendar-same');
     await svc.updateConfig(id, baseline({ schedule: { ...SCHEDULE, dueRule: { kind: 'DAYS_AFTER_END', days: 9, time: '10:00' } } }));

@@ -5,14 +5,13 @@
  * preview — D09 nói rõ "xác nhận tác động lên mẫu số" là một bước, không
  * phải tuỳ chọn).
  *
- * Không có đường "huỷ miễn nộp" ở màn này — cố ý thu hẹp phạm vi, để dành
- * cho slice khác nếu phát sinh nhu cầu (xem ghi chú trong
- * `AggregateService.exemptTeamMidPeriod`).
+ * Mỗi thao tác có chiều ngược (tiêu chuẩn "tạo thì phải sửa và xoá"): "Bỏ miễn nộp" cho tổ đang miễn nộp, "Gỡ tổ" cho
+ * tổ đã thêm giữa kỳ mà chưa ai nhập gì (đã có số liệu thì chỉ còn "Miễn nộp").
  */
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowLeft, UserMinus, Users } from 'lucide-react';
+import { AlertCircle, ArrowLeft, UserMinus, UserPlus, Users, Undo2, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { MidPeriodImpactPreview } from '@/features/dynamic-reports/types';
@@ -164,6 +163,30 @@ export default function ReportPeriodTeamsPage() {
     }
   }
 
+  // --- the way back: "Bỏ miễn nộp" and "Gỡ tổ" ---
+  const [reverseError, setReverseError] = useState<string | null>(null);
+  const [reverseBusy, setReverseBusy] = useState<string | null>(null);
+
+  async function handleReverse(assignmentId: string, kind: 'unexempt' | 'remove', teamName: string) {
+    if (!periodId) return;
+    const text =
+      kind === 'unexempt'
+        ? `Bỏ miễn nộp cho "${teamName}"? Tổ phải nộp trở lại; số liệu đã nhập (nếu có) vẫn còn.`
+        : `Gỡ "${teamName}" khỏi kỳ này? Tổ chưa nhập gì nên không mất số liệu nào.`;
+    if (!window.confirm(text)) return;
+    setReverseBusy(assignmentId);
+    setReverseError(null);
+    try {
+      if (kind === 'unexempt') await dynamicReportsApi.unexemptTeamMidPeriod(periodId, assignmentId);
+      else await dynamicReportsApi.removeAddedTeamMidPeriod(periodId, assignmentId);
+      await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY(periodId) });
+    } catch (err) {
+      setReverseError(extractApiError(err).message);
+    } finally {
+      setReverseBusy(null);
+    }
+  }
+
   // --- "Miễn nộp" flow ---
   const [exemptAssignmentId, setExemptAssignmentId] = useState<string | null>(null);
   const [exemptPreview, setExemptPreview] = useState<MidPeriodImpactPreview | null>(null);
@@ -231,6 +254,12 @@ export default function ReportPeriodTeamsPage() {
         </div>
       )}
 
+      {reverseError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700" data-testid="reverse-error">
+          {reverseError}
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-sm text-slate-500">Đang tải…</p>
       ) : (
@@ -247,7 +276,15 @@ export default function ReportPeriodTeamsPage() {
             <tbody className="divide-y divide-slate-100">
               {assignments.map((a) => (
                 <tr key={a.assignmentId} data-testid={`assignment-row-${a.assignmentId}`}>
-                  <td className="px-3 py-2 text-slate-800">{a.teamName}</td>
+                  <td className="px-3 py-2 text-slate-800">
+                    {a.teamName}
+                    {a.addedMidPeriod && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-xs text-blue-700" data-testid={`added-badge-${a.assignmentId}`}>
+                        <UserPlus className="w-3 h-3" />
+                        thêm giữa kỳ
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS[a.state]}`}
@@ -266,7 +303,7 @@ export default function ReportPeriodTeamsPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {a.obligation !== 'EXEMPT' && (
                       <button
                         type="button"
@@ -276,6 +313,30 @@ export default function ReportPeriodTeamsPage() {
                       >
                         <UserMinus className="w-3.5 h-3.5" />
                         Miễn nộp
+                      </button>
+                    )}
+                    {a.obligation === 'EXEMPT' && (
+                      <button
+                        type="button"
+                        data-testid={`btn-unexempt-${a.assignmentId}`}
+                        disabled={reverseBusy === a.assignmentId}
+                        className={`inline-flex items-center gap-1 text-xs text-green-700 hover:bg-green-50 px-2 py-1 rounded disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                        onClick={() => void handleReverse(a.assignmentId, 'unexempt', a.teamName)}
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        Bỏ miễn nộp
+                      </button>
+                    )}
+                    {a.removable && (
+                      <button
+                        type="button"
+                        data-testid={`btn-remove-team-${a.assignmentId}`}
+                        disabled={reverseBusy === a.assignmentId}
+                        className={`inline-flex items-center gap-1 text-xs text-red-700 hover:bg-red-50 px-2 py-1 rounded disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                        onClick={() => void handleReverse(a.assignmentId, 'remove', a.teamName)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Gỡ tổ
                       </button>
                     )}
                   </td>

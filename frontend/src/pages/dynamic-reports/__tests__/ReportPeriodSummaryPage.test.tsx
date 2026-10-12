@@ -17,6 +17,9 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     exportPeriod: vi.fn(),
     downloadExport: vi.fn(),
     getVersionGrid: vi.fn(),
+    getPeriodDeletionImpact: vi.fn(),
+    deletePeriod: vi.fn(),
+    deletePeriodWithData: vi.fn(),
   },
 }));
 
@@ -30,6 +33,7 @@ function renderPage() {
             path="/bao-cao-dong/duyet/tong-hop/:periodId"
             element={<ReportPeriodSummaryPage />}
           />
+          <Route path="/bao-cao-dong/thiet-lap/:reportId" element={<div data-testid="report-detail-stub" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -214,6 +218,36 @@ describe('ReportPeriodSummaryPage', () => {
       expect(dynamicReportsApi.finalizePeriod).toHaveBeenCalledWith('period1');
     });
     confirmSpy.mockRestore();
+  });
+
+  it('"Xoá kỳ" opens the impact dialog; deleting an empty period goes back to the report', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.getPeriodDeletionImpact).mockResolvedValue({
+      periodId: 'period1', reportId: 'report1', periodKey: '2026-06', status: 'OPEN', assignments: 3,
+      submissionsWithData: 0, revisions: 0, comments: 0, unlocks: 0, hasData: false,
+    });
+    vi.mocked(dynamicReportsApi.deletePeriod).mockResolvedValue({ deleted: true, periodKey: '2026-06' });
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-delete-period-open'));
+    fireEvent.click(await screen.findByTestId('btn-delete-period'));
+
+    await waitFor(() => expect(dynamicReportsApi.deletePeriod).toHaveBeenCalledWith('period1'));
+    expect(await screen.findByTestId('report-detail-stub')).toBeInTheDocument();
+  });
+
+  it('a period with figures offers no plain delete from this screen either', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.getPeriodDeletionImpact).mockResolvedValue({
+      periodId: 'period1', reportId: 'report1', periodKey: '2026-06', status: 'OPEN', assignments: 3,
+      submissionsWithData: 2, revisions: 5, comments: 0, unlocks: 0, hasData: true,
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-delete-period-open'));
+    await screen.findByTestId('period-delete-has-data');
+    expect(screen.queryByTestId('btn-delete-period')).not.toBeInTheDocument();
+    expect(dynamicReportsApi.deletePeriod).not.toHaveBeenCalled();
   });
 
   it('does not finalize when the confirmation dialog is declined', async () => {

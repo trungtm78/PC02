@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import * as ExcelJS from 'exceljs';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -145,6 +145,10 @@ export interface AssignmentListItemView {
   teamName: string;
   obligation: 'REQUIRED' | 'EXEMPT';
   state: string;
+  /** The team was added in the middle of the period (not generated with it). */
+  addedMidPeriod: boolean;
+  /** It can be taken back: added mid-period, the period is open and nobody has entered, commented or asked for anything. */
+  removable: boolean;
 }
 
 export interface ExportCreateResultView {
@@ -981,14 +985,27 @@ export class AggregateService {
     if (!actorRole) {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
     }
+    const ids = period.assignments.map((a) => a.id);
+    const [commented, unlocked] = await Promise.all([
+      this.prisma.dynReportComment.findMany({ where: { assignmentId: { in: ids } }, select: { assignmentId: true }, distinct: ['assignmentId'] }),
+      this.prisma.dynReportUnlock.findMany({ where: { assignmentId: { in: ids } }, select: { assignmentId: true }, distinct: ['assignmentId'] }),
+    ]);
+    const touchedElsewhere = new Set([...commented, ...unlocked].map((r) => r.assignmentId));
     return period.assignments.map((a) => {
       const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+      const untouched =
+        (a.submission?.state ?? 'NOT_STARTED') === 'NOT_STARTED' &&
+        Number(a.submission?.currentRevision ?? 0) === 0 &&
+        !touchedElsewhere.has(a.id);
       return {
         assignmentId: a.id,
         teamId: a.teamId,
         teamName: teamSnapshot?.name ?? '',
         obligation: a.obligation as 'REQUIRED' | 'EXEMPT',
         state: a.submission?.state ?? 'NOT_STARTED',
+        addedMidPeriod: !!a.addedMidPeriodReason,
+        // The same test the removal itself makes: added in the middle of the period, and nobody has touched it.
+        removable: period.status === 'OPEN' && !!a.addedMidPeriodReason && untouched,
       };
     });
   }
@@ -1221,9 +1238,8 @@ export class AggregateService {
   /**
    * S30 — miễn nộp 1 tổ trong kỳ đang mở, giữa chừng (D09). KHÔNG xoá
    * assignment/submission đã có — chỉ đổi `obligation`, giữ nguyên dữ liệu
-   * và lịch sử đã nhập (nếu có). Không có đường "huỷ miễn nộp" trong slice
-   * này — cố ý thu hẹp phạm vi, để dành cho slice khác nếu phát sinh nhu
-   * cầu.
+   * và lịch sử đã nhập (nếu có). Chiều ngược lại là `unexemptTeamMidPeriod`
+   * (tiêu chuẩn thiết kế: thao tác một chiều phải có chiều ngược).
    */
   async exemptTeamMidPeriod(
     periodId: string,
@@ -1290,6 +1306,101 @@ export class AggregateService {
     });
   }
 
+  /** S30 — bỏ miễn nộp: tổ phải nộp trở lại; số liệu đã nhập (nếu có) vẫn còn nguyên. */
+  async unexemptTeamMidPeriod(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    assignmentId: string,
+  ): Promise<MidPeriodAssignmentView> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+      const period = await tx.dynReportPeriod.findUnique({ where: { id: periodId } });
+      if (!period) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      const actorRole = await this.resolveManagerRole(tx, period.reportId, userId, roleId);
+      if (!actorRole) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      if (period.status !== 'OPEN') {
+        throw new SubmissionError('Kỳ đã khoá, không thể bỏ miễn nộp.', 'INVALID_STATE_TRANSITION');
+      }
+      const assignment = await tx.dynReportAssignment.findUnique({ where: { id: assignmentId } });
+      if (!assignment || assignment.periodId !== periodId) {
+        throw new NotFoundException('Không tìm thấy lượt giao này.');
+      }
+      if (assignment.obligation !== 'EXEMPT') {
+        throw new SubmissionError('Tổ này không đang được miễn nộp.', 'INVALID_STATE_TRANSITION');
+      }
+      const updated = await tx.dynReportAssignment.update({
+        where: { id: assignmentId },
+        data: { obligation: 'REQUIRED', exemptReason: null, exemptById: null, exemptAt: null },
+      });
+      const teamSnapshot = updated.teamSnapshot as { name?: string } | null;
+      return {
+        assignmentId: updated.id,
+        teamId: updated.teamId,
+        teamName: teamSnapshot?.name ?? '',
+        obligation: 'REQUIRED' as const,
+      };
+    });
+  }
+
+  /**
+   * S30 — gỡ một tổ đã thêm nhầm giữa kỳ. Chỉ gỡ được lượt giao do "thêm tổ giữa kỳ" tạo ra, và chỉ khi chưa ai nhập
+   * gì (bản nộp chưa bắt đầu, không ghi chú, không yêu cầu mở lại): đã có số liệu thì dùng "Miễn nộp", không xoá.
+   */
+  async removeAddedTeamMidPeriod(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    assignmentId: string,
+  ): Promise<{ removed: true; teamName: string }> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+      const period = await tx.dynReportPeriod.findUnique({ where: { id: periodId } });
+      if (!period) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      const actorRole = await this.resolveManagerRole(tx, period.reportId, userId, roleId);
+      if (!actorRole) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      if (period.status !== 'OPEN') {
+        throw new SubmissionError('Kỳ đã khoá, không thể gỡ tổ.', 'INVALID_STATE_TRANSITION');
+      }
+      const assignment = await tx.dynReportAssignment.findUnique({
+        where: { id: assignmentId },
+        include: { submission: true },
+      });
+      if (!assignment || assignment.periodId !== periodId) {
+        throw new NotFoundException('Không tìm thấy lượt giao này.');
+      }
+      if (!assignment.addedMidPeriodReason) {
+        throw new SubmissionError(
+          'Chỉ gỡ được tổ đã thêm giữa kỳ. Tổ có từ đầu kỳ thì dùng "Miễn nộp".',
+          'NOT_ADDED_MID_PERIOD',
+        );
+      }
+      const sub = assignment.submission;
+      const [comments, unlocks] = await Promise.all([
+        tx.dynReportComment.count({ where: { assignmentId } }),
+        tx.dynReportUnlock.count({ where: { assignmentId } }),
+      ]);
+      if ((sub && (sub.state !== 'NOT_STARTED' || sub.currentRevision > 0)) || comments > 0 || unlocks > 0) {
+        throw new SubmissionError(
+          'Tổ này đã có số liệu, ghi chú hoặc yêu cầu mở lại nên không gỡ được. Hãy dùng "Miễn nộp".',
+          'HAS_DATA',
+        );
+      }
+      // Editors and reminders go with the assignment (Cascade); the submission is Restrict, so it goes first.
+      await tx.dynReportSubmission.deleteMany({ where: { assignmentId } });
+      await tx.dynReportAssignment.delete({ where: { id: assignmentId } });
+      // What was summed with this team in it is no longer true, and neither are the files made with it: a downloadable
+      // export would still carry the removed team's sheet (its figures, empty as they were, change no contributor hash).
+      await tx.dynReportSnapshot.updateMany({
+        where: { periodId, invalidatedAt: null },
+        data: { invalidatedAt: new Date(), invalidatedReason: 'TEAM_REMOVED' },
+      });
+      await tx.dynReportExport.deleteMany({ where: { scope: { path: ['periodId'], equals: periodId } } });
+      const teamSnapshot = assignment.teamSnapshot as { name?: string } | null;
+      return { removed: true as const, teamName: teamSnapshot?.name ?? '' };
+    });
+  }
+
   /**
    * S25 — manager exports a workbook ("TỔNG" + 1 sheet/tổ + "Metadata"),
    * stored once (`DynReportExport`, TTL 24h) and downloaded through a
@@ -1328,6 +1439,8 @@ export class AggregateService {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
     }
 
+    // The teams this file is made from; checked again when it is stored (see below).
+    const assignmentIdsAtRead = period.assignments.map((x) => x.id).sort().join(',');
     const computed = this.computeApprovedSnapshot(period);
     let snapshotValues = computed.snapshotValues;
     let snapshotId: string | null = null;
@@ -1436,6 +1549,14 @@ export class AggregateService {
       `;
       if (alive.length === 0) {
         throw new NotFoundException('Kỳ báo cáo không còn tồn tại.');
+      }
+      // Teams added or taken back while the workbook was being rendered: the file lists the teams it was made from.
+      const nowIds = (await tx.dynReportAssignment.findMany({ where: { periodId }, select: { id: true } }))
+        .map((a) => a.id)
+        .sort()
+        .join(',');
+      if (nowIds !== assignmentIdsAtRead) {
+        throw new ConflictException('Danh sách tổ của kỳ vừa thay đổi trong lúc xuất. Hãy xuất lại.');
       }
       return tx.dynReportExport.create({
         data: {

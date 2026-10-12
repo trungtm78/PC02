@@ -3,11 +3,14 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
+  ForbiddenException,
   Get,
   Param,
   Post,
   Query,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
@@ -16,13 +19,15 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AggregateService, type SummaryMode } from './aggregate.service';
+import { ReportLifecycleService } from '../config/report-lifecycle.service';
+import { ReportConfigError } from '../config/report-config.service';
 import { SubmissionError } from '../submission/submission.service';
 import { ReopenPeriodDto } from './dto/reopen-period.dto';
 import { PreviewAddTeamDto } from './dto/preview-add-team.dto';
 import { AddTeamMidPeriodDto } from './dto/add-team-mid-period.dto';
 import { ExemptTeamMidPeriodDto } from './dto/exempt-team-mid-period.dto';
 
-const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION']);
+const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION', 'HAS_DATA']);
 
 interface AuthenticatedUser {
   id: string;
@@ -47,7 +52,10 @@ const VALID_MODES: readonly SummaryMode[] = [
 @UseGuards(JwtAuthGuard, FeatureFlagGuard, PermissionsGuard)
 @FeatureFlag('dynamic_reports')
 export class AggregateController {
-  constructor(private readonly aggregateService: AggregateService) {}
+  constructor(
+    private readonly aggregateService: AggregateService,
+    private readonly lifecycleService: ReportLifecycleService,
+  ) {}
 
   /**
    * T-VIEWER-NAV — declared BEFORE `:periodId/*`, same reason every other
@@ -197,6 +205,65 @@ export class AggregateController {
     );
   }
 
+  /** Xoá kỳ: cái gì sẽ mất, đọc trước khi hiện hộp xác nhận. Quản lý của báo cáo hoặc quản trị viên. */
+  @Get(':periodId/deletion-impact')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async periodDeletionImpact(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() => this.lifecycleService.getPeriodDeletionImpact(periodId, user));
+  }
+
+  /** Xoá một kỳ chưa ai nhập gì (kỳ sinh nhầm, kỳ thử). Đã có số liệu thì 409 HAS_DATA. */
+  @Delete(':periodId')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async deletePeriod(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() => this.lifecycleService.deletePeriod(periodId, { withData: false }, user));
+  }
+
+  /** Xoá kỳ kèm số liệu — chỉ quản trị viên, phải gõ lại mã kỳ. */
+  @Delete(':periodId/with-data')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async deletePeriodWithData(
+    @Param('periodId') periodId: string,
+    @Query('confirmKey') confirmKey: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.lifecycleService.deletePeriod(periodId, { withData: true, confirmKey }, user),
+    );
+  }
+
+  /** S30 — bỏ miễn nộp (chiều ngược của miễn nộp). */
+  @Post(':periodId/assignments/:assignmentId/unexempt')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async unexemptTeamMidPeriod(
+    @Param('periodId') periodId: string,
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.unexemptTeamMidPeriod(periodId, user.id, user.roleId, assignmentId),
+    );
+  }
+
+  /** S30 — gỡ tổ đã thêm nhầm giữa kỳ (chiều ngược của thêm tổ), khi chưa ai nhập gì. */
+  @Delete(':periodId/assignments/:assignmentId')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async removeAddedTeamMidPeriod(
+    @Param('periodId') periodId: string,
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.removeAddedTeamMidPeriod(periodId, user.id, user.roleId, assignmentId),
+    );
+  }
+
   /** S21 — whole-period history/audit, every assignment at once (read-only). */
   @Get(':periodId/history')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
@@ -231,6 +298,13 @@ export class AggregateController {
         if (CONFLICT_CODES.has(err.code)) {
           throw new ConflictException({ code: err.code, message: err.message });
         }
+        throw new BadRequestException({ code: err.code, message: err.message });
+      }
+      if (err instanceof ReportConfigError) {
+        if (err.code === 'REPORT_NOT_FOUND') throw new NotFoundException(err.message);
+        if (err.code === 'HAS_DATA') throw new ConflictException({ code: err.code, message: err.message });
+        // A valid request refused for lack of standing is a refusal, not a malformed request.
+        if (err.code === 'ADMIN_REQUIRED') throw new ForbiddenException({ code: err.code, message: err.message });
         throw new BadRequestException({ code: err.code, message: err.message });
       }
       throw err;

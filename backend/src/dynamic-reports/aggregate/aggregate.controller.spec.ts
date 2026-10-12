@@ -1,8 +1,10 @@
-import { ConflictException, BadRequestException } from '@nestjs/common';
+import { ConflictException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AggregateController } from './aggregate.controller';
 import { AggregateService } from './aggregate.service';
 import { SubmissionError } from '../submission/submission.service';
+import { ReportLifecycleService } from '../config/report-lifecycle.service';
+import { ReportConfigError } from '../config/report-config.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -20,7 +22,10 @@ describe('AggregateController', () => {
     addTeamMidPeriod: jest.fn(),
     exemptTeamMidPeriod: jest.fn(),
     listAssignmentsForPeriod: jest.fn(),
+    unexemptTeamMidPeriod: jest.fn(),
+    removeAddedTeamMidPeriod: jest.fn(),
   };
+  const lifecycle = { getPeriodDeletionImpact: jest.fn(), deletePeriod: jest.fn() };
   const user = { id: 'u1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -29,6 +34,7 @@ describe('AggregateController', () => {
       controllers: [AggregateController],
       providers: [
         { provide: AggregateService, useValue: service },
+        { provide: ReportLifecycleService, useValue: lifecycle },
         { provide: FeatureFlagsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
       ],
@@ -293,5 +299,48 @@ describe('AggregateController', () => {
 
     expect(service.listPeriodsForViewer).toHaveBeenCalledWith('u1', 'r1');
     expect(result).toBe(list);
+  });
+
+  describe('the way back (created => editable and deletable)', () => {
+    it('POST unexempt delegates with the assignment; a team that is not exempt is a 409', async () => {
+      service.unexemptTeamMidPeriod.mockResolvedValueOnce({ obligation: 'REQUIRED' });
+      await expect(controller.unexemptTeamMidPeriod('p1', 'a1', user)).resolves.toEqual({ obligation: 'REQUIRED' });
+      expect(service.unexemptTeamMidPeriod).toHaveBeenCalledWith('p1', 'u1', 'r1', 'a1');
+
+      service.unexemptTeamMidPeriod.mockRejectedValueOnce(new SubmissionError('x', 'INVALID_STATE_TRANSITION'));
+      await expect(controller.unexemptTeamMidPeriod('p1', 'a1', user)).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('DELETE assignment (remove an added team) delegates; "has data" is a 409, "not added mid-period" a 400', async () => {
+      service.removeAddedTeamMidPeriod.mockResolvedValueOnce({ removed: true });
+      await expect(controller.removeAddedTeamMidPeriod('p1', 'a1', user)).resolves.toEqual({ removed: true });
+      expect(service.removeAddedTeamMidPeriod).toHaveBeenCalledWith('p1', 'u1', 'r1', 'a1');
+
+      service.removeAddedTeamMidPeriod.mockRejectedValueOnce(new SubmissionError('x', 'HAS_DATA'));
+      await expect(controller.removeAddedTeamMidPeriod('p1', 'a1', user)).rejects.toBeInstanceOf(ConflictException);
+      service.removeAddedTeamMidPeriod.mockRejectedValueOnce(new SubmissionError('x', 'NOT_ADDED_MID_PERIOD'));
+      await expect(controller.removeAddedTeamMidPeriod('p1', 'a1', user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('period delete: passes the caller (standing is decided in the service), plain and with the typed key', async () => {
+      lifecycle.deletePeriod.mockResolvedValue({ deleted: true });
+      await controller.deletePeriod('p1', user);
+      expect(lifecycle.deletePeriod).toHaveBeenCalledWith('p1', { withData: false }, user);
+      await controller.deletePeriodWithData('p1', '2026-10', user);
+      expect(lifecycle.deletePeriod).toHaveBeenCalledWith('p1', { withData: true, confirmKey: '2026-10' }, user);
+    });
+
+    it('period delete errors: missing/not yours is 404, has data 409, not an admin 403, a wrong key 400', async () => {
+      lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'REPORT_NOT_FOUND'));
+      await expect(controller.deletePeriod('p1', user)).rejects.toBeInstanceOf(NotFoundException);
+      lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'HAS_DATA'));
+      await expect(controller.deletePeriod('p1', user)).rejects.toBeInstanceOf(ConflictException);
+      lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'ADMIN_REQUIRED'));
+      await expect(controller.deletePeriodWithData('p1', 'k', user)).rejects.toBeInstanceOf(ForbiddenException);
+      lifecycle.deletePeriod.mockRejectedValueOnce(new ReportConfigError('x', 'CONFIRMATION_REQUIRED'));
+      await expect(controller.deletePeriodWithData('p1', 'k', user)).rejects.toBeInstanceOf(BadRequestException);
+      lifecycle.getPeriodDeletionImpact.mockResolvedValueOnce({ hasData: false });
+      await expect(controller.periodDeletionImpact('p1', user)).resolves.toEqual({ hasData: false });
+    });
   });
 });

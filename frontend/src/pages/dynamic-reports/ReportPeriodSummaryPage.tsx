@@ -5,7 +5,7 @@
  * có nút sửa/lưu — màn này chỉ đọc, đúng D10 "không ai sửa hộ số liệu".
  */
 import { Fragment, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING, BTN_OUTLINE_BLUE } from '@/constants/styles';
 import GridViewer from '@/features/dynamic-reports/grid/GridViewer';
 import { useGridLayout } from '@/features/dynamic-reports/grid/useGridLayout';
+import PeriodDeleteDialog from './PeriodDeleteDialog';
 
 const MODE_LABEL: Record<SummaryMode, string> = {
   SUBMITTED: 'Đã nộp + đã duyệt',
@@ -61,6 +62,8 @@ export default function ReportPeriodSummaryPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState<'TEMPLATE' | 'LIST' | null>(null);
+  const [deletingPeriod, setDeletingPeriod] = useState(false);
+  const navigate = useNavigate();
 
   async function handleExport() {
     if (!periodId) return;
@@ -177,6 +180,14 @@ export default function ReportPeriodSummaryPage() {
               <FileSpreadsheet className="w-4 h-4" />
             )}
             {isExporting ? 'Đang xuất…' : 'Xuất Excel'}
+          </button>
+          <button
+            type="button"
+            data-testid="btn-delete-period-open"
+            onClick={() => setDeletingPeriod(true)}
+            className={`px-3 py-1.5 text-sm text-red-700 border border-red-200 rounded-lg hover:bg-red-50 ${A11Y_FOCUS_RING}`}
+          >
+            Xoá kỳ
           </button>
           {view.status === 'OPEN' ? (
             <button
@@ -413,6 +424,17 @@ export default function ReportPeriodSummaryPage() {
           </tbody>
         </table>
       </div>
+      )}
+      {view && (
+        <PeriodDeleteDialog
+          periodId={deletingPeriod ? view.periodId : null}
+          periodKey={view.periodKey}
+          onClose={() => setDeletingPeriod(false)}
+          onDeleted={() => {
+            setDeletingPeriod(false);
+            navigate(`/bao-cao-dong/thiet-lap/${view.reportId}`);
+          }}
+        />
       )}
     </div>
   );

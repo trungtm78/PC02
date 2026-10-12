@@ -367,6 +367,8 @@ export interface CommentView {
 }
 
 export interface SubmissionView {
+  /** The reopening request the caller made that is still waiting; they can take it back. */
+  pendingUnlockRequest?: PendingUnlockRequestView | null;
   assignmentId: string;
   /** Template version of this period; the key for the grid model endpoint. */
   versionId: string;
@@ -518,6 +520,31 @@ export interface AssignmentListItemView {
   teamName: string;
   obligation: 'REQUIRED' | 'EXEMPT';
   state: DynReportSubmissionState;
+  /** The team was added in the middle of the period (not generated with it). */
+  addedMidPeriod: boolean;
+  /** It can be taken back: added mid-period and nobody has entered, commented or asked for anything. */
+  removable: boolean;
+}
+
+/** What deleting one period would destroy — shown before anyone confirms. */
+export interface PeriodDeletionImpact {
+  periodId: string;
+  reportId: string;
+  periodKey: string;
+  status: string;
+  assignments: number;
+  submissionsWithData: number;
+  revisions: number;
+  comments: number;
+  unlocks: number;
+  hasData: boolean;
+}
+
+/** A reopening request the signed-in editor made that is still waiting for a manager. */
+export interface PendingUnlockRequestView {
+  id: string;
+  reason: string;
+  createdAt: string;
 }
 
 /** S30 — "trước/sau" cho 1 field khi thêm tổ hoặc miễn nộp giữa kỳ. */

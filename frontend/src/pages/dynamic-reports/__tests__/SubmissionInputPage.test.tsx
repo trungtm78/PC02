@@ -13,6 +13,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     submitSubmission: vi.fn(),
     validateForSubmit: vi.fn(),
     requestUnlock: vi.fn(),
+    withdrawUnlockRequest: vi.fn(),
     previewExcelImport: vi.fn(),
     applyExcelImport: vi.fn(),
     exportOwnSubmission: vi.fn(),
@@ -195,6 +196,56 @@ describe('SubmissionInputPage', () => {
     });
     await waitFor(() => screen.getByTestId('unlock-request-sent'));
     promptSpy.mockRestore();
+  });
+
+  it('a request that was sent can be taken back while it waits; the "Xin mở lại" button comes back', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({ ...VIEW, editable: false });
+    vi.mocked(dynamicReportsApi.requestUnlock).mockResolvedValue({
+      id: 'req1', assignmentId: 'assign1', reportName: 'HSLN', periodKey: '2026-10', teamName: 'Đội 3',
+      reason: 'Nhập nhầm số', requestedAt: '2026-10-10T10:00:00.000Z', requestedByName: 'Văn Nguyễn',
+    });
+    vi.mocked(dynamicReportsApi.withdrawUnlockRequest).mockResolvedValue({ withdrawn: true });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Nhập nhầm số');
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-request-unlock'));
+    await screen.findByTestId('unlock-request-sent');
+    fireEvent.click(screen.getByTestId('btn-withdraw-unlock'));
+
+    await waitFor(() => expect(dynamicReportsApi.withdrawUnlockRequest).toHaveBeenCalledWith('assign1'));
+    await screen.findByTestId('btn-request-unlock');
+    expect(screen.queryByTestId('unlock-request-sent')).not.toBeInTheDocument();
+    promptSpy.mockRestore();
+  });
+
+  it('a request made on an earlier visit shows as waiting at once, with the way to take it back', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      editable: false,
+      pendingUnlockRequest: { id: 'req0', reason: 'Nhập nhầm', createdAt: '2026-10-09T10:00:00.000Z' },
+    });
+    renderPage();
+
+    await screen.findByTestId('unlock-request-sent');
+    expect(screen.getByTestId('btn-withdraw-unlock')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-request-unlock')).not.toBeInTheDocument();
+  });
+
+  it('when taking it back is refused (already decided) the reason is shown and the request still shows as sent', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      editable: false,
+      pendingUnlockRequest: { id: 'req0', reason: 'x', createdAt: '2026-10-09T10:00:00.000Z' },
+    });
+    vi.mocked(dynamicReportsApi.withdrawUnlockRequest).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { message: 'Không còn yêu cầu mở lại nào đang chờ để rút lại.' } } },
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-withdraw-unlock'));
+    expect(await screen.findByTestId('unlock-request-error')).toHaveTextContent('Không còn yêu cầu');
+    expect(screen.getByTestId('unlock-request-sent')).toBeInTheDocument();
   });
 
   it('does not send an unlock request when the reason prompt is cancelled', async () => {

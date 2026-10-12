@@ -81,7 +81,11 @@ export default function SubmissionInputPage() {
     handleCancelImport,
   } = useSubmissionEditor({ assignmentId, initial, refetch });
 
-  const [requestStatus, setRequestStatus] = useState<'idle' | 'working' | 'sent' | 'error'>('idle');
+  // A request made earlier (another visit, another tab) and still waiting is "sent" as soon as the submission has
+  // loaded, so it can be taken back; what the person does on this screen overrides it from then on.
+  const [requestOverride, setRequestStatus] = useState<'idle' | 'working' | 'sent' | 'error' | null>(null);
+  const requestStatus: 'idle' | 'working' | 'sent' | 'error' =
+    requestOverride ?? (initial?.pendingUnlockRequest ? 'sent' : 'idle');
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -102,6 +106,20 @@ export default function SubmissionInputPage() {
     if (importFileInputRef.current) importFileInputRef.current.value = '';
     if (!file) return;
     await previewImport(file);
+  }
+
+  /** The way back of "Xin mở lại": take the request back while it is still waiting for a manager. */
+  async function handleWithdrawUnlock() {
+    if (!assignmentId) return;
+    setRequestStatus('working');
+    setRequestError(null);
+    try {
+      await dynamicReportsApi.withdrawUnlockRequest(assignmentId);
+      setRequestStatus('idle');
+    } catch (err) {
+      setRequestStatus('sent');
+      setRequestError(extractApiError(err).message);
+    }
   }
 
   /** S34 — the editor-side half: ask the manager to reopen this locked assignment. */
@@ -249,6 +267,14 @@ export default function SubmissionInputPage() {
           {requestStatus === 'sent' ? (
             <span className="text-xs font-medium text-amber-700" data-testid="unlock-request-sent">
               Đã gửi yêu cầu, đang chờ quản lý duyệt
+              <button
+                type="button"
+                data-testid="btn-withdraw-unlock"
+                onClick={() => void handleWithdrawUnlock()}
+                className={`ml-2 underline hover:text-amber-900 ${A11Y_FOCUS_RING}`}
+              >
+                Rút lại
+              </button>
             </span>
           ) : (
             <button
