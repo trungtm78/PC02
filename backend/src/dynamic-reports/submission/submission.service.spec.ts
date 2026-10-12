@@ -123,6 +123,9 @@ describe('SubmissionService', () => {
       dynReportComment: {
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
         create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+        findFirst: jest.fn<Promise<unknown>, unknown[]>(),
+        update: jest.fn<Promise<unknown>, unknown[]>(),
+        delete: jest.fn<Promise<unknown>, unknown[]>(),
       },
     };
   }
@@ -2838,6 +2841,7 @@ describe('SubmissionService', () => {
           fieldKey: 'Đội 3!C6',
           body: 'Số liệu tăng do mùa cao điểm',
           createdAt: now,
+          authorId: 'u1',
           author: { firstName: 'Văn A', lastName: 'Nguyễn', username: 'u1' },
         },
         {
@@ -2845,6 +2849,7 @@ describe('SubmissionService', () => {
           fieldKey: null,
           body: 'Đã đối soát với đội nghiệp vụ',
           createdAt: now,
+          authorId: 'mgr1',
           author: { firstName: '', lastName: '', username: 'mgr1' },
         },
       ]);
@@ -2859,6 +2864,9 @@ describe('SubmissionService', () => {
           body: 'Số liệu tăng do mùa cao điểm',
           authorName: 'Văn A Nguyễn',
           createdAt: now.toISOString(),
+          mine: true,
+          canDelete: true,
+          locked: false,
         },
         {
           id: 'c2',
@@ -2866,8 +2874,37 @@ describe('SubmissionService', () => {
           body: 'Đã đối soát với đội nghiệp vụ',
           authorName: 'mgr1',
           createdAt: now.toISOString(),
+          // Written by the manager: an editor can neither edit nor delete it.
+          mine: false,
+          canDelete: false,
+          locked: false,
         },
       ]);
+    });
+
+    it('a manager can delete everybody\'s comments but edit only their own; a closed period locks them all', async () => {
+      const comments = [
+        { id: 'c1', fieldKey: null, body: 'Của người nhập', createdAt: now, authorId: 'u1', author: { firstName: '', lastName: '', username: 'u1' } },
+        { id: 'c2', fieldKey: null, body: 'Của quản lý', createdAt: now, authorId: 'mgr1', author: { firstName: '', lastName: '', username: 'mgr1' } },
+      ];
+      const open = buildTx();
+      open.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      open.dynReportAssignment.findUnique.mockResolvedValue({ ...ASSIGNMENT, period: { status: 'OPEN', report: { id: 'report1' } } });
+      open.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      open.dynReportComment.findMany.mockResolvedValue(comments);
+      const asManager = await buildService(open).service.listComments('assign1', 'mgr1', 'roleMgr');
+      expect(asManager.map((c) => [c.id, c.mine, c.canDelete, c.locked])).toEqual([
+        ['c1', false, true, false],
+        ['c2', true, true, false],
+      ]);
+
+      const closed = buildTx();
+      closed.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      closed.dynReportAssignment.findUnique.mockResolvedValue({ ...ASSIGNMENT, period: { status: 'FINALIZED', report: { id: 'report1' } } });
+      closed.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      closed.dynReportComment.findMany.mockResolvedValue(comments);
+      const afterClose = await buildService(closed).service.listComments('assign1', 'mgr1', 'roleMgr');
+      expect(afterClose.every((c) => c.locked && !c.canDelete)).toBe(true);
     });
 
     it('(manager, not editor) can also list comments', async () => {
@@ -2937,6 +2974,9 @@ describe('SubmissionService', () => {
         body: 'Số liệu tăng do mùa cao điểm',
         authorName: 'Văn A Nguyễn',
         createdAt: now.toISOString(),
+        mine: true,
+        canDelete: true,
+        locked: false,
       });
       const createCall = tx.dynReportComment.create.mock.calls[0][0] as {
         data: {
@@ -3000,4 +3040,118 @@ describe('SubmissionService', () => {
       expect(tx.dynReportComment.create).not.toHaveBeenCalled();
     });
   });
+  describe('updateComment / deleteComment (S37 — created => editable and deletable)', () => {
+    const ASSIGNMENT = { id: 'assign1', period: { status: 'OPEN', report: { id: 'report1' } } };
+    const OWN = {
+      id: 'c1',
+      assignmentId: 'assign1',
+      fieldKey: 'Đội 3!C6',
+      body: 'Cũ',
+      authorId: 'u1',
+      createdAt: now,
+      author: { firstName: 'Văn A', lastName: 'Nguyễn', username: 'u1' },
+    };
+
+    function asEditor(tx: ReturnType<typeof buildTx>, comment: unknown = OWN, assignment: unknown = ASSIGNMENT) {
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(assignment);
+      tx.dynReportComment.findFirst.mockResolvedValue(comment);
+    }
+
+    it('the author edits their own comment: the new text is trimmed and saved, the field and assignment stay', async () => {
+      const tx = buildTx();
+      asEditor(tx);
+      tx.dynReportComment.update.mockResolvedValue({ ...OWN, body: 'Mới' });
+      const { service } = buildService(tx);
+
+      const out = await service.updateComment('assign1', 'c1', 'u1', 'role1', '  Mới  ');
+
+      expect(out).toEqual({
+        id: 'c1',
+        fieldKey: 'Đội 3!C6',
+        body: 'Mới',
+        authorName: 'Văn A Nguyễn',
+        createdAt: now.toISOString(),
+        mine: true,
+        canDelete: true,
+        locked: false,
+      });
+      const call = tx.dynReportComment.update.mock.calls[0][0] as { where: { id: string }; data: Record<string, unknown> };
+      expect(call.where).toEqual({ id: 'c1' });
+      expect(call.data).toEqual({ body: 'Mới' });
+    });
+
+    it('somebody else cannot edit it, even a manager (NOT_AUTHOR), and a blank text is refused first', async () => {
+      const tx = buildTx();
+      asEditor(tx, { ...OWN, authorId: 'someone-else' });
+      const { service } = buildService(tx);
+
+      await expect(service.updateComment('assign1', 'c1', 'u1', 'role1', 'x')).rejects.toMatchObject({ code: 'NOT_AUTHOR' });
+      await expect(service.updateComment('assign1', 'c1', 'u1', 'role1', '   ')).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportComment.update).not.toHaveBeenCalled();
+    });
+
+    it('a comment of a closed period is part of the closed record: neither edit nor delete', async () => {
+      const tx = buildTx();
+      asEditor(tx, OWN, { ...ASSIGNMENT, period: { status: 'FINALIZED', report: { id: 'report1' } } });
+      const { service } = buildService(tx);
+
+      await expect(service.updateComment('assign1', 'c1', 'u1', 'role1', 'x')).rejects.toMatchObject({ code: 'REPORT_LOCKED' });
+      await expect(service.deleteComment('assign1', 'c1', 'u1', 'role1')).rejects.toMatchObject({ code: 'REPORT_LOCKED' });
+      expect(tx.dynReportComment.update).not.toHaveBeenCalled();
+      expect(tx.dynReportComment.delete).not.toHaveBeenCalled();
+    });
+
+    it('a comment that is not on this assignment is not found (the assignment id is part of the lookup)', async () => {
+      const tx = buildTx();
+      asEditor(tx, null);
+      const { service } = buildService(tx);
+
+      await expect(service.updateComment('assign1', 'c-other', 'u1', 'role1', 'x')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.deleteComment('assign1', 'c-other', 'u1', 'role1')).rejects.toBeInstanceOf(NotFoundException);
+      const where = (tx.dynReportComment.findFirst.mock.calls[0][0] as { where: unknown }).where;
+      expect(where).toEqual({ id: 'c-other', assignmentId: 'assign1' });
+    });
+
+    it('somebody who cannot see the assignment finds nothing (same 404 as listing)', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      tx.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      tx.rolePermission.findFirst.mockResolvedValue(null);
+      tx.dynReportRole.findFirst.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(service.deleteComment('assign1', 'c1', 'outsider', 'role1')).rejects.toBeInstanceOf(NotFoundException);
+      expect(tx.dynReportComment.delete).not.toHaveBeenCalled();
+    });
+
+    it('the author deletes their own comment', async () => {
+      const tx = buildTx();
+      asEditor(tx);
+      tx.dynReportComment.delete.mockResolvedValue(OWN);
+      const { service } = buildService(tx);
+
+      await expect(service.deleteComment('assign1', 'c1', 'u1', 'role1')).resolves.toEqual({ deleted: true });
+      expect(tx.dynReportComment.delete).toHaveBeenCalledWith({ where: { id: 'c1' } });
+    });
+
+    it('a manager of the report may delete somebody else\'s comment; an editor may not', async () => {
+      const mgr = buildTx();
+      mgr.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      mgr.dynReportAssignment.findUnique.mockResolvedValue(ASSIGNMENT);
+      mgr.dynReportComment.findFirst.mockResolvedValue({ ...OWN, authorId: 'u1' });
+      mgr.rolePermission.findFirst.mockResolvedValue(null);
+      mgr.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      mgr.dynReportComment.delete.mockResolvedValue(OWN);
+      await expect(buildService(mgr).service.deleteComment('assign1', 'c1', 'mgr1', 'roleMgr')).resolves.toEqual({ deleted: true });
+
+      const editor = buildTx();
+      asEditor(editor, { ...OWN, authorId: 'someone-else' });
+      editor.rolePermission.findFirst.mockResolvedValue(null);
+      editor.dynReportRole.findFirst.mockResolvedValue(null);
+      await expect(buildService(editor).service.deleteComment('assign1', 'c1', 'u1', 'role1')).rejects.toMatchObject({ code: 'NOT_AUTHOR' });
+      expect(editor.dynReportComment.delete).not.toHaveBeenCalled();
+    });
+  });
+
 });

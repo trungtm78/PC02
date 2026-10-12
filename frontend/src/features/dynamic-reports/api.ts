@@ -237,6 +237,18 @@ export const dynamicReportsApi = {
       })
       .then((r) => r.data),
 
+  /** Edit your own comment (design standard: created => editable). */
+  updateComment: (assignmentId: string, commentId: string, body: string) =>
+    api
+      .patch<CommentView>(`/bao-cao-dong/submissions/${assignmentId}/comments/${commentId}`, { body })
+      .then((r) => r.data),
+
+  /** Delete a comment: your own, or (a manager) anyone's. Not once the period is closed. */
+  deleteComment: (assignmentId: string, commentId: string) =>
+    api
+      .delete<{ deleted: true }>(`/bao-cao-dong/submissions/${assignmentId}/comments/${commentId}`)
+      .then((r) => r.data),
+
   /** S33/PR7 — the manager's own list (any report they manage, or every report with admin:DynamicReport). */
   listForManager: () =>
     api.get<AssignmentSummary[]>('/bao-cao-dong/submissions/manager').then((r) => r.data),

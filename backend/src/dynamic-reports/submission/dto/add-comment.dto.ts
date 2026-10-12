@@ -10,3 +10,10 @@ export class AddCommentDto {
   @IsNotEmpty()
   body!: string;
 }
+
+/** S37 — sửa nội dung ghi chú của chính mình (ô và lượt giao của ghi chú không đổi). */
+export class UpdateCommentDto {
+  @IsString()
+  @IsNotEmpty()
+  body!: string;
+}

@@ -2,8 +2,11 @@
  * S37 (PR9 slice 2) — "Ghi chú/giải trình" panel, shared by the editor's
  * `SubmissionInputPage.tsx` and the manager's `ReportSubmissionReviewPage.tsx`
  * (both sides can read AND write — the backend grants either role access
- * to the same assignment's comments). Append-only: no edit/delete UI,
- * matching the backend's append-only design.
+ * to the same assignment's comments).
+ *
+ * Design standard "created ⇒ editable and deletable": the author can correct what they wrote, the author (or a
+ * manager of the report) can remove a comment — until the period is closed, after which a comment is part of the
+ * closed record. The server says which comments the caller may touch (`mine`, `canDelete`, `locked`).
  */
 import { useState } from 'react';
 import { MessageSquare } from 'lucide-react';
@@ -36,6 +39,42 @@ export default function CommentsPanel({ assignmentId, fieldOptions = [] }: Props
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState('');
+
+  async function refresh() {
+    await queryClient.invalidateQueries({ queryKey: COMMENTS_QUERY_KEY(assignmentId) });
+  }
+
+  async function handleSaveEdit(id: string) {
+    if (!editBody.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await dynamicReportsApi.updateComment(assignmentId, id, editBody.trim());
+      setEditingId(null);
+      await refresh();
+    } catch (err) {
+      setError(extractApiError(err).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Xoá ghi chú này? Việc này không hoàn tác được.')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await dynamicReportsApi.deleteComment(assignmentId, id);
+      if (editingId === id) setEditingId(null);
+      await refresh();
+    } catch (err) {
+      setError(extractApiError(err).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleAdd() {
     if (!body.trim()) return;
@@ -70,10 +109,67 @@ export default function CommentsPanel({ assignmentId, fieldOptions = [] }: Props
         <ul className="space-y-2 mb-3" data-testid="comments-list">
           {comments.map((c) => (
             <li key={c.id} className="text-sm border-l-2 border-slate-200 pl-2" data-testid={`comment-${c.id}`}>
-              <p className="text-slate-700">{c.body}</p>
+              {editingId === c.id ? (
+                <div className="space-y-1">
+                  <textarea
+                    data-testid={`comment-edit-input-${c.id}`}
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    rows={2}
+                    className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      data-testid={`btn-save-comment-${c.id}`}
+                      disabled={busy || !editBody.trim() || editBody.trim() === c.body}
+                      onClick={() => void handleSaveEdit(c.id)}
+                      className={`px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`btn-cancel-comment-${c.id}`}
+                      onClick={() => setEditingId(null)}
+                      className={`px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 rounded ${A11Y_FOCUS_RING}`}
+                    >
+                      Huỷ
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-700">{c.body}</p>
+              )}
               <p className="text-xs text-slate-400">
                 {c.authorName} · {formatVNDateTime(c.createdAt)}
                 {c.fieldKey && <span> · Ô {c.fieldKey}</span>}
+                {c.locked && <span> · Kỳ đã chốt</span>}
+                {editingId !== c.id && !c.locked && c.mine && (
+                  <button
+                    type="button"
+                    data-testid={`btn-edit-comment-${c.id}`}
+                    disabled={busy}
+                    onClick={() => {
+                      setEditingId(c.id);
+                      setEditBody(c.body);
+                    }}
+                    className={`ml-2 text-blue-700 hover:underline ${A11Y_FOCUS_RING}`}
+                  >
+                    Sửa
+                  </button>
+                )}
+                {c.canDelete && (
+                  <button
+                    type="button"
+                    data-testid={`btn-delete-comment-${c.id}`}
+                    disabled={busy}
+                    onClick={() => void handleDelete(c.id)}
+                    className={`ml-2 text-red-700 hover:underline ${A11Y_FOCUS_RING}`}
+                  >
+                    Xoá
+                  </button>
+                )}
               </p>
             </li>
           ))}

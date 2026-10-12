@@ -21,6 +21,8 @@ describe('SubmissionController', () => {
     validateForSubmit: jest.fn(),
     listComments: jest.fn(),
     addComment: jest.fn(),
+    updateComment: jest.fn(),
+    deleteComment: jest.fn(),
     listMyAssignments: jest.fn(),
     listForManager: jest.fn(),
     getSubmissionForManager: jest.fn(),
@@ -244,6 +246,23 @@ describe('SubmissionController', () => {
       'hi',
     );
     expect(result).toBe(created);
+  });
+
+  it('PATCH :assignmentId/comments/:commentId delegates to updateComment with the actor', async () => {
+    service.updateComment.mockResolvedValue({ id: 'c1', body: 'Mới' });
+    await expect(controller.updateComment('assign1', 'c1', { body: 'Mới' }, user)).resolves.toEqual({ id: 'c1', body: 'Mới' });
+    expect(service.updateComment).toHaveBeenCalledWith('assign1', 'c1', 'u1', 'r1', 'Mới');
+  });
+
+  it('DELETE :assignmentId/comments/:commentId delegates to deleteComment; a closed period is a 409, not the author a 400', async () => {
+    service.deleteComment.mockResolvedValueOnce({ deleted: true });
+    await expect(controller.deleteComment('assign1', 'c1', user)).resolves.toEqual({ deleted: true });
+    expect(service.deleteComment).toHaveBeenCalledWith('assign1', 'c1', 'u1', 'r1');
+
+    service.deleteComment.mockRejectedValueOnce(new SubmissionError('khoá', 'REPORT_LOCKED'));
+    await expect(controller.deleteComment('assign1', 'c1', user)).rejects.toBeInstanceOf(ConflictException);
+    service.deleteComment.mockRejectedValueOnce(new SubmissionError('không phải tác giả', 'NOT_AUTHOR'));
+    await expect(controller.deleteComment('assign1', 'c1', user)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('POST :assignmentId/comments passes null fieldKey when omitted', async () => {

@@ -358,6 +358,12 @@ export interface CommentView {
   body: string;
   authorName: string;
   createdAt: string;
+  /** Written by the signed-in person: only they can edit it. */
+  mine: boolean;
+  /** The signed-in person may delete it (its author, or a manager of the report). */
+  canDelete: boolean;
+  /** The period is closed: the comment can no longer be edited or deleted. */
+  locked: boolean;
 }
 
 export interface SubmissionView {

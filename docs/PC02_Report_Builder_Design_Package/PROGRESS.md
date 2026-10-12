@@ -1250,12 +1250,12 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
 ## Kiểm kê tạo / sửa / xoá (13/10/2026)
 | Đối tượng | Tạo | Sửa | Xoá / gỡ | Trạng thái |
 |---|---|---|---|---|
-| Báo cáo | wizard (POST /reports) | Sửa tên/mô tả/lịch/quản lý/tổ (PATCH) | Xoá / Lưu trữ / Xoá kèm số liệu (admin) | Xoá + lưu trữ + khôi phục: xong (PR này); sửa: PR kế |
-| Phiên bản mẫu | wizard (v1) | **Cập nhật mẫu = phiên bản mới** (D09) | Xoá bản nháp | Đang làm |
-| Ngừng phát sinh | S31 | — | **Tiếp tục phát sinh** | Xong (PR này) |
-| Lịch / quản lý / tổ + người nhập | wizard | Sửa cấu hình (áp từ kỳ kế) | Gỡ tổ / gỡ người (đặt hạn cuối) | Đang làm |
-| Sao chép cấu hình | — | — | — | Đang làm |
-| Ghi chú (comment) | S37 | Sửa ghi chú của chính mình | Xoá ghi chú của chính mình | Chưa làm |
+| Báo cáo | wizard (POST /reports) + **Sao chép cấu hình** | **Sửa cấu hình**: tên, mô tả, lịch, quản lý, tổ + người nhập (PATCH, từ kỳ kế) | Xoá / Lưu trữ / Khôi phục / Xoá kèm số liệu (admin, gõ lại mã) | Đủ (#614, #616) |
+| Phiên bản mẫu | wizard (v1) | **Cập nhật mẫu = phiên bản mới** (D09), tải file về sửa rồi tải lên lại | Xoá bản nháp / bản cũ không kỳ nào dùng | Đủ (#615) |
+| Ngừng phát sinh | S31 | — | **Tiếp tục phát sinh** | Đủ (#614) |
+| Lịch / quản lý / tổ + người nhập | wizard | Sửa cấu hình (áp từ kỳ kế) | Gỡ tổ / gỡ người (đặt hạn cuối `validTo`, không xoá dòng) | Đủ (#616) |
+| Sao chép cấu hình | báo cáo mới từ bản sao (file, ô nhập, quy tắc, lịch, tổ) | — | — | Đủ (#616) |
+| Ghi chú (comment) | S37 | Sửa ghi chú của chính mình | Xoá ghi chú của mình (quản lý xoá được của người khác); kỳ đã chốt thì khoá | Đủ (#616) |
 | Kỳ | tự sinh | — | Xoá kỳ chưa có số liệu | Chưa làm |
 | Lượt giao (thêm tổ giữa kỳ / miễn nộp) | S30 | Thay người nhập (R14) | **Bỏ miễn nộp**, gỡ tổ thêm nhầm | Chưa làm |
 | Yêu cầu mở lại | S34 | — | **Rút lại yêu cầu** | Chưa làm |
