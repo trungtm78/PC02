@@ -1007,6 +1007,12 @@ cũ) có thể biến ô công thức / ô bị khoá / ô ẩn thành ô nhập
   công thức trong file; liệt kê version lệch/không đọc được. Chạy trên prod trước khi bật lưới.
 - Kiểm: 15 ca thuần (gồm parser thật trên HSLN và a10), 8 ca service (giả mạo, ERROR chặn, WARNING không, giới hạn mẫu,
   file hỏng, bản nháp). Gieo 4 lỗ hổng (cho ô công thức, cho ô WEB bất kỳ, bỏ so kiểu token, cho bỏ token) → ca đỏ.
+### Engine: tham chiếu tuyệt đối với dấu đô-la (12/10/2026)
+Bộ phân tích công thức từ chối ký tự đô-la, nên mọi công thức dạng `SUM($C$6:$C$9)` — rất phổ biến trong file Excel được
+kéo xuống cột — báo lỗi cả ô. Nay hỗ trợ `$A$1`, `A$1`, `$A1` và vùng `$A$1:B$2` (cả khi có tên sheet): AST giữ cờ neo
+(`abs` / `absFrom` / `absTo`) để xuất lại đúng như tác giả viết; tính toán bỏ qua neo; chuỗi có dấu đô-la (`"US$"`) không
+bị ảnh hưởng; địa chỉ hỏng (`A$`, `$$A1`, `A1$`) bị từ chối. 24 ca mới.
+
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|

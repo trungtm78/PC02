@@ -34,17 +34,29 @@ export type BinaryOp =
   | '>'
   | '>=';
 
+/**
+ * Which parts of a reference carry a dollar sign ($A$1, A$1, $A1). Evaluation
+ * ignores it - it only matters when a formula is copied - but it is kept so a
+ * formula written back to a file reads as its author wrote it.
+ */
+export interface AbsAnchor {
+  col: boolean;
+  row: boolean;
+}
+
 export type Expr =
   | { kind: 'number'; value: number }
   | { kind: 'string'; value: string }
   | { kind: 'boolean'; value: boolean }
-  | { kind: 'cell'; sheet?: string; cell: string }
+  | { kind: 'cell'; sheet?: string; cell: string; abs?: AbsAnchor }
   | {
       kind: 'range';
       sheetFrom?: string;
       sheetTo?: string;
       cellFrom: string;
       cellTo?: string;
+      absFrom?: AbsAnchor;
+      absTo?: AbsAnchor;
     }
   | { kind: 'binary'; op: BinaryOp; left: Expr; right: Expr }
   | { kind: 'unary'; op: '-'; operand: Expr }
@@ -164,10 +176,10 @@ function tokenize(source: string): Token[] {
       i = j;
       continue;
     }
-    if (/[\p{L}_]/u.test(c)) {
+    if (/[\p{L}_$]/u.test(c)) {
       // Unicode letters allowed: Excel accepts an unquoted sheet name such as Tổng!A1.
       let j = i;
-      while (j < s.length && /[\p{L}\p{M}\p{N}_]/u.test(s[j])) j++;
+      while (j < s.length && /[\p{L}\p{M}\p{N}_$]/u.test(s[j])) j++;
       tokens.push({ type: 'ident', text: s.slice(i, j) });
       i = j;
       continue;
@@ -421,26 +433,20 @@ class Parser {
       if (t.text.includes(':')) {
         const [sheetFrom, sheetTo] = t.text.split(':');
         if (cellRef.kind === 'range') {
-          return {
-            kind: 'range',
-            sheetFrom,
-            sheetTo,
-            cellFrom: cellRef.cellFrom,
-            cellTo: cellRef.cellTo,
-          };
+          return { ...cellRef, sheetFrom, sheetTo };
         }
-        return { kind: 'range', sheetFrom, sheetTo, cellFrom: cellRef.cell };
-      }
-      if (cellRef.kind === 'range') {
         return {
           kind: 'range',
-          sheetFrom: t.text,
-          sheetTo: t.text,
-          cellFrom: cellRef.cellFrom,
-          cellTo: cellRef.cellTo,
+          sheetFrom,
+          sheetTo,
+          cellFrom: cellRef.cell,
+          ...(cellRef.abs ? { absFrom: cellRef.abs } : {}),
         };
       }
-      return { kind: 'cell', sheet: t.text, cell: cellRef.cell };
+      if (cellRef.kind === 'range') {
+        return { ...cellRef, sheetFrom: t.text, sheetTo: t.text };
+      }
+      return { ...cellRef, sheet: t.text };
     }
 
     if (t.type === 'ident') {
@@ -464,13 +470,7 @@ class Parser {
         const cellTok = this.expect('ident');
         const cellRef = this.parseCellOrRange(cellTok.text, t.text);
         if (cellRef.kind === 'range') {
-          return {
-            kind: 'range',
-            sheetFrom: t.text,
-            sheetTo: t.text,
-            cellFrom: cellRef.cellFrom,
-            cellTo: cellRef.cellTo,
-          };
+          return { ...cellRef, sheetFrom: t.text, sheetTo: t.text };
         }
         return cellRef;
       }
@@ -509,7 +509,8 @@ class Parser {
     cellText: string,
     sheet: string | undefined,
   ): Extract<Expr, { kind: 'cell' } | { kind: 'range' }> {
-    if (!/^[A-Za-z]+[0-9]+$/.test(cellText)) {
+    const from = splitAnchored(cellText);
+    if (!from) {
       throw new ParseFailure(
         'UNEXPECTED_TOKEN',
         `"${cellText}" không phải địa chỉ ô hợp lệ.`,
@@ -518,7 +519,8 @@ class Parser {
     if (this.peek().type === 'colon') {
       this.next();
       const toTok = this.expect('ident');
-      if (!/^[A-Za-z]+[0-9]+$/.test(toTok.text)) {
+      const to = splitAnchored(toTok.text);
+      if (!to) {
         throw new ParseFailure(
           'UNEXPECTED_TOKEN',
           `"${toTok.text}" không phải địa chỉ ô hợp lệ.`,
@@ -528,14 +530,26 @@ class Parser {
         kind: 'range',
         sheetFrom: sheet,
         sheetTo: sheet,
-        cellFrom: cellText.toUpperCase(),
-        cellTo: toTok.text.toUpperCase(),
+        cellFrom: from.cell,
+        cellTo: to.cell,
+        ...(from.abs ? { absFrom: from.abs } : {}),
+        ...(to.abs ? { absTo: to.abs } : {}),
       };
     }
-    return { kind: 'cell', sheet, cell: cellText.toUpperCase() };
+    return { kind: 'cell', sheet, cell: from.cell, ...(from.abs ? { abs: from.abs } : {}) };
   }
 }
 
+/** "$A$1" gives { cell: "A1", abs: { col: true, row: true } }; plain "A1" has no abs. Null if malformed. */
+function splitAnchored(text: string): { cell: string; abs?: AbsAnchor } | null {
+  const m = /^(\$?)([A-Za-z]+)(\$?)([0-9]+)$/.exec(text);
+  if (!m) return null;
+  const abs = { col: m[1] === '$', row: m[3] === '$' };
+  return {
+    cell: `${m[2]}${m[4]}`.toUpperCase(),
+    ...(abs.col || abs.row ? { abs } : {}),
+  };
+}
 /** Excel refuses a formula longer than this; so do we, which also bounds the depth of a left-leaning chain. */
 export const MAX_FORMULA_LENGTH = 8192;
 
@@ -1158,7 +1172,15 @@ export function collectRefs(
   return out;
 }
 
-const BARE_SHEET_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
+/** Puts the `$` markers back on an address: ("C6", { col: true, row: false }) gives "$C6". */
+function anchored(cell: string, abs: AbsAnchor | undefined): string {
+  if (!abs) return cell;
+  const m = /^([A-Z]+)([0-9]+)$/.exec(cell);
+  if (!m) return cell;
+  return `${abs.col ? '$' : ''}${m[1]}${abs.row ? '$' : ''}${m[2]}`;
+}
+
+const BARE_SHEET_RE =/^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
 // Excel only quotes a name that could be read as a cell address (columns run A..XFD, so at most 3 letters).
 const CELL_LIKE_RE = /^[A-Za-z]{1,3}[0-9]+$/;
 
@@ -1209,9 +1231,10 @@ export function formatFormula(expr: Expr): string {
     case 'boolean':
       return expr.value ? 'TRUE' : 'FALSE';
     case 'cell':
-      return `${expr.sheet ? sheetPrefix(expr.sheet) : ''}${expr.cell}`;
+      return `${expr.sheet ? sheetPrefix(expr.sheet) : ''}${anchored(expr.cell, expr.abs)}`;
     case 'range': {
-      const body = expr.cellTo ? `${expr.cellFrom}:${expr.cellTo}` : expr.cellFrom;
+      const from = anchored(expr.cellFrom, expr.absFrom);
+      const body = expr.cellTo ? `${from}:${anchored(expr.cellTo, expr.absTo)}` : from;
       if (!expr.sheetFrom) return body;
       if (expr.sheetTo && expr.sheetTo !== expr.sheetFrom) {
         const joined = `${expr.sheetFrom}:${expr.sheetTo}`.replace(/'/g, "''");
