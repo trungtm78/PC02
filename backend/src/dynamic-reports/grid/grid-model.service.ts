@@ -143,20 +143,23 @@ export class GridModelService {
   }
 
   private async build(key: string, meta: VersionMeta): Promise<GridPayload> {
-    const file = await this.prisma.dynReportVersion.findUnique({
-      where: { id: meta.id },
-      select: { fileBytes: true },
-    });
-    if (!file) throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
-
     const sheets = Array.isArray(meta.selectedSheets) ? (meta.selectedSheets as string[]) : [];
     let model: GridModel;
     try {
-      model = await buildGridInWorker(Buffer.from(file.fileBytes), sheets);
+      // The file is read by the worker queue itself, once this job is admitted
+      // (see WorkbookSource): a request refused as busy never loads it.
+      model = await buildGridInWorker(async () => {
+        const file = await this.prisma.dynReportVersion.findUnique({
+          where: { id: meta.id },
+          select: { fileBytes: true },
+        });
+        if (!file) throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
+        return Buffer.from(file.fileBytes);
+      }, sheets);
     } catch (err) {
+      if (err instanceof NotFoundException) throw err;
       throw this.unavailable(meta.id, err);
     }
-
     const json = model as unknown as Prisma.InputJsonValue;
     await this.prisma.dynReportVersionGrid.upsert({
       where: { versionId: meta.id },

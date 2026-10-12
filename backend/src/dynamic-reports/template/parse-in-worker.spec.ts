@@ -1,3 +1,23 @@
+import * as threads from 'worker_threads';
+
+// Counts worker threads that are alive at once, so the concurrency limit is
+// proven against real threads rather than assumed from the scheduler.
+const liveWorkers = { current: 0, peak: 0 };
+jest.mock('worker_threads', () => {
+  const actual = jest.requireActual('worker_threads') as typeof import('worker_threads');
+  class CountingWorker extends actual.Worker {
+    constructor(...args: ConstructorParameters<typeof actual.Worker>) {
+      super(...args);
+      liveWorkers.current += 1;
+      liveWorkers.peak = Math.max(liveWorkers.peak, liveWorkers.current);
+      this.once('exit', () => {
+        liveWorkers.current -= 1;
+      });
+    }
+  }
+  return { ...actual, Worker: CountingWorker };
+});
+void threads;
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ExcelJS from 'exceljs';
@@ -115,5 +135,53 @@ describe('buildGridInWorker', () => {
 
   it('rejects, and does not hang, on a file that is not an xlsx', async () => {
     await expect(buildGridInWorker(Buffer.from('nope'), ['x'])).rejects.toBeInstanceOf(Error);
+  });
+});
+
+describe('worker concurrency is bounded by real thread count (Codex G1b P2)', () => {
+  jest.setTimeout(60_000);
+
+  it('never has more than WORKER_MAX_CONCURRENT threads alive, even when every job times out', async () => {
+    liveWorkers.peak = 0;
+    const buffer = readFixture('real/pl7.xlsx');
+    // 1 ms timeouts: each job is abandoned before its worker can answer, which
+    // is exactly when a slot released too early lets the next job start while
+    // the previous thread is still shutting down.
+    const jobs = Array.from({ length: 12 }, () =>
+      buildGridInWorker(buffer, ['Thống kê sl vụ việc'], 1).catch((e: unknown) => e),
+    );
+    const results = await Promise.all(jobs);
+    expect(results.every((r) => r instanceof Error)).toBe(true);
+    expect(liveWorkers.peak).toBeLessThanOrEqual(2);
+    // And nothing is left running afterwards.
+    for (let i = 0; i < 50 && liveWorkers.current > 0; i++) await new Promise((r) => setTimeout(r, 50));
+    expect(liveWorkers.current).toBe(0);
+  });
+
+  it('a successful job releases its slot only after the thread is gone', async () => {
+    liveWorkers.peak = 0;
+    const buffer = readFixture('real/pl7.xlsx');
+    await Promise.all(
+      Array.from({ length: 6 }, () => buildGridInWorker(buffer, ['Thống kê sl vụ việc'])),
+    );
+    expect(liveWorkers.peak).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('buildGridInWorker accepts a lazy loader (Codex G1b P1)', () => {
+  jest.setTimeout(30_000);
+
+  it('does not call the loader until the job is admitted', async () => {
+    const buffer = readFixture('real/pl7.xlsx');
+    const loader = jest.fn(async () => buffer);
+    const model = await buildGridInWorker(loader, ['Thống kê sl vụ việc']);
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(model.sheetOrder).toEqual(['Thống kê sl vụ việc']);
+  });
+
+  it('a loader failure rejects the job and frees the slot', async () => {
+    await expect(buildGridInWorker(async () => { throw new Error('db down'); }, ['x'])).rejects.toThrow('db down');
+    const ok = await buildGridInWorker(readFixture('real/pl7.xlsx'), ['Thống kê sl vụ việc']);
+    expect(ok.sheets).toHaveLength(1);
   });
 });

@@ -68,7 +68,11 @@ describe('GridModelService', () => {
     expect(first.model.sheetOrder).toEqual(['built']);
     expect(second).toBe(first);
     expect(buildGrid).toHaveBeenCalledTimes(1);
-    expect(buildGrid).toHaveBeenCalledWith(Buffer.from('xlsx-bytes'), ['S']);
+    // The file is handed over as a lazy loader (read only once a worker slot is free).
+    const [source, sheets] = buildGrid.mock.calls[0];
+    expect(typeof source).toBe('function');
+    expect(sheets).toEqual(['S']);
+    await expect((source as () => Promise<Buffer>)()).resolves.toEqual(Buffer.from('xlsx-bytes'));
     expect(rows['v1']).toMatchObject({ gridEngineVersion: GRID_ENGINE_VERSION, sourceSha256: 'a'.repeat(64) });
     // Memory hit: the second call did not even read the table.
     expect(prisma.dynReportVersionGrid.findUnique).toHaveBeenCalledTimes(1);
@@ -146,6 +150,16 @@ describe('GridModelService', () => {
       const err = await svc.getForVersion('v1').catch((e) => e);
       expect(err).toBeInstanceOf(klass);
       expect((err.getResponse() as { reason: string }).reason).toBe(reason);
+    });
+
+    it('a build refused as busy never reads the workbook from the database (Codex G1b P1)', async () => {
+      buildGrid.mockRejectedValue(new RunnerBusyError()); // refused before the loader is ever called
+      const { prisma } = makePrisma();
+      await new GridModelService(prisma as never).getForVersion('v1').catch(() => undefined);
+      const fileReads = prisma.dynReportVersion.findUnique.mock.calls.filter(
+        ([arg]) => (arg as { select: Record<string, boolean> }).select.fileBytes,
+      );
+      expect(fileReads).toHaveLength(0);
     });
 
     it('a failed build is not cached: the next request tries again', async () => {

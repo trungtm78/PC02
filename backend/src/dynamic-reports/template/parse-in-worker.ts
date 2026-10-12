@@ -64,62 +64,68 @@ function hydrateError(error: { message: string; code?: string }): Error {
   return new Error(error.message);
 }
 
+/** The workbook bytes, or a function that fetches them once the job is admitted. */
+export type WorkbookSource = Buffer | (() => Promise<Buffer>);
+
 function runInWorker<T>(
   mode: 'parse' | 'grid',
-  buffer: Buffer,
+  source: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number,
 ): Promise<T> {
-  return runner.run(
-    () =>
-      new Promise<T>((resolve, reject) => {
-        const isTs = path.extname(__filename) === '.ts';
-        const worker = new Worker(workerFilePath(), {
-          workerData: { mode, buffer, selectedSheetNames },
-          execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
-          resourceLimits: { maxOldGenerationSizeMb: WORKER_MAX_OLD_GEN_MB },
+  return runner.run(async () => {
+    // Fetched only now, inside the slot: a request that is queued — or refused
+    // because the queue is full — never holds a copy of a 50 MB workbook.
+    const buffer = typeof source === 'function' ? await source() : source;
+
+    return new Promise<T>((resolve, reject) => {
+      const isTs = path.extname(__filename) === '.ts';
+      const worker = new Worker(workerFilePath(), {
+        workerData: { mode, buffer, selectedSheetNames },
+        execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
+        resourceLimits: { maxOldGenerationSizeMb: WORKER_MAX_OLD_GEN_MB },
+      });
+
+      let settled = false;
+      // The runner slot is held until the thread is actually gone: terminate()
+      // is asynchronous, and settling first would let the next job start
+      // while this one is still shutting down — more live threads than the limit.
+      const finish = (outcome: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        worker.terminate().then(
+          () => outcome(),
+          () => outcome(), // a failed terminate must not swallow the real result
+        );
+      };
+
+      // The clock starts when the worker does, not when the task queued.
+      const timer = setTimeout(() => {
+        finish(() => reject(new TemplateParseTimeoutError(timeoutMs)));
+      }, timeoutMs);
+      timer.unref?.();
+
+      worker.once('message', (msg: WorkerMessage) => {
+        finish(() => {
+          if (msg.ok) resolve(msg.result as T);
+          else reject(hydrateError(msg.error));
         });
+      });
 
-        let settled = false;
-        const settle = (fn: () => void) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          fn();
-        };
+      worker.once('error', (err) => {
+        finish(() => reject(err));
+      });
 
-        // The clock starts when the worker does, not when the task queued.
-        const timer = setTimeout(() => {
-          settle(() => {
-            void worker.terminate();
-            reject(new TemplateParseTimeoutError(timeoutMs));
-          });
-        }, timeoutMs);
-        timer.unref?.();
-
-        worker.once('message', (msg: WorkerMessage) => {
-          settle(() => {
-            void worker.terminate();
-            if (msg.ok) resolve(msg.result as T);
-            else reject(hydrateError(msg.error));
-          });
-        });
-
-        worker.once('error', (err) => {
-          settle(() => reject(err));
-        });
-
-        worker.once('exit', (code) => {
-          settle(() =>
-            reject(new Error(`Worker đóng (mã ${code}) mà không trả kết quả nào.`)),
-          );
-        });
-      }),
-  );
+      worker.once('exit', (code) => {
+        // An exit nobody asked for (crash, OOM kill) before any answer.
+        finish(() => reject(new Error(`Worker đóng (mã ${code}) mà không trả kết quả nào.`)));
+      });
+    });
+  });
 }
-
 export function parseTemplateInWorker(
-  buffer: Buffer,
+  buffer: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
 ): Promise<ParseTemplateResult> {
@@ -128,7 +134,7 @@ export function parseTemplateInWorker(
 
 /** Builds the render-ready GridModel of the selected sheets in an isolated, bounded worker. */
 export function buildGridInWorker(
-  buffer: Buffer,
+  buffer: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
 ): Promise<GridModel> {
