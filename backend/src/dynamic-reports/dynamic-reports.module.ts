@@ -17,6 +17,9 @@ import { ExportController } from './aggregate/export.controller';
 import { AggregateService } from './aggregate/aggregate.service';
 import { StatusQueryController } from './status/status-query.controller';
 import { StatusQueryService } from './status/status-query.service';
+import { GridController } from './grid/grid.controller';
+import { GridAccessService } from './grid/grid-access.service';
+import { GridModelService } from './grid/grid-model.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarEventsModule } from '../calendar-events/calendar-events.module';
@@ -34,8 +37,11 @@ import { TeamsModule } from '../teams/teams.module';
     AggregateController,
     ExportController,
     StatusQueryController,
+    GridController,
   ],
   providers: [
+    GridAccessService,
+    GridModelService,
     DynamicReportsRegistryService,
     PeriodSchedulerService,
     ReminderSchedulerService,

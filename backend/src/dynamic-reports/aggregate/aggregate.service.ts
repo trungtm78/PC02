@@ -58,6 +58,8 @@ export interface KpiSummaryView {
 
 export interface PeriodSummaryView {
   reportId: string;
+  /** The template version this period was generated from — key for `GET versions/:versionId/grid`. */
+  versionId: string;
   reportName: string;
   periodId: string;
   periodKey: string;
@@ -393,7 +395,7 @@ export class AggregateService {
       where: { id: periodId },
       include: {
         report: true,
-        version: { include: { fields: true } },
+        version: { omit: { fileBytes: true }, include: { fields: true } },
         assignments: {
           include: {
             submission: true,
@@ -499,6 +501,7 @@ export class AggregateService {
 
     return {
       reportId: period.reportId,
+      versionId: period.versionId,
       reportName: period.report.name,
       periodId: period.id,
       periodKey: period.periodKey,
@@ -536,7 +539,7 @@ export class AggregateService {
         where: { id: periodId },
         include: {
           report: true,
-          version: { include: { fields: true } },
+          version: { omit: { fileBytes: true }, include: { fields: true } },
           assignments: { include: { submission: true } },
         },
       });
@@ -833,7 +836,7 @@ export class AggregateService {
     const period = await this.prisma.dynReportPeriod.findUnique({
       where: { id: periodId },
       include: {
-        version: { include: { fields: true } },
+        version: { omit: { fileBytes: true }, include: { fields: true } },
         assignments: { include: { submission: true } },
       },
     });
@@ -909,7 +912,7 @@ export class AggregateService {
     const period = await this.prisma.dynReportPeriod.findUnique({
       where: { id: periodId },
       include: {
-        version: { include: { fields: true } },
+        version: { omit: { fileBytes: true }, include: { fields: true } },
         assignments: { include: { submission: true } },
       },
     });
@@ -1141,7 +1144,7 @@ export class AggregateService {
       where: { id: periodId },
       include: {
         report: true,
-        version: { include: { fields: true } },
+        version: { omit: { fileBytes: true }, include: { fields: true } },
         assignments: { include: { submission: true } },
       },
     });
@@ -1290,7 +1293,7 @@ export class AggregateService {
     const period = await this.prisma.dynReportPeriod.findUnique({
       where: { id: scope.periodId },
       include: {
-        version: { include: { fields: true } },
+        version: { omit: { fileBytes: true }, include: { fields: true } },
         assignments: { include: { submission: true } },
       },
     });

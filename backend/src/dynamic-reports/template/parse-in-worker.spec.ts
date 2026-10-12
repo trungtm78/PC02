@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as ExcelJS from 'exceljs';
 import {
+  buildGridInWorker,
   parseTemplateInWorker,
   TemplateParseTimeoutError,
 } from './parse-in-worker';
@@ -64,5 +66,54 @@ describe('parseTemplateInWorker', () => {
     await expect(
       parseTemplateInWorker(buffer, ['Sheet1']),
     ).rejects.toBeInstanceOf(Error);
+  });
+});
+
+describe('buildGridInWorker', () => {
+  jest.setTimeout(30_000);
+
+  it('builds the same GridModel in a worker as in-process, marking unselected sheets as excluded', async () => {
+    const buffer = readFixture('real/pl7.xlsx');
+    const model = await buildGridInWorker(buffer, ['Thống kê sl vụ việc']);
+    expect(model.sheetOrder).toEqual(['Thống kê sl vụ việc']);
+    expect(model.excludedSheets).toEqual([]);
+    expect(Object.keys(model.sheets[0].cells).length).toBeGreaterThan(100);
+    expect(model.sheets[0].merges.length).toBeGreaterThan(0);
+    // It crossed a thread boundary: it must be plain, structured-cloneable JSON.
+    expect(JSON.parse(JSON.stringify(model))).toEqual(model);
+  });
+
+  it('lists the workbook sheets the report did not select as excluded', async () => {
+    const buffer = readFixture('real/phu_luc_07_08_multi_sheet.xlsx');
+    const all = await buildGridInWorker(buffer, ['Thống kê sl vụ việc']);
+    expect(all.sheetOrder).toHaveLength(1);
+    expect(all.excludedSheets.length).toBeGreaterThanOrEqual(1);
+    expect(all.excludedSheets).not.toContain(all.sheetOrder[0]);
+  });
+
+  it('ignores a selected sheet name the workbook does not have', async () => {
+    const buffer = readFixture('real/pl7.xlsx');
+    const model = await buildGridInWorker(buffer, ['Thống kê sl vụ việc', 'Không có']);
+    expect(model.sheetOrder).toEqual(['Thống kê sl vụ việc']);
+  });
+
+  it('propagates GRID_TOO_LARGE with its code', async () => {
+    // 129 columns of content in one row exceeds the 128-column drawing limit.
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Rộng');
+    for (let c = 1; c <= 129; c++) ws.getCell(1, c).value = c;
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    await expect(buildGridInWorker(buffer, ['Rộng'])).rejects.toMatchObject({ code: 'GRID_TOO_LARGE' });
+  });
+
+  it('terminates on timeout like the parse path', async () => {
+    const buffer = readFixture('real/pl7.xlsx');
+    await expect(buildGridInWorker(buffer, ['Thống kê sl vụ việc'], 1)).rejects.toMatchObject({
+      code: 'PARSE_TIMEOUT',
+    });
+  });
+
+  it('rejects, and does not hang, on a file that is not an xlsx', async () => {
+    await expect(buildGridInWorker(Buffer.from('nope'), ['x'])).rejects.toBeInstanceOf(Error);
   });
 });

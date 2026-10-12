@@ -34,6 +34,7 @@ function renderPage() {
 
 const SUBMITTED_VIEW: SubmissionView = {
   assignmentId: 'assign1',
+  versionId: 'version1',
   reportName: 'HSLN',
   periodKey: '2026-10',
   periodStart: '2026-10-01',

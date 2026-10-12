@@ -197,6 +197,8 @@ export interface CommentView {
 
 export interface SubmissionView {
   assignmentId: string;
+  /** Template version of this period; the key for the grid model endpoint. */
+  versionId: string;
   reportName: string;
   periodKey: string;
   periodStart: string;
@@ -292,6 +294,8 @@ export interface KpiSummaryView {
 
 export interface PeriodSummaryView {
   reportId: string;
+  /** Template version of this period; the key for the grid model endpoint. */
+  versionId: string;
   reportName: string;
   periodId: string;
   periodKey: string;
