@@ -7,6 +7,7 @@ import {
   formatForDisplay,
 } from '../engine/generated/numfmt';
 import type { DisplayValue } from '../engine/generated/numfmt';
+import type { FieldAggregateView, FormulaCellView } from '../types';
 
 /**
  * Glue between the render model and the formula engine: turns a GridModel
@@ -31,12 +32,25 @@ export interface GridField {
 
 export type SubmittedValues = Record<string, { t?: string; v: string | null } | undefined>;
 
+/**
+ * The aggregate (S15) view: formula cells show what the SERVER worked out, never what this browser would
+ * calculate, so the screen, the exported file and a closed period's snapshot cannot disagree.
+ */
+export interface OfficialFigures {
+  /** `Sheet!A1` → the server's figure; null when the server has none for this view. */
+  cells: Readonly<Record<string, FormulaCellView>> | null;
+  /** Fields that are deliberately not aggregated (shown as a dash, not as an empty total). */
+  notAggregated: ReadonlySet<string>;
+}
+
 export interface GridEvaluation {
   grid: GridModel;
   evaluator: WorkbookEvaluator;
   /** Fields by "Sheet!A1". */
   fieldAt: Map<string, GridField>;
   inputs: Record<string, string | null>;
+  /** Present on the aggregate view only. */
+  official?: OfficialFigures;
 }
 
 const cellKey = (sheet: string, address: string) => `${sheet}!${address}`;
@@ -61,6 +75,31 @@ export function evaluateGrid(
     evaluator,
     fieldAt: new Map(fields.map((f) => [cellKey(f.sheetKey, f.address), f])),
     inputs,
+  };
+}
+
+/** The grid of a period's aggregate: input cells carry the aggregated figures, formula cells the server's. */
+export function evaluateAggregate(
+  grid: GridModel,
+  fields: readonly FieldAggregateView[],
+  formulaValues: Readonly<Record<string, FormulaCellView>> | null,
+): GridEvaluation {
+  const gridFields: GridField[] = fields.map((f) => ({
+    sheetKey: f.sheetKey,
+    address: f.address,
+    fieldKey: f.fieldKey,
+    type: f.type,
+    label: f.label,
+  }));
+  const values: SubmittedValues = Object.fromEntries(
+    fields.map((f) => [f.fieldKey, { t: f.type, v: f.displayNotAggregated ? null : f.value }]),
+  );
+  return {
+    ...evaluateGrid(grid, gridFields, values, 'none'),
+    official: {
+      cells: formulaValues,
+      notAggregated: new Set(fields.filter((f) => f.displayNotAggregated).map((f) => f.fieldKey)),
+    },
   };
 }
 
@@ -127,7 +166,35 @@ export function viewOf(
 
   if (field) {
     kind = 'input';
+    if (ev.official?.notAggregated.has(field.fieldKey)) {
+      return {
+        kind,
+        text: '—',
+        align: 'center',
+        isError: false,
+        hint: 'Chỉ tiêu này không tổng hợp.',
+        field,
+      };
+    }
     value = inputDisplayValue(field, ev.inputs[field.fieldKey] ?? null);
+  } else if (cell?.k === 'formula' && ev.official) {
+    kind = 'formula';
+    formula = cell.f;
+    const figure = ev.official.cells?.[cellKey(sheet.name, address)];
+    if (!figure) {
+      // Nothing from the server: a dash that says so, never a number worked out here.
+      return { kind, text: '—', align: 'center', isError: false, hint: 'Chưa có số công thức cho kỳ này.', formula };
+    }
+    if (!figure.ok) {
+      const d = describeFormulaError(figure.code as Parameters<typeof describeFormulaError>[0]);
+      return { kind, text: figure.text, align: 'center', isError: true, hint: d.hint, formula };
+    }
+    value =
+      figure.type === 'boolean'
+        ? { type: 'boolean', value: figure.value }
+        : figure.type === 'string'
+          ? { type: 'text', value: figure.value }
+          : { type: 'number', value: figure.value };
   } else if (cell?.k === 'formula') {
     kind = 'formula';
     formula = cell.f;

@@ -40,6 +40,7 @@ describe('AggregateService', () => {
     sheetKey: 'Đội 3',
     address: 'C6',
     label: 'Số vụ mới',
+    type: 'NUM',
     aggregate: 'SUM',
     blankPolicy: 'ZERO',
   };
@@ -162,6 +163,12 @@ describe('AggregateService', () => {
     const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
     const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
     expect(result.versionId).toBe('version1');
+  });
+
+  it('names what each field holds, so a client can format an aggregate like the cell it fills', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+    expect(result.fields[0].type).toBe('NUM');
   });
 
   describe('official formula figures (OV1/OV10)', () => {

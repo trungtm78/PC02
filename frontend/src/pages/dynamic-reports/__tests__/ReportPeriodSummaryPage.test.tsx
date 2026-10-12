@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportPeriodSummaryPage from '../ReportPeriodSummaryPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { PeriodSummaryView } from '@/features/dynamic-reports/types';
+import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
@@ -13,6 +14,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     reopenPeriod: vi.fn(),
     exportPeriod: vi.fn(),
     downloadExport: vi.fn(),
+    getVersionGrid: vi.fn(),
   },
 }));
 
@@ -61,6 +63,7 @@ const VIEW: PeriodSummaryView = {
       sheetKey: 'Đội 3',
       address: 'C6',
       label: 'Số vụ mới',
+      type: 'NUM',
       value: '30',
       displayNotAggregated: false,
       countTotal: 2,
@@ -310,5 +313,67 @@ describe('ReportPeriodSummaryPage', () => {
 
     await waitFor(() => screen.getByTestId('export-error'));
     expect(screen.getByTestId('export-error')).toHaveTextContent('Phạm vi dữ liệu đã thay đổi');
+  });
+
+  describe('grid layout (G4)', () => {
+    const GRID_VIEW: PeriodSummaryView = {
+      ...VIEW,
+      fields: [{ ...VIEW.fields[0], fieldKey: 'Đội 3!C3', address: 'C3', label: 'Số vụ mới' }],
+      formulaValues: { 'Đội 3!C5': { ok: true, type: 'number', value: '777' } },
+      formulaSource: 'LIVE',
+      calcEngineVersion: 1,
+    };
+
+    it('starts as the list, as before: the grid is opt-in until it is the default', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(GRID_VIEW);
+      renderPage();
+      await waitFor(() => screen.getByTestId('field-table'));
+      expect(screen.queryByTestId('grid-section')).toBeNull();
+      expect(screen.getByTestId('layout-list')).toHaveAttribute('aria-pressed', 'true');
+      expect(dynamicReportsApi.getVersionGrid).not.toHaveBeenCalled();
+    });
+
+    it('shows the template as a grid with the aggregated and official figures, and keeps the mode select', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(GRID_VIEW);
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockResolvedValue(makeGrid());
+      renderPage();
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+
+      await waitFor(() => screen.getByTestId('grid-viewer'));
+      expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledWith('version1');
+      expect(screen.getByTestId('cell-C3')).toHaveTextContent('30');
+      expect(screen.getByTestId('cell-C5')).toHaveTextContent('777');
+      expect(screen.queryByTestId('field-table')).toBeNull();
+      expect(screen.getByTestId('mode-select')).toBeInTheDocument();
+      expect(screen.getByTestId('kpi-cards')).toBeInTheDocument();
+    });
+
+    it('lists the teams behind a figure when its cell is opened', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(GRID_VIEW);
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockResolvedValue(makeGrid());
+      renderPage();
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+      await waitFor(() => screen.getByTestId('grid-viewer'));
+
+      fireEvent.click(screen.getByTestId('cell-C3'));
+      expect(screen.getByTestId('contributor-Đội 3')).toHaveTextContent('10');
+      expect(screen.getByTestId('contributor-Đội 4')).toHaveTextContent('20');
+    });
+
+    it('falls back to the list, with a note, when the grid cannot be built', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(GRID_VIEW);
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockRejectedValue({
+        response: { status: 422, data: { code: 'GRID_UNAVAILABLE', message: 'Không dựng được lưới' } },
+      });
+      renderPage();
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+
+      await waitFor(() => screen.getByTestId('grid-fallback-note'));
+      expect(screen.getByTestId('field-table')).toBeInTheDocument();
+      expect(screen.getByTestId('layout-grid')).toBeDisabled();
+    });
   });
 });
