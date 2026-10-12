@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const path = require('node:path');
-const { chay, docCauHinh, laMayLocal } = require('../monkey.cjs');
+const { chay, docCauHinh, laMayLocal, giaiDuong } = require('../monkey.cjs');
 const { taoPrng, hatCon } = require('../lib/prng.cjs');
 
 const NOI_DUNG =
@@ -471,4 +471,27 @@ test('LƯỢT TỔNG: bất biến của hồ sơ KHÔNG chạy lần nào cả 
   assert.ok(ra.every((x) => x.duong === '(cả lượt tổng)' && /chưa chạy lần nào/.test(x.chiTiet)));
   assert.deepEqual(batBienChuaChayLanNao([{ ten: 'p', batBien: ['a'] }], { a: 1 }), []);
   assert.deepEqual(batBienChuaChayLanNao([], {}), []);
+});
+
+test('đường báo cáo động: mã thật đến từ biến môi trường, thiếu thì đường bị bỏ (CHƯA KIỂM) chứ không đoán', async () => {
+  const cu = process.env.MONKEY_BC_LUOT_GIAO;
+  try {
+    delete process.env.MONKEY_BC_LUOT_GIAO;
+    assert.equal(await giaiDuong('/bao-cao-dong/nhap/{BC_LUOT_GIAO}', { coSo: 'http://localhost:1' }, null, new Map()), null);
+    process.env.MONKEY_BC_LUOT_GIAO = 'luot a/b';
+    assert.equal(
+      await giaiDuong('/bao-cao-dong/nhap/{BC_LUOT_GIAO}', { coSo: 'http://localhost:1' }, null, new Map()),
+      '/bao-cao-dong/nhap/luot%20a%2Fb',
+    );
+  } finally {
+    if (cu === undefined) delete process.env.MONKEY_BC_LUOT_GIAO;
+    else process.env.MONKEY_BC_LUOT_GIAO = cu;
+  }
+});
+
+test('hồ sơ bao-cao-dong đọc được và chỉ dùng nhãn báo cáo động đã biết', () => {
+  const hoSo = JSON.parse(require('node:fs').readFileSync(path.join(__dirname, '..', 'profiles', 'bao-cao-dong.json'), 'utf8'));
+  assert.equal(hoSo.ten, 'bao-cao-dong');
+  const nhan = new Set(hoSo.tuyen.flatMap((d) => [...d.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])));
+  assert.deepEqual([...nhan].sort(), ['BC_KY', 'BC_LUOT_GIAO']);
 });
