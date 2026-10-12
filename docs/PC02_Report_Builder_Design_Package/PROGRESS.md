@@ -1233,7 +1233,8 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
 - **Kiểm bằng trình duyệt thật cho lưới nhập (S11), 3 engine** (báo cáo 6 dòng chữ+số đã xuất bản thật; origin HTTP): gõ số + Enter/Tab, Enter xuống dòng, công thức SUM tính lại, F2 + Esc không đổi giá trị, Delete/Ctrl+Z/Ctrl+Y,
   gõ vào ô khoá không đổi gì, Ctrl+K trong lưới KHÔNG mở tìm kiếm toàn cục, chữ tiếng Việt "Việt" (Chromium: ghép IME qua CDP `imeSetComposition`; WebKit/Firefox: `insertText`), dán 2 dòng, tự lưu rồi tải lại vẫn còn.
   **Chromium 15/15, WebKit 15/15, Firefox 14/14 — riêng bước dán trên Firefox CHƯA KIỂM** (engine không cho script dựng ClipboardEvent có dữ liệu; đường dán đã có ca kiểm đơn vị và chạy thật trên 2 engine kia). Gõ tiếng Việt bằng bộ gõ thật (Unikey/Telex) trên máy người dùng vẫn nên thử tay.
-- Chưa làm (còn lại của G7): chụp trực quan 4 viewport + so với LibreOffice (máy này chưa có LibreOffice), quay lại clip HDSD theo lưới mới, monkey test một lần cuối.
+- **Clip HDSD theo lưới mới — xong (12/10/2026):** storyboard `tools/guide-recorder/storyboards/98-bao-cao-dong-luoi.mjs` (11 câu, ~2'37''): mở lưới S11, gõ chữ/số + Enter, ô SUM tự tính, F2/Esc/Delete/Ctrl+Z, ô khoá báo "Ô này không nhập được", tự lưu, Nộp (hộp xác nhận gốc của trình duyệt được chấp nhận trong kịch bản — nếu không, Nộp bị huỷ và S15 hiện 0/1), S15 tổng hợp trên lưới (12/7/5 → 24) + nút Xuất Excel. Chạy bằng `GUIDE_BC_LUOT_GIAO` + `GUIDE_BC_KY` (mã thật gieo ở máy local). Đầu ra mp4/vtt/jpg nằm ở thư mục HDSD ngoài repo (`C:/PC02/docs/assets`), như các clip 01–18.
+- Chưa làm (còn lại của G7): so ảnh với LibreOffice (máy này chưa cài LibreOffice; đã chụp 4 viewport), monkey test một lần cuối.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
