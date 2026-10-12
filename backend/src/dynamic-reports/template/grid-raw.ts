@@ -70,27 +70,90 @@ function flag(value: string | undefined): boolean {
   return value === '1' || value === 'true';
 }
 
+/** A sheet cannot be made to cost more than this many rules here; the rest is simply not read. */
+const MAX_RAW_VALIDATIONS = 20_000;
+
+/** The xml without its comments, in one pass: a comment is where a hostile file hides look-alike tags. */
+function withoutComments(xml: string): string {
+  if (!xml.includes('<!--')) return xml;
+  let out = '';
+  let pos = 0;
+  for (;;) {
+    const open = xml.indexOf('<!--', pos);
+    if (open === -1) return out + xml.slice(pos);
+    out += xml.slice(pos, open);
+    const close = xml.indexOf('-->', open + 4);
+    if (close === -1) return out; // an unterminated comment swallows the rest
+    pos = close + 3;
+  }
+}
+
+/** Index of the `>` that ends the tag starting at `from`, ignoring one inside a quoted value; -1 when there is none. */
+function tagEnd(xml: string, from: number): number {
+  let quote = '';
+  for (let i = from; i < xml.length; i++) {
+    const ch = xml[i];
+    if (quote) {
+      if (ch === quote) quote = '';
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '>') {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function elementText(body: string, name: string): string | undefined {
+  const open = body.indexOf(`<${name}>`);
+  if (open === -1) return undefined;
+  const close = body.indexOf(`</${name}>`, open);
+  return close === -1 ? undefined : decodeXml(body.slice(open + name.length + 2, close)).trim();
+}
+
+/**
+ * Every `<dataValidation>` of a sheet. One forward pass over the text — no pattern that can be made to rescan the
+ * rest of the document for each look-alike — and a file that stops making sense simply ends the read.
+ */
 function readDataValidations(sheetXml: string): RawDataValidation[] {
+  const xml = withoutComments(sheetXml);
   const out: RawDataValidation[] = [];
-  for (const m of sheetXml.matchAll(/<dataValidation(?=[\s>/])([^>]*?)(?:\/>|>([\s\S]*?)<\/dataValidation>)/g)) {
-    const tag = m[1];
-    const sqref = attr(tag, 'sqref');
+  const OPEN = '<dataValidation';
+  let pos = 0;
+  while (out.length < MAX_RAW_VALIDATIONS) {
+    const at = xml.indexOf(OPEN, pos);
+    if (at === -1) break;
+    const next = xml[at + OPEN.length];
+    if (next !== ' ' && next !== '\t' && next !== '\n' && next !== '\r' && next !== '>' && next !== '/') {
+      pos = at + OPEN.length; // <dataValidations …>
+      continue;
+    }
+    const end = tagEnd(xml, at + OPEN.length);
+    if (end === -1) break;
+    const head = xml.slice(at + OPEN.length, end);
+    let body = '';
+    if (head.endsWith('/')) {
+      pos = end + 1;
+    } else {
+      const close = xml.indexOf('</dataValidation>', end);
+      if (close === -1) break;
+      body = xml.slice(end + 1, close);
+      pos = close + '</dataValidation>'.length;
+    }
+    const sqref = attr(head, 'sqref');
     if (!sqref) continue;
-    const body = m[2] ?? '';
-    const f1 = /<formula1>([\s\S]*?)<\/formula1>/.exec(body);
-    const f2 = /<formula2>([\s\S]*?)<\/formula2>/.exec(body);
     out.push({
       sqref: sqref.split(/\s+/).filter(Boolean),
-      type: attr(tag, 'type') ?? 'none',
-      operator: attr(tag, 'operator'),
-      formula1: f1 ? decodeXml(f1[1]).trim() : undefined,
-      formula2: f2 ? decodeXml(f2[1]).trim() : undefined,
-      allowBlank: flag(attr(tag, 'allowBlank')),
-      showErrorMessage: flag(attr(tag, 'showErrorMessage')),
-      error: attr(tag, 'error'),
-      errorTitle: attr(tag, 'errorTitle'),
-      prompt: attr(tag, 'prompt'),
-      promptTitle: attr(tag, 'promptTitle'),
+      type: attr(head, 'type') ?? 'none',
+      operator: attr(head, 'operator'),
+      formula1: elementText(body, 'formula1'),
+      formula2: elementText(body, 'formula2'),
+      allowBlank: flag(attr(head, 'allowBlank')),
+      showErrorMessage: flag(attr(head, 'showErrorMessage')),
+      error: attr(head, 'error'),
+      errorTitle: attr(head, 'errorTitle'),
+      prompt: attr(head, 'prompt'),
+      promptTitle: attr(head, 'promptTitle'),
     });
   }
   return out;

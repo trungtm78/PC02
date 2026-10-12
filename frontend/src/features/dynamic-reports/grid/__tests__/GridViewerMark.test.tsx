@@ -37,7 +37,7 @@ function renderMark(mark: GridMarkBinding, preloaded = true) {
 
 function drag(from: string, to: string, init: MouseEventInit = {}) {
   fireEvent.mouseDown(screen.getByTestId(from), { button: 0, ...init });
-  fireEvent.mouseEnter(screen.getByTestId(to), init);
+  fireEvent.mouseEnter(screen.getByTestId(to), { buttons: 1, ...init });
   fireEvent.mouseUp(document, init);
 }
 
@@ -100,8 +100,26 @@ describe('GridViewer — pick cells to mark (S03/S04)', () => {
     fireEvent.mouseUp(document.body);
     expect(onPick).toHaveBeenCalledTimes(1);
     // …and a later move over the grid is not a drag any more.
-    fireEvent.mouseEnter(screen.getByTestId('cell-C7'));
+    fireEvent.mouseEnter(screen.getByTestId('cell-C7'), { buttons: 1 });
     expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it('coming back over the grid with no button held (it was released elsewhere) cancels the drag, picking nothing', () => {
+    const onPick = vi.fn();
+    renderMark(binding({ onPick }));
+    fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0, buttons: 1 });
+    fireEvent.mouseEnter(screen.getByTestId('cell-C7'), { buttons: 0 });
+    fireEvent.mouseUp(document);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('the window losing focus in the middle of a drag cancels it', () => {
+    const onPick = vi.fn();
+    renderMark(binding({ onPick }));
+    fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0, buttons: 1 });
+    fireEvent(window, new Event('blur'));
+    fireEvent.mouseUp(document);
+    expect(onPick).not.toHaveBeenCalled();
   });
 
   it('only the left button picks', () => {

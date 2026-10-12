@@ -180,8 +180,14 @@ export default function GridViewer({
       }
       binding.onPick(keys, d.additive);
     };
+    // Leaving the window with the button down and coming back with it up must not leave a drag half-made.
+    const cancel = () => setDrag(null);
     document.addEventListener('mouseup', finish);
-    return () => document.removeEventListener('mouseup', finish);
+    window.addEventListener('blur', cancel);
+    return () => {
+      document.removeEventListener('mouseup', finish);
+      window.removeEventListener('blur', cancel);
+    };
   }, [dragging]);
 
   function activate(a: CellActivation) {
@@ -247,7 +253,12 @@ export default function GridViewer({
           e.preventDefault(); // no text selection while dragging over cells
           setDrag({ anchor: pos, focus: pos, additive: e.ctrlKey || e.metaKey });
         },
-        onCellMouseEnter: (pos: Pos) => {
+        onCellMouseEnter: (pos: Pos, e: ReactMouseEvent) => {
+          // No button held: the release happened where nobody saw it. The drag is over, and nothing is picked.
+          if (e.buttons === 0) {
+            setDrag(null);
+            return;
+          }
           setDrag((cur) => (cur ? { ...cur, focus: pos } : cur));
         },
       }

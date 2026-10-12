@@ -1,4 +1,9 @@
-import { deriveFromValidations } from './validation-constraints';
+import {
+  deriveFromValidations,
+  MAX_RULE_SUGGESTIONS,
+  MAX_VALIDATIONS_PER_SHEET,
+  MAX_UNSUPPORTED_REPORTED,
+} from './validation-constraints';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { GridValidation } from '../engine/grid-types';
@@ -121,7 +126,8 @@ describe('deriveFromValidations — a comparison with another cell becomes a rul
       ],
       [field('Q51', 'NUM', 'A09')],
     );
-    expect(r.constraints.size).toBe(0);
+    // The comparison is a rule, and the whole-number half of the validation stays on the field.
+    expect(r.constraints.get('A09!Q51')).toEqual({ scale: 0, helpText: 'Số bị can đã khởi tố không vượt quá số đã xác minh' });
     expect(r.ruleSuggestions).toEqual([
       expect.objectContaining({
         leftExpr: "A09!Q51",
@@ -267,5 +273,130 @@ describe('the real templates, end to end (parser → derivation)', () => {
     // S51:V51 share Q51's rule: each column compares with the cell above it.
     expect(derived.ruleSuggestions.find((x) => x.address === 'V51')?.rightExpr).toBe("A09!V50");
     expect(derived.constraints.get('A09!Q51')).toMatchObject({ min: '0', scale: 0 });
+  });
+});
+
+/** Found by review (Codex, OV7): each of these used to publish a rule looser or stricter than Excel's, or fail. */
+describe('deriveFromValidations — exactness', () => {
+  const one = (over: Partial<GridValidation>, f = field('D10')) =>
+    deriveFromValidations([{ sheetKey: 'A10', validations: [dv({ ranges: ['D10'], ...over })] }], [f]);
+
+  it('a strict comparison with a fractional bound on a whole number rounds the right way', () => {
+    expect(one({ operator: 'greaterThan', formula1: '1.5' }).constraints.get('A10!D10')?.min).toBe('2');
+    expect(one({ operator: 'lessThan', formula1: '1.5' }).constraints.get('A10!D10')?.max).toBe('1');
+    expect(one({ operator: 'greaterThanOrEqual', formula1: '1.5' }).constraints.get('A10!D10')?.min).toBe('2');
+    expect(one({ operator: 'lessThanOrEqual', formula1: '1.5' }).constraints.get('A10!D10')?.max).toBe('1');
+    expect(one({ operator: 'between', formula1: '0.5', formula2: '9.5' }).constraints.get('A10!D10')).toMatchObject({
+      min: '1',
+      max: '9',
+    });
+  });
+
+  it('"equal to a fraction" on a whole-number cell has no value that satisfies it and is said so', () => {
+    const r = one({ operator: 'equal', formula1: '2.5' });
+    expect(r.constraints.size).toBe(0);
+    expect(r.unsupported[0].message).toMatch(/không có giá trị nào/);
+  });
+
+  it('a bound the database cannot keep exactly is not rounded into a looser rule', () => {
+    for (const [type, formula1] of [
+      ['decimal', '0.00006'],
+      ['decimal', '100000000000000'],
+      ['whole', '100000000000000'],
+    ] as const) {
+      const r = one({ type, operator: 'lessThanOrEqual', formula1 });
+      expect(r.constraints.get('A10!D10')?.max).toBeUndefined();
+      expect(r.unsupported[0].message).toMatch(/khả năng lưu/);
+    }
+    expect(
+      one({ type: 'decimal', operator: 'lessThanOrEqual', formula1: '99999999999999.9999' }).constraints.get('A10!D10')?.max,
+    ).toBe('99999999999999.9999');
+  });
+
+  it('a whole-number comparison with another cell still forbids fractions', () => {
+    const r = one({ operator: 'lessThanOrEqual', formula1: 'D9' });
+    expect(r.constraints.get('A10!D10')).toMatchObject({ scale: 0 });
+    expect(r.ruleSuggestions).toHaveLength(1);
+    // a decimal one has no such half
+    expect(one({ type: 'decimal', operator: 'lessThanOrEqual', formula1: 'D9' }).constraints.size).toBe(0);
+  });
+
+  it('a shortest or exact text length is reported as the part that was not taken over', () => {
+    const f = field('D10', 'TEXT');
+    const exact = one({ type: 'textLength', operator: 'equal', formula1: '5' }, f);
+    expect(exact.constraints.get('A10!D10')).toMatchObject({ maxLength: 5 });
+    expect(exact.unsupported[0].message).toMatch(/tối thiểu|chính xác/);
+    const between = one({ type: 'textLength', operator: 'between', formula1: '3', formula2: '5' }, f);
+    expect(between.constraints.get('A10!D10')).toMatchObject({ maxLength: 5 });
+    expect(between.unsupported).toHaveLength(1);
+    // "up to 5" (and "between 0 and 5") loses nothing
+    expect(one({ type: 'textLength', operator: 'between', formula1: '0', formula2: '5' }, f).unsupported).toEqual([]);
+  });
+
+  it('validations that contradict each other on one cell take neither bound, and say so', () => {
+    const r = deriveFromValidations(
+      [
+        {
+          sheetKey: 'A10',
+          validations: [
+            dv({ ranges: ['D10'], operator: 'greaterThanOrEqual', formula1: '10' }),
+            dv({ ranges: ['D10'], operator: 'lessThanOrEqual', formula1: '5' }),
+          ],
+        },
+      ],
+      [field('D10')],
+    );
+    expect(r.constraints.has('A10!D10')).toBe(false);
+    expect(r.unsupported[0].message).toMatch(/mâu thuẫn/);
+  });
+
+  it('the same comparison on two sheets gets two different names', () => {
+    const r = deriveFromValidations(
+      [
+        { sheetKey: 'S1', validations: [dv({ ranges: ['Q51'], operator: 'lessThanOrEqual', formula1: 'Q50' })] },
+        { sheetKey: 'S2', validations: [dv({ ranges: ['Q51'], operator: 'lessThanOrEqual', formula1: 'Q50' })] },
+      ],
+      [field('Q51', 'NUM', 'S1'), field('Q51', 'NUM', 'S2')],
+    );
+    expect(new Set(r.ruleSuggestions.map((x) => x.name)).size).toBe(2);
+  });
+
+  describe('a workbook cannot make it do unbounded work', () => {
+    it('many overlapping validations over many fields stop at the cap and say so', () => {
+      const fields = Array.from({ length: 1000 }, (_, i) => field(`D${i + 1}`));
+      const validations = Array.from({ length: 100 }, () =>
+        dv({ ranges: ['D1:D1000'], operator: 'lessThanOrEqual', formula1: 'E1' }),
+      );
+      const r = deriveFromValidations([{ sheetKey: 'A10', validations }], fields);
+      expect(r.ruleSuggestions.length).toBe(MAX_RULE_SUGGESTIONS);
+      expect(r.unsupported.some((u) => /quá/.test(u.message))).toBe(true);
+    });
+
+    it('only the first validations of a sheet are looked at, and the rest is reported', () => {
+      const validations = Array.from({ length: MAX_VALIDATIONS_PER_SHEET + 5 }, (_, i) =>
+        dv({ ranges: [`Z${i + 1}`], type: 'list', operator: undefined, formula1: '"a"' }),
+      );
+      const fields = Array.from({ length: 10 }, (_, i) => field(`Z${i + 1}`));
+      const r = deriveFromValidations([{ sheetKey: 'A10', validations }], fields);
+      expect(r.unsupported.some((u) => /chỉ 2000 quy tắc đầu/.test(u.message))).toBe(true);
+    });
+
+    it('a flood of unsupported validations is cut off with one closing note', () => {
+      const fields = Array.from({ length: 500 }, (_, i) => field(`D${i + 1}`));
+      const validations = fields.map((f) => dv({ ranges: [f.address], type: 'list', operator: undefined, formula1: '"a"' }));
+      const r = deriveFromValidations([{ sheetKey: 'A10', validations }], fields);
+      expect(r.unsupported.length).toBeLessThanOrEqual(MAX_UNSUPPORTED_REPORTED + 1);
+      expect(r.unsupported[r.unsupported.length - 1].message).toMatch(/không liệt kê hết/);
+    });
+
+    it('a validation over a huge block touches only the fields, not every cell of the block', () => {
+      const started = Date.now();
+      const r = deriveFromValidations(
+        [{ sheetKey: 'A10', validations: [dv({ ranges: ['A1:XFD1048576'] })] }],
+        [field('D10'), field('E11')],
+      );
+      expect(r.constraints.size).toBe(2);
+      expect(Date.now() - started).toBeLessThan(1000);
+    });
   });
 });

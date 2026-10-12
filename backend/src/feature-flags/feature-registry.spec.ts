@@ -79,6 +79,12 @@ describe('FEATURE_REGISTRY', () => {
       expect(getManifest('TIM_KIEM_THE')?.domain).toBe('core');
     });
 
+    // The grid screens read `useFeatureBatMacDinh('dynamic_reports_grid')`: without a seeded row an admin has no
+    // switch to bring the list back.
+    it('returns the dynamic_reports_grid manifest (emergency switch of the Excel-like grid)', () => {
+      expect(getManifest('dynamic_reports_grid')?.domain).toBe('reporting-domain');
+    });
+
     // v0.37.2.1: regression test for hidden Tổng hợp menu. Frontend has
     // features/comprehensive/feature.manifest.ts since v0.37.1 but backend
     // was missing the matching manifest → seedFeatureFlags() never created

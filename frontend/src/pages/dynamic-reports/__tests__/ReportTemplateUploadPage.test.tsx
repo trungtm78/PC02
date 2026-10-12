@@ -266,8 +266,8 @@ describe('ReportTemplateUploadPage', () => {
 
     it('dragging over cells on the grid ticks them in the list, ready for label, type and aggregate', async () => {
       await getToPreviewWithGrid();
-      fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0 });
-      fireEvent.mouseEnter(screen.getByTestId('cell-C7'));
+      fireEvent.mouseDown(screen.getByTestId('cell-C4'), { button: 0, buttons: 1 });
+      fireEvent.mouseEnter(screen.getByTestId('cell-C7'), { buttons: 1 });
       fireEvent.mouseUp(document);
 
       expect(screen.getByTestId('candidate-checkbox-Đội 3!C4')).toBeChecked();

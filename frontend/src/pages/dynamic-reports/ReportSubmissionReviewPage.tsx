@@ -22,6 +22,7 @@ import {
 } from '@/shared/enums/status-labels';
 import CommentsPanel from './CommentsPanel';
 import GridViewer from '@/features/dynamic-reports/grid/GridViewer';
+import { useGridLayout } from '@/features/dynamic-reports/grid/useGridLayout';
 import type { GridField } from '@/features/dynamic-reports/grid/gridEvaluation';
 
 type ActionStatus = 'idle' | 'working' | 'error';
@@ -67,8 +68,8 @@ export default function ReportSubmissionReviewPage() {
   const [showUnlockForm, setShowUnlockForm] = useState(false);
   const [unlockReason, setUnlockReason] = useState('');
   const [unlockExpiresAtLocal, setUnlockExpiresAtLocal] = useState('');
-  // The grid is opt-in until it is the default: the list stays the safe view.
-  const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list');
+  // The grid is the default; the emergency switch (flag dynamic_reports_grid) and a narrow screen bring the list back.
+  const { layoutMode, setLayoutMode, gridAllowed } = useGridLayout();
   // Remember WHICH template version failed: the route component is reused when
   // a manager moves to another submission, and that one may build fine.
   const [unavailableVersionId, setUnavailableVersionId] = useState<string | null>(null);
@@ -257,33 +258,35 @@ export default function ReportSubmissionReviewPage() {
         </p>
       )}
 
-      <div className="flex gap-2 mb-3" role="group" aria-label="Cách hiển thị số liệu">
-        <button
-          type="button"
-          data-testid="layout-list"
-          aria-pressed={layoutMode === 'list'}
-          onClick={() => setLayoutMode('list')}
-          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border ${
-            layoutMode === 'list' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
-          } ${A11Y_FOCUS_RING}`}
-        >
-          <List className="w-3.5 h-3.5" />
-          Dạng danh sách
-        </button>
-        <button
-          type="button"
-          data-testid="layout-grid"
-          aria-pressed={layoutMode === 'grid'}
-          disabled={gridUnavailable}
-          onClick={() => setLayoutMode('grid')}
-          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border disabled:opacity-50 ${
-            layoutMode === 'grid' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
-          } ${A11Y_FOCUS_RING}`}
-        >
-          <Table2 className="w-3.5 h-3.5" />
-          Dạng lưới (thử nghiệm)
-        </button>
-      </div>
+      {gridAllowed && (
+        <div className="flex gap-2 mb-3" role="group" aria-label="Cách hiển thị số liệu">
+          <button
+            type="button"
+            data-testid="layout-list"
+            aria-pressed={layoutMode === 'list'}
+            onClick={() => setLayoutMode('list')}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border ${
+              layoutMode === 'list' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
+            } ${A11Y_FOCUS_RING}`}
+          >
+            <List className="w-3.5 h-3.5" />
+            Dạng danh sách
+          </button>
+          <button
+            type="button"
+            data-testid="layout-grid"
+            aria-pressed={layoutMode === 'grid'}
+            disabled={gridUnavailable}
+            onClick={() => setLayoutMode('grid')}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border disabled:opacity-50 ${
+              layoutMode === 'grid' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
+            } ${A11Y_FOCUS_RING}`}
+          >
+            <Table2 className="w-3.5 h-3.5" />
+            Dạng lưới
+          </button>
+        </div>
+      )}
 
       {layoutMode === 'grid' && !gridUnavailable && (
         <div className="mb-4" data-testid="grid-section">

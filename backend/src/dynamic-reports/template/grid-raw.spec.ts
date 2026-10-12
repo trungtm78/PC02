@@ -1,3 +1,4 @@
+import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
 import JSZip from 'jszip';
@@ -102,6 +103,52 @@ describe('readRawGridInfo', () => {
     it('a sheet with no validation has an empty list, not a missing one', async () => {
       const info = await rawOf('pl7.xlsx');
       expect(info.dataValidations['Thống kê sl vụ việc']).toEqual([]);
+    });
+
+    describe('a hostile sheet cannot make the reader slow or fooled', () => {
+      async function infoFor(sheetXml: string) {
+        const wb = new ExcelJS.Workbook();
+        wb.addWorksheet('S').getCell('A1').value = 1;
+        const zip = await JSZip.loadAsync(Buffer.from(await wb.xlsx.writeBuffer()));
+        const original = await (zip.file('xl/worksheets/sheet1.xml') as JSZip.JSZipObject).async('string');
+        zip.file('xl/worksheets/sheet1.xml', original.replace('</worksheet>', `${sheetXml}</worksheet>`));
+        return readRawGridInfo(Buffer.from(await zip.generateAsync({ type: 'nodebuffer' })));
+      }
+
+      it('look-alike tags inside a comment are not rules', async () => {
+        const info = await infoFor(
+          '<!-- <dataValidation type="whole" sqref="A1"><formula1>0</formula1></dataValidation> -->' +
+            '<dataValidations count="1"><dataValidation type="whole" sqref="B2"><formula1>1</formula1></dataValidation></dataValidations>',
+        );
+        expect(info.dataValidations['S'].map((v) => v.sqref)).toEqual([['B2']]);
+      });
+
+      it('thousands of unmatched openers cost one pass, not one pass each', async () => {
+        const noise = '<!--' + '<dataValidation type="whole" >'.repeat(20_000) + '-->';
+        const started = Date.now();
+        const info = await infoFor(noise + '<dataValidations><dataValidation type="whole" sqref="B2"><formula1>1</formula1></dataValidation></dataValidations>');
+        expect(Date.now() - started).toBeLessThan(2000);
+        expect(info.dataValidations['S']).toHaveLength(1);
+      });
+
+      it('an element that never closes ends the read instead of being searched for again and again', async () => {
+        const open = '<dataValidation type="whole" sqref="A1">'.repeat(20_000);
+        const started = Date.now();
+        const info = await infoFor(open);
+        expect(Date.now() - started).toBeLessThan(2000);
+        expect(info.dataValidations['S']).toEqual([]);
+      });
+
+      it('a ">" inside a quoted attribute does not end the tag early, and a self-closing rule is read', async () => {
+        const info = await infoFor(
+          '<dataValidations><dataValidation type="whole" sqref="B2" prompt="a > b"><formula1>1</formula1></dataValidation>' +
+            '<dataValidation type="list" sqref="C3"/></dataValidations>',
+        );
+        expect(info.dataValidations['S']).toEqual([
+          expect.objectContaining({ sqref: ['B2'], prompt: 'a > b', formula1: '1' }),
+          expect.objectContaining({ sqref: ['C3'], type: 'list' }),
+        ]);
+      });
     });
   });
 });

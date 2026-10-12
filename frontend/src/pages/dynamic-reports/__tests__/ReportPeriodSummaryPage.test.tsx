@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -6,6 +6,8 @@ import ReportPeriodSummaryPage from '../ReportPeriodSummaryPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { PeriodSummaryView } from '@/features/dynamic-reports/types';
 import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
+import { FeatureFlagsContext } from '@/lib/features/featureFlagsContextObject';
+import { GRID_FLAG } from '@/features/dynamic-reports/grid/useGridLayout';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
@@ -397,6 +399,58 @@ describe('ReportPeriodSummaryPage', () => {
       await waitFor(() => screen.getByTestId('grid-fallback-note'));
       expect(screen.getByTestId('field-table')).toBeInTheDocument();
       expect(screen.getByTestId('layout-grid')).toBeDisabled();
+    });
+  });
+
+  describe('the grid is the default, with an emergency switch (GA)', () => {
+    const wide = (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} });
+
+    afterEach(() => {
+      Object.defineProperty(window, 'matchMedia', { value: undefined, configurable: true, writable: true });
+      localStorage.clear();
+    });
+
+    function renderWithFlag(enabled: boolean) {
+      const flags = new Map([[GRID_FLAG, { key: GRID_FLAG, enabled }]]);
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return render(
+        <FeatureFlagsContext.Provider value={{ flags, isLoading: false } as never}>
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter initialEntries={['/bao-cao-dong/duyet/tong-hop/period1']}>
+              <Routes>
+                <Route path="/bao-cao-dong/duyet/tong-hop/:periodId" element={<ReportPeriodSummaryPage />} />
+              </Routes>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </FeatureFlagsContext.Provider>,
+      );
+    }
+
+    const GA_VIEW = {
+      ...VIEW,
+      fields: [{ ...VIEW.fields[0], fieldKey: 'Đội 3!C3', address: 'C3' }],
+      formulaValues: {},
+      formulaSource: 'LIVE' as const,
+      calcEngineVersion: 1,
+    };
+
+    it('opens as the grid on a wide screen', async () => {
+      Object.defineProperty(window, 'matchMedia', { value: wide, configurable: true, writable: true });
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(GA_VIEW);
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockResolvedValue(makeGrid());
+      renderWithFlag(true);
+      await waitFor(() => screen.getByTestId('grid-viewer'));
+      expect(screen.getByTestId('layout-grid')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByTestId('field-table')).toBeNull();
+    });
+
+    it('with the emergency switch off it is the list, and no way to the grid is offered', async () => {
+      Object.defineProperty(window, 'matchMedia', { value: wide, configurable: true, writable: true });
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(GA_VIEW);
+      renderWithFlag(false);
+      await waitFor(() => screen.getByTestId('field-table'));
+      expect(screen.queryByTestId('layout-grid')).toBeNull();
+      expect(dynamicReportsApi.getVersionGrid).not.toHaveBeenCalled();
     });
   });
 });
