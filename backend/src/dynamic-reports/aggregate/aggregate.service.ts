@@ -350,11 +350,11 @@ export class AggregateService {
           { v: string | null } | undefined
         >;
         const raw = values[f.fieldKey]?.v ?? null;
-        return { sourceId: a.id, value: raw !== null ? Number(raw) : null };
+        return { sourceId: a.id, value: raw };
       });
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
       snapshotValues[f.fieldKey] = {
-        value: result.value !== null ? String(result.value) : null,
+        value: result.value,
         countTotal: result.countTotal,
         countNonBlank: result.countNonBlank,
       };
@@ -460,10 +460,7 @@ export class AggregateService {
           { v: string | null } | undefined
         >;
         const raw = values[f.fieldKey]?.v ?? null;
-        return {
-          sourceId: a.id,
-          value: raw !== null ? Number(raw) : null,
-        };
+        return { sourceId: a.id, value: raw };
       });
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
 
@@ -475,10 +472,7 @@ export class AggregateService {
           const teamSnapshot = a.teamSnapshot as { name?: string } | null;
           return {
             teamName: teamSnapshot?.name ?? '',
-            value:
-              contributions[i].value !== null
-                ? String(contributions[i].value)
-                : null,
+            value: contributions[i].value,
             state: a.submission?.state ?? 'NOT_STARTED',
             revision: a.submission?.currentRevision.toString() ?? '0',
             updatedAt: a.submission?.updatedAt.toISOString() ?? null,
@@ -491,7 +485,7 @@ export class AggregateService {
         sheetKey: f.sheetKey,
         address: f.address,
         label: f.label,
-        value: result.value !== null ? String(result.value) : null,
+        value: result.value,
         displayNotAggregated: result.displayNotAggregated,
         countTotal: result.countTotal,
         countNonBlank: result.countNonBlank,
@@ -753,16 +747,13 @@ export class AggregateService {
             { v: string | null } | undefined
           >;
           const raw = values[f.fieldKey]?.v ?? null;
-          return {
-            sourceId: String(i),
-            value: raw !== null ? Number(raw) : null,
-          };
+          return { sourceId: String(i), value: raw };
         },
       );
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
       out[f.fieldKey] = {
         countTotal: result.countTotal,
-        value: result.value !== null ? String(result.value) : null,
+        value: result.value,
       };
     }
     return out;

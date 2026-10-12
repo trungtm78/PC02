@@ -150,6 +150,23 @@ describe('AggregateService', () => {
     expect(result.versionId).toBe('version1');
   });
 
+  it('adds 18-digit figures exactly — the total carries every digit the teams typed (review OV4)', async () => {
+    const period = basePeriod({
+      assignments: [
+        assignment('a1', 'SUBMITTED', '900719925474099300'),
+        assignment('a2', 'APPROVED', '1.5'),
+        assignment('a3', 'SUBMITTED', '0.5'),
+      ],
+    });
+    const { service } = buildService(period, [{ role: 'MANAGER' }]);
+
+    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+
+    expect(result.fields[0].value).toBe('900719925474099302');
+    // The drill-down shows each team's own text, unchanged.
+    expect(result.fields[0].contributors.map((c) => c.value)).toEqual(['900719925474099300', '1.5', '0.5']);
+  });
+
   it('mode=APPROVED sums only APPROVED contributions', async () => {
     const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
 

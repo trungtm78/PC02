@@ -1136,6 +1136,12 @@ thứ khác (ô gộp, viền, màu, font, độ rộng, định dạng số, d�
   **Ghi nhận, chưa sửa:** (a) ô nhập số quá 15 chữ số ghi dạng chữ nên công thức SUM trong Excel bỏ qua ô đó khi tính lại — đúng với quyết
   định OV4 (không làm tròn im lặng) nhưng tổng sẽ khác web; nên cảnh báo ở bước thiết lập; (b) công thức mảng (array formula) không được
   hỗ trợ ở bộ tính; các ô theo sau của mảng giữ số mẫu cũ — nên chặn/cảnh báo mẫu có công thức mảng lúc xuất bản.
+### OV4 — tổng hợp bằng chuỗi thập phân, không mất chữ số (12/10/2026)
+`aggregate.service` trước đây `Number(raw)` rồi cộng bằng double: hai số 18 chữ số cộng ra số sai ở chữ số cuối, 0,1+0,2 ra
+0,30000000000000004. Nay `Contribution.value` và `AggregateResult.value` là **chuỗi thập phân chuẩn** (không mũ), cộng/MIN/MAX
+bằng `decimal.js` với bản sao độ chính xác 60 chữ số (mặc định 20 sẽ làm tròn tổng của vài trăm số 18 chữ số), trung bình lấy 12 chữ
+số thập phân. Màn quản lý đã dùng chuỗi nên không đổi; kiểm: 18 chữ số cộng chính xác, 0,1+0,2=0,3, MIN/MAX trả nguyên văn, 300 số
+18 chữ số, không bao giờ có số mũ, và qua `getPeriodSummary` thật (số của từng tổ giữ nguyên trong cửa sổ nguồn).
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
