@@ -213,11 +213,11 @@ describe('evaluateFormula — additional type/arity/scope errors', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('rejects "&" text concatenation (accepted by the grammar, but this numeric engine has no string type)', () => {
+  it('"&" joins operands as text (G0: the engine now has a string type; A1=10, B1=5 → "105")', () => {
     const ctx = makeContext();
     const result = evaluateFormula('A1&B1', ctx);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('TYPE_ERROR');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual({ type: 'string', value: '105' });
   });
 
   it('rejects a bare range used outside an aggregate function', () => {

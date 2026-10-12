@@ -1,6 +1,12 @@
-import Decimal from 'decimal.js';
+﻿import Decimal from 'decimal.js';
 import { evaluateFormula } from './expr';
 import type { CellReference, CellResolution, EvalContext } from './expr';
+import {
+  DEFAULT_MAX_RANGE_CELLS,
+  WorkbookEvaluator,
+  expandRangeRefs,
+} from './workbook-eval';
+import type { WorkbookModel } from './workbook-eval';
 
 /**
  * S36 (PR9 slice 1) — validation-rule evaluation, pure (spec §10 R2). Reuses
@@ -48,10 +54,41 @@ export type SubmissionValuesLike = Record<
   { v: string | null } | undefined
 >;
 
+/**
+ * Sheets in the order they first appear in the submission's keys. Without a
+ * workbook model that is the best available tab order for a 3-D span.
+ */
+function sheetOrderOf(values: SubmissionValuesLike, defaultSheet: string | null): string[] {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  const add = (name: string): void => {
+    if (!seen.has(name)) {
+      seen.add(name);
+      order.push(name);
+    }
+  };
+  if (defaultSheet) add(defaultSheet);
+  for (const k of Object.keys(values)) {
+    const bang = k.lastIndexOf('!');
+    if (bang > 0) add(k.slice(0, bang));
+  }
+  return order;
+}
+
 function buildEvalContext(
   values: SubmissionValuesLike,
   defaultSheet: string | null,
+  workbook?: WorkbookModel,
+  evaluator?: WorkbookEvaluator,
 ): EvalContext {
+  // With the workbook model, a rule sees exactly what the grid shows: formula
+  // cells are computed, static constants are real, and a missing sheet is
+  // told apart from an excluded one (OV1).
+  if (workbook && evaluator && defaultSheet) {
+    return evaluator.contextFor(defaultSheet);
+  }
+
+  const order = sheetOrderOf(values, defaultSheet);
   function resolveCell(ref: CellReference): CellResolution {
     const sheet = ref.sheet ?? defaultSheet;
     if (!sheet) return { kind: 'not_found' };
@@ -59,19 +96,27 @@ function buildEvalContext(
     if (raw === undefined || raw === null || raw === '') {
       return { kind: 'blank' };
     }
-    const num = Number(raw);
-    if (Number.isNaN(num)) return { kind: 'not_found' };
-    return { kind: 'value', value: num };
+    // Keep the typed digits: the engine parses the string with decimal.js,
+    // so nothing is lost to a double on the way in (OV4).
+    if (Number.isNaN(Number(raw))) return { kind: 'not_found' };
+    return { kind: 'value', value: raw };
   }
   return {
     resolveCell,
-    // Ranges don't appear in a two-sided rule comparison in this slice —
-    // SUM-of-a-range belongs to the formula string itself (e.g.
-    // "SUM(D11:D12)"), which `evaluateFormula` already expands; this
-    // context is only ever queried for single-cell refs directly.
-    expandRange: () => [],
+    expandRange: (range) =>
+      expandRangeRefs(range, defaultSheet ?? '', order, DEFAULT_MAX_RANGE_CELLS),
     prevValue: () => ({ kind: 'none' }),
   };
+}
+
+function evaluatorFor(
+  values: SubmissionValuesLike,
+  workbook: WorkbookModel | undefined,
+): WorkbookEvaluator | undefined {
+  if (!workbook) return undefined;
+  const inputs: Record<string, string | null> = {};
+  for (const [k, cell] of Object.entries(values)) inputs[k] = cell?.v ?? null;
+  return new WorkbookEvaluator(workbook, inputs, { blankAs: 'blank' });
 }
 
 /**
@@ -83,11 +128,7 @@ function buildEvalContext(
  * incomplete-but-in-progress data. `'BLOCK'` is the explicit opt-in for
  * rules where a missing operand itself IS the problem.
  */
-export function evaluateRule(
-  rule: RuleDefinitionLike,
-  values: SubmissionValuesLike,
-  defaultSheet: string | null,
-): { violated: boolean } {
+function checkRule(rule: RuleDefinitionLike, ctx: EvalContext): { violated: boolean } {
   if (
     rule.operator === 'COMPULSORY_PAIR' ||
     rule.operator === 'EXCLUSIVE_PAIR'
@@ -95,7 +136,6 @@ export function evaluateRule(
     return { violated: false };
   }
 
-  const ctx = buildEvalContext(values, defaultSheet);
   const left = evaluateFormula(rule.leftExpr, ctx);
   const right = evaluateFormula(rule.rightExpr, ctx);
   const strategy = rule.missingStrategy ?? 'SKIP';
@@ -135,14 +175,34 @@ export function evaluateRule(
   return { violated: !satisfied };
 }
 
+/**
+ * `workbook` is optional. Pass it wherever the template's cell model is
+ * available (it is the same model the grid renders) and a rule can read
+ * formula cells and static constants; omit it and a rule sees only the
+ * submitted input values.
+ */
+export function evaluateRule(
+  rule: RuleDefinitionLike,
+  values: SubmissionValuesLike,
+  defaultSheet: string | null,
+  workbook?: WorkbookModel,
+): { violated: boolean } {
+  const evaluator = evaluatorFor(values, workbook);
+  return checkRule(rule, buildEvalContext(values, defaultSheet, workbook, evaluator));
+}
+
 export function evaluateRules(
   rules: RuleDefinitionLike[],
   values: SubmissionValuesLike,
   defaultSheet: string | null,
+  workbook?: WorkbookModel,
 ): RuleViolation[] {
+  // One evaluator for all rules: the dependency graph is built once.
+  const evaluator = evaluatorFor(values, workbook);
+  const ctx = buildEvalContext(values, defaultSheet, workbook, evaluator);
   const violations: RuleViolation[] = [];
   for (const rule of rules) {
-    if (evaluateRule(rule, values, defaultSheet).violated) {
+    if (checkRule(rule, ctx).violated) {
       violations.push({
         ruleId: rule.id,
         name: rule.name,
