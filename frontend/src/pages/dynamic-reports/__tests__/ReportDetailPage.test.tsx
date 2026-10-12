@@ -16,6 +16,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getReportDeletionImpact: vi.fn(),
     deleteReport: vi.fn(),
     deleteReportWithData: vi.fn(),
+    saveVersionFileToDisk: vi.fn(),
   },
 }));
 
@@ -186,5 +187,20 @@ describe('ReportDetailPage', () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByText(/Không tải được báo cáo này/)).toBeInTheDocument();
+  });
+
+  it('offers "Cập nhật mẫu" and a download of the current template (to edit in Excel and upload again)', async () => {
+    vi.mocked(dynamicReportsApi.saveVersionFileToDisk).mockResolvedValue(undefined);
+    renderPage();
+
+    expect(await screen.findByTestId('btn-update-template')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1/phien-ban/moi');
+    fireEvent.click(screen.getByTestId('btn-download-template'));
+    await waitFor(() => expect(dynamicReportsApi.saveVersionFileToDisk).toHaveBeenCalledWith('r1', 'v2', 'mau.xlsx'));
+  });
+
+  it('an archived report cannot be given a new template until it is restored', async () => {
+    renderPage({ ...DETAIL, status: 'ARCHIVED' });
+    await screen.findByTestId('btn-unarchive');
+    expect(screen.queryByTestId('btn-update-template')).not.toBeInTheDocument();
   });
 });

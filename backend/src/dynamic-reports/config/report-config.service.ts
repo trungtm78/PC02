@@ -82,7 +82,7 @@ export class ReportConfigService {
    * server-side — the one place a direct API call (bypassing the wizard
    * entirely) can't route around it.
    */
-  private async assertNoBlockingFeatureIssues(
+  async assertNoBlockingFeatureIssues(
     fileBuffer: Buffer,
   ): Promise<void> {
     const issues = await detectUnsupportedFeatures(fileBuffer);
@@ -100,8 +100,8 @@ export class ReportConfigService {
    * the layout and formulas derived from the file itself, which are what gets
    * stored: nothing the client sent about structure is trusted.
    */
-  private async reconcileWithFile(
-    input: SaveReportConfigDto,
+  async reconcileWithFile(
+    input: Pick<SaveReportConfigDto, 'selectedSheets' | 'fields'>,
     fileBuffer: Buffer,
   ): Promise<ParseTemplateResult> {
     let parsed: ParseTemplateResult;
@@ -142,6 +142,71 @@ export class ReportConfigService {
       );
     }
     return parsed;
+  }
+
+  /** The input cells of a version. What the template itself says a cell may hold (OV7) fills the gaps; the author's own choice wins. */
+  async persistFields(
+    tx: Prisma.TransactionClient,
+    versionId: string,
+    fields: SaveReportConfigDto['fields'],
+    derived: ParseTemplateResult | null,
+  ): Promise<void> {
+    if (fields.length === 0) return;
+    const fromTemplate = derived
+      ? deriveFromValidations(
+          derived.dataValidations,
+          fields.map((f) => ({
+            sheetKey: f.sheetKey,
+            address: f.address,
+            fieldKey: f.fieldKey,
+            type: f.type as 'NUM' | 'TEXT' | 'DATE' | 'TIME',
+          })),
+        ).constraints
+      : new Map<string, DerivedConstraints>();
+    await tx.dynReportField.createMany({
+      data: fields.map((f) => {
+        const t = fromTemplate.get(f.fieldKey);
+        return {
+          versionId,
+          sheetKey: f.sheetKey,
+          address: f.address,
+          fieldKey: f.fieldKey,
+          label: f.label,
+          type: f.type,
+          format: f.format,
+          aggregate: f.aggregate,
+          blankPolicy: f.blankPolicy ?? 'ZERO',
+          required: f.required ?? false,
+          min: t?.min,
+          max: t?.max,
+          scale: f.scale ?? t?.scale,
+          maxLength: f.maxLength ?? t?.maxLength,
+          helpText: f.helpText ?? t?.helpText,
+          source: f.source,
+        };
+      }),
+    });
+  }
+
+  async persistRules(
+    tx: Prisma.TransactionClient,
+    versionId: string,
+    rules: SaveReportConfigDto['rules'],
+  ): Promise<void> {
+    if (!rules || rules.length === 0) return;
+    await tx.dynReportValidationRule.createMany({
+      data: rules.map((r) => ({
+        versionId,
+        name: r.name,
+        leftExpr: r.leftExpr,
+        operator: r.operator,
+        rightExpr: r.rightExpr,
+        severity: r.severity,
+        message: r.message,
+        missingStrategy: r.missingStrategy ?? null,
+        origin: 'MANUAL' as const,
+      })),
+    });
   }
 
   private validateForPublish(input: SaveReportConfigDto): void {
@@ -311,43 +376,7 @@ export class ReportConfigService {
         },
       });
 
-      if (input.fields.length > 0) {
-        // What the template itself says a cell may hold (OV7). The author's own choice wins; the file fills the gaps.
-        const fromTemplate = derived
-          ? deriveFromValidations(
-              derived.dataValidations,
-              input.fields.map((f) => ({
-                sheetKey: f.sheetKey,
-                address: f.address,
-                fieldKey: f.fieldKey,
-                type: f.type as 'NUM' | 'TEXT' | 'DATE' | 'TIME',
-              })),
-            ).constraints
-          : new Map<string, DerivedConstraints>();
-        await tx.dynReportField.createMany({
-          data: input.fields.map((f) => {
-            const t = fromTemplate.get(f.fieldKey);
-            return {
-            versionId: version.id,
-            sheetKey: f.sheetKey,
-            address: f.address,
-            fieldKey: f.fieldKey,
-            label: f.label,
-            type: f.type,
-            format: f.format,
-            aggregate: f.aggregate,
-            blankPolicy: f.blankPolicy ?? 'ZERO',
-            required: f.required ?? false,
-            min: t?.min,
-            max: t?.max,
-            scale: f.scale ?? t?.scale,
-            maxLength: f.maxLength ?? t?.maxLength,
-            helpText: f.helpText ?? t?.helpText,
-            source: f.source,
-            };
-          }),
-        });
-      }
+      await this.persistFields(tx, version.id, input.fields, derived);
 
       await tx.dynReportSchedule.create({
         data: {
@@ -388,21 +417,7 @@ export class ReportConfigService {
         }
       }
 
-      if (input.rules && input.rules.length > 0) {
-        await tx.dynReportValidationRule.createMany({
-          data: input.rules.map((r) => ({
-            versionId: version.id,
-            name: r.name,
-            leftExpr: r.leftExpr,
-            operator: r.operator,
-            rightExpr: r.rightExpr,
-            severity: r.severity,
-            message: r.message,
-            missingStrategy: r.missingStrategy ?? null,
-            origin: 'MANUAL',
-          })),
-        });
-      }
+      await this.persistRules(tx, version.id, input.rules);
 
       const payload: SaveReportConfigResult = {
         reportId: report.id,

@@ -25,9 +25,12 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type {
   ParsedAggregateType,
   ParsedFieldType,
+  ReportDetailField,
+  ReportDetailView,
   SheetInfo,
   TemplatePreviewResult,
 } from '@/features/dynamic-reports/types';
+import { carryOverMarks } from '@/features/dynamic-reports/carryOver';
 import { applyWebMarks, removeWebMarks } from '@/features/dynamic-reports/markRegion';
 import { TYPE_AGGREGATE_COMPATIBILITY } from '@/features/dynamic-reports/engine/generated/token';
 import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/period';
@@ -39,6 +42,7 @@ import ReportScheduleStep from './ReportScheduleStep';
 import ReportTeamsStep from './ReportTeamsStep';
 import ReportRulesStep from './ReportRulesStep';
 import ReportSummaryStep from './ReportSummaryStep';
+import ReportVersionSummaryStep from './ReportVersionSummaryStep';
 import type { ReportRoleConfig, ReportRuleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
 
 const MAX_SELECTED_SHEETS = 5;
@@ -46,11 +50,22 @@ const FIELD_TYPES: ParsedFieldType[] = ['NUM', 'TEXT', 'DATE', 'TIME'];
 
 type Step = 'upload' | 'sheets' | 'preview' | 'schedule' | 'teams' | 'rules' | 'summary';
 
-export default function ReportTemplateUploadPage() {
+interface Props {
+  /**
+   * Given: this is "Cập nhật mẫu" — a new template version of an EXISTING report. Code, name, schedule, managers and
+   * teams belong to the report and are not asked again; the cells and rules of the version in force are carried over.
+   */
+  report?: ReportDetailView;
+}
+
+export default function ReportTemplateUploadPage({ report }: Props = {}) {
+  const isVersion = !!report;
+  const previousFields: ReportDetailField[] = report?.currentVersion?.fields ?? [];
   const [step, setStep] = useState<Step>('upload');
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [code, setCode] = useState(report?.code ?? '');
+  const [name, setName] = useState(report?.name ?? '');
+  const [description, setDescription] = useState(report?.description ?? '');
+  const [carryNote, setCarryNote] = useState<{ carried: number; lost: ReportDetailField[] } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
@@ -69,6 +84,8 @@ export default function ReportTemplateUploadPage() {
   const [roles, setRoles] = useState<ReportRoleConfig[]>([]);
   const [targets, setTargets] = useState<ReportTargetConfig[]>([]);
   const [rules, setRules] = useState<ReportRuleConfig[]>([]);
+  // Stepping back and forward again must not throw away what the person already set on a step.
+  const [rulesSet, setRulesSet] = useState(false);
 
   async function handleFileChange(f: File | null) {
     setError(null);
@@ -83,11 +100,29 @@ export default function ReportTemplateUploadPage() {
     try {
       const result = await dynamicReportsApi.listTemplateSheets(f);
       setSheets(result);
+      if (isVersion) {
+        const names = new Set(result.map((x) => x.name));
+        setSelectedSheets((report?.currentVersion?.selectedSheets ?? []).filter((n) => names.has(n)));
+      }
       setStep('sheets');
     } catch (err) {
       setError(extractApiError(err).message);
       setStep('upload');
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function useCurrentFile() {
+    const current = report?.currentVersion;
+    if (!report || !current) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const f = await dynamicReportsApi.downloadVersionFile(report.id, current.versionId, current.fileName);
+      await handleFileChange(f);
+    } catch (err) {
+      setError(extractApiError(err).message);
       setLoading(false);
     }
   }
@@ -105,7 +140,13 @@ export default function ReportTemplateUploadPage() {
     setError(null);
     setLoading(true);
     try {
-      const result = await dynamicReportsApi.previewTemplate(file, selectedSheets);
+      const fresh = await dynamicReportsApi.previewTemplate(file, selectedSheets);
+      let result = fresh;
+      if (isVersion) {
+        const carry = carryOverMarks(fresh, previousFields);
+        result = carry.result;
+        setCarryNote({ carried: carry.carried.length, lost: carry.lost });
+      }
       setPreview(result);
       setCandidateLabels(
         Object.fromEntries(
@@ -203,9 +244,13 @@ export default function ReportTemplateUploadPage() {
         Quay lại danh sách báo cáo
       </Link>
 
-      <h1 className="text-xl font-bold text-slate-800 mb-1">Tạo báo cáo mới — Tải mẫu Excel</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-1" data-testid="wizard-title">
+        {isVersion ? `Cập nhật mẫu — ${name}` : 'Tạo báo cáo mới — Tải mẫu Excel'}
+      </h1>
       <p className="text-sm text-slate-500 mb-6">
-        Bước 1/4: tải file Excel mẫu và chọn sheet dùng làm báo cáo.
+        {isVersion
+          ? 'Tải file Excel mẫu mới (hoặc dùng lại file đang áp dụng). Các ô nhập đã đặt tên ở phiên bản trước được giữ lại.'
+          : 'Bước 1/4: tải file Excel mẫu và chọn sheet dùng làm báo cáo.'}
       </p>
 
       {error && (
@@ -216,6 +261,26 @@ export default function ReportTemplateUploadPage() {
       )}
 
       <div className="bg-white border border-slate-200 rounded-lg p-6">
+        {isVersion && (
+          <div className="flex items-center justify-between gap-3 mb-4 text-sm" data-testid="version-mode-note">
+            <p className="text-slate-600">
+              Báo cáo <b className="font-mono">{code}</b> — đang ở phiên bản {report?.currentVersion?.version ?? '?'}.
+              Phiên bản mới áp dụng theo quy tắc: kỳ đang mở chưa ai nhập thì dùng ngay, kỳ đã có số liệu giữ phiên bản cũ.
+            </p>
+            {report?.currentVersion && (
+              <button
+                type="button"
+                data-testid="btn-use-current-file"
+                disabled={loading}
+                onClick={() => void useCurrentFile()}
+                className={`shrink-0 px-3 py-1.5 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+              >
+                Dùng lại file đang áp dụng
+              </button>
+            )}
+          </div>
+        )}
+        {!isVersion && (
         <div className="grid grid-cols-2 gap-4 mb-4">
           <label className="block text-sm">
             <span className="font-medium text-slate-700">
@@ -244,6 +309,8 @@ export default function ReportTemplateUploadPage() {
             />
           </label>
         </div>
+        )}
+        {!isVersion && (
         <label className="block text-sm mb-4">
           <span className="font-medium text-slate-700">Mô tả</span>
           <textarea
@@ -254,6 +321,7 @@ export default function ReportTemplateUploadPage() {
             rows={2}
           />
         </label>
+        )}
 
         <label className="block text-sm font-medium text-slate-700 mb-2">File Excel mẫu (.xlsx)</label>
         <input
@@ -333,6 +401,29 @@ export default function ReportTemplateUploadPage() {
                 tone={preview.issues.some((i) => i.severity === 'ERROR') ? 'error' : undefined}
               />
             </div>
+
+            {isVersion && carryNote && (
+              <div className="mb-4 text-sm" data-testid="carry-over-note">
+                <p className="text-slate-700">
+                  Giữ lại <b>{carryNote.carried}</b> ô nhập từ phiên bản trước.
+                </p>
+                {carryNote.lost.length > 0 && (
+                  <div className="mt-2 border border-amber-200 bg-amber-50 rounded-lg p-3" data-testid="carry-over-lost">
+                    <p className="text-amber-800">
+                      {carryNote.lost.length} ô nhập của phiên bản trước không còn trong mẫu mới (ô đã bị xoá, bị khoá hoặc
+                      nay là công thức) và sẽ KHÔNG còn là ô nhập. Nếu muốn giữ, hãy đánh dấu lại ô tương ứng ở bên dưới:
+                    </p>
+                    <ul className="list-disc ml-5 mt-1 text-amber-800">
+                      {carryNote.lost.map((f) => (
+                        <li key={f.fieldKey}>
+                          {f.fieldKey} — {f.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {preview.issues.length === 0 ? (
               <p className="text-sm text-green-700 flex items-center gap-1">
@@ -501,10 +592,10 @@ export default function ReportTemplateUploadPage() {
               <button
                 type="button"
                 data-testid="btn-go-to-schedule"
-                onClick={() => setStep('schedule')}
+                onClick={() => setStep(isVersion ? 'rules' : 'schedule')}
                 className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 ${A11Y_FOCUS_RING}`}
               >
-                Tiếp theo: Đặt lịch
+                {isVersion ? 'Tiếp theo: Quy tắc kiểm tra' : 'Tiếp theo: Đặt lịch'}
               </button>
             </div>
           </div>
@@ -539,16 +630,52 @@ export default function ReportTemplateUploadPage() {
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportRulesStep
               suggestions={ruleSuggestions}
-              onBack={() => setStep('teams')}
+              initial={
+                rulesSet
+                  ? rules
+                  : isVersion
+                  ? (report?.currentVersion?.rules ?? []).map((r) => ({
+                      name: r.name,
+                      leftExpr: r.leftExpr,
+                      operator: r.operator as ReportRuleConfig['operator'],
+                      rightExpr: r.rightExpr,
+                      severity: r.severity as ReportRuleConfig['severity'],
+                      message: r.message,
+                      ...(r.missingStrategy ? { missingStrategy: r.missingStrategy } : {}),
+                    }))
+                  : undefined
+              }
+              nextLabel={isVersion ? 'Tiếp theo: Xuất bản' : undefined}
+              onBack={() => setStep(isVersion ? 'preview' : 'teams')}
               onNext={(r) => {
                 setRules(r);
+                setRulesSet(true);
                 setStep('summary');
               }}
             />
           </div>
         )}
 
-        {step === 'summary' && file && preview && schedule && (
+        {step === 'summary' && isVersion && report && file && preview && (
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <ReportVersionSummaryStep
+              reportId={report.id}
+              reportCode={report.code}
+              currentVersion={report.currentVersion?.version ?? null}
+              file={file}
+              selectedSheets={selectedSheets}
+              dateSystem={preview.dateSystem}
+              fields={preview.fields}
+              previousFields={previousFields}
+              layout={preview.layout}
+              formulas={preview.formulas}
+              rules={rules}
+              onBack={() => setStep('rules')}
+            />
+          </div>
+        )}
+
+        {step === 'summary' && !isVersion && file && preview && schedule && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportSummaryStep
               file={file}
