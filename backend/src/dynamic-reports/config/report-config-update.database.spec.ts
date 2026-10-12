@@ -118,6 +118,31 @@ run('ReportConfigUpdateService on PostgreSQL', () => {
     expect(rows[1].lastGeneratedThrough?.toISOString()).toBe(cursor.toISOString());
   });
 
+  it('a new calendar (start day) moves the cursor past the periods that exist, so no days belong to two periods (found by Codex)', async () => {
+    const id = await buildReport('calendar'); // period 2026-10 ends 2026-10-31; the old cursor is 2026-10-31
+    await svc.updateConfig(id, baseline({ schedule: { ...SCHEDULE, periodStartDay: 15 } }));
+
+    const now = (await db.dynReportSchedule.findMany({ where: { reportId: id, supersededAt: null } }))[0];
+    // The new-calendar period that contains 2026-11-01 is 10-15..11-14, which would overlap 2026-10: the next one starts 11-15.
+    expect(now.lastGeneratedThrough?.toISOString().slice(0, 10)).toBe('2026-11-15');
+  });
+
+  it('a new period type does the same (monthly to weekly: the week containing the next day starts inside October)', async () => {
+    const id = await buildReport('calendar-type');
+    await svc.updateConfig(id, baseline({ schedule: { ...SCHEDULE, periodType: 'WEEKLY', dueRule: { kind: 'FIXED_IN_PERIOD', periodOffset: 1, anchorWeekday: 3, time: '17:00' } } }));
+
+    const now = (await db.dynReportSchedule.findMany({ where: { reportId: id, supersededAt: null } }))[0];
+    // 2026-11-01 is a Sunday: its ISO week began on 10-26, inside the last monthly period, so the next week (11-02) is the first.
+    expect(now.lastGeneratedThrough?.toISOString().slice(0, 10)).toBe('2026-11-02');
+  });
+
+  it('when the calendar does not change, the cursor stays where it was (only deadlines changed)', async () => {
+    const id = await buildReport('calendar-same');
+    await svc.updateConfig(id, baseline({ schedule: { ...SCHEDULE, dueRule: { kind: 'DAYS_AFTER_END', days: 9, time: '10:00' } } }));
+    const now = (await db.dynReportSchedule.findMany({ where: { reportId: id, supersededAt: null } }))[0];
+    expect(now.lastGeneratedThrough?.toISOString()).toBe(cursor.toISOString());
+  });
+
   it('a one-time schedule needs its date', async () => {
     const id = await buildReport('onetime');
     await expect(svc.updateConfig(id, baseline({ schedule: { ...SCHEDULE, periodType: 'ONE_TIME' } }))).rejects.toMatchObject({ code: 'TEMPLATE_INVALID' });

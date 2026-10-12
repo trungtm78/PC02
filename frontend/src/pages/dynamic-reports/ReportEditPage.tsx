@@ -64,6 +64,9 @@ export default function ReportEditPage() {
   const [saved, setSaved] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [description, setDescription] = useState<string | null>(null);
+  // The schedule and team sections keep their own unsaved edits. Saving one section must not reset the others, so a
+  // section is remounted (re-read from the server) only when IT was saved, or when everything is reloaded.
+  const [resets, setResets] = useState({ schedule: 0, teams: 0 });
 
   const detailQ = useQuery({
     queryKey: DETAIL_KEY(reportId ?? ''),
@@ -90,8 +93,12 @@ export default function ReportEditPage() {
           ? 'Không có gì thay đổi.'
           : `Đã lưu: ${result.changed.map((c) => CHANGED_TEXT[c] ?? c).join(', ')}.`,
       );
-      setName(null);
-      setDescription(null);
+      if (section === 'info') {
+        setName(null);
+        setDescription(null);
+      } else if (section === 'schedule' || section === 'teams') {
+        setResets((r) => ({ ...r, [section]: r[section] + 1 }));
+      }
       await queryClient.invalidateQueries({ queryKey: DETAIL_KEY(report.id) });
       await queryClient.invalidateQueries({ queryKey: SETUP_LIST_KEY });
     } catch (err) {
@@ -106,6 +113,7 @@ export default function ReportEditPage() {
     setError(null);
     setName(null);
     setDescription(null);
+    setResets((r) => ({ schedule: r.schedule + 1, teams: r.teams + 1 }));
     await detailQ.refetch();
   }
 
@@ -235,7 +243,7 @@ export default function ReportEditPage() {
       <Section title="Lịch báo cáo" hint="Áp dụng từ kỳ kế tiếp." testId="section-schedule-edit">
         {report.schedule ? (
           <ReportScheduleStep
-            key={`schedule-${report.configVersion}`}
+            key={`schedule-${resets.schedule}`}
             initial={toScheduleRule(report.schedule)}
             nextLabel={saving === 'schedule' ? 'Đang lưu…' : 'Lưu lịch'}
             busy={saving !== null}
@@ -263,7 +271,7 @@ export default function ReportEditPage() {
         testId="section-teams-edit"
       >
         <ReportTeamsStep
-          key={`teams-${report.configVersion}`}
+          key={`teams-${resets.teams}`}
           initialRoles={initialRoles}
           initialTargets={initialTargets}
           teamNames={teamNames}

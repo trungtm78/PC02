@@ -3102,6 +3102,24 @@ describe('SubmissionService', () => {
       expect(tx.dynReportComment.delete).not.toHaveBeenCalled();
     });
 
+    it('the period is locked FOR SHARE before the status is read, and the write happens in the same transaction (found by Codex)', async () => {
+      const tx = buildTx();
+      asEditor(tx);
+      tx.dynReportComment.update.mockResolvedValue(OWN);
+      tx.dynReportComment.delete.mockResolvedValue(OWN);
+      const { service, prisma } = buildService(tx);
+
+      await service.updateComment('assign1', 'c1', 'u1', 'role1', 'x');
+      await service.deleteComment('assign1', 'c1', 'u1', 'role1');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      const lock = (tx.$queryRaw.mock.calls[0][0] as TemplateStringsArray).join(' ');
+      expect(lock).toContain('FOR SHARE OF p');
+      expect(lock).toContain('dyn_report_periods');
+      // The lock is taken before anything is read.
+      expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(tx.dynReportAssignment.findUnique.mock.invocationCallOrder[0]);
+    });
+
     it('a comment that is not on this assignment is not found (the assignment id is part of the lookup)', async () => {
       const tx = buildTx();
       asEditor(tx, null);

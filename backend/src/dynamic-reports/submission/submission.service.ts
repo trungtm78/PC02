@@ -486,13 +486,21 @@ export class SubmissionService {
    * "not found" (same rule as listing); a closed period's comments are part of the closed record and stay as they are.
    */
   private async resolveEditableComment(
+    tx: Prisma.TransactionClient,
     assignmentId: string,
     commentId: string,
     userId: string,
     roleId: string,
   ) {
-    const assignment = await this.resolveCommentAccess(this.prisma, assignmentId, userId, roleId);
-    const comment = await this.prisma.dynReportComment.findFirst({
+    // Closing the period takes it FOR UPDATE; holding it FOR SHARE from here to the write means a comment cannot be
+    // changed after the period closed, only before (and then it is part of what was closed).
+    await tx.$queryRaw`
+      SELECT p.id FROM dyn_report_periods p
+      JOIN dyn_report_assignments a ON a."periodId" = p.id
+      WHERE a.id = ${assignmentId} FOR SHARE OF p
+    `;
+    const assignment = await this.resolveCommentAccess(tx, assignmentId, userId, roleId);
+    const comment = await tx.dynReportComment.findFirst({
       where: { id: commentId, assignmentId },
       include: { author: true },
     });
@@ -514,14 +522,16 @@ export class SubmissionService {
     if (!body.trim()) {
       throw new SubmissionError('Nội dung ghi chú không được để trống.', 'CELL_VALIDATION');
     }
-    const { comment } = await this.resolveEditableComment(assignmentId, commentId, userId, roleId);
-    if (comment.authorId !== userId) {
-      throw new SubmissionError('Chỉ người viết mới sửa được ghi chú của mình.', 'NOT_AUTHOR');
-    }
-    const updated = await this.prisma.dynReportComment.update({
-      where: { id: commentId },
-      data: { body: body.trim() },
-      include: { author: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const { comment } = await this.resolveEditableComment(tx, assignmentId, commentId, userId, roleId);
+      if (comment.authorId !== userId) {
+        throw new SubmissionError('Chỉ người viết mới sửa được ghi chú của mình.', 'NOT_AUTHOR');
+      }
+      return tx.dynReportComment.update({
+        where: { id: commentId },
+        data: { body: body.trim() },
+        include: { author: true },
+      });
     });
     return {
       id: updated.id,
@@ -542,14 +552,16 @@ export class SubmissionService {
     userId: string,
     roleId: string,
   ): Promise<{ deleted: true }> {
-    const { assignment, comment } = await this.resolveEditableComment(assignmentId, commentId, userId, roleId);
-    if (comment.authorId !== userId) {
-      const manager = await this.resolveManagerRole(this.prisma, assignment.period.report.id, userId, roleId);
-      if (!manager) {
-        throw new SubmissionError('Chỉ người viết hoặc quản lý báo cáo mới xoá được ghi chú này.', 'NOT_AUTHOR');
+    await this.prisma.$transaction(async (tx) => {
+      const { assignment, comment } = await this.resolveEditableComment(tx, assignmentId, commentId, userId, roleId);
+      if (comment.authorId !== userId) {
+        const manager = await this.resolveManagerRole(tx, assignment.period.report.id, userId, roleId);
+        if (!manager) {
+          throw new SubmissionError('Chỉ người viết hoặc quản lý báo cáo mới xoá được ghi chú này.', 'NOT_AUTHOR');
+        }
       }
-    }
-    await this.prisma.dynReportComment.delete({ where: { id: commentId } });
+      await tx.dynReportComment.delete({ where: { id: commentId } });
+    });
     return { deleted: true };
   }
 

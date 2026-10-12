@@ -178,6 +178,37 @@ describe('ReportEditPage — "Sửa cấu hình"', () => {
     await waitFor(() => expect(screen.getByTestId('edit-name')).toHaveValue('Tên của người kia'));
   });
 
+  it('saving one section keeps the unsaved edits of the others (found by Codex)', async () => {
+    vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 4, changed: ['info'] });
+    renderPage();
+    // An unsaved edit in the schedule section…
+    fireEvent.change(await screen.findByTestId('input-days-after-end'), { target: { value: '9' } });
+    // …then the name is changed and saved.
+    fireEvent.change(screen.getByTestId('edit-name'), { target: { value: 'Tên mới' } });
+    vi.mocked(dynamicReportsApi.getReportDetail).mockResolvedValue({ ...DETAIL, name: 'Tên mới', configVersion: 4 });
+    fireEvent.click(screen.getByTestId('btn-save-info'));
+    await screen.findByTestId('edit-saved');
+
+    expect(screen.getByTestId('input-days-after-end')).toHaveValue(9);
+  });
+
+  it('saving the schedule keeps an unsaved name, and the saved section is read back from the server', async () => {
+    vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 4, changed: ['schedule'] });
+    renderPage();
+    fireEvent.change(await screen.findByTestId('edit-name'), { target: { value: 'Tên chưa lưu' } });
+    fireEvent.change(screen.getByTestId('input-days-after-end'), { target: { value: '3' } });
+    vi.mocked(dynamicReportsApi.getReportDetail).mockResolvedValue({
+      ...DETAIL,
+      configVersion: 4,
+      schedule: { ...DETAIL.schedule!, dueRule: { kind: 'DAYS_AFTER_END', days: 3, time: '17:00' } },
+    });
+    fireEvent.click(screen.getByTestId('btn-schedule-next'));
+    await screen.findByTestId('edit-saved');
+
+    expect(screen.getByTestId('edit-name')).toHaveValue('Tên chưa lưu');
+    await waitFor(() => expect(screen.getByTestId('input-days-after-end')).toHaveValue(3));
+  });
+
   it('a save that changed nothing says so instead of claiming success', async () => {
     vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 3, changed: [] });
     renderPage();

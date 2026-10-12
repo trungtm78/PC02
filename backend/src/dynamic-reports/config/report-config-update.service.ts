@@ -143,6 +143,25 @@ export class ReportConfigUpdateService {
     if (current) {
       await tx.dynReportSchedule.update({ where: { id: current.id }, data: { supersededAt: now } });
     }
+
+    // The cursor says where the next period starts. Under the same calendar it is still right. Under a new one
+    // (another period type, another start day) the period that CONTAINS the old cursor may begin earlier than it and
+    // overlap what was already generated, so the cursor moves to the first new-calendar period that starts after the
+    // last period that exists. The days in between, if any, belong to no period: a gap is better than two obligations
+    // for the same days.
+    const geometryChanged =
+      !!current &&
+      (current.periodType !== next.periodType ||
+        (current.periodStartDay ?? 1) !== (next.periodStartDay ?? 1) ||
+        (current.oneTimeDate ?? null) !== (next.oneTimeDate ?? null));
+    let cursor = current?.lastGeneratedThrough ?? null;
+    if (geometryChanged) {
+      const last = await tx.dynReportPeriod.aggregate({ where: { reportId }, _max: { endDate: true } });
+      if (last._max.endDate) {
+        const dayAfter = new Date(last._max.endDate.getTime() + 86_400_000);
+        cursor = this.firstPeriodStartingOnOrAfter(next, dayAfter);
+      }
+    }
     await tx.dynReportSchedule.create({
       data: {
         reportId,
@@ -154,10 +173,18 @@ export class ReportConfigUpdateService {
         oneTimeDate: next.oneTimeDate,
         timezone: next.timezone ?? current?.timezone ?? 'Asia/Ho_Chi_Minh',
         effectiveFrom: now,
-        lastGeneratedThrough: current?.lastGeneratedThrough ?? null,
+        lastGeneratedThrough: cursor,
       },
     });
     return true;
+  }
+
+  /** The start of the first period, in the new calendar, that begins on or after `day` (the calendar may put a boundary mid-way). */
+  private firstPeriodStartingOnOrAfter(next: Schedule, day: Date): Date {
+    const [period] = generatePeriods(toScheduleRule(next), day, 1);
+    const start = new Date(`${period.periodStart}T00:00:00Z`);
+    if (start >= day) return day;
+    return new Date(new Date(`${period.periodEnd}T00:00:00Z`).getTime() + 86_400_000);
   }
 
   private async assertUsersExist(tx: Prisma.TransactionClient, ids: string[]): Promise<void> {
