@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ChangeEvent, ClipboardEvent, KeyboardEvent, MouseEvent } from 'react';
 import { formatAddress } from '../engine/generated/paste';
 import GridTable from './GridTable';
-import type { GridTableProps } from './GridTable';
+import type { GridInteraction, GridTableProps } from './GridTable';
 import { viewOf } from './gridEvaluation';
 import type { GridField } from './gridEvaluation';
 import { buildSheetIndex, key as cellKey } from './gridIndex';
@@ -27,7 +27,7 @@ import type { NavModel, Pos } from './navigation';
 import { normalizeInput, nowTime, toEditText, todayIso } from './normalizeInput';
 import type { EditableField } from './normalizeInput';
 import { parseClipboardText, planGridPaste, toClipboardText } from './clipboard';
-import { cellsInRect, moveSelection, selectAll, selectionRect, single } from './selection';
+import { moveSelection, selectAll, selectionRect, single } from './selection';
 import type { Selection } from './selection';
 import { cssForStyle } from './styleToCss';
 
@@ -39,15 +39,20 @@ import { cssForStyle } from './styleToCss';
  *
  * Three modes mirror Excel (see keymap.ts): nav (a cell is selected), enter
  * (typing over it) and edit (F2, caret inside the text). A value is validated
- * and stored when it is CONFIRMED (Enter, Tab, an arrow, a click elsewhere) —
- * never per keystroke — and formulas are recomputed at that moment.
+ * and stored when it is CONFIRMED (Enter, Tab, an arrow, a click elsewhere,
+ * leaving the grid) — never per keystroke — and formulas are recomputed at
+ * that moment.
+ *
+ * The text being typed lives in the textarea itself (it is uncontrolled), not
+ * in React state: a keystroke re-renders nothing, however large the sheet,
+ * and React never rewrites the field in the middle of an IME composition.
  */
 
 export interface EntryField extends GridField, EditableField {}
 
 export interface GridEntryProps extends Omit<GridTableProps, 'interaction' | 'children' | 'containerRef'> {
   fields: readonly EntryField[];
-  /** False after the deadline or once submitted: the grid can be read, selected and copied, not typed into. */
+  /** False after the deadline, once submitted or while saving/importing: nothing can be written. */
   editable: boolean;
   /** The stored text of a field ('' when blank). */
   valueOf: (fieldKey: string) => string;
@@ -57,11 +62,18 @@ export interface GridEntryProps extends Omit<GridTableProps, 'interaction' | 'ch
   onChangeMany: (batch: Record<string, string>) => void;
   /** The grid lost the keyboard: save now. */
   onLeave: () => void;
+  /**
+   * A typed value the grid refused and is still holding (null once it is fixed
+   * or dropped). The page must not submit while there is one: the officer is
+   * looking at a number that is not in the report.
+   */
+  onProblem?: (message: string | null) => void;
   /** Problems the server reported, by field key. */
   serverErrors?: Readonly<Record<string, string>>;
 }
 
 const PAGE_ROWS = 15;
+const MAX_COPY_CELLS = 20_000;
 const NOTICE_LOCKED = 'Bản này đã khoá, không sửa được.';
 const NOTICE_NOT_INPUT = 'Ô này không nhập được.';
 
@@ -76,6 +88,7 @@ export default function GridEntry(props: GridEntryProps) {
     onChange,
     onChangeMany,
     onLeave,
+    onProblem,
     serverErrors,
     onlyInputRows = false,
     zoom = 100,
@@ -84,6 +97,10 @@ export default function GridEntry(props: GridEntryProps) {
   } = props;
 
   const sheet = grid.sheets.find((s) => s.name === sheetName);
+
+  // The model below outlives a render; it must still see today's values.
+  const valueOfRef = useRef(valueOf);
+  valueOfRef.current = valueOf;
 
   // ---- layout: the same rows/columns the table draws ------------------------------------
   const index = useMemo(() => (sheet ? buildSheetIndex(sheet) : null), [sheet]);
@@ -111,14 +128,36 @@ export default function GridEntry(props: GridEntryProps) {
       }),
       isFilled: (row, col) => {
         const f = fieldAtPos.get(cellKey(row, col));
-        if (f) return valueOf(f.fieldKey) !== '';
+        if (f) return valueOfRef.current(f.fieldKey) !== '';
         const cell = sheet.cells[formatAddress({ col, row: row + 1 })];
         return !!cell && cell.k !== 'empty';
       },
     });
-    // valueOf changes identity every render; the model only needs the layout and the field set
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet, index, sheetFields, fieldAtPos, onlyInputRows]);
+
+  /** The input field a drawn block belongs to, whichever of its coordinates the field was declared at. */
+  const fieldByOwner = useMemo(() => {
+    const map = new Map<string, EntryField>();
+    if (!model) return map;
+    for (const [k, f] of fieldAtPos) {
+      const [row, col] = k.split(',').map(Number);
+      const owner = resolve(model, { row, col });
+      if (!owner) continue;
+      const ownerKey = cellKey(owner.row, owner.col);
+      if (!map.has(ownerKey)) map.set(ownerKey, f);
+    }
+    return map;
+  }, [model, fieldAtPos]);
+
+  const fieldAt = useCallback(
+    (p: Pos | null): EntryField | undefined => {
+      if (!p || !model) return undefined;
+      const owner = resolve(model, p);
+      // A hidden or filtered-out cell is not part of any drawn block: use its own coordinates.
+      return owner ? fieldByOwner.get(cellKey(owner.row, owner.col)) : fieldAtPos.get(cellKey(p.row, p.col));
+    },
+    [model, fieldByOwner, fieldAtPos],
+  );
 
   // ---- interaction state -----------------------------------------------------------------
   const [sel, setSelState] = useState<Selection | null>(null);
@@ -130,8 +169,8 @@ export default function GridEntry(props: GridEntryProps) {
     setSelState(next);
   }, []);
   const [mode, setMode] = useState<GridMode>('nav');
-  const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  /** Refused values still sitting in the editor, by field key → the sentence to show. */
   const [invalid, setInvalid] = useState<ReadonlyMap<string, string>>(new Map());
   const historyRef = useRef(new EditHistory());
   const draggingRef = useRef(false);
@@ -140,22 +179,46 @@ export default function GridEntry(props: GridEntryProps) {
   const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   const active: Pos | null = sel ? sel.anchor : null;
-  const fieldAt = useCallback((p: Pos | null): EntryField | undefined => (p ? fieldAtPos.get(cellKey(p.row, p.col)) : undefined), [fieldAtPos]);
   const activeField = fieldAt(active);
-
   const addressOf = (p: Pos) => formatAddress({ col: p.col, row: p.row + 1 });
+
+  const readDraft = () => textareaRef.current?.value ?? '';
+  const writeDraft = (text: string) => {
+    if (textareaRef.current) textareaRef.current.value = text;
+  };
 
   // A different sheet or a different set of rows invalidates every position.
   useEffect(() => {
     setSel(null);
     setMode('nav');
-    setDraft('');
+    writeDraft('');
     setNotice(null);
+    setInvalid(new Map());
+    // The keyboard is still in the grid: give it a cell again rather than leave a focused editor with nowhere to type.
+    if (model && document.activeElement === textareaRef.current) {
+      const first = firstInput(model);
+      if (first) setSel(single(first));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetName, onlyInputRows]);
+
+  // Tell the page while a refused value is being held, and when it is gone.
+  useEffect(() => {
+    onProblem?.(invalid.size > 0 ? ([...invalid.values()][0] as string) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invalid]);
+  useEffect(() => () => onProblem?.(null), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Locked while typing (deadline, submit started): the draft is dropped, never written.
+  useEffect(() => {
+    if (!editable && mode !== 'nav') endTyping();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editable]);
 
   // ---- writing values --------------------------------------------------------------------
   const write = useCallback(
     (changes: CellChange[], opts: { remember: boolean; many: boolean }) => {
+      if (!editable) return; // history, paste and commit all pass through here
       const effective = changes.filter((c) => c.before !== c.after);
       if (effective.length === 0) return;
       if (opts.remember) historyRef.current.push(effective);
@@ -168,24 +231,25 @@ export default function GridEntry(props: GridEntryProps) {
         if (prev.size === 0) return prev;
         const next = new Map(prev);
         for (const c of effective) next.delete(c.key);
-        return next;
+        return next.size === prev.size ? prev : next;
       });
     },
-    [onChange, onChangeMany],
+    [editable, onChange, onChangeMany],
   );
 
   /** Validates what is in the editor and stores it. False means "stay here": the text is wrong. */
   function commitDraft(): boolean {
     if (mode === 'nav') return true;
     const field = activeField;
-    if (!field) {
+    if (!field || !editable) {
       endTyping();
       return true;
     }
-    const result = normalizeInput(field, draft);
+    const result = normalizeInput(field, readDraft());
     if (!result.ok) {
-      setNotice(`Ô ${addressOf(active as Pos)}: ${result.message}`);
-      setInvalid((prev) => new Map(prev).set(field.fieldKey, result.message));
+      const sentence = `Ô ${addressOf(active as Pos)}: ${result.message}`;
+      setNotice(sentence);
+      setInvalid((prev) => new Map(prev).set(field.fieldKey, sentence));
       return false;
     }
     write(
@@ -199,7 +263,7 @@ export default function GridEntry(props: GridEntryProps) {
 
   function endTyping() {
     setMode('nav');
-    setDraft('');
+    writeDraft('');
   }
 
   function select(next: Selection | null) {
@@ -208,23 +272,53 @@ export default function GridEntry(props: GridEntryProps) {
   }
 
   // ---- keeping the editor over the active cell -------------------------------------------
-  useLayoutEffect(() => {
-    if (!active || !containerRef.current) {
-      setBox(null);
-      return;
-    }
-    const td = containerRef.current.querySelector<HTMLElement>(`[data-pos="${active.row},${active.col}"]`);
-    if (!td) {
-      setBox(null);
-      return;
-    }
-    setBox({ left: td.offsetLeft, top: td.offsetTop, width: td.offsetWidth, height: td.offsetHeight });
-    td.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-  }, [active?.row, active?.col, zoom, onlyInputRows, sheetName, mode, evaluation]); // eslint-disable-line react-hooks/exhaustive-deps
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+    if (!active || !container) return setBox(null);
+    const td = container.querySelector<HTMLElement>(`[data-pos="${active.row},${active.col}"]`);
+    const surface = container.querySelector<HTMLElement>('[data-grid-surface]');
+    if (!td || !surface) return setBox(null);
+    // Measured on screen, not by offset: a frozen cell stays put while the content scrolls under it.
+    const a = td.getBoundingClientRect();
+    const b = surface.getBoundingClientRect();
+    const next = { left: a.left - b.left, top: a.top - b.top, width: a.width, height: a.height };
+    setBox((prev) =>
+      prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height
+        ? prev
+        : next,
+    );
+  }, [active?.row, active?.col]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The editor keeps the keyboard while a cell is selected.
   useLayoutEffect(() => {
-    if (sel && document.activeElement !== textareaRef.current) textareaRef.current?.focus({ preventScroll: true });
+    measure();
+    containerRef.current
+      ?.querySelector<HTMLElement>(`[data-pos="${active?.row},${active?.col}"]`)
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [measure, zoom, onlyInputRows, sheetName, mode, evaluation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      container.removeEventListener('scroll', onScroll);
+    };
+  }, [measure]);
+
+  // The editor keeps the keyboard while a cell is selected — but never takes it from another control.
+  useLayoutEffect(() => {
+    const ta = textareaRef.current;
+    if (!sel || !ta) return;
+    const focused = document.activeElement;
+    const keyboardIsHere =
+      !focused || focused === document.body || focused === ta || !!containerRef.current?.contains(focused);
+    if (keyboardIsHere && focused !== ta) ta.focus({ preventScroll: true });
   }, [sel, mode]);
 
   // A mouse drag ends wherever the button is released.
@@ -241,19 +335,29 @@ export default function GridEntry(props: GridEntryProps) {
   // ---- commands --------------------------------------------------------------------------
   const rect = sel ? selectionRect(model, sel) : null;
 
-  function clearSelection() {
-    if (!sel) return;
-    if (!editable) return setNotice(NOTICE_LOCKED);
-    const changes: CellChange[] = [];
-    for (const p of cellsInRect(model as NavModel, selectionRect(model as NavModel, sel))) {
-      const f = fieldAt(p);
-      if (f) changes.push({ key: f.fieldKey, before: valueOf(f.fieldKey) || null, after: null });
+  /** Every input field inside a rectangle, hidden ones included: a rectangle means what it says. */
+  function fieldsInRect(r: { top: number; left: number; bottom: number; right: number }): EntryField[] {
+    const found: EntryField[] = [];
+    for (const [k, f] of fieldAtPos) {
+      const [row, col] = k.split(',').map(Number);
+      if (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right) found.push(f);
     }
-    if (changes.length === 0) return setNotice(NOTICE_NOT_INPUT);
-    write(changes, { remember: true, many: true });
+    return found;
   }
 
-  function beginTyping(kind: 'enter' | 'edit') {
+  function clearSelection() {
+    if (!sel || !rect) return;
+    if (!editable) return setNotice(NOTICE_LOCKED);
+    const targets = fieldsInRect(rect);
+    if (targets.length === 0) return setNotice(NOTICE_NOT_INPUT);
+    write(
+      targets.map((f) => ({ key: f.fieldKey, before: valueOf(f.fieldKey) || null, after: null })),
+      { remember: true, many: true },
+    );
+  }
+
+  /** `clear: false` keeps what is already in the editor (text that arrived before we knew a cell was being typed into). */
+  function beginTyping(kind: 'enter' | 'edit', opts: { clear: boolean } = { clear: true }) {
     if (!editable) {
       setNotice(NOTICE_LOCKED);
       return false;
@@ -263,9 +367,9 @@ export default function GridEntry(props: GridEntryProps) {
       return false;
     }
     setNotice(null);
+    if (kind === 'edit' && mode === 'nav') writeDraft(toEditText(activeField, valueOf(activeField.fieldKey)));
+    if (kind === 'enter' && opts.clear) writeDraft('');
     setMode(kind);
-    if (kind === 'edit' && mode === 'nav') setDraft(toEditText(activeField, valueOf(activeField.fieldKey)));
-    if (kind === 'enter') setDraft('');
     return true;
   }
 
@@ -283,7 +387,7 @@ export default function GridEntry(props: GridEntryProps) {
     if (mode === 'nav') {
       write([{ key: f.fieldKey, before: valueOf(f.fieldKey) || null, after: stored }], { remember: true, many: false });
     } else {
-      setDraft(toEditText(f, stored));
+      writeDraft(toEditText(f, stored));
     }
   }
 
@@ -382,7 +486,7 @@ export default function GridEntry(props: GridEntryProps) {
         if (activeField?.type !== 'TEXT') return;
         const ta = e.currentTarget;
         ta.setRangeText('\n', ta.selectionStart, ta.selectionEnd, 'end');
-        return setDraft(ta.value);
+        return;
       }
       case 'insertToday':
         e.preventDefault();
@@ -402,12 +506,10 @@ export default function GridEntry(props: GridEntryProps) {
   }
 
   function onTextChange(e: ChangeEvent<HTMLTextAreaElement>) {
-    if (mode === 'nav') {
-      // Something arrived without a key we recognise — an IME composition starting, a mobile keyboard.
-      if (e.target.value === '') return;
-      if (!beginTyping('enter')) return;
-    }
-    setDraft(e.target.value);
+    if (mode !== 'nav') return; // the text is already where it belongs: in the editor
+    // Text arrived without a key we recognise — an IME composition ending, a mobile keyboard.
+    if (e.target.value === '') return;
+    if (!beginTyping('enter', { clear: false })) writeDraft('');
   }
 
   function onCompositionStart() {
@@ -427,14 +529,18 @@ export default function GridEntry(props: GridEntryProps) {
   function copy(e: ClipboardEvent<HTMLTextAreaElement>, andClear: boolean) {
     if (mode !== 'nav' || !rect) return; // inside the editor the browser copies the selected text
     e.preventDefault();
+    const cells = (rect.bottom - rect.top + 1) * (rect.right - rect.left + 1);
+    if (cells > MAX_COPY_CELLS) return setNotice('Vùng chọn quá lớn để sao chép.');
     const m = model as NavModel;
-    const matrix = m.rows
-      .filter((r) => r >= rect.top && r <= rect.bottom)
-      .map((r) =>
-        m.cols
-          .filter((c) => c >= rect.left && c <= rect.right)
-          .map((c) => (m.layout.covered.has(cellKey(r, c)) ? '' : textOf({ row: r, col: c }))),
-      );
+    // The whole rectangle, hidden rows and columns included, exactly as paste will read it back.
+    const matrix: string[][] = [];
+    for (let r = rect.top; r <= rect.bottom; r++) {
+      const line: string[] = [];
+      for (let c = rect.left; c <= rect.right; c++) {
+        line.push(m.layout.covered.has(cellKey(r, c)) ? '' : textOf({ row: r, col: c }));
+      }
+      matrix.push(line);
+    }
     e.clipboardData.setData('text/plain', toClipboardText(matrix));
     if (andClear) clearSelection();
   }
@@ -459,7 +565,7 @@ export default function GridEntry(props: GridEntryProps) {
       { remember: true, many: true },
     );
     setNotice(null);
-    // Select what was pasted.
+    // Select what was pasted (a single cell pasted over a larger selection keeps that selection).
     const dims = parseClipboardText(text);
     const last: Pos = { row: rect.top + dims.length - 1, col: rect.left + Math.max(...dims.map((r) => r.length)) - 1 };
     const end = resolve(model as NavModel, last);
@@ -467,15 +573,15 @@ export default function GridEntry(props: GridEntryProps) {
   }
 
   // ---- mouse ----------------------------------------------------------------------------
-  const interaction = {
+  const invalidAddresses = new Set<string>();
+  for (const k of [...invalid.keys(), ...Object.keys(serverErrors ?? {})]) {
+    const f = sheetFields.find((x) => x.fieldKey === k);
+    if (f) invalidAddresses.add(f.address);
+  }
+  const interaction: GridInteraction = {
     selection: rect,
     active,
-    invalid: new Set(
-      [...invalid.keys(), ...Object.keys(serverErrors ?? {})].flatMap((k) => {
-        const f = sheetFields.find((x) => x.fieldKey === k);
-        return f ? [f.address] : [];
-      }),
-    ),
+    invalid: invalidAddresses,
     required: new Set(sheetFields.filter((f) => f.required).map((f) => f.address)),
     onCellMouseDown: (pos: Pos, e: MouseEvent) => {
       if (e.button !== 0) return;
@@ -504,6 +610,10 @@ export default function GridEntry(props: GridEntryProps) {
   const announce = active
     ? `Ô ${label}${activeField ? (valueOf(activeField.fieldKey) ? `, giá trị ${valueOf(activeField.fieldKey)}` : ', đang trống') : ''}`
     : '';
+  // Above its own cell and below anything that is stuck on top of the cells it scrolls under.
+  const frozenRow = !!active && active.row < sheet.freeze.rows;
+  const frozenCol = !!active && active.col < sheet.freeze.cols;
+  const editorZ = frozenRow && frozenCol ? 3 : frozenRow || frozenCol ? 2 : 1;
 
   return (
     <div>
@@ -528,7 +638,7 @@ export default function GridEntry(props: GridEntryProps) {
           readOnly={!editable}
           spellCheck={false}
           autoComplete="off"
-          value={draft}
+          defaultValue=""
           onChange={onTextChange}
           onKeyDown={onKeyDown}
           onCompositionStart={onCompositionStart}
@@ -551,7 +661,7 @@ export default function GridEntry(props: GridEntryProps) {
             top: box?.top ?? 0,
             width: box ? Math.max(box.width, typing ? 120 : 1) : 1,
             height: box ? box.height : 1,
-            zIndex: 6,
+            zIndex: editorZ,
             resize: 'none',
             boxSizing: 'border-box',
             margin: 0,

@@ -208,6 +208,28 @@ describe('SubmissionInputPage — entry grid (G3c)', () => {
     expect(screen.getByTestId('input-Đội 3!C1')).toBeInTheDocument();
   });
 
+  it('does not submit while the grid is holding a value it refused', async () => {
+    vi.mocked(dynamicReportsApi.saveSubmissionValues).mockResolvedValue(saved('2'));
+    vi.mocked(dynamicReportsApi.submitSubmission).mockResolvedValue({ ...saved('3'), state: 'SUBMITTED' });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+    await openGrid();
+
+    fireEvent.mouseDown(screen.getByTestId('cell-C2'), { button: 0 });
+    typeText('abc'); // not a number
+    fireEvent.blur(editor()); // clicking "Nộp" takes the focus away first
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('save-error')).toHaveTextContent('C2'));
+    expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
+
+    // Once the officer fixes it, submitting works again.
+    fireEvent.change(editor(), { target: { value: '4' } });
+    fireEvent.keyDown(editor(), { key: 'Enter' });
+    fireEvent.click(screen.getByTestId('btn-submit'));
+    await waitFor(() => expect(dynamicReportsApi.submitSubmission).toHaveBeenCalledTimes(1));
+  });
+
   it('submitting from grid mode saves what is still being typed first', async () => {
     vi.mocked(dynamicReportsApi.saveSubmissionValues).mockResolvedValue(saved('2'));
     vi.mocked(dynamicReportsApi.submitSubmission).mockResolvedValue({ ...saved('3'), state: 'SUBMITTED' });

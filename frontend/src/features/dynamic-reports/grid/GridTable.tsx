@@ -163,7 +163,7 @@ export default function GridTable({
       // The spreadsheet keyboard belongs to the grid: F2 edits a cell here, it does not "Save".
       {...(interaction ? { 'data-shortcut-zone': 'grid' } : {})}
     >
-      <div style={{ position: 'relative', width: tableStyle.width }}>
+      <div data-grid-surface style={{ position: 'relative', width: tableStyle.width }}>
       <table
         style={tableStyle}
         role="grid"

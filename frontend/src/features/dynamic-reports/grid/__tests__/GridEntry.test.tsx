@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { useMemo, useState } from 'react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Profiler, useMemo, useState } from 'react';
 import GridEntry from '../GridEntry';
 import type { EntryField } from '../GridEntry';
 import { evaluateGrid } from '../gridEvaluation';
@@ -28,28 +28,36 @@ function Harness({
   probe,
   initial = {},
   editable = true,
-  grid = makeGrid(),
+  grid,
   onlyInputRows = false,
+  fields = FIELDS,
+  onProblem,
 }: {
   probe: Probe;
   initial?: Record<string, string>;
   editable?: boolean;
   grid?: GridModel;
   onlyInputRows?: boolean;
+  fields?: EntryField[];
+  onProblem?: (message: string | null) => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>(initial);
+  // One grid object for the whole life of the test component (a default parameter would build a new one per render).
+  const [defaultGrid] = useState(() => makeGrid());
+  const theGrid = grid ?? defaultGrid;
   const evaluation = useMemo(
-    () => evaluateGrid(grid, FIELDS, Object.fromEntries(Object.entries(values).map(([k, v]) => [k, { v: v || null }]))),
-    [grid, values],
+    () => evaluateGrid(theGrid, fields, Object.fromEntries(Object.entries(values).map(([k, v]) => [k, { v: v || null }]))),
+    [theGrid, fields, values],
   );
   return (
     <GridEntry
-      grid={grid}
+      grid={theGrid}
       sheetName="Đội 3"
       evaluation={evaluation}
-      fields={FIELDS}
+      fields={fields}
       editable={editable}
       onlyInputRows={onlyInputRows}
+      onProblem={onProblem}
       valueOf={(k) => values[k] ?? ''}
       onChange={(k, v) => {
         probe.changes.push([k, v]);
@@ -582,5 +590,229 @@ describe('server problems', () => {
   });
 });
 
-void act;
-void makeSheet;
+
+
+/** A 4-row, 3-column sheet with an input in column B of every row. */
+function columnGrid(over: Parameters<typeof makeSheet>[0] = {}) {
+  return makeGrid(
+    {},
+    {
+      rows: 4,
+      cols: 3,
+      colWidthsPx: [40, 60, 60],
+      rowHeightsPx: [20, 20, 20, 20],
+      hiddenRows: [],
+      hiddenCols: [],
+      merges: [],
+      freeze: { rows: 0, cols: 0 },
+      cells: { A1: { k: 'text', v: 'a', s: 0 } },
+      ...over,
+    },
+  );
+}
+
+const columnFields = (n: number, over: Partial<EntryField> = {}): EntryField[] =>
+  Array.from({ length: n }, (_, i) => ({
+    sheetKey: 'Đội 3',
+    address: `B${i + 1}`,
+    fieldKey: `Đội 3!B${i + 1}`,
+    type: 'NUM' as const,
+    label: `Dòng ${i + 1}`,
+    ...over,
+  }));
+
+describe('Codex review of G3c', () => {
+  it('a refused value that is still in the editor is reported to the page, and cleared once fixed or dropped', () => {
+    const problems: Array<string | null> = [];
+    render(<Harness probe={newProbe()} onProblem={(m) => problems.push(m)} />);
+    click('C4');
+    typeText('abc');
+    fireEvent.blur(editor()); // clicking "Nộp" blurs the editor first
+    expect(problems.at(-1)).toContain('C4');
+    // Fixing it clears the problem.
+    fireEvent.change(editor(), { target: { value: '12' } });
+    key('Enter');
+    expect(problems.at(-1)).toBeNull();
+    // Dropping it with Escape does too.
+    click('C4');
+    typeText('x');
+    key('Enter');
+    expect(problems.at(-1)).toContain('C4');
+    key('Escape');
+    expect(problems.at(-1)).toBeNull();
+  });
+
+  it('copy takes hidden rows with it and paste puts every line back where it came from', () => {
+    const setData = vi.fn();
+    const probe = newProbe();
+    const fields = columnFields(3);
+    render(
+      <Harness
+        probe={probe}
+        fields={fields}
+        grid={columnGrid({ hiddenRows: [1] })}
+        initial={{ 'Đội 3!B1': '11', 'Đội 3!B2': '22', 'Đội 3!B3': '33' }}
+      />,
+    );
+    click('B1');
+    fireEvent.mouseDown(cell('B3'), { button: 0, shiftKey: true });
+    fireEvent.copy(editor(), { clipboardData: { setData } });
+    expect(setData).toHaveBeenCalledWith('text/plain', '11\n22\n33\n');
+
+    click('B1');
+    fireEvent.paste(editor(), { clipboardData: { getData: () => '1\n2\n3\n' } });
+    expect(probe.batches).toEqual([{ 'Đội 3!B1': '1', 'Đội 3!B2': '2', 'Đội 3!B3': '3' }]);
+  });
+
+  it('once the grid is locked nothing can be written: not undo, not a draft that was open', () => {
+    const probe = newProbe();
+    const { rerender } = render(<Harness probe={probe} initial={{ 'Đội 3!C3': '7' }} />);
+    click('C3');
+    typeText('18');
+    key('Enter');
+    expect(probe.changes).toEqual([['Đội 3!C3', '18']]);
+
+    rerender(<Harness probe={probe} initial={{ 'Đội 3!C3': '7' }} editable={false} />);
+    click('C3');
+    key('z', { ctrlKey: true });
+    expect(probe.batches).toEqual([]);
+    expect(probe.changes).toHaveLength(1);
+  });
+
+  it('a draft open when the grid gets locked is dropped, not committed', () => {
+    const probe = newProbe();
+    const { rerender } = render(<Harness probe={probe} />);
+    click('C3');
+    typeText('5');
+    expect(mode()).toBe('enter');
+    rerender(<Harness probe={probe} editable={false} />);
+    expect(mode()).toBe('nav');
+    key('Enter');
+    expect(probe.changes).toEqual([]);
+  });
+
+  it('a field declared at a hidden anchor of a merged block is typed into from the cell that draws it', () => {
+    const probe = newProbe();
+    const fields: EntryField[] = [
+      { sheetKey: 'Đội 3', address: 'A1', fieldKey: 'Đội 3!A1', type: 'NUM', label: 'Gộp' },
+    ];
+    // A1:B1 is merged and column A is hidden: the block is drawn from B1.
+    const grid = columnGrid({ merges: [{ top: 0, left: 0, bottom: 0, right: 1 }], hiddenCols: [0] });
+    render(<Harness probe={probe} fields={fields} grid={grid} />);
+    click('A1'); // the block is drawn from B1; its content and test id are the anchor's
+    key('F2');
+    expect(mode()).toBe('edit');
+    fireEvent.change(editor(), { target: { value: '42' } });
+    key('Enter');
+    expect(probe.changes).toEqual([['Đội 3!A1', '42']]);
+  });
+
+  it('pasting over a visible merged block writes its one field, and refuses two different values for it', () => {
+    const probe = newProbe();
+    const fields: EntryField[] = [
+      { sheetKey: 'Đội 3', address: 'A1', fieldKey: 'Đội 3!A1', type: 'NUM', label: 'Gộp' },
+    ];
+    const grid = columnGrid({ merges: [{ top: 0, left: 0, bottom: 0, right: 1 }] });
+    render(<Harness probe={probe} fields={fields} grid={grid} />);
+    click('A1');
+    fireEvent.paste(editor(), { clipboardData: { getData: () => '5\t6' } });
+    expect(probe.batches).toEqual([]);
+    expect(screen.getByTestId('grid-notice')).toHaveTextContent('cùng một ô gộp');
+    fireEvent.paste(editor(), { clipboardData: { getData: () => '5\t5' } });
+    expect(probe.batches).toEqual([{ 'Đội 3!A1': '5' }]);
+  });
+
+  it('clicking another control after typing commits the value and leaves the focus where the officer put it', () => {
+    const probe = newProbe();
+    render(
+      <>
+        <Harness probe={probe} />
+        <button type="button" data-testid="elsewhere">
+          Nộp
+        </button>
+      </>,
+    );
+    click('C3');
+    typeText('18');
+    const other = screen.getByTestId('elsewhere');
+    act(() => other.focus()); // blurs the editor; React then re-renders
+    expect(probe.changes).toEqual([['Đội 3!C3', '18']]);
+    expect(document.activeElement).toBe(other);
+  });
+
+  it('a sheet-level change while the keyboard is in the grid gives the cursor a cell again', () => {
+    const probe = newProbe();
+    const { rerender } = render(<Harness probe={probe} />);
+    click('C4');
+    expect(document.activeElement).toBe(editor());
+    rerender(<Harness probe={probe} onlyInputRows />);
+    expect(cell('C3')).toHaveAttribute('aria-selected', 'true'); // first input again
+    key('7');
+    expect(mode()).toBe('enter');
+  });
+
+  it('the editor follows its cell on screen when the content scrolls (frozen cells stay put)', async () => {
+    const rects = new Map<string, { left: number; top: number }>();
+    let origin = { left: 10, top: 10 };
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.hasAttribute('data-grid-surface')) {
+        return { left: origin.left, top: origin.top, width: 300, height: 200, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+      }
+      const pos = this.getAttribute('data-pos');
+      const at = pos ? (rects.get(pos) ?? { left: 100, top: 50 }) : { left: 0, top: 0 };
+      return { left: at.left, top: at.top, width: 60, height: 20, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    try {
+      render(<Harness probe={newProbe()} />);
+      click('C3');
+      expect(editor().style.left).toBe('90px'); // 100 - 10
+      expect(editor().style.top).toBe('40px');
+      // The content scrolls 30px: the surface moves up and left, a frozen cell does not.
+      origin = { left: -20, top: -20 };
+      fireEvent.scroll(screen.getByTestId('grid-scroll-Đội 3'));
+      await waitFor(() => expect(editor().style.left).toBe('120px'));
+      expect(editor().style.top).toBe('70px');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('Ctrl+arrow sees what was just typed, not the values the grid started with', () => {
+    const probe = newProbe();
+    render(
+      <Harness
+        probe={probe}
+        fields={columnFields(4)}
+        grid={columnGrid()}
+        initial={{ 'Đội 3!B1': '1', 'Đội 3!B4': '4' }}
+      />,
+    );
+    click('B2');
+    typeText('2');
+    key('Enter');
+    click('B1');
+    key('ArrowDown', { ctrlKey: true });
+    expect(cell('B2')).toHaveAttribute('aria-selected', 'true'); // B1..B2 is now one run, not B1 → B4
+  });
+
+  it('typing does not re-render the grid, however long the text', () => {
+    let commits = 0;
+    const fields = columnFields(4);
+    const grid = columnGrid();
+    render(
+      <Profiler id="grid" onRender={() => (commits += 1)}>
+        <Harness probe={newProbe()} fields={fields} grid={grid} />
+      </Profiler>,
+    );
+    click('B1');
+    key('1'); // switches to Enter mode: one render
+    fireEvent.change(editor(), { target: { value: '1' } });
+    const before = commits;
+    for (const ch of '234567') {
+      fireEvent.keyDown(editor(), { key: ch });
+      fireEvent.change(editor(), { target: { value: editor().value + ch } });
+    }
+    expect(commits).toBe(before);
+    expect(editor().value).toBe('1234567');
+  });
+});

@@ -177,6 +177,7 @@ export default function SubmissionInputPage() {
   const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list');
   const [unavailableVersionId, setUnavailableVersionId] = useState<string | null>(null);
   const gridUnavailable = initial !== undefined && unavailableVersionId === initial.versionId;
+  const [gridProblem, setGridProblem] = useState<string | null>(null);
   const canType = editable && !submitting && importStatus !== 'applying';
   // What the grid draws and recomputes from: every field's current text, typed or saved.
   const gridValues = useMemo(
@@ -492,6 +493,7 @@ export default function SubmissionInputPage() {
               onChange: handleChange,
               onChangeMany: (batch) => applyValues(batch),
               onLeave: handleBlur,
+              onProblem: setGridProblem,
               serverErrors: fieldErrors,
             }}
             onUnavailable={() => {
@@ -563,7 +565,15 @@ export default function SubmissionInputPage() {
           type="button"
           data-testid="btn-submit"
           disabled={!editable || submitting || importStatus === 'applying'}
-          onClick={() => void handleSubmit()}
+          onClick={() => {
+            // A value the grid refused is still sitting in its editor: submitting now would send the
+            // number the officer is NOT looking at.
+            if (layoutMode === 'grid' && gridProblem) {
+              reportProblem(gridProblem);
+              return;
+            }
+            void handleSubmit();
+          }}
           className={`flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
         >
           <Send className="w-4 h-4" />

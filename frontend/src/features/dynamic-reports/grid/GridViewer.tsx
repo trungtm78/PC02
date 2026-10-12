@@ -26,7 +26,7 @@ const ZOOMS = [80, 100, 125] as const;
 /** What turns the viewer into an entry grid: the editable fields and how a typed value is stored. */
 export type GridEntryBinding = Pick<
   GridEntryProps,
-  'fields' | 'editable' | 'valueOf' | 'onChange' | 'onChangeMany' | 'onLeave' | 'serverErrors'
+  'fields' | 'editable' | 'valueOf' | 'onChange' | 'onChangeMany' | 'onLeave' | 'onProblem' | 'serverErrors'
 >;
 
 export interface GridViewerProps {
