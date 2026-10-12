@@ -17,6 +17,8 @@ import type {
   ReportHistoryView,
   ReportDeletionImpact,
   ReportDetailView,
+  CreateVersionResult,
+  SaveReportVersionPayload,
   ReportOption,
   ReportSetupSummary,
   TeamFilterOption,
@@ -125,7 +127,43 @@ export const dynamicReportsApi = {
       .delete<{ deleted: true }>(`/bao-cao-dong/reports/${reportId}/with-data`, { params: { confirmCode } })
       .then((r) => r.data),
 
-  /** S22 "Danh sách phiên bản" — read-only. */
+  /** "Cập nhật mẫu" — a new version of the template (D09 decides which open periods take it at once). */
+  createReportVersion: (reportId: string, file: File, config: SaveReportVersionPayload) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('config', JSON.stringify(config));
+    return api
+      .post<CreateVersionResult>(`/bao-cao-dong/reports/${reportId}/versions`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+
+  /** Remove a version nobody depends on (a draft, or a retired one no period was generated from). */
+  deleteReportVersion: (reportId: string, versionId: string) =>
+    api
+      .delete<{ deleted: true }>(`/bao-cao-dong/reports/${reportId}/versions/${versionId}`)
+      .then((r) => r.data),
+
+  /** Save one version's template to the person's disk, to edit in Excel and upload again through "Cập nhật mẫu". */
+  saveVersionFileToDisk: async (reportId: string, versionId: string, fileName: string): Promise<void> => {
+    const response = await api.get<Blob>(`/bao-cao-dong/reports/${reportId}/versions/${versionId}/file`, {
+      responseType: 'blob',
+    });
+    triggerDownload(response, fileName);
+  },
+
+  /** The template file of one version, as a File — the wizard can start from the file the report already has. */
+  downloadVersionFile: async (reportId: string, versionId: string, fileName: string): Promise<File> => {
+    const r = await api.get<Blob>(`/bao-cao-dong/reports/${reportId}/versions/${versionId}/file`, {
+      responseType: 'blob',
+    });
+    return new File([r.data], fileName, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+  },
+
+  /** S22 "Danh sách phiên bản". */
   listVersions: (reportId: string) =>
     api
       .get<VersionListItem[]>(`/bao-cao-dong/reports/${reportId}/versions`)

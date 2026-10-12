@@ -166,7 +166,30 @@ export interface SaveReportConfigResult {
   status: DynReportStatus;
 }
 
-/** S22 "Danh sách phiên bản" — read-only, every version + which periods used it. */
+/** "Cập nhật mẫu": the body of a new template version (`POST /bao-cao-dong/reports/:id/versions`). */
+export interface SaveReportVersionPayload {
+  selectedSheets: string[];
+  dateSystem: '1900' | '1904';
+  fields: Array<ParsedField & Partial<Pick<ReportDetailField, 'required' | 'blankPolicy' | 'scale' | 'maxLength' | 'helpText'>>>;
+  layout: TemplateLayout;
+  formulas: ParsedFormulaCell[];
+  rules?: ReportRuleConfig[];
+  publish: boolean;
+  idempotencyKey: string;
+}
+
+export interface CreateVersionResult {
+  reportId: string;
+  versionId: string;
+  version: number;
+  status: 'DRAFT' | 'PUBLISHED';
+  /** Open periods that moved to the new version at once (nobody had entered anything there). */
+  appliedToPeriods: string[];
+  /** Open periods that keep the version their teams typed into; the new one applies from the next period. */
+  keptOnOldVersionPeriods: string[];
+}
+
+/** S22 "Danh sách phiên bản" — every version + which periods used it. */
 export interface VersionListItem {
   versionId: string;
   version: number;

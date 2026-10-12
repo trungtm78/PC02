@@ -127,6 +127,15 @@ export default function ReportDetailPage() {
             </div>
 
             <div className="flex flex-wrap gap-2" data-testid="report-actions">
+              {report.status !== 'ARCHIVED' && (
+                <Link
+                  to={`/bao-cao-dong/thiet-lap/${report.id}/phien-ban/moi`}
+                  className={`${btn} border-blue-300 text-blue-700 hover:bg-blue-50`}
+                  data-testid="btn-update-template"
+                >
+                  Cập nhật mẫu
+                </Link>
+              )}
               <Link
                 to={`/bao-cao-dong/thiet-lap/${report.id}/phien-ban`}
                 className={`${btn} border-slate-300 text-slate-700 hover:bg-slate-50`}
@@ -268,7 +277,25 @@ export default function ReportDetailPage() {
             ) : (
               <>
                 <p className="text-sm text-slate-600 mb-2">
-                  File <span className="font-mono">{report.currentVersion.fileName}</span> · sheet:{' '}
+                  File <span className="font-mono">{report.currentVersion.fileName}</span>{' '}
+                  <button
+                    type="button"
+                    data-testid="btn-download-template"
+                    disabled={busy}
+                    className={`text-blue-700 hover:underline disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                    onClick={() =>
+                      void changeState(null, () =>
+                        dynamicReportsApi.saveVersionFileToDisk(
+                          report.id,
+                          report.currentVersion!.versionId,
+                          report.currentVersion!.fileName,
+                        ),
+                      )
+                    }
+                  >
+                    (Tải file mẫu về)
+                  </button>{' '}
+                  · sheet:{' '}
                   {report.currentVersion.selectedSheets.join(', ')}{' '}
                   <span
                     className={`ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DYN_REPORT_VERSION_STATUS_BADGE_CLASS[report.currentVersion.status]}`}

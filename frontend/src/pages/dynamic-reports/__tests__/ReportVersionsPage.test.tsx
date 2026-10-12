@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportVersionsPage from '../ReportVersionsPage';
@@ -7,7 +7,7 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { VersionListItem } from '@/features/dynamic-reports/types';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
-  dynamicReportsApi: { listVersions: vi.fn() },
+  dynamicReportsApi: { listVersions: vi.fn(), deleteReportVersion: vi.fn(), saveVersionFileToDisk: vi.fn() },
 }));
 
 function renderPage() {
@@ -106,5 +106,65 @@ describe('ReportVersionsPage', () => {
     await waitFor(() => screen.getByTestId('version-row-3'));
     expect(screen.getByTestId('version-row-3')).toHaveTextContent('Bản nháp');
     expect(screen.getByTestId('version-row-3')).toHaveTextContent('—');
+  });
+
+  describe('edit and delete (created => editable and deletable)', () => {
+    const WITH_DRAFT: VersionListItem[] = [
+      { versionId: 'ver3', version: 3, status: 'DRAFT', publishedAt: null, createdAt: '2026-07-01T00:00:00.000Z', periodKeys: [] },
+      ...VERSIONS,
+    ];
+
+    it('"Cập nhật mẫu" starts a new version of this report', async () => {
+      vi.mocked(dynamicReportsApi.listVersions).mockResolvedValue(VERSIONS);
+      renderPage();
+      await waitFor(() => screen.getByTestId('versions-table'));
+      expect(screen.getByTestId('btn-new-version')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/report1/phien-ban/moi');
+    });
+
+    it('every version can be saved to disk (to edit in Excel and upload again)', async () => {
+      vi.mocked(dynamicReportsApi.listVersions).mockResolvedValue(VERSIONS);
+      vi.mocked(dynamicReportsApi.saveVersionFileToDisk).mockResolvedValue(undefined);
+      renderPage();
+      await waitFor(() => screen.getByTestId('btn-download-version-2'));
+      fireEvent.click(screen.getByTestId('btn-download-version-2'));
+      await waitFor(() => expect(dynamicReportsApi.saveVersionFileToDisk).toHaveBeenCalledWith('report1', 'ver2', 'mau-v2.xlsx'));
+    });
+
+    it('only a version nobody depends on can be deleted: a draft yes; the current one and a used one never', async () => {
+      vi.mocked(dynamicReportsApi.listVersions).mockResolvedValue(WITH_DRAFT);
+      renderPage();
+      await waitFor(() => screen.getByTestId('versions-table'));
+
+      expect(screen.getByTestId('btn-delete-version-3')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-delete-version-2')).not.toBeInTheDocument(); // published
+      expect(screen.queryByTestId('btn-delete-version-1')).not.toBeInTheDocument(); // retired but periods use it
+    });
+
+    it('deleting asks first, calls the API and reloads the list', async () => {
+      vi.mocked(dynamicReportsApi.listVersions).mockResolvedValue(WITH_DRAFT);
+      vi.mocked(dynamicReportsApi.deleteReportVersion).mockResolvedValue({ deleted: true });
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+      await waitFor(() => screen.getByTestId('btn-delete-version-3'));
+
+      fireEvent.click(screen.getByTestId('btn-delete-version-3'));
+
+      await waitFor(() => expect(dynamicReportsApi.deleteReportVersion).toHaveBeenCalledWith('report1', 'ver3'));
+      await waitFor(() => expect(dynamicReportsApi.listVersions).toHaveBeenCalledTimes(2));
+    });
+
+    it('declining the confirmation deletes nothing; a server refusal is shown', async () => {
+      vi.mocked(dynamicReportsApi.listVersions).mockResolvedValue(WITH_DRAFT);
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+      renderPage();
+      await waitFor(() => screen.getByTestId('btn-delete-version-3'));
+      fireEvent.click(screen.getByTestId('btn-delete-version-3'));
+      expect(dynamicReportsApi.deleteReportVersion).not.toHaveBeenCalled();
+
+      confirm.mockReturnValueOnce(true);
+      vi.mocked(dynamicReportsApi.deleteReportVersion).mockRejectedValue(new Error('Đang được kỳ dùng'));
+      fireEvent.click(screen.getByTestId('btn-delete-version-3'));
+      expect(await screen.findByTestId('version-delete-error')).toBeInTheDocument();
+    });
   });
 });

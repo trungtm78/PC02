@@ -26,6 +26,10 @@ interface Props {
   onNext: (rules: ReportRuleConfig[]) => void;
   /** Rules the uploaded template itself suggests (already limited to cells that are inputs). */
   suggestions?: SuggestedRuleView[];
+  /** Rules already in force (a new template version starts from the previous version's rules). */
+  initial?: ReportRuleConfig[];
+  /** Label of the forward button; the wizard's default is "Tiếp theo". */
+  nextLabel?: string;
 }
 
 const OPERATORS = Object.values(DynReportRuleOperator);
@@ -42,8 +46,8 @@ function emptyDraft(): ReportRuleConfig {
   };
 }
 
-export default function ReportRulesStep({ onBack, onNext, suggestions = [] }: Props) {
-  const [rules, setRules] = useState<ReportRuleConfig[]>([]);
+export default function ReportRulesStep({ onBack, onNext, suggestions = [], initial, nextLabel }: Props) {
+  const [rules, setRules] = useState<ReportRuleConfig[]>(initial ?? []);
   const open = suggestions.filter((s) => !rules.some((r) => r.name === s.name));
 
   function addSuggestion(s: SuggestedRuleView) {
@@ -228,7 +232,7 @@ export default function ReportRulesStep({ onBack, onNext, suggestions = [] }: Pr
           onClick={() => onNext(rules)}
           className={`flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 ${A11Y_FOCUS_RING}`}
         >
-          Tiếp theo: Tổng kết
+          {nextLabel ?? 'Tiếp theo: Tổng kết'}
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
