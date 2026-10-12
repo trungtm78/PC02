@@ -53,6 +53,20 @@ describe('evaluateWorkbook — basics', () => {
     expect(numberOf(res, 'S!A3')).toBe('15');
   });
 
+  it('a static TRUE/FALSE stays a boolean: ranges ignore it, direct use counts it (Excel)', () => {
+    const model = single({
+      A1: { kind: 'boolean', value: true },
+      A2: k('5'),
+      A3: f('SUM(A1:A2)'),
+      A4: f('COUNT(A1:A2)'),
+      A5: f('IF(A1,1,0)'),
+    });
+    const res = evaluateWorkbook(model, {}, { blankAs: 'blank' });
+    expect(numberOf(res, 'S!A3')).toBe('5');
+    expect(numberOf(res, 'S!A4')).toBe('1');
+    expect(numberOf(res, 'S!A5')).toBe('1');
+  });
+
   it('keeps 18 significant digits end to end (OV4)', () => {
     const model = single({ A1: n(), A2: f('A1+1') });
     const res = evaluateWorkbook(model, { 'S!A1': '9007199254740993' }, { blankAs: 'blank' });

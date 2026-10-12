@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import ReportSubmissionReviewPage from '../ReportSubmissionReviewPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { SubmissionView } from '@/features/dynamic-reports/types';
+import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
     getSubmissionForManager: vi.fn(),
+    getVersionGrid: vi.fn(),
     approveSubmission: vi.fn(),
     returnSubmission: vi.fn(),
     unapproveSubmission: vi.fn(),
@@ -250,6 +252,79 @@ describe('ReportSubmissionReviewPage', () => {
     expect(screen.getByTestId('history-entry-1')).toHaveTextContent('Nguyễn Văn A');
     expect(screen.getByTestId('history-entry-2')).toHaveTextContent('Trả lại');
     expect(screen.getByTestId('history-entry-2')).toHaveTextContent('Thiếu số liệu');
+  });
+
+  describe('grid layout (G2)', () => {
+    it('defaults to the list and does not even request the grid', async () => {
+      vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue(SUBMITTED_VIEW);
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('value-Đội 3!C6'));
+      expect(screen.getByTestId('layout-list')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByTestId('grid-section')).not.toBeInTheDocument();
+      expect(dynamicReportsApi.getVersionGrid).not.toHaveBeenCalled();
+    });
+
+    it('switching to the grid draws the template with the submitted values', async () => {
+      vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue(SUBMITTED_VIEW);
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockResolvedValue(
+        makeGrid({}, { cells: { C6: { k: 'empty', s: 0 } }, rows: 6, rowHeightsPx: [20, 20, 20, 20, 20, 20], hiddenRows: [], merges: [], freeze: { rows: 0, cols: 0 } }),
+      );
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+
+      await waitFor(() => screen.getByTestId('grid-viewer'));
+      expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledWith('version1');
+      expect(screen.getByTestId('cell-C6')).toHaveTextContent('5');
+      // The list is replaced, not stacked under the grid.
+      expect(screen.queryByTestId('value-Đội 3!C6')).not.toBeInTheDocument();
+    });
+
+    it('one version failing does not disable the grid for the next submission', async () => {
+      vi.mocked(dynamicReportsApi.getSubmissionForManager).mockImplementation(async (id: string) =>
+        id === 'assign1'
+          ? SUBMITTED_VIEW
+          : { ...SUBMITTED_VIEW, assignmentId: 'assign2', versionId: 'version2' },
+      );
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockRejectedValueOnce(new Error('GRID_UNAVAILABLE'));
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/bao-cao-dong/duyet/assign1']}>
+            <Link to="/bao-cao-dong/duyet/assign2">next</Link>
+            <Routes>
+              <Route path="/bao-cao-dong/duyet/:assignmentId" element={<ReportSubmissionReviewPage />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+      await waitFor(() => screen.getByTestId('grid-fallback-note'));
+
+      fireEvent.click(screen.getByText('next'));
+      // The next submission loads (a spinner first), then offers the grid again.
+      await waitFor(() => expect(screen.getByTestId('layout-grid')).not.toBeDisabled());
+      expect(screen.queryByTestId('grid-fallback-note')).not.toBeInTheDocument();
+    });
+
+    it('falls back to the list with a note when the server cannot build the grid', async () => {
+      vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue(SUBMITTED_VIEW);
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockRejectedValue(new Error('GRID_UNAVAILABLE'));
+      renderPage();
+
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+
+      await waitFor(() => screen.getByTestId('grid-fallback-note'));
+      expect(screen.getByTestId('layout-list')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('layout-grid')).toBeDisabled();
+      // The manager can still read every value.
+      expect(screen.getByTestId('value-Đội 3!C6')).toHaveTextContent('5');
+    });
   });
 
   it('does not render the history section when there is no history', async () => {

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { triggerDownload } from '@/features/document-templates/export.api';
+import type { GridModel } from './engine/generated/grid-types';
 import type {
   ActiveGrantView,
   AssignmentListItemView,
@@ -100,6 +101,17 @@ export const dynamicReportsApi = {
   /** S11 thanh trên's combo — every assignment the caller is an editor of. */
   listMySubmissions: () =>
     api.get<AssignmentSummary[]>('/bao-cao-dong/submissions').then((r) => r.data),
+
+  /**
+   * The render-ready template grid of one report version. A version's file is
+   * write-once, so this never changes for a given id; the server also sends an
+   * ETag, which the browser uses to revalidate across sessions without
+   * downloading the model again.
+   */
+  getVersionGrid: (versionId: string) =>
+    api
+      .get<GridModel>(`/bao-cao-dong/versions/${versionId}/grid`)
+      .then((r) => r.data),
 
   getSubmission: (assignmentId: string) =>
     api
