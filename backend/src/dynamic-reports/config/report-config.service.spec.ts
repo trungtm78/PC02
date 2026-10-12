@@ -591,6 +591,48 @@ describe('ReportConfigService', () => {
     });
   });
 
+  describe('resumeGeneration (counterpart of S31)', () => {
+    function buildServiceWithReport(report: unknown, publishedVersions = 1) {
+      const prisma = {
+        $transaction: jest.fn(),
+        dynReportIdempotency: { findUnique: jest.fn().mockResolvedValue(null) },
+        dynReport: {
+          findUnique: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue(report),
+          update: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+        dynReportVersion: { count: jest.fn().mockResolvedValue(publishedVersions) },
+      };
+      const service = new ReportConfigService(prisma as unknown as PrismaService);
+      return { service, prisma };
+    }
+
+    it('throws REPORT_NOT_FOUND when the report does not exist', async () => {
+      const { service } = buildServiceWithReport(null);
+      await expect(service.resumeGeneration('rep1')).rejects.toMatchObject({ code: 'REPORT_NOT_FOUND' });
+    });
+
+    it('only a SUSPENDED report can resume', async () => {
+      const { service, prisma } = buildServiceWithReport({ id: 'rep1', status: 'PUBLISHED' });
+      await expect(service.resumeGeneration('rep1')).rejects.toMatchObject({ code: 'INVALID_STATE' });
+      expect(prisma.dynReport.update).not.toHaveBeenCalled();
+    });
+
+    it('a suspended report with no published version cannot resume (the scheduler would skip it on every tick)', async () => {
+      const { service, prisma } = buildServiceWithReport({ id: 'rep1', status: 'SUSPENDED' }, 0);
+      await expect(service.resumeGeneration('rep1')).rejects.toMatchObject({ code: 'INVALID_STATE' });
+      expect(prisma.dynReport.update).not.toHaveBeenCalled();
+    });
+
+    it('sets status back to PUBLISHED and bumps the config revision', async () => {
+      const { service, prisma } = buildServiceWithReport({ id: 'rep1', status: 'SUSPENDED' });
+      await expect(service.resumeGeneration('rep1')).resolves.toEqual({ status: 'PUBLISHED' });
+      expect(prisma.dynReport.update).toHaveBeenCalledWith({
+        where: { id: 'rep1' },
+        data: { status: 'PUBLISHED', configVersion: { increment: 1 } },
+      });
+    });
+  });
+
   describe('listVersions (S22 "Danh sách phiên bản")', () => {
     function buildServiceWithData(report: unknown, versions: unknown[]) {
       const prisma = {

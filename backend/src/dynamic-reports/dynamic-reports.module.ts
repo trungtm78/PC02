@@ -9,7 +9,11 @@ import { TemplatesController } from './template/templates.controller';
 import { TemplateService } from './template/template.service';
 import { VersionFieldsCacheService } from './template/version-fields-cache';
 import { ReportConfigController } from './config/report-config.controller';
+import { ReportAdminController } from './config/report-admin.controller';
 import { ReportConfigService } from './config/report-config.service';
+import { ReportDetailService } from './config/report-detail.service';
+import { ReportLifecycleService } from './config/report-lifecycle.service';
+import { AuditModule } from '../audit/audit.module';
 import { SubmissionController } from './submission/submission.controller';
 import { SubmissionService } from './submission/submission.service';
 import { AggregateController } from './aggregate/aggregate.controller';
@@ -28,13 +32,14 @@ import { CalendarEventsModule } from '../calendar-events/calendar-events.module'
 import { TeamsModule } from '../teams/teams.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, CalendarEventsModule, TeamsModule],
+  imports: [PrismaModule, AuthModule, CalendarEventsModule, TeamsModule, AuditModule],
   controllers: [
     ClockController,
     ReportsController,
     TemplatesController,
     SchedulePreviewController,
     ReportConfigController,
+    ReportAdminController,
     SubmissionController,
     AggregateController,
     ExportController,
@@ -51,6 +56,8 @@ import { TeamsModule } from '../teams/teams.module';
     TemplateService,
     VersionFieldsCacheService,
     ReportConfigService,
+    ReportDetailService,
+    ReportLifecycleService,
     SubmissionService,
     AggregateService,
     FormulaEvaluationService,

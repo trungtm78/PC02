@@ -73,6 +73,21 @@ Seed idempotent — rerun an toàn.
 - `VM_USER` = `pc02`
 - `VM_SSH_PRIVATE_KEY` = full PEM (private key, public key paste vào VM `~pc02/.ssh/authorized_keys`)
 
+## Tiêu chuẩn thiết kế: TẠO thì phải SỬA và XOÁ (bắt buộc, anh chốt 13/10/2026)
+
+Mọi đối tượng người dùng tạo ra trong hệ thống (báo cáo, mẫu, lịch, danh sách tổ/người nhập, ghi chú, quy tắc, tệp xuất…)
+phải có **đường sửa** và **đường xoá/gỡ** ở ngay màn tạo/xem nó. Không có "tạo xong là kẹt".
+
+1. **Sửa.** Có nút Sửa cùng chỗ với nút Tạo. Đối tượng bất biến (vd phiên bản mẫu đã xuất bản) thì "sửa" = **tạo phiên bản mới**
+   kèm quy tắc áp dụng rõ ràng (D09), không bao giờ là ngõ cụt.
+2. **Xoá.** Xoá cứng khi chưa có dữ liệu phụ thuộc. Đã có số liệu thì **không** để người dùng bị chặn vô vọng: cho **lưu trữ** (ẩn, giữ dữ liệu)
+   và, cho quản trị viên, **xoá kèm số liệu** — phải gõ lại mã đối tượng để xác nhận, màn xác nhận nêu rõ số bản ghi sẽ mất.
+3. **Mặt sau của mọi thao tác.** Ngừng ⇒ có Tiếp tục; Lưu trữ ⇒ có Khôi phục; Miễn nộp ⇒ có Bỏ miễn; Yêu cầu ⇒ có Rút lại.
+4. **Máy chủ.** Có route `PATCH`/`DELETE` riêng, kiểm quyền (xoá kèm dữ liệu cần quyền admin), chạy trong một giao dịch, ghi audit (chỉ
+   metadata, không ghi số liệu), có ca kiểm **trên PostgreSQL thật** cho thứ tự xoá (mọi quan hệ là Restrict nên thứ tự là toàn bộ việc).
+5. **Cổng review.** PR thêm một thao tác "Tạo" mà thiếu Sửa hoặc Xoá/Gỡ thì **chưa được merge**, trừ khi PR nêu rõ lý do đối tượng đó
+   phải bất biến (vd sổ audit) và đường thay thế người dùng có.
+
 ## Git Branching Convention
 
 **Model:** Simplified Trunk-based development. `main` là nhánh duy nhất thường trú — luôn deployable.

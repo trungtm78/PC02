@@ -15,6 +15,8 @@ import type {
   PeriodSummaryView,
   ReopenResultView,
   ReportHistoryView,
+  ReportDeletionImpact,
+  ReportDetailView,
   ReportOption,
   ReportSetupSummary,
   TeamFilterOption,
@@ -90,6 +92,37 @@ export const dynamicReportsApi = {
   suspendReportGeneration: (reportId: string) =>
     api
       .post<{ status: 'SUSPENDED' }>(`/bao-cao-dong/reports/${reportId}/suspend`, {})
+      .then((r) => r.data),
+
+  /** The counterpart of S31: a suspended report generates periods again. */
+  resumeReportGeneration: (reportId: string) =>
+    api
+      .post<{ status: 'PUBLISHED' }>(`/bao-cao-dong/reports/${reportId}/resume`, {})
+      .then((r) => r.data),
+
+  /** S01 "Xem" — the whole configuration of one report. */
+  getReportDetail: (reportId: string) =>
+    api.get<ReportDetailView>(`/bao-cao-dong/reports/${reportId}`).then((r) => r.data),
+
+  /** Hide a report and stop it generating periods; every figure stays. */
+  archiveReport: (reportId: string) =>
+    api.post<{ status: 'ARCHIVED' }>(`/bao-cao-dong/reports/${reportId}/archive`, {}).then((r) => r.data),
+
+  unarchiveReport: (reportId: string) =>
+    api.post<{ status: 'SUSPENDED' }>(`/bao-cao-dong/reports/${reportId}/unarchive`, {}).then((r) => r.data),
+
+  /** What deleting would destroy — read before the confirmation is shown. */
+  getReportDeletionImpact: (reportId: string) =>
+    api.get<ReportDeletionImpact>(`/bao-cao-dong/reports/${reportId}/deletion-impact`).then((r) => r.data),
+
+  /** Delete a report nobody has entered anything into (409 HAS_DATA otherwise). */
+  deleteReport: (reportId: string) =>
+    api.delete<{ deleted: true }>(`/bao-cao-dong/reports/${reportId}`).then((r) => r.data),
+
+  /** Admin only: delete the report together with every figure; the report code must be typed back. */
+  deleteReportWithData: (reportId: string, confirmCode: string) =>
+    api
+      .delete<{ deleted: true }>(`/bao-cao-dong/reports/${reportId}/with-data`, { params: { confirmCode } })
       .then((r) => r.data),
 
   /** S22 "Danh sách phiên bản" — read-only. */

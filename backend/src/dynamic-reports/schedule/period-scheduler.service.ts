@@ -66,6 +66,12 @@ export class PeriodSchedulerService {
     });
 
     for (const report of reports) {
+      // `reports` was read a moment ago; archiving, suspending or deleting may have happened since. Re-read the status
+      // under a row lock (they all UPDATE the row, so they wait for this tick, and the next ones see their result).
+      const [current] = await tx.$queryRaw<Array<{ status: string }>>`
+        SELECT status::text AS status FROM dyn_reports WHERE id = ${report.id} FOR SHARE
+      `;
+      if (current?.status !== 'PUBLISHED') continue;
       for (const schedule of report.schedules) {
         if (schedule.effectiveFrom > now) continue;
         try {

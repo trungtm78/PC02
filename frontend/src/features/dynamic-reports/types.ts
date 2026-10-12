@@ -176,6 +176,112 @@ export interface VersionListItem {
   periodKeys: string[];
 }
 
+/** S01 "Xem" — the whole configuration of one report (`GET /bao-cao-dong/reports/:id`). */
+export interface ReportDetailField {
+  sheetKey: string;
+  address: string;
+  fieldKey: string;
+  label: string;
+  type: string;
+  format: string | null;
+  aggregate: string;
+  blankPolicy: string;
+  required: boolean;
+  min: string | null;
+  max: string | null;
+  scale: number | null;
+  maxLength: number | null;
+  helpText: string | null;
+  source: string;
+}
+
+export interface ReportDetailRule {
+  name: string;
+  leftExpr: string;
+  operator: string;
+  rightExpr: string;
+  severity: string;
+  message: string;
+  missingStrategy: string | null;
+  origin: string;
+}
+
+export interface ReportDetailVersion {
+  versionId: string;
+  version: number;
+  status: DynReportVersionStatus;
+  fileName: string;
+  selectedSheets: string[];
+  dateSystem: string;
+  publishedAt: string | null;
+  createdAt: string;
+  fields: ReportDetailField[];
+  rules: ReportDetailRule[];
+}
+
+export interface ReportDetailPeriod {
+  periodId: string;
+  periodKey: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  opensAt: string;
+  dueAt: string;
+  version: number;
+  teamCount: number;
+  submittedCount: number;
+}
+
+export interface ReportDetailView {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  status: DynReportStatus;
+  reportingUnit: string;
+  effectiveFrom: string | null;
+  configVersion: number;
+  createdAt: string;
+  updatedAt: string;
+  schedule: {
+    periodType: DynReportPeriodType;
+    periodStartDay: number | null;
+    dueRule: Record<string, unknown>;
+    openRule: Record<string, unknown>;
+    shiftNonWorking: boolean;
+    oneTimeDate: string | null;
+    timezone: string;
+    effectiveFrom: string;
+  } | null;
+  roles: Array<{ userId: string; name: string; role: 'MANAGER' | 'VIEWER'; teamScopeId: string | null }>;
+  targets: Array<{
+    teamId: string;
+    teamCode: string;
+    teamName: string;
+    editors: Array<{ userId: string; name: string }>;
+  }>;
+  currentVersion: ReportDetailVersion | null;
+  versionCount: number;
+  periods: ReportDetailPeriod[];
+  periodTotal: number;
+}
+
+/** What deleting a report would destroy — shown before anyone confirms. */
+export interface ReportDeletionImpact {
+  reportId: string;
+  code: string;
+  name: string;
+  versions: number;
+  periods: number;
+  finalizedPeriods: number;
+  assignments: number;
+  submissionsWithData: number;
+  revisions: number;
+  comments: number;
+  unlocks: number;
+  hasData: boolean;
+}
+
 export interface AssignmentSummary {
   assignmentId: string;
   reportId: string;

@@ -1427,18 +1427,29 @@ export class AggregateService {
     }
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
 
-    const exportRow = await this.prisma.dynReportExport.create({
-      data: {
-        requestedById: userId,
-        kind: 'MANAGER_FULL',
-        scope: { periodId, reportId: period.reportId },
-        snapshotId,
-        status: 'READY',
-        fileBytes: fileBuffer as unknown as Uint8Array<ArrayBuffer>,
-        fileName,
-        contributorSetHash: computed.contributorSetHash,
-        expiresAt: new Date(Date.now() + EXPORT_TTL_MS),
-      },
+    // The workbook above took a while to render. Deleting the report takes the period FOR UPDATE, so holding it FOR
+    // SHARE while the row goes in means either the export lands before the delete (and the delete removes it) or the
+    // period is already gone and nothing is written: a deleted report's figures cannot come back as a download.
+    const exportRow = await this.prisma.$transaction(async (tx) => {
+      const alive = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM dyn_report_periods WHERE id = ${periodId} FOR SHARE
+      `;
+      if (alive.length === 0) {
+        throw new NotFoundException('Kỳ báo cáo không còn tồn tại.');
+      }
+      return tx.dynReportExport.create({
+        data: {
+          requestedById: userId,
+          kind: 'MANAGER_FULL',
+          scope: { periodId, reportId: period.reportId },
+          snapshotId,
+          status: 'READY',
+          fileBytes: fileBuffer as unknown as Uint8Array<ArrayBuffer>,
+          fileName,
+          contributorSetHash: computed.contributorSetHash,
+          expiresAt: new Date(Date.now() + EXPORT_TTL_MS),
+        },
+      });
     });
 
     return { exportId: exportRow.id, fileName, format };

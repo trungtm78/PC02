@@ -6,20 +6,16 @@
  * shape of use as DeadlineRulesListPage — an org configures at most a
  * handful of report templates, never thousands.
  *
- * "Tạo báo cáo" links to the upload step (S02/S03, PR4 slice 3). "Xem" /
- * "Sửa nháp" / "Tạo phiên bản" / "Sao chép cấu hình" are still NOT wired —
- * the rest of the wizard (S04-S10) that they lead to doesn't exist yet.
- * They render with an inline note rather than linking to a page that 404s.
- *
- * "Ngừng phát sinh" (S31, PR4 slice 6) IS wired — it needs no wizard,
- * just one state flip (`DynReport.status` PUBLISHED → SUSPENDED) that
- * `PeriodSchedulerService` already checks before generating a report's
- * next period.
+ * Design standard "created ⇒ editable and deletable": every row can be opened ("Xem" → the detail page, where the
+ * rest of the actions live), stopped and resumed ("Ngừng phát sinh" / "Tiếp tục phát sinh", one state flip that
+ * `PeriodSchedulerService` already checks), and deleted ("Xoá" → archive, or delete when nobody has entered anything,
+ * or — admin only — delete together with the figures).
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileSpreadsheet, AlertCircle, Plus } from 'lucide-react';
+import ReportDeleteDialog, { type ReportDeleteOutcome } from './ReportDeleteDialog';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { ReportSetupSummary } from '@/features/dynamic-reports/types';
 import {
@@ -52,6 +48,7 @@ function ManagersCell({ managers }: { managers: string[] }) {
 export default function ReportRegisterPage() {
   const [actionNote, setActionNote] = useState<string | null>(null);
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<ReportSetupSummary | null>(null);
   const queryClient = useQueryClient();
 
   const listQ = useQuery({
@@ -65,9 +62,25 @@ export default function ReportRegisterPage() {
     ? 'Không tải được danh sách báo cáo — vui lòng thử lại.'
     : null;
 
-  const announceComingSoon = (action: string) => {
-    setActionNote(`${action}: chức năng đang được phát triển ở PR tiếp theo.`);
-  };
+  function handleDeleted(outcome: ReportDeleteOutcome) {
+    const name = deleting?.name ?? '';
+    setDeleting(null);
+    setActionNote(outcome === 'deleted' ? `Đã xoá báo cáo "${name}".` : `Đã lưu trữ báo cáo "${name}".`);
+    void queryClient.invalidateQueries({ queryKey: DYN_REPORTS_QUERY_KEY });
+  }
+
+  async function handleResume(report: ReportSetupSummary) {
+    setSuspendingId(report.id);
+    setActionNote(null);
+    try {
+      await dynamicReportsApi.resumeReportGeneration(report.id);
+      await queryClient.invalidateQueries({ queryKey: DYN_REPORTS_QUERY_KEY });
+    } catch {
+      setActionNote(`Không tiếp tục phát sinh được "${report.name}" — vui lòng thử lại.`);
+    } finally {
+      setSuspendingId(null);
+    }
+  }
 
   async function handleSuspend(report: ReportSetupSummary) {
     if (
@@ -123,18 +136,17 @@ export default function ReportRegisterPage() {
       { key: 'updatedAt', header: 'Cập nhật', width: '9rem', optional: 'show',
         cellClassName: 'px-3 py-3 text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => formatVNDate(r.updatedAt) },
-      { key: 'actions', header: 'Thao tác', width: '10rem',
+      { key: 'actions', header: 'Thao tác', width: '21rem',
         cellClassName: 'px-3 py-3 whitespace-nowrap overflow-hidden',
         render: (r) => (
           <div className="flex items-center gap-1">
-            <button
-              type="button"
+            <Link
+              to={`/bao-cao-dong/thiet-lap/${r.id}`}
               className={`px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
               data-testid={`btn-view-${r.code}`}
-              onClick={() => announceComingSoon(`Xem "${r.name}"`)}
             >
               Xem
-            </button>
+            </Link>
             <Link
               to={`/bao-cao-dong/thiet-lap/${r.id}/phien-ban`}
               className={`px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
@@ -153,6 +165,25 @@ export default function ReportRegisterPage() {
                 Ngừng phát sinh
               </button>
             )}
+            {r.status === 'SUSPENDED' && (
+              <button
+                type="button"
+                className={`px-2 py-1 text-xs text-green-700 hover:bg-green-50 rounded disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                data-testid={`btn-resume-${r.code}`}
+                disabled={suspendingId === r.id}
+                onClick={() => void handleResume(r)}
+              >
+                Tiếp tục phát sinh
+              </button>
+            )}
+            <button
+              type="button"
+              className={`px-2 py-1 text-xs text-red-700 hover:bg-red-50 rounded ${A11Y_FOCUS_RING}`}
+              data-testid={`btn-delete-${r.code}`}
+              onClick={() => setDeleting(r)}
+            >
+              Xoá
+            </button>
           </div>
         ) },
     ],
@@ -234,6 +265,7 @@ export default function ReportRegisterPage() {
           }}
         />
       </ListPageShell>
+      <ReportDeleteDialog report={deleting} onClose={() => setDeleting(null)} onDone={handleDeleted} />
     </div>
   );
 }
