@@ -3,6 +3,15 @@ import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { AggregateService } from './aggregate.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TeamsService } from '../../teams/teams.service';
+import type { FormulaEvaluationService } from './formula-evaluation.service';
+
+/** By default the template's formulas have nothing to say (no formula cells), so summaries are unaffected. */
+function buildFormulaMock(outcomes: Record<string, unknown> = {}) {
+  return {
+    evaluate: jest.fn().mockResolvedValue(outcomes),
+    calcEngineVersion: 1,
+  } as unknown as FormulaEvaluationService;
+}
 
 /** R13 (PR7 slice 9) — default has no VIEWER scope in play, so `getDescendantIds` is never called by existing tests. */
 function buildTeamsServiceMock(
@@ -87,10 +96,14 @@ describe('AggregateService', () => {
     period: unknown,
     grants: Array<{ role: string; teamScopeId?: string | null }> = [],
     teamsService?: TeamsService,
+    extra: { formulas?: FormulaEvaluationService; snapshot?: unknown } = {},
   ) {
     const prisma = {
       dynReportPeriod: {
         findUnique: jest.fn().mockResolvedValue(period),
+      },
+      dynReportSnapshot: {
+        findFirst: jest.fn().mockResolvedValue(extra.snapshot ?? null),
       },
       rolePermission: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -112,6 +125,7 @@ describe('AggregateService', () => {
       prisma as unknown as PrismaService,
       teamsService ?? buildTeamsServiceMock(),
       { emit: jest.fn() } as unknown as EventEmitter2,
+      extra.formulas ?? buildFormulaMock(),
     );
     return { service, prisma };
   }
@@ -148,6 +162,88 @@ describe('AggregateService', () => {
     const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
     const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
     expect(result.versionId).toBe('version1');
+  });
+
+  describe('official formula figures (OV1/OV10)', () => {
+    const OUTCOMES = {
+      'Đội 3!G10': { ok: true, type: 'boolean', value: true },
+      'Đội 3!D12': { ok: true, type: 'number', value: '30' },
+      'Đội 3!D13': { ok: false, code: 'DIV_BY_ZERO' },
+    };
+
+    it('an open period gets its formulas worked out now from the aggregated totals', async () => {
+      const formulas = buildFormulaMock(OUTCOMES);
+      const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }], undefined, { formulas });
+
+      const view = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+
+      expect(formulas.evaluate).toHaveBeenCalledWith('version1', { [FIELD.fieldKey]: '30' }, 'none');
+      expect(view.formulaSource).toBe('LIVE');
+      expect(view.calcEngineVersion).toBe(1);
+      expect(view.formulaValues).toMatchObject({
+        'Đội 3!G10': { ok: true, type: 'boolean', value: true },
+        'Đội 3!D12': { ok: true, type: 'number', value: '30' },
+        'Đội 3!D13': { ok: false, code: 'DIV_BY_ZERO' },
+      });
+    });
+
+    it('a closed period shows the figures it was closed with and does not calculate again', async () => {
+      const formulas = buildFormulaMock(OUTCOMES);
+      const snapshot = {
+        formulaValues: { 'Đội 3!D12': { ok: true, type: 'number', value: '99' } },
+        calcEngineVersion: 7,
+      };
+      const { service } = buildService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], undefined, {
+        formulas,
+        snapshot,
+      });
+
+      const view = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'APPROVED');
+
+      expect(view.formulaSource).toBe('FROZEN');
+      expect(view.calcEngineVersion).toBe(7); // the calculator of THAT day, not today's
+      expect(view.formulaValues).toEqual({ 'Đội 3!D12': { ok: true, type: 'number', value: '99' } });
+      expect(formulas.evaluate).not.toHaveBeenCalled();
+    });
+
+    it('a period closed before formula figures were frozen says so, and is never recomputed', async () => {
+      const formulas = buildFormulaMock(OUTCOMES);
+      const { service } = buildService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], undefined, {
+        formulas,
+        snapshot: { formulaValues: null, calcEngineVersion: null },
+      });
+
+      const view = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'APPROVED');
+
+      expect(view.formulaSource).toBe('UNAVAILABLE');
+      expect(view.formulaValues).toBeNull();
+      expect(formulas.evaluate).not.toHaveBeenCalled();
+    });
+
+    it('a closed period viewed in another mode is calculated live: the frozen figures belong to APPROVED only', async () => {
+      const formulas = buildFormulaMock(OUTCOMES);
+      const { service } = buildService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], undefined, {
+        formulas,
+        snapshot: { formulaValues: {}, calcEngineVersion: 1 },
+      });
+
+      const view = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+
+      expect(view.formulaSource).toBe('LIVE');
+      expect(formulas.evaluate).toHaveBeenCalled();
+    });
+
+    it('failing to calculate never takes the summary down: the figures are just unavailable', async () => {
+      const formulas = buildFormulaMock();
+      (formulas.evaluate as jest.Mock).mockRejectedValue(new Error('GRID_UNAVAILABLE'));
+      const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }], undefined, { formulas });
+
+      const view = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+
+      expect(view.formulaSource).toBe('UNAVAILABLE');
+      expect(view.formulaValues).toBeNull();
+      expect(view.fields[0].value).toBe('30'); // the totals are still there
+    });
   });
 
   it('adds 18-digit figures exactly — the total carries every digit the teams typed (review OV4)', async () => {
@@ -300,6 +396,7 @@ describe('AggregateService', () => {
       prisma as unknown as PrismaService,
       buildTeamsServiceMock(),
       { emit: jest.fn() } as unknown as EventEmitter2,
+      buildFormulaMock(),
     );
 
     const result = await service.getPeriodSummary(
@@ -368,7 +465,11 @@ describe('AggregateService', () => {
   });
 
   describe('finalizePeriod / reopenPeriod (S38, PR7 slice 6)', () => {
-    function buildTxService(period: unknown, grants: unknown[] = []) {
+    function buildTxService(
+      period: unknown,
+      grants: unknown[] = [],
+      formulas: FormulaEvaluationService = buildFormulaMock(),
+    ) {
       const tx = {
         $queryRaw: jest.fn<Promise<unknown>, unknown[]>(),
         dynReportPeriod: {
@@ -405,6 +506,7 @@ describe('AggregateService', () => {
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
         eventEmitter as unknown as EventEmitter2,
+        formulas,
       );
       return { service, tx, eventEmitter };
     }
@@ -442,6 +544,33 @@ describe('AggregateService', () => {
       };
       expect(periodUpdateCall.data.status).toBe('FINALIZED');
       expect(periodUpdateCall.data.finalizedById).toBe('mgr1');
+    });
+
+    it('freezes the official formula figures into the snapshot, with the calculator that produced them (OV1/OV10)', async () => {
+      const outcomes = { 'Đội 3!G10': { ok: true, type: 'boolean', value: true } };
+      const formulas = buildFormulaMock(outcomes);
+      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      expect(data.formulaValues).toEqual(outcomes);
+      expect(data.calcEngineVersion).toBe(1);
+      // Worked out from the APPROVED totals (only a2 → 20), a blank reported rather than guessed.
+      expect(formulas.evaluate).toHaveBeenCalledWith('version1', { [FIELD.fieldKey]: '20' }, 'none');
+    });
+
+    it('still closes the period when the formulas cannot be calculated, and the snapshot says it has none', async () => {
+      const formulas = buildFormulaMock();
+      (formulas.evaluate as jest.Mock).mockRejectedValue(new Error('GRID_BUSY'));
+      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.status).toBe('FINALIZED');
+      const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      expect(data.formulaValues).toBeUndefined();
+      expect(data.calcEngineVersion).toBeUndefined();
     });
 
     it('PR9 slice 3: emits dyn-report.period-finalized to every manager of the report', async () => {
@@ -596,6 +725,7 @@ describe('AggregateService', () => {
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildFormulaMock(),
       );
       return { service, prisma };
     }
@@ -760,6 +890,7 @@ describe('AggregateService', () => {
         prisma as unknown as PrismaService,
         teamsService ?? buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildFormulaMock(),
       );
       return { service, prisma };
     }
@@ -968,6 +1099,7 @@ describe('AggregateService', () => {
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildFormulaMock(),
       );
       return { service, prisma };
     }
@@ -1127,6 +1259,7 @@ describe('AggregateService', () => {
         prisma as unknown as PrismaService,
         buildTeamsServiceMock(),
         { emit: jest.fn() } as unknown as EventEmitter2,
+        buildFormulaMock(),
       );
       return { service, tx, prisma };
     }
@@ -1404,6 +1537,7 @@ describe('AggregateService', () => {
           prisma as unknown as PrismaService,
           buildTeamsServiceMock(),
           { emit: jest.fn() } as unknown as EventEmitter2,
+          buildFormulaMock(),
         );
         return { service, tx };
       }

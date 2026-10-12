@@ -4,7 +4,8 @@ import { TemplateLimitError } from './limits';
 import { BoundedRunner } from './bounded-runner';
 import type { ParseTemplateResult } from './types';
 import type { GridModel } from '../engine/grid-types';
-import type { WorkerMessage } from './parse-worker';
+import type { EvaluateRequest, WorkerMessage } from './parse-worker';
+import type { FormulaOutcome } from '../engine/grid-workbook';
 import type { TemplateExportRequest } from '../export/template-export';
 
 /**
@@ -69,11 +70,12 @@ function hydrateError(error: { message: string; code?: string }): Error {
 export type WorkbookSource = Buffer | (() => Promise<Buffer>);
 
 function runInWorker<T>(
-  mode: 'parse' | 'grid' | 'export',
+  mode: 'parse' | 'grid' | 'export' | 'evaluate',
   source: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number,
   exportRequest?: TemplateExportRequest,
+  evaluateRequest?: EvaluateRequest,
 ): Promise<T> {
   return runner.run(async () => {
     // Fetched only now, inside the slot: a request that is queued — or refused
@@ -83,7 +85,7 @@ function runInWorker<T>(
     return new Promise<T>((resolve, reject) => {
       const isTs = path.extname(__filename) === '.ts';
       const worker = new Worker(workerFilePath(), {
-        workerData: { mode, buffer, selectedSheetNames, exportRequest },
+        workerData: { mode, buffer, selectedSheetNames, exportRequest, evaluateRequest },
         execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
         resourceLimits: { maxOldGenerationSizeMb: WORKER_MAX_OLD_GEN_MB },
       });
@@ -155,4 +157,16 @@ export async function exportTemplateInWorker(
 ): Promise<Buffer> {
   const bytes = await runInWorker<Uint8Array>('export', source, [], timeoutMs, request);
   return Buffer.from(bytes);
+}
+
+/**
+ * Works out every formula of a template for a set of values, in an isolated,
+ * bounded worker. No workbook is read: the render model already carries every
+ * constant and formula. The answer is a plain object (decimal strings, codes).
+ */
+export function evaluateFormulasInWorker(
+  request: EvaluateRequest,
+  timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
+): Promise<Record<string, FormulaOutcome>> {
+  return runInWorker<Record<string, FormulaOutcome>>('evaluate', Buffer.alloc(0), [], timeoutMs, undefined, request);
 }

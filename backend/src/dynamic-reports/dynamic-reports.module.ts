@@ -15,6 +15,7 @@ import { SubmissionService } from './submission/submission.service';
 import { AggregateController } from './aggregate/aggregate.controller';
 import { ExportController } from './aggregate/export.controller';
 import { AggregateService } from './aggregate/aggregate.service';
+import { FormulaEvaluationService } from './aggregate/formula-evaluation.service';
 import { StatusQueryController } from './status/status-query.controller';
 import { StatusQueryService } from './status/status-query.service';
 import { GridController } from './grid/grid.controller';
@@ -52,6 +53,7 @@ import { TeamsModule } from '../teams/teams.module';
     ReportConfigService,
     SubmissionService,
     AggregateService,
+    FormulaEvaluationService,
     StatusQueryService,
   ],
 })

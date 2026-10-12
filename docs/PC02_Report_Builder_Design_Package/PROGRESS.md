@@ -1143,6 +1143,25 @@ bằng `decimal.js` với bản sao độ chính xác 60 chữ số (mặc đị
 số thập phân. Màn quản lý đã dùng chuỗi nên không đổi; kiểm: 18 chữ số cộng chính xác, 0,1+0,2=0,3, MIN/MAX trả nguyên văn, 300 số
 18 chữ số, không bao giờ có số mũ, và qua `getPeriodSummary` thật (số của từng tổ giữ nguyên trong cửa sổ nguồn).
 
+### OV1/OV10 — số công thức CHÍNH THỨC do máy chủ tính và đóng băng khi chốt kỳ (12/10/2026)
+Trước đây máy chủ không tính ô công thức: snapshot chỉ có giá trị ô nhập, nên màn tổng hợp, file xuất và Excel có thể ra ba con số khác
+nhau. Nay `FormulaEvaluationService` (cache LRU 100, khoá = phiên bản mẫu + chế độ ô trống + băm toàn bộ giá trị) chạy
+`evaluateAllFormulas` trong worker và là nguồn DUY NHẤT của số công thức:
+- `getPeriodSummary` trả thêm `formulaValues` (khoá `Sheet!Địa chỉ`; số là chuỗi thập phân, lỗi kèm mã + câu tiếng Việt), `formulaSource`
+  (`LIVE` tính ngay từ tổng đang hiển thị · `FROZEN` số lúc chốt kỳ, chế độ APPROVED của kỳ đã chốt · `UNAVAILABLE`) và `calcEngineVersion`.
+- Ô tổng hợp dùng `blankAs: 'none'`: tổ chưa nộp ⇒ "Thiếu dữ liệu", không bao giờ ngầm thành 0 (đã kiểm trên API thật với mẫu PL7:
+  chế độ SUBMITTED/APPROVED khi chưa ai nộp ra `MISSING_DATA`, ALL_SAVED ra TRUE).
+- `finalizePeriod` tính một lần rồi lưu `formulaValues` + `calcEngineVersion` vào snapshot chính thức (cột mới, migration chỉ thêm
+  `20261012130000`, áp thử trên DB cục bộ). Kỳ đã chốt KHÔNG BAO GIỜ tính lại: bộ tính tốt hơn sau này không được viết lại số đã báo cáo;
+  kỳ chốt trước khi có cột này hiện `UNAVAILABLE` thay vì bịa số.
+- Không tính được (worker bận, lưới quá lớn) thì kỳ vẫn chốt được và màn tổng hợp vẫn lên, chỉ phần công thức báo `UNAVAILABLE` + log cảnh báo.
+  `$transaction` của chốt kỳ nâng timeout lên 30 s vì có một lần gọi worker bên trong.
+- Kiểm: 74 ca `aggregate.service.spec` (LIVE / FROZEN / chưa đóng băng / chế độ khác / lỗi tính / finalize đóng băng / finalize chịu lỗi), 6 ca
+  `formula-evaluation.service.spec` (cache, khoá, không cache lỗi, giới hạn), 5 ca `evaluateAllFormulas` (khoá, 18 chữ số, mã lỗi, 'none' vs 'blank'),
+  2 ca worker (cùng kết quả trong worker và tại chỗ, hết giờ). Backend `dynamic-reports`+`common`: 2301 qua / 0 lỗi (11 ca DB bị bỏ qua vì
+  không đặt `DYN_REPORTS_DATABASE_URL` — là CHƯA KIỂM, không phải đạt); `tsc` backend và `tsc -b` frontend sạch.
+- Chưa làm (thuộc G4/G5b): màn S15 chưa vẽ `formulaValues` lên lưới; file xuất của quản lý chưa ghi số này vào sheet TỔNG.
+
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|

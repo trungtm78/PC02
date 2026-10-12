@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
 import * as ExcelJS from 'exceljs';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DynReportPeriodFinalizedEvent } from '../../notifications/events/notification.events';
 import { aggregateValues } from '../engine/aggregate';
+import { CALC_ENGINE_VERSION } from '../engine/grid-workbook';
+import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
+import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -71,6 +74,14 @@ export interface PeriodSummaryView {
   mode: SummaryMode;
   kpi: KpiSummaryView;
   fields: FieldAggregateView[];
+  /**
+   * The OFFICIAL figure of every formula cell of the template, worked out from the aggregated values by the
+   * server (GA1): LIVE while the period is open, FROZEN once it is closed (the figures it was closed with),
+   * UNAVAILABLE for a period closed before this existed or when the template cannot be calculated.
+   */
+  formulaValues: Record<string, FormulaCellView> | null;
+  formulaSource: FormulaSource;
+  calcEngineVersion: number | null;
   serverTime: string;
 }
 
@@ -210,10 +221,13 @@ const CONTRIBUTING_STATES: Record<SummaryMode, readonly SubmissionState[]> = {
  */
 @Injectable()
 export class AggregateService {
+  private readonly logger = new Logger(AggregateService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamsService: TeamsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly formulas: FormulaEvaluationService,
   ) {}
 
   private async resolveManagerRole(
@@ -493,6 +507,12 @@ export class AggregateService {
       };
     });
 
+    const formulaPart = await this.resolveFormulas(
+      { id: period.id, versionId: period.versionId, status: period.status },
+      mode,
+      fields,
+    );
+
     return {
       reportId: period.reportId,
       versionId: period.versionId,
@@ -506,8 +526,58 @@ export class AggregateService {
       mode,
       kpi,
       fields,
+      ...formulaPart,
       serverTime: now.toISOString(),
     };
+  }
+
+  /**
+   * The official formula figures for a summary. A closed period shows the figures it was closed with (frozen in
+   * its snapshot — a better calculator must never rewrite a number that was already reported); an open one
+   * calculates them now from the aggregated values. Failing to calculate (a template too large to draw, a busy
+   * worker) must never take the summary down with it: the figures are simply reported as unavailable.
+   */
+  private async resolveFormulas(
+    period: { id: string; versionId: string; status: string },
+    mode: SummaryMode,
+    fields: ReadonlyArray<{ fieldKey: string; value: string | null }>,
+  ): Promise<{
+    formulaValues: Record<string, FormulaCellView> | null;
+    formulaSource: FormulaSource;
+    calcEngineVersion: number | null;
+  }> {
+    const unavailable = { formulaValues: null, formulaSource: 'UNAVAILABLE' as const, calcEngineVersion: null };
+    try {
+      if (period.status === 'FINALIZED' && mode === 'APPROVED') {
+        const snapshot = await this.prisma.dynReportSnapshot.findFirst({
+          where: { periodId: period.id, official: true, invalidatedAt: null },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (snapshot) {
+          if (!snapshot.formulaValues) return unavailable; // closed before formula figures were frozen: say so, never recompute
+          return {
+            formulaValues: toFormulaView(snapshot.formulaValues as unknown as Parameters<typeof toFormulaView>[0]),
+            formulaSource: 'FROZEN',
+            calcEngineVersion: snapshot.calcEngineVersion,
+          };
+        }
+      }
+      const outcomes = await this.formulas.evaluate(
+        period.versionId,
+        Object.fromEntries(fields.map((f) => [f.fieldKey, f.value])),
+        'none',
+      );
+      return {
+        formulaValues: toFormulaView(outcomes),
+        formulaSource: 'LIVE',
+        calcEngineVersion: CALC_ENGINE_VERSION,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Không tính được công thức của kỳ ${period.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return unavailable;
+    }
   }
 
   /**
@@ -588,6 +658,22 @@ export class AggregateService {
         sourceHash,
       } = this.computeApprovedSnapshot(period);
 
+      // Freeze the formula figures with the snapshot (OV1/OV10). If the template cannot be calculated right now
+      // the period still closes — its aggregated figures are what matter — and the snapshot says it has none.
+      let frozenFormulas: Prisma.InputJsonValue | undefined;
+      try {
+        const outcomes = await this.formulas.evaluate(
+          period.versionId,
+          Object.fromEntries(Object.entries(snapshotValues).map(([k, v]) => [k, v.value])),
+          'none',
+        );
+        frozenFormulas = outcomes as unknown as Prisma.InputJsonValue;
+      } catch (err) {
+        this.logger.warn(
+          `Chốt kỳ ${periodId}: không đóng băng được số công thức (${err instanceof Error ? err.message : String(err)}).`,
+        );
+      }
+
       const now = new Date();
       const snapshot = await tx.dynReportSnapshot.create({
         data: {
@@ -600,6 +686,8 @@ export class AggregateService {
           engineVersion: SNAPSHOT_ENGINE_VERSION,
           asOf: now,
           official: true,
+          formulaValues: frozenFormulas,
+          calcEngineVersion: frozenFormulas ? CALC_ENGINE_VERSION : undefined,
         },
       });
 
@@ -623,7 +711,8 @@ export class AggregateService {
           periodKey: period.periodKey,
         },
       };
-    });
+      // Calculating the formulas runs a worker while the period row is locked; the default 5 s is too tight.
+    }, { timeout: 30_000 });
     if (notify.toUserIds.length > 0) {
       this.eventEmitter.emit(
         'dyn-report.period-finalized',

@@ -4411,6 +4411,11 @@ model DynReportSnapshot {
   invalidatedReason   String?
   official            Boolean                  @default(false)
   createdAt           DateTime                 @default(now())
+  // OV1/OV10: what every formula of the template came to for these values, frozen when the period is
+  // closed and never recomputed; calcEngineVersion says which calculator produced them. NULL on
+  // snapshots taken before this existed (shown as "chưa có số công thức", never recomputed).
+  formulaValues       Json?
+  calcEngineVersion   Int?
 
   exports DynReportExport[]
 
