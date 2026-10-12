@@ -12,6 +12,7 @@ import type { CellChange } from './history';
 import { resolveKey } from './keymap';
 import type { GridMode } from './keymap';
 import {
+  blockRect,
   buildNavModel,
   firstInput,
   moveEnd,
@@ -23,7 +24,7 @@ import {
   nextInputByRow,
   resolve,
 } from './navigation';
-import type { NavModel, Pos } from './navigation';
+import type { NavModel, Pos, Rect } from './navigation';
 import { normalizeInput, nowTime, toEditText, todayIso } from './normalizeInput';
 import type { EditableField } from './normalizeInput';
 import { parseClipboardText, planGridPaste, toClipboardText } from './clipboard';
@@ -98,9 +99,10 @@ export default function GridEntry(props: GridEntryProps) {
 
   const sheet = grid.sheets.find((s) => s.name === sheetName);
 
-  // The model below outlives a render; it must still see today's values.
+  // The model below outlives a render; it must still see today's values and today's field placement.
   const valueOfRef = useRef(valueOf);
   valueOfRef.current = valueOf;
+  const fieldByOwnerRef = useRef<ReadonlyMap<string, EntryField>>(new Map());
 
   // ---- layout: the same rows/columns the table draws ------------------------------------
   const index = useMemo(() => (sheet ? buildSheetIndex(sheet) : null), [sheet]);
@@ -127,7 +129,8 @@ export default function GridEntry(props: GridEntryProps) {
         return { row, col };
       }),
       isFilled: (row, col) => {
-        const f = fieldAtPos.get(cellKey(row, col));
+        // (row, col) is the cell that DRAWS a block; its field may have been declared at a hidden anchor.
+        const f = fieldByOwnerRef.current.get(cellKey(row, col)) ?? fieldAtPos.get(cellKey(row, col));
         if (f) return valueOfRef.current(f.fieldKey) !== '';
         const cell = sheet.cells[formatAddress({ col, row: row + 1 })];
         return !!cell && cell.k !== 'empty';
@@ -147,6 +150,19 @@ export default function GridEntry(props: GridEntryProps) {
       if (!map.has(ownerKey)) map.set(ownerKey, f);
     }
     return map;
+  }, [model, fieldAtPos]);
+  fieldByOwnerRef.current = fieldByOwner;
+
+  /** Where each input field actually sits on screen: the block that draws it, else its own cell. */
+  const placements = useMemo(() => {
+    const out: Array<{ field: EntryField; rect: Rect }> = [];
+    if (!model) return out;
+    for (const [k, f] of fieldAtPos) {
+      const [row, col] = k.split(',').map(Number);
+      const owner = resolve(model, { row, col });
+      out.push({ field: f, rect: owner ? blockRect(model, owner) : { top: row, left: col, bottom: row, right: col } });
+    }
+    return out;
   }, [model, fieldAtPos]);
 
   const fieldAt = useCallback(
@@ -211,7 +227,10 @@ export default function GridEntry(props: GridEntryProps) {
 
   // Locked while typing (deadline, submit started): the draft is dropped, never written.
   useEffect(() => {
-    if (!editable && mode !== 'nav') endTyping();
+    if (!editable && mode !== 'nav') {
+      endTyping();
+      setInvalid(new Map()); // the held text is gone, so is the reason to hold up the page
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editable]);
 
@@ -256,6 +275,8 @@ export default function GridEntry(props: GridEntryProps) {
       [{ key: field.fieldKey, before: valueOf(field.fieldKey) || null, after: result.value }],
       { remember: true, many: false },
     );
+    // Accepted — even when it equals what was already there (write() then has nothing to do): the refusal is over.
+    clearInvalid(field.fieldKey);
     setNotice(null);
     endTyping();
     return true;
@@ -264,6 +285,15 @@ export default function GridEntry(props: GridEntryProps) {
   function endTyping() {
     setMode('nav');
     writeDraft('');
+  }
+
+  function clearInvalid(fieldKey: string) {
+    setInvalid((prev) => {
+      if (!prev.has(fieldKey)) return prev;
+      const next = new Map(prev);
+      next.delete(fieldKey);
+      return next;
+    });
   }
 
   function select(next: Selection | null) {
@@ -336,13 +366,12 @@ export default function GridEntry(props: GridEntryProps) {
   const rect = sel ? selectionRect(model, sel) : null;
 
   /** Every input field inside a rectangle, hidden ones included: a rectangle means what it says. */
-  function fieldsInRect(r: { top: number; left: number; bottom: number; right: number }): EntryField[] {
-    const found: EntryField[] = [];
-    for (const [k, f] of fieldAtPos) {
-      const [row, col] = k.split(',').map(Number);
-      if (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right) found.push(f);
-    }
-    return found;
+  function fieldsInRect(r: Rect): EntryField[] {
+    // A field belongs to the block that draws it, wherever it was declared; the selection already
+    // takes in whole blocks, so "touches" and "is inside" mean the same thing here.
+    return placements
+      .filter((p) => p.rect.top <= r.bottom && p.rect.bottom >= r.top && p.rect.left <= r.right && p.rect.right >= r.left)
+      .map((p) => p.field);
   }
 
   function clearSelection() {
@@ -494,12 +523,13 @@ export default function GridEntry(props: GridEntryProps) {
       case 'insertNow':
         e.preventDefault();
         return insertNow('time');
+      // Refused up front: asking the history for a step it then cannot apply would lose that step.
       case 'undo':
         e.preventDefault();
-        return applyHistory(historyRef.current.undo());
+        return editable ? applyHistory(historyRef.current.undo()) : setNotice(NOTICE_LOCKED);
       case 'redo':
         e.preventDefault();
-        return applyHistory(historyRef.current.redo());
+        return editable ? applyHistory(historyRef.current.redo()) : setNotice(NOTICE_LOCKED);
       case 'swallow':
         return e.preventDefault();
     }
@@ -537,7 +567,10 @@ export default function GridEntry(props: GridEntryProps) {
     for (let r = rect.top; r <= rect.bottom; r++) {
       const line: string[] = [];
       for (let c = rect.left; c <= rect.right; c++) {
-        line.push(m.layout.covered.has(cellKey(r, c)) ? '' : textOf({ row: r, col: c }));
+        // A field declared right here is this cell's value even if the cell is covered by a block
+        // (a hidden anchor): never drop it from the clipboard.
+        const own = fieldAtPos.get(cellKey(r, c));
+        line.push(own ? toEditText(own, valueOf(own.fieldKey)) : m.layout.covered.has(cellKey(r, c)) ? '' : textOf({ row: r, col: c }));
       }
       matrix.push(line);
     }

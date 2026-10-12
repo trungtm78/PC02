@@ -795,6 +795,125 @@ describe('Codex review of G3c', () => {
     expect(cell('B2')).toHaveAttribute('aria-selected', 'true'); // B1..B2 is now one run, not B1 → B4
   });
 
+  it('cutting a rectangle takes a value held in a hidden merged row with it, and clears exactly that', () => {
+    const setData = vi.fn();
+    const probe = newProbe();
+    const fields: EntryField[] = [
+      { sheetKey: 'Đội 3', address: 'A2', fieldKey: 'Đội 3!A2', type: 'TEXT', label: 'Ẩn' },
+    ];
+    // A2:B2 is merged and row 2 is hidden.
+    const grid = columnGrid({ merges: [{ top: 1, left: 0, bottom: 1, right: 1 }], hiddenRows: [1] });
+    render(<Harness probe={probe} fields={fields} grid={grid} initial={{ 'Đội 3!A2': 'SECRET' }} />);
+    click('A1');
+    fireEvent.mouseDown(cell('B3'), { button: 0, shiftKey: true });
+    fireEvent.cut(editor(), { clipboardData: { setData } });
+    expect(setData.mock.calls[0][1]).toContain('SECRET');
+    expect(probe.batches).toEqual([{ 'Đội 3!A2': '' }]);
+  });
+
+  it('a held refusal is released as soon as the same value as before is confirmed', () => {
+    const problems: Array<string | null> = [];
+    render(<Harness probe={newProbe()} initial={{ 'Đội 3!C3': '7' }} onProblem={(m) => problems.push(m)} />);
+    click('C3');
+    typeText('x');
+    key('Enter');
+    expect(problems.at(-1)).toContain('C3');
+    fireEvent.change(editor(), { target: { value: '7' } }); // back to what the cell already held
+    key('Enter');
+    expect(problems.at(-1)).toBeNull();
+  });
+
+  it('locking the grid while a refused value is held releases the page for good', () => {
+    const problems: Array<string | null> = [];
+    const probe = newProbe();
+    const { rerender } = render(<Harness probe={probe} onProblem={(m) => problems.push(m)} />);
+    click('C4');
+    typeText('x');
+    key('Enter');
+    expect(problems.at(-1)).toContain('C4');
+    rerender(<Harness probe={probe} editable={false} onProblem={(m) => problems.push(m)} />);
+    expect(problems.at(-1)).toBeNull();
+    rerender(<Harness probe={probe} editable onProblem={(m) => problems.push(m)} />);
+    expect(problems.at(-1)).toBeNull();
+  });
+
+  it('an undo refused because the grid is locked is not lost: it works once the grid is open again', () => {
+    const probe = newProbe();
+    const { rerender } = render(<Harness probe={probe} initial={{ 'Đội 3!C3': '7' }} />);
+    click('C3');
+    typeText('9');
+    key('Enter');
+    rerender(<Harness probe={probe} initial={{ 'Đội 3!C3': '7' }} editable={false} />);
+    click('C3');
+    key('z', { ctrlKey: true });
+    expect(probe.batches).toEqual([]);
+    rerender(<Harness probe={probe} initial={{ 'Đội 3!C3': '7' }} editable />);
+    click('C3');
+    key('z', { ctrlKey: true });
+    expect(probe.batches).toEqual([{ 'Đội 3!C3': '7' }]);
+  });
+
+  it('Delete and cut act on a merged block whose field was declared at a hidden anchor', () => {
+    const setData = vi.fn();
+    const probe = newProbe();
+    const fields: EntryField[] = [
+      { sheetKey: 'Đội 3', address: 'A1', fieldKey: 'Đội 3!A1', type: 'NUM', label: 'Gộp' },
+    ];
+    const grid = columnGrid({ merges: [{ top: 0, left: 0, bottom: 0, right: 1 }], hiddenCols: [0] });
+    render(<Harness probe={probe} fields={fields} grid={grid} initial={{ 'Đội 3!A1': '7' }} />);
+    click('A1'); // drawn from B1
+    key('Delete');
+    expect(probe.batches).toEqual([{ 'Đội 3!A1': '' }]);
+    key('z', { ctrlKey: true });
+    fireEvent.cut(editor(), { clipboardData: { setData } });
+    expect(setData.mock.calls[0][1]).toBe('7\n');
+    expect(probe.batches.at(-1)).toEqual({ 'Đội 3!A1': '' });
+  });
+
+  it('what a merged block copies out can be pasted straight back (its covered cells copy as blanks)', () => {
+    const setData = vi.fn();
+    const probe = newProbe();
+    const fields: EntryField[] = [
+      { sheetKey: 'Đội 3', address: 'A1', fieldKey: 'Đội 3!A1', type: 'NUM', label: 'Gộp' },
+    ];
+    const grid = columnGrid({ merges: [{ top: 0, left: 0, bottom: 0, right: 1 }] });
+    render(<Harness probe={probe} fields={fields} grid={grid} initial={{ 'Đội 3!A1': '7' }} />);
+    click('A1');
+    fireEvent.copy(editor(), { clipboardData: { setData } });
+    const copied = setData.mock.calls[0][1] as string;
+    expect(copied).toBe('7\t\n');
+    fireEvent.paste(editor(), { clipboardData: { getData: () => copied.replace('7', '9') } });
+    expect(screen.getByTestId('grid-notice')).not.toHaveTextContent('cùng một ô gộp');
+    expect(probe.batches).toEqual([{ 'Đội 3!A1': '9' }]);
+  });
+
+  it('Ctrl+arrow treats a merged field declared at a hidden anchor as filled', () => {
+    const probe = newProbe();
+    const fields: EntryField[] = [
+      { sheetKey: 'Đội 3', address: 'B1', fieldKey: 'Đội 3!B1', type: 'NUM' },
+      { sheetKey: 'Đội 3', address: 'B2', fieldKey: 'Đội 3!B2', type: 'NUM' },
+      { sheetKey: 'Đội 3', address: 'B5', fieldKey: 'Đội 3!B5', type: 'NUM' },
+    ];
+    // B2:B3 is merged and row 2 is hidden: the block is drawn from B3 with its content at "B2".
+    const grid = columnGrid({
+      rows: 5,
+      rowHeightsPx: [20, 20, 20, 20, 20],
+      merges: [{ top: 1, left: 1, bottom: 2, right: 1 }],
+      hiddenRows: [1],
+    });
+    render(
+      <Harness
+        probe={probe}
+        fields={fields}
+        grid={grid}
+        initial={{ 'Đội 3!B1': '1', 'Đội 3!B2': '7', 'Đội 3!B5': '5' }}
+      />,
+    );
+    click('B1');
+    key('ArrowDown', { ctrlKey: true });
+    expect(cell('B2')).toHaveAttribute('aria-selected', 'true'); // the run B1 + block ends at the block, before blank B4
+  });
+
   it('typing does not re-render the grid, however long the text', () => {
     let commits = 0;
     const fields = columnFields(4);

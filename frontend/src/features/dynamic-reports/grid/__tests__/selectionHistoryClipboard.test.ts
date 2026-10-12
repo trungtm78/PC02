@@ -351,6 +351,14 @@ describe('planGridPaste', () => {
     expect(same).toEqual({ ok: true, changes: [{ fieldKey: 'S!A1', address: 'A1', value: 'same' }] });
   });
 
+  it('a blank beside the real value of the same merged field is not a conflict, in either order', () => {
+    const merged: PasteTarget = { fieldKey: 'S!A1', field: { type: 'TEXT' } };
+    const mergedAt = (p: Pos) => (p.row === 0 && p.col <= 1 ? merged : undefined);
+    const expected = { ok: true, changes: [{ fieldKey: 'S!A1', address: 'A1', value: '7' }] };
+    expect(planGridPaste({ text: '7\t', topLeft: at(0, 0), targetAt: mergedAt })).toEqual(expected);
+    expect(planGridPaste({ text: '\t7', topLeft: at(0, 0), targetAt: mergedAt })).toEqual(expected);
+  });
+
   it('copying a blank cell under a filled one and pasting over both clears the second, not fills it', () => {
     const copied = toClipboardText([['7'], ['']]);
     const plan = planGridPaste({

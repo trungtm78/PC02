@@ -175,6 +175,12 @@ export function planGridPaste(args: {
     // Several coordinates can belong to ONE field (a merged block): they must agree, or one value silently wins.
     const earlier = byField.get(target.fieldKey);
     if (earlier) {
+      // The covered cells of a merged block copy as blanks: a blank never contradicts the real value.
+      if (result.value === null) continue;
+      if (earlier.value === null) {
+        earlier.value = result.value;
+        continue;
+      }
       if (earlier.value !== result.value) {
         return {
           ok: false,

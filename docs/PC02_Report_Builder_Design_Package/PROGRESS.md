@@ -1095,6 +1095,11 @@ như file Excel gốc. Mặc định vẫn là danh sách (chưa ai bị đổi 
   khi cuộn → đo theo toạ độ màn hình + lắng nghe cuộn, z-index theo ô; (7) Ctrl+mũi tên dùng giá trị cũ → `isFilled` đọc ref giá
   trị hiện tại; (8) mỗi phím gõ vẽ lại cả bảng (3.000 ô/phím) → chữ đang gõ nằm trong textarea KHÔNG kiểm soát, gõ phím không còn
   render lại gì (cũng đúng chuẩn cho IME). 12 ca hồi quy mới, gieo 11 lỗi đều bị bắt.
+- **Codex vòng 2 (6 phát hiện, đã sửa hết):** cắt hình chữ nhật có ô gộp neo ẩn làm mất giá trị (clipboard bỏ ô phủ trong khi xoá
+  ô nhập) → ô nhập tính theo KHỐI VẼ nó, sao chép lấy giá trị ô nhập khai tại chỗ trước; cờ "đang giữ giá trị bị từ chối" không
+  nhả khi gõ lại đúng giá trị cũ hoặc khi khoá → luôn nhả khi xác nhận được/khi bỏ chữ; Ctrl+Z bị từ chối lúc khoá vẫn tiêu một
+  bước lịch sử → kiểm khoá TRƯỚC khi lấy bước; ô trống trong khối gộp không còn "xung đột" với giá trị thật khi dán lại chính
+  thứ vừa sao chép; Ctrl+mũi tên nhận ô gộp neo ẩn là ô đầy. 8 ca hồi quy, gieo thêm 7 lỗi đều bị bắt.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
