@@ -1,4 +1,4 @@
-import { WorkbookEvaluator, evaluateWorkbook } from './workbook-eval';
+﻿import { WorkbookEvaluator, evaluateWorkbook } from './workbook-eval';
 import type { WorkbookCell, WorkbookModel } from './workbook-eval';
 import { formatFormula, parseFormula } from './expr';
 
@@ -155,3 +155,106 @@ describe('formatFormula is a true inverse of parseFormula', () => {
     expect(second.expr).toEqual(first.expr);
   });
 });
+
+// Found by the Codex review of G0 (each one reproduced before the fix).
+describe('Codex G0 findings', () => {
+  it('a range whose row number is beyond the sheet is #REF!, not an endless loop', () => {
+    const res = evaluateWorkbook(
+      single({
+        A1: f('SUM(A99999999999999999999:A99999999999999999999)'),
+        A2: f('SUM(A1048577:A1048577)'),
+        A3: f('SUM(A0:A1)'),
+        A4: f('SUM(XFE1:XFE1)'),
+        A5: f('SUM(XFD1048576:XFD1048576)'),
+      }),
+      {},
+      { blankAs: 'blank' },
+    );
+    for (const a of ['A1', 'A2', 'A3', 'A4']) {
+      expect(res.get(`S!${a}`)).toMatchObject({ ok: false, error: { code: 'NOT_FOUND_REFERENCE' } });
+    }
+    expect(res.get('S!A5')).toMatchObject({ ok: true }); // the last legal cell is fine
+  });
+
+  it('MAX over ~65 000 numbers does not blow the stack', () => {
+    const cells: Record<string, WorkbookCell> = {};
+    const inputs: Record<string, string> = {};
+    for (let c = 0; c < 16384; c++) {
+      const addr = `${columnLetters(c)}1`;
+      cells[addr] = n();
+      inputs[`S!${addr}`] = String((c % 97) + 1);
+    }
+    cells['A2'] = f('MAX(A1:XFD1,A1:XFD1,A1:XFD1,A1:XFD1)');
+    cells['A3'] = f('MIN(A1:XFD1,A1:XFD1,A1:XFD1,A1:XFD1)');
+    const res = evaluateWorkbook(single(cells), inputs, { blankAs: 'blank', maxRangeCells: 100_000, maxSteps: 1_000_000 });
+    expect(res.get('S!A2')).toEqual({ ok: true, value: { type: 'number', value: '97' } });
+    expect(res.get('S!A3')).toEqual({ ok: true, value: { type: 'number', value: '1' } });
+  });
+
+  it('a 12 000-term formula is refused at parse time (Excel caps a formula at 8 192 characters)', () => {
+    const long = Array(12000).fill('1').join('+');
+    const res = evaluateWorkbook(single({ A1: f(long), A2: f('1') }), {}, { blankAs: 'blank' });
+    expect(res.get('S!A1')).toMatchObject({ ok: false });
+    expect(res.get('S!A2')).toMatchObject({ ok: true });
+    expect(parseFormula(long).ok).toBe(false);
+  });
+
+  it('a malformed number such as 1.2.3 is a parse error, not NaN', () => {
+    expect(parseFormula('1.2.3').ok).toBe(false);
+    expect(parseFormula('1..2').ok).toBe(false);
+  });
+
+  it('numbers round-trip through formatFormula without exponent notation', () => {
+    for (const src of ['1000000000000000000000+1', '0.0000001*2', '123456789012345678901234']) {
+      const first = parseFormula(src);
+      expect(first.ok).toBe(true);
+      if (!first.ok) continue;
+      const second = parseFormula(formatFormula(first.expr));
+      expect(second.ok).toBe(true);
+      if (second.ok) expect(second.expr).toEqual(first.expr);
+    }
+  });
+
+  it('a decomposed (NFD) Vietnamese sheet name survives parse → format → parse', () => {
+    const nfd = 'To\u0302\u0309ng'.normalize('NFD'); // "Tổng" typed as base letters + combining marks
+    const src = `${nfd}!A1+1`;
+    const first = parseFormula(src);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = parseFormula(formatFormula(first.expr));
+    expect(second.ok).toBe(true);
+    if (second.ok) expect(second.expr).toEqual(first.expr);
+  });
+
+  it('ROUND to a negative number of places rounds to tens/hundreds like Excel', () => {
+    const res = evaluateWorkbook(
+      single({ A1: f('ROUND(1234,-2)'), A2: f('ROUND(1250,-2)'), A3: f('ROUND(-1250,-2)'), A4: f('ROUND(2.5,0)') }),
+      {},
+      { blankAs: 'blank' },
+    );
+    const num = (a: string) => {
+      const r = res.get(`S!${a}`);
+      return r && r.ok && r.value.type === 'number' ? r.value.value : r;
+    };
+    expect(num('A1')).toBe('1200');
+    expect(num('A2')).toBe('1300'); // half away from zero
+    expect(num('A3')).toBe('-1300');
+    expect(num('A4')).toBe('3');
+  });
+
+  it('absurd ROUND digits fail the cell instead of throwing out of the evaluator', () => {
+    const res = evaluateWorkbook(single({ A1: f('ROUND(1.5,1000000000000)'), A2: f('1') }), {}, { blankAs: 'blank' });
+    expect(res.get('S!A1')).toMatchObject({ ok: false });
+    expect(res.get('S!A2')).toMatchObject({ ok: true });
+  });
+});
+
+function columnLetters(index: number): string {
+  let n = index + 1;
+  let out = '';
+  while (n > 0) {
+    out = String.fromCharCode(65 + ((n - 1) % 26)) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}

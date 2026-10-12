@@ -1,5 +1,11 @@
 ﻿import Decimal from 'decimal.js';
-import { RangeLimitError, collectRefs, evaluateExpr, parseFormula } from './expr';
+import {
+  RangeBoundsError,
+  RangeLimitError,
+  collectRefs,
+  evaluateExpr,
+  parseFormula,
+} from './expr';
 import type {
   CellReference,
   CellResolution,
@@ -76,6 +82,9 @@ export interface WorkbookEvalOptions {
 }
 
 export const DEFAULT_MAX_RANGE_CELLS = 50_000;
+/** Excel's sheet limits: rows 1..1 048 576, columns A..XFD (0-based index 16 383). */
+const MAX_ROW = 1_048_576;
+const MAX_COL = 16_383;
 const DEFAULT_MAX_STEPS = 200_000;
 
 const key = (sheet: string, cell: string): string => `${sheet}!${cell}`;
@@ -113,6 +122,13 @@ export function expandRangeRefs(
 
   const from = parseAddress(range.cellFrom);
   const to = parseAddress(range.cellTo ?? range.cellFrom);
+  // A corner beyond the sheet is #REF! in Excel. Checked first: an unsafe row
+  // number (> 2^53) makes `row++` a no-op, which would loop forever.
+  for (const corner of [from, to]) {
+    if (corner.row < 1 || corner.row > MAX_ROW || corner.col > MAX_COL) {
+      throw new RangeBoundsError(`Địa chỉ ô nằm ngoài bảng tính (${range.cellFrom}:${range.cellTo ?? range.cellFrom}).`);
+    }
+  }
   const col0 = Math.min(from.col, to.col);
   const col1 = Math.max(from.col, to.col);
   const row0 = Math.min(from.row, to.row);
@@ -144,9 +160,19 @@ interface FormulaNode {
   parseError: string | null;
   /** Formula nodes this one reads (graph edges). */
   deps: Set<string>;
-  /** Set when a range could not be expanded within the cap. */
-  tooLarge: boolean;
+  /** Set when a range could not be expanded: over the cap, or outside the sheet. */
+  refError: 'STEP_LIMIT_EXCEEDED' | 'NOT_FOUND_REFERENCE' | null;
   order: number;
+}
+
+/** True when a single cell address lies beyond Excel's grid. */
+function outsideSheet(address: string): boolean {
+  try {
+    const a = parseAddress(address);
+    return a.row < 1 || a.row > MAX_ROW || a.col > MAX_COL;
+  } catch {
+    return true;
+  }
 }
 
 function sameOutcome(a: CellOutcome | undefined, b: CellOutcome): boolean {
@@ -249,19 +275,35 @@ export class WorkbookEvaluator {
           expr: parsed.ok ? parsed.expr : null,
           parseError: parsed.ok ? null : parsed.error.message,
           deps: new Set(),
-          tooLarge: false,
+          refError: null,
           order: 0,
         });
       }
     }
 
     // Edges. A range is expanded under the cap; an oversized one marks the
-    // node, which then fails with STEP_LIMIT_EXCEEDED instead of looping.
+    // node, which then fails with STEP_LIMIT_EXCEEDED instead of looping, and
+    // a reference outside the sheet fails it with #REF!.
     for (const node of this.nodes.values()) {
       if (!node.expr) continue;
-      const refs = collectRefs(node.expr, { includePrev: false });
+      let refs: ReturnType<typeof collectRefs>;
+      try {
+        refs = collectRefs(node.expr, { includePrev: false });
+      } catch (e) {
+        if (e instanceof RangeError) {
+          node.refError = 'STEP_LIMIT_EXCEEDED'; // tree too deep to walk
+          continue;
+        }
+        throw e;
+      }
       const reads: string[] = [];
-      for (const c of refs.cells) reads.push(key(c.sheet ?? node.sheet, c.cell));
+      for (const c of refs.cells) {
+        if (outsideSheet(c.cell)) {
+          node.refError = 'NOT_FOUND_REFERENCE';
+          continue;
+        }
+        reads.push(key(c.sheet ?? node.sheet, c.cell));
+      }
       for (const r of refs.ranges) {
         try {
           for (const c of expandRangeRefs(r, node.sheet, this.sheetOrder, this.maxCells)) {
@@ -269,7 +311,11 @@ export class WorkbookEvaluator {
           }
         } catch (e) {
           if (e instanceof RangeLimitError) {
-            node.tooLarge = true;
+            node.refError = 'STEP_LIMIT_EXCEEDED';
+            continue;
+          }
+          if (e instanceof RangeBoundsError) {
+            node.refError = 'NOT_FOUND_REFERENCE';
             continue;
           }
           throw e;
@@ -342,12 +388,15 @@ export class WorkbookEvaluator {
         error: { code: 'TYPE_ERROR', message: node.parseError ?? 'Công thức không hợp lệ.' },
       };
     }
-    if (node.tooLarge) {
+    if (node.refError !== null) {
       return {
         ok: false,
         error: {
-          code: 'STEP_LIMIT_EXCEEDED',
-          message: 'Công thức vượt quá giới hạn bước tính.',
+          code: node.refError,
+          message:
+            node.refError === 'STEP_LIMIT_EXCEEDED'
+              ? 'Công thức vượt quá giới hạn bước tính.'
+              : 'Địa chỉ ô nằm ngoài bảng tính.',
         },
       };
     }

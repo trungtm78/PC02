@@ -167,7 +167,7 @@ function tokenize(source: string): Token[] {
     if (/[\p{L}_]/u.test(c)) {
       // Unicode letters allowed: Excel accepts an unquoted sheet name such as Tổng!A1.
       let j = i;
-      while (j < s.length && /[\p{L}\p{N}_]/u.test(s[j])) j++;
+      while (j < s.length && /[\p{L}\p{M}\p{N}_]/u.test(s[j])) j++;
       tokens.push({ type: 'ident', text: s.slice(i, j) });
       i = j;
       continue;
@@ -394,7 +394,11 @@ class Parser {
 
     if (t.type === 'number') {
       this.next();
-      return { kind: 'number', value: Number(t.text) };
+      const value = Number(t.text);
+      if (Number.isNaN(value)) {
+        throw new ParseFailure('UNEXPECTED_TOKEN', `Số không hợp lệ: "${t.text}".`);
+      }
+      return { kind: 'number', value };
     }
 
     if (t.type === 'string') {
@@ -532,8 +536,20 @@ class Parser {
   }
 }
 
+/** Excel refuses a formula longer than this; so do we, which also bounds the depth of a left-leaning chain. */
+export const MAX_FORMULA_LENGTH = 8192;
+
 export function parseFormula(source: string): ParseResult {
   const normalized = source.trim().replace(/^=/, '');
+  if (normalized.length > MAX_FORMULA_LENGTH) {
+    return {
+      ok: false,
+      error: {
+        code: 'FORMULA_TOO_DEEP',
+        message: `Công thức dài quá ${MAX_FORMULA_LENGTH} ký tự.`,
+      },
+    };
+  }
   try {
     const tokens = tokenize(normalized);
     const parser = new Parser(tokens);
@@ -585,6 +601,9 @@ export type CellResolution =
  * budget (OV9). The evaluator reports it as STEP_LIMIT_EXCEEDED.
  */
 export class RangeLimitError extends Error {}
+
+/** Thrown by `expandRange` when a corner lies outside the sheet (row 1..1048576, column A..XFD): Excel's #REF!. */
+export class RangeBoundsError extends Error {}
 
 export interface EvalContext {
   resolveCell(ref: CellReference): CellResolution;
@@ -774,6 +793,9 @@ class Evaluator {
     } catch (e) {
       if (e instanceof RangeLimitError) {
         throw new EvalFailure('STEP_LIMIT_EXCEEDED', ERROR_MESSAGES.STEP_LIMIT_EXCEEDED);
+      }
+      if (e instanceof RangeBoundsError) {
+        throw new EvalFailure('NOT_FOUND_REFERENCE', ERROR_MESSAGES.NOT_FOUND_REFERENCE);
       }
       throw e;
     }
@@ -982,13 +1004,13 @@ class Evaluator {
         const all = expr.args.flatMap(collectRangeNumbers);
         if (all.length === 0)
           throw new EvalFailure('MISSING_DATA', 'Thiếu dữ liệu để tính.');
-        return num(Decimal.min(...all));
+        return num(all.reduce((a, b) => (b.lessThan(a) ? b : a)));
       }
       case 'MAX': {
         const all = expr.args.flatMap(collectRangeNumbers);
         if (all.length === 0)
           throw new EvalFailure('MISSING_DATA', 'Thiếu dữ liệu để tính.');
-        return num(Decimal.max(...all));
+        return num(all.reduce((a, b) => (b.greaterThan(a) ? b : a)));
       }
       case 'COUNT': {
         const all = expr.args.flatMap(collectRangeNumbers);
@@ -1004,8 +1026,18 @@ class Evaluator {
         if (expr.args.length !== 2)
           throw new EvalFailure('TYPE_ERROR', 'ROUND cần đúng 2 tham số.');
         const value = asNumber(this.eval(expr.args[0]));
-        const digits = asNumber(this.eval(expr.args[1])).toNumber();
-        return num(value.toDecimalPlaces(digits));
+        const digits = asNumber(this.eval(expr.args[1])).trunc().toNumber();
+        if (!Number.isFinite(digits) || Math.abs(digits) > 1000) {
+          throw new EvalFailure('TYPE_ERROR', 'ROUND: số chữ số làm tròn không hợp lệ.');
+        }
+        if (digits >= 0) {
+          return num(value.toDecimalPlaces(digits, Decimal.ROUND_HALF_UP));
+        }
+        // Excel: ROUND(1250,-2) = 1300 — round to tens/hundreds, half away from zero.
+        const unit = new Decimal(10).pow(-digits);
+        return num(
+          value.dividedBy(unit).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).times(unit),
+        );
       }
       case 'AND': {
         const values = expr.args.map((a) => asBoolean(this.eval(a)));
@@ -1038,6 +1070,17 @@ export function evaluateExpr(
   } catch (e) {
     if (e instanceof EvalFailure) {
       return { ok: false, error: { code: e.code, message: e.message } };
+    }
+    // A user formula must never take the evaluator down: a runaway tree is a
+    // stack overflow, a bad argument surfaces as a decimal.js error.
+    if (e instanceof RangeError) {
+      return {
+        ok: false,
+        error: { code: 'STEP_LIMIT_EXCEEDED', message: ERROR_MESSAGES.STEP_LIMIT_EXCEEDED },
+      };
+    }
+    if (e instanceof Error && e.message.startsWith('[DecimalError]')) {
+      return { ok: false, error: { code: 'TYPE_ERROR', message: ERROR_MESSAGES.TYPE_ERROR } };
     }
     throw e;
   }
@@ -1115,7 +1158,7 @@ export function collectRefs(
   return out;
 }
 
-const BARE_SHEET_RE = /^[\p{L}_][\p{L}\p{N}_]*$/u;
+const BARE_SHEET_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
 // Excel only quotes a name that could be read as a cell address (columns run A..XFD, so at most 3 letters).
 const CELL_LIKE_RE = /^[A-Za-z]{1,3}[0-9]+$/;
 
@@ -1160,7 +1203,7 @@ export function formatFormula(expr: Expr): string {
   };
   switch (expr.kind) {
     case 'number':
-      return String(expr.value);
+      return new Decimal(expr.value).toFixed(); // never exponent notation: 1e+21 would not parse back
     case 'string':
       return `"${expr.value.replace(/"/g, '""')}"`;
     case 'boolean':
