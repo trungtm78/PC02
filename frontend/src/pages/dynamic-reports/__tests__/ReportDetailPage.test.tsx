@@ -203,6 +203,11 @@ describe('ReportDetailPage', () => {
     expect(await screen.findByTestId('btn-edit-config')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1/sua');
   });
 
+  it('offers "Sao chép" (a new report that starts as a copy) when the report has a template', async () => {
+    renderPage();
+    expect(await screen.findByTestId('btn-copy')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1/sao-chep');
+  });
+
   it('an archived report cannot be given a new template until it is restored', async () => {
     renderPage({ ...DETAIL, status: 'ARCHIVED' });
     await screen.findByTestId('btn-unarchive');

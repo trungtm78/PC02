@@ -152,6 +152,15 @@ export default function ReportDetailPage() {
               >
                 Phiên bản
               </Link>
+              {report.currentVersion && (
+                <Link
+                  to={`/bao-cao-dong/thiet-lap/${report.id}/sao-chep`}
+                  className={`${btn} border-slate-300 text-slate-700 hover:bg-slate-50`}
+                  data-testid="btn-copy"
+                >
+                  Sao chép
+                </Link>
+              )}
               {report.status === 'PUBLISHED' && (
                 <button
                   type="button"
