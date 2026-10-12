@@ -50,7 +50,7 @@ function toWorkbookCell(cell: GridCell): WorkbookCell | null {
     case 'num':
       return { kind: 'number', value: cell.v };
     case 'bool':
-      return { kind: 'number', value: cell.v ? '1' : '0' };
+      return { kind: 'boolean', value: cell.v };
     case 'text':
       return { kind: 'text', value: cell.v };
     case 'formula':

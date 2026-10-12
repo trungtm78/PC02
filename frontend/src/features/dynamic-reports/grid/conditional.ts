@@ -4,7 +4,7 @@ import type {
   GridDxf,
   GridSheet,
 } from '../engine/generated/grid-types';
-import { evaluateExpr, evaluateFormula, parseFormula } from '../engine/generated/expr';
+import { evaluateExpr, formatFormula, parseFormula } from '../engine/generated/expr';
 import type { EvalContext, Expr } from '../engine/generated/expr';
 import { formatAddress, parseAddress } from '../engine/generated/paste';
 
@@ -90,7 +90,7 @@ const OPERATOR_SOURCE: Record<string, string> = {
 };
 
 /** True when a formula result is "true" the way a rule needs it. */
-function truthy(result: ReturnType<typeof evaluateFormula>): boolean {
+function truthy(result: ReturnType<typeof evaluateExpr>): boolean {
   if (!result.ok) return false;
   const v = result.value;
   if (v.type === 'boolean') return v.value;
@@ -98,35 +98,79 @@ function truthy(result: ReturnType<typeof evaluateFormula>): boolean {
   return false;
 }
 
+/** A rule with its formulas parsed once, however many cells it is tested on. */
+interface CompiledRule {
+  rule: GridConditionalRule;
+  anchor: Rect;
+  rects: Rect[];
+  /** `expression`: the formula; `cellIs`: the one or two bounds. Null when unparseable. */
+  exprs: Expr[] | null;
+}
+
+const compiledBySheet = new WeakMap<GridSheet, CompiledRule[]>();
+
+function compile(sheet: GridSheet): CompiledRule[] {
+  const cached = compiledBySheet.get(sheet);
+  if (cached) return cached;
+  const out: CompiledRule[] = [];
+  for (const cf of sheet.conditionalFormats as GridConditionalFormat[]) {
+    const rects = cf.ranges.map(rectOf).filter((r): r is Rect => r !== null);
+    if (rects.length === 0) continue;
+    for (const rule of cf.rules) {
+      const sources = rule.type === 'expression' ? [rule.formula] : rule.formulas;
+      const exprs: Expr[] = [];
+      let ok = true;
+      for (const src of sources) {
+        const parsed = parseFormula(src);
+        if (parsed.ok) exprs.push(parsed.expr);
+        else ok = false;
+      }
+      out.push({ rule, anchor: rects[0], rects, exprs: ok ? exprs : null });
+    }
+  }
+  out.sort((a, b) => a.rule.priority - b.rule.priority);
+  compiledBySheet.set(sheet, out);
+  return out;
+}
+
 function ruleMatches(
-  rule: GridConditionalRule,
-  anchor: Rect,
+  compiled: CompiledRule,
   sheetName: string,
   row: number,
   col: number,
   ctx: EvalContext,
 ): boolean {
+  const { rule, anchor, exprs } = compiled;
+  if (!exprs) return false;
+  // Every formula in a rule is written for the top-left cell of its range.
+  const dRow = row - anchor.r0;
+  const dCol = col - anchor.c0;
+  const shifted = exprs.map((e) => shiftExpr(e, dRow, dCol));
+
   if (rule.type === 'expression') {
-    const parsed = parseFormula(rule.formula);
-    if (!parsed.ok) return false;
-    const shifted = shiftExpr(parsed.expr, row - anchor.r0, col - anchor.c0);
-    return truthy(evaluateExpr(shifted, ctx));
+    return truthy(evaluateExpr(shifted[0], ctx));
   }
 
-  // cellIs: compare the cell itself with one or two constants/formulas.
+  // cellIs: compare the cell itself with one or two bounds, each shifted like
+  // an expression (a bound of `A1` on B2 means A2 there, as in Excel).
   const self = `'${sheetName.replace(/'/g, "''")}'!${formatAddress({ col, row })}`;
-  const [f1, f2] = rule.formulas;
+  const [f1, f2] = shifted.map((e) => formatFormula(e));
   if (rule.operator === 'between' || rule.operator === 'notBetween') {
     if (f1 === undefined || f2 === undefined) return false;
     const src =
       rule.operator === 'between'
         ? `AND(${self}>=(${f1}),${self}<=(${f2}))`
         : `OR(${self}<(${f1}),${self}>(${f2}))`;
-    return truthy(evaluateFormula(src, ctx));
+    return holds(src, ctx);
   }
   const op = OPERATOR_SOURCE[rule.operator];
   if (!op || f1 === undefined) return false;
-  return truthy(evaluateFormula(`${self}${op}(${f1})`, ctx));
+  return holds(`${self}${op}(${f1})`, ctx);
+}
+
+function holds(src: string, ctx: EvalContext): boolean {
+  const parsed = parseFormula(src);
+  return parsed.ok && truthy(evaluateExpr(parsed.expr, ctx));
 }
 
 /**
@@ -141,19 +185,11 @@ export function overlayFor(
   ctx: EvalContext,
 ): GridDxf | null {
   let merged: GridDxf | null = null;
-  const applicable: Array<{ rule: GridConditionalRule; anchor: Rect }> = [];
-  for (const cf of sheet.conditionalFormats as GridConditionalFormat[]) {
-    const rects = cf.ranges.map(rectOf).filter((r): r is Rect => r !== null);
-    const hit = rects.find((r) => inRect(r, row + 1, col));
-    if (!hit) continue;
-    for (const rule of cf.rules) applicable.push({ rule, anchor: rects[0] });
-  }
-  applicable.sort((a, b) => a.rule.priority - b.rule.priority);
-
-  for (const { rule, anchor } of applicable) {
-    if (!ruleMatches(rule, anchor, sheet.name, row + 1, col, ctx)) continue;
-    merged = { ...rule.style, ...(merged ?? {}) };
-    if (rule.stopIfTrue) break;
+  for (const compiled of compile(sheet)) {
+    if (!compiled.rects.some((r) => inRect(r, row + 1, col))) continue;
+    if (!ruleMatches(compiled, sheet.name, row + 1, col, ctx)) continue;
+    merged = { ...compiled.rule.style, ...(merged ?? {}) };
+    if (compiled.rule.stopIfTrue) break;
   }
   return merged;
 }

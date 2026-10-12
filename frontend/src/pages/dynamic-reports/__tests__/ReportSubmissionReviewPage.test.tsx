@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import ReportSubmissionReviewPage from '../ReportSubmissionReviewPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { SubmissionView } from '@/features/dynamic-reports/types';
@@ -280,6 +280,35 @@ describe('ReportSubmissionReviewPage', () => {
       expect(screen.getByTestId('cell-C6')).toHaveTextContent('5');
       // The list is replaced, not stacked under the grid.
       expect(screen.queryByTestId('value-Đội 3!C6')).not.toBeInTheDocument();
+    });
+
+    it('one version failing does not disable the grid for the next submission', async () => {
+      vi.mocked(dynamicReportsApi.getSubmissionForManager).mockImplementation(async (id: string) =>
+        id === 'assign1'
+          ? SUBMITTED_VIEW
+          : { ...SUBMITTED_VIEW, assignmentId: 'assign2', versionId: 'version2' },
+      );
+      vi.mocked(dynamicReportsApi.getVersionGrid).mockRejectedValueOnce(new Error('GRID_UNAVAILABLE'));
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/bao-cao-dong/duyet/assign1']}>
+            <Link to="/bao-cao-dong/duyet/assign2">next</Link>
+            <Routes>
+              <Route path="/bao-cao-dong/duyet/:assignmentId" element={<ReportSubmissionReviewPage />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+
+      await waitFor(() => screen.getByTestId('layout-grid'));
+      fireEvent.click(screen.getByTestId('layout-grid'));
+      await waitFor(() => screen.getByTestId('grid-fallback-note'));
+
+      fireEvent.click(screen.getByText('next'));
+      // The next submission loads (a spinner first), then offers the grid again.
+      await waitFor(() => expect(screen.getByTestId('layout-grid')).not.toBeDisabled());
+      expect(screen.queryByTestId('grid-fallback-note')).not.toBeInTheDocument();
     });
 
     it('falls back to the list with a note when the server cannot build the grid', async () => {

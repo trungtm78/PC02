@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { dynamicReportsApi } from '../api';
@@ -54,10 +54,22 @@ export default function GridViewer({ versionId, fields, values, onUnavailable }:
     return null;
   }, [isLoading, error, grid]);
 
-  // Tell the page once per failure; it decides what to show instead.
+  // Tell the page once per failure; it decides what to show instead. The
+  // callback is read through a ref so a parent that passes a fresh function on
+  // every render cannot make one failure announce itself again and again.
+  const onUnavailableRef = useRef(onUnavailable);
+  onUnavailableRef.current = onUnavailable;
+  const announced = useRef<string | null>(null);
   useEffect(() => {
-    if (unavailableMessage) onUnavailable?.(unavailableMessage);
-  }, [unavailableMessage, onUnavailable]);
+    if (!unavailableMessage) {
+      announced.current = null;
+      return;
+    }
+    const id = `${versionId}:${unavailableMessage}`;
+    if (announced.current === id) return;
+    announced.current = id;
+    onUnavailableRef.current?.(unavailableMessage);
+  }, [unavailableMessage, versionId]);
 
   if (isLoading) {
     return (

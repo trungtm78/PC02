@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressOf, blockSize, buildSheetIndex, key, spanOf } from '../gridIndex';
+import { addressOf, blockSize, buildSheetIndex, key, layoutMerges, spanOf } from '../gridIndex';
 import { borderCss, cssForDxf, cssForStyle, fontFamilyFor } from '../styleToCss';
 import { evaluateGrid, toWorkbookModel, viewOf } from '../gridEvaluation';
 import { FIELDS, makeGrid, makeSheet } from './fixtures';
@@ -40,6 +40,30 @@ describe('buildSheetIndex', () => {
   it('addressOf converts 0-based indexes to A1', () => {
     expect(addressOf(0, 0)).toBe('A1');
     expect(addressOf(9, 27)).toBe('AB10');
+  });
+});
+
+describe('layoutMerges', () => {
+  it('a block with a hidden anchor is owned by its first drawn cell', () => {
+    const sheet = makeSheet({ merges: [{ top: 0, left: 0, bottom: 0, right: 2 }], hiddenCols: [0] });
+    const idx = buildSheetIndex(sheet);
+    const layout = layoutMerges(sheet, idx.visibleRows, idx.visibleCols);
+    expect(layout.owners.get(key(0, 1))).toMatchObject({ rowSpan: 1, colSpan: 2 });
+    expect(layout.covered.has(key(0, 2))).toBe(true);
+    expect(layout.covered.has(key(0, 1))).toBe(false);
+  });
+
+  it('rows removed by a filter do not count towards the span', () => {
+    const sheet = makeSheet({ merges: [{ top: 1, left: 0, bottom: 3, right: 0 }] });
+    const layout = layoutMerges(sheet, [0, 1, 3], [0, 1, 2, 3, 4]);
+    expect(layout.owners.get(key(1, 0))).toMatchObject({ rowSpan: 2, colSpan: 1 });
+  });
+
+  it('a block with nothing drawn vanishes entirely', () => {
+    const sheet = makeSheet({ merges: [{ top: 2, left: 0, bottom: 3, right: 1 }] });
+    const layout = layoutMerges(sheet, [0, 1], [0, 1, 2, 3, 4]);
+    expect(layout.owners.size).toBe(0);
+    expect(layout.covered.has(key(2, 0))).toBe(true);
   });
 });
 
@@ -156,6 +180,18 @@ describe('evaluating a grid with a submission', () => {
     const empty = evaluateGrid(grid, FIELDS, {});
     const v = viewOf(empty, sheet, 'C4', sheet.cells['C4'], grid.styles[3]);
     expect(v.text).toBe('');
+  });
+
+  it('a static TRUE is a boolean: SUM over a range ignores it', () => {
+    const cells = {
+      A1: { k: 'bool' as const, v: true, s: 0 },
+      A2: { k: 'num' as const, v: '5', s: 0 },
+      A3: { k: 'formula' as const, f: 'SUM(A1:A2)', s: 0 },
+    };
+    const g = makeGrid({}, { cells, rows: 3, cols: 1, colWidthsPx: [60], rowHeightsPx: [20, 20, 20], hiddenRows: [], merges: [] });
+    const e = evaluateGrid(g, [], {});
+    expect(viewOf(e, g.sheets[0], 'A3', cells.A3, {}).text).toBe('5');
+    expect(viewOf(e, g.sheets[0], 'A1', cells.A1, {}).text).toBe('TRUE');
   });
 
   it('static cells keep their text and numbers; a missing cell is empty', () => {

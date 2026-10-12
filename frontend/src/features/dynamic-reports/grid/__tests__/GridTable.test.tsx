@@ -22,8 +22,9 @@ describe('GridTable', () => {
     renderTable();
     const table = screen.getByRole('grid');
     expect(table).toHaveAttribute('aria-readonly', 'true');
-    expect(table).toHaveAttribute('aria-rowcount', '7');
-    expect(table).toHaveAttribute('aria-colcount', '5');
+    // 7 + 5 sheet lines, plus the column-letter row and the row-number column.
+    expect(table).toHaveAttribute('aria-rowcount', '8');
+    expect(table).toHaveAttribute('aria-colcount', '6');
     expect(table).toHaveAccessibleName('Bảng Đội 3');
   });
 
@@ -169,6 +170,79 @@ describe('GridTable', () => {
     const bold = within(cell).getByText('Đậm');
     expect(bold).toHaveStyle({ fontWeight: '700' });
     expect(cell).toHaveTextContent('Đậm thường');
+  });
+
+  it('ARIA indexes count the header row and header column, so no two cells share a position', () => {
+    renderTable();
+    const headerRow = screen.getByText('A', { selector: 'th' }).closest('tr') as HTMLElement;
+    expect(headerRow).toHaveAttribute('aria-rowindex', '1');
+    expect(screen.getByTestId('cell-A2').closest('tr')).toHaveAttribute('aria-rowindex', '3');
+    expect(screen.getByTestId('cell-A2')).toHaveAttribute('aria-colindex', '2');
+    expect(screen.getByTestId('cell-E3')).toHaveAttribute('aria-colindex', '6');
+  });
+
+  it('a merge whose anchor column is hidden is still drawn, by its first visible cell', () => {
+    const cells = {
+      A1: { k: 'text' as const, v: 'Gộp', s: 0 },
+      C1: { k: 'num' as const, v: '123', s: 0 },
+    };
+    renderTable({}, {}, {
+      cells, rows: 1, cols: 3, colWidthsPx: [40, 40, 40], rowHeightsPx: [20], hiddenRows: [],
+      hiddenCols: [0], merges: [{ top: 0, left: 0, bottom: 0, right: 1 }], freeze: { rows: 0, cols: 0 },
+    });
+    // Visible columns are B and C: B's slot draws the block (content of its anchor A1), C stays under C.
+    const cellsInRow = Array.from(screen.getByTestId('cell-A1').closest('tr')!.querySelectorAll('td'));
+    expect(cellsInRow.map((td) => td.getAttribute('data-testid'))).toEqual(['cell-A1', 'cell-C1']);
+    expect(cellsInRow[0]).toHaveAttribute('aria-colindex', '3'); // header col + A + B
+    expect(screen.getByTestId('cell-A1')).toHaveTextContent('Gộp');
+    expect(screen.getByTestId('cell-C1')).toHaveTextContent('123');
+  });
+
+  it('filtering rows shrinks a merged block to the rows still drawn', () => {
+    const cells = {
+      A2: { k: 'text' as const, v: 'Khối', s: 0 },
+      A4: { k: 'empty' as const, s: 0 },
+      B2: { k: 'empty' as const, s: 0 },
+    };
+    const grid = makeGrid({}, {
+      cells, rows: 4, cols: 2, colWidthsPx: [40, 40], rowHeightsPx: [20, 20, 20, 20], hiddenRows: [],
+      hiddenCols: [], merges: [{ top: 1, left: 0, bottom: 2, right: 0 }], freeze: { rows: 0, cols: 0 },
+    });
+    const fields = [
+      { sheetKey: 'Đội 3', address: 'B2', fieldKey: 'k1', type: 'NUM' as const },
+      { sheetKey: 'Đội 3', address: 'A4', fieldKey: 'k2', type: 'NUM' as const },
+    ];
+    render(
+      <GridTable grid={grid} sheetName="Đội 3" evaluation={evaluateGrid(grid, fields, {})} onlyInputRows />,
+    );
+    // Row 3 is filtered out; the block A2:A3 now covers one drawn row, so A4 stays in column A.
+    expect(screen.getByTestId('cell-A2')).not.toHaveAttribute('rowspan');
+    const row4 = screen.getByTestId('cell-A4').closest('tr') as HTMLElement;
+    expect(row4.querySelectorAll('td')).toHaveLength(2);
+  });
+
+  it('keeps the indent and justification the style asks for', () => {
+    const grid = makeGrid({ styles: [{}, { indent: 2, hAlign: 'justify' }] }, {
+      cells: { A1: { k: 'text', v: 'Thụt lề', s: 1 } },
+      rows: 1, cols: 1, colWidthsPx: [120], rowHeightsPx: [20], hiddenRows: [], merges: [], freeze: { rows: 0, cols: 0 },
+    });
+    render(<GridTable grid={grid} sheetName="Đội 3" evaluation={evaluateGrid(grid, [], {})} />);
+    const cell = screen.getByTestId('cell-A1');
+    expect(cell.style.paddingLeft).toBe('20px'); // 2 × 9 + 2
+    expect(cell.style.textAlign).toBe('justify');
+  });
+
+  it('clips tall content to the row height so frozen offsets stay true', () => {
+    const grid = makeGrid({}, {
+      cells: { A1: { k: 'text', v: 'một\nhai\nba', s: 0 }, A2: { k: 'text', v: 'x', s: 0 } },
+      rows: 2, cols: 1, colWidthsPx: [80], rowHeightsPx: [20, 20], hiddenRows: [], merges: [],
+      freeze: { rows: 2, cols: 0 },
+    });
+    render(<GridTable grid={grid} sheetName="Đội 3" evaluation={evaluateGrid(grid, [], {})} />);
+    const box = screen.getByTestId('cell-A1').firstElementChild as HTMLElement;
+    expect(box.style.height).toBe('20px');
+    expect(box.style.overflow).toBe('hidden');
+    expect(screen.getByTestId('cell-A2').style.top).toBe(`${20 + 20}px`);
   });
 
   it('renders nothing for a sheet the model does not have', () => {

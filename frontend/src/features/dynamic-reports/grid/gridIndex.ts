@@ -106,3 +106,52 @@ export function blockSize(index: SheetIndex, merge: GridMerge): { width: number;
   for (let r = merge.top; r <= merge.bottom; r++) if (!hiddenRows.has(r)) height += index.sheet.rowHeightsPx[r] ?? 0;
   return { width, height };
 }
+
+/** A merged block as it is actually drawn: owned by its first drawn cell. */
+export interface DrawnMerge {
+  merge: GridMerge;
+  rowSpan: number;
+  colSpan: number;
+}
+
+export interface MergeLayout {
+  /** Drawn blocks by the (row,col) of the cell that draws them. */
+  owners: Map<string, DrawnMerge>;
+  /** Cells that must not be emitted: the rest of every block. */
+  covered: Set<string>;
+}
+
+/**
+ * Places every merged block on the rows/columns that are really drawn (hidden
+ * ones, and rows removed by a filter, are not). The block is drawn by its first
+ * drawn cell, which is NOT its anchor when the anchor's row or column is
+ * hidden; spans count drawn lines only. A block with no drawn cell vanishes.
+ * The anchor still holds the block's content and style.
+ */
+export function layoutMerges(
+  sheet: GridSheet,
+  drawnRows: readonly number[],
+  drawnCols: readonly number[],
+): MergeLayout {
+  const owners = new Map<string, DrawnMerge>();
+  const covered = new Set<string>();
+  const rows = [...drawnRows].sort((a, b) => a - b);
+  const cols = [...drawnCols].sort((a, b) => a - b);
+  for (const merge of sheet.merges) {
+    const inRows = rows.filter((r) => r >= merge.top && r <= merge.bottom);
+    const inCols = cols.filter((c) => c >= merge.left && c <= merge.right);
+    if (inRows.length === 0 || inCols.length === 0) {
+      for (let r = merge.top; r <= merge.bottom; r++)
+        for (let c = merge.left; c <= merge.right; c++) covered.add(key(r, c));
+      continue;
+    }
+    const ownerKey = key(inRows[0], inCols[0]);
+    owners.set(ownerKey, { merge, rowSpan: inRows.length, colSpan: inCols.length });
+    for (let r = merge.top; r <= merge.bottom; r++)
+      for (let c = merge.left; c <= merge.right; c++) {
+        const k = key(r, c);
+        if (k !== ownerKey) covered.add(k);
+      }
+  }
+  return { owners, covered };
+}

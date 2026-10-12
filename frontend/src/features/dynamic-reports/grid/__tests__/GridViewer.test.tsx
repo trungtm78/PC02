@@ -43,6 +43,22 @@ describe('GridViewer', () => {
     await waitFor(() => expect(onUnavailable).toHaveBeenCalledTimes(1));
   });
 
+  it('announces one failure once, even when the parent re-renders with a new callback each time', async () => {
+    vi.mocked(dynamicReportsApi.getVersionGrid).mockRejectedValue(new Error('boom'));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const calls: string[] = [];
+    const ui = () => (
+      <QueryClientProvider client={client}>
+        <GridViewer versionId="v1" fields={FIELDS} values={VALUES} onUnavailable={(m) => calls.push(m)} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(ui());
+    await waitFor(() => screen.getByTestId('grid-unavailable'));
+    rerender(ui());
+    rerender(ui());
+    expect(calls).toHaveLength(1);
+  });
+
   it('shows no tabs for a single sheet, and switches between sheets when there are several', async () => {
     const second = makeSheet({
       name: 'TỔNG',

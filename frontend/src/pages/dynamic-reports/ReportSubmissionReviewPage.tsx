@@ -69,7 +69,11 @@ export default function ReportSubmissionReviewPage() {
   const [unlockExpiresAtLocal, setUnlockExpiresAtLocal] = useState('');
   // The grid is opt-in until it is the default: the list stays the safe view.
   const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list');
-  const [gridUnavailable, setGridUnavailable] = useState(false);
+  // Remember WHICH template version failed: the route component is reused when
+  // a manager moves to another submission, and that one may build fine.
+  const [unavailableVersionId, setUnavailableVersionId] = useState<string | null>(null);
+
+  const gridUnavailable = view !== undefined && unavailableVersionId === view.versionId;
 
   const bySheet = useMemo(() => {
     const groups = new Map<string, typeof view extends undefined ? never : NonNullable<typeof view>['fields']>();
@@ -288,7 +292,7 @@ export default function ReportSubmissionReviewPage() {
             fields={gridFields}
             values={view.values}
             onUnavailable={() => {
-              setGridUnavailable(true);
+              setUnavailableVersionId(view.versionId);
               setLayoutMode('list');
             }}
           />

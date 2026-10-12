@@ -78,6 +78,16 @@ describe('cellIs rules', () => {
     expect(overlay(rule('greaterThan', ['C4']), { C3: '1', C4: '3' }, [2, 2])).toBeNull();
   });
 
+  it('a bound that is a cell reference moves with the cell, like an expression', () => {
+    // `greaterThan A3` on C3:C4 means C4 is compared with A4. Values live in the sheet's inputs:
+    // C3, C4 are inputs here; use C3 as the bound for C4 → shifted to C4's own column? No:
+    // the bound C3 on the first cell becomes C4 on the second, so C4 > C4 is false.
+    const cf = rule('greaterThan', ['C3']);
+    expect(overlay(cf, { C3: '9', C4: '5' }, [2, 2])).toBeNull(); // C3 > C3
+    expect(overlay(cf, { C3: '9', C4: '5' }, [3, 2])).toBeNull(); // C4 > C4, not C4 > C3
+    expect(overlay(rule('greaterThan', ['$C$3']), { C3: '3', C4: '5' }, [3, 2])).toEqual(red);
+  });
+
   it('applies only inside its range', () => {
     expect(overlay(rule('equal', ['5']), { C3: '5' }, [4, 2])).toBeNull(); // C5 is outside C3:C4
   });

@@ -1025,6 +1025,15 @@ dòng/cột ẩn, đầu cột A/B/C và số dòng như Excel, định dạng s
 - Lưới hỏng không bao giờ thành màn trắng: `422 GRID_UNAVAILABLE` / `503 GRID_BUSY` → banner + tự về danh sách, nút lưới bị khoá.
 - Kiểm: 65 ca vitest mới (mô hình 23, định dạng có điều kiện 25, bảng 18, khung xem 7) + 3 ca trang S16. Toàn bộ FE
   `tsc -b` sạch; `vitest` toàn bộ chỉ đỏ 2 ca quá giờ khi chạy chung (configuration-editors, StatusDashboardPage), chạy riêng xanh.
+- **Codex review G2 (11 phát hiện) — đã sửa 9, ghi nợ 2:** ô gộp có neo bị ẩn nay do ô vẽ đầu tiên đảm nhiệm
+  (`layoutMerges`); lọc "chỉ dòng có ô nhập" co rowSpan theo dòng còn vẽ; ngưỡng `cellIs` dịch theo ô như công thức;
+  TRUE/FALSE tĩnh giữ kiểu boolean (kiểu ô `boolean` thêm vào engine, SUM/COUNT bỏ qua như Excel); ô bị cắt đúng chiều
+  cao dòng (offset dòng cố định không lệch); chỉ số ARIA tính cả dòng/cột tiêu đề; thụt lề + canh đều không còn bị
+  ghi đè; lỗi lưới nhớ theo `versionId` (chuyển sang bản nộp khác không bị khoá nút); `onUnavailable` chỉ báo một lần
+  mỗi lỗi; quy tắc định dạng có điều kiện biên dịch một lần.
+  **Nợ ghi nhận (không âm thầm bỏ):** (1) ô nhập NGÀY/GIỜ chưa tham gia phép tính ngày (`A1+1` ra `#VALUE!`) — engine
+  cố ý chưa mô hình serial ngày và máy chủ cũng vậy; sửa đồng thời cả hai ở đợt công thức chính thức (OV1/OV10).
+  (2) Sheet cỡ 3.000×50 vẽ toàn bộ ô — cần cửa sổ ảo (T12) trước khi bật mặc định; làm ở G3.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { GridCell, GridModel, GridRun, GridStyle } from '../engine/generated/grid-types';
 import { formatAddress } from '../engine/generated/paste';
-import { buildSheetIndex, spanOf, key } from './gridIndex';
+import { buildSheetIndex, key, layoutMerges } from './gridIndex';
 import type { SheetIndex } from './gridIndex';
 import { cssForDxf, cssForStyle } from './styleToCss';
 import { viewOf } from './gridEvaluation';
@@ -111,6 +111,10 @@ export default function GridTable({
     (r) => !onlyInputRows || r < freezeRows || inputRows.has(r),
   );
 
+  // Merged blocks are placed on what is actually drawn: a hidden or filtered-out
+  // anchor row/column must not leave the block's remaining cells shifted.
+  const merges = layoutMerges(sheet, rows, index.visibleCols);
+
   // A frozen row sticks just below the headers and the frozen rows above it.
   // Frozen rows are never filtered out, so they always stack the same way.
   const frozenTop = (r: number): number => {
@@ -140,8 +144,8 @@ export default function GridTable({
         role="grid"
         aria-readonly="true"
         aria-label={`Bảng ${sheet.name}`}
-        aria-rowcount={sheet.rows}
-        aria-colcount={sheet.cols}
+        aria-rowcount={sheet.rows + (showHeaders ? 1 : 0)}
+        aria-colcount={sheet.cols + (showHeaders ? 1 : 0)}
         data-testid="grid-table"
       >
         <colgroup>
@@ -153,9 +157,10 @@ export default function GridTable({
 
         {showHeaders && (
           <thead>
-            <tr style={{ height: headerH }}>
+            <tr style={{ height: headerH }} aria-rowindex={1}>
               <th
                 scope="col"
+                aria-colindex={1}
                 style={{
                   position: 'sticky',
                   top: 0,
@@ -169,6 +174,7 @@ export default function GridTable({
                 <th
                   key={c}
                   scope="col"
+                  aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
                   style={{
                     position: 'sticky',
                     top: 0,
@@ -190,10 +196,11 @@ export default function GridTable({
 
         <tbody>
           {rows.map((r) => (
-            <tr key={r} style={{ height: Math.round((sheet.rowHeightsPx[r] ?? 0) * z) }} aria-rowindex={r + 1}>
+            <tr key={r} style={{ height: Math.round((sheet.rowHeightsPx[r] ?? 0) * z) }} aria-rowindex={r + 1 + (showHeaders ? 1 : 0)}>
               {showHeaders && (
                 <th
                   scope="row"
+                  aria-colindex={1}
                   style={{
                     position: 'sticky',
                     left: 0,
@@ -211,34 +218,45 @@ export default function GridTable({
               )}
               {index.visibleCols.map((c) => {
                 const k = key(r, c);
-                if (index.covered.has(k)) return null;
+                if (merges.covered.has(k)) return null;
 
-                const merge = index.mergeByAnchor.get(k);
-                const span = merge ? spanOf(index, merge) : { rowSpan: 1, colSpan: 1 };
-                if (span.rowSpan === 0 || span.colSpan === 0) return null;
+                // A drawn block takes its content and look from its anchor cell.
+                const drawn = merges.owners.get(k);
+                const span = drawn ?? { merge: null, rowSpan: 1, colSpan: 1 };
+                const sourceRow = drawn ? drawn.merge.top : r;
+                const sourceCol = drawn ? drawn.merge.left : c;
 
-                const address = formatAddress({ col: c, row: r + 1 });
+                const address = formatAddress({ col: sourceCol, row: sourceRow + 1 });
                 const cell = sheet.cells[address];
-                const style = styleOfCell(grid, index, r, c, cell);
+                const style = styleOfCell(grid, index, sourceRow, sourceCol, cell);
                 const view: CellView = viewOf(evaluation, sheet, address, cell, style);
 
+                const own = cssForStyle(style, cssCtx);
+                const {
+                  transform: rotateTransform,
+                  writingMode,
+                  textOrientation,
+                  verticalAlign,
+                  ...cellCss
+                } = own;
+                const pad = Math.max(1, Math.round(2 * z));
                 const css: CSSProperties = {
-                  ...cssForStyle(style, cssCtx),
+                  ...cellCss,
                   boxShadow: sheet.showGridlines ? `inset -1px -1px 0 ${GRIDLINE}` : undefined,
                   overflow: 'hidden',
+                  verticalAlign: 'top',
                   paddingTop: 0,
                   paddingBottom: 0,
-                  paddingLeft: style.indent ? undefined : Math.max(1, Math.round(2 * z)),
-                  paddingRight: Math.max(1, Math.round(2 * z)),
-                  textAlign: style.hAlign ? undefined : view.align,
-                  ...(style.hAlign === 'left' || style.hAlign === 'right' || style.hAlign === 'center'
-                    ? { textAlign: style.hAlign }
-                    : {}),
+                  paddingRight: pad,
+                  // The indent, when the style has one, arrives in cellCss.paddingLeft.
+                  paddingLeft: cellCss.paddingLeft ?? pad,
+                  // General alignment: numbers right, text left; an explicit one wins.
+                  textAlign: cellCss.textAlign ?? view.align,
                 };
                 if (view.color) css.color = view.color;
                 if (view.isError) css.color = '#b91c1c';
 
-                const overlay = sheet.conditionalFormats.length > 0 ? overlayFor(sheet, r, c, ctx) : null;
+                const overlay = sheet.conditionalFormats.length > 0 ? overlayFor(sheet, sourceRow, sourceCol, ctx) : null;
                 if (overlay) Object.assign(css, cssForDxf(overlay));
 
                 if (view.kind === 'input' && !css.backgroundColor) {
@@ -264,11 +282,32 @@ export default function GridTable({
                     ? renderRuns(cell.runs)
                     : view.text;
 
+                // Excel clips a cell to its row height; a table row would grow
+                // instead and push every frozen offset below it out of place.
+                let blockHeight = 0;
+                const blockRows = drawn
+                  ? rows.filter((vr) => vr >= drawn.merge.top && vr <= drawn.merge.bottom)
+                  : [r];
+                for (const vr of blockRows) blockHeight += Math.round((sheet.rowHeightsPx[vr] ?? 0) * z);
+                const rotated = writingMode !== undefined;
+                const wrapStyle: CSSProperties = {
+                  height: blockHeight,
+                  overflow: 'hidden',
+                  ...(rotated
+                    ? { writingMode, textOrientation, transform: rotateTransform }
+                    : {
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent:
+                          verticalAlign === 'top' ? 'flex-start' : verticalAlign === 'middle' ? 'center' : 'flex-end',
+                      }),
+                };
+
                 return (
                   <td
                     key={c}
                     role="gridcell"
-                    aria-colindex={c + 1}
+                    aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
                     aria-readonly="true"
                     rowSpan={span.rowSpan > 1 ? span.rowSpan : undefined}
                     colSpan={span.colSpan > 1 ? span.colSpan : undefined}
@@ -278,7 +317,7 @@ export default function GridTable({
                     data-kind={view.kind}
                     data-error={view.isError ? 'true' : undefined}
                   >
-                    {content}
+                    <div style={wrapStyle}>{content}</div>
                   </td>
                 );
               })}

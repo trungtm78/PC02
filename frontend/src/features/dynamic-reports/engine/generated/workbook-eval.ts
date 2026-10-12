@@ -39,6 +39,8 @@ export type WorkbookCell =
   | { kind: 'number'; value: string }
   /** Static text (labels, headings). */
   | { kind: 'text'; value: string }
+  /** Static TRUE/FALSE: kept as a boolean so aggregates over a range ignore it, as in Excel. */
+  | { kind: 'boolean'; value: boolean }
   | { kind: 'formula'; source: string }
   /** An input cell; its value is supplied separately, keyed `Sheet!A1`. */
   | { kind: 'input'; type: InputType };
@@ -441,6 +443,8 @@ export class WorkbookEvaluator {
         return { kind: 'value', value: def.value };
       case 'text':
         return { kind: 'text', value: def.value };
+      case 'boolean':
+        return { kind: 'boolean', value: def.value };
       case 'formula': {
         const outcome = this.outcomes.get(key(sheetName, cell));
         if (!outcome) return { kind: 'cycle' };
