@@ -511,6 +511,7 @@ export class AggregateService {
       { id: period.id, versionId: period.versionId, status: period.status },
       mode,
       fields,
+      allowedTeamIds !== null,
     );
 
     return {
@@ -541,6 +542,7 @@ export class AggregateService {
     period: { id: string; versionId: string; status: string },
     mode: SummaryMode,
     fields: ReadonlyArray<{ fieldKey: string; value: string | null }>,
+    scopedToSomeTeams: boolean,
   ): Promise<{
     formulaValues: Record<string, FormulaCellView> | null;
     formulaSource: FormulaSource;
@@ -548,7 +550,9 @@ export class AggregateService {
   }> {
     const unavailable = { formulaValues: null, formulaSource: 'UNAVAILABLE' as const, calcEngineVersion: null };
     try {
-      if (period.status === 'FINALIZED' && mode === 'APPROVED') {
+      // The frozen figures were worked out from EVERY team's numbers. A viewer limited to some teams is shown the
+      // totals of those teams only, so for them the figures are worked out live from what they can see.
+      if (period.status === 'FINALIZED' && mode === 'APPROVED' && !scopedToSomeTeams) {
         const snapshot = await this.prisma.dynReportSnapshot.findFirst({
           where: { periodId: period.id, official: true, invalidatedAt: null },
           orderBy: { createdAt: 'desc' },

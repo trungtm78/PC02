@@ -1160,6 +1160,7 @@ nhau. Nay `FormulaEvaluationService` (cache LRU 100, khoá = phiên bản mẫu 
   `formula-evaluation.service.spec` (cache, khoá, không cache lỗi, giới hạn), 5 ca `evaluateAllFormulas` (khoá, 18 chữ số, mã lỗi, 'none' vs 'blank'),
   2 ca worker (cùng kết quả trong worker và tại chỗ, hết giờ). Backend `dynamic-reports`+`common`: 2301 qua / 0 lỗi (11 ca DB bị bỏ qua vì
   không đặt `DYN_REPORTS_DATABASE_URL` — là CHƯA KIỂM, không phải đạt); `tsc` backend và `tsc -b` frontend sạch.
+- VIEWER bị giới hạn theo tổ (`teamScopeId`) KHÔNG nhận số đóng băng của toàn kỳ (số ấy tính từ mọi tổ — sẽ lộ số ngoài phạm vi): họ luôn nhận `LIVE` tính từ đúng các tổ họ được xem (tự rà soát bắt, có ca kiểm).
 - Chưa làm (thuộc G4/G5b): màn S15 chưa vẽ `formulaValues` lên lưới; file xuất của quản lý chưa ghi số này vào sheet TỔNG.
 
 ## Quyết định kiến trúc

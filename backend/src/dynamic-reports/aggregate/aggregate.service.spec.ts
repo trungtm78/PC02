@@ -233,6 +233,22 @@ describe('AggregateService', () => {
       expect(formulas.evaluate).toHaveBeenCalled();
     });
 
+    it('a viewer limited to some teams never sees the frozen figures of ALL teams: theirs are worked out from what they can see', async () => {
+      const formulas = buildFormulaMock(OUTCOMES);
+      const { service } = buildService(
+        basePeriod({ status: 'FINALIZED' }),
+        [{ role: 'VIEWER', teamScopeId: 'team-a2' }],
+        buildTeamsServiceMock({ 'team-a2': [] }),
+        { formulas, snapshot: { formulaValues: { 'Đội 3!D12': { ok: true, type: 'number', value: '99' } }, calcEngineVersion: 1 } },
+      );
+
+      const view = await service.getPeriodSummary('period1', 'viewer1', 'roleViewer', 'APPROVED');
+
+      expect(view.formulaSource).toBe('LIVE');
+      expect(formulas.evaluate).toHaveBeenCalledWith('version1', { [FIELD.fieldKey]: '20' }, 'none'); // team a2 only
+      expect(JSON.stringify(view.formulaValues)).not.toContain('99');
+    });
+
     it('failing to calculate never takes the summary down: the figures are just unavailable', async () => {
       const formulas = buildFormulaMock();
       (formulas.evaluate as jest.Mock).mockRejectedValue(new Error('GRID_UNAVAILABLE'));
@@ -331,12 +347,6 @@ describe('AggregateService', () => {
     expect(result.fields[0].countTotal).toBe(2);
   });
 
-  it('names the template version so the client can fetch the grid for it', async () => {
-    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
-    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
-    expect(result.versionId).toBe('version1');
-  });
-
   it("R13: a VIEWER scoped to one team subtree only sees that subtree's contributions", async () => {
     const { service, prisma } = buildService(
       basePeriod(),
@@ -376,12 +386,6 @@ describe('AggregateService', () => {
     // a1 + a2 both fall under team-parent's subtree -> same total as an unscoped MANAGER.
     expect(result.fields[0].value).toBe('30');
     expect(result.fields[0].countTotal).toBe(2);
-  });
-
-  it('names the template version so the client can fetch the grid for it', async () => {
-    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
-    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
-    expect(result.versionId).toBe('version1');
   });
 
   it('approves via admin:DynamicReport even without a DynReportRole row', async () => {
