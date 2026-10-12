@@ -36,6 +36,7 @@ describe('SubmissionService', () => {
       dueAt: new Date('2026-07-05T17:00:00Z'),
       report: { id: 'report1', name: 'HSLN' },
       version: { fields: [FIELD], rules: [], selectedSheets: ['Đội 3'] },
+      versionId: 'version1',
       periodKey: '2026-06',
       startDate: new Date('2026-06-01T00:00:00Z'),
       endDate: new Date('2026-06-30T00:00:00Z'),
@@ -296,12 +297,29 @@ describe('SubmissionService', () => {
       const view = await service.getSubmission('assign1', 'u1');
 
       expect(view.reportName).toBe('HSLN');
+      // The grid for this period is fetched by version, so the view must name it.
+      expect(view.versionId).toBe('version1');
       expect(view.fields).toEqual([
         expect.objectContaining({ fieldKey: 'Đội 3!C6', type: 'NUM' }),
       ]);
       expect(view.state).toBe('NOT_STARTED');
       expect(view.revision).toBe('0');
       expect(view.editable).toBe(true);
+    });
+
+    it('never pulls the uploaded workbook (fileBytes, up to 50 MB) into the editor read', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.user.findUnique.mockResolvedValue({ isActive: true });
+      const { service } = buildService(tx);
+
+      await service.getSubmission('assign1', 'u1');
+
+      const arg = tx.dynReportAssignment.findUnique.mock.calls[0][0] as {
+        include: { period: { include: { version: unknown } } };
+      };
+      expect(arg.include.period.include.version).toEqual({ omit: { fileBytes: true } });
     });
 
     it('returns editable=false once the deadline has passed with no active grant', async () => {

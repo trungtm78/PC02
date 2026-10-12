@@ -70,6 +70,8 @@ export interface SubmissionFieldView {
 
 export interface SubmissionView {
   assignmentId: string;
+  /** The template version this period was generated from — key for `GET versions/:versionId/grid`. */
+  versionId: string;
   reportName: string;
   periodKey: string;
   periodStart: string;
@@ -228,7 +230,8 @@ export class SubmissionService {
         period: {
           include: {
             report: true,
-            version: true,
+            // Never drag the uploaded .xlsx (up to 50 MB) in with every autosave.
+            version: { omit: { fileBytes: true } },
           },
         },
         submission: true,
@@ -328,7 +331,7 @@ export class SubmissionService {
       where: { id: assignmentId },
       include: {
         period: {
-          include: { report: true, version: true },
+          include: { report: true, version: { omit: { fileBytes: true } } },
         },
         submission: true,
       },
@@ -585,6 +588,7 @@ export class SubmissionService {
 
     return {
       assignmentId,
+      versionId: period.versionId,
       reportName: period.report.name,
       periodKey: period.periodKey,
       periodStart: period.startDate.toISOString().slice(0, 10),
@@ -1129,6 +1133,7 @@ export class SubmissionService {
 
     return {
       assignmentId,
+      versionId: period.versionId,
       reportName: period.report.name,
       periodKey: period.periodKey,
       periodStart: period.startDate.toISOString().slice(0, 10),

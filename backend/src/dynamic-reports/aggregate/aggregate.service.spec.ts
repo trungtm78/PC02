@@ -144,6 +144,12 @@ describe('AggregateService', () => {
     expect(result.fields[0].countTotal).toBe(2);
   });
 
+  it('names the template version so the client can fetch the grid for it', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+    expect(result.versionId).toBe('version1');
+  });
+
   it('mode=APPROVED sums only APPROVED contributions', async () => {
     const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
 
@@ -212,6 +218,12 @@ describe('AggregateService', () => {
     expect(result.fields[0].countTotal).toBe(2);
   });
 
+  it('names the template version so the client can fetch the grid for it', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+    expect(result.versionId).toBe('version1');
+  });
+
   it("R13: a VIEWER scoped to one team subtree only sees that subtree's contributions", async () => {
     const { service, prisma } = buildService(
       basePeriod(),
@@ -251,6 +263,12 @@ describe('AggregateService', () => {
     // a1 + a2 both fall under team-parent's subtree -> same total as an unscoped MANAGER.
     expect(result.fields[0].value).toBe('30');
     expect(result.fields[0].countTotal).toBe(2);
+  });
+
+  it('names the template version so the client can fetch the grid for it', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+    const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+    expect(result.versionId).toBe('version1');
   });
 
   it('approves via admin:DynamicReport even without a DynReportRole row', async () => {

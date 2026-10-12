@@ -1,4 +1,4 @@
-﻿import { WorkbookEvaluator, evaluateWorkbook } from './workbook-eval';
+import { WorkbookEvaluator, evaluateWorkbook } from './workbook-eval';
 import type { WorkbookCell, WorkbookModel } from './workbook-eval';
 import { formatFormula, parseFormula } from './expr';
 

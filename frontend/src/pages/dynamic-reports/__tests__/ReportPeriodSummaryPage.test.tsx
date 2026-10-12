@@ -34,6 +34,7 @@ function renderPage() {
 
 const VIEW: PeriodSummaryView = {
   reportId: 'report1',
+  versionId: 'version1',
   reportName: 'HSLN',
   periodId: 'period1',
   periodKey: '2026-06',

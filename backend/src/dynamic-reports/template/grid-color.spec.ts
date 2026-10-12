@@ -84,6 +84,11 @@ describe('resolveColor', () => {
     near(resolveColor({ theme: 4, tint: 0.7999816888943144 }, ctx) as string, 'DCE6F1');
   });
 
+  it('tint applies to literal and indexed colours too, not only theme slots', () => {
+    near(resolveColor({ argb: 'FF000000', tint: 0.499984740745262 }, ctx) as string, '7F7F7F');
+    near(resolveColor({ indexed: 1, tint: -0.499984740745262 }, ctx) as string, '7F7F7F');
+  });
+
   it('indexed palette, including the system foreground/background entries', () => {
     expect(resolveColor({ indexed: 10 }, ctx)).toBe('#FF0000');
     expect(resolveColor({ indexed: 22 }, ctx)).toBe('#C0C0C0');

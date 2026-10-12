@@ -143,6 +143,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/pc02_goiy_scope_test
       PETITION_SUGGEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/pc02_goiy_scope_test
       PETITION_SUGGEST_DATABASE_REQUIRED: '1'
+      DYN_REPORTS_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/pc02_goiy_scope_test
+      DYN_REPORTS_DATABASE_REQUIRED: '1'
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -164,4 +166,4 @@ jobs:
         run: cd backend && npx prisma db push --accept-data-loss
 
       - name: Run database-backed specs
-        run: cd backend && npx jest src/petitions/goi-y-don-theo-ten.database.spec.ts --no-coverage --ci
+        run: cd backend && npx jest src/petitions/goi-y-don-theo-ten.database.spec.ts src/dynamic-reports/grid/grid-access.database.spec.ts --no-coverage --ci

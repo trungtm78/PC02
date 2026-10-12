@@ -4091,9 +4091,25 @@ model DynReportVersion {
   fields DynReportField[]
   rules  DynReportValidationRule[]
   periods DynReportPeriod[]
+  grid   DynReportVersionGrid?
 
   @@unique([reportId, version])
   @@map("dyn_report_versions")
+}
+
+/// Derived cache: the render-ready GridModel of a published version, built on the
+/// server from `DynReportVersion.fileBytes`. Never a source of truth — it can be
+/// dropped and rebuilt at any time; `gridEngineVersion` or `sourceSha256` not
+/// matching means it is stale and gets rebuilt.
+model DynReportVersionGrid {
+  versionId         String           @id
+  version           DynReportVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  gridEngineVersion Int
+  sourceSha256      String
+  model             Json
+  builtAt           DateTime         @default(now())
+
+  @@map("dyn_report_version_grids")
 }
 
 model DynReportField {

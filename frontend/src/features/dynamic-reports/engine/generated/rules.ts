@@ -1,4 +1,4 @@
-﻿import Decimal from 'decimal.js';
+import Decimal from 'decimal.js';
 import { evaluateFormula } from './expr';
 import type { CellReference, CellResolution, EvalContext } from './expr';
 import {

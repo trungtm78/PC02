@@ -1,4 +1,4 @@
-﻿"""
+"""
 Independent oracle for the grid model extractor (G1).
 
 Reads each real template with openpyxl and writes, per sheet, the facts the

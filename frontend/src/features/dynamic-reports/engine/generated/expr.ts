@@ -1,4 +1,4 @@
-﻿import Decimal from 'decimal.js';
+import Decimal from 'decimal.js';
 
 /**
  * Expr engine — formula parser/evaluator shared by cell formulas AND

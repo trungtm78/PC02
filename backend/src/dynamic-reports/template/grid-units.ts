@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Excel measures columns in "characters of the default font" and rows in
  * points; the browser needs pixels. These conversions follow ECMA-376
  * 18.3.1.13 so a template renders at the width its author set.

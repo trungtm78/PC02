@@ -1,7 +1,9 @@
 import { Worker } from 'worker_threads';
 import * as path from 'path';
 import { TemplateLimitError } from './limits';
+import { BoundedRunner } from './bounded-runner';
 import type { ParseTemplateResult } from './types';
+import type { GridModel } from '../engine/grid-types';
 import type { WorkerMessage } from './parse-worker';
 
 /**
@@ -11,6 +13,10 @@ import type { WorkerMessage } from './parse-worker';
  * enforces a hard timeout via `worker.terminate()`, and re-hydrates the
  * handful of error codes callers need to branch on (TemplateLimitError)
  * instead of flattening every worker failure into a generic Error.
+ *
+ * Every worker run goes through ONE bounded runner (review OV9): a worker
+ * holds a whole parsed workbook in memory, so concurrent cold requests,
+ * uploads and a backfill must queue instead of each spawning their own.
  */
 
 export class TemplateParseTimeoutError extends Error {
@@ -22,7 +28,24 @@ export class TemplateParseTimeoutError extends Error {
   }
 }
 
+/** A drawing-size refusal from the grid extractor, re-hydrated across the thread boundary. */
+export class GridTooLargeWorkerError extends Error {
+  readonly code = 'GRID_TOO_LARGE';
+  constructor(message: string) {
+    super(message);
+    this.name = 'GridTooLargeWorkerError';
+  }
+}
+
 export const DEFAULT_PARSE_TIMEOUT_MS = 30_000;
+
+/** At most this many worker threads at once, this many more waiting; the rest are refused. */
+export const WORKER_MAX_CONCURRENT = 2;
+export const WORKER_MAX_QUEUE = 50;
+/** Old-generation heap ceiling for one worker; an over-large workbook dies alone instead of the host. */
+const WORKER_MAX_OLD_GEN_MB = 768;
+
+const runner = new BoundedRunner(WORKER_MAX_CONCURRENT, WORKER_MAX_QUEUE);
 
 function workerFilePath(): string {
   const isTs = path.extname(__filename) === '.ts';
@@ -37,53 +60,83 @@ function hydrateError(error: { message: string; code?: string }): Error {
   ) {
     return new TemplateLimitError(error.message, error.code);
   }
+  if (error.code === 'GRID_TOO_LARGE') return new GridTooLargeWorkerError(error.message);
   return new Error(error.message);
 }
 
+/** The workbook bytes, or a function that fetches them once the job is admitted. */
+export type WorkbookSource = Buffer | (() => Promise<Buffer>);
+
+function runInWorker<T>(
+  mode: 'parse' | 'grid',
+  source: WorkbookSource,
+  selectedSheetNames: string[],
+  timeoutMs: number,
+): Promise<T> {
+  return runner.run(async () => {
+    // Fetched only now, inside the slot: a request that is queued — or refused
+    // because the queue is full — never holds a copy of a 50 MB workbook.
+    const buffer = typeof source === 'function' ? await source() : source;
+
+    return new Promise<T>((resolve, reject) => {
+      const isTs = path.extname(__filename) === '.ts';
+      const worker = new Worker(workerFilePath(), {
+        workerData: { mode, buffer, selectedSheetNames },
+        execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
+        resourceLimits: { maxOldGenerationSizeMb: WORKER_MAX_OLD_GEN_MB },
+      });
+
+      let settled = false;
+      // The runner slot is held until the thread is actually gone: terminate()
+      // is asynchronous, and settling first would let the next job start
+      // while this one is still shutting down — more live threads than the limit.
+      const finish = (outcome: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        worker.terminate().then(
+          () => outcome(),
+          () => outcome(), // a failed terminate must not swallow the real result
+        );
+      };
+
+      // The clock starts when the worker does, not when the task queued.
+      const timer = setTimeout(() => {
+        finish(() => reject(new TemplateParseTimeoutError(timeoutMs)));
+      }, timeoutMs);
+      timer.unref?.();
+
+      worker.once('message', (msg: WorkerMessage) => {
+        finish(() => {
+          if (msg.ok) resolve(msg.result as T);
+          else reject(hydrateError(msg.error));
+        });
+      });
+
+      worker.once('error', (err) => {
+        finish(() => reject(err));
+      });
+
+      worker.once('exit', (code) => {
+        // An exit nobody asked for (crash, OOM kill) before any answer.
+        finish(() => reject(new Error(`Worker đóng (mã ${code}) mà không trả kết quả nào.`)));
+      });
+    });
+  });
+}
 export function parseTemplateInWorker(
-  buffer: Buffer,
+  buffer: WorkbookSource,
   selectedSheetNames: string[],
   timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
 ): Promise<ParseTemplateResult> {
-  return new Promise((resolve, reject) => {
-    const isTs = path.extname(__filename) === '.ts';
-    const worker = new Worker(workerFilePath(), {
-      workerData: { buffer, selectedSheetNames },
-      execArgv: isTs ? ['-r', 'ts-node/register/transpile-only'] : [],
-    });
+  return runInWorker<ParseTemplateResult>('parse', buffer, selectedSheetNames, timeoutMs);
+}
 
-    let settled = false;
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      fn();
-    };
-
-    const timer = setTimeout(() => {
-      settle(() => {
-        void worker.terminate();
-        reject(new TemplateParseTimeoutError(timeoutMs));
-      });
-    }, timeoutMs);
-    timer.unref?.();
-
-    worker.once('message', (msg: WorkerMessage) => {
-      settle(() => {
-        void worker.terminate();
-        if (msg.ok) resolve(msg.result);
-        else reject(hydrateError(msg.error));
-      });
-    });
-
-    worker.once('error', (err) => {
-      settle(() => reject(err));
-    });
-
-    worker.once('exit', (code) => {
-      settle(() =>
-        reject(new Error(`Worker đóng (mã ${code}) mà không trả kết quả nào.`)),
-      );
-    });
-  });
+/** Builds the render-ready GridModel of the selected sheets in an isolated, bounded worker. */
+export function buildGridInWorker(
+  buffer: WorkbookSource,
+  selectedSheetNames: string[],
+  timeoutMs: number = DEFAULT_PARSE_TIMEOUT_MS,
+): Promise<GridModel> {
+  return runInWorker<GridModel>('grid', buffer, selectedSheetNames, timeoutMs);
 }

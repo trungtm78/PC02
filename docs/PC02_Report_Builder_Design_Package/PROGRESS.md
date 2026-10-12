@@ -1,4 +1,4 @@
-﻿# PROGRESS — Dynamic Report Builder (Báo cáo động)
+# PROGRESS — Dynamic Report Builder (Báo cáo động)
 Cập nhật: 2026-10-12T06:55:00+07:00 | Milestone: **PR0-PR10 HOÀN TẤT TOÀN BỘ** — UAT thật (3 bug tìm+vá), sổ a11y vá gộp, benchmark X04 3/3 chỉ số đạt, Runbook+backup/restore đã kiểm thật, monkey test cuối đã chạy (bắt thêm 1 bug nghiêm trọng `crypto.randomUUID` ảnh hưởng cả module này, đã vá xong) — **flag `dynamic_reports` ĐANG BẬT trên production**. Việc còn lại là TUỲ CHỌN (28 dòng UAT phụ + 2 GAP UX + 1 GAP oracle, xem mục 5 "Hàng đợi task kế tiếp"), không chặn coi PR10 là xong. | Task: 0/~1
 
 ## Đã hoàn thành
@@ -969,6 +969,30 @@ exceljs `dimensions` thiếu ô chỉ có style (47 → 63 dòng), ô `<c/>` r�
 kiểm các nhánh đó theo giá trị tính tay.
 **Giới hạn đã biết:** `<c>` rỗng không có thuộc tính style nằm trong cột có style bị exceljs bỏ → style cột
 hiện xuyên qua (vô hình nếu cột chỉ có phông/căn lề). Kiểm: template+engine 749 ca xanh, `tsc` BE+FE sạch.
+### G1b — dịch vụ lưới + endpoint + quyền (12/10/2026)
+- `GET /bao-cao-dong/versions/:versionId/grid` (flag `dynamic_reports`, `read:DynamicReport`): trả `GridModel`,
+  `ETag` + `Cache-Control: private, max-age=0, must-revalidate`, 304 khi khớp. **Phân quyền xong TRƯỚC khi chạm
+  cache/ETag** — người ngoài báo cáo nhận 404 y như phiên bản không tồn tại, không bao giờ 304.
+- `GridAccessService`: đọc được nếu `admin|manage:DynamicReport` (cả bản nháp), hoặc là MANAGER/VIEWER còn hiệu lực
+  của báo cáo, hoặc là người nhập đang hoạt động của lượt giao dùng đúng version đó; bản NHÁP chỉ nhóm đầu.
+  Kiểm trên **PostgreSQL thật** (`grid-access.database.spec.ts`, 11 ca; nằm trong CI Database Gate với
+  `DYN_REPORTS_DATABASE_REQUIRED=1`). Gieo 4 lỗi phân quyền (bỏ `isActive`, cho xem bản nháp, role của báo cáo
+  khác, bỏ hạn hiệu lực) → mỗi lỗi làm đỏ đúng 1 ca.
+- `GridModelService`: bộ nhớ (LRU theo ngân sách 64 MB / 200 mục) → bảng `dyn_report_version_grids`
+  (`versionId` PK, `gridEngineVersion`, `sourceSha256`, `model`) → dựng từ file trong worker. Single-flight theo
+  version; lỗi dựng KHÔNG được cache; `ensureBuilt` cho backfill.
+  Lỗi → `422 GRID_UNAVAILABLE` (lý do `TOO_LARGE | TIMEOUT | FAILED`) hoặc `503 GRID_BUSY`; FE về dạng danh sách.
+- `BoundedRunner` + worker `mode:'grid'` (OV9): tối đa 2 worker đồng thời, hàng đợi 50, quá thì từ chối ngay;
+  mỗi worker giới hạn heap 768 MB để file khổng lồ chết một mình thay vì cả máy chủ.
+- `versionId` thêm vào `SubmissionView` và `PeriodSummaryView` (FE types + 3 fixture).
+- **Vá hiệu năng:** mọi `include version` của submission/aggregate nay `omit: { fileBytes: true }` — trước đó
+  mỗi lần mở/lưu một lượt giao kéo cả file .xlsx (tới 50 MB) từ DB. Có ca kiểm hồi quy.
+- `scripts/backfill-dr-grids.ts`: mặc định chạy THỬ (liệt kê), `--apply` mới ghi, `--limit=N`, mã thoát 1 nếu có
+  version dựng lỗi.
+- Đo thật trên PG18 cục bộ qua service: pl7 / a09 / a10 / HSLN dựng lạnh 650–900 ms (chủ yếu khởi động worker),
+  đọc lại 1 ms; model 20–49 KB (ngân sách < 300 KB gzip còn rất xa).
+- Dọn: BOM UTF-8 do shell chèn vào 25 tệp nguồn (làm hỏng `prisma validate`) đã bỏ; tint áp cho cả màu argb/indexed;
+  chữ dọc (`textRotation: vertical`) → 255.
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
