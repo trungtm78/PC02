@@ -533,6 +533,48 @@ describe('SubmissionService', () => {
       ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
     });
 
+    it('lets a draft hold a blank in a REQUIRED cell: required-ness is enforced by submit, not save', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          period: basePeriod({
+            version: {
+              fields: [{ ...FIELD, required: true }],
+              rules: [],
+              selectedSheets: ['Đội 3'],
+            },
+          }),
+        }),
+      );
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'DRAFT',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '12' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+      });
+      const { service } = buildService(tx);
+
+      // The officer cleared a required cell: the grid and the list form both send null.
+      const result = await service.save(
+        'assign1',
+        'u1',
+        { 'Đội 3!C6': null },
+        '1',
+      );
+
+      expect(result.revision).toBe('2');
+      const updateCall = tx.dynReportSubmission.update.mock.calls[0][0] as {
+        data: { values: Record<string, unknown> };
+      };
+      expect(updateCall.data.values['Đội 3!C6']).toEqual({ t: 'NUM', v: null });
+    });
+
     it('saves a valid patch: transitions NOT_STARTED -> DRAFT, revision 0 -> 1, writes a diff revision', async () => {
       const tx = buildTx();
       tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({

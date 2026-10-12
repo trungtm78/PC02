@@ -85,8 +85,9 @@ const BINDINGS: readonly Binding[] = [
   ]),
 
   // Tab / Enter walk the input cells; in the editor they confirm first.
-  { key: 'Tab', shift: false, alt: false, modes: ALL, command: { type: 'tab', back: false } },
-  { key: 'Tab', shift: true, alt: false, modes: ALL, command: { type: 'tab', back: true } },
+  // Ctrl+Tab / Ctrl+Shift+Tab switch browser tabs: never a cell move.
+  { key: 'Tab', ctrl: false, shift: false, modes: ALL, command: { type: 'tab', back: false } },
+  { key: 'Tab', ctrl: false, shift: true, modes: ALL, command: { type: 'tab', back: true } },
   { key: 'Enter', ctrl: false, shift: false, modes: ALL, command: { type: 'enter', back: false } },
   { key: 'Enter', ctrl: false, shift: true, modes: ALL, command: { type: 'enter', back: true } },
   { key: 'Enter', ctrl: false, shift: false, alt: true, modes: TYPING, command: { type: 'newline' } },
@@ -110,6 +111,8 @@ const BINDINGS: readonly Binding[] = [
   { key: 'z', ctrl: true, shift: true, modes: NAV, command: { type: 'redo' } },
   { key: ';', ctrl: true, shift: false, modes: ALL, command: { type: 'insertToday' } },
   { key: ';', ctrl: true, shift: true, modes: ALL, command: { type: 'insertNow' } },
+  // With Shift held a US/Vietnamese keyboard reports ':' for that same physical key.
+  { key: ':', ctrl: true, shift: true, modes: ALL, command: { type: 'insertNow' } },
 ];
 
 const NAMED_KEYS_THAT_ARE_NOT_TEXT = new Set([

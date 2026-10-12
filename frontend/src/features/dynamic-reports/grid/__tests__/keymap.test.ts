@@ -70,9 +70,18 @@ describe('nav mode', () => {
     for (const key of ['c', 'x', 'v']) expect(cmd(key, 'nav', { ctrlKey: true })).toBeNull();
   });
 
-  it('Ctrl+; inserts today, Ctrl+Shift+; the time', () => {
+  it('Ctrl+; inserts today, Ctrl+Shift+; the time (the browser reports ":" while Shift is held)', () => {
     expect(cmd(';', 'nav', { ctrlKey: true })).toEqual({ type: 'insertToday' });
+    expect(cmd(':', 'nav', { ctrlKey: true, shiftKey: true })).toEqual({ type: 'insertNow' });
     expect(cmd(';', 'nav', { ctrlKey: true, shiftKey: true })).toEqual({ type: 'insertNow' });
+  });
+
+  it('Ctrl+Tab and Ctrl+Shift+Tab switch browser tabs, never cells', () => {
+    for (const mode of ['nav', 'enter', 'edit'] as const) {
+      expect(cmd('Tab', mode, { ctrlKey: true })).toBeNull();
+      expect(cmd('Tab', mode, { ctrlKey: true, shiftKey: true })).toBeNull();
+      expect(cmd('Tab', mode, { metaKey: true })).toBeNull();
+    }
   });
 });
 

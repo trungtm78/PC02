@@ -141,10 +141,16 @@ export function blockRect(model: NavModel, p: Pos): Rect {
   return { top: model.rows[e.r0], bottom: model.rows[e.r1], left: model.cols[e.c0], right: model.cols[e.c1] };
 }
 
-export function moveArrow(model: NavModel, p: Pos, dir: Direction): Pos {
+/**
+ * One step. `lane` is the column (moving up/down) or row (moving left/right) the
+ * cursor is travelling along; it defaults to the cell's own, but a long move
+ * that passes through a merged block must keep its original lane or it would
+ * come out the other side in the block's own column.
+ */
+export function moveArrow(model: NavModel, p: Pos, dir: Direction, lane?: number): Pos {
   const e = extent(model, p);
-  let row = p.row;
-  let col = p.col;
+  let row = dir === 'left' || dir === 'right' ? (lane ?? p.row) : p.row;
+  let col = dir === 'up' || dir === 'down' ? (lane ?? p.col) : p.col;
   switch (dir) {
     case 'down': {
       const i = e.r1 + 1;
@@ -177,14 +183,15 @@ export function moveArrow(model: NavModel, p: Pos, dir: Direction): Pos {
 /** Ctrl+arrow, Excel's rule. */
 export function moveJump(model: NavModel, p: Pos, dir: Direction): Pos {
   const filled = (q: Pos) => model.isFilled(q.row, q.col);
-  const first = moveArrow(model, p, dir);
+  const lane = dir === 'up' || dir === 'down' ? p.col : p.row;
+  const first = moveArrow(model, p, dir, lane);
   if (samePos(first, p)) return p;
 
   let at = first;
   if (filled(p) && filled(first)) {
     // Inside a filled run: go to its last cell.
     for (;;) {
-      const next = moveArrow(model, at, dir);
+      const next = moveArrow(model, at, dir, lane);
       if (samePos(next, at) || !filled(next)) return at;
       at = next;
     }
@@ -192,7 +199,7 @@ export function moveJump(model: NavModel, p: Pos, dir: Direction): Pos {
   // Otherwise: the next filled cell, or the edge of the sheet.
   for (;;) {
     if (filled(at)) return at;
-    const next = moveArrow(model, at, dir);
+    const next = moveArrow(model, at, dir, lane);
     if (samePos(next, at)) return at;
     at = next;
   }

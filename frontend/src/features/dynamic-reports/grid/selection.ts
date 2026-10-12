@@ -1,5 +1,5 @@
 import { key } from './gridIndex';
-import { blockRect, move, samePos } from './navigation';
+import { blockRect, move, resolve, samePos } from './navigation';
 import type { NavModel, Pos, Rect } from './navigation';
 import type { Direction } from './keymap';
 
@@ -86,8 +86,53 @@ export function moveSelection(
   dir: Direction,
   opts: { extend: boolean; jump: boolean },
 ): Selection {
-  const focus = move(model, s.focus, dir, opts.jump);
-  return opts.extend ? { anchor: s.anchor, focus } : single(focus);
+  if (!opts.extend) return single(move(model, s.focus, dir, opts.jump));
+  if (opts.jump) return { anchor: s.anchor, focus: move(model, s.focus, dir, true) };
+  return { anchor: s.anchor, focus: stepFromEdge(model, s, dir) };
+}
+
+/**
+ * Shift+arrow: the focus steps from the edge of the rectangle on its own side,
+ * not from the focus cell. After a merged block has widened the selection the
+ * next press must continue beyond the block, not crawl through the cells inside it.
+ */
+function stepFromEdge(model: NavModel, s: Selection, dir: Direction): Pos {
+  const rect = selectionRect(model, s);
+  const f = blockRect(model, s.focus);
+  const a = blockRect(model, s.anchor);
+  let row = s.focus.row;
+  let col = s.focus.col;
+  switch (dir) {
+    case 'down': {
+      const edge = f.bottom >= a.bottom ? rect.bottom : f.bottom;
+      const next = model.rows.find((r) => r > edge);
+      if (next === undefined) return s.focus;
+      row = next;
+      break;
+    }
+    case 'up': {
+      const edge = f.top <= a.top ? rect.top : f.top;
+      const next = [...model.rows].reverse().find((r) => r < edge);
+      if (next === undefined) return s.focus;
+      row = next;
+      break;
+    }
+    case 'right': {
+      const edge = f.right >= a.right ? rect.right : f.right;
+      const next = model.cols.find((c) => c > edge);
+      if (next === undefined) return s.focus;
+      col = next;
+      break;
+    }
+    case 'left': {
+      const edge = f.left <= a.left ? rect.left : f.left;
+      const next = [...model.cols].reverse().find((c) => c < edge);
+      if (next === undefined) return s.focus;
+      col = next;
+      break;
+    }
+  }
+  return resolve(model, { row, col }) ?? s.focus;
 }
 
 export function selectAll(model: NavModel): Selection | null {

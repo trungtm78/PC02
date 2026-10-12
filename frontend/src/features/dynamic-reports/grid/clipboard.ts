@@ -18,13 +18,16 @@ export const MAX_PASTE_CELLS = 10_000;
 
 /** Rows × columns of text → clipboard text. */
 export function toClipboardText(matrix: readonly (readonly string[])[]): string {
+  // Like Excel, every row ends with a newline: that keeps a blank LAST row from vanishing
+  // ("x\n" is one row, "x\n\n" is two) and is the single trailing newline the reader ignores.
   return matrix
-    .map((row) =>
-      row
-        .map((cell) => (/[\t\n\r"]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
-        .join('\t'),
+    .map(
+      (row) =>
+        row
+          .map((cell) => (/[\t\n\r"]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
+          .join('\t') + '\n',
     )
-    .join('\n');
+    .join('');
 }
 
 /**
@@ -161,14 +164,29 @@ export function planGridPaste(args: {
   }
 
   const changes: PasteChange[] = [];
+  const byField = new Map<string, PasteChange>();
   for (const t of targets) {
     const target = args.targetAt(t.pos) as PasteTarget;
     const result = normalizeInput(target.field, t.raw);
+    const address = addressOf(t.pos);
     if (!result.ok) {
-      const address = addressOf(t.pos);
       return { ok: false, message: `Ô ${address}: ${result.message} Không ô nào được dán.`, addresses: [address] };
     }
-    changes.push({ fieldKey: target.fieldKey, address: addressOf(t.pos), value: result.value });
+    // Several coordinates can belong to ONE field (a merged block): they must agree, or one value silently wins.
+    const earlier = byField.get(target.fieldKey);
+    if (earlier) {
+      if (earlier.value !== result.value) {
+        return {
+          ok: false,
+          message: `Ô ${address} và ô ${earlier.address} là cùng một ô gộp nhưng được dán hai giá trị khác nhau. Không ô nào được dán.`,
+          addresses: [earlier.address, address],
+        };
+      }
+      continue;
+    }
+    const change = { fieldKey: target.fieldKey, address, value: result.value };
+    byField.set(target.fieldKey, change);
+    changes.push(change);
   }
   return { ok: true, changes };
 }

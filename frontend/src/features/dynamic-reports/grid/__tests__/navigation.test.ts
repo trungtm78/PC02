@@ -153,6 +153,15 @@ describe('Ctrl+arrow (Excel rule)', () => {
     expect(move(run, at(1, 1), 'down', true)).toEqual(at(2, 1));
   });
 
+  it('stays in its own column while crossing a merged block', () => {
+    // B2:C3 is merged and empty; only C4 is filled. Ctrl+Down from C1 must find C4, not B-something.
+    const m = build({ merges: [{ top: 1, left: 1, bottom: 2, right: 2 }], filled: ['3,2'] });
+    expect(move(m, at(0, 2), 'down', true)).toEqual(at(3, 2));
+    // And the same sideways: a block spanning rows 1-2 crossed along row 2 (index 2).
+    const side = build({ merges: [{ top: 1, left: 1, bottom: 2, right: 2 }], filled: ['2,3'] });
+    expect(move(side, at(2, 0), 'right', true)).toEqual(at(2, 3));
+  });
+
   it('an empty cell: to the next filled one', () => {
     expect(move(m, at(3, 1), 'down', true)).toEqual(at(4, 1));
     expect(move(m, at(5, 1), 'up', true)).toEqual(at(4, 1));

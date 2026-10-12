@@ -1052,6 +1052,13 @@ Các mô-đun thuần (không React) mà màn nhập trên lưới sẽ dùng; c
 - Kiểm: 120 ca mới. Gieo 9 lỗi (đảo hướng Shift+Tab, bỏ luật "ô trống kề dãy đầy", bước qua khối sai, bỏ kiểm ô khoá khi dán,
   bỏ lọc ô khoá, giữ bước không đổi gì, bỏ chặn IME, bỏ nhận ô rỗng, nở vùng chọn một lượt) → cả 9 bị bắt; 2 lỗi gieo đầu
   sống sót nên đã bổ sung ca (dãy đầy sau ô trống; khối gộp nối chuỗi).
+- **Codex review G3a (7 phát hiện, đã sửa hết):** (1) mỗi hàng clipboard kết thúc bằng xuống dòng như Excel — hàng cuối rỗng
+  không còn biến mất làm "dán 1 ô" điền cả vùng; (2) dán hai giá trị khác nhau vào cùng một ô gộp bị từ chối (trước đây giá
+  trị sau đè giá trị trước trong im lặng); (3) **lỗi máy chủ có thật**: lưu/nhập Excel từ chối ô để trống ở trường bắt buộc
+  (`required: field.required` trong `save`/`importPreview`/`applyImport`) — nay nháp được phép trống, bắt buộc chỉ kiểm khi
+  NỘP (đã có sẵn), kèm ca hồi quy; cả form danh sách cũ cũng hết lỗi này; (4) Ctrl+mũi tên giữ nguyên làn khi băng qua ô gộp;
+  (5) Shift+mũi tên đi từ mép vùng chọn thay vì từ ô tiêu điểm; (6) Ctrl+Shift+; nhận phím `:` mà trình duyệt báo; (7) Ctrl+Tab
+  không còn bị coi là chuyển ô.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

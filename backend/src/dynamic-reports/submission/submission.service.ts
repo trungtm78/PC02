@@ -1351,7 +1351,8 @@ export class SubmissionService {
         const result = validateFieldValue(
           {
             type: field.type as FieldDefinitionLike['type'],
-            required: field.required,
+            // A draft may hold a blank in a required cell; submit() is where required-ness is enforced.
+            required: false,
             min: field.min?.toString(),
             max: field.max?.toString(),
             scale: field.scale ?? undefined,
@@ -1526,7 +1527,8 @@ export class SubmissionService {
       const result = validateFieldValue(
         {
           type: field.type as FieldDefinitionLike['type'],
-          required: field.required,
+          // A draft may hold a blank in a required cell; submit() is where required-ness is enforced.
+          required: false,
           min: field.min?.toString(),
           max: field.max?.toString(),
           scale: field.scale ?? undefined,
@@ -1608,7 +1610,8 @@ export class SubmissionService {
         const result = validateFieldValue(
           {
             type: field.type as FieldDefinitionLike['type'],
-            required: field.required,
+            // A draft may hold a blank in a required cell; submit() is where required-ness is enforced.
+            required: false,
             min: field.min?.toString(),
             max: field.max?.toString(),
             scale: field.scale ?? undefined,

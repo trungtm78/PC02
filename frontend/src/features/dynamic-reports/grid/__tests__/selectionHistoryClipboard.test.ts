@@ -96,6 +96,26 @@ describe('selection', () => {
     expect(moveSelection(m, more, 'down', { extend: false, jump: false })).toEqual(single(at(3, 2)));
   });
 
+  it('Shift+Down continues beyond a merged block that widened the selection', () => {
+    // B2:B4 is merged. Selecting A1:C1 and pressing Shift+Down reaches row 2, which pulls the block in (rows 1-4);
+    // the next press must go to row 5, not crawl through the block's own cells.
+    const m = model({ merges: [{ top: 1, left: 1, bottom: 3, right: 1 }] });
+    let s = { anchor: at(0, 0), focus: at(0, 2) };
+    s = moveSelection(m, s, 'down', { extend: true, jump: false });
+    expect(selectionRect(m, s)).toEqual({ top: 0, left: 0, bottom: 3, right: 2 });
+    s = moveSelection(m, s, 'down', { extend: true, jump: false });
+    expect(selectionRect(m, s)).toEqual({ top: 0, left: 0, bottom: 4, right: 2 });
+    s = moveSelection(m, s, 'down', { extend: true, jump: false });
+    expect(selectionRect(m, s)).toEqual({ top: 0, left: 0, bottom: 5, right: 2 });
+  });
+
+  it('Shift+Up from below the anchor shrinks the selection by one line', () => {
+    const m = model();
+    let s = { anchor: at(1, 1), focus: at(4, 1) };
+    s = moveSelection(m, s, 'up', { extend: true, jump: false });
+    expect(selectionRect(m, s)).toEqual({ top: 1, left: 1, bottom: 3, right: 1 });
+  });
+
   it('Ctrl+A selects every drawn cell', () => {
     const m = model();
     expect(selectionRect(m, selectAll(m)!)).toEqual({ top: 0, left: 0, bottom: 5, right: 3 });
@@ -183,14 +203,26 @@ describe('clipboard text', () => {
       ['1', 'a'],
       ['2', ''],
     ];
-    expect(toClipboardText(m)).toBe('1\ta\n2\t');
+    expect(toClipboardText(m)).toBe('1\ta\n2\t\n');
     expect(parseClipboardText(toClipboardText(m))).toEqual(m);
+  });
+
+  it('a blank LAST row survives the round trip (it must not turn into a one-cell copy)', () => {
+    const column = [['x'], ['']];
+    expect(parseClipboardText(toClipboardText(column))).toEqual(column);
+    const row = [['x', '']];
+    expect(parseClipboardText(toClipboardText(row))).toEqual(row);
+    const two = [
+      ['a', 'b'],
+      ['', ''],
+    ];
+    expect(parseClipboardText(toClipboardText(two))).toEqual(two);
   });
 
   it('quotes a cell with a tab, newline or quote, and reads it back', () => {
     const m = [['a\tb', 'dòng 1\ndòng 2', 'nói "xin chào"']];
     const text = toClipboardText(m);
-    expect(text).toBe('"a\tb"\t"dòng 1\ndòng 2"\t"nói ""xin chào"""');
+    expect(text).toBe('"a\tb"\t"dòng 1\ndòng 2"\t"nói ""xin chào"""\n');
     expect(parseClipboardText(text)).toEqual(m);
   });
 
@@ -306,6 +338,33 @@ describe('planGridPaste', () => {
     });
     expect(plan).toMatchObject({ ok: true });
     if (plan.ok) expect(plan.changes).toHaveLength(2);
+  });
+
+  it('two coordinates of ONE merged field must be pasted the same value, or the block is refused', () => {
+    const merged: PasteTarget = { fieldKey: 'S!A1', field: { type: 'TEXT' } };
+    const mergedAt = (p: Pos) => (p.row === 0 && p.col <= 1 ? merged : undefined);
+    const conflict = planGridPaste({ text: 'first\tsecond', topLeft: at(0, 0), targetAt: mergedAt });
+    expect(conflict.ok).toBe(false);
+    if (!conflict.ok) expect(conflict.message).toContain('cùng một ô gộp');
+    const same = planGridPaste({ text: 'same\tsame', topLeft: at(0, 0), targetAt: mergedAt });
+    expect(same).toEqual({ ok: true, changes: [{ fieldKey: 'S!A1', address: 'A1', value: 'same' }] });
+  });
+
+  it('copying a blank cell under a filled one and pasting over both clears the second, not fills it', () => {
+    const copied = toClipboardText([['7'], ['']]);
+    const plan = planGridPaste({
+      text: copied,
+      topLeft: at(1, 1),
+      selection: { top: 1, left: 1, bottom: 2, right: 1 },
+      targetAt,
+    });
+    expect(plan).toMatchObject({ ok: true });
+    if (plan.ok) {
+      expect(plan.changes.map((c) => [c.address, c.value])).toEqual([
+        ['B2', '7'],
+        ['B3', null],
+      ]);
+    }
   });
 
   it('refuses nothing-to-paste and oversized blocks', () => {
