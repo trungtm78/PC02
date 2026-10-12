@@ -20,8 +20,9 @@ import b15 from './15-bao-cao-kpi.mjs';
 import b16 from './16-tdc-phu-luc.mjs';
 import b17 from './17-quan-tri-nguoi-dung.mjs';
 import b18 from './18-quan-tri-he-thong.mjs';
+import b98 from './98-bao-cao-dong-luoi.mjs';
 
-export const BOARDS = [b01, b02, b03, b04, b05, b06, b07, b08, b09, b10, b11, b12, b13, b14, b15, b16, b17, b18];
+export const BOARDS = [b01, b02, b03, b04, b05, b06, b07, b08, b09, b10, b11, b12, b13, b14, b15, b16, b17, b18, b98];
 
 export function findBoard(slug) {
   return BOARDS.find((b) => b.slug === slug || b.slug.startsWith(slug));
