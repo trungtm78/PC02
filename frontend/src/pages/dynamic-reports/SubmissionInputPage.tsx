@@ -22,6 +22,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { randomUUID } from '@/lib/uuid';
+import { createSaveQueue } from '@/features/dynamic-reports/saveQueue';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Download, FileSpreadsheet, Lock, Unlock, Send } from 'lucide-react';
@@ -91,15 +92,45 @@ export default function SubmissionInputPage() {
   // a request that actually reached the server but whose response was
   // lost), while a genuinely different attempt always gets a fresh key.
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
+  // H0 — saves are serialised through one queue and always read the latest
+  // *acknowledged* revision and typed values from refs, never from the
+  // render-time closure (which is stale by the time a queued save runs).
+  const [saveQueue] = useState(createSaveQueue);
+  const valuesRef = useRef<Record<string, string>>({});
+  const revisionRef = useRef<string | null>(null);
+  if (revisionRef.current === null && initial) revisionRef.current = initial.revision;
 
   const revision = revisionOverride ?? initial?.revision ?? null;
   const editable = editableOverride ?? initial?.editable ?? true;
   const effectiveLockAt = lockAtOverride ?? initial?.effectiveLockAt ?? null;
   const state = stateOverride ?? initial?.state ?? 'NOT_STARTED';
 
-  async function flush(current: Record<string, string>, revisionForThisCall?: string) {
-    const effectiveRevision = revisionForThisCall ?? revision;
-    if (!assignmentId || !effectiveRevision || dirtyRef.current.size === 0) return;
+  /** Adopt a server-acknowledged revision for both the UI and the save queue. */
+  function acceptRevision(next: string) {
+    revisionRef.current = next;
+    setRevisionOverride(next);
+  }
+
+  /**
+   * Saves everything that is dirty, one request at a time, and resolves
+   * `true` only when nothing is left unsaved. `false` means a save failed or
+   * is waiting on the user (conflict / validation) — callers such as "Nộp"
+   * must stop, because the server's copy does not contain the typed values.
+   */
+  async function flushAll(): Promise<boolean> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const ok = await saveQueue.enqueue(runSave);
+      if (!ok) return false;
+      if (dirtyRef.current.size === 0) return true;
+    }
+    return false;
+  }
+
+  async function runSave(): Promise<boolean> {
+    const effectiveRevision = revisionRef.current;
+    if (!assignmentId || !effectiveRevision) return true;
+    if (dirtyRef.current.size === 0) return true;
+    const current = valuesRef.current;
     const dirtyKeys = Array.from(dirtyRef.current);
     const patch: Record<string, string | null> = {};
     for (const key of dirtyKeys) {
@@ -124,7 +155,7 @@ export default function SubmissionInputPage() {
         idempotencyKey,
       );
       idempotencyRef.current = null;
-      setRevisionOverride(result.revision);
+      acceptRevision(result.revision);
       setLockAtOverride(result.effectiveLockAt);
       setSaveStatus('saved');
       setFieldErrors((prev) => {
@@ -132,17 +163,24 @@ export default function SubmissionInputPage() {
         for (const key of Object.keys(patch)) delete next[key];
         return next;
       });
+      return true;
     } catch (err) {
       const apiError = extractApiError(err);
+      // H0 — a failed save never drops what the user typed: every key goes
+      // back into the dirty set so the next save (retry, blur, idle timer or
+      // "Nộp") resends it, and "Nộp" refuses to run while any key is dirty.
+      for (const key of dirtyKeys) dirtyRef.current.add(key);
       if (apiError.code === 'REVISION_CONFLICT') {
-        // S26 — re-mark dirty so either conflict resolution can resend the same patch.
-        for (const key of dirtyKeys) dirtyRef.current.add(key);
+        // S26 — either conflict resolution resends the same patch.
         await loadConflict(patch);
-      } else if (apiError.status === 0) {
-        // S26 — network/timeout: keep the patch pending and the idempotency
-        // key pinned, so "Thử lại" resends the exact same request.
-        for (const key of dirtyKeys) dirtyRef.current.add(key);
-        setSaveError('Mất kết nối — thay đổi chưa được lưu.');
+      } else if (apiError.status === 0 || (apiError.status ?? 0) >= 500) {
+        // S26 — network/timeout/5xx: the request may have committed, so keep
+        // the idempotency key pinned and let "Thử lại" resend it verbatim.
+        setSaveError(
+          apiError.status === 0
+            ? 'Mất kết nối — thay đổi chưa được lưu.'
+            : `Máy chủ gặp lỗi — thay đổi chưa được lưu. ${apiError.message}`,
+        );
         setCanRetrySave(true);
       } else if (apiError.code === 'CELL_VALIDATION') {
         idempotencyRef.current = null;
@@ -158,6 +196,7 @@ export default function SubmissionInputPage() {
         setSaveError(apiError.message);
       }
       setSaveStatus('error');
+      return false;
     }
   }
 
@@ -181,24 +220,22 @@ export default function SubmissionInputPage() {
   function resolveConflictKeepMine() {
     if (!conflict) return;
     idempotencyRef.current = null; // the retry targets a different revision — needs its own key.
-    setRevisionOverride(conflict.serverRevision);
-    const newRevision = conflict.serverRevision;
+    acceptRevision(conflict.serverRevision);
     setConflict(null);
-    void flush(values, newRevision);
+    void flushAll();
   }
 
   /** S26 — discard my unsaved edits for the conflicting fields; adopt the server's current values. */
   function resolveConflictUseServer() {
     if (!conflict) return;
     const keys = Object.keys(conflict.mineByKey);
-    setValues((prev) => {
-      const next = { ...prev };
-      for (const key of keys) delete next[key];
-      return next;
-    });
+    const next = { ...valuesRef.current };
+    for (const key of keys) delete next[key];
+    valuesRef.current = next;
+    setValues(next);
     for (const key of keys) dirtyRef.current.delete(key);
     idempotencyRef.current = null;
-    setRevisionOverride(conflict.serverRevision);
+    acceptRevision(conflict.serverRevision);
     setLockAtOverride(conflict.serverEffectiveLockAt);
     setConflict(null);
     setSaveStatus('idle');
@@ -239,25 +276,28 @@ export default function SubmissionInputPage() {
     setImportStatus('applying');
     setImportError(null);
     try {
-      const result = await dynamicReportsApi.applyExcelImport(
-        assignmentId,
-        importPreview.values,
-        revision,
+      // Queued behind any in-flight save so it applies against the
+      // acknowledged revision instead of racing it into a 409.
+      const result = await saveQueue.enqueue(() =>
+        dynamicReportsApi.applyExcelImport(
+          assignmentId,
+          importPreview.values,
+          revisionRef.current ?? revision,
+        ),
       );
-      setRevisionOverride(result.revision);
+      acceptRevision(result.revision);
       setStateOverride(result.state);
       setLockAtOverride(result.effectiveLockAt);
       // `initial.values` (the query cache) is stale until a refetch — keep
       // showing exactly what the server now has, the same way a normal
       // save's response never needs to touch `values` because the user's
       // own typed text already matches what got saved.
-      setValues((prev) => {
-        const next = { ...prev };
-        for (const [key, raw] of Object.entries(importPreview.values)) {
-          next[key] = raw ?? '';
-        }
-        return next;
-      });
+      const next = { ...valuesRef.current };
+      for (const [key, raw] of Object.entries(importPreview.values)) {
+        next[key] = raw ?? '';
+      }
+      valuesRef.current = next;
+      setValues(next);
       for (const key of Object.keys(importPreview.values)) dirtyRef.current.delete(key);
       setImportPreview(null);
       setImportStatus('idle');
@@ -276,44 +316,61 @@ export default function SubmissionInputPage() {
   async function handleSubmit() {
     if (!assignmentId || !initial) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    await flush(values);
-
-    setRuleErrors([]);
+    // H0 — inputs are disabled from here on, so nothing can be typed between
+    // the final save and the submit request below.
+    setSubmitting(true);
     try {
-      const { errors, warnings } = await dynamicReportsApi.validateForSubmit(assignmentId);
-      if (errors.length > 0) {
-        setRuleErrors(errors.map((e) => `${e.name}: ${e.message}`));
+      // Wait for every pending save and stop if any of them failed: the
+      // server's copy would be missing what the user sees on screen.
+      const saved = await flushAll();
+      if (!saved) return;
+
+      setRuleErrors([]);
+      try {
+        const { errors, warnings } = await dynamicReportsApi.validateForSubmit(assignmentId);
+        if (errors.length > 0) {
+          setRuleErrors(errors.map((e) => `${e.name}: ${e.message}`));
+          return;
+        }
+        if (warnings.length > 0) {
+          const ok = window.confirm(
+            `${warnings.length} cảnh báo: ${warnings.map((w) => w.message).join('; ')}\n\nTiếp tục nộp?`,
+          );
+          if (!ok) return;
+        }
+      } catch (err) {
+        setSaveError(extractApiError(err).message);
         return;
       }
-      if (warnings.length > 0) {
+
+      const blankOptional = initial.fields.filter(
+        (f) =>
+          !f.required &&
+          !(valuesRef.current[f.fieldKey] ?? initial.values[f.fieldKey]?.v ?? '').trim(),
+      );
+      if (blankOptional.length > 0) {
         const ok = window.confirm(
-          `${warnings.length} cảnh báo: ${warnings.map((w) => w.message).join('; ')}\n\nTiếp tục nộp?`,
+          `${blankOptional.length} ô để trống sẽ tính là 0. Tiếp tục nộp?`,
         );
         if (!ok) return;
+      } else if (!window.confirm('Nộp bản này? Sau khi nộp sẽ không sửa được nữa.')) {
+        return;
       }
-    } catch (err) {
-      setSaveError(extractApiError(err).message);
-      return;
-    }
 
-    const blankOptional = initial.fields.filter(
-      (f) => !f.required && !(values[f.fieldKey] ?? initial.values[f.fieldKey]?.v ?? '').trim(),
-    );
-    if (blankOptional.length > 0) {
-      const ok = window.confirm(
-        `${blankOptional.length} ô để trống sẽ tính là 0. Tiếp tục nộp?`,
-      );
-      if (!ok) return;
-    } else if (!window.confirm('Nộp bản này? Sau khi nộp sẽ không sửa được nữa.')) {
-      return;
+      const currentRevision = revisionRef.current ?? initial.revision;
+      setSaveError(null);
+      await submitAtRevision(assignmentId, currentRevision);
+    } finally {
+      setSubmitting(false);
     }
+  }
 
-    const currentRevision = revisionOverride ?? initial.revision;
-    setSubmitting(true);
-    setSaveError(null);
+  async function submitAtRevision(targetAssignmentId: string, currentRevision: string) {
     try {
-      const result = await dynamicReportsApi.submitSubmission(assignmentId, currentRevision);
-      setRevisionOverride(result.revision);
+      const result = await saveQueue.enqueue(() =>
+        dynamicReportsApi.submitSubmission(targetAssignmentId, currentRevision),
+      );
+      acceptRevision(result.revision);
       setStateOverride(result.state);
       setEditableOverride(false);
       setLockAtOverride(result.effectiveLockAt);
@@ -330,8 +387,6 @@ export default function SubmissionInputPage() {
         setSaveError(apiError.message);
       }
       setSaveStatus('error');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -351,23 +406,22 @@ export default function SubmissionInputPage() {
     }
   }
 
-  function scheduleAutosave(next: Record<string, string>) {
+  function scheduleAutosave() {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => void flush(next), AUTOSAVE_IDLE_MS);
+    timerRef.current = setTimeout(() => void flushAll(), AUTOSAVE_IDLE_MS);
   }
 
   function handleChange(fieldKey: string, raw: string) {
-    setValues((prev) => {
-      const next = { ...prev, [fieldKey]: raw };
-      dirtyRef.current.add(fieldKey);
-      scheduleAutosave(next);
-      return next;
-    });
+    const next = { ...valuesRef.current, [fieldKey]: raw };
+    valuesRef.current = next;
+    setValues(next);
+    dirtyRef.current.add(fieldKey);
+    scheduleAutosave();
   }
 
   function handleBlur() {
     if (timerRef.current) clearTimeout(timerRef.current);
-    void flush(values);
+    void flushAll();
   }
 
   /**
@@ -422,12 +476,13 @@ export default function SubmissionInputPage() {
       normalized[`${sheetKey}!${cell.address}`] = validation.value.v ?? '';
     }
 
-    const next = { ...values, ...normalized };
+    const next = { ...valuesRef.current, ...normalized };
+    valuesRef.current = next;
     for (const key of Object.keys(normalized)) dirtyRef.current.add(key);
     setValues(next);
     setSaveError(null);
     if (timerRef.current) clearTimeout(timerRef.current);
-    void flush(next);
+    void flushAll();
   }
 
   const bySheet = useMemo(() => {
@@ -634,7 +689,7 @@ export default function SubmissionInputPage() {
         <button
           type="button"
           data-testid="btn-retry-save"
-          onClick={() => void flush(values)}
+          onClick={() => void flushAll()}
           className={`mb-4 px-3 py-1.5 bg-slate-700 text-white text-xs font-medium rounded-lg hover:bg-slate-800 ${A11Y_FOCUS_RING}`}
         >
           Thử lại
@@ -699,7 +754,7 @@ export default function SubmissionInputPage() {
                     inputMode={f.type === 'NUM' ? 'decimal' : undefined}
                     data-testid={`input-${f.fieldKey}`}
                     value={values[f.fieldKey] ?? initial.values[f.fieldKey]?.v ?? ''}
-                    disabled={!editable}
+                    disabled={!editable || submitting}
                     onChange={(e) => handleChange(f.fieldKey, e.target.value)}
                     onBlur={handleBlur}
                     onPaste={(e) => handlePaste(e, sheetKey, f.address, fields)}
