@@ -289,6 +289,21 @@ export interface ReportDetailView {
   periodTotal: number;
 }
 
+/** "Sửa cấu hình": every part is optional (send what changed); roles and targets are the whole list afterwards. */
+export interface UpdateReportConfigPayload {
+  expectedConfigVersion: number;
+  name?: string;
+  description?: string;
+  schedule?: ReportScheduleConfig;
+  roles?: ReportRoleConfig[];
+  targets?: ReportTargetConfig[];
+}
+
+export interface UpdateReportConfigResult {
+  configVersion: number;
+  changed: Array<'info' | 'schedule' | 'roles' | 'targets'>;
+}
+
 /** What deleting a report would destroy — shown before anyone confirms. */
 export interface ReportDeletionImpact {
   reportId: string;

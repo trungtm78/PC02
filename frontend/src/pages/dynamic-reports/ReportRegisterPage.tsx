@@ -136,7 +136,7 @@ export default function ReportRegisterPage() {
       { key: 'updatedAt', header: 'Cập nhật', width: '9rem', optional: 'show',
         cellClassName: 'px-3 py-3 text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => formatVNDate(r.updatedAt) },
-      { key: 'actions', header: 'Thao tác', width: '21rem',
+      { key: 'actions', header: 'Thao tác', width: '24rem',
         cellClassName: 'px-3 py-3 whitespace-nowrap overflow-hidden',
         render: (r) => (
           <div className="flex items-center gap-1">
@@ -147,6 +147,15 @@ export default function ReportRegisterPage() {
             >
               Xem
             </Link>
+            {r.status !== 'ARCHIVED' && (
+              <Link
+                to={`/bao-cao-dong/thiet-lap/${r.id}/sua`}
+                className={`px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
+                data-testid={`btn-edit-${r.code}`}
+              >
+                Sửa
+              </Link>
+            )}
             <Link
               to={`/bao-cao-dong/thiet-lap/${r.id}/phien-ban`}
               className={`px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}

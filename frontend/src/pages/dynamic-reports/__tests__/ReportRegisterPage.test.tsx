@@ -135,6 +135,14 @@ describe('ReportRegisterPage', () => {
     expect(screen.queryByTestId('action-note')).not.toBeInTheDocument();
   });
 
+  it('every row can be edited ("Sửa" opens the config editor), except an archived one', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE, { ...SAMPLE, id: 'r2', code: 'OLD', status: 'ARCHIVED' }]);
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-edit-HSLN'));
+    expect(screen.getByTestId('btn-edit-HSLN')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1/sua');
+    expect(screen.queryByTestId('btn-edit-OLD')).not.toBeInTheDocument();
+  });
+
   it('a suspended report offers "Tiếp tục phát sinh" (the way back from "Ngừng phát sinh") and calls the API', async () => {
     vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([{ ...SAMPLE, status: 'SUSPENDED' }]);
     vi.mocked(dynamicReportsApi.resumeReportGeneration).mockResolvedValue({ status: 'PUBLISHED' });

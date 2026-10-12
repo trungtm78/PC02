@@ -18,6 +18,8 @@ import type {
   ReportDeletionImpact,
   ReportDetailView,
   CreateVersionResult,
+  UpdateReportConfigPayload,
+  UpdateReportConfigResult,
   SaveReportVersionPayload,
   ReportOption,
   ReportSetupSummary,
@@ -105,6 +107,10 @@ export const dynamicReportsApi = {
   /** S01 "Xem" — the whole configuration of one report. */
   getReportDetail: (reportId: string) =>
     api.get<ReportDetailView>(`/bao-cao-dong/reports/${reportId}`).then((r) => r.data),
+
+  /** "Sửa cấu hình" — name, description, schedule, managers, teams and editors (from the next period, D09). */
+  updateReportConfig: (reportId: string, body: UpdateReportConfigPayload) =>
+    api.patch<UpdateReportConfigResult>(`/bao-cao-dong/reports/${reportId}`, body).then((r) => r.data),
 
   /** Hide a report and stop it generating periods; every figure stays. */
   archiveReport: (reportId: string) =>

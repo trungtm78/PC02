@@ -198,9 +198,15 @@ describe('ReportDetailPage', () => {
     await waitFor(() => expect(dynamicReportsApi.saveVersionFileToDisk).toHaveBeenCalledWith('r1', 'v2', 'mau.xlsx'));
   });
 
+  it('offers "Sửa cấu hình" for a live report, and not for an archived one', async () => {
+    renderPage();
+    expect(await screen.findByTestId('btn-edit-config')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1/sua');
+  });
+
   it('an archived report cannot be given a new template until it is restored', async () => {
     renderPage({ ...DETAIL, status: 'ARCHIVED' });
     await screen.findByTestId('btn-unarchive');
     expect(screen.queryByTestId('btn-update-template')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-edit-config')).not.toBeInTheDocument();
   });
 });
