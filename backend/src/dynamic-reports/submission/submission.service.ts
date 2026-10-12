@@ -188,6 +188,12 @@ export interface CommentView {
   body: string;
   authorName: string;
   createdAt: string;
+  /** Written by the caller: only the author edits a comment. */
+  mine: boolean;
+  /** The caller may delete it: its author, or a manager of the report. */
+  canDelete: boolean;
+  /** The period is closed: the comment is part of the closed record and stays as it is. */
+  locked: boolean;
 }
 
 /**
@@ -417,12 +423,16 @@ export class SubmissionService {
     userId: string,
     roleId: string,
   ): Promise<CommentView[]> {
-    await this.resolveCommentAccess(this.prisma, assignmentId, userId, roleId);
+    const assignment = await this.resolveCommentAccess(this.prisma, assignmentId, userId, roleId);
     const comments = await this.prisma.dynReportComment.findMany({
       where: { assignmentId },
       include: { author: true },
       orderBy: { createdAt: 'asc' },
     });
+    const locked = assignment.period.status === 'FINALIZED';
+    const manager =
+      comments.some((c) => c.authorId !== userId) &&
+      (await this.resolveManagerRole(this.prisma, assignment.period.report.id, userId, roleId)) !== null;
     return comments.map((c) => ({
       id: c.id,
       fieldKey: c.fieldKey,
@@ -431,6 +441,9 @@ export class SubmissionService {
         `${c.author.firstName ?? ''} ${c.author.lastName ?? ''}`.trim() ||
         c.author.username,
       createdAt: c.createdAt.toISOString(),
+      mine: c.authorId === userId,
+      canDelete: !locked && (c.authorId === userId || manager),
+      locked,
     }));
   }
 
@@ -462,7 +475,94 @@ export class SubmissionService {
         author?.username ||
         '',
       createdAt: comment.createdAt.toISOString(),
+      mine: true,
+      canDelete: true,
+      locked: false,
     };
+  }
+
+  /**
+   * Finds one comment of this assignment for editing/deleting. A comment of an assignment the caller cannot see is
+   * "not found" (same rule as listing); a closed period's comments are part of the closed record and stay as they are.
+   */
+  private async resolveEditableComment(
+    tx: Prisma.TransactionClient,
+    assignmentId: string,
+    commentId: string,
+    userId: string,
+    roleId: string,
+  ) {
+    // Closing the period takes it FOR UPDATE; holding it FOR SHARE from here to the write means a comment cannot be
+    // changed after the period closed, only before (and then it is part of what was closed).
+    await tx.$queryRaw`
+      SELECT p.id FROM dyn_report_periods p
+      JOIN dyn_report_assignments a ON a."periodId" = p.id
+      WHERE a.id = ${assignmentId} FOR SHARE OF p
+    `;
+    const assignment = await this.resolveCommentAccess(tx, assignmentId, userId, roleId);
+    const comment = await tx.dynReportComment.findFirst({
+      where: { id: commentId, assignmentId },
+      include: { author: true },
+    });
+    if (!comment) throw new NotFoundException('Không tìm thấy ghi chú này.');
+    if (assignment.period.status === 'FINALIZED') {
+      throw new SubmissionError('Kỳ đã chốt — ghi chú không còn sửa hay xoá được.', 'REPORT_LOCKED');
+    }
+    return { assignment, comment };
+  }
+
+  /** Design standard "created ⇒ editable": the author can correct what they wrote. */
+  async updateComment(
+    assignmentId: string,
+    commentId: string,
+    userId: string,
+    roleId: string,
+    body: string,
+  ): Promise<CommentView> {
+    if (!body.trim()) {
+      throw new SubmissionError('Nội dung ghi chú không được để trống.', 'CELL_VALIDATION');
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const { comment } = await this.resolveEditableComment(tx, assignmentId, commentId, userId, roleId);
+      if (comment.authorId !== userId) {
+        throw new SubmissionError('Chỉ người viết mới sửa được ghi chú của mình.', 'NOT_AUTHOR');
+      }
+      return tx.dynReportComment.update({
+        where: { id: commentId },
+        data: { body: body.trim() },
+        include: { author: true },
+      });
+    });
+    return {
+      id: updated.id,
+      fieldKey: updated.fieldKey,
+      body: updated.body,
+      authorName: `${updated.author.firstName ?? ''} ${updated.author.lastName ?? ''}`.trim() || updated.author.username,
+      createdAt: updated.createdAt.toISOString(),
+      mine: true,
+      canDelete: true,
+      locked: false,
+    };
+  }
+
+  /** …and delete it. A manager of the report may also remove someone else's comment (moderation). */
+  async deleteComment(
+    assignmentId: string,
+    commentId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<{ deleted: true }> {
+    await this.prisma.$transaction(async (tx) => {
+      const { assignment, comment } = await this.resolveEditableComment(tx, assignmentId, commentId, userId, roleId);
+      if (comment.authorId !== userId) {
+        const manager = await this.resolveManagerRole(tx, assignment.period.report.id, userId, roleId);
+        if (!manager) {
+          throw new SubmissionError('Chỉ người viết hoặc quản lý báo cáo mới xoá được ghi chú này.', 'NOT_AUTHOR');
+        }
+      }
+      await tx.dynReportComment.delete({ where: { id: commentId } });
+    });
+    return { deleted: true };
   }
 
   /**

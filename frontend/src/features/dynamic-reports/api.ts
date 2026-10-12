@@ -18,6 +18,8 @@ import type {
   ReportDeletionImpact,
   ReportDetailView,
   CreateVersionResult,
+  UpdateReportConfigPayload,
+  UpdateReportConfigResult,
   SaveReportVersionPayload,
   ReportOption,
   ReportSetupSummary,
@@ -105,6 +107,10 @@ export const dynamicReportsApi = {
   /** S01 "Xem" — the whole configuration of one report. */
   getReportDetail: (reportId: string) =>
     api.get<ReportDetailView>(`/bao-cao-dong/reports/${reportId}`).then((r) => r.data),
+
+  /** "Sửa cấu hình" — name, description, schedule, managers, teams and editors (from the next period, D09). */
+  updateReportConfig: (reportId: string, body: UpdateReportConfigPayload) =>
+    api.patch<UpdateReportConfigResult>(`/bao-cao-dong/reports/${reportId}`, body).then((r) => r.data),
 
   /** Hide a report and stop it generating periods; every figure stays. */
   archiveReport: (reportId: string) =>
@@ -229,6 +235,18 @@ export const dynamicReportsApi = {
         fieldKey: fieldKey ?? undefined,
         body,
       })
+      .then((r) => r.data),
+
+  /** Edit your own comment (design standard: created => editable). */
+  updateComment: (assignmentId: string, commentId: string, body: string) =>
+    api
+      .patch<CommentView>(`/bao-cao-dong/submissions/${assignmentId}/comments/${commentId}`, { body })
+      .then((r) => r.data),
+
+  /** Delete a comment: your own, or (a manager) anyone's. Not once the period is closed. */
+  deleteComment: (assignmentId: string, commentId: string) =>
+    api
+      .delete<{ deleted: true }>(`/bao-cao-dong/submissions/${assignmentId}/comments/${commentId}`)
       .then((r) => r.data),
 
   /** S33/PR7 — the manager's own list (any report they manage, or every report with admin:DynamicReport). */

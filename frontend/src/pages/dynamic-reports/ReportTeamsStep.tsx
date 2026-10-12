@@ -22,11 +22,22 @@ interface TeamOption {
 }
 
 interface Props {
-  onBack: () => void;
+  /** Absent when editing an existing report (no wizard to go back to). */
+  onBack?: () => void;
   onNext: (roles: ReportRoleConfig[], targets: ReportTargetConfig[]) => void;
+  /** Who manages / views the report now, when editing. */
+  initialRoles?: ReportRoleConfig[];
+  /** The teams that submit now and who types for each, when editing. */
+  initialTargets?: ReportTargetConfig[];
+  /** Names of the teams already attached, for teams the picker below does not list (e.g. ward police). */
+  teamNames?: Record<string, string>;
+  /** Label of the forward button (the wizard's is "Tiếp theo"; the edit screen's is "Lưu"). */
+  nextLabel?: string;
+  /** True while the edit screen is saving. */
+  busy?: boolean;
 }
 
-export default function ReportTeamsStep({ onBack, onNext }: Props) {
+export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialTargets, teamNames, nextLabel, busy }: Props) {
   const { data: officers = [], isLoading: loadingOfficers } = useOfficerOptions();
   const nhomCanBo = gomCanBoTheoTo(officers);
   const labelFor = (userId: string) => officers.find((o) => o.value === userId)?.label ?? userId;
@@ -57,12 +68,22 @@ export default function ReportTeamsStep({ onBack, onNext }: Props) {
   }, []);
   const teamGroups = [{ key: 'teams', label: 'Tổ', options: teams.map((t) => ({ value: t.id, label: t.name })) }];
 
-  const [managerIds, setManagerIds] = useState<string[]>([]);
+  const [managerIds, setManagerIds] = useState<string[]>(
+    () => initialRoles?.filter((r) => r.role === 'MANAGER').map((r) => r.userId) ?? [],
+  );
   const [addManagerId, setAddManagerId] = useState('');
-  const [viewerIds, setViewerIds] = useState<string[]>([]);
+  const [viewerIds, setViewerIds] = useState<string[]>(
+    () => initialRoles?.filter((r) => r.role === 'VIEWER').map((r) => r.userId) ?? [],
+  );
+  // A viewer limited to one team's subtree keeps that limit when the list is saved again.
+  const viewerScope = new Map(
+    (initialRoles ?? []).filter((r) => r.role === 'VIEWER' && r.teamScopeId).map((r) => [r.userId, r.teamScopeId as string]),
+  );
   const [addViewerId, setAddViewerId] = useState('');
 
-  const [targets, setTargets] = useState<Array<{ teamId: string; editorUserIds: string[] }>>([]);
+  const [targets, setTargets] = useState<Array<{ teamId: string; editorUserIds: string[] }>>(
+    () => initialTargets?.map((t) => ({ teamId: t.teamId, editorUserIds: [...t.editorUserIds] })) ?? [],
+  );
   const [addTeamId, setAddTeamId] = useState('');
   const [addEditorByTeam, setAddEditorByTeam] = useState<Record<string, string>>({});
 
@@ -111,7 +132,11 @@ export default function ReportTeamsStep({ onBack, onNext }: Props) {
   function handleNext() {
     const roles: ReportRoleConfig[] = [
       ...managerIds.map((userId) => ({ userId, role: 'MANAGER' as const })),
-      ...viewerIds.map((userId) => ({ userId, role: 'VIEWER' as const })),
+      ...viewerIds.map((userId) => ({
+        userId,
+        role: 'VIEWER' as const,
+        ...(viewerScope.has(userId) ? { teamScopeId: viewerScope.get(userId) } : {}),
+      })),
     ];
     const targetConfigs: ReportTargetConfig[] = targets.map((t) => ({
       teamId: t.teamId,
@@ -218,7 +243,7 @@ export default function ReportTeamsStep({ onBack, onNext }: Props) {
             return (
               <div key={t.teamId} className="border border-slate-200 rounded-lg p-3" data-testid={`target-${t.teamId}`}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-sm text-slate-800">{team?.name ?? t.teamId}</span>
+                  <span className="font-medium text-sm text-slate-800">{team?.name ?? teamNames?.[t.teamId] ?? t.teamId}</span>
                   <button
                     type="button"
                     data-testid={`btn-remove-target-${t.teamId}`}
@@ -298,24 +323,26 @@ export default function ReportTeamsStep({ onBack, onNext }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className={`flex items-center gap-1 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg ${A11Y_FOCUS_RING}`}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại
-        </button>
+      <div className={`flex items-center mt-6 ${onBack ? 'justify-between' : 'justify-end'}`}>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className={`flex items-center gap-1 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg ${A11Y_FOCUS_RING}`}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </button>
+        )}
         <button
           type="button"
           data-testid="btn-teams-next"
-          disabled={!canSubmit}
+          disabled={!canSubmit || busy}
           onClick={handleNext}
           className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed ${A11Y_FOCUS_RING}`}
         >
-          Tiếp theo
-          <ArrowRight className="w-4 h-4" />
+          {nextLabel ?? 'Tiếp theo'}
+          {!nextLabel && <ArrowRight className="w-4 h-4" />}
         </button>
       </div>
     </div>

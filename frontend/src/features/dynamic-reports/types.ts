@@ -289,6 +289,21 @@ export interface ReportDetailView {
   periodTotal: number;
 }
 
+/** "Sửa cấu hình": every part is optional (send what changed); roles and targets are the whole list afterwards. */
+export interface UpdateReportConfigPayload {
+  expectedConfigVersion: number;
+  name?: string;
+  description?: string;
+  schedule?: ReportScheduleConfig;
+  roles?: ReportRoleConfig[];
+  targets?: ReportTargetConfig[];
+}
+
+export interface UpdateReportConfigResult {
+  configVersion: number;
+  changed: Array<'info' | 'schedule' | 'roles' | 'targets'>;
+}
+
 /** What deleting a report would destroy — shown before anyone confirms. */
 export interface ReportDeletionImpact {
   reportId: string;
@@ -343,6 +358,12 @@ export interface CommentView {
   body: string;
   authorName: string;
   createdAt: string;
+  /** Written by the signed-in person: only they can edit it. */
+  mine: boolean;
+  /** The signed-in person may delete it (its author, or a manager of the report). */
+  canDelete: boolean;
+  /** The period is closed: the comment can no longer be edited or deleted. */
+  locked: boolean;
 }
 
 export interface SubmissionView {

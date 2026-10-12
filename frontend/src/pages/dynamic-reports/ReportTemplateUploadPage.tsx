@@ -30,7 +30,7 @@ import type {
   SheetInfo,
   TemplatePreviewResult,
 } from '@/features/dynamic-reports/types';
-import { carryOverMarks } from '@/features/dynamic-reports/carryOver';
+import { carryOverMarks, withPreviousExtras } from '@/features/dynamic-reports/carryOver';
 import { applyWebMarks, removeWebMarks } from '@/features/dynamic-reports/markRegion';
 import { TYPE_AGGREGATE_COMPATIBILITY } from '@/features/dynamic-reports/engine/generated/token';
 import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/period';
@@ -50,21 +50,39 @@ const FIELD_TYPES: ParsedFieldType[] = ['NUM', 'TEXT', 'DATE', 'TIME'];
 
 type Step = 'upload' | 'sheets' | 'preview' | 'schedule' | 'teams' | 'rules' | 'summary';
 
+/** The schedule of an existing report, in the shape the schedule step edits. */
+function scheduleOf(s: NonNullable<ReportDetailView['schedule']>): ScheduleRule {
+  return {
+    periodType: s.periodType,
+    periodStartDay: s.periodStartDay ?? undefined,
+    due: s.dueRule as unknown as ScheduleRule['due'],
+    open: s.openRule as unknown as ScheduleRule['open'],
+    shiftNonWorking: s.shiftNonWorking,
+    oneTimeDate: s.oneTimeDate ?? undefined,
+  };
+}
+
 interface Props {
   /**
    * Given: this is "Cập nhật mẫu" — a new template version of an EXISTING report. Code, name, schedule, managers and
    * teams belong to the report and are not asked again; the cells and rules of the version in force are carried over.
    */
   report?: ReportDetailView;
+  /**
+   * Given: this is "Sao chép cấu hình" — a NEW report that starts as a copy of this one. The template file, the
+   * input cells, the rules, the schedule and the teams are carried over; the code (and the name) must be new.
+   */
+  copyFrom?: ReportDetailView;
 }
 
-export default function ReportTemplateUploadPage({ report }: Props = {}) {
+export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {}) {
   const isVersion = !!report;
-  const previousFields: ReportDetailField[] = report?.currentVersion?.fields ?? [];
+  const source = report ?? copyFrom;
+  const previousFields: ReportDetailField[] = source?.currentVersion?.fields ?? [];
   const [step, setStep] = useState<Step>('upload');
   const [code, setCode] = useState(report?.code ?? '');
-  const [name, setName] = useState(report?.name ?? '');
-  const [description, setDescription] = useState(report?.description ?? '');
+  const [name, setName] = useState(report ? report.name : copyFrom ? `${copyFrom.name} (bản sao)` : '');
+  const [description, setDescription] = useState(source?.description ?? '');
   const [carryNote, setCarryNote] = useState<{ carried: number; lost: ReportDetailField[] } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
@@ -100,9 +118,9 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
     try {
       const result = await dynamicReportsApi.listTemplateSheets(f);
       setSheets(result);
-      if (isVersion) {
+      if (source) {
         const names = new Set(result.map((x) => x.name));
-        setSelectedSheets((report?.currentVersion?.selectedSheets ?? []).filter((n) => names.has(n)));
+        setSelectedSheets((source.currentVersion?.selectedSheets ?? []).filter((n) => names.has(n)));
       }
       setStep('sheets');
     } catch (err) {
@@ -114,12 +132,12 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
   }
 
   async function useCurrentFile() {
-    const current = report?.currentVersion;
-    if (!report || !current) return;
+    const current = source?.currentVersion;
+    if (!source || !current) return;
     setError(null);
     setLoading(true);
     try {
-      const f = await dynamicReportsApi.downloadVersionFile(report.id, current.versionId, current.fileName);
+      const f = await dynamicReportsApi.downloadVersionFile(source.id, current.versionId, current.fileName);
       await handleFileChange(f);
     } catch (err) {
       setError(extractApiError(err).message);
@@ -142,7 +160,7 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
     try {
       const fresh = await dynamicReportsApi.previewTemplate(file, selectedSheets);
       let result = fresh;
-      if (isVersion) {
+      if (source) {
         const carry = carryOverMarks(fresh, previousFields);
         result = carry.result;
         setCarryNote({ carried: carry.carried.length, lost: carry.lost });
@@ -245,12 +263,18 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
       </Link>
 
       <h1 className="text-xl font-bold text-slate-800 mb-1" data-testid="wizard-title">
-        {isVersion ? `Cập nhật mẫu — ${name}` : 'Tạo báo cáo mới — Tải mẫu Excel'}
+        {isVersion
+          ? `Cập nhật mẫu — ${name}`
+          : copyFrom
+            ? `Sao chép báo cáo — ${copyFrom.name}`
+            : 'Tạo báo cáo mới — Tải mẫu Excel'}
       </h1>
       <p className="text-sm text-slate-500 mb-6">
         {isVersion
           ? 'Tải file Excel mẫu mới (hoặc dùng lại file đang áp dụng). Các ô nhập đã đặt tên ở phiên bản trước được giữ lại.'
-          : 'Bước 1/4: tải file Excel mẫu và chọn sheet dùng làm báo cáo.'}
+          : copyFrom
+            ? 'Đặt mã và tên mới cho báo cáo. File mẫu, ô nhập, quy tắc, lịch và tổ được lấy từ báo cáo gốc — bạn có thể đổi từng bước.'
+            : 'Bước 1/4: tải file Excel mẫu và chọn sheet dùng làm báo cáo.'}
       </p>
 
       {error && (
@@ -261,6 +285,23 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
       )}
 
       <div className="bg-white border border-slate-200 rounded-lg p-6">
+        {copyFrom && source?.currentVersion && (
+          <div className="flex items-center justify-between gap-3 mb-4 text-sm" data-testid="copy-mode-note">
+            <p className="text-slate-600">
+              Bắt đầu từ file mẫu của báo cáo <b className="font-mono">{copyFrom.code}</b>. Bấm nút bên phải để nạp file đó
+              (hoặc chọn một file khác ở dưới).
+            </p>
+            <button
+              type="button"
+              data-testid="btn-use-current-file"
+              disabled={loading}
+              onClick={() => void useCurrentFile()}
+              className={`shrink-0 px-3 py-1.5 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              Dùng file của báo cáo gốc
+            </button>
+          </div>
+        )}
         {isVersion && (
           <div className="flex items-center justify-between gap-3 mb-4 text-sm" data-testid="version-mode-note">
             <p className="text-slate-600">
@@ -402,7 +443,7 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
               />
             </div>
 
-            {isVersion && carryNote && (
+            {source && carryNote && (
               <div className="mb-4 text-sm" data-testid="carry-over-note">
                 <p className="text-slate-700">
                   Giữ lại <b>{carryNote.carried}</b> ô nhập từ phiên bản trước.
@@ -604,6 +645,7 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
         {step === 'schedule' && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportScheduleStep
+              initial={schedule ?? (copyFrom?.schedule ? scheduleOf(copyFrom.schedule) : undefined)}
               onBack={() => setStep('preview')}
               onNext={(rule) => {
                 setSchedule(rule);
@@ -616,6 +658,21 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
         {step === 'teams' && (
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportTeamsStep
+              initialRoles={
+                roles.length > 0
+                  ? roles
+                  : copyFrom?.roles.map((r) => ({
+                      userId: r.userId,
+                      role: r.role,
+                      ...(r.teamScopeId ? { teamScopeId: r.teamScopeId } : {}),
+                    }))
+              }
+              initialTargets={
+                targets.length > 0
+                  ? targets
+                  : copyFrom?.targets.map((t) => ({ teamId: t.teamId, editorUserIds: t.editors.map((e) => e.userId) }))
+              }
+              teamNames={copyFrom ? Object.fromEntries(copyFrom.targets.map((t) => [t.teamId, t.teamName])) : undefined}
               onBack={() => setStep('schedule')}
               onNext={(r, t) => {
                 setRoles(r);
@@ -633,8 +690,8 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
               initial={
                 rulesSet
                   ? rules
-                  : isVersion
-                  ? (report?.currentVersion?.rules ?? []).map((r) => ({
+                  : source
+                  ? (source.currentVersion?.rules ?? []).map((r) => ({
                       name: r.name,
                       leftExpr: r.leftExpr,
                       operator: r.operator as ReportRuleConfig['operator'],
@@ -684,7 +741,7 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
               description={description}
               selectedSheets={selectedSheets}
               dateSystem={preview.dateSystem}
-              fields={preview.fields}
+              fields={copyFrom ? withPreviousExtras(preview.fields, previousFields) : preview.fields}
               layout={preview.layout}
               formulas={preview.formulas}
               schedule={schedule}

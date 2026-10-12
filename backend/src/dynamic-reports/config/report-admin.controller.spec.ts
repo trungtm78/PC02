@@ -5,6 +5,7 @@ import { ReportConfigService, ReportConfigError } from './report-config.service'
 import { ReportDetailService } from './report-detail.service';
 import { ReportLifecycleService } from './report-lifecycle.service';
 import { ReportVersioningService } from './report-versioning.service';
+import { ReportConfigUpdateService } from './report-config-update.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -13,6 +14,7 @@ describe('ReportAdminController', () => {
   const detail = { getDetail: jest.fn(), getVersionFile: jest.fn() };
   const lifecycle = { getDeletionImpact: jest.fn(), archive: jest.fn(), unarchive: jest.fn(), deleteReport: jest.fn() };
   const versioning = { createVersion: jest.fn(), deleteVersion: jest.fn() };
+  const updater = { updateConfig: jest.fn() };
   const user = { id: 'actor1' };
   let controller: ReportAdminController;
 
@@ -25,6 +27,7 @@ describe('ReportAdminController', () => {
         { provide: ReportDetailService, useValue: detail },
         { provide: ReportLifecycleService, useValue: lifecycle },
         { provide: ReportVersioningService, useValue: versioning },
+        { provide: ReportConfigUpdateService, useValue: updater },
         { provide: FeatureFlagsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
       ],
@@ -119,6 +122,25 @@ describe('ReportAdminController', () => {
       await expect(controller.deleteVersion('r1', 'v1')).rejects.toBeInstanceOf(ConflictException);
       versioning.deleteVersion.mockRejectedValueOnce(new ReportConfigError('x', 'REPORT_NOT_FOUND'));
       await expect(controller.deleteVersion('r1', 'v1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('update config', () => {
+    it('passes the report and the body to the service', async () => {
+      updater.updateConfig.mockResolvedValue({ configVersion: 4, changed: ['schedule'] });
+      const body = { expectedConfigVersion: 3, name: 'Mới' } as never;
+      await expect(controller.update('r1', body)).resolves.toEqual({ configVersion: 4, changed: ['schedule'] });
+      expect(updater.updateConfig).toHaveBeenCalledWith('r1', body);
+    });
+
+    it('two people editing at once: the second gets a 409 to reload, a missing report a 404, a bad list a 400', async () => {
+      const body = { expectedConfigVersion: 3 } as never;
+      updater.updateConfig.mockRejectedValueOnce(new ReportConfigError('x', 'REVISION_CONFLICT'));
+      await expect(controller.update('r1', body)).rejects.toBeInstanceOf(ConflictException);
+      updater.updateConfig.mockRejectedValueOnce(new ReportConfigError('x', 'REPORT_NOT_FOUND'));
+      await expect(controller.update('r1', body)).rejects.toBeInstanceOf(NotFoundException);
+      updater.updateConfig.mockRejectedValueOnce(new ReportConfigError('x', 'TEMPLATE_INVALID'));
+      await expect(controller.update('r1', body)).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

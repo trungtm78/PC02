@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -38,7 +39,7 @@ import {
   DecideUnlockRequestDto,
   BulkGrantUnlockDto,
 } from './dto/review.dto';
-import { AddCommentDto } from './dto/add-comment.dto';
+import { AddCommentDto, UpdateCommentDto } from './dto/add-comment.dto';
 import { XLSX_LIMITS } from '../../xlsx-imports/hostile-xlsx-guard';
 import { attachmentDisposition } from '../attachment-disposition.util';
 
@@ -225,6 +226,33 @@ export class SubmissionController {
         body.fieldKey ?? null,
         body.body,
       ),
+    );
+  }
+
+  /** S37 — sửa ghi chú của chính mình. */
+  @Patch(':assignmentId/comments/:commentId')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async updateComment(
+    @Param('assignmentId') assignmentId: string,
+    @Param('commentId') commentId: string,
+    @Body() body: UpdateCommentDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.updateComment(assignmentId, commentId, user.id, user.roleId, body.body),
+    );
+  }
+
+  /** S37 — xoá ghi chú (của mình; quản lý báo cáo xoá được của người khác). */
+  @Delete(':assignmentId/comments/:commentId')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async deleteComment(
+    @Param('assignmentId') assignmentId: string,
+    @Param('commentId') commentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.deleteComment(assignmentId, commentId, user.id, user.roleId),
     );
   }
 

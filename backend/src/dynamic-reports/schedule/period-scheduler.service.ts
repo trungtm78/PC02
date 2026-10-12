@@ -72,7 +72,12 @@ export class PeriodSchedulerService {
         SELECT status::text AS status FROM dyn_reports WHERE id = ${report.id} FOR SHARE
       `;
       if (current?.status !== 'PUBLISHED') continue;
-      for (const schedule of report.schedules) {
+      // Same for the schedule: "Sửa cấu hình" replaces it under the report row lock, so the one loaded with the report
+      // above may already be superseded. Read the schedules in force now that the lock is held.
+      const schedules = await tx.dynReportSchedule.findMany({
+        where: { reportId: report.id, supersededAt: null },
+      });
+      for (const schedule of schedules) {
         if (schedule.effectiveFrom > now) continue;
         try {
           await this.generateForSchedule(tx, report.id, schedule, now);

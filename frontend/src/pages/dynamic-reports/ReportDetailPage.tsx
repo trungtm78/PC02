@@ -129,6 +129,15 @@ export default function ReportDetailPage() {
             <div className="flex flex-wrap gap-2" data-testid="report-actions">
               {report.status !== 'ARCHIVED' && (
                 <Link
+                  to={`/bao-cao-dong/thiet-lap/${report.id}/sua`}
+                  className={`${btn} border-blue-300 text-blue-700 hover:bg-blue-50`}
+                  data-testid="btn-edit-config"
+                >
+                  Sửa cấu hình
+                </Link>
+              )}
+              {report.status !== 'ARCHIVED' && (
+                <Link
                   to={`/bao-cao-dong/thiet-lap/${report.id}/phien-ban/moi`}
                   className={`${btn} border-blue-300 text-blue-700 hover:bg-blue-50`}
                   data-testid="btn-update-template"
@@ -143,6 +152,15 @@ export default function ReportDetailPage() {
               >
                 Phiên bản
               </Link>
+              {report.currentVersion && (
+                <Link
+                  to={`/bao-cao-dong/thiet-lap/${report.id}/sao-chep`}
+                  className={`${btn} border-slate-300 text-slate-700 hover:bg-slate-50`}
+                  data-testid="btn-copy"
+                >
+                  Sao chép
+                </Link>
+              )}
               {report.status === 'PUBLISHED' && (
                 <button
                   type="button"

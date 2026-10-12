@@ -42,28 +42,40 @@ function toIsoDateOnly(d: Date): string {
 }
 
 interface Props {
-  onBack: () => void;
+  /** Absent in the creation wizard (there is a Back button); present when editing an existing report. */
+  onBack?: () => void;
   onNext: (rule: ScheduleRule) => void;
+  /** The schedule in force, when editing: every field starts from it instead of the creation defaults. */
+  initial?: ScheduleRule;
+  /** Label of the forward button (the wizard's is "Tiếp theo"; the edit screen's is "Lưu lịch"). */
+  nextLabel?: string;
+  /** True while the edit screen is saving. */
+  busy?: boolean;
 }
 
-export default function ReportScheduleStep({ onBack, onNext }: Props) {
+export default function ReportScheduleStep({ onBack, onNext, initial, nextLabel, busy }: Props) {
   const [now] = useState(() => new Date());
-  const [periodType, setPeriodType] = useState<PeriodType>('MONTHLY');
-  const [periodStartDay, setPeriodStartDay] = useState(1);
-  const [oneTimeDate, setOneTimeDate] = useState('');
+  const initDue = initial?.due;
+  const fixed = initDue?.kind === 'FIXED_IN_PERIOD' ? initDue : undefined;
+  const afterEnd = initDue?.kind === 'DAYS_AFTER_END' ? initDue : undefined;
+  const [periodType, setPeriodType] = useState<PeriodType>(initial?.periodType ?? 'MONTHLY');
+  const [periodStartDay, setPeriodStartDay] = useState(initial?.periodStartDay ?? 1);
+  const [oneTimeDate, setOneTimeDate] = useState(initial?.oneTimeDate ?? '');
 
-  const [dueKind, setDueKind] = useState<DueRule['kind']>('FIXED_IN_PERIOD');
-  const [periodOffset, setPeriodOffset] = useState<0 | 1>(1);
-  const [anchorDay, setAnchorDay] = useState(5);
-  const [anchorWeekday, setAnchorWeekday] = useState(1);
-  const [anchorMonth, setAnchorMonth] = useState(1);
-  const [dueTime, setDueTime] = useState('17:00');
-  const [daysAfterEnd, setDaysAfterEnd] = useState(5);
+  const [dueKind, setDueKind] = useState<DueRule['kind']>(initDue?.kind ?? 'FIXED_IN_PERIOD');
+  const [periodOffset, setPeriodOffset] = useState<0 | 1>((fixed?.periodOffset as 0 | 1 | undefined) ?? 1);
+  const [anchorDay, setAnchorDay] = useState(fixed?.anchorDay ?? 5);
+  const [anchorWeekday, setAnchorWeekday] = useState(fixed?.anchorWeekday ?? 1);
+  const [anchorMonth, setAnchorMonth] = useState(fixed?.anchorMonth ?? 1);
+  const [dueTime, setDueTime] = useState(initDue?.time ?? '17:00');
+  const [daysAfterEnd, setDaysAfterEnd] = useState(afterEnd?.days ?? 5);
 
-  const [openKind, setOpenKind] = useState<OpenRule['kind']>('AT_PERIOD_START');
-  const [openDaysBeforeDue, setOpenDaysBeforeDue] = useState(3);
+  const [openKind, setOpenKind] = useState<OpenRule['kind']>(initial?.open.kind ?? 'AT_PERIOD_START');
+  const [openDaysBeforeDue, setOpenDaysBeforeDue] = useState(
+    initial?.open.kind === 'DAYS_BEFORE_DUE' ? initial.open.days : 3,
+  );
 
-  const [shiftNonWorking, setShiftNonWorking] = useState(true);
+  const [shiftNonWorking, setShiftNonWorking] = useState(initial?.shiftNonWorking ?? true);
   const [nonWorkingDates, setNonWorkingDates] = useState<Set<string>>(new Set());
   const [nonWorkingError, setNonWorkingError] = useState<string | null>(null);
 
@@ -395,24 +407,26 @@ export default function ReportScheduleStep({ onBack, onNext }: Props) {
         )}
       </div>
 
-      <div className="flex items-center justify-between mt-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className={`flex items-center gap-1 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg ${A11Y_FOCUS_RING}`}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại
-        </button>
+      <div className={`flex items-center mt-6 ${onBack ? 'justify-between' : 'justify-end'}`}>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className={`flex items-center gap-1 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg ${A11Y_FOCUS_RING}`}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </button>
+        )}
         <button
           type="button"
           data-testid="btn-schedule-next"
-          disabled={!canSubmit}
+          disabled={!canSubmit || busy}
           onClick={() => onNext(rule)}
           className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed ${A11Y_FOCUS_RING}`}
         >
-          Tiếp theo
-          <ArrowRight className="w-4 h-4" />
+          {nextLabel ?? 'Tiếp theo'}
+          {!nextLabel && <ArrowRight className="w-4 h-4" />}
         </button>
       </div>
     </div>

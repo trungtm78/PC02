@@ -22,6 +22,7 @@ describe('PeriodSchedulerService', () => {
       dynReportAssignmentEditor: { create: jest.fn() },
       dynReportSubmission: { create: jest.fn() },
       dynReportSchedule: {
+        findMany: jest.fn(),
         update: jest.fn<
           unknown,
           [{ where: { id: string }; data: { lastGeneratedThrough: Date } }]
@@ -46,6 +47,11 @@ describe('PeriodSchedulerService', () => {
             : [{ status: reportStatus }],
       ),
     );
+    // The schedules in force are read again under the report lock; in these tests they are the ones on the report.
+    tx.dynReportSchedule.findMany.mockImplementation(async ({ where }: { where: { reportId: string } }) => {
+      const reports = ((await tx.dynReport.findMany()) ?? []) as Array<{ id: string; schedules?: unknown[] }>;
+      return reports.find((r) => r.id === where.reportId)?.schedules ?? [];
+    });
     const prisma = {
       $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
     };
@@ -93,6 +99,32 @@ describe('PeriodSchedulerService', () => {
       await service.run();
     }
 
+    expect(tx.dynReportVersion.findFirst).not.toHaveBeenCalled();
+    expect(tx.dynReportPeriod.create).not.toHaveBeenCalled();
+    expect(tx.dynReportSchedule.update).not.toHaveBeenCalled();
+  });
+
+  it('generates from the schedule in force AFTER the report lock, not the one loaded with the report (found by Codex)', async () => {
+    const tx = buildTx();
+    const stale = {
+      id: 'sch-old',
+      periodType: 'MONTHLY',
+      periodStartDay: null,
+      dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
+      openRule: { kind: 'AT_PERIOD_START' },
+      shiftNonWorking: false,
+      oneTimeDate: null,
+      lastGeneratedThrough: null,
+      effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+    };
+    tx.dynReport.findMany.mockResolvedValue([{ id: 'rep1', schedules: [stale] }]);
+    const { service } = buildService(tx, true);
+    // "Sửa cấu hình" replaced the schedule between the read above and the lock: none is in force for this report now.
+    tx.dynReportSchedule.findMany.mockResolvedValue([]);
+
+    await service.run();
+
+    expect(tx.dynReportSchedule.findMany).toHaveBeenCalledWith({ where: { reportId: 'rep1', supersededAt: null } });
     expect(tx.dynReportVersion.findFirst).not.toHaveBeenCalled();
     expect(tx.dynReportPeriod.create).not.toHaveBeenCalled();
     expect(tx.dynReportSchedule.update).not.toHaveBeenCalled();
