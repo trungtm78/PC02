@@ -6,6 +6,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Body,
   Query,
@@ -29,6 +30,8 @@ import { ReportConfigService, ReportConfigError } from './report-config.service'
 import { ReportDetailService } from './report-detail.service';
 import { ReportLifecycleService } from './report-lifecycle.service';
 import { ReportVersioningService } from './report-versioning.service';
+import { ReportConfigUpdateService } from './report-config-update.service';
+import { UpdateReportConfigDto } from './dto/update-report-config.dto';
 import { SaveReportVersionRequestDto } from './dto/save-report-version.dto';
 import { XLSX_LIMITS } from '../../xlsx-imports/hostile-xlsx-guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -47,6 +50,7 @@ export class ReportAdminController {
     private readonly detailService: ReportDetailService,
     private readonly lifecycleService: ReportLifecycleService,
     private readonly versioningService: ReportVersioningService,
+    private readonly updateService: ReportConfigUpdateService,
   ) {}
 
   /** Maps the service's error codes onto HTTP: a missing report is 404, "has data" is a 409 the screen can explain. */
@@ -56,7 +60,7 @@ export class ReportAdminController {
     } catch (err) {
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_NOT_FOUND') throw new NotFoundException(err.message);
-        if (['HAS_DATA', 'VERSION_CURRENT', 'VERSION_IN_USE'].includes(err.code)) {
+        if (['HAS_DATA', 'VERSION_CURRENT', 'VERSION_IN_USE', 'REVISION_CONFLICT'].includes(err.code)) {
           throw new ConflictException({ code: err.code, message: err.message });
         }
         // The server is saturated, not the request wrong: the screen should offer a retry.
@@ -79,6 +83,13 @@ export class ReportAdminController {
       }
       throw err;
     }
+  }
+
+  /** "Sửa cấu hình": name, description, schedule, managers, teams and their editors (from the next period, D09). */
+  @Patch(':reportId')
+  @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
+  update(@Param('reportId') reportId: string, @Body() body: UpdateReportConfigDto) {
+    return this.guard(() => this.updateService.updateConfig(reportId, body));
   }
 
   /** The counterpart of S31 "Ngừng phát sinh": a suspended report generates periods again. */
