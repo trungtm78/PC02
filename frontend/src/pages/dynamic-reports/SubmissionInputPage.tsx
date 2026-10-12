@@ -98,7 +98,11 @@ export default function SubmissionInputPage() {
   const [saveQueue] = useState(createSaveQueue);
   const valuesRef = useRef<Record<string, string>>({});
   const revisionRef = useRef<string | null>(null);
-  if (revisionRef.current === null && initial) revisionRef.current = initial.revision;
+  // Until this tab has had a save acknowledged, the query is the source of
+  // truth — follow it so a background refetch ("Tải lại", window focus) can
+  // never leave saves pinned to a revision older than what is displayed.
+  // After the first acknowledgement `acceptRevision` owns the ref.
+  if (initial && revisionOverride === null) revisionRef.current = initial.revision;
 
   const revision = revisionOverride ?? initial?.revision ?? null;
   const editable = editableOverride ?? initial?.editable ?? true;
@@ -229,8 +233,11 @@ export default function SubmissionInputPage() {
   function resolveConflictUseServer() {
     if (!conflict) return;
     const keys = Object.keys(conflict.mineByKey);
+    // `initial.values` is the query cache and predates the conflicting save,
+    // so falling back to it would show a value the server no longer has.
+    // Adopt the snapshot the conflict dialog just fetched instead.
     const next = { ...valuesRef.current };
-    for (const key of keys) delete next[key];
+    for (const key of keys) next[key] = conflict.serverByKey[key]?.v ?? '';
     valuesRef.current = next;
     setValues(next);
     for (const key of keys) dirtyRef.current.delete(key);
@@ -315,6 +322,9 @@ export default function SubmissionInputPage() {
 
   async function handleSubmit() {
     if (!assignmentId || !initial) return;
+    // An import still in flight may yet fail; submitting now could lock the
+    // pre-import server copy.
+    if (importStatus === 'applying') return;
     if (timerRef.current) clearTimeout(timerRef.current);
     // H0 — inputs are disabled from here on, so nothing can be typed between
     // the final save and the submit request below.
@@ -367,8 +377,13 @@ export default function SubmissionInputPage() {
 
   async function submitAtRevision(targetAssignmentId: string, currentRevision: string) {
     try {
+      // Revision is read when the task actually runs, not when it is queued:
+      // anything ahead of it in the queue may have advanced it.
       const result = await saveQueue.enqueue(() =>
-        dynamicReportsApi.submitSubmission(targetAssignmentId, currentRevision),
+        dynamicReportsApi.submitSubmission(
+          targetAssignmentId,
+          revisionRef.current ?? currentRevision,
+        ),
       );
       acceptRevision(result.revision);
       setStateOverride(result.state);
@@ -404,6 +419,37 @@ export default function SubmissionInputPage() {
       setRequestStatus('error');
       setRequestError(extractApiError(err).message);
     }
+  }
+
+  /**
+   * "Tải lại" — adopt the server's current snapshot as the new baseline:
+   * local overrides, unsaved edits and the revision all reset together, so
+   * the next save is built from exactly what is on screen.
+   */
+  async function handleReload() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const result = await refetch();
+    const fresh = result.data;
+    if (!fresh) return;
+    // Behind any in-flight save so its acknowledgement cannot land afterwards
+    // and resurrect the pre-reload revision.
+    await saveQueue.enqueue(async () => {
+      valuesRef.current = {};
+      dirtyRef.current = new Set();
+      idempotencyRef.current = null;
+      revisionRef.current = fresh.revision;
+      setValues({});
+      setRevisionOverride(null);
+      setEditableOverride(null);
+      setLockAtOverride(null);
+      setStateOverride(null);
+      setFieldErrors({});
+      setConflict(null);
+      setSaveError(null);
+      setCanRetrySave(false);
+      setRuleErrors([]);
+      setSaveStatus('idle');
+    });
   }
 
   function scheduleAutosave() {
@@ -661,7 +707,7 @@ export default function SubmissionInputPage() {
             <button
               type="button"
               data-testid="btn-import-apply"
-              disabled={importStatus === 'applying' || importPreview.diff.length === 0}
+              disabled={importStatus === 'applying' || submitting || importPreview.diff.length === 0}
               onClick={() => void handleApplyImport()}
               className={`px-3 py-1.5 bg-blue-700 text-white text-xs font-medium rounded-lg hover:bg-blue-800 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
             >
@@ -754,7 +800,7 @@ export default function SubmissionInputPage() {
                     inputMode={f.type === 'NUM' ? 'decimal' : undefined}
                     data-testid={`input-${f.fieldKey}`}
                     value={values[f.fieldKey] ?? initial.values[f.fieldKey]?.v ?? ''}
-                    disabled={!editable || submitting}
+                    disabled={!editable || submitting || importStatus === 'applying'}
                     onChange={(e) => handleChange(f.fieldKey, e.target.value)}
                     onBlur={handleBlur}
                     onPaste={(e) => handlePaste(e, sheetKey, f.address, fields)}
@@ -776,7 +822,7 @@ export default function SubmissionInputPage() {
         <button
           type="button"
           data-testid="btn-reload"
-          onClick={() => void refetch()}
+          onClick={() => void handleReload()}
           className={`px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 ${A11Y_FOCUS_RING}`}
         >
           Tải lại
@@ -798,7 +844,7 @@ export default function SubmissionInputPage() {
         <button
           type="button"
           data-testid="btn-submit"
-          disabled={!editable || submitting}
+          disabled={!editable || submitting || importStatus === 'applying'}
           onClick={() => void handleSubmit()}
           className={`flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
         >

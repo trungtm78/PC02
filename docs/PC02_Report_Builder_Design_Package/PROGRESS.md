@@ -910,7 +910,14 @@ Vá (`SubmissionInputPage.tsx` + `features/dynamic-reports/saveQueue.ts` mới):
 Excel/nộp đi qua MỘT hàng đợi tuần tự; revision và giá trị đọc từ ref tại lúc chạy; lỗi giữ
 nguyên dirty (gửi lại ở lần lưu kế tiếp); `flushAll()` trả `false` khi còn gì chưa lưu và "Nộp"
 dừng; 5xx giữ nguyên idempotency key + hiện nút "Thử lại"; ô nhập bị khoá từ lúc bấm "Nộp".
-9 ca kiểm mới (5 ở trang + 4 ở hàng đợi), 204/204 ca module xanh, `tsc -b` sạch.
+
+Codex review diff H0 (read-only, `gpt-6-astra`) bắt thêm 5 lỗi còn sót, đã vá cùng PR:
+nhập Excel đang chạy mà vẫn gõ được (phản hồi import đè mất giá trị gõ sau), lỗi import không
+chặn "Nộp", "Nộp" chụp revision trước khi tới lượt hàng đợi, refetch không đồng bộ revision ref,
+"Dùng bản trên máy chủ" hiện giá trị cache cũ. Vá: khoá ô nhập + nút "Nộp" khi import đang áp,
+đọc revision bên trong tác vụ hàng đợi, ref bám theo query cho tới lần xác nhận đầu tiên, nút
+"Tải lại" đặt lại toàn bộ baseline, "Dùng bản máy chủ" nhận snapshot của hộp thoại xung đột.
+12 ca kiểm mới (8 ở trang + 4 ở hàng đợi), 207/207 ca module xanh, `tsc -b` sạch.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
