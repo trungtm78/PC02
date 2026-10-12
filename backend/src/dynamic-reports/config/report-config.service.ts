@@ -473,6 +473,38 @@ export class ReportConfigService {
   }
 
   /**
+   * The counterpart of `suspendGeneration`: a SUSPENDED report starts generating periods again. Only a report that
+   * still has a PUBLISHED version can resume — a suspended report always had one, but a defensive check keeps a
+   * hand-edited row from producing a report the scheduler would skip with a warning on every tick.
+   */
+  async resumeGeneration(reportId: string): Promise<{ status: 'PUBLISHED' }> {
+    const report = await this.prisma.dynReport.findUnique({ where: { id: reportId } });
+    if (!report) {
+      throw new ReportConfigError('Không tìm thấy báo cáo này.', 'REPORT_NOT_FOUND');
+    }
+    if (report.status !== 'SUSPENDED') {
+      throw new ReportConfigError(
+        'Chỉ tiếp tục phát sinh được báo cáo đang ở trạng thái "Ngừng phát sinh".',
+        'INVALID_STATE',
+      );
+    }
+    const published = await this.prisma.dynReportVersion.count({
+      where: { reportId, status: 'PUBLISHED' },
+    });
+    if (published === 0) {
+      throw new ReportConfigError(
+        'Báo cáo chưa có phiên bản đã xuất bản để phát sinh kỳ.',
+        'INVALID_STATE',
+      );
+    }
+    await this.prisma.dynReport.update({
+      where: { id: reportId },
+      data: { status: 'PUBLISHED', configVersion: { increment: 1 } },
+    });
+    return { status: 'PUBLISHED' };
+  }
+
+  /**
    * S22 "Danh sách phiên bản" — read-only. Shows every version of this
    * report and which periods were generated against it, newest first.
    * Deliberately scoped to the LIST half of S22 only: "tạo phiên bản
