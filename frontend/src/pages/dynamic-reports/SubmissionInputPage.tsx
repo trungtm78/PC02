@@ -24,7 +24,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useSubmissionEditor } from '@/features/dynamic-reports/useSubmissionEditor';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Download, FileSpreadsheet, Lock, Unlock, Send } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Download, FileSpreadsheet, List, Lock, Table2, Unlock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type {
   DynReportSubmissionState,
@@ -36,6 +36,7 @@ import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import CommentsPanel from './CommentsPanel';
+import GridViewer from '@/features/dynamic-reports/grid/GridViewer';
 
 const EDITABLE_STATES: readonly DynReportSubmissionState[] = ['NOT_STARTED', 'DRAFT', 'RETURNED'];
 
@@ -50,6 +51,7 @@ export default function SubmissionInputPage() {
   // Saving, autosave, 409 resolution, Excel import, reload and submit live in
   // the editor hook so the list form and the grid edit through the same code.
   const {
+    values,
     editable,
     effectiveLockAt,
     state,
@@ -170,6 +172,24 @@ export default function SubmissionInputPage() {
     applyValues(normalized);
   }
 
+  // The grid is opt-in until it is the default: the list stays the safe view. Remember WHICH
+  // template version failed to build, so moving to another assignment does not keep it disabled.
+  const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list');
+  const [unavailableVersionId, setUnavailableVersionId] = useState<string | null>(null);
+  const gridUnavailable = initial !== undefined && unavailableVersionId === initial.versionId;
+  const [gridProblem, setGridProblem] = useState<string | null>(null);
+  const canType = editable && !submitting && importStatus !== 'applying';
+  // What the grid draws and recomputes from: every field's current text, typed or saved.
+  const gridValues = useMemo(
+    () =>
+      Object.fromEntries(
+        (initial?.fields ?? []).map((f) => [f.fieldKey, { v: valueOf(f.fieldKey) || null }]),
+      ),
+    // `values` is what changes when the officer types; valueOf reads it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initial, values],
+  );
+
   const bySheet = useMemo(() => {
     const groups = new Map<string, typeof initial extends undefined ? never : NonNullable<typeof initial>['fields']>();
     for (const f of initial?.fields ?? []) {
@@ -195,7 +215,10 @@ export default function SubmissionInputPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6" data-testid="submission-input-page">
+    <div
+      className={`${layoutMode === 'grid' && !gridUnavailable ? 'max-w-6xl' : 'max-w-3xl'} mx-auto p-6`}
+      data-testid="submission-input-page"
+    >
       <Link
         to="/bao-cao-dong/nhap"
         className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4 ${A11Y_FOCUS_RING}`}
@@ -423,7 +446,65 @@ export default function SubmissionInputPage() {
         </div>
       )}
 
-      <form onSubmit={(e) => e.preventDefault()}>
+      {gridUnavailable && (
+        <p className="text-sm text-amber-700 mb-3" data-testid="grid-fallback-note">
+          Chưa dựng được lưới cho mẫu này — đang dùng dạng danh sách.
+        </p>
+      )}
+
+      <div className="flex gap-2 mb-3" role="group" aria-label="Cách nhập số liệu">
+        <button
+          type="button"
+          data-testid="layout-list"
+          aria-pressed={layoutMode === 'list'}
+          onClick={() => setLayoutMode('list')}
+          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border ${
+            layoutMode === 'list' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
+          } ${A11Y_FOCUS_RING}`}
+        >
+          <List className="w-3.5 h-3.5" />
+          Dạng danh sách
+        </button>
+        <button
+          type="button"
+          data-testid="layout-grid"
+          aria-pressed={layoutMode === 'grid'}
+          disabled={gridUnavailable}
+          onClick={() => setLayoutMode('grid')}
+          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border disabled:opacity-50 ${
+            layoutMode === 'grid' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'
+          } ${A11Y_FOCUS_RING}`}
+        >
+          <Table2 className="w-3.5 h-3.5" />
+          Dạng lưới (thử nghiệm)
+        </button>
+      </div>
+
+      {layoutMode === 'grid' && !gridUnavailable && (
+        <div className="mb-4" data-testid="grid-section">
+          <GridViewer
+            versionId={initial.versionId}
+            fields={initial.fields}
+            values={gridValues}
+            entry={{
+              fields: initial.fields,
+              editable: canType,
+              valueOf,
+              onChange: handleChange,
+              onChangeMany: (batch) => applyValues(batch),
+              onLeave: handleBlur,
+              onProblem: setGridProblem,
+              serverErrors: fieldErrors,
+            }}
+            onUnavailable={() => {
+              setUnavailableVersionId(initial.versionId);
+              setLayoutMode('list');
+            }}
+          />
+        </div>
+      )}
+
+      <form onSubmit={(e) => e.preventDefault()} hidden={layoutMode === 'grid' && !gridUnavailable}>
         {bySheet.map(([sheetKey, fields]) => (
           <div key={sheetKey} className="bg-white border border-slate-200 rounded-lg p-4 mb-4">
             <h2 className="text-sm font-semibold text-slate-700 mb-3">{sheetKey}</h2>
@@ -484,7 +565,15 @@ export default function SubmissionInputPage() {
           type="button"
           data-testid="btn-submit"
           disabled={!editable || submitting || importStatus === 'applying'}
-          onClick={() => void handleSubmit()}
+          onClick={() => {
+            // A value the grid refused is still sitting in its editor: submitting now would send the
+            // number the officer is NOT looking at.
+            if (layoutMode === 'grid' && gridProblem) {
+              reportProblem(gridProblem);
+              return;
+            }
+            void handleSubmit();
+          }}
           className={`flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
         >
           <Send className="w-4 h-4" />

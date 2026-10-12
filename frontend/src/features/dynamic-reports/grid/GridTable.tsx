@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent, ReactNode, Ref } from 'react';
 import type { GridCell, GridModel, GridRun, GridStyle } from '../engine/generated/grid-types';
 import { formatAddress } from '../engine/generated/paste';
 import { buildSheetIndex, key, layoutMerges } from './gridIndex';
@@ -8,6 +8,8 @@ import { cssForDxf, cssForStyle } from './styleToCss';
 import { viewOf } from './gridEvaluation';
 import type { CellView, GridEvaluation } from './gridEvaluation';
 import { overlayFor } from './conditional';
+import { drawnRowsOf, inputRowSet, rectsOverlap } from './gridLayout';
+import type { Pos, Rect } from './navigation';
 
 /**
  * Read-only drawing of one sheet of a template, as a real <table>: merged
@@ -18,6 +20,25 @@ import { overlayFor } from './conditional';
  * Gridlines are an inset shadow rather than borders so they never compete with
  * the template's own borders in `border-collapse` resolution.
  */
+
+/**
+ * What turns the read-only drawing into something an officer types into: which
+ * cells are selected, where the cursor is, and what a click does. Absent, the
+ * table is a plain read-only view.
+ */
+export interface GridInteraction {
+  /** Selected block (inclusive sheet rectangle), shaded over the cells' own fill. */
+  selection: Rect | null;
+  /** The cell that has the cursor (the cell that draws a merged block). */
+  active: Pos | null;
+  /** Addresses (of the cell that holds the value) the officer must fix. */
+  invalid: ReadonlySet<string>;
+  /** Addresses of input cells that must be filled before submitting. */
+  required: ReadonlySet<string>;
+  onCellMouseDown: (pos: Pos, e: MouseEvent) => void;
+  onCellMouseEnter: (pos: Pos, e: MouseEvent) => void;
+  onCellDoubleClick: (pos: Pos, e: MouseEvent) => void;
+}
 
 export interface GridTableProps {
   grid: GridModel;
@@ -31,6 +52,11 @@ export interface GridTableProps {
   onlyInputRows?: boolean;
   /** CSS max-height of the scroll area. */
   maxHeight?: string;
+  interaction?: GridInteraction;
+  /** The scroll area, for callers that need to measure cells or scroll them into view. */
+  containerRef?: Ref<HTMLDivElement>;
+  /** Drawn on top of the table inside the scrolling area (the cell editor). */
+  children?: ReactNode;
 }
 
 const HEADER_BG = '#f1f3f4';
@@ -82,20 +108,17 @@ export default function GridTable({
   showHeaders = true,
   onlyInputRows = false,
   maxHeight = '70vh',
+  interaction,
+  containerRef,
+  children,
 }: GridTableProps) {
   const sheet = grid.sheets.find((s) => s.name === sheetName);
   const index = useMemo(() => (sheet ? buildSheetIndex(sheet) : null), [sheet]);
 
-  const inputRows = useMemo(() => {
-    const rows = new Set<number>();
-    if (!sheet) return rows;
-    for (const f of evaluation.fieldAt.values()) {
-      if (f.sheetKey !== sheet.name) continue;
-      const m = /^[A-Z]+(\d+)$/.exec(f.address);
-      if (m) rows.add(Number(m[1]) - 1);
-    }
-    return rows;
-  }, [sheet, evaluation]);
+  const inputRows = useMemo(
+    () => (sheet ? inputRowSet(sheet.name, evaluation.fieldAt.values()) : new Set<number>()),
+    [sheet, evaluation],
+  );
 
   if (!sheet || !index) return null;
 
@@ -107,9 +130,7 @@ export default function GridTable({
   const freezeCols = sheet.freeze.cols;
   const ctx = evaluation.evaluator.contextFor(sheet.name);
 
-  const rows = index.visibleRows.filter(
-    (r) => !onlyInputRows || r < freezeRows || inputRows.has(r),
-  );
+  const rows = drawnRowsOf(index, inputRows, onlyInputRows);
 
   // Merged blocks are placed on what is actually drawn: a hidden or filtered-out
   // anchor row/column must not leave the block's remaining cells shifted.
@@ -135,14 +156,18 @@ export default function GridTable({
 
   return (
     <div
+      ref={containerRef}
       className="overflow-auto border border-slate-300 rounded bg-white"
       style={{ maxHeight }}
       data-testid={`grid-scroll-${sheet.name}`}
+      // The spreadsheet keyboard belongs to the grid: F2 edits a cell here, it does not "Save".
+      {...(interaction ? { 'data-shortcut-zone': 'grid' } : {})}
     >
+      <div data-grid-surface style={{ position: 'relative', width: tableStyle.width }}>
       <table
         style={tableStyle}
         role="grid"
-        aria-readonly="true"
+        aria-readonly={interaction ? undefined : 'true'}
         aria-label={`Bảng ${sheet.name}`}
         aria-rowcount={sheet.rows + (showHeaders ? 1 : 0)}
         aria-colcount={sheet.cols + (showHeaders ? 1 : 0)}
@@ -267,6 +292,25 @@ export default function GridTable({
                   css.outlineOffset = '-1px';
                 }
 
+                const block: Rect = drawn
+                  ? { top: drawn.merge.top, left: drawn.merge.left, bottom: drawn.merge.bottom, right: drawn.merge.right }
+                  : { top: r, left: c, bottom: r, right: c };
+                const isActive = !!interaction?.active && interaction.active.row === r && interaction.active.col === c;
+                const isSelected = !!interaction?.selection && rectsOverlap(block, interaction.selection);
+                const isInvalid = !!interaction?.invalid.has(address);
+                if (isSelected && !isActive) {
+                  // Shade over the cell's own fill instead of replacing it.
+                  css.backgroundImage = 'linear-gradient(rgba(37,99,235,0.14), rgba(37,99,235,0.14))';
+                }
+                if (isInvalid) {
+                  css.outline = '2px solid #dc2626';
+                  css.outlineOffset = '-2px';
+                }
+                if (isActive) {
+                  css.outline = `2px solid ${isInvalid ? '#dc2626' : '#2563eb'}`;
+                  css.outlineOffset = '-2px';
+                }
+
                 const frozenRow = r < freezeRows;
                 const frozenCol = c < freezeCols;
                 if (frozenRow || frozenCol) {
@@ -275,6 +319,8 @@ export default function GridTable({
                   if (frozenCol) css.left = headerW + Math.round((index.colLeft.get(c) ?? 0) * z);
                   css.zIndex = frozenRow && frozenCol ? 3 : 2;
                   if (!css.backgroundColor) css.backgroundColor = '#fff';
+                } else if (interaction) {
+                  css.position = 'relative'; // the "*" marker of a required cell is placed against the cell
                 }
 
                 const content =
@@ -306,9 +352,16 @@ export default function GridTable({
                 return (
                   <td
                     key={c}
+                    id={`gcell-${sheet.name}-${r}-${c}`}
                     role="gridcell"
                     aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
-                    aria-readonly="true"
+                    aria-readonly={interaction && view.kind === 'input' ? undefined : 'true'}
+                    aria-selected={interaction ? isSelected : undefined}
+                    aria-invalid={isInvalid ? true : undefined}
+                    data-pos={`${r},${c}`}
+                    onMouseDown={interaction ? (e) => interaction.onCellMouseDown({ row: r, col: c }, e) : undefined}
+                    onMouseEnter={interaction ? (e) => interaction.onCellMouseEnter({ row: r, col: c }, e) : undefined}
+                    onDoubleClick={interaction ? (e) => interaction.onCellDoubleClick({ row: r, col: c }, e) : undefined}
                     rowSpan={span.rowSpan > 1 ? span.rowSpan : undefined}
                     colSpan={span.colSpan > 1 ? span.colSpan : undefined}
                     style={css}
@@ -318,6 +371,11 @@ export default function GridTable({
                     data-error={view.isError ? 'true' : undefined}
                   >
                     <div style={wrapStyle}>{content}</div>
+                    {interaction?.required.has(address) && view.kind === 'input' && (
+                      <span aria-hidden="true" style={{ position: 'absolute', top: 0, right: 2, color: '#dc2626', fontSize: 10, lineHeight: 1 }}>
+                        *
+                      </span>
+                    )}
                   </td>
                 );
               })}
@@ -325,6 +383,8 @@ export default function GridTable({
           ))}
         </tbody>
       </table>
+      {children}
+      </div>
     </div>
   );
 }

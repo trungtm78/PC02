@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import GridTable from '../GridTable';
 import { evaluateGrid } from '../gridEvaluation';
 import { FIELDS, makeGrid } from './fixtures';
@@ -251,5 +251,63 @@ describe('GridTable', () => {
       <GridTable grid={grid} sheetName="Không có" evaluation={evaluateGrid(grid, FIELDS, VALUES)} />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('GridTable — interaction layer', () => {
+  const noop = () => {};
+  const base = {
+    selection: null,
+    active: null,
+    invalid: new Set<string>(),
+    required: new Set<string>(),
+    onCellMouseDown: noop,
+    onCellMouseEnter: noop,
+    onCellDoubleClick: noop,
+  };
+
+  it('shades selected cells over their own fill and outlines the active one', () => {
+    renderTable({
+      interaction: { ...base, selection: { top: 2, left: 2, bottom: 3, right: 2 }, active: { row: 2, col: 2 } },
+    });
+    expect(screen.getByTestId('cell-C3')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('cell-C3').style.outline).toContain('2px solid');
+    expect(screen.getByTestId('cell-C3').style.backgroundImage).toBe(''); // the active cell is outlined, not shaded
+    expect(screen.getByTestId('cell-C4')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('cell-C4').style.backgroundImage).toContain('linear-gradient');
+    expect(screen.getByTestId('cell-B3')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('cell-B3').style.backgroundImage).toBe('');
+  });
+
+  it('a merged block counts as selected when any part of it is', () => {
+    renderTable({ interaction: { ...base, selection: { top: 0, left: 3, bottom: 0, right: 3 } } });
+    expect(screen.getByTestId('cell-A1')).toHaveAttribute('aria-selected', 'true'); // A1:E1 title
+  });
+
+  it('flags invalid cells', () => {
+    renderTable({ interaction: { ...base, invalid: new Set(['C4']) } });
+    expect(screen.getByTestId('cell-C4')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByTestId('cell-C4').style.outline).toContain('#dc2626');
+    expect(screen.getByTestId('cell-C3')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('routes mouse events with the position of the cell that draws the block', () => {
+    const down = vi.fn();
+    const enter = vi.fn();
+    const dbl = vi.fn();
+    renderTable({ interaction: { ...base, onCellMouseDown: down, onCellMouseEnter: enter, onCellDoubleClick: dbl } });
+    fireEvent.mouseDown(screen.getByTestId('cell-C3'));
+    fireEvent.mouseEnter(screen.getByTestId('cell-C4'));
+    fireEvent.doubleClick(screen.getByTestId('cell-A1'));
+    expect(down.mock.calls[0][0]).toEqual({ row: 2, col: 2 });
+    expect(enter.mock.calls[0][0]).toEqual({ row: 3, col: 2 });
+    expect(dbl.mock.calls[0][0]).toEqual({ row: 0, col: 0 });
+  });
+
+  it('is a plain read-only table without it', () => {
+    renderTable();
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-readonly', 'true');
+    expect(screen.getByTestId('grid-scroll-Đội 3')).not.toHaveAttribute('data-shortcut-zone');
+    expect(screen.getByTestId('cell-C3')).not.toHaveAttribute('aria-selected');
   });
 });

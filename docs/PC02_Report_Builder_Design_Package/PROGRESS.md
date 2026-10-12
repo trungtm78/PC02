@@ -1067,6 +1067,39 @@ tới sửa số liệu qua CÙNG một đường — một hàng đợi, một 
 Thêm `applyValues` (nhiều ô một lượt: dán / hoàn tác / xoá vùng, lưu ngay một yêu cầu), `reportProblem`, `valueOf`,
 `peekValue` cho lưới; 5 ca mới cho hook (gộp hai thao tác cùng nhịp vào một yêu cầu, lần sau dùng revision vừa được xác nhận,
 lưu lỗi vẫn giữ chữ đã gõ).
+### G3c — nhập số liệu trên lưới Excel (12/10/2026, qua nút "Dạng lưới (thử nghiệm)" ở S11)
+Cán bộ tổ mở bản nộp, bấm **Dạng lưới (thử nghiệm)** và gõ thẳng lên tờ mẫu: ô gộp, viền, màu, cột cố định, định dạng số vi-VN
+như file Excel gốc. Mặc định vẫn là danh sách (chưa ai bị đổi giao diện); lưới hỏng → về danh sách kèm ghi chú.
+- `GridEntry` = bảng chỉ đọc + **một `<textarea>` luôn giữ tiêu điểm đè lên ô đang chọn**: mọi phím, mọi lần ghép dấu
+  Telex/VNI, mọi sự kiện copy/cut/paste đi qua đúng một phần tử, không bao giờ đổi tiêu điểm giữa lúc ghép chữ.
+  3 chế độ như Excel (chọn ô / gõ đè / F2 sửa). Giá trị được kiểm và lưu khi XÁC NHẬN (Enter, Tab, mũi tên, bấm ô khác, rời
+  lưới) — không kiểm từng phím; công thức tính lại ngay lúc xác nhận.
+- Tab = ô nhập kế tiếp theo hàng, Enter = ô nhập kế tiếp theo cột; sau ô nhập cuối Tab thoát khỏi lưới như mọi control
+  (người dùng bàn phím không bị nhốt). Gõ lên ô nhãn hoặc bản đã khoá → thông báo, không đổi gì.
+- Sai kiểu / ngoài khoảng (`abc`, `-3` khi min 0, `1.234` mơ hồ) → giữ trong ô sửa, nêu lý do, viền đỏ + `aria-invalid`.
+  Lỗi máy chủ (`CELL_VALIDATION`) cũng đánh dấu đúng ô.
+- Dán từ Excel: tất cả hoặc không gì; ô trống xoá ô đích; Delete xoá cả vùng; Ctrl+Z/Y theo từng thao tác; Ctrl+; ngày hôm nay
+  (giờ Việt Nam); thanh trạng thái đọc to ô đang chọn (`aria-live`); ô bắt buộc có dấu `*`.
+- Lưu qua đúng `useSubmissionEditor` (G3b): 1 ô → tự lưu sau 2 giây / khi rời lưới; nhiều ô (dán, xoá vùng, hoàn tác) → lưu ngay
+  trong 1 yêu cầu; "Nộp" vẫn chờ lưu xong. `data-shortcut-zone="grid"` giữ Ctrl+K/F2 toàn cục ngoài lưới.
+- **Lỗi thật bắt được nhờ kiểm thử:** `onFocus` chạy ĐỒNG BỘ trong lúc xử lý bấm chuột nên thấy vùng chọn cũ (null) và nhảy về ô
+  nhập đầu tiên — mọi ô khác ô đầu đều bị chọn nhầm; sửa bằng ref phản ánh vùng chọn tức thời.
+- Kiểm: 60 ca thành phần + 7 ca trang; gieo 10 lỗi → cả 10 bị bắt (2 lỗi đầu lọt nên đã bổ sung ca). Chưa làm (G3d/G7): cửa sổ
+  ảo cho sheet >2.000 ô, bàn phím di động (S24), E2E trình duyệt thật + IME thật.
+- **Codex review G3c (8 phát hiện, đã sửa hết):** (1) *P1* bấm "Nộp" khi trong ô còn chữ bị từ chối → trước đây nộp số cũ; nay lưới
+  báo `onProblem` cho trang và trang chặn nộp cho tới khi sửa/Esc; (2) *P1* sao chép bỏ dòng ẩn nhưng dán theo toạ độ thật → dán
+  đè nhầm ô ẩn; nay sao chép/cắt/xoá đều lấy TRỌN hình chữ nhật (kể cả dòng ẩn); (3) *P1* bản đã khoá vẫn ghi được qua Ctrl+Z
+  hoặc chữ đang mở → mọi đường ghi đi qua một cổng chặn `editable`, chữ đang gõ bị bỏ khi khoá; (4) ô nhập khai ở neo bị ẩn của
+  khối gộp không gõ/dán được → tra ô nhập theo ô VẼ khối; (5) rời lưới làm lưới giật lại tiêu điểm từ nút khác → chỉ lấy lại tiêu
+  điểm khi nó đang ở lưới/trống, và đổi sheet/lọc dòng giữ lại một ô chọn nếu bàn phím đang ở lưới; (6) ô sửa lệch khỏi ô cố định
+  khi cuộn → đo theo toạ độ màn hình + lắng nghe cuộn, z-index theo ô; (7) Ctrl+mũi tên dùng giá trị cũ → `isFilled` đọc ref giá
+  trị hiện tại; (8) mỗi phím gõ vẽ lại cả bảng (3.000 ô/phím) → chữ đang gõ nằm trong textarea KHÔNG kiểm soát, gõ phím không còn
+  render lại gì (cũng đúng chuẩn cho IME). 12 ca hồi quy mới, gieo 11 lỗi đều bị bắt.
+- **Codex vòng 2 (6 phát hiện, đã sửa hết):** cắt hình chữ nhật có ô gộp neo ẩn làm mất giá trị (clipboard bỏ ô phủ trong khi xoá
+  ô nhập) → ô nhập tính theo KHỐI VẼ nó, sao chép lấy giá trị ô nhập khai tại chỗ trước; cờ "đang giữ giá trị bị từ chối" không
+  nhả khi gõ lại đúng giá trị cũ hoặc khi khoá → luôn nhả khi xác nhận được/khi bỏ chữ; Ctrl+Z bị từ chối lúc khoá vẫn tiêu một
+  bước lịch sử → kiểm khoá TRƯỚC khi lấy bước; ô trống trong khối gộp không còn "xung đột" với giá trị thật khi dán lại chính
+  thứ vừa sao chép; Ctrl+mũi tên nhận ô gộp neo ẩn là ô đầy. 8 ca hồi quy, gieo thêm 7 lỗi đều bị bắt.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

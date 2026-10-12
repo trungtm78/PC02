@@ -93,7 +93,8 @@ describe('selection', () => {
     expect(grown).toEqual({ anchor: at(1, 1), focus: at(2, 1) });
     const more = moveSelection(m, grown, 'right', { extend: true, jump: false });
     expect(more).toEqual({ anchor: at(1, 1), focus: at(2, 2) });
-    expect(moveSelection(m, more, 'down', { extend: false, jump: false })).toEqual(single(at(3, 2)));
+    // Excel moves from the ACTIVE cell (the anchor, B2) → B3, not from where the selection ends.
+    expect(moveSelection(m, more, 'down', { extend: false, jump: false })).toEqual(single(at(2, 1)));
   });
 
   it('Shift+Down continues beyond a merged block that widened the selection', () => {
@@ -348,6 +349,14 @@ describe('planGridPaste', () => {
     if (!conflict.ok) expect(conflict.message).toContain('cùng một ô gộp');
     const same = planGridPaste({ text: 'same\tsame', topLeft: at(0, 0), targetAt: mergedAt });
     expect(same).toEqual({ ok: true, changes: [{ fieldKey: 'S!A1', address: 'A1', value: 'same' }] });
+  });
+
+  it('a blank beside the real value of the same merged field is not a conflict, in either order', () => {
+    const merged: PasteTarget = { fieldKey: 'S!A1', field: { type: 'TEXT' } };
+    const mergedAt = (p: Pos) => (p.row === 0 && p.col <= 1 ? merged : undefined);
+    const expected = { ok: true, changes: [{ fieldKey: 'S!A1', address: 'A1', value: '7' }] };
+    expect(planGridPaste({ text: '7\t', topLeft: at(0, 0), targetAt: mergedAt })).toEqual(expected);
+    expect(planGridPaste({ text: '\t7', topLeft: at(0, 0), targetAt: mergedAt })).toEqual(expected);
   });
 
   it('copying a blank cell under a filled one and pasting over both clears the second, not fills it', () => {
