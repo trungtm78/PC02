@@ -1412,8 +1412,16 @@ describe('AggregateService', () => {
   });
 
   describe('listAssignmentsForPeriod (S30, PR4 slice 6)', () => {
+    /** The list also asks which assignments have comments / unlock requests (a team with either cannot be taken back). */
+    function withSideTables(prisma: unknown, commented: string[] = [], unlocked: string[] = []) {
+      const p = prisma as Record<string, unknown>;
+      p.dynReportComment = { findMany: jest.fn().mockResolvedValue(commented.map((assignmentId) => ({ assignmentId }))) };
+      p.dynReportUnlock = { findMany: jest.fn().mockResolvedValue(unlocked.map((assignmentId) => ({ assignmentId }))) };
+    }
+
     it('lists every assignment with teamName/obligation/state', async () => {
-      const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+      const { service, prisma } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+      withSideTables(prisma);
 
       const result = await service.listAssignmentsForPeriod(
         'period1',
@@ -1421,36 +1429,54 @@ describe('AggregateService', () => {
         'roleMgr',
       );
 
-      expect(result).toEqual([
-        {
-          assignmentId: 'a1',
-          teamId: 'team-a1',
-          teamName: 'Team a1',
-          obligation: 'REQUIRED',
-          state: 'SUBMITTED',
-        },
-        {
-          assignmentId: 'a2',
-          teamId: 'team-a2',
-          teamName: 'Team a2',
-          obligation: 'REQUIRED',
-          state: 'APPROVED',
-        },
-        {
-          assignmentId: 'a3',
-          teamId: 'team-a3',
-          teamName: 'Team a3',
-          obligation: 'REQUIRED',
-          state: 'DRAFT',
-        },
-        {
-          assignmentId: 'a4',
-          teamId: 'team-a4',
-          teamName: 'Team a4',
-          obligation: 'EXEMPT',
-          state: 'NOT_STARTED',
-        },
+      expect(result.map((a) => [a.assignmentId, a.teamId, a.teamName, a.obligation, a.state])).toEqual([
+        ['a1', 'team-a1', 'Team a1', 'REQUIRED', 'SUBMITTED'],
+        ['a2', 'team-a2', 'Team a2', 'REQUIRED', 'APPROVED'],
+        ['a3', 'team-a3', 'Team a3', 'REQUIRED', 'DRAFT'],
+        ['a4', 'team-a4', 'Team a4', 'EXEMPT', 'NOT_STARTED'],
       ]);
+      // None of these was added in the middle of the period, so none can be taken back.
+      expect(result.every((a) => !a.addedMidPeriod && !a.removable)).toBe(true);
+    });
+
+    it('a team added mid-period is removable only while nobody touched it: no figures, no comment, no unlock request', async () => {
+      const period = basePeriod() as { assignments: Array<Record<string, unknown>> };
+      const added = (id: string, state: string, revision: number) => ({
+        id,
+        teamId: `team-${id}`,
+        teamSnapshot: { name: `Team ${id}` },
+        obligation: 'REQUIRED',
+        addedMidPeriodReason: 'thêm nhầm',
+        submission: { state, currentRevision: BigInt(revision) },
+      });
+      period.assignments = [
+        added('x1', 'NOT_STARTED', 0), // untouched
+        added('x2', 'DRAFT', 1), // has figures
+        added('x3', 'NOT_STARTED', 0), // has a comment
+        added('x4', 'NOT_STARTED', 0), // has an unlock request
+      ];
+      const { service, prisma } = buildService(period, [{ role: 'MANAGER' }]);
+      withSideTables(prisma, ['x3'], ['x4']);
+
+      const result = await service.listAssignmentsForPeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.map((a) => [a.assignmentId, a.addedMidPeriod, a.removable])).toEqual([
+        ['x1', true, true],
+        ['x2', true, false],
+        ['x3', true, false],
+        ['x4', true, false],
+      ]);
+    });
+
+    it('a closed period has nothing removable', async () => {
+      const period = { ...(basePeriod() as Record<string, unknown>), status: 'FINALIZED' } as unknown as { assignments: Array<Record<string, unknown>> };
+      period.assignments = [
+        { id: 'x1', teamId: 't', teamSnapshot: { name: 'T' }, obligation: 'REQUIRED', addedMidPeriodReason: 'x', submission: { state: 'NOT_STARTED', currentRevision: BigInt(0) } },
+      ];
+      const { service, prisma } = buildService(period, [{ role: 'MANAGER' }]);
+      withSideTables(prisma);
+      const [row] = await service.listAssignmentsForPeriod('period1', 'mgr1', 'roleMgr');
+      expect(row.removable).toBe(false);
     });
 
     it('rejects (404) when the caller is not a manager of this report', async () => {

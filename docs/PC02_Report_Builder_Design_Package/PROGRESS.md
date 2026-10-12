@@ -1256,11 +1256,11 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
 | Lịch / quản lý / tổ + người nhập | wizard | Sửa cấu hình (áp từ kỳ kế) | Gỡ tổ / gỡ người (đặt hạn cuối `validTo`, không xoá dòng) | Đủ (#616) |
 | Sao chép cấu hình | báo cáo mới từ bản sao (file, ô nhập, quy tắc, lịch, tổ) | — | — | Đủ (#616) |
 | Ghi chú (comment) | S37 | Sửa ghi chú của chính mình | Xoá ghi chú của mình (quản lý xoá được của người khác); kỳ đã chốt thì khoá | Đủ (#616) |
-| Kỳ | tự sinh | — | Xoá kỳ chưa có số liệu | Chưa làm |
-| Lượt giao (thêm tổ giữa kỳ / miễn nộp) | S30 | Thay người nhập (R14) | **Bỏ miễn nộp**, gỡ tổ thêm nhầm | Chưa làm |
-| Yêu cầu mở lại | S34 | — | **Rút lại yêu cầu** | Chưa làm |
+| Kỳ | tự sinh | — | **Xoá kỳ** chưa có số liệu (quản lý); kèm số liệu: quản trị viên, gõ lại mã kỳ | Đủ (#617) |
+| Lượt giao (thêm tổ giữa kỳ / miễn nộp) | S30 | Thay người nhập (R14) | **Bỏ miễn nộp**; **Gỡ tổ** thêm nhầm khi chưa ai nhập gì | Đủ (#617) |
+| Yêu cầu mở lại | S34 | — | **Rút lại yêu cầu** khi còn chờ (REVOKED, giữ lịch sử) | Đủ (#617) |
 | Mở khoá (grant) | S17 | — | Thu hồi (đã có) | Đủ |
-| Tệp xuất | S25 | — | Xoá tệp xuất của mình | Chưa làm |
+| Tệp xuất | S25 | — | Tự hết hạn sau 24 giờ và bị dọn; không có danh sách tệp xuất nào để người dùng xoá tay (tải xong là xong) | Đủ theo thiết kế |
 | Bản nộp / số liệu | S11 | Sửa tới khi nộp; Trả lại / Huỷ duyệt | Xoá giá trị ô (Delete) | Đủ |
 
 ## Assumption đã tự quyết

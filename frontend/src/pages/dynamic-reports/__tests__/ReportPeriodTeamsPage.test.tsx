@@ -17,6 +17,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     addTeamMidPeriod: vi.fn(),
     previewExemptTeam: vi.fn(),
     exemptTeamMidPeriod: vi.fn(),
+    unexemptTeamMidPeriod: vi.fn(),
+    removeAddedTeamMidPeriod: vi.fn(),
   },
 }));
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
@@ -43,8 +45,8 @@ function openAndSelect(testId: string, optionValue: string) {
 }
 
 const ASSIGNMENTS: AssignmentListItemView[] = [
-  { assignmentId: 'a1', teamId: 'team-a1', teamName: 'Đội 3', obligation: 'REQUIRED', state: 'SUBMITTED' },
-  { assignmentId: 'a2', teamId: 'team-a2', teamName: 'Đội 4', obligation: 'EXEMPT', state: 'NOT_STARTED' },
+  { assignmentId: 'a1', teamId: 'team-a1', teamName: 'Đội 3', obligation: 'REQUIRED', state: 'SUBMITTED', addedMidPeriod: false, removable: false },
+  { assignmentId: 'a2', teamId: 'team-a2', teamName: 'Đội 4', obligation: 'EXEMPT', state: 'NOT_STARTED', addedMidPeriod: false, removable: false },
 ];
 
 const TEAMS = [
@@ -225,5 +227,65 @@ describe('ReportPeriodTeamsPage (S30)', () => {
 
     expect(screen.queryByTestId('exempt-panel')).not.toBeInTheDocument();
     expect(dynamicReportsApi.previewExemptTeam).not.toHaveBeenCalled();
+  });
+
+  describe('the way back (created => editable and deletable)', () => {
+    const WITH_ADDED: AssignmentListItemView[] = [
+      ...ASSIGNMENTS,
+      { assignmentId: 'a3', teamId: 'team-new', teamName: 'Đội 5', obligation: 'REQUIRED', state: 'NOT_STARTED', addedMidPeriod: true, removable: true },
+      { assignmentId: 'a4', teamId: 'team-b', teamName: 'Đội 6', obligation: 'REQUIRED', state: 'DRAFT', addedMidPeriod: true, removable: false },
+    ];
+
+    beforeEach(() => {
+      vi.mocked(api.get).mockResolvedValue({ data: TEAMS });
+    });
+
+    it('an exempt team can be un-exempted; a team that is required cannot (it has "Miễn nộp" instead)', async () => {
+      vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue(ASSIGNMENTS);
+      renderPage();
+      await waitFor(() => screen.getByTestId('assignment-row-a2'));
+
+      expect(screen.getByTestId('btn-unexempt-a2')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-unexempt-a1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('btn-exempt-a1')).toBeInTheDocument();
+    });
+
+    it('"Bỏ miễn nộp" asks first, then calls the API and reloads the list', async () => {
+      vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue(ASSIGNMENTS);
+      vi.mocked(dynamicReportsApi.unexemptTeamMidPeriod).mockResolvedValue({ assignmentId: 'a2', teamId: 'team-a2', teamName: 'Đội 4', obligation: 'REQUIRED' });
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-unexempt-a2'));
+      expect(dynamicReportsApi.unexemptTeamMidPeriod).not.toHaveBeenCalled();
+
+      confirm.mockReturnValueOnce(true);
+      fireEvent.click(screen.getByTestId('btn-unexempt-a2'));
+      await waitFor(() => expect(dynamicReportsApi.unexemptTeamMidPeriod).toHaveBeenCalledWith('period1', 'a2'));
+      await waitFor(() => expect(dynamicReportsApi.listAssignments).toHaveBeenCalledTimes(2));
+    });
+
+    it('"Gỡ tổ" only on a team added mid-period that nobody touched (removable); a touched one keeps just "Miễn nộp"', async () => {
+      vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue(WITH_ADDED);
+      renderPage();
+      await screen.findByTestId('assignment-row-a3');
+
+      expect(screen.getByTestId('added-badge-a3')).toBeInTheDocument();
+      expect(screen.getByTestId('btn-remove-team-a3')).toBeInTheDocument();
+      expect(screen.getByTestId('added-badge-a4')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-remove-team-a4')).not.toBeInTheDocument();
+      expect(screen.getByTestId('btn-exempt-a4')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-remove-team-a1')).not.toBeInTheDocument();
+    });
+
+    it('removing asks first and calls the API; a refusal from the server is shown', async () => {
+      vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue(WITH_ADDED);
+      vi.mocked(dynamicReportsApi.removeAddedTeamMidPeriod).mockRejectedValueOnce(new Error('Tổ này đã có số liệu'));
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-remove-team-a3'));
+
+      expect(await screen.findByTestId('reverse-error')).toHaveTextContent('đã có số liệu');
+      expect(dynamicReportsApi.removeAddedTeamMidPeriod).toHaveBeenCalledWith('period1', 'a3');
+    });
   });
 });

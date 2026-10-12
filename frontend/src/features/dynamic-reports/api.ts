@@ -18,6 +18,7 @@ import type {
   ReportDeletionImpact,
   ReportDetailView,
   CreateVersionResult,
+  PeriodDeletionImpact,
   UpdateReportConfigPayload,
   UpdateReportConfigResult,
   SaveReportVersionPayload,
@@ -248,6 +249,38 @@ export const dynamicReportsApi = {
     api
       .delete<{ deleted: true }>(`/bao-cao-dong/submissions/${assignmentId}/comments/${commentId}`)
       .then((r) => r.data),
+
+  /** S30 — bỏ miễn nộp (chiều ngược của miễn nộp). */
+  unexemptTeamMidPeriod: (periodId: string, assignmentId: string) =>
+    api
+      .post<MidPeriodAssignmentView>(`/bao-cao-dong/periods/${periodId}/assignments/${assignmentId}/unexempt`, {})
+      .then((r) => r.data),
+
+  /** S30 — gỡ tổ đã thêm nhầm giữa kỳ, khi chưa ai nhập gì. */
+  removeAddedTeamMidPeriod: (periodId: string, assignmentId: string) =>
+    api
+      .delete<{ removed: true; teamName: string }>(`/bao-cao-dong/periods/${periodId}/assignments/${assignmentId}`)
+      .then((r) => r.data),
+
+  /** What deleting the period would destroy. */
+  getPeriodDeletionImpact: (periodId: string) =>
+    api.get<PeriodDeletionImpact>(`/bao-cao-dong/periods/${periodId}/deletion-impact`).then((r) => r.data),
+
+  /** Delete a period nobody entered anything in (409 HAS_DATA otherwise). */
+  deletePeriod: (periodId: string) =>
+    api.delete<{ deleted: true; periodKey: string }>(`/bao-cao-dong/periods/${periodId}`).then((r) => r.data),
+
+  /** Admin only: delete the period with its figures; the period key must be typed back. */
+  deletePeriodWithData: (periodId: string, confirmKey: string) =>
+    api
+      .delete<{ deleted: true; periodKey: string }>(`/bao-cao-dong/periods/${periodId}/with-data`, {
+        params: { confirmKey },
+      })
+      .then((r) => r.data),
+
+  /** S34 — the editor takes back their own reopening request while it is still waiting. */
+  withdrawUnlockRequest: (assignmentId: string) =>
+    api.delete<{ withdrawn: true }>(`/bao-cao-dong/submissions/${assignmentId}/unlock/request`).then((r) => r.data),
 
   /** S33/PR7 — the manager's own list (any report they manage, or every report with admin:DynamicReport). */
   listForManager: () =>
