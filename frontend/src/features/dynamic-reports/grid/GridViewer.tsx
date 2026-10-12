@@ -5,6 +5,8 @@ import { dynamicReportsApi } from '../api';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import GridTable from './GridTable';
+import GridEntry from './GridEntry';
+import type { GridEntryProps } from './GridEntry';
 import { evaluateGrid } from './gridEvaluation';
 import type { GridField, SubmittedValues } from './gridEvaluation';
 
@@ -21,15 +23,23 @@ import type { GridField, SubmittedValues } from './gridEvaluation';
 
 const ZOOMS = [80, 100, 125] as const;
 
+/** What turns the viewer into an entry grid: the editable fields and how a typed value is stored. */
+export type GridEntryBinding = Pick<
+  GridEntryProps,
+  'fields' | 'editable' | 'valueOf' | 'onChange' | 'onChangeMany' | 'onLeave' | 'serverErrors'
+>;
+
 export interface GridViewerProps {
   versionId: string;
   fields: readonly GridField[];
   values: SubmittedValues;
+  /** Present: the grid can be typed into. Absent: a read-only view. */
+  entry?: GridEntryBinding;
   /** Called once if the grid cannot be shown, so the caller can show the list instead. */
   onUnavailable?: (reason: string) => void;
 }
 
-export default function GridViewer({ versionId, fields, values, onUnavailable }: GridViewerProps) {
+export default function GridViewer({ versionId, fields, values, entry, onUnavailable }: GridViewerProps) {
   const { data: grid, isLoading, error } = useQuery({
     queryKey: ['dynamic-reports', 'grid', versionId],
     queryFn: () => dynamicReportsApi.getVersionGrid(versionId),
@@ -152,13 +162,24 @@ export default function GridViewer({ versionId, fields, values, onUnavailable }:
         </p>
       )}
 
-      <GridTable
-        grid={grid}
-        sheetName={sheetName}
-        evaluation={evaluation}
-        zoom={zoom}
-        onlyInputRows={onlyInputRows}
-      />
+      {entry ? (
+        <GridEntry
+          grid={grid}
+          sheetName={sheetName}
+          evaluation={evaluation}
+          zoom={zoom}
+          onlyInputRows={onlyInputRows}
+          {...entry}
+        />
+      ) : (
+        <GridTable
+          grid={grid}
+          sheetName={sheetName}
+          evaluation={evaluation}
+          zoom={zoom}
+          onlyInputRows={onlyInputRows}
+        />
+      )}
     </div>
   );
 }

@@ -79,14 +79,15 @@ export function cellsInSelection(model: NavModel, s: Selection, limit?: number):
   return cellsInRect(model, selectionRect(model, s), limit);
 }
 
-/** Shift+arrow: the anchor stays, the focus moves. Without Shift the whole selection collapses to the moved cursor. */
+/** Shift+arrow: the anchor stays, the focus moves. Without Shift the selection collapses onto the cell next to the active one. */
 export function moveSelection(
   model: NavModel,
   s: Selection,
   dir: Direction,
   opts: { extend: boolean; jump: boolean },
 ): Selection {
-  if (!opts.extend) return single(move(model, s.focus, dir, opts.jump));
+  // Without Shift the cursor moves from the ACTIVE cell (the anchor), as in Excel, and the selection collapses.
+  if (!opts.extend) return single(move(model, s.anchor, dir, opts.jump));
   if (opts.jump) return { anchor: s.anchor, focus: move(model, s.focus, dir, true) };
   return { anchor: s.anchor, focus: stepFromEdge(model, s, dir) };
 }

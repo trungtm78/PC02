@@ -1067,6 +1067,25 @@ tới sửa số liệu qua CÙNG một đường — một hàng đợi, một 
 Thêm `applyValues` (nhiều ô một lượt: dán / hoàn tác / xoá vùng, lưu ngay một yêu cầu), `reportProblem`, `valueOf`,
 `peekValue` cho lưới; 5 ca mới cho hook (gộp hai thao tác cùng nhịp vào một yêu cầu, lần sau dùng revision vừa được xác nhận,
 lưu lỗi vẫn giữ chữ đã gõ).
+### G3c — nhập số liệu trên lưới Excel (12/10/2026, qua nút "Dạng lưới (thử nghiệm)" ở S11)
+Cán bộ tổ mở bản nộp, bấm **Dạng lưới (thử nghiệm)** và gõ thẳng lên tờ mẫu: ô gộp, viền, màu, cột cố định, định dạng số vi-VN
+như file Excel gốc. Mặc định vẫn là danh sách (chưa ai bị đổi giao diện); lưới hỏng → về danh sách kèm ghi chú.
+- `GridEntry` = bảng chỉ đọc + **một `<textarea>` luôn giữ tiêu điểm đè lên ô đang chọn**: mọi phím, mọi lần ghép dấu
+  Telex/VNI, mọi sự kiện copy/cut/paste đi qua đúng một phần tử, không bao giờ đổi tiêu điểm giữa lúc ghép chữ.
+  3 chế độ như Excel (chọn ô / gõ đè / F2 sửa). Giá trị được kiểm và lưu khi XÁC NHẬN (Enter, Tab, mũi tên, bấm ô khác, rời
+  lưới) — không kiểm từng phím; công thức tính lại ngay lúc xác nhận.
+- Tab = ô nhập kế tiếp theo hàng, Enter = ô nhập kế tiếp theo cột; sau ô nhập cuối Tab thoát khỏi lưới như mọi control
+  (người dùng bàn phím không bị nhốt). Gõ lên ô nhãn hoặc bản đã khoá → thông báo, không đổi gì.
+- Sai kiểu / ngoài khoảng (`abc`, `-3` khi min 0, `1.234` mơ hồ) → giữ trong ô sửa, nêu lý do, viền đỏ + `aria-invalid`.
+  Lỗi máy chủ (`CELL_VALIDATION`) cũng đánh dấu đúng ô.
+- Dán từ Excel: tất cả hoặc không gì; ô trống xoá ô đích; Delete xoá cả vùng; Ctrl+Z/Y theo từng thao tác; Ctrl+; ngày hôm nay
+  (giờ Việt Nam); thanh trạng thái đọc to ô đang chọn (`aria-live`); ô bắt buộc có dấu `*`.
+- Lưu qua đúng `useSubmissionEditor` (G3b): 1 ô → tự lưu sau 2 giây / khi rời lưới; nhiều ô (dán, xoá vùng, hoàn tác) → lưu ngay
+  trong 1 yêu cầu; "Nộp" vẫn chờ lưu xong. `data-shortcut-zone="grid"` giữ Ctrl+K/F2 toàn cục ngoài lưới.
+- **Lỗi thật bắt được nhờ kiểm thử:** `onFocus` chạy ĐỒNG BỘ trong lúc xử lý bấm chuột nên thấy vùng chọn cũ (null) và nhảy về ô
+  nhập đầu tiên — mọi ô khác ô đầu đều bị chọn nhầm; sửa bằng ref phản ánh vùng chọn tức thời.
+- Kiểm: 60 ca thành phần + 7 ca trang; gieo 10 lỗi → cả 10 bị bắt (2 lỗi đầu lọt nên đã bổ sung ca). Chưa làm (G3d/G7): cửa sổ
+  ảo cho sheet >2.000 ô, bàn phím di động (S24), E2E trình duyệt thật + IME thật.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

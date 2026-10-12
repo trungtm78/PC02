@@ -93,7 +93,8 @@ describe('selection', () => {
     expect(grown).toEqual({ anchor: at(1, 1), focus: at(2, 1) });
     const more = moveSelection(m, grown, 'right', { extend: true, jump: false });
     expect(more).toEqual({ anchor: at(1, 1), focus: at(2, 2) });
-    expect(moveSelection(m, more, 'down', { extend: false, jump: false })).toEqual(single(at(3, 2)));
+    // Excel moves from the ACTIVE cell (the anchor, B2) → B3, not from where the selection ends.
+    expect(moveSelection(m, more, 'down', { extend: false, jump: false })).toEqual(single(at(2, 1)));
   });
 
   it('Shift+Down continues beyond a merged block that widened the selection', () => {
