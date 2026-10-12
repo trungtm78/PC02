@@ -18,14 +18,18 @@ describe('suggestValidationRules', () => {
       },
     ]);
     expect(suggestions).toEqual([
-      {
+      expect.objectContaining({
         sheetKey: 'Sheet1',
         address: 'E5',
-        leftExpr: 'D10',
-        operator: 'EQUAL',
-        rightExpr: 'D11+D12',
-      },
+        // A rule is evaluated without a sheet of its own, so the cells are named with theirs.
+        leftExpr: 'Sheet1!D10',
+        operator: 'EQ',
+        rightExpr: 'Sheet1!D11+Sheet1!D12',
+        origin: 'IF_FORMULA',
+      }),
     ]);
+    expect(suggestions[0].name).toBeTruthy();
+    expect(suggestions[0].message).toContain('E5');
   });
 
   it('is insensitive to whitespace around the comparison and the TRUE/FALSE literals', () => {
@@ -37,8 +41,8 @@ describe('suggestValidationRules', () => {
       },
     ]);
     expect(suggestions).toHaveLength(1);
-    expect(suggestions[0].leftExpr).toBe('D10');
-    expect(suggestions[0].rightExpr).toBe('D11+D12');
+    expect(suggestions[0].leftExpr).toBe('Sheet1!D10');
+    expect(suggestions[0].rightExpr).toBe('Sheet1!D11+Sheet1!D12');
   });
 
   it('ignores a formula that is not an IF(...,TRUE,FALSE) shape', () => {

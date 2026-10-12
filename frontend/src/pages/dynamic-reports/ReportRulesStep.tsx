@@ -19,11 +19,13 @@ import {
 } from '@/shared/enums/status-labels';
 import { DynReportRuleOperator, DynReportRuleSeverity } from '@/shared/enums/generated';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
-import type { ReportRuleConfig } from '@/features/dynamic-reports/types';
+import type { ReportRuleConfig, SuggestedRuleView } from '@/features/dynamic-reports/types';
 
 interface Props {
   onBack: () => void;
   onNext: (rules: ReportRuleConfig[]) => void;
+  /** Rules the uploaded template itself suggests (already limited to cells that are inputs). */
+  suggestions?: SuggestedRuleView[];
 }
 
 const OPERATORS = Object.values(DynReportRuleOperator);
@@ -40,8 +42,28 @@ function emptyDraft(): ReportRuleConfig {
   };
 }
 
-export default function ReportRulesStep({ onBack, onNext }: Props) {
+export default function ReportRulesStep({ onBack, onNext, suggestions = [] }: Props) {
   const [rules, setRules] = useState<ReportRuleConfig[]>([]);
+  const open = suggestions.filter((s) => !rules.some((r) => r.name === s.name));
+
+  function addSuggestion(s: SuggestedRuleView) {
+    setRules((prev) =>
+      prev.some((r) => r.name === s.name)
+        ? prev
+        : [
+            ...prev,
+            {
+              name: s.name,
+              leftExpr: s.leftExpr,
+              operator: DynReportRuleOperator[s.operator],
+              rightExpr: s.rightExpr,
+              // Excel stops an officer at a data-validation failure; a check someone wrote into a cell only told them.
+              severity: s.origin === 'DATA_VALIDATION' ? DynReportRuleSeverity.ERROR : DynReportRuleSeverity.WARNING,
+              message: s.message,
+            },
+          ],
+    );
+  }
   const [draft, setDraft] = useState<ReportRuleConfig>(emptyDraft());
 
   const canAdd =
@@ -88,6 +110,34 @@ export default function ReportRulesStep({ onBack, onNext }: Props) {
             </li>
           ))}
         </ul>
+      )}
+
+      {open.length > 0 && (
+        <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 mb-4" data-testid="rule-suggestions">
+          <p className="text-xs font-medium text-blue-900 mb-2">Gợi ý từ file mẫu ({open.length})</p>
+          <ul className="space-y-1">
+            {open.map((s) => (
+              <li key={s.name} className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-slate-700">
+                  {s.leftExpr} {DYN_REPORT_RULE_OPERATOR_LABEL[DynReportRuleOperator[s.operator]]} {s.rightExpr}
+                  <span className="text-xs text-slate-500">
+                    {' '}
+                    ({s.origin === 'DATA_VALIDATION' ? 'quy tắc nhập liệu của Excel' : 'công thức kiểm tra trong mẫu'})
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  data-testid={`btn-use-suggestion-${s.name}`}
+                  onClick={() => addSuggestion(s)}
+                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100 rounded ${A11Y_FOCUS_RING}`}
+                >
+                  <Plus className="w-3 h-3" />
+                  Dùng
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="border border-slate-200 rounded-lg p-3 mb-4 space-y-2">

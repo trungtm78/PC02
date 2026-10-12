@@ -1,4 +1,7 @@
+import { formatFormula, parseFormula } from '../engine/expr';
+import type { Expr } from '../engine/expr';
 import type { ParsedFormulaCell } from './types';
+import type { DerivedRuleOperator } from './validation-constraints';
 
 /**
  * Validation-rule suggestion (spec §10 PR3 checklist). Legacy BCA
@@ -13,9 +16,46 @@ import type { ParsedFormulaCell } from './types';
 export interface SuggestedRule {
   sheetKey: string;
   address: string;
+  /** What to call the rule in the wizard. */
+  name: string;
+  /** Always sheet-qualified: a rule is evaluated without a sheet of its own. */
   leftExpr: string;
-  operator: 'EQUAL';
+  operator: DerivedRuleOperator;
   rightExpr: string;
+  /** What an officer sees when the rule fails. */
+  message: string;
+  /** Where the suggestion comes from: a check written into a formula cell, or Excel's own data validation. */
+  origin: 'IF_FORMULA' | 'DATA_VALIDATION';
+}
+
+const quote = (name: string): string => `'${name.replace(/'/g, "''")}'`;
+
+/** Names the sheet on every reference that does not: a rule has no "this sheet" to fall back on. */
+function qualify(expr: Expr, sheet: string): Expr {
+  const go = (e: Expr): Expr => {
+    switch (e.kind) {
+      case 'cell':
+        return e.sheet ? e : { ...e, sheet };
+      case 'range':
+        return e.sheetFrom ? e : { ...e, sheetFrom: sheet, sheetTo: sheet };
+      case 'binary':
+        return { ...e, left: go(e.left), right: go(e.right) };
+      case 'unary':
+        return { ...e, operand: go(e.operand) };
+      case 'call':
+        return { ...e, args: e.args.map(go) };
+      case 'prev':
+        return { ...e, ref: go(e.ref) };
+      default:
+        return e;
+    }
+  };
+  return go(expr);
+}
+
+function qualified(text: string, sheet: string): string | null {
+  const parsed = parseFormula(text);
+  return parsed.ok ? formatFormula(qualify(parsed.expr, sheet)) : null;
 }
 
 const IF_EQUAL_TRUE_FALSE_RE =
@@ -28,12 +68,18 @@ export function suggestValidationRules(
   for (const formula of formulas) {
     const match = IF_EQUAL_TRUE_FALSE_RE.exec(formula.expression.trim());
     if (!match) continue;
+    const left = qualified(match[1], formula.sheetKey);
+    const right = qualified(match[2], formula.sheetKey);
+    if (left === null || right === null) continue; // a shape the engine cannot read is not a rule it could run
     suggestions.push({
       sheetKey: formula.sheetKey,
       address: formula.address,
-      leftExpr: match[1],
-      operator: 'EQUAL',
-      rightExpr: match[2],
+      name: `${quote(formula.sheetKey)}!${formula.address}: ${match[1]} = ${match[2]}`,
+      leftExpr: left,
+      operator: 'EQ',
+      rightExpr: right,
+      message: `Kiểm tra ô ${formula.address} (${match[1]} = ${match[2]}) không đạt.`,
+      origin: 'IF_FORMULA',
     });
   }
   return suggestions;

@@ -1198,6 +1198,24 @@ mẫu Excel: ô nhập mang **số tổng hợp** (định dạng theo ô: số,
 - Giới hạn đã biết: sheet gốc dùng công thức 3-D / công thức ở ô dữ liệu hợp lệ trỏ sheet khác ngoài bộ chọn không được viết lại (ghi `unrewritten|…` ở metadata); hình ảnh chỉ nhân bản nếu exceljs mô hình hoá được; exceljs ghi lại font mặc định của workbook (Times New Roman → Calibri) và ghi tên font vào các ô dựa vào nó — nhìn không đổi.
 - Kiểm: 22 ca `period-export` (cấu trúc, tên, giữ nguyên diện mạo, hằng số TỔNG, công thức trỏ đúng bộ, kết quả tính sẵn theo từng tổ, metadata, quá lớn, + 6 mẫu thật), 9 ca `sheet-names`,
   4 ca dịch vụ qua worker thật, 7 ca `exportPeriod` (thứ tự cây tổ, số chính thức đóng băng/trực tiếp/không có, rơi về danh sách), 1 ca S35, 2 ca trang S15.
+### G6 — wizard S03/S04 đánh dấu ô nhập trên chính mẫu (12/10/2026)
+Bước xem trước của wizard trả thêm `grid` (mẫu vẽ như người nhập sẽ thấy, dựng trong worker; không dựng được thì `null` và wizard vẫn chạy bằng danh sách như cũ). Kéo chuột trên bảng
+chọn các ô có thể đánh dấu (Ctrl/⌘ để thêm vào, kéo mới thì thay) → các ô ấy được tick trong danh sách "Ô có thể đánh dấu"; nhãn/kiểu/tổng hợp vẫn nhập ở form bên dưới và `applyWebMarks`
+vẫn là nơi DUY NHẤT đánh dấu (lưới chỉ CHỌN, nên lưới và danh sách không thể lệch nhau; danh sách vẫn là đường dùng bàn phím). Ô gạch đứt = có thể đánh dấu, ô vàng = đã chọn, ô xanh = ô nhập đã có.
+`GridTable.pick` (lớp chọn chỉ-đọc, không phím, không `data-shortcut-zone`), `GridViewer` nhận `grid` dựng sẵn và `mark`. Kiểm: 12 ca lưới, 4 ca trang wizard; bấm thử thật trên Chromium với mẫu A09 (1.204 ô có thể đánh dấu): kéo 6 ô → "Đánh dấu (2)".
+
+### OV7 — tiếp quản `dataValidation` của Excel (12/10/2026)
+Quy tắc nhập liệu gốc của mẫu ("số nguyên ≥ 0", "hàng 43 ≤ hàng 42") nay ràng buộc người nhập trên web mà tác giả không phải gõ lại:
+- đọc thẳng XML (`grid-raw.readDataValidations`) vì exceljs đọc công thức của quy tắc whole/decimal thành SỐ — vế là tham chiếu ô (`giữa 0 và Q50`, dạng phổ biến trong mẫu thật) ra `NaN` — và tách quy tắc theo từng ô, mất khối mà công thức tương đối neo vào;
+- `validation-constraints.deriveFromValidations` (thuần): vế hằng ⇒ khoảng của chính trường (min/max/số nguyên/độ dài chữ) + lời nhắc của mẫu làm `helpText`; vế là ô khác ⇒ gợi ý **quy tắc kiểm tra** (tham chiếu tương đối dịch theo từng ô như Excel áp xuống cả khối; luôn kèm tên sheet); quy tắc "giữa 0 và Q50" cho cả hai; ô danh sách/ngày/giờ/công thức tuỳ chỉnh/"ngoài khoảng"/biểu thức → báo rõ là chưa tiếp quản (cảnh báo ở bước xem trước), không bỏ lặng lẽ;
+- **xuất bản** (máy chủ là nguồn thật): `DynReportField.min/max/scale/maxLength/helpText` điền từ mẫu khi tác giả chưa đặt (giá trị tác giả đặt luôn thắng); `save`/import kiểm giá trị theo khoảng ấy như mọi trường khác;
+- **bước Quy tắc** của wizard lần đầu dùng được gợi ý (trước đây `suggestValidationRules` chỉ có trong mã, không nối vào đâu): "Gợi ý từ file mẫu" với nút "Dùng"; gợi ý từ `IF(a=b,TRUE,FALSE)` nay có tên sheet đầy đủ (quy tắc không có sheet mặc định riêng) và là cảnh báo; gợi ý từ dataValidation là LỖI (Excel cũng chặn người nhập) và chỉ hiện khi ô đó đã là ô nhập.
+- Kiểm: 38 ca `validation-constraints` (kể cả 2 mẫu thật A10 & A09 đi qua parser), 3 ca `grid-raw`, 3 ca xem trước, 3 ca xuất bản, 3 ca bước Quy tắc.
+
+### G3d — cửa sổ dòng cho lưới lớn (12/10/2026)
+Sheet lớn hơn 2.000 ô (dòng vẽ × cột hiện) chỉ vẽ các dòng quanh khung nhìn + 400 px đệm + dòng cố định + dòng đang có con trỏ/vùng chọn, mỗi đoạn bị bỏ là MỘT dòng đệm cao đúng bằng tổng
+nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn được vẽ trọn (kéo theo khối kế tiếp nếu chồng nhau); mẫu thường (HSLN 258×3, A09 93×53) KHÔNG đổi gì. `virtualWindow.planRows` thuần (13 ca) + `GridTable` (7 ca: dòng đệm
+ẩn khỏi trình đọc màn hình, dòng cố định luôn có, cuộn đổi dòng vẽ, khối gộp trọn, dòng con trỏ luôn có). Chưa đo hiệu năng trên 50.000 ô thật (thuộc G7).
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

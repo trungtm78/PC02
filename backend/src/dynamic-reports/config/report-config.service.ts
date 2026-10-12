@@ -12,6 +12,8 @@ import { RunnerBusyError } from '../template/bounded-runner';
 import { TemplateLimitError } from '../template/limits';
 import { reconcileFieldsWithWorkbook } from './publish-reconcile';
 import type { ParseTemplateResult } from '../template/types';
+import { deriveFromValidations } from '../template/validation-constraints';
+import type { DerivedConstraints } from '../template/validation-constraints';
 
 export class ReportConfigError extends Error {
   constructor(
@@ -310,8 +312,22 @@ export class ReportConfigService {
       });
 
       if (input.fields.length > 0) {
+        // What the template itself says a cell may hold (OV7). The author's own choice wins; the file fills the gaps.
+        const fromTemplate = derived
+          ? deriveFromValidations(
+              derived.dataValidations,
+              input.fields.map((f) => ({
+                sheetKey: f.sheetKey,
+                address: f.address,
+                fieldKey: f.fieldKey,
+                type: f.type as 'NUM' | 'TEXT' | 'DATE' | 'TIME',
+              })),
+            ).constraints
+          : new Map<string, DerivedConstraints>();
         await tx.dynReportField.createMany({
-          data: input.fields.map((f) => ({
+          data: input.fields.map((f) => {
+            const t = fromTemplate.get(f.fieldKey);
+            return {
             versionId: version.id,
             sheetKey: f.sheetKey,
             address: f.address,
@@ -322,11 +338,14 @@ export class ReportConfigService {
             aggregate: f.aggregate,
             blankPolicy: f.blankPolicy ?? 'ZERO',
             required: f.required ?? false,
-            scale: f.scale,
-            maxLength: f.maxLength,
-            helpText: f.helpText,
+            min: t?.min,
+            max: t?.max,
+            scale: f.scale ?? t?.scale,
+            maxLength: f.maxLength ?? t?.maxLength,
+            helpText: f.helpText ?? t?.helpText,
             source: f.source,
-          })),
+            };
+          }),
         });
       }
 

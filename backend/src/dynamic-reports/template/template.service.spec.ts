@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import JSZip from 'jszip';
+import * as ExcelJS from 'exceljs';
 import { TemplateService, TemplateValidationError } from './template.service';
 
 const FIXTURES = path.join(__dirname, '../../../test/fixtures/dynamic-reports');
@@ -159,6 +160,75 @@ describe('TemplateService', () => {
           ['visible', 'hidden', 'veryHidden'].includes(s.state),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe('the preview carries the template as a grid', () => {
+    it('draws the selected sheets, and lists the others as excluded', async () => {
+      const result = await service.validateAndParse(readFixture('real/phu_luc_07_08_multi_sheet.xlsx'), [
+        'Thống kê sl vụ việc',
+      ]);
+      expect(result.grid?.sheetOrder).toEqual(['Thống kê sl vụ việc']);
+      expect(result.grid?.excludedSheets).toEqual(['Thống kê sl vụ án']);
+      expect(Object.keys(result.grid?.sheets[0].cells ?? {}).length).toBeGreaterThan(0);
+    });
+
+    it('a grid that cannot be built never fails the preview: it is simply absent', async () => {
+      jest
+        .spyOn(service as unknown as { buildPreviewGrid: () => Promise<null> }, 'buildPreviewGrid')
+        .mockResolvedValue(null);
+      const result = await service.validateAndParse(readFixture('real/pl7.xlsx'), ['Thống kê sl vụ việc']);
+      expect(result.grid).toBeNull();
+      expect(result.fields.length).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('Excel data validation is taken over (OV7)', () => {
+    async function templateWithValidation(): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('A09');
+      ws.getCell('P50').value = 'Số đã xác minh';
+      ws.getCell('Q50').value = 10;
+      ws.getCell('P51').value = 'Số khởi tố';
+      for (const addr of ['Q51', 'R51']) ws.getCell(addr).protection = { locked: false };
+      ws.getCell('Q51').dataValidation = {
+        type: 'whole',
+        operator: 'lessThanOrEqual',
+        formulae: ['Q50'],
+        showErrorMessage: true,
+        error: 'Không vượt quá số đã xác minh',
+      };
+      ws.getCell('R51').dataValidation = { type: 'list', formulae: ['"a,b"'] };
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    it('offers a rule for a cell compared with another cell, qualified by its sheet', async () => {
+      const result = await service.validateAndParse(await templateWithValidation(), ['A09']);
+      expect(result.suggestedRules).toEqual([
+        expect.objectContaining({
+          origin: 'DATA_VALIDATION',
+          sheetKey: 'A09',
+          address: 'Q51',
+          leftExpr: 'A09!Q51',
+          operator: 'LTE',
+          rightExpr: 'A09!Q50',
+          message: 'Không vượt quá số đã xác minh',
+        }),
+      ]);
+    });
+
+    it('says what it cannot take over, instead of dropping it quietly', async () => {
+      const result = await service.validateAndParse(await templateWithValidation(), ['A09']);
+      const warning = result.issues.find((i) => i.address === 'R51' && i.message.includes('Excel'));
+      expect(warning).toMatchObject({ severity: 'WARNING', code: 'UNSUPPORTED_FEATURE' });
+      expect(warning?.message).toMatch(/danh sách/);
+    });
+
+    it('carries the validations of the selected sheets in the parse result', async () => {
+      const result = await service.validateAndParse(await templateWithValidation(), ['A09']);
+      expect(result.dataValidations).toHaveLength(1);
+      expect(result.dataValidations[0].sheetKey).toBe('A09');
+      expect(result.dataValidations[0].validations.map((v) => v.type).sort()).toEqual(['list', 'whole']);
     });
   });
 });

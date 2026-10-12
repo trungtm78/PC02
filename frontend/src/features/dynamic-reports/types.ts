@@ -2,6 +2,7 @@
  * Mirrors backend/src/dynamic-reports/reports.service.ts response shapes
  * exactly, including field names — no renaming at the boundary.
  */
+import type { GridModel } from './engine/generated/grid-types';
 import type { DynReportSubmissionState, DynReportPeriodType, DynReportVersionStatus, DynReportRuleOperator, DynReportRuleSeverity } from '@/shared/enums/generated';
 export type { DynReportSubmissionState };
 
@@ -84,8 +85,13 @@ export interface TemplatePreviewResult {
   totalCells: number;
   inputCellCount: number;
   sha256: string;
-  suggestedRules: unknown[];
+  suggestedRules: SuggestedRuleView[];
   layout: TemplateLayout;
+  /**
+   * The template drawn as the officer will see it (null when the server could not build it: the wizard then
+   * marks cells from the list alone, as it always could).
+   */
+  grid?: GridModel | null;
 }
 
 /** S09/S10 publish payload — mirrors backend SaveReportConfigDto exactly. */
@@ -101,6 +107,21 @@ export interface ReportTargetConfig {
 }
 
 /** S36 (PR9 slice 1) — manually-authored validation rule, part of the save payload. */
+/**
+ * A validation rule the template itself suggests: a check written into a formula cell (`IF(a=b,TRUE,FALSE)`) or
+ * Excel's own data validation comparing a cell with another (`Q51 <= Q50`). Expressions are sheet-qualified.
+ */
+export interface SuggestedRuleView {
+  sheetKey: string;
+  address: string;
+  name: string;
+  leftExpr: string;
+  operator: 'EQ' | 'NEQ' | 'GT' | 'GTE' | 'LT' | 'LTE';
+  rightExpr: string;
+  message: string;
+  origin: 'IF_FORMULA' | 'DATA_VALIDATION';
+}
+
 export interface ReportRuleConfig {
   name: string;
   leftExpr: string;

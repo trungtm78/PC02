@@ -7,10 +7,14 @@ import {
   computeSha256,
   HostileXlsxError,
 } from '../../xlsx-imports/hostile-xlsx-guard';
-import { parseTemplateInWorker } from './parse-in-worker';
+import { buildGridInWorker, parseTemplateInWorker } from './parse-in-worker';
+import type { GridModel } from '../engine/grid-types';
 import { assertNoMacro, MacroDetectedError } from './macro-guard';
 import { TemplateLimitError } from './limits';
 import { suggestValidationRules } from './suggest-rules';
+import { deriveFromValidations } from './validation-constraints';
+import type { DerivedRuleSuggestion } from './validation-constraints';
+import type { ParsedIssue } from './types';
 import type { ParseTemplateResult } from './types';
 import type { SuggestedRule } from './suggest-rules';
 
@@ -31,7 +35,12 @@ export class TemplateValidationError extends Error {
 
 export interface ValidateAndParseResult extends ParseTemplateResult {
   sha256: string;
-  suggestedRules: SuggestedRule[];
+  suggestedRules: Array<SuggestedRule | DerivedRuleSuggestion>;
+  /**
+   * The selected sheets drawn as the officer will see them, so the wizard can mark input cells on the template
+   * itself. `null` when it could not be built (too large, a busy worker): the wizard then works from the list.
+   */
+  grid: GridModel | null;
 }
 
 /**
@@ -108,10 +117,44 @@ export class TemplateService {
       throw err;
     }
 
+    // Excel's own data validation on the cells the report will use (OV7). The cells that could still be marked
+    // count too: whatever the author marks later is held to the same rule when the report is published.
+    const candidates = [
+      ...parsed.fields.map((f) => ({ sheetKey: f.sheetKey, address: f.address, fieldKey: f.fieldKey, type: f.type })),
+      ...parsed.markableCells.map((c) => ({
+        sheetKey: c.sheetKey,
+        address: c.address,
+        fieldKey: `${c.sheetKey}!${c.address}`,
+        type: 'NUM' as const,
+      })),
+    ];
+    const validation = deriveFromValidations(parsed.dataValidations, candidates);
+    const validationIssues: ParsedIssue[] = validation.unsupported.map((u) => ({
+      sheetKey: u.sheetKey,
+      address: u.address,
+      code: 'UNSUPPORTED_FEATURE',
+      severity: 'WARNING',
+      message: `Quy tắc nhập liệu của Excel: ${u.message}`,
+    }));
+
     return {
       ...parsed,
+      issues: [...parsed.issues, ...validationIssues],
       sha256,
-      suggestedRules: suggestValidationRules(parsed.formulas),
+      suggestedRules: [...suggestValidationRules(parsed.formulas), ...validation.ruleSuggestions],
+      grid: await this.buildPreviewGrid(buffer, selectedSheetNames),
     };
+  }
+
+  /** Never fails the preview: the grid is a convenience over the list the wizard always had. */
+  private async buildPreviewGrid(buffer: Buffer, selectedSheetNames: string[]): Promise<GridModel | null> {
+    try {
+      return await buildGridInWorker(buffer, selectedSheetNames);
+    } catch (err) {
+      this.logger.warn(
+        `Preview without the grid: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
   }
 }

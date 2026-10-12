@@ -68,6 +68,40 @@ describe('readRawGridInfo', () => {
       defaultFont: { name: 'Calibri', sizePt: 11 },
       indexedColors: null,
       showZeros: {},
+      dataValidations: {},
+    });
+  });
+
+  describe('data validations as written (OV7)', () => {
+    const rawOf = async (file: string) =>
+      readRawGridInfo(fs.readFileSync(path.join(__dirname, '../../../test/fixtures/dynamic-reports/real', file)));
+
+    it('keeps a bound that is a cell reference as text — exceljs reads it as NaN', async () => {
+      const info = await rawOf('a09_1034_unlocked.xlsx');
+      const rule = info.dataValidations['A09'].find((v) => v.sqref.includes('Q51'));
+      expect(rule).toMatchObject({
+        type: 'whole',
+        formula1: '0',
+        formula2: 'Q50',
+        sqref: ['Q51', 'S51:V51'], // the blocks in the order written: the formula is relative to the first
+        allowBlank: true,
+        showErrorMessage: true,
+        error: 'Bạn đã nhập sai.',
+        prompt: 'Hàng 43=<hàng 42',
+      });
+      expect(rule?.operator).toBeUndefined(); // no operator written means "between"
+    });
+
+    it('reads every rule of the sheet, one entry each', async () => {
+      const info = await rawOf('a10_99_formulas.xlsx');
+      expect(info.dataValidations['A10']).toEqual([
+        expect.objectContaining({ type: 'whole', operator: 'greaterThanOrEqual', formula1: '0', sqref: ['C9:V26'] }),
+      ]);
+    });
+
+    it('a sheet with no validation has an empty list, not a missing one', async () => {
+      const info = await rawOf('pl7.xlsx');
+      expect(info.dataValidations['Thống kê sl vụ việc']).toEqual([]);
     });
   });
 });

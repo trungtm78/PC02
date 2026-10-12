@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { dynamicReportsApi } from '../api';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import GridTable from './GridTable';
-import type { CellActivation } from './GridTable';
+import type { CellActivation, GridPick } from './GridTable';
 import GridEntry from './GridEntry';
 import type { GridEntryProps } from './GridEntry';
 import GridContributorsPopover from './GridContributorsPopover';
 import { evaluateAggregate, evaluateGrid } from './gridEvaluation';
 import type { GridField, SubmittedValues } from './gridEvaluation';
+import { addressOf } from './gridIndex';
+import type { Pos, Rect } from './navigation';
+import type { GridModel } from '../engine/generated/grid-types';
 import type { FieldAggregateView, FormulaCellView, FormulaSource } from '../types';
 
 /**
@@ -43,8 +47,25 @@ export interface GridAggregateBinding {
   calcEngineVersion: number | null;
 }
 
+/**
+ * Wizard step S03/S04: the author drags over the template to turn cells into inputs. The grid only PICKS cells;
+ * the batch form (type, format, label) and `applyWebMarks` remain the one place that marks them.
+ */
+export interface GridMarkBinding {
+  /** Cells that may be marked as inputs, as "Sheet!A1". */
+  candidates: ReadonlySet<string>;
+  /** The candidates chosen so far. */
+  chosen: ReadonlySet<string>;
+  /** A drag ended over these candidates (row-major). `additive`: Ctrl/⌘ was held, add instead of replace. */
+  onPick: (keys: string[], additive: boolean) => void;
+}
+
 export interface GridViewerProps {
   versionId: string;
+  /** A model already in hand (the wizard's preview of a file not yet saved): shown as is, nothing is fetched. */
+  grid?: GridModel;
+  /** Present: the cells can be picked by dragging (see `GridMarkBinding`). */
+  mark?: GridMarkBinding;
   /** The submission's fields and values (entry / read-only views). Not used by the aggregate view. */
   fields?: readonly GridField[];
   values?: SubmittedValues;
@@ -57,6 +78,26 @@ export interface GridViewerProps {
 }
 
 const NO_FIELDS: readonly GridField[] = [];
+
+function rectOf(a: Pos, b: Pos): Rect {
+  return {
+    top: Math.min(a.row, b.row),
+    left: Math.min(a.col, b.col),
+    bottom: Math.max(a.row, b.row),
+    right: Math.max(a.col, b.col),
+  };
+}
+
+/** The markable and chosen cells of ONE sheet, by address. */
+function markersOf(mark: GridMarkBinding, sheetName: string): Map<string, 'candidate' | 'chosen'> {
+  const out = new Map<string, 'candidate' | 'chosen'>();
+  const prefix = `${sheetName}!`;
+  for (const key of mark.candidates) {
+    if (!key.startsWith(prefix)) continue;
+    out.set(key.slice(prefix.length), mark.chosen.has(key) ? 'chosen' : 'candidate');
+  }
+  return out;
+}
 const NO_VALUES: SubmittedValues = {};
 
 function formulaSourceNote(aggregate: GridAggregateBinding): string {
@@ -72,19 +113,25 @@ function formulaSourceNote(aggregate: GridAggregateBinding): string {
 
 export default function GridViewer({
   versionId,
+  grid: preloaded,
+  mark,
   fields = NO_FIELDS,
   values = NO_VALUES,
   aggregate,
   entry,
   onUnavailable,
 }: GridViewerProps) {
-  const { data: grid, isLoading, error } = useQuery({
+  const fetched = useQuery({
     queryKey: ['dynamic-reports', 'grid', versionId],
     queryFn: () => dynamicReportsApi.getVersionGrid(versionId),
     // A version's file never changes, so neither does its model.
     staleTime: Infinity,
     retry: false,
+    enabled: !preloaded,
   });
+  const grid = preloaded ?? fetched.data;
+  const isLoading = !preloaded && fetched.isLoading;
+  const error = preloaded ? null : fetched.error;
 
   const [sheetChoice, setSheetChoice] = useState<string | null>(null);
   const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>(100);
@@ -103,6 +150,40 @@ export default function GridViewer({
     () => (opened && aggregate ? (aggregate.fields.find((f) => f.fieldKey === opened.fieldKey) ?? null) : null),
     [opened, aggregate],
   );
+
+  // Picking cells by dragging (mark mode). The block lives here, the cells it covers are worked out when the
+  // button is released anywhere — a release outside the grid must still end the drag.
+  const [drag, setDrag] = useState<{ anchor: Pos; focus: Pos; additive: boolean } | null>(null);
+  const markRef = useRef(mark);
+  markRef.current = mark;
+  const sheetNameRef = useRef('');
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  const dragging = drag !== null;
+  useEffect(() => {
+    if (!dragging) return;
+    const finish = () => {
+      const d = dragRef.current;
+      setDrag(null);
+      const binding = markRef.current;
+      if (!d || !binding) return;
+      const top = Math.min(d.anchor.row, d.focus.row);
+      const bottom = Math.max(d.anchor.row, d.focus.row);
+      const left = Math.min(d.anchor.col, d.focus.col);
+      const right = Math.max(d.anchor.col, d.focus.col);
+      const keys: string[] = [];
+      for (let r = top; r <= bottom; r++) {
+        for (let c = left; c <= right; c++) {
+          const key = `${sheetNameRef.current}!${addressOf(r, c)}`;
+          if (binding.candidates.has(key)) keys.push(key);
+        }
+      }
+      binding.onPick(keys, d.additive);
+    };
+    document.addEventListener('mouseup', finish);
+    return () => document.removeEventListener('mouseup', finish);
+  }, [dragging]);
+
   function activate(a: CellActivation) {
     setOpened((cur) => (cur?.fieldKey === a.field.fieldKey ? null : { fieldKey: a.field.fieldKey, element: a.element }));
   }
@@ -155,6 +236,22 @@ export default function GridViewer({
 
   const sheetName =
     sheetChoice && grid.sheetOrder.includes(sheetChoice) ? sheetChoice : grid.sheetOrder[0];
+  sheetNameRef.current = sheetName;
+
+  const pick: GridPick | undefined = mark
+    ? {
+        markers: markersOf(mark, sheetName),
+        selection: drag ? rectOf(drag.anchor, drag.focus) : null,
+        onCellMouseDown: (pos: Pos, e: ReactMouseEvent) => {
+          if (e.button !== 0) return;
+          e.preventDefault(); // no text selection while dragging over cells
+          setDrag({ anchor: pos, focus: pos, additive: e.ctrlKey || e.metaKey });
+        },
+        onCellMouseEnter: (pos: Pos) => {
+          setDrag((cur) => (cur ? { ...cur, focus: pos } : cur));
+        },
+      }
+    : undefined;
 
   return (
     <div data-testid="grid-viewer">
@@ -221,6 +318,17 @@ export default function GridViewer({
         </p>
       )}
 
+      {mark && (
+        <p className="text-xs text-slate-600 mb-2" data-testid="mark-legend">
+          <span style={{ outline: '2px dashed #d97706', outlineOffset: -2 }} className="inline-block w-3 h-3 align-middle mr-1" />
+          ô có thể đánh dấu ·{' '}
+          <span style={{ background: '#fde68a', outline: '2px solid #d97706', outlineOffset: -2 }} className="inline-block w-3 h-3 align-middle mr-1" />
+          ô đã chọn ·{' '}
+          <span style={{ background: '#eef6ff', outline: '1px solid #93c5fd' }} className="inline-block w-3 h-3 align-middle mr-1" />
+          ô nhập đã có. Kéo chuột trên bảng để chọn nhiều ô (giữ Ctrl để thêm).
+        </p>
+      )}
+
       {aggregate && (
         <p className="text-xs text-slate-500 mb-2" data-testid="formula-source-note">
           {formulaSourceNote(aggregate)}
@@ -244,6 +352,7 @@ export default function GridViewer({
           zoom={zoom}
           onlyInputRows={onlyInputRows}
           onCellActivate={aggregate ? activate : undefined}
+          pick={pick}
         />
       )}
       {opened && openedField && (

@@ -38,6 +38,7 @@ function parsedFromFile(over: Partial<ParseTemplateResult> = {}): ParseTemplateR
     totalCells: 10,
     inputCellCount: 1,
     layout: FILE_LAYOUT as unknown as ParseTemplateResult['layout'],
+    dataValidations: [],
     ...over,
   };
 }
@@ -223,6 +224,53 @@ describe('ReportConfigService', () => {
         'actor1',
       ),
     ).rejects.toThrow(ReportConfigError);
+  });
+
+  describe('what the own data validation of the template says a cell may hold (OV7)', () => {
+    const WHOLE_NON_NEGATIVE = {
+      sheetKey: 'Đội 3',
+      validations: [
+        {
+          ranges: ['C6:C20'],
+          type: 'whole' as const,
+          operator: 'greaterThanOrEqual' as const,
+          formula1: '0',
+          allowBlank: true,
+          showErrorMessage: true,
+          errorMessage: 'Chỉ nhập số nguyên không âm',
+        },
+      ],
+    };
+
+    async function publishedFields(input: SaveReportConfigDto) {
+      const tx = buildTx();
+      tx.dynReport.create.mockResolvedValue({ id: 'rep1' });
+      tx.dynReportVersion.create.mockResolvedValue({ id: 'ver1' });
+      tx.dynReportTarget.create.mockResolvedValue({ id: 'target1' });
+      const { service } = buildService(tx);
+      await service.save(input, BUF, 'mau.xlsx', 'actor1');
+      return (tx.dynReportField.createMany.mock.calls[0][0] as { data: Array<Record<string, unknown>> }).data;
+    }
+
+    it('becomes the range, integer-ness and help text of the field', async () => {
+      parseInWorker.mockResolvedValue(parsedFromFile({ dataValidations: [WHOLE_NON_NEGATIVE] }));
+      const [field] = await publishedFields(fullPublishableInput());
+      expect(field).toMatchObject({ min: '0', scale: 0, helpText: 'Chỉ nhập số nguyên không âm' });
+    });
+
+    it('never overrides what the author chose', async () => {
+      parseInWorker.mockResolvedValue(parsedFromFile({ dataValidations: [WHOLE_NON_NEGATIVE] }));
+      const input = fullPublishableInput();
+      input.fields[0] = { ...input.fields[0], scale: 2, helpText: 'Số vụ trong kỳ' };
+      const [field] = await publishedFields(input);
+      expect(field).toMatchObject({ scale: 2, helpText: 'Số vụ trong kỳ', min: '0' });
+    });
+
+    it('leaves a field alone when the template says nothing about it', async () => {
+      const [field] = await publishedFields(fullPublishableInput());
+      expect(field.min).toBeUndefined();
+      expect(field.scale).toBeUndefined();
+    });
   });
 
   it('rejects publish for ONE_TIME with no oneTimeDate', async () => {

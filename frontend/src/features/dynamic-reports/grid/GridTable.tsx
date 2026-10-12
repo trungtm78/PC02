@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, MouseEvent, ReactNode, Ref } from 'react';
 import type { GridCell, GridModel, GridRun, GridStyle } from '../engine/generated/grid-types';
 import { formatAddress } from '../engine/generated/paste';
@@ -9,6 +9,7 @@ import { viewOf } from './gridEvaluation';
 import type { CellView, GridEvaluation, GridField } from './gridEvaluation';
 import { overlayFor } from './conditional';
 import { drawnRowsOf, inputRowSet, rectsOverlap } from './gridLayout';
+import { planRows, shouldVirtualize } from './virtualWindow';
 import type { Pos, Rect } from './navigation';
 
 /**
@@ -40,6 +41,19 @@ export interface GridInteraction {
   onCellDoubleClick: (pos: Pos, e: MouseEvent) => void;
 }
 
+/**
+ * A read-only table whose cells can be PICKED by dragging (the wizard marks input cells this way). Unlike
+ * `interaction` it makes nothing editable and takes no keyboard: the table stays a plain read-only grid.
+ */
+export interface GridPick {
+  /** Address on THIS sheet → why it is drawn differently: markable, or chosen to be marked. */
+  markers: ReadonlyMap<string, 'candidate' | 'chosen'>;
+  /** The block being dragged over, shaded like a selection. */
+  selection: Rect | null;
+  onCellMouseDown: (pos: Pos, e: MouseEvent) => void;
+  onCellMouseEnter: (pos: Pos, e: MouseEvent) => void;
+}
+
 /** An input cell the reader opened (click, Enter or Space): which field, and the element to anchor a popover to. */
 export interface CellActivation {
   field: GridField;
@@ -66,12 +80,16 @@ export interface GridTableProps {
    * Reachable from the keyboard: opened cells take focus and respond to Enter / Space.
    */
   onCellActivate?: (activation: CellActivation) => void;
+  /** Drag over cells to pick them (see `GridPick`). */
+  pick?: GridPick;
   /** The scroll area, for callers that need to measure cells or scroll them into view. */
   containerRef?: Ref<HTMLDivElement>;
   /** Drawn on top of the table inside the scrolling area (the cell editor). */
   children?: ReactNode;
 }
 
+/** Pixels drawn above and below the viewport of a windowed sheet, so a quick scroll never shows blank rows. */
+const WINDOW_OVERSCAN_PX = 400;
 const HEADER_BG = '#f1f3f4';
 const HEADER_COLOR = '#5f6368';
 const GRIDLINE = '#d9d9d9';
@@ -123,6 +141,7 @@ export default function GridTable({
   maxHeight = '70vh',
   interaction,
   onCellActivate,
+  pick,
   containerRef,
   children,
 }: GridTableProps) {
@@ -133,6 +152,28 @@ export default function GridTable({
     () => (sheet ? inputRowSet(sheet.name, evaluation.fieldAt.values()) : new Set<number>()),
     [sheet, evaluation],
   );
+
+  // A very large sheet is drawn through a window (see virtualWindow.ts): the scroll position and size are watched.
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 800 });
+  const windowed = !!sheet && !!index && shouldVirtualize(index.visibleRows.length, index.visibleCols.length);
+  useEffect(() => {
+    if (!windowed) return;
+    const box = scrollBoxRef.current;
+    if (!box) return;
+    const measure = () => {
+      const height = box.clientHeight || 800;
+      setViewport((prev) => (prev.top === box.scrollTop && prev.height === height ? prev : { top: box.scrollTop, height }));
+    };
+    measure();
+    box.addEventListener('scroll', measure, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(box);
+    return () => {
+      box.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, [windowed]);
 
   if (!sheet || !index) return null;
 
@@ -149,6 +190,45 @@ export default function GridTable({
   // Merged blocks are placed on what is actually drawn: a hidden or filtered-out
   // anchor row/column must not leave the block's remaining cells shifted.
   const merges = layoutMerges(sheet, rows, index.visibleCols);
+
+  // The rows actually drawn: all of them, or — for a very large sheet — the window plus a spacer for each skipped stretch.
+  let entries: ReadonlyArray<number | { gap: number }> = rows;
+  if (shouldVirtualize(rows.length, index.visibleCols.length)) {
+    const heights = rows.map((r) => Math.round((sheet.rowHeightsPx[r] ?? 0) * z));
+    const position = new Map(rows.map((r, i) => [r, i]));
+    const blocks = sheet.merges.flatMap((m) => {
+      const inside: number[] = [];
+      for (let r = m.top; r <= m.bottom; r++) {
+        const at = position.get(r);
+        if (at !== undefined) inside.push(at);
+      }
+      return inside.length > 1 ? [{ top: inside[0], bottom: inside[inside.length - 1] }] : [];
+    });
+    const keep: number[] = [];
+    const remember = (row: number | undefined) => {
+      const at = row === undefined ? undefined : position.get(row);
+      if (at !== undefined) keep.push(at);
+    };
+    remember(interaction?.active?.row);
+    remember(interaction?.selection?.top);
+    remember(interaction?.selection?.bottom);
+    remember(pick?.selection?.top);
+    remember(pick?.selection?.bottom);
+    let frozenCount = 0;
+    while (frozenCount < rows.length && rows[frozenCount] < sheet.freeze.rows) frozenCount++;
+    const plan = planRows({
+      heights,
+      frozen: frozenCount,
+      scrollTop: Math.max(0, viewport.top - headerH),
+      viewport: viewport.height,
+      overscan: WINDOW_OVERSCAN_PX,
+      blocks,
+      keep,
+    });
+    entries = plan.flatMap<number | { gap: number }>((seg) =>
+      seg.kind === 'gap' ? [{ gap: seg.height }] : rows.slice(seg.from, seg.to + 1),
+    );
+  }
 
   // A frozen row sticks just below the headers and the frozen rows above it.
   // Frozen rows are never filtered out, so they always stack the same way.
@@ -170,7 +250,11 @@ export default function GridTable({
 
   return (
     <div
-      ref={containerRef}
+      ref={(el) => {
+        scrollBoxRef.current = el;
+        if (typeof containerRef === 'function') containerRef(el);
+        else if (containerRef) (containerRef as { current: HTMLDivElement | null }).current = el;
+      }}
       className="overflow-auto border border-slate-300 rounded bg-white"
       style={{ maxHeight }}
       data-testid={`grid-scroll-${sheet.name}`}
@@ -234,7 +318,16 @@ export default function GridTable({
         )}
 
         <tbody>
-          {rows.map((r) => (
+          {entries.map((entry, entryIndex) => {
+            if (typeof entry !== 'number') {
+              return (
+                <tr key={`gap-${entryIndex}`} data-testid="grid-gap" aria-hidden="true" style={{ height: entry.gap }}>
+                  <td colSpan={index.visibleCols.length + (showHeaders ? 1 : 0)} style={{ padding: 0, border: 0, height: entry.gap }} />
+                </tr>
+              );
+            }
+            const r = entry;
+            return (
             <tr key={r} style={{ height: Math.round((sheet.rowHeightsPx[r] ?? 0) * z) }} aria-rowindex={r + 1 + (showHeaders ? 1 : 0)}>
               {showHeaders && (
                 <th
@@ -310,7 +403,18 @@ export default function GridTable({
                   ? { top: drawn.merge.top, left: drawn.merge.left, bottom: drawn.merge.bottom, right: drawn.merge.right }
                   : { top: r, left: c, bottom: r, right: c };
                 const isActive = !!interaction?.active && interaction.active.row === r && interaction.active.col === c;
-                const isSelected = !!interaction?.selection && rectsOverlap(block, interaction.selection);
+                const shaded = interaction?.selection ?? pick?.selection ?? null;
+                const isSelected = !!shaded && rectsOverlap(block, shaded);
+                const mark = pick?.markers.get(address);
+                if (mark === 'candidate') {
+                  css.outline = '2px dashed #d97706';
+                  css.outlineOffset = '-2px';
+                } else if (mark === 'chosen') {
+                  css.outline = '2px solid #d97706';
+                  css.outlineOffset = '-2px';
+                  css.backgroundColor = '#fde68a';
+                }
+                if (pick) css.cursor = 'cell';
                 const isInvalid = !!interaction?.invalid.has(address);
                 if (isSelected && !isActive) {
                   // Shade over the cell's own fill instead of replacing it.
@@ -376,8 +480,20 @@ export default function GridTable({
                     aria-selected={interaction ? isSelected : undefined}
                     aria-invalid={isInvalid ? true : undefined}
                     data-pos={`${r},${c}`}
-                    onMouseDown={interaction ? (e) => interaction.onCellMouseDown({ row: r, col: c }, e) : undefined}
-                    onMouseEnter={interaction ? (e) => interaction.onCellMouseEnter({ row: r, col: c }, e) : undefined}
+                    onMouseDown={
+                      interaction
+                        ? (e) => interaction.onCellMouseDown({ row: r, col: c }, e)
+                        : pick
+                          ? (e) => pick.onCellMouseDown({ row: r, col: c }, e)
+                          : undefined
+                    }
+                    onMouseEnter={
+                      interaction
+                        ? (e) => interaction.onCellMouseEnter({ row: r, col: c }, e)
+                        : pick
+                          ? (e) => pick.onCellMouseEnter({ row: r, col: c }, e)
+                          : undefined
+                    }
                     onDoubleClick={interaction ? (e) => interaction.onCellDoubleClick({ row: r, col: c }, e) : undefined}
                     tabIndex={activatable ? 0 : undefined}
                     aria-haspopup={activatable ? 'dialog' : undefined}
@@ -412,6 +528,7 @@ export default function GridTable({
                     title={view.isError ? view.hint : view.formula ? `=${view.formula}` : undefined}
                     data-testid={`cell-${address}`}
                     data-kind={view.kind}
+                    data-mark={mark}
                     data-error={view.isError ? 'true' : undefined}
                   >
                     <div style={wrapStyle}>{content}</div>
@@ -424,7 +541,8 @@ export default function GridTable({
                 );
               })}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       {children}
