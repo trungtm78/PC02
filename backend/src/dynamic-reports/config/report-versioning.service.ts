@@ -93,6 +93,15 @@ export class ReportVersioningService {
       if (locked.status === 'ARCHIVED') {
         throw new ReportConfigError('Báo cáo đã lưu trữ — hãy khôi phục trước khi cập nhật mẫu.', 'INVALID_STATE');
       }
+      // Two overlapping requests with the same key both missed the lookup above; the report lock serialized them,
+      // so whoever comes second must look again now, or it creates a second version and undoes the first.
+      const again = await tx.dynReportIdempotency.findUnique({ where: key });
+      if (again) {
+        if (again.requestHash !== requestHash) {
+          throw new ReportConfigError('Mã idempotency đã dùng cho một yêu cầu khác.', 'IDEMPOTENCY_MISMATCH');
+        }
+        if (again.resultRef) return JSON.parse(again.resultRef) as CreateVersionResult;
+      }
       if (input.publish && locked.status === 'DRAFT') {
         await this.assertReadyToPublish(tx, reportId);
       }
@@ -195,6 +204,10 @@ export class ReportVersioningService {
     reportId: string,
     newVersionId: string,
   ): Promise<{ applied: string[]; kept: string[] }> {
+    // Lock order report -> periods -> submissions. A save holds its period FOR SHARE before it writes a submission, so
+    // taking them FOR UPDATE here waits for every save in flight to commit; what is read below is what is committed,
+    // and a period closed in the meantime shows up as FINALIZED instead of being moved.
+    await tx.$queryRaw`SELECT id FROM dyn_report_periods WHERE "reportId" = ${reportId} FOR UPDATE`;
     const open = await tx.dynReportPeriod.findMany({
       where: { reportId, status: 'OPEN', versionId: { not: newVersionId } },
       select: { id: true, periodKey: true },

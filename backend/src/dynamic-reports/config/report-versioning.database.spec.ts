@@ -222,6 +222,42 @@ run('ReportVersioningService on PostgreSQL', () => {
     await expect(svc.createVersion(reportId, input(), FILE, 'new.xlsx', userId)).rejects.toMatchObject({ code: 'INVALID_STATE' });
   });
 
+  it('D09 race: a save that is still open when the version is published is not overwritten — its period stays on the old version (found by Codex)', async () => {
+    const { reportId, v1, periodIds } = await buildReport('race-d09', [{ key: 'A' }]); // nobody has typed yet
+
+    // An editor saving: it holds the period FOR SHARE, writes the submission and is still open for a moment.
+    const save = db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM dyn_report_periods WHERE "reportId" = ${reportId} FOR SHARE`;
+      await tx.dynReportSubmission.updateMany({
+        where: { assignment: { period: { reportId } } },
+        data: { state: 'DRAFT', currentRevision: 1 },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200)); // let the save take its locks first
+
+    const out = await svc.createVersion(reportId, input(), FILE, 'new.xlsx', userId);
+    await save;
+
+    expect((await db.dynReportPeriod.findUnique({ where: { id: periodIds.A } }))?.versionId).toBe(v1);
+    expect(out.keptOnOldVersionPeriods).toEqual([`${tag}-race-d09-A`]);
+    expect(out.appliedToPeriods).toEqual([]);
+  });
+
+  it('two overlapping requests with the same idempotency key create ONE version and give the same answer (found by Codex)', async () => {
+    const { reportId } = await buildReport('race-idem', [{ key: 'A' }]);
+    const body = input();
+
+    const [a, b] = await Promise.all([
+      svc.createVersion(reportId, body, FILE, 'new.xlsx', userId),
+      svc.createVersion(reportId, body, FILE, 'new.xlsx', userId),
+    ]);
+
+    expect(b).toEqual(a);
+    expect(await db.dynReportVersion.count({ where: { reportId } })).toBe(2);
+    expect(await db.dynReportVersion.count({ where: { reportId, status: 'PUBLISHED' } })).toBe(1);
+  });
+
   it('the same idempotency key returns the same result and creates nothing twice; another body under that key is refused', async () => {
     const { reportId } = await buildReport('idem', []);
     const body = input();

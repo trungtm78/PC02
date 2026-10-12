@@ -84,6 +84,8 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
   const [roles, setRoles] = useState<ReportRoleConfig[]>([]);
   const [targets, setTargets] = useState<ReportTargetConfig[]>([]);
   const [rules, setRules] = useState<ReportRuleConfig[]>([]);
+  // Stepping back and forward again must not throw away what the person already set on a step.
+  const [rulesSet, setRulesSet] = useState(false);
 
   async function handleFileChange(f: File | null) {
     setError(null);
@@ -629,7 +631,9 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
             <ReportRulesStep
               suggestions={ruleSuggestions}
               initial={
-                isVersion
+                rulesSet
+                  ? rules
+                  : isVersion
                   ? (report?.currentVersion?.rules ?? []).map((r) => ({
                       name: r.name,
                       leftExpr: r.leftExpr,
@@ -645,6 +649,7 @@ export default function ReportTemplateUploadPage({ report }: Props = {}) {
               onBack={() => setStep(isVersion ? 'preview' : 'teams')}
               onNext={(r) => {
                 setRules(r);
+                setRulesSet(true);
                 setStep('summary');
               }}
             />

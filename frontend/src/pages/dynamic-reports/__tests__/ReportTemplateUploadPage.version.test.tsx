@@ -173,6 +173,21 @@ describe('ReportTemplateUploadPage — "Cập nhật mẫu" (version mode)', () 
     expect(done).toHaveTextContent('2026-09');
   });
 
+  it('stepping back from the summary keeps the rules as the person left them (a removed rule stays removed)', async () => {
+    renderVersionPage();
+    await chooseFile();
+    fireEvent.click(screen.getByTestId('btn-preview'));
+    fireEvent.click(await screen.findByTestId('btn-go-to-schedule'));
+
+    expect(await screen.findByText('Quy tắc cũ')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-remove-rule-0'));
+    fireEvent.click(screen.getByTestId('btn-rules-next'));
+    fireEvent.click(await screen.findByText('Quay lại'));
+
+    await screen.findByTestId('rules-step');
+    expect(screen.queryByText('Quy tắc cũ')).not.toBeInTheDocument();
+  });
+
   it('a server refusal is shown and nothing is reported as published', async () => {
     vi.mocked(dynamicReportsApi.createReportVersion).mockRejectedValue(new Error('Mẫu không hợp lệ'));
     renderVersionPage();
