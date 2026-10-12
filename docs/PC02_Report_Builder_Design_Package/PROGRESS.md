@@ -945,6 +945,30 @@ lặp hàng của `expandRangeRefs` → 3 ca đỏ (oracle thật sự bắt l�
 Kiểm: engine 525 ca xanh (phủ expr 92%, workbook-eval 97%, numfmt 96%, rules 98% dòng), backend
 full 8.421 xanh + 2 suite chập chờn xanh khi chạy riêng, FE 5.097 (4 file chập chờn xanh riêng),
 `tsc --noEmit` + `tsc -b` sạch.
+### G1a — bộ trích lưới từ file mẫu (12/10/2026)
+Server dựng `GridModel` từ chính `.xlsx` (không tin gì client gửi). Chỉ phần trích xuất thuần; chưa nối
+DB/endpoint (G1b).
+- `template/grid-color.ts`: màu theme (đúng thứ tự lt1/dk1/lt2/dk2/accent…, hoán vị cặp đầu), tint HLS,
+  bảng indexed 66 mục + palette tuỳ biến. 15 ô màu mẫu của Excel (Lighter 80%, Darker 25%…) khớp ±1.
+- `template/grid-units.ts`: độ rộng cột theo công thức ECMA-376 (MDW của phông Normal), chiều cao dòng pt→px.
+- `template/grid-raw.ts`: đọc thẳng gói OOXML cho thứ exceljs làm rơi: `showZeros` từng sheet, phông Normal,
+  palette indexed tuỳ biến, hệ ngày 1900/1904.
+- `template/grid-extract.ts`: model gồm ô (chữ/số/bool/công thức/rich text; ngày → serial Excel), bảng style
+  khử trùng, ô gộp (nội dung ở ô trái-trên, ô bị phủ bị bỏ, viền ngoài lấy từ các ô mép), vùng đóng băng,
+  dòng/cột ẩn, định dạng có điều kiện (cellIs/expression), dataValidation (gom thành vùng chữ nhật),
+  style dòng/cột làm giá trị mặc định cho ô không có trong tệp, cảnh báo cho gì không vẽ được.
+  Giới hạn vẽ: 3.000 dòng × 128 cột × 150.000 ô → `GridTooLargeError` (mã `GRID_TOO_LARGE`).
+- `GridSheet` thêm `colStyles` / `rowStyles`; `GridModel` thêm `defaultFont` / `warnings`.
+
+Oracle độc lập `generate-grid-oracle.py` (openpyxl, resolver màu riêng bằng ElementTree+colorsys, bảng
+COLOR_INDEX của openpyxl, công thức độ rộng viết lại): 6 mẫu thật, ~5.500 ô — nội dung + từng thuộc tính
+style + hình học (kích thước, hàng/cột, gộp, đóng băng, cờ xem) khớp tuyệt đối. Bắt được ở vòng đầu:
+exceljs `dimensions` thiếu ô chỉ có style (47 → 63 dòng), ô `<c/>` rỗng bị exceljs bỏ, `0;\-0;;@` ≠ `0;-0;;@`
+(tương đương), exceljs gộp `<col>` liền kề cùng style. Gieo lỗi (đổi hướng viền gộp, công thức độ rộng)
+→ ca đỏ. Mẫu thật không có tint/ngày/rich text/ẩn/đóng băng/list → thêm workbook tổng hợp viết bằng exceljs
+kiểm các nhánh đó theo giá trị tính tay.
+**Giới hạn đã biết:** `<c>` rỗng không có thuộc tính style nằm trong cột có style bị exceljs bỏ → style cột
+hiện xuyên qua (vô hình nếu cột chỉ có phông/căn lề). Kiểm: template+engine 749 ca xanh, `tsc` BE+FE sạch.
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
