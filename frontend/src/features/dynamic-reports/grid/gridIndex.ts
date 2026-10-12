@@ -119,6 +119,8 @@ export interface MergeLayout {
   owners: Map<string, DrawnMerge>;
   /** Cells that must not be emitted: the rest of every block. */
   covered: Set<string>;
+  /** For a covered cell of a block that IS drawn: the key of the cell drawing it. */
+  ownerKeyOf: Map<string, string>;
 }
 
 /**
@@ -135,6 +137,7 @@ export function layoutMerges(
 ): MergeLayout {
   const owners = new Map<string, DrawnMerge>();
   const covered = new Set<string>();
+  const ownerKeyOf = new Map<string, string>();
   const rows = [...drawnRows].sort((a, b) => a - b);
   const cols = [...drawnCols].sort((a, b) => a - b);
   for (const merge of sheet.merges) {
@@ -150,8 +153,10 @@ export function layoutMerges(
     for (let r = merge.top; r <= merge.bottom; r++)
       for (let c = merge.left; c <= merge.right; c++) {
         const k = key(r, c);
-        if (k !== ownerKey) covered.add(k);
+        if (k === ownerKey) continue;
+        covered.add(k);
+        ownerKeyOf.set(k, ownerKey);
       }
   }
-  return { owners, covered };
+  return { owners, covered, ownerKeyOf };
 }

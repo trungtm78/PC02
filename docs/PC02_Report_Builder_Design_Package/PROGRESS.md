@@ -1034,6 +1034,24 @@ dòng/cột ẩn, đầu cột A/B/C và số dòng như Excel, định dạng s
   **Nợ ghi nhận (không âm thầm bỏ):** (1) ô nhập NGÀY/GIỜ chưa tham gia phép tính ngày (`A1+1` ra `#VALUE!`) — engine
   cố ý chưa mô hình serial ngày và máy chủ cũng vậy; sửa đồng thời cả hai ở đợt công thức chính thức (OV1/OV10).
   (2) Sheet cỡ 3.000×50 vẽ toàn bộ ô — cần cửa sổ ảo (T12) trước khi bật mặc định; làm ở G3.
+### G3a — bộ não bàn phím của lưới nhập (12/10/2026, chưa có giao diện)
+Các mô-đun thuần (không React) mà màn nhập trên lưới sẽ dùng; chưa đổi hành vi màn nào.
+- `keymap.ts` — bảng phím khai báo, 3 chế độ như Excel: *nav* (đang chọn ô), *enter* (gõ đè), *edit* (F2, con trỏ trong chữ).
+  Không bao giờ xử lý phím khi đang ghép dấu (IME Telex/VNI: `isComposing`, `keyCode 229`, `Process`). Ctrl+C/X/V để cho sự
+  kiện copy/cut/paste; Alt+mũi tên thuộc về trình duyệt.
+- `navigation.ts` — vị trí con trỏ luôn là ô VẼ khối gộp; mũi tên bước qua dòng/cột ẩn và dòng bị lọc, rời khối gộp thì
+  nhảy qua cả khối; Ctrl+mũi tên theo đúng luật Excel; Home/End/Ctrl+Home (dưới-phải vùng cố định)/Ctrl+End/PageUp-Down;
+  **Tab = ô nhập kế tiếp theo hàng, Enter = ô nhập kế tiếp theo cột** (chỉ ghé ô nhập, như Excel khi khoá trang tính).
+- `selection.ts` (vùng chọn tự nở ra trọn mọi khối gộp chạm tới, lặp tới khi ổn định), `history.ts` (undo/redo theo lô: một
+  thao tác = một bước; ca không đổi gì không chiếm bước), `clipboard.ts` (TSV kiểu Excel có ngoặc kép; dán **tất cả hoặc không
+  gì**, nêu đủ địa chỉ ô bị chặn, ô trống xoá ô đích, 1 ô dán vào vùng chọn lớn thì điền cả vùng, trần 10.000 ô),
+  `normalizeInput.ts` (một cửa duy nhất cho gõ/dán: số vi-VN `1.234,5`, ngày `dd/mm/yyyy` hoặc `-` `.` hoặc ISO, giờ `H:mm`;
+  `1.234` mơ hồ thì báo chứ không đoán; xoá ô luôn được phép, bắt buộc kiểm lúc nộp).
+- `useShortcut` nhận vùng `data-shortcut-zone="grid"`: sự kiện bắt nguồn trong lưới không bao giờ chạm phím tắt đăng ký
+  (F2 vốn là "Lưu", Ctrl+K là tìm kiếm — đều xung đột phím bảng tính). Danh sách ngoại lệ `GRID_ZONE_ALLOWED_ACTIONS` rỗng.
+- Kiểm: 120 ca mới. Gieo 9 lỗi (đảo hướng Shift+Tab, bỏ luật "ô trống kề dãy đầy", bước qua khối sai, bỏ kiểm ô khoá khi dán,
+  bỏ lọc ô khoá, giữ bước không đổi gì, bỏ chặn IME, bỏ nhận ô rỗng, nở vùng chọn một lượt) → cả 9 bị bắt; 2 lỗi gieo đầu
+  sống sót nên đã bổ sung ca (dãy đầy sau ô trống; khối gộp nối chuỗi).
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
