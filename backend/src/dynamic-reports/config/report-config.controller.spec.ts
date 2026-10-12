@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportConfigController } from './report-config.controller';
@@ -77,6 +78,20 @@ describe('ReportConfigController', () => {
 
     await expect(controller.save(file, body, user)).rejects.toBeInstanceOf(
       ConflictException,
+    );
+  });
+
+  it('translates WORKER_BUSY into a 503 (retry later), not a 400 about the template', async () => {
+    service.save.mockRejectedValue(new ReportConfigError('Hàng đợi đầy', 'WORKER_BUSY'));
+
+    await expect(controller.save(file, body, user)).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('translates WORKER_BUSY into a 503 (retry later), not a 400 about the template', async () => {
+    service.save.mockRejectedValue(new ReportConfigError('Hàng đợi đầy', 'WORKER_BUSY'));
+
+    await expect(controller.save(file, body, user)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
     );
   });
 
