@@ -993,6 +993,20 @@ hiện xuyên qua (vô hình nếu cột chỉ có phông/căn lề). Kiểm: te
   đọc lại 1 ms; model 20–49 KB (ngân sách < 300 KB gzip còn rất xa).
 - Dọn: BOM UTF-8 do shell chèn vào 25 tệp nguồn (làm hỏng `prisma validate`) đã bỏ; tint áp cho cả màu argb/indexed;
   chữ dọc (`textRotation: vertical`) → 255.
+### G1c — xuất bản tự đối chiếu với chính file mẫu (12/10/2026, Codex OV3)
+Trước đây `save()` lưu nguyên danh sách ô nhập, layout và công thức do trình duyệt gửi. Một request dựng tay (hoặc
+cũ) có thể biến ô công thức / ô bị khoá / ô ẩn thành ô nhập, hoặc bỏ sót ô mà mẫu khai báo.
+- `config/publish-reconcile.ts` (hàm thuần): đọc lại file lúc xuất bản và từ chối khi khác. Kiểm: sheet thuộc báo cáo;
+  địa chỉ hợp lệ; `fieldKey` đúng `Sheet!Địa chỉ`; không trùng; **không phải ô công thức**; ô TOKEN phải có token trong
+  file và cùng kiểu/tổng hợp; ô WEB phải nằm trong `markableCells` (mở khoá, không gộp phụ, không ẩn, chưa token);
+  **mọi token file khai báo phải có mặt**.
+- `ReportConfigService.save()` (chỉ khi xuất bản): chạy phân tích trong worker (đi qua hàng đợi có giới hạn), chặn mọi
+  issue mức ERROR của bộ phân tích, và **lưu layout + công thức do file sinh ra** thay vì bản client. Bản nháp giữ nguyên
+  (không bao giờ được thực thi). Giới hạn mẫu / hết giờ / file hỏng → `TEMPLATE_INVALID`, không 500.
+- `scripts/audit-dr-versions.ts` (CHỈ ĐỌC): áp cùng phép đối chiếu cho mọi version đã xuất bản + so công thức lưu với
+  công thức trong file; liệt kê version lệch/không đọc được. Chạy trên prod trước khi bật lưới.
+- Kiểm: 15 ca thuần (gồm parser thật trên HSLN và a10), 8 ca service (giả mạo, ERROR chặn, WARNING không, giới hạn mẫu,
+  file hỏng, bản nháp). Gieo 4 lỗ hổng (cho ô công thức, cho ô WEB bất kỳ, bỏ so kiểu token, cho bỏ token) → ca đỏ.
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|

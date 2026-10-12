@@ -6,7 +6,40 @@ import {
 } from './report-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { SaveReportConfigDto } from './dto/save-report-config.dto';
+import * as inWorker from '../template/parse-in-worker';
+import { TemplateLimitError } from '../template/limits';
+import type { ParseTemplateResult } from '../template/types';
 
+// `save()` re-reads the uploaded file in a worker at publish time (OV3). These
+// tests are about the service's decisions, so the worker is replaced by a
+// parse result that matches `fullPublishableInput`; the real parser is
+// exercised against the real templates in publish-reconcile.spec.ts.
+jest.mock('../template/parse-in-worker', () => {
+  const actual = jest.requireActual('../template/parse-in-worker');
+  return { ...actual, parseTemplateInWorker: jest.fn() };
+});
+const parseInWorker = inWorker.parseTemplateInWorker as jest.MockedFunction<
+  typeof inWorker.parseTemplateInWorker
+>;
+
+const FILE_LAYOUT = { sheetOrder: ['Đội 3'], sheets: [{ sheetKey: 'Đội 3', state: 'visible' }] };
+const FILE_FORMULAS = [{ sheetKey: 'Đội 3', address: 'C9', expression: 'C6+1' }];
+
+function parsedFromFile(over: Partial<ParseTemplateResult> = {}): ParseTemplateResult {
+  return {
+    dateSystem: '1900',
+    fields: [
+      { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Số vụ mới', type: 'NUM', format: '', aggregate: 'SUM', source: 'TOKEN' },
+    ],
+    formulas: FILE_FORMULAS,
+    issues: [],
+    markableCells: [{ sheetKey: 'Đội 3', address: 'C7', suggestedLabel: null }],
+    totalCells: 10,
+    inputCellCount: 1,
+    layout: FILE_LAYOUT as unknown as ParseTemplateResult['layout'],
+    ...over,
+  };
+}
 /**
  * ReportConfigService (spec §6.1 PR4 S09/S10) — the first service that
  * actually persists a dynamic report. Same mocked-`$transaction` pattern
@@ -96,6 +129,10 @@ describe('ReportConfigService', () => {
   // to be a real zip or `JSZip.loadAsync` throws — a plain string buffer
   // no longer works here now that every publish path touches it.
   let BUF: Buffer;
+  beforeEach(() => {
+    parseInWorker.mockReset();
+    parseInWorker.mockResolvedValue(parsedFromFile());
+  });
   beforeAll(async () => {
     const zip = new JSZip();
     zip.file('[Content_Types].xml', '<Types/>');
@@ -272,11 +309,12 @@ describe('ReportConfigService', () => {
     expect(versionData.data.status).toBe('PUBLISHED');
     expect(versionData.data.publishedAt).toBeInstanceOf(Date);
     // GridRenderer (PR6 S11) reads this back — must be the real parsed
-    // structure, not the `{}` placeholder this service shipped with
-    // before this fix.
+    // structure, not the `{}` placeholder this service shipped with before.
+    // Since OV3 it is the structure the SERVER derived from the file, not
+    // the copy the wizard sent.
     expect(versionData.data.layout).toEqual({
-      layout: { sheetOrder: ['Đội 3'], sheets: [] },
-      formulas: [],
+      layout: FILE_LAYOUT,
+      formulas: FILE_FORMULAS,
     });
 
     const fieldsData = tx.dynReportField.createMany.mock.calls[0][0] as {
@@ -603,6 +641,106 @@ describe('ReportConfigService', () => {
           periodKeys: [],
         },
       ]);
+    });
+  });
+
+  describe('publish reconciles the request with the uploaded file (OV3)', () => {
+    function publishTx() {
+      const tx = buildTx();
+      tx.dynReport.create.mockResolvedValue({ id: 'rep1' });
+      tx.dynReportVersion.create.mockResolvedValue({ id: 'ver1' });
+      tx.dynReportTarget.create.mockResolvedValue({ id: 'tgt1' });
+      return tx;
+    }
+
+    it('stores the layout and formulas the FILE yields, not the ones the client sent', async () => {
+      const tx = publishTx();
+      const { service } = buildService(tx);
+      const input = fullPublishableInput({
+        layout: { sheetOrder: ['EVIL'], sheets: [] } as never,
+        formulas: [{ sheetKey: 'Đội 3', address: 'Z1', expression: 'EVIL()' }] as never,
+      });
+
+      await service.save(input, BUF, 'mau.xlsx', 'actor1');
+
+      const stored = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { layout: unknown } }).data.layout;
+      expect(stored).toEqual({ layout: FILE_LAYOUT, formulas: FILE_FORMULAS });
+    });
+
+    it('refuses a field the request marks editable on a formula cell, and writes nothing', async () => {
+      const tx = publishTx();
+      const { service } = buildService(tx);
+      const input = fullPublishableInput();
+      input.fields.push({
+        sheetKey: 'Đội 3', address: 'C9', fieldKey: 'Đội 3!C9', label: 'x', type: 'NUM', aggregate: 'SUM', source: 'WEB',
+      } as never);
+
+      await expect(service.save(input, BUF, 'mau.xlsx', 'actor1')).rejects.toMatchObject({
+        code: 'TEMPLATE_INVALID',
+        message: expect.stringContaining('Đội 3!C9: là ô công thức'),
+      });
+      expect(tx.dynReport.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses a request that drops an input the template declares', async () => {
+      const { service } = buildService(publishTx());
+      const input = fullPublishableInput();
+      input.fields = [
+        { sheetKey: 'Đội 3', address: 'C7', fieldKey: 'Đội 3!C7', label: 'y', type: 'NUM', aggregate: 'SUM', source: 'WEB' } as never,
+      ];
+      await expect(service.save(input, BUF, 'mau.xlsx', 'actor1')).rejects.toMatchObject({
+        code: 'TEMPLATE_INVALID',
+        message: expect.stringContaining('Đội 3!C6'),
+      });
+    });
+
+    it('an ERROR-severity parse issue blocks publishing', async () => {
+      parseInWorker.mockResolvedValue(
+        parsedFromFile({
+          issues: [{ sheetKey: 'Đội 3', address: 'C8', code: 'UNSUPPORTED_FEATURE', severity: 'ERROR', message: 'ô nhập bị ẩn' }],
+        }),
+      );
+      const { service } = buildService(publishTx());
+      await expect(
+        service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1'),
+      ).rejects.toMatchObject({ code: 'TEMPLATE_INVALID', message: expect.stringContaining('Đội 3!C8') });
+    });
+
+    it('a WARNING does not', async () => {
+      parseInWorker.mockResolvedValue(
+        parsedFromFile({
+          issues: [{ sheetKey: 'Đội 3', address: 'C8', code: 'UNLOCKED_NO_TOKEN', severity: 'WARNING', message: 'w' }],
+        }),
+      );
+      const { service } = buildService(publishTx());
+      await expect(service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1')).resolves.toMatchObject({ status: 'PUBLISHED' });
+    });
+
+    it('a template limit (too many sheets, too many cells) surfaces as TEMPLATE_INVALID, not a 500', async () => {
+      parseInWorker.mockRejectedValue(new TemplateLimitError('Quá nhiều sheet', 'TOO_MANY_SELECTED_SHEETS'));
+      const { service } = buildService(publishTx());
+      await expect(service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1')).rejects.toMatchObject({
+        code: 'TEMPLATE_INVALID',
+        message: 'Quá nhiều sheet',
+      });
+    });
+
+    it('an unreadable file surfaces as TEMPLATE_INVALID too', async () => {
+      parseInWorker.mockRejectedValue(new Error('Corrupted zip'));
+      const { service } = buildService(publishTx());
+      await expect(service.save(fullPublishableInput(), BUF, 'mau.xlsx', 'actor1')).rejects.toMatchObject({
+        code: 'TEMPLATE_INVALID',
+        message: expect.stringContaining('Corrupted zip'),
+      });
+    });
+
+    it('a DRAFT is not reconciled (it is never executed) and keeps the wizard copy', async () => {
+      const tx = publishTx();
+      const { service } = buildService(tx);
+      await service.save(baseDraftInput(), BUF, 'mau.xlsx', 'actor1');
+      expect(parseInWorker).not.toHaveBeenCalled();
+      const stored = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { layout: { layout: unknown } } }).data.layout;
+      expect(stored.layout).toEqual({ sheetOrder: ['Đội 3'], sheets: [] });
     });
   });
 });

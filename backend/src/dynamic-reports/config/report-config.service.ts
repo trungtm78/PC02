@@ -7,6 +7,10 @@ import { generatePeriods } from '../engine/period';
 import type { ScheduleRule } from '../engine/period';
 import type { SaveReportConfigDto } from './dto/save-report-config.dto';
 import { detectUnsupportedFeatures } from '../template/unsupported-features';
+import { parseTemplateInWorker, TemplateParseTimeoutError } from '../template/parse-in-worker';
+import { TemplateLimitError } from '../template/limits';
+import { reconcileFieldsWithWorkbook } from './publish-reconcile';
+import type { ParseTemplateResult } from '../template/types';
 
 export class ReportConfigError extends Error {
   constructor(
@@ -83,6 +87,53 @@ export class ReportConfigService {
     if (blocking) {
       throw new ReportConfigError(blocking.message, 'TEMPLATE_INVALID');
     }
+  }
+
+  /**
+   * OV3 — the request is a CLAIM about the template; the file is the fact.
+   * Re-reads the uploaded bytes and refuses a field list that disagrees with
+   * them (a formula or locked cell made editable, a token that is not in the
+   * file, an input the template declares but the request dropped). Returns
+   * the layout and formulas derived from the file itself, which are what gets
+   * stored: nothing the client sent about structure is trusted.
+   */
+  private async reconcileWithFile(
+    input: SaveReportConfigDto,
+    fileBuffer: Buffer,
+  ): Promise<ParseTemplateResult> {
+    let parsed: ParseTemplateResult;
+    try {
+      parsed = await parseTemplateInWorker(fileBuffer, input.selectedSheets);
+    } catch (err) {
+      if (err instanceof TemplateLimitError || err instanceof TemplateParseTimeoutError) {
+        throw new ReportConfigError(err.message, 'TEMPLATE_INVALID');
+      }
+      throw new ReportConfigError(
+        `Không đọc được file mẫu để đối chiếu: ${err instanceof Error ? err.message : String(err)}`,
+        'TEMPLATE_INVALID',
+      );
+    }
+
+    const blocking = parsed.issues.find((i) => i.severity === 'ERROR');
+    if (blocking) {
+      throw new ReportConfigError(
+        `${blocking.sheetKey}${blocking.address ? '!' + blocking.address : ''}: ${blocking.message}`,
+        'TEMPLATE_INVALID',
+      );
+    }
+
+    const { problems } = reconcileFieldsWithWorkbook(
+      parsed,
+      input.selectedSheets,
+      input.fields,
+    );
+    if (problems.length > 0) {
+      throw new ReportConfigError(
+        `Danh sách ô nhập không khớp file mẫu:\n- ${problems.join('\n- ')}`,
+        'TEMPLATE_INVALID',
+      );
+    }
+    return parsed;
   }
 
   private validateForPublish(input: SaveReportConfigDto): void {
@@ -162,9 +213,11 @@ export class ReportConfigService {
     fileName: string,
     actorId: string,
   ): Promise<SaveReportConfigResult> {
+    let derived: ParseTemplateResult | null = null;
     if (input.publish) {
       this.validateForPublish(input);
       await this.assertNoBlockingFeatureIssues(fileBuffer);
+      derived = await this.reconcileWithFile(input, fileBuffer);
     } else if (input.fields.length === 0 && input.selectedSheets.length === 0) {
       throw new ReportConfigError(
         'Phải chọn ít nhất một sheet trước khi lưu nháp.',
@@ -236,9 +289,11 @@ export class ReportConfigService {
           sha256,
           fileName,
           selectedSheets: input.selectedSheets as Prisma.InputJsonValue,
+          // A published version stores what the FILE says about its structure;
+          // only a draft (never executed) keeps the wizard's copy.
           layout: {
-            layout: input.layout,
-            formulas: input.formulas,
+            layout: derived ? derived.layout : input.layout,
+            formulas: derived ? derived.formulas : input.formulas,
           } as Prisma.InputJsonValue,
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
