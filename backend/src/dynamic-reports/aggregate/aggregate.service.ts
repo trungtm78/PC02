@@ -202,6 +202,18 @@ export interface ViewablePeriodView {
 /** S38 — snapshot engine version tag, bumped only if the snapshot's own shape changes. */
 const SNAPSHOT_ENGINE_VERSION = 'v1';
 
+/** How many times a close is redone when the numbers change under the formulas that were worked out for it. */
+const FINALIZE_MAX_ATTEMPTS = 3;
+
+/** Formula figures worked out outside the transaction, with the hash of the numbers they came from. */
+interface FrozenFormulaPlan {
+  sourceHash: string;
+  formulas: Prisma.InputJsonValue;
+}
+
+/** Thrown inside the close transaction (rolling it back) when someone saved after the figures were worked out. */
+class StaleFormulaPlanError extends Error {}
+
 /** Which submission states count as a "live" contribution under each S15 mode (D03). */
 const CONTRIBUTING_STATES: Record<SummaryMode, readonly SubmissionState[]> = {
   SUBMITTED: ['SUBMITTED', 'APPROVED'],
@@ -565,6 +577,9 @@ export class AggregateService {
             calcEngineVersion: snapshot.calcEngineVersion,
           };
         }
+        // Closed, yet no official snapshot (a reopen raced this read): the frozen figures are the only ones a
+        // closed period may show, so say there are none rather than working out new ones.
+        return unavailable;
       }
       const outcomes = await this.formulas.evaluate(
         period.versionId,
@@ -599,6 +614,65 @@ export class AggregateService {
     periodId: string,
     userId: string,
     roleId: string,
+  ): Promise<FinalizeResultView> {
+    // The formulas are worked out BEFORE the transaction: it holds the period row lock and a pooled connection,
+    // and the calculation waits for a worker (and may need more connections to load the grid). Inside the
+    // transaction the figures are only checked against the numbers they were worked out from; if someone saved
+    // in between, the whole thing is simply done again with fresh numbers.
+    for (let attempt = 1; ; attempt++) {
+      const plan = await this.planFrozenFormulas(periodId, userId, roleId);
+      try {
+        return await this.finalizeOnce(periodId, userId, roleId, plan, attempt < FINALIZE_MAX_ATTEMPTS);
+      } catch (err) {
+        if (err instanceof StaleFormulaPlanError) continue;
+        throw err;
+      }
+    }
+  }
+
+  /**
+   * The formula figures for the period as it stands now, together with the hash of the numbers they came from.
+   * Best effort and unlocked: a caller who may not close the period, or a template that cannot be calculated,
+   * simply yields no plan (the transaction then raises the real error, or closes the period without figures).
+   */
+  private async planFrozenFormulas(
+    periodId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<FrozenFormulaPlan | null> {
+    try {
+      const period = await this.prisma.dynReportPeriod.findUnique({
+        where: { id: periodId },
+        include: {
+          report: true,
+          version: { omit: { fileBytes: true }, include: { fields: true } },
+          assignments: { include: { submission: true } },
+        },
+      });
+      if (!period || period.status !== 'OPEN') return null;
+      const actorRole = await this.resolveManagerRole(this.prisma, period.reportId, userId, roleId);
+      if (!actorRole) return null; // do not spend a worker on someone who will be told 404
+      const { snapshotValues, sourceHash } = this.computeApprovedSnapshot(period);
+      const outcomes = await this.formulas.evaluate(
+        period.versionId,
+        Object.fromEntries(Object.entries(snapshotValues).map(([k, v]) => [k, v.value])),
+        'none',
+      );
+      return { sourceHash, formulas: outcomes as unknown as Prisma.InputJsonValue };
+    } catch (err) {
+      this.logger.warn(
+        `Chốt kỳ ${periodId}: chưa tính được số công thức (${err instanceof Error ? err.message : String(err)}).`,
+      );
+      return null;
+    }
+  }
+
+  private async finalizeOnce(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    plan: FrozenFormulaPlan | null,
+    mayRetry: boolean,
   ): Promise<FinalizeResultView> {
     const { result, notify } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
@@ -662,20 +736,18 @@ export class AggregateService {
         sourceHash,
       } = this.computeApprovedSnapshot(period);
 
-      // Freeze the formula figures with the snapshot (OV1/OV10). If the template cannot be calculated right now
-      // the period still closes — its aggregated figures are what matter — and the snapshot says it has none.
+      // Freeze the formula figures with the snapshot (OV1/OV10), but only figures worked out from exactly these
+      // numbers. No plan (the template could not be calculated) still closes the period — its aggregated figures
+      // are what matter — and the snapshot says it has none.
       let frozenFormulas: Prisma.InputJsonValue | undefined;
-      try {
-        const outcomes = await this.formulas.evaluate(
-          period.versionId,
-          Object.fromEntries(Object.entries(snapshotValues).map(([k, v]) => [k, v.value])),
-          'none',
-        );
-        frozenFormulas = outcomes as unknown as Prisma.InputJsonValue;
-      } catch (err) {
-        this.logger.warn(
-          `Chốt kỳ ${periodId}: không đóng băng được số công thức (${err instanceof Error ? err.message : String(err)}).`,
-        );
+      if (plan) {
+        if (plan.sourceHash === sourceHash) {
+          frozenFormulas = plan.formulas;
+        } else if (mayRetry) {
+          throw new StaleFormulaPlanError();
+        } else {
+          this.logger.warn(`Chốt kỳ ${periodId}: số liệu vẫn đổi giữa các lần tính, đóng băng không kèm số công thức.`);
+        }
       }
 
       const now = new Date();
@@ -715,8 +787,7 @@ export class AggregateService {
           periodKey: period.periodKey,
         },
       };
-      // Calculating the formulas runs a worker while the period row is locked; the default 5 s is too tight.
-    }, { timeout: 30_000 });
+    });
     if (notify.toUserIds.length > 0) {
       this.eventEmitter.emit(
         'dyn-report.period-finalized',

@@ -1155,7 +1155,10 @@ nhau. Nay `FormulaEvaluationService` (cache LRU 100, khoá = phiên bản mẫu 
   `20261012130000`, áp thử trên DB cục bộ). Kỳ đã chốt KHÔNG BAO GIỜ tính lại: bộ tính tốt hơn sau này không được viết lại số đã báo cáo;
   kỳ chốt trước khi có cột này hiện `UNAVAILABLE` thay vì bịa số.
 - Không tính được (worker bận, lưới quá lớn) thì kỳ vẫn chốt được và màn tổng hợp vẫn lên, chỉ phần công thức báo `UNAVAILABLE` + log cảnh báo.
-  `$transaction` của chốt kỳ nâng timeout lên 30 s vì có một lần gọi worker bên trong.
+- Công thức được tính TRƯỚC giao dịch chốt kỳ, không tính trong lúc giữ khoá dòng kỳ (Codex bắt: giữ khoá + một kết nối trong khi chờ worker
+  có thể làm cạn pool và làm hết giờ giao dịch). Trong giao dịch chỉ so mã băm của số liệu nguồn: khớp thì đóng băng, lệch (có người vừa lưu)
+  thì làm lại tối đa 3 lần, lần cuối vẫn lệch thì chốt không kèm số công thức. Người không có quyền chốt không làm tốn worker.
+- Kỳ đã chốt mà không còn snapshot chính thức (mở chốt xen vào) báo `UNAVAILABLE`, không tính số mới.
 - Kiểm: 74 ca `aggregate.service.spec` (LIVE / FROZEN / chưa đóng băng / chế độ khác / lỗi tính / finalize đóng băng / finalize chịu lỗi), 6 ca
   `formula-evaluation.service.spec` (cache, khoá, không cache lỗi, giới hạn), 5 ca `evaluateAllFormulas` (khoá, 18 chữ số, mã lỗi, 'none' vs 'blank'),
   2 ca worker (cùng kết quả trong worker và tại chỗ, hết giờ). Backend `dynamic-reports`+`common`: 2301 qua / 0 lỗi (11 ca DB bị bỏ qua vì

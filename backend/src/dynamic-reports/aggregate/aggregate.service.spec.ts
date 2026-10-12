@@ -220,6 +220,19 @@ describe('AggregateService', () => {
       expect(formulas.evaluate).not.toHaveBeenCalled();
     });
 
+    it('a closed period whose official snapshot is gone says unavailable instead of working out new figures', async () => {
+      const formulas = buildFormulaMock(OUTCOMES);
+      const { service } = buildService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], undefined, {
+        formulas,
+        snapshot: null,
+      });
+
+      const view = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'APPROVED');
+
+      expect(view.formulaSource).toBe('UNAVAILABLE');
+      expect(formulas.evaluate).not.toHaveBeenCalled();
+    });
+
     it('a closed period viewed in another mode is calculated live: the frozen figures belong to APPROVED only', async () => {
       const formulas = buildFormulaMock(OUTCOMES);
       const { service } = buildService(basePeriod({ status: 'FINALIZED' }), [{ role: 'MANAGER' }], undefined, {
@@ -502,8 +515,12 @@ describe('AggregateService', () => {
           updateMany: jest.fn<Promise<unknown>, unknown[]>(),
         },
       };
+      // The formulas are worked out before the transaction, so the plain client is read too.
       const prisma = {
         $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+        dynReportPeriod: tx.dynReportPeriod,
+        rolePermission: tx.rolePermission,
+        dynReportRole: tx.dynReportRole,
       };
       const eventEmitter = { emit: jest.fn() };
       const service = new AggregateService(
@@ -512,7 +529,7 @@ describe('AggregateService', () => {
         eventEmitter as unknown as EventEmitter2,
         formulas,
       );
-      return { service, tx, eventEmitter };
+      return { service, tx, eventEmitter, prisma };
     }
 
     it('finalizes an OPEN period, writes an official APPROVED snapshot, and flips status', async () => {
@@ -562,6 +579,75 @@ describe('AggregateService', () => {
       expect(data.calcEngineVersion).toBe(1);
       // Worked out from the APPROVED totals (only a2 → 20), a blank reported rather than guessed.
       expect(formulas.evaluate).toHaveBeenCalledWith('version1', { [FIELD.fieldKey]: '20' }, 'none');
+    });
+
+    it('works the formulas out BEFORE taking the period lock, never inside the transaction', async () => {
+      const order: string[] = [];
+      const formulas = buildFormulaMock();
+      (formulas.evaluate as jest.Mock).mockImplementation(async () => {
+        order.push('evaluate');
+        return {};
+      });
+      const { service, tx, prisma } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      tx.$queryRaw.mockImplementation(async () => {
+        order.push('lock');
+        return [];
+      });
+
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(order).toEqual(['evaluate', 'lock']);
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function)); // no long timeout needed any more
+    });
+
+    it('does the close again with fresh figures when someone saved after they were worked out', async () => {
+      const changed = basePeriod({
+        assignments: [assignment('a2', 'APPROVED', '25', { submission: { ...assignment('a2', 'APPROVED', '25').submission, currentRevision: 2n } })],
+      });
+      const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
+      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      // read order: plan 1 (old numbers) -> transaction (changed) -> plan 2 (changed) -> transaction (changed)
+      tx.dynReportPeriod.findUnique
+        .mockResolvedValueOnce(basePeriod())
+        .mockResolvedValueOnce(changed)
+        .mockResolvedValue(changed);
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.status).toBe('FINALIZED');
+      expect(formulas.evaluate).toHaveBeenCalledTimes(2);
+      expect((formulas.evaluate as jest.Mock).mock.calls[1][1]).toEqual({ [FIELD.fieldKey]: '25' });
+      expect(tx.dynReportSnapshot.create).toHaveBeenCalledTimes(1);
+      const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      expect(data.formulaValues).toEqual({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
+    });
+
+    it('gives up on the figures, not on the close, when the numbers keep changing', async () => {
+      const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
+      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      let n = 0;
+      // The plan always reads one revision, the transaction always sees the next one.
+      tx.dynReportPeriod.findUnique.mockImplementation(async () => {
+        n += 1;
+        const rev = BigInt(Math.ceil(n / 1));
+        return basePeriod({
+          assignments: [assignment('a2', 'APPROVED', '20', { submission: { ...assignment('a2', 'APPROVED', '20').submission, currentRevision: rev } })],
+        });
+      });
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.status).toBe('FINALIZED');
+      const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      expect(data.formulaValues).toBeUndefined();
+    });
+
+    it('does not spend a worker on someone who may not close the period', async () => {
+      const formulas = buildFormulaMock();
+      const { service } = buildTxService(basePeriod(), [], formulas); // no MANAGER grant
+
+      await expect(service.finalizePeriod('period1', 'nobody', 'roleX')).rejects.toBeInstanceOf(NotFoundException);
+      expect(formulas.evaluate).not.toHaveBeenCalled();
     });
 
     it('still closes the period when the formulas cannot be calculated, and the snapshot says it has none', async () => {
