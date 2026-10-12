@@ -1,4 +1,4 @@
-import Decimal from 'decimal.js';
+import DecimalBase from 'decimal.js';
 import type { AggregateType } from './token';
 
 /**
@@ -18,16 +18,33 @@ import type { AggregateType } from './token';
  * number (0 on an empty set).
  */
 
+/**
+ * decimal.js keeps 20 significant digits by default; a field may hold 18, so a
+ * total of a few hundred of them would be rounded. This copy keeps 60 — more
+ * than any report can reach — and leaves every other user of decimal.js alone.
+ */
+const Decimal = DecimalBase.clone({ precision: 60 });
+type Decimal = DecimalBase;
+
 export type BlankPolicy = 'ZERO' | 'IGNORE';
 
+/**
+ * A contribution is a canonical DECIMAL STRING ("1234.5"), never a JS number:
+ * a figure of 18 significant digits survives intact from the team's entry,
+ * through the total, into the exported file (review OV4). Parsing to a double
+ * here would round it silently.
+ */
 export interface Contribution {
   sourceId: string;
-  value: number | null;
+  value: string | null;
 }
 
+/** Digits kept after the point when a division (AVG) does not come out even. */
+export const AVG_DECIMAL_PLACES = 12;
+
 export interface AggregateResult {
-  /** null = "—" (nothing to aggregate, or NONE aggregate type). Always a real number for COUNT. */
-  value: number | null;
+  /** Canonical decimal string; null = "—" (nothing to aggregate, or NONE aggregate type). Always a number for COUNT. */
+  value: string | null;
   /** true for aggregate type NONE — FRD: "— / Không tổng hợp", with drill-down still available via `contributors`. */
   displayNotAggregated: boolean;
   /** Every contribution as given, including blanks — for the S18 "nguồn số liệu" drill-down drawer. */
@@ -39,13 +56,13 @@ export interface AggregateResult {
 function resolveContributingValues(
   policy: BlankPolicy,
   contributions: Contribution[],
-): number[] {
+): Decimal[] {
   if (policy === 'ZERO') {
-    return contributions.map((c) => c.value ?? 0);
+    return contributions.map((c) => new Decimal(c.value ?? '0'));
   }
   return contributions
     .filter((c) => c.value !== null)
-    .map((c) => c.value as number);
+    .map((c) => new Decimal(c.value as string));
 }
 
 export function aggregateValues(
@@ -70,7 +87,7 @@ export function aggregateValues(
 
   if (aggregateType === 'COUNT') {
     return {
-      value: values.length,
+      value: String(values.length),
       displayNotAggregated: false,
       contributors: contributions,
       countTotal,
@@ -88,7 +105,7 @@ export function aggregateValues(
     };
   }
 
-  const decimals = values.map((v) => new Decimal(v));
+  const decimals = values;
   let result: Decimal;
   switch (aggregateType) {
     case 'SUM':
@@ -97,7 +114,8 @@ export function aggregateValues(
     case 'AVG':
       result = decimals
         .reduce((acc, v) => acc.plus(v), new Decimal(0))
-        .dividedBy(decimals.length);
+        .dividedBy(decimals.length)
+        .toDecimalPlaces(AVG_DECIMAL_PLACES);
       break;
     case 'MIN':
       result = Decimal.min(...decimals);
@@ -108,7 +126,7 @@ export function aggregateValues(
   }
 
   return {
-    value: result.toNumber(),
+    value: result.toFixed(),
     displayNotAggregated: false,
     contributors: contributions,
     countTotal,

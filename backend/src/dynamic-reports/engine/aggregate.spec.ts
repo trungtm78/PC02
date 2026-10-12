@@ -17,32 +17,34 @@ import type { EvalContext, CellReference, CellResolution } from './expr';
  * the 16 unit sheets directly with plain arithmetic.
  */
 
-function contrib(values: (number | null)[]): Contribution[] {
-  return values.map((value, i) => ({ sourceId: `s${i}`, value }));
+/** Contributions from plain numbers (as the tests think of them), carried as decimal strings (as the engine takes them). */
+function contrib(values: (number | string | null)[]): Contribution[] {
+  return values.map((value, i) => ({ sourceId: `s${i}`, value: value === null ? null : String(value) }));
 }
 
 describe('aggregateValues — AGG01 (FRD §4.5: "A2 của ba người là 10, 0, null")', () => {
   const values = contrib([10, 0, null]);
 
   it("blankPolicy=IGNORE: SUM=10, AVG=5, COUNT=2 (FRD's base example — null excluded entirely)", () => {
-    expect(aggregateValues('SUM', 'IGNORE', values).value).toBe(10);
-    expect(aggregateValues('AVG', 'IGNORE', values).value).toBe(5);
-    expect(aggregateValues('COUNT', 'IGNORE', values).value).toBe(2);
+    expect(aggregateValues('SUM', 'IGNORE', values).value).toBe('10');
+    expect(aggregateValues('AVG', 'IGNORE', values).value).toBe('5');
+    expect(aggregateValues('COUNT', 'IGNORE', values).value).toBe('2');
   });
 
   it('blankPolicy=ZERO (D03 default): SUM=10, AVG=10/3, COUNT=3 (null treated as 0, so it counts)', () => {
-    expect(aggregateValues('SUM', 'ZERO', values).value).toBe(10);
+    expect(aggregateValues('SUM', 'ZERO', values).value).toBe('10');
     const avg = aggregateValues('AVG', 'ZERO', values).value;
     expect(avg).not.toBeNull();
     expect(
-      new Decimal(avg as number).toDecimalPlaces(4).toNumber(),
+      new Decimal(avg as string).toDecimalPlaces(4).toNumber(),
     ).toBeCloseTo(10 / 3, 4);
-    expect(aggregateValues('COUNT', 'ZERO', values).value).toBe(3);
+    expect(avg).toBe('3.333333333333'); // 12 decimal places, exact decimal arithmetic — no double in sight
+    expect(aggregateValues('COUNT', 'ZERO', values).value).toBe('3');
   });
 
   it('MIN/MAX under IGNORE policy (10, 0, null -> min 0, max 10)', () => {
-    expect(aggregateValues('MIN', 'IGNORE', values).value).toBe(0);
-    expect(aggregateValues('MAX', 'IGNORE', values).value).toBe(10);
+    expect(aggregateValues('MIN', 'IGNORE', values).value).toBe('0');
+    expect(aggregateValues('MAX', 'IGNORE', values).value).toBe('10');
   });
 
   it('records every contributor for drill-down (S18), including the blank one', () => {
@@ -62,7 +64,7 @@ describe('aggregateValues — empty set and NONE', () => {
   });
 
   it('COUNT on an empty contribution list is 0, not "—"', () => {
-    expect(aggregateValues('COUNT', 'IGNORE', []).value).toBe(0);
+    expect(aggregateValues('COUNT', 'IGNORE', []).value).toBe('0');
   });
 
   it('SUM/AVG/MIN/MAX on an all-blank set under IGNORE is null ("—")', () => {
@@ -83,8 +85,8 @@ describe('aggregateValues — RATE01 (FRD: tỷ lệ chung từ tử/mẫu tổn
     // Team A: processed 9 of 10. Team B: processed 1 of 90.
     const processed = aggregateValues('SUM', 'IGNORE', contrib([9, 1]));
     const received = aggregateValues('SUM', 'IGNORE', contrib([10, 90]));
-    expect(processed.value).toBe(10);
-    expect(received.value).toBe(100);
+    expect(processed.value).toBe('10');
+    expect(received.value).toBe('100');
 
     // Tier-3 formula on the aggregate sheet: rate = processed / received,
     // evaluated via the expr engine reading the already-aggregated cells —
@@ -95,9 +97,9 @@ describe('aggregateValues — RATE01 (FRD: tỷ lệ chung từ tử/mẫu tổn
         // digits) per the expr grammar — A1 stands in for "processed",
         // A2 for "received" on the aggregate sheet.
         if (ref.cell === 'A1')
-          return { kind: 'value', value: processed.value as number };
+          return { kind: 'value', value: processed.value as string };
         if (ref.cell === 'A2')
-          return { kind: 'value', value: received.value as number };
+          return { kind: 'value', value: received.value as string };
         return { kind: 'not_found' };
       },
       expandRange: () => [],
@@ -147,14 +149,14 @@ describe('aggregateValues — independent HSLN oracle (spec §10 R11)', () => {
         row.perSheetValues,
       ).map(([sheet, v]) => ({
         sourceId: sheet,
-        value: typeof v === 'number' ? v : null, // non-numeric cached values (incl. "#REF!" strings) are not real numbers
+        value: typeof v === 'number' ? String(v) : null, // non-numeric cached values (incl. "#REF!" strings) are not real numbers
       }));
       const result = aggregateValues('SUM', 'IGNORE', contributions);
       const expected = row.sumIgnoringBlanks;
       if (expected === null) {
         expect(result.value).toBeNull();
       } else {
-        expect(result.value).toBe(expected);
+        expect(Number(result.value)).toBe(expected);
       }
       checked++;
     }
@@ -173,10 +175,46 @@ describe('aggregateValues — independent HSLN oracle (spec §10 R11)', () => {
         row.perSheetValues,
       ).map(([sheet, v]) => ({
         sourceId: sheet,
-        value: typeof v === 'number' ? v : null,
+        value: typeof v === 'number' ? String(v) : null,
       }));
       const result = aggregateValues('SUM', 'IGNORE', contributions);
-      expect(result.value).toBe(row.sumIgnoringBlanks);
+      if (row.sumIgnoringBlanks === null) expect(result.value).toBeNull();
+      else expect(Number(result.value)).toBe(row.sumIgnoringBlanks);
     }
+  });
+});
+
+describe('aggregateValues — no digit is ever lost (review OV4)', () => {
+  it('sums two 18-digit figures exactly; a double would round both', () => {
+    const r = aggregateValues('SUM', 'IGNORE', contrib(['900719925474099300', '1']));
+    expect(r.value).toBe('900719925474099301');
+  });
+
+  it('keeps fractions exact: 0.1 + 0.2 is 0.3, not 0.30000000000000004', () => {
+    expect(aggregateValues('SUM', 'IGNORE', contrib(['0.1', '0.2'])).value).toBe('0.3');
+  });
+
+  it('MIN and MAX return the original text of the winning figure', () => {
+    const v = contrib(['9007199254740993', '9007199254740992']);
+    expect(aggregateValues('MAX', 'IGNORE', v).value).toBe('9007199254740993');
+    expect(aggregateValues('MIN', 'IGNORE', v).value).toBe('9007199254740992');
+  });
+
+  it('a negative total and a total that cancels to zero', () => {
+    expect(aggregateValues('SUM', 'IGNORE', contrib(['-5.5', '2'])).value).toBe('-3.5');
+    expect(aggregateValues('SUM', 'IGNORE', contrib(['2.5', '-2.5'])).value).toBe('0');
+  });
+
+  it('never carries an exponent', () => {
+    expect(aggregateValues('SUM', 'IGNORE', contrib(['0.0000001', '0.0000001'])).value).toBe('0.0000002');
+    expect(aggregateValues('SUM', 'IGNORE', contrib(['1000000000000000000000', '1'])).value).toBe('1000000000000000000001');
+  });
+});
+
+describe('aggregateValues — a few hundred 18-digit figures do not overflow the working precision', () => {
+  it('sums 300 contributions of 18 digits exactly', () => {
+    const each = '999999999999999999';
+    const r = aggregateValues('SUM', 'IGNORE', contrib(Array.from({ length: 300 }, () => each)));
+    expect(r.value).toBe('299999999999999999700');
   });
 });
