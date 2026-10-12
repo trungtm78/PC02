@@ -775,6 +775,75 @@ export class SubmissionService {
     };
   }
 
+  /**
+   * An unlock (a manager's grant, or a request they approve) extends the window of a submission that can still be
+   * edited. A SUBMITTED one cannot be edited at all — the state machine leaves SUBMITTED only through RETURN (or
+   * UNAPPROVE from APPROVED) — so a grant on it changed nothing: the manager saw an active grant, the editor still got
+   * "locked" and 409 REPORT_LOCKED (found on production 13/10/2026).
+   *
+   * So opening a SUBMITTED submission IS returning it: same state (RETURNED), revision, history entry and deadline
+   * rule as "Trả lại", with the grant's expiry as the new deadline. The editor corrects and submits again.
+   *  - NOT_STARTED / DRAFT / RETURNED: nothing to do, the grant itself is what they need (a deadline already passed).
+   *  - APPROVED: refused with what to do first; the caller's transaction rolls back, so a request stays PENDING.
+   * Runs inside the caller's transaction: period FOR SHARE, then the submission FOR UPDATE (the module's lock order).
+   */
+  private async reopenForGrant(
+    tx: Prisma.TransactionClient,
+    assignmentId: string,
+    actorId: string,
+    actorRole: 'ADMIN' | 'MANAGER',
+    expiresAt: Date,
+    reason: string,
+  ): Promise<void> {
+    await tx.$queryRaw`
+      SELECT id FROM "dyn_report_periods" WHERE id = (
+        SELECT "periodId" FROM "dyn_report_assignments" WHERE id = ${assignmentId}
+      ) FOR SHARE`;
+    await tx.$queryRaw`
+      SELECT id FROM "dyn_report_submissions" WHERE "assignmentId" = ${assignmentId} FOR UPDATE`;
+    const submission = await tx.dynReportSubmission.findUnique({ where: { assignmentId } });
+    if (!submission) return;
+    if (submission.state === 'APPROVED') {
+      throw new SubmissionError(
+        'Bản này đã được duyệt. Hãy "Huỷ duyệt" trước, rồi mở lại để người nhập sửa.',
+        'INVALID_STATE_TRANSITION',
+      );
+    }
+    if (submission.state !== 'SUBMITTED') return;
+
+    const transition = applyTransition('RETURN', {
+      state: submission.state,
+      approvalLevel: submission.approvalLevel,
+      totalApprovalLevels: 1,
+      actorRole,
+      hasRequiredFieldsValid: true,
+      hasErrorSeverityRuleViolation: false,
+    });
+    if (!transition.ok) throw new SubmissionError(transition.message, transition.code);
+
+    const nextRevision = submission.currentRevision + BigInt(1);
+    await tx.dynReportSubmission.update({
+      where: { assignmentId },
+      data: {
+        state: transition.next,
+        currentRevision: nextRevision,
+        approvalLevel: transition.nextApprovalLevel,
+        returnedReason: reason,
+        returnDueAt: expiresAt,
+      },
+    });
+    await tx.dynReportRevision.create({
+      data: {
+        submissionId: submission.id,
+        revision: nextRevision,
+        kind: transition.revisionKind,
+        valuesFull: (submission.values ?? {}) as Prisma.InputJsonValue,
+        actorId,
+        reason,
+      },
+    });
+  }
+
   /** S17 — manager extends a team's write window past where it would otherwise be blocked (D07). */
   async grantUnlock(
     assignmentId: string,
@@ -783,7 +852,7 @@ export class SubmissionService {
     reason: string,
     expiresAt?: string,
   ): Promise<ActiveGrantView> {
-    const { assignment } = await this.loadAssignmentForManager(
+    const { assignment, actorRole } = await this.loadAssignmentForManager(
       this.prisma,
       assignmentId,
       userId,
@@ -807,16 +876,20 @@ export class SubmissionService {
       );
     }
 
-    const unlock = await this.prisma.dynReportUnlock.create({
-      data: {
-        assignmentId,
-        kind: 'GRANT',
-        status: 'ACTIVE',
-        startsAt: now,
-        expiresAt: resolvedExpiresAt,
-        reason,
-        decidedById: userId,
-      },
+    const unlock = await this.prisma.$transaction(async (tx) => {
+      // A submission already handed in is returned first (see `reopenForGrant`); an approved one is refused here.
+      await this.reopenForGrant(tx, assignmentId, userId, actorRole, resolvedExpiresAt, reason);
+      return tx.dynReportUnlock.create({
+        data: {
+          assignmentId,
+          kind: 'GRANT',
+          status: 'ACTIVE',
+          startsAt: now,
+          expiresAt: resolvedExpiresAt,
+          reason,
+          decidedById: userId,
+        },
+      });
     });
 
     const toUserIds = await this.activeEditorIds(this.prisma, assignmentId);
@@ -863,14 +936,26 @@ export class SubmissionService {
       );
     }
 
-    await this.prisma.dynReportUnlock.update({
-      where: { id: activeGrant.id },
-      data: {
-        status: 'REVOKED',
-        revokedById: userId,
-        revokedAt: now,
-        revokeReason: reason,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.dynReportUnlock.update({
+        where: { id: activeGrant.id },
+        data: {
+          status: 'REVOKED',
+          revokedById: userId,
+          revokedAt: now,
+          revokeReason: reason,
+        },
+      });
+      // A grant on a handed-in submission worked by returning it with the grant's expiry as the deadline; revoking
+      // the grant must close that window too, or the editor would keep typing until the original expiry.
+      await tx.dynReportSubmission.updateMany({
+        where: {
+          assignmentId,
+          state: 'RETURNED',
+          returnDueAt: new Date(activeGrant.expiresAt),
+        },
+        data: { returnDueAt: now },
+      });
     });
   }
 
@@ -1085,12 +1170,28 @@ export class SubmissionService {
         'CELL_VALIDATION',
       );
     }
-    await this.leavePending(unlockId, {
-      status: 'ACTIVE',
-      startsAt: now,
-      expiresAt: resolvedExpiresAt,
-      decidedById: userId,
-      decisionReason,
+    // One transaction: the request becomes an active grant AND a handed-in submission is returned (see
+    // `reopenForGrant`). If the submission cannot be reopened (approved), nothing changes and the request stays PENDING.
+    await this.prisma.$transaction(async (tx) => {
+      await this.reopenForGrant(
+        tx,
+        row.assignmentId,
+        userId,
+        actorRole,
+        resolvedExpiresAt,
+        decisionReason?.trim() || row.reason,
+      );
+      await this.leavePending(
+        unlockId,
+        {
+          status: 'ACTIVE',
+          startsAt: now,
+          expiresAt: resolvedExpiresAt,
+          decidedById: userId,
+          decisionReason,
+        },
+        tx,
+      );
     });
   }
 
@@ -1099,8 +1200,12 @@ export class SubmissionService {
    * conditioned on PENDING, so when they race one wins and the other is told the request is no longer waiting —
    * never an "approved" row carrying a withdrawal's timestamp.
    */
-  private async leavePending(unlockId: string, data: Prisma.DynReportUnlockUncheckedUpdateManyInput): Promise<void> {
-    const moved = await this.prisma.dynReportUnlock.updateMany({
+  private async leavePending(
+    unlockId: string,
+    data: Prisma.DynReportUnlockUncheckedUpdateManyInput,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<void> {
+    const moved = await client.dynReportUnlock.updateMany({
       where: { id: unlockId, kind: 'REQUEST', status: 'PENDING' },
       data,
     });
@@ -1128,7 +1233,7 @@ export class SubmissionService {
 
     for (const assignmentId of assignmentIds) {
       try {
-        const { assignment } = await this.loadAssignmentForManager(
+        const { assignment, actorRole } = await this.loadAssignmentForManager(
           this.prisma,
           assignmentId,
           userId,
@@ -1152,17 +1257,21 @@ export class SubmissionService {
           );
         }
 
-        await this.prisma.dynReportUnlock.create({
-          data: {
-            assignmentId,
-            kind: 'GRANT',
-            status: 'ACTIVE',
-            startsAt: now,
-            expiresAt: resolvedExpiresAt,
-            reason,
-            decidedById: userId,
-            bulkBatchId,
-          },
+        await this.prisma.$transaction(async (tx) => {
+          // One that cannot be reopened (an approved one) is reported in `skipped` with the reason.
+          await this.reopenForGrant(tx, assignmentId, userId, actorRole, resolvedExpiresAt, reason);
+          await tx.dynReportUnlock.create({
+            data: {
+              assignmentId,
+              kind: 'GRANT',
+              status: 'ACTIVE',
+              startsAt: now,
+              expiresAt: resolvedExpiresAt,
+              reason,
+              decidedById: userId,
+              bulkBatchId,
+            },
+          });
         });
         granted.push(assignmentId);
       } catch (err) {
@@ -1451,9 +1560,12 @@ export class SubmissionService {
     if (!submission)
       throw new NotFoundException('Không tìm thấy lượt giao này.');
 
+    // `AT TIME ZONE 'UTC'` on purpose: the bare `clock_timestamp()` is a timestamptz, and the driver reads it as if its
+    // wall-clock digits were UTC — on a server whose TimeZone is Asia/Ho_Chi_Minh (production's) that is 7 hours ahead,
+    // so a 3-hour unlock window had already "expired" when the editor tried to save (found 13/10/2026).
     const nowRow = await tx.$queryRaw<
       { now: Date }[]
-    >`SELECT clock_timestamp() AS now`;
+    >`SELECT (clock_timestamp() AT TIME ZONE 'UTC') AS now`;
     const now = nowRow[0].now;
 
     const user = await tx.user.findUnique({
@@ -2130,9 +2242,12 @@ export class SubmissionService {
     if (!submission)
       throw new NotFoundException('Không tìm thấy lượt giao này.');
 
+    // `AT TIME ZONE 'UTC'` on purpose: the bare `clock_timestamp()` is a timestamptz, and the driver reads it as if its
+    // wall-clock digits were UTC — on a server whose TimeZone is Asia/Ho_Chi_Minh (production's) that is 7 hours ahead,
+    // so a 3-hour unlock window had already "expired" when the editor tried to save (found 13/10/2026).
     const nowRow = await tx.$queryRaw<
       { now: Date }[]
-    >`SELECT clock_timestamp() AS now`;
+    >`SELECT (clock_timestamp() AT TIME ZONE 'UTC') AS now`;
     const now = nowRow[0].now;
 
     if (submission.currentRevision.toString() !== expectedRevision) {

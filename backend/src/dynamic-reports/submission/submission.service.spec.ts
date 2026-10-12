@@ -77,6 +77,7 @@ describe('SubmissionService', () => {
       dynReportSubmission: {
         findUnique: jest.fn<Promise<unknown>, unknown[]>(),
         update: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+        updateMany: jest.fn<Promise<unknown>, [Record<string, unknown>]>().mockResolvedValue({ count: 0 }),
       },
       dynReportRevision: {
         create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
@@ -2197,6 +2198,13 @@ describe('SubmissionService', () => {
       expect(updateCall.data.status).toBe('REVOKED');
       expect(updateCall.data.revokedById).toBe('mgr1');
       expect(updateCall.data.revokeReason).toBe('Hết cần thiết');
+      // A grant that reopened a handed-in submission set its return deadline to the grant's expiry: revoking closes it too.
+      const cut = tx.dynReportSubmission.updateMany.mock.calls[0][0] as {
+        where: { assignmentId: string; state: string };
+        data: { returnDueAt: Date };
+      };
+      expect(cut.where).toMatchObject({ assignmentId: 'assign1', state: 'RETURNED' });
+      expect(cut.data.returnDueAt).toBeInstanceOf(Date);
     });
 
     it('rejects with CELL_VALIDATION when there is no active grant to revoke', async () => {
