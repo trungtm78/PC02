@@ -1558,6 +1558,14 @@ export class SubmissionService {
     // would put figures into the wrong cells without a single error, so it is refused with a plain reason.
     const meta = readExportMeta(workbook);
     if (meta) {
+      // A manager's file holds the totals and every team: whichever team's copy a reader picked, importing it
+      // would put somebody else's numbers into this assignment.
+      if (meta.kind === 'PERIOD') {
+        throw new SubmissionError(
+          'File này là bản tổng hợp của quản lý (gồm số liệu của nhiều tổ) nên không nhập lại được. Hãy bấm "Xuất Excel" ở chính lượt giao này để lấy file của tổ.',
+          'TEMPLATE_INVALID',
+        );
+      }
       if (meta.versionId && meta.versionId !== period.versionId) {
         throw new SubmissionError(
           'File này được xuất từ một phiên bản mẫu khác với kỳ báo cáo này. Hãy bấm "Xuất Excel" ở kỳ này để lấy file đúng.',

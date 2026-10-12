@@ -112,7 +112,7 @@ export interface TemplateExportOutcome {
 }
 
 /** Writes one input value into its cell, keeping the cell's own look. */
-function writeValue(
+export function writeValue(
   cell: ExcelJS.Cell,
   field: ExportField,
   raw: string | null,
@@ -169,7 +169,7 @@ function writeValue(
   }
 }
 
-function applyFormulaResult(cell: ExcelJS.Cell, result: FormulaResult): void {
+export function applyFormulaResult(cell: ExcelJS.Cell, result: FormulaResult): void {
   const current = cell.value as unknown;
   if (!current || typeof current !== 'object') return;
   const holder = current as { formula?: string; sharedFormula?: string; result?: unknown };
@@ -186,7 +186,7 @@ function applyFormulaResult(cell: ExcelJS.Cell, result: FormulaResult): void {
 }
 
 /** Names that point into a sheet that is no longer in the file would dangle. */
-function dropNamesOfRemovedSheets(workbook: ExcelJS.Workbook, removed: ReadonlySet<string>): void {
+export function dropNamesOfRemovedSheets(workbook: ExcelJS.Workbook, removed: ReadonlySet<string>): void {
   const names = workbook.definedNames as unknown as {
     forEach(cb: (name: string, cell: { sheetName?: string }) => void): void;
     removeEx(location: unknown, name: string): void;

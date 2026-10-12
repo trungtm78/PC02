@@ -59,13 +59,16 @@ export default function ReportPeriodSummaryPage() {
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportFormat, setExportFormat] = useState<'TEMPLATE' | 'LIST' | null>(null);
 
   async function handleExport() {
     if (!periodId) return;
     setIsExporting(true);
     setExportError(null);
+    setExportFormat(null);
     try {
-      const { exportId, fileName } = await dynamicReportsApi.exportPeriod(periodId);
+      const { exportId, fileName, format } = await dynamicReportsApi.exportPeriod(periodId);
+      setExportFormat(format);
       await dynamicReportsApi.downloadExport(exportId, fileName);
     } catch (err) {
       setExportError(extractApiError(await parseBlobError(err)).message);
@@ -209,6 +212,11 @@ export default function ReportPeriodSummaryPage() {
         Kỳ {view.periodKey} ({view.periodStart} → {view.periodEnd}) · Hạn{' '}
         {formatVNDateTime(view.dueAt)}
       </p>
+      {exportFormat === 'LIST' && (
+        <p className="text-sm text-amber-700 mb-1" data-testid="export-list-note">
+          Chưa xuất được file theo đúng mẫu Excel của báo cáo này (mẫu không dựng được hoặc quá lớn) — file vừa tải là dạng danh sách.
+        </p>
+      )}
       {exportError && (
         <p className="text-sm text-red-700 mb-1" data-testid="export-error">
           {exportError}

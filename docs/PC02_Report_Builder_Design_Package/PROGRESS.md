@@ -1181,6 +1181,24 @@ mẫu Excel: ô nhập mang **số tổng hợp** (định dạng theo ô: số,
   bấm thử thật trên Chromium với mẫu PL7: lưới + ô công thức đúng ("Thiếu dữ liệu" khi chưa tổ nào nộp ở chế độ SUBMITTED, TRUE ở ALL_SAVED), popover mở/đóng bằng Esc.
 - Giới hạn đã biết: định dạng có điều kiện của ô vẫn tính bằng bộ tính ở trình duyệt (cùng engine, cùng số; chỉ khác khi kỳ đã chốt bằng bộ tính cũ).
 
+### G5b — file Excel của quản lý theo đúng mẫu: TỔNG + mỗi tổ một bộ sheet (OV5/OV6, 12/10/2026)
+"Xuất Excel" ở màn tổng hợp trước đây ra bảng danh sách (Sheet/Chỉ tiêu/Giá trị). Nay là **chính file mẫu**, mỗi phạm vi một bộ sheet:
+- **Bộ sheet TỔNG** + **một bộ cho từng tổ** theo thứ tự cây tổ (cha trước con, anh em theo `order` rồi tên); báo cáo nhiều sheet thì mỗi tổ xuất
+  TRỌN BỘ sheet đã chọn (OV6). Mỗi bản sao lấy từ sheet gốc còn nguyên (trước khi ghi bất kỳ số nào): ô gộp, độ rộng/cao, viền, màu, font, định dạng số,
+  cố định dòng/cột, định dạng có điều kiện, ghi chú in — kiểm bằng bộ trích lưới độc lập trên 6 mẫu thật (so từng ô theo kiểu hiển thị thực).
+  Bẫy exceljs đã xử lý: `merges` đọc ≠ `mergeCells` ghi; gộp lại ô làm ô phụ mất viền riêng → chép lại kiểu của từng ô trong vùng gộp.
+- **TỔNG chỉ có hằng số** (OV5): ô nhập = số tổng hợp, ô công thức = số CHÍNH THỨC của hệ thống (đóng băng lúc chốt với kỳ đã chốt; tính ngay từ tổng đang xem với
+  kỳ đang mở). Không để công thức trong TỔNG vì Excel mở lên sẽ tính tổ chưa báo cáo thành 0 trong khi hệ thống nói "thiếu dữ liệu". "Thiếu dữ liệu" ghi bằng chữ;
+  công thức hệ thống chưa tính được thì để trống và liệt kê ở sheet metadata (`unresolvedTotal|…`), không để Excel tự tính.
+- **Bộ sheet của tổ** giữ công thức, trỏ sang bản sao CÙNG tổ (`rewriteSheetRefs` + bảng tên sheet), kèm kết quả tính sẵn từ đúng số của tổ đó; `fullCalcOnLoad`.
+- **Bảng tên sheet** `allocateSheetNames`: ≤31 ký tự, bỏ `* ? : \ / [ ]`, không trùng (không phân biệt hoa thường), tên Excel dành riêng (`History`) và `__dr_meta` được tránh, cắt đều
+  hai vế `<tổ> - <sheet>`; bảng (phạm vi, sheet gốc) → tên xuất nằm trong sheet ẩn `__dr_meta` (kind `PERIOD`).
+- **S35 từ chối file kind PERIOD** kèm hướng dẫn lấy file của tổ (nhập nhầm bản sao của tổ khác sẽ ghi số người khác vào lượt giao này).
+- Chạy trong worker (`exportPeriod`), giới hạn 600 sheet / 3 triệu ô mỗi file → vượt thì rơi về dạng danh sách; mọi lỗi dựng file theo mẫu cũng rơi về danh sách (kết quả trả `format: TEMPLATE|LIST`, màn S15 báo rõ khi là danh sách).
+- Giới hạn đã biết: sheet gốc dùng công thức 3-D / công thức ở ô dữ liệu hợp lệ trỏ sheet khác ngoài bộ chọn không được viết lại (ghi `unrewritten|…` ở metadata); hình ảnh chỉ nhân bản nếu exceljs mô hình hoá được; exceljs ghi lại font mặc định của workbook (Times New Roman → Calibri) và ghi tên font vào các ô dựa vào nó — nhìn không đổi.
+- Kiểm: 22 ca `period-export` (cấu trúc, tên, giữ nguyên diện mạo, hằng số TỔNG, công thức trỏ đúng bộ, kết quả tính sẵn theo từng tổ, metadata, quá lớn, + 6 mẫu thật), 9 ca `sheet-names`,
+  4 ca dịch vụ qua worker thật, 7 ca `exportPeriod` (thứ tự cây tổ, số chính thức đóng băng/trực tiếp/không có, rơi về danh sách), 1 ca S35, 2 ca trang S15.
+
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|

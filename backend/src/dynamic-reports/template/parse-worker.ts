@@ -7,6 +7,8 @@ import type { ParseTemplateResult } from './types';
 import type { GridModel } from '../engine/grid-types';
 import { buildTemplateWorkbook } from '../export/template-export';
 import type { TemplateExportRequest } from '../export/template-export';
+import { buildPeriodWorkbook } from '../export/period-export';
+import type { PeriodExportOutcome, PeriodExportRequest } from '../export/period-export';
 import { evaluateAllFormulas } from '../engine/grid-workbook';
 import type { FormulaOutcome, InputFieldRef } from '../engine/grid-workbook';
 
@@ -21,14 +23,28 @@ import type { FormulaOutcome, InputFieldRef } from '../engine/grid-workbook';
  * `parse-in-worker.ts` also handles, but keeping both paths narrow here
  * means the caller only ever has to interpret ONE message shape.
  *
- * Four modes share the thread plumbing (`evaluate` works out every formula of a template for a set of values — no file involved): `parse` (template upload / preview),
- * `grid` (render-ready GridModel for the entry grid, G1) and `export` (the
- * template filled in with a team's values, G5).
+ * Five modes share the thread plumbing (`evaluate` works out every formula of a template for a set of values — no file involved): `parse` (template upload / preview),
+ * `grid` (render-ready GridModel for the entry grid, G1), `export` (the
+ * template filled in with a team's values, G5a) and `exportPeriod` (a manager's
+ * file: the totals and every team in one workbook, G5b).
  */
+
+/** A manager's file, and what is worth knowing about how it was built. */
+export interface PeriodExportWorkerResult {
+  buffer: Uint8Array;
+  outcome: PeriodExportOutcome;
+  /** (scope, original sheet) → exported sheet name, as [key, name] pairs. */
+  names: Array<[string, string]>;
+}
 
 export interface WorkerSuccessMessage {
   ok: true;
-  result: ParseTemplateResult | GridModel | Uint8Array | Record<string, FormulaOutcome>;
+  result:
+    | ParseTemplateResult
+    | GridModel
+    | Uint8Array
+    | Record<string, FormulaOutcome>
+    | PeriodExportWorkerResult;
 }
 
 export interface WorkerFailureMessage {
@@ -46,10 +62,11 @@ export interface EvaluateRequest {
 }
 
 interface WorkerData {
-  mode?: 'parse' | 'grid' | 'export' | 'evaluate';
+  mode?: 'parse' | 'grid' | 'export' | 'exportPeriod' | 'evaluate';
   buffer: Buffer;
   selectedSheetNames: string[];
   exportRequest?: TemplateExportRequest;
+  periodExportRequest?: PeriodExportRequest;
   evaluateRequest?: EvaluateRequest;
 }
 
@@ -65,13 +82,18 @@ async function buildGrid(buffer: Buffer, selectedSheetNames: string[]): Promise<
 }
 
 async function run(): Promise<void> {
-  const { mode, buffer, selectedSheetNames, exportRequest, evaluateRequest } = workerData as WorkerData;
+  const { mode, buffer, selectedSheetNames, exportRequest, periodExportRequest, evaluateRequest } =
+    workerData as WorkerData;
   try {
     let result: WorkerSuccessMessage['result'];
     if (mode === 'evaluate') {
       if (!evaluateRequest) throw new Error('Thiếu yêu cầu tính công thức.');
       const { grid, fields, values, blankAs } = evaluateRequest;
       result = evaluateAllFormulas(grid, fields, values, blankAs);
+    } else if (mode === 'exportPeriod') {
+      if (!periodExportRequest) throw new Error('Thiếu yêu cầu xuất file tổng hợp.');
+      const built = await buildPeriodWorkbook(buffer, periodExportRequest);
+      result = { buffer: built.buffer, outcome: built.outcome, names: [...built.names.entries()] };
     } else if (mode === 'export') {
       if (!exportRequest) throw new Error('Thiếu yêu cầu xuất file.');
       result = (await buildTemplateWorkbook(buffer, exportRequest)).buffer;

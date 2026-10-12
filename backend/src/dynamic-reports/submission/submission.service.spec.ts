@@ -2645,6 +2645,15 @@ describe('SubmissionService', () => {
         });
       });
 
+      it('refuses a manager file (totals and every team), saying where to get the team file instead', async () => {
+        const service = setup();
+        const buffer = await exportedBuffer({ kind: 'PERIOD', versionId: 'version1', periodId: 'p1' });
+        await expect(service.previewExcelImport('assign1', 'u1', buffer)).rejects.toMatchObject({
+          code: 'TEMPLATE_INVALID',
+          message: expect.stringContaining('bản tổng hợp của quản lý'),
+        });
+      });
+
       it('refuses a file exported for another team or period', async () => {
         const service = setup();
         const buffer = await exportedBuffer({ versionId: 'version1', assignmentId: 'assign-OTHER' });
