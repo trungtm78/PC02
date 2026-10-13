@@ -19,7 +19,10 @@ import type { EvalContext, CellReference, CellResolution } from './expr';
 
 /** Contributions from plain numbers (as the tests think of them), carried as decimal strings (as the engine takes them). */
 function contrib(values: (number | string | null)[]): Contribution[] {
-  return values.map((value, i) => ({ sourceId: `s${i}`, value: value === null ? null : String(value) }));
+  return values.map((value, i) => ({
+    sourceId: `s${i}`,
+    value: value === null ? null : String(value),
+  }));
 }
 
 describe('aggregateValues — AGG01 (FRD §4.5: "A2 của ba người là 10, 0, null")', () => {
@@ -31,7 +34,7 @@ describe('aggregateValues — AGG01 (FRD §4.5: "A2 của ba người là 10, 0,
     expect(aggregateValues('COUNT', 'IGNORE', values).value).toBe('2');
   });
 
-  it('blankPolicy=ZERO (D03 default): SUM=10, AVG=10/3, COUNT=3 (null treated as 0, so it counts)', () => {
+  it('blankPolicy=ZERO (AC-025): SUM=10, AVG=10/3, COUNT=2 (only entered numbers count)', () => {
     expect(aggregateValues('SUM', 'ZERO', values).value).toBe('10');
     const avg = aggregateValues('AVG', 'ZERO', values).value;
     expect(avg).not.toBeNull();
@@ -39,7 +42,7 @@ describe('aggregateValues — AGG01 (FRD §4.5: "A2 của ba người là 10, 0,
       new Decimal(avg as string).toDecimalPlaces(4).toNumber(),
     ).toBeCloseTo(10 / 3, 4);
     expect(avg).toBe('3.333333333333'); // 12 decimal places, exact decimal arithmetic — no double in sight
-    expect(aggregateValues('COUNT', 'ZERO', values).value).toBe('3');
+    expect(aggregateValues('COUNT', 'ZERO', values).value).toBe('2');
   });
 
   it('MIN/MAX under IGNORE policy (10, 0, null -> min 0, max 10)', () => {
@@ -186,12 +189,18 @@ describe('aggregateValues — independent HSLN oracle (spec §10 R11)', () => {
 
 describe('aggregateValues — no digit is ever lost (review OV4)', () => {
   it('sums two 18-digit figures exactly; a double would round both', () => {
-    const r = aggregateValues('SUM', 'IGNORE', contrib(['900719925474099300', '1']));
+    const r = aggregateValues(
+      'SUM',
+      'IGNORE',
+      contrib(['900719925474099300', '1']),
+    );
     expect(r.value).toBe('900719925474099301');
   });
 
   it('keeps fractions exact: 0.1 + 0.2 is 0.3, not 0.30000000000000004', () => {
-    expect(aggregateValues('SUM', 'IGNORE', contrib(['0.1', '0.2'])).value).toBe('0.3');
+    expect(
+      aggregateValues('SUM', 'IGNORE', contrib(['0.1', '0.2'])).value,
+    ).toBe('0.3');
   });
 
   it('MIN and MAX return the original text of the winning figure', () => {
@@ -201,20 +210,34 @@ describe('aggregateValues — no digit is ever lost (review OV4)', () => {
   });
 
   it('a negative total and a total that cancels to zero', () => {
-    expect(aggregateValues('SUM', 'IGNORE', contrib(['-5.5', '2'])).value).toBe('-3.5');
-    expect(aggregateValues('SUM', 'IGNORE', contrib(['2.5', '-2.5'])).value).toBe('0');
+    expect(aggregateValues('SUM', 'IGNORE', contrib(['-5.5', '2'])).value).toBe(
+      '-3.5',
+    );
+    expect(
+      aggregateValues('SUM', 'IGNORE', contrib(['2.5', '-2.5'])).value,
+    ).toBe('0');
   });
 
   it('never carries an exponent', () => {
-    expect(aggregateValues('SUM', 'IGNORE', contrib(['0.0000001', '0.0000001'])).value).toBe('0.0000002');
-    expect(aggregateValues('SUM', 'IGNORE', contrib(['1000000000000000000000', '1'])).value).toBe('1000000000000000000001');
+    expect(
+      aggregateValues('SUM', 'IGNORE', contrib(['0.0000001', '0.0000001']))
+        .value,
+    ).toBe('0.0000002');
+    expect(
+      aggregateValues('SUM', 'IGNORE', contrib(['1000000000000000000000', '1']))
+        .value,
+    ).toBe('1000000000000000000001');
   });
 });
 
 describe('aggregateValues — a few hundred 18-digit figures do not overflow the working precision', () => {
   it('sums 300 contributions of 18 digits exactly', () => {
     const each = '999999999999999999';
-    const r = aggregateValues('SUM', 'IGNORE', contrib(Array.from({ length: 300 }, () => each)));
+    const r = aggregateValues(
+      'SUM',
+      'IGNORE',
+      contrib(Array.from({ length: 300 }, () => each)),
+    );
     expect(r.value).toBe('299999999999999999700');
   });
 });

@@ -27,13 +27,20 @@ import type { CellResolution } from '../engine/expr';
  */
 
 jest.setTimeout(60_000);
-const REAL = path.join(__dirname, '../../../test/fixtures/dynamic-reports/real');
+const REAL = path.join(
+  __dirname,
+  '../../../test/fixtures/dynamic-reports/real',
+);
 
 async function gridOf(buffer: Buffer): Promise<GridModel> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
   const raw = await readRawGridInfo(buffer);
-  return extractGridModel(wb, { selectedSheets: wb.worksheets.map((w) => w.name), excludedSheets: [], raw });
+  return extractGridModel(wb, {
+    selectedSheets: wb.worksheets.map((w) => w.name),
+    excludedSheets: [],
+    raw,
+  });
 }
 
 /** A small two-sheet report: "Nhập" (inputs, merges, widths) and "Tính" (formulas across sheets). */
@@ -53,12 +60,19 @@ async function makeTemplate(): Promise<Buffer> {
   a.getCell('A3').value = 'Ngày';
   a.getCell('B3').numFmt = 'dd/mm/yyyy';
   a.getCell('B4').value = { formula: 'B2*2', result: 198 };
-  a.getCell('B4').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+  a.getCell('B4').fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFFFFF00' },
+  };
   a.views = [{ state: 'frozen', ySplit: 1 }];
   const b = wb.addWorksheet('Tính');
   b.getCell('A1').value = { formula: "'Nhập'!B2+1", result: 100 };
   b.getCell('A2').value = { formula: 'SUM(Nhập!B2:B3)', result: 99 };
-  b.getCell('A3').value = { formula: "IF('Nhập'!B2=0,0,10/'Nhập'!B2)", result: 0.1 };
+  b.getCell('A3').value = {
+    formula: "IF('Nhập'!B2=0,0,10/'Nhập'!B2)",
+    result: 0.1,
+  };
   b.getCell('A4').value = { formula: 'A1*2', result: 200 };
   const unused = wb.addWorksheet('Không dùng');
   unused.getCell('A1').value = 'x';
@@ -82,13 +96,30 @@ const TOTAL_OUTCOMES: Record<string, FormulaOutcome> = {
 
 function scopes(): PeriodExportScope[] {
   return [
-    { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '30', 'Nhập!B3': '2026-06-15' } },
-    { scope: 't1', label: 'Đội 3', kind: 'TEAM', values: { 'Nhập!B2': '10', 'Nhập!B3': '2026-06-10' } },
-    { scope: 't2', label: 'Đội 4', kind: 'TEAM', values: { 'Nhập!B2': '20', 'Nhập!B3': null } },
+    {
+      scope: 'TOTAL',
+      label: 'TỔNG',
+      kind: 'TOTAL',
+      values: { 'Nhập!B2': '30', 'Nhập!B3': '2026-06-15' },
+    },
+    {
+      scope: 't1',
+      label: 'Đội 3',
+      kind: 'TEAM',
+      values: { 'Nhập!B2': '10', 'Nhập!B3': '2026-06-10' },
+    },
+    {
+      scope: 't2',
+      label: 'Đội 4',
+      kind: 'TEAM',
+      values: { 'Nhập!B2': '20', 'Nhập!B3': null },
+    },
   ];
 }
 
-async function request(over: Partial<PeriodExportRequest> = {}): Promise<{ template: Buffer; req: PeriodExportRequest }> {
+async function request(
+  over: Partial<PeriodExportRequest> = {},
+): Promise<{ template: Buffer; req: PeriodExportRequest }> {
   const template = await makeTemplate();
   return {
     template,
@@ -110,17 +141,33 @@ async function reload(buffer: Buffer): Promise<ExcelJS.Workbook> {
   return wb;
 }
 
-async function cellXml(buffer: Buffer, sheetName: string, address: string): Promise<string> {
+async function cellXml(
+  buffer: Buffer,
+  sheetName: string,
+  address: string,
+): Promise<string> {
   const zip = await JSZip.loadAsync(buffer);
   const workbookXml = await (zip.file('xl/workbook.xml') as JSZip.JSZipObject).async('string');
   const rels = await (zip.file('xl/_rels/workbook.xml.rels') as JSZip.JSZipObject).async('string');
   const esc = sheetName.replace(/&/g, '&amp;');
-  const sheetTag = (workbookXml.match(/<sheet\b[^>]*>/g) ?? []).find((t) => t.includes(`name="${esc}"`)) as string;
+  const sheetTag = (workbookXml.match(/<sheet\b[^>]*>/g) ?? []).find((t) =>
+    t.includes(`name="${esc}"`),
+  ) as string;
   const rid = /r:id="([^"]+)"/.exec(sheetTag)?.[1] as string;
-  const relTag = (rels.match(/<Relationship\b[^>]*>/g) ?? []).find((t) => t.includes(`Id="${rid}"`)) as string;
+  const relTag = (rels.match(/<Relationship\b[^>]*>/g) ?? []).find((t) =>
+    t.includes(`Id="${rid}"`),
+  ) as string;
   const target = /Target="([^"]+)"/.exec(relTag)?.[1] as string;
-  const xml = await (zip.file(`xl/${target.replace(/^\//, '').replace(/^xl\//, '')}`) as JSZip.JSZipObject).async('string');
-  return new RegExp(`<c r="${address}"[^>]*?(?:/>|>[\\s\\S]*?</c>)`).exec(xml)?.[0] ?? '';
+  const xml = await (
+    zip.file(
+      `xl/${target.replace(/^\//, '').replace(/^xl\//, '')}`,
+    ) as JSZip.JSZipObject
+  ).async('string');
+  return (
+    new RegExp(`<c r="${address}"[^>]*?(?:/>|>[\\s\\S]*?</c>)`).exec(
+      xml,
+    )?.[0] ?? ''
+  );
 }
 
 describe('buildPeriodWorkbook', () => {
@@ -159,8 +206,13 @@ describe('buildPeriodWorkbook', () => {
   }
 
   /** The formula of a cell worked out again by the expression engine over the workbook's own cells. */
-  function recalculate(wb: ExcelJS.Workbook, sheet: string, address: string): string | number | null {
-    const cell = (wb.getWorksheet(sheet) as ExcelJS.Worksheet).getCell(address).value as { formula: string };
+  function recalculate(
+    wb: ExcelJS.Workbook,
+    sheet: string,
+    address: string,
+  ): string | number | null {
+    const cell = (wb.getWorksheet(sheet) as ExcelJS.Worksheet).getCell(address)
+      .value as { formula: string };
     const r = evaluateFormula(cell.formula, resolverOf(wb));
     if (!r.ok) throw new Error(`${cell.formula} -> ${r.error.code}`);
     if (r.value.type === 'string') return r.value.value === '' ? null : r.value.value;
@@ -168,70 +220,154 @@ describe('buildPeriodWorkbook', () => {
   }
 
   const SUM_FIELDS = [
-    { sheetKey: 'Nhập', address: 'B2', fieldKey: 'Nhập!B2', type: 'NUM' as const, aggregate: 'SUM' as const, blankPolicy: 'ZERO' as const },
-    { sheetKey: 'Nhập', address: 'B3', fieldKey: 'Nhập!B3', type: 'DATE' as const, aggregate: 'NONE' as const, blankPolicy: 'ZERO' as const },
+    {
+      sheetKey: 'Nhập',
+      address: 'B2',
+      fieldKey: 'Nhập!B2',
+      type: 'NUM' as const,
+      aggregate: 'SUM' as const,
+      blankPolicy: 'ZERO' as const,
+    },
+    {
+      sheetKey: 'Nhập',
+      address: 'B3',
+      fieldKey: 'Nhập!B3',
+      type: 'DATE' as const,
+      aggregate: 'NONE' as const,
+      blankPolicy: 'ZERO' as const,
+    },
   ];
 
   describe('the totals input cells are formulas over the sheets of the teams that count', () => {
     const teamsScopes = (counted: [boolean, boolean]): PeriodExportScope[] => [
-      { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '10', 'Nhập!B3': null } },
-      { scope: 't1', label: 'Đội 3', kind: 'TEAM', counted: counted[0], values: { 'Nhập!B2': '10', 'Nhập!B3': null } },
-      { scope: 't2', label: 'Đội 4', kind: 'TEAM', counted: counted[1], values: { 'Nhập!B2': '20', 'Nhập!B3': null } },
+      {
+        scope: 'TOTAL',
+        label: 'TỔNG',
+        kind: 'TOTAL',
+        values: { 'Nhập!B2': '10', 'Nhập!B3': null },
+      },
+      {
+        scope: 't1',
+        label: 'Đội 3',
+        kind: 'TEAM',
+        counted: counted[0],
+        values: { 'Nhập!B2': '10', 'Nhập!B3': null },
+      },
+      {
+        scope: 't2',
+        label: 'Đội 4',
+        kind: 'TEAM',
+        counted: counted[1],
+        values: { 'Nhập!B2': '20', 'Nhập!B3': null },
+      },
     ];
 
     it('adds up the approved teams sheets only, carries the systems figure as the cached result, and leaves the unapproved team out', async () => {
-      const { template, req } = await request({ fields: SUM_FIELDS, scopes: teamsScopes([true, false]) });
+      const { template, req } = await request({
+        fields: SUM_FIELDS,
+        scopes: teamsScopes([true, false]),
+      });
       const { buffer, outcome } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
       const total = (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2').value;
       expect(total).toEqual({ formula: "SUM('Đội 3 - Nhập'!B2)", result: 10 });
       expect(outcome.constantTotals).toEqual([]);
       // a field that is not totalled (DATE / NONE) stays what it was
-      expect((wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B3').value).toBeNull();
+      expect(
+        (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B3')
+          .value,
+      ).toBeNull();
     });
 
     it('the formula really recalculates: worked out again from the sheets it names it gives the systems figure, and follows an edit of a teams number', async () => {
       const { template, req } = await request({
         fields: SUM_FIELDS,
         scopes: [
-          { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '30', 'Nhập!B3': null } },
+          {
+            scope: 'TOTAL',
+            label: 'TỔNG',
+            kind: 'TOTAL',
+            values: { 'Nhập!B2': '30', 'Nhập!B3': null },
+          },
           ...teamsScopes([true, true]).slice(1),
         ],
       });
-      const wb = await reload((await buildPeriodWorkbook(template, req)).buffer);
+      const wb = await reload(
+        (await buildPeriodWorkbook(template, req)).buffer,
+      );
       expect(recalculate(wb, 'TỔNG - Nhập', 'B2')).toBe(30); // = the cached result = the systems figure
 
-      (wb.getWorksheet('Đội 4 - Nhập') as ExcelJS.Worksheet).getCell('B2').value = 25; // someone corrects a teams sheet
+      (wb.getWorksheet('Đội 4 - Nhập') as ExcelJS.Worksheet).getCell(
+        'B2',
+      ).value = 25; // someone corrects a teams sheet
       expect(recalculate(wb, 'TỔNG - Nhập', 'B2')).toBe(35);
     });
 
     it('with the IGNORE policy a blank team is left out of an average, and all-blank gives an empty text like the systems dash', async () => {
-      const avg = [{ ...SUM_FIELDS[0], aggregate: 'AVG' as const, blankPolicy: 'IGNORE' as const }];
+      const avg = [
+        {
+          ...SUM_FIELDS[0],
+          aggregate: 'AVG' as const,
+          blankPolicy: 'IGNORE' as const,
+        },
+      ];
       const { template, req } = await request({
         fields: avg,
         scopes: [
-          { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '10' } },
-          { scope: 't1', label: 'Đội 3', kind: 'TEAM', counted: true, values: { 'Nhập!B2': '10' } },
-          { scope: 't2', label: 'Đội 4', kind: 'TEAM', counted: true, values: { 'Nhập!B2': null } },
+          {
+            scope: 'TOTAL',
+            label: 'TỔNG',
+            kind: 'TOTAL',
+            values: { 'Nhập!B2': '10' },
+          },
+          {
+            scope: 't1',
+            label: 'Đội 3',
+            kind: 'TEAM',
+            counted: true,
+            values: { 'Nhập!B2': '10' },
+          },
+          {
+            scope: 't2',
+            label: 'Đội 4',
+            kind: 'TEAM',
+            counted: true,
+            values: { 'Nhập!B2': null },
+          },
         ],
       });
-      const wb = await reload((await buildPeriodWorkbook(template, req)).buffer);
-      expect((wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2').value).toMatchObject({
+      const wb = await reload(
+        (await buildPeriodWorkbook(template, req)).buffer,
+      );
+      expect(
+        (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2')
+          .value,
+      ).toMatchObject({
         formula: expect.stringContaining('AVERAGE('),
         result: 10,
       });
       expect(recalculate(wb, 'TỔNG - Nhập', 'B2')).toBe(10);
-      (wb.getWorksheet('Đội 3 - Nhập') as ExcelJS.Worksheet).getCell('B2').value = null;
+      (wb.getWorksheet('Đội 3 - Nhập') as ExcelJS.Worksheet).getCell(
+        'B2',
+      ).value = null;
       expect(recalculate(wb, 'TỔNG - Nhập', 'B2')).toBeNull(); // every cell blank
     });
 
     it('no team counted (nobody approved): the cell keeps the plain figure, and the metadata says why', async () => {
-      const { template, req } = await request({ fields: SUM_FIELDS, scopes: teamsScopes([false, false]) });
+      const { template, req } = await request({
+        fields: SUM_FIELDS,
+        scopes: teamsScopes([false, false]),
+      });
       const { buffer, outcome } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
-      expect((wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2').value).toBe(10); // the figure written as before
+      expect(
+        (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2')
+          .value,
+      ).toBe(10); // the figure written as before
       expect(outcome.constantTotals).toEqual(['Nhập!B2: no team is approved']);
-      expect(Object.values(readExportMeta(wb) as Record<string, string>)).toContain('Nhập!B2: no team is approved');
+      expect(
+        Object.values(readExportMeta(wb) as Record<string, string>),
+      ).toContain('Nhập!B2: no team is approved');
     });
 
     it('a figure Excel cannot hold exactly stays number-as-text and the cell keeps it: a formula over it would round it', async () => {
@@ -239,29 +375,56 @@ describe('buildPeriodWorkbook', () => {
       const { template, req } = await request({
         fields: SUM_FIELDS,
         scopes: [
-          { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': big } },
-          { scope: 't1', label: 'Đội 3', kind: 'TEAM', counted: true, values: { 'Nhập!B2': big } },
+          {
+            scope: 'TOTAL',
+            label: 'TỔNG',
+            kind: 'TOTAL',
+            values: { 'Nhập!B2': big },
+          },
+          {
+            scope: 't1',
+            label: 'Đội 3',
+            kind: 'TEAM',
+            counted: true,
+            values: { 'Nhập!B2': big },
+          },
         ],
       });
       const { buffer, outcome } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
-      expect((wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2').value).toBe(big);
-      expect(outcome.constantTotals[0]).toContain('more digits than Excel holds');
+      expect(
+        (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2')
+          .value,
+      ).toBe(big);
+      expect(outcome.constantTotals[0]).toContain(
+        'more digits than Excel holds',
+      );
     });
 
-    it('COUNT with the ZERO policy is the number of teams, a plain number', async () => {
+    it('COUNT with ZERO exports a recalculating numeric count and its cached result', async () => {
       const count = [{ ...SUM_FIELDS[0], aggregate: 'COUNT' as const }];
       const { template, req } = await request({
         fields: count,
         scopes: [
-          { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '2' } },
+          {
+            scope: 'TOTAL',
+            label: 'TỔNG',
+            kind: 'TOTAL',
+            values: { 'Nhập!B2': '2' },
+          },
           ...teamsScopes([true, true]).slice(1),
         ],
       });
       const { buffer, outcome } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
-      expect((wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2').value).toBe(2);
-      expect(outcome.constantTotals).toEqual(['Nhập!B2: COUNT counts the teams: a number']);
+      expect(
+        (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2')
+          .value,
+      ).toEqual({
+        formula: expect.stringMatching(/^COUNT\(/),
+        result: 2,
+      });
+      expect(outcome.constantTotals).toEqual([]);
     });
   });
 
@@ -270,8 +433,16 @@ describe('buildPeriodWorkbook', () => {
     const sheet = wbSrc.addWorksheet('Nhập');
     sheet.getCell('B2').value = 1;
     sheet.getCell('B3').value = 2;
-    sheet.getCell('C2').value = { formula: 'B2*2', shareType: 'shared', ref: 'C2:C3', result: 2 } as ExcelJS.CellValue;
-    sheet.getCell('C3').value = { sharedFormula: 'C2', result: 4 } as ExcelJS.CellValue;
+    sheet.getCell('C2').value = {
+      formula: 'B2*2',
+      shareType: 'shared',
+      ref: 'C2:C3',
+      result: 2,
+    } as ExcelJS.CellValue;
+    sheet.getCell('C3').value = {
+      sharedFormula: 'C2',
+      result: 4,
+    } as ExcelJS.CellValue;
     const template = Buffer.from(await wbSrc.xlsx.writeBuffer());
     const fields: PeriodExportRequest['fields'] = [
       { sheetKey: 'Nhập', address: 'B2', fieldKey: 'Nhập!B2', type: 'NUM' },
@@ -280,9 +451,19 @@ describe('buildPeriodWorkbook', () => {
     const req: PeriodExportRequest = {
       selectedSheets: ['Nhập'],
       fields,
-      scopes: [{ scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': null, 'Nhập!B3': '2' } }],
+      scopes: [
+        {
+          scope: 'TOTAL',
+          label: 'TỔNG',
+          kind: 'TOTAL',
+          values: { 'Nhập!B2': null, 'Nhập!B3': '2' },
+        },
+      ],
       grid: await gridOf(template),
-      totalOutcomes: { 'Nhập!C2': { ok: false, code: 'MISSING_DATA' }, 'Nhập!C3': { ok: true, type: 'number', value: '4' } },
+      totalOutcomes: {
+        'Nhập!C2': { ok: false, code: 'MISSING_DATA' },
+        'Nhập!C3': { ok: true, type: 'number', value: '4' },
+      },
       meta: { kind: 'PERIOD' },
     };
 
@@ -295,8 +476,19 @@ describe('buildPeriodWorkbook', () => {
   it('when a totals figure had to be written as text (more digits than Excel holds) no template formula on the totals stays a formula that would read it as text (found by Codex)', async () => {
     const { template, req } = await request({
       scopes: [
-        { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '12345678901234567', 'Nhập!B3': null } },
-        { scope: 't1', label: 'Đội 3', kind: 'TEAM', counted: true, values: { 'Nhập!B2': '5', 'Nhập!B3': null } },
+        {
+          scope: 'TOTAL',
+          label: 'TỔNG',
+          kind: 'TOTAL',
+          values: { 'Nhập!B2': '12345678901234567', 'Nhập!B3': null },
+        },
+        {
+          scope: 't1',
+          label: 'Đội 3',
+          kind: 'TEAM',
+          counted: true,
+          values: { 'Nhập!B2': '5', 'Nhập!B3': null },
+        },
       ],
     });
     const wb = await reload((await buildPeriodWorkbook(template, req)).buffer);
@@ -321,7 +513,11 @@ describe('buildPeriodWorkbook', () => {
     for (const name of ['TỔNG - Tính', 'Đội 3 - Nhập', 'Đội 4 - Nhập']) {
       const ws = wb.getWorksheet(name) as ExcelJS.Worksheet;
       let found = false;
-      ws.eachRow({ includeEmpty: false }, (row) => row.eachCell((c) => { if (c.value === note) found = true; }));
+      ws.eachRow({ includeEmpty: false }, (row) =>
+        row.eachCell((c) => {
+          if (c.value === note) found = true;
+        }),
+      );
       expect(found).toBe(false);
     }
   });
@@ -333,7 +529,10 @@ describe('buildPeriodWorkbook', () => {
     await withArea.xlsx.load(template as unknown as ExcelJS.Buffer);
     (withArea.getWorksheet('Nhập') as ExcelJS.Worksheet).pageSetup.printArea = 'A1:C4';
     const patched = Buffer.from(await withArea.xlsx.writeBuffer());
-    const { req } = await request({ totalsNote: note, grid: await gridOf(patched) });
+    const { req } = await request({
+      totalsNote: note,
+      grid: await gridOf(patched),
+    });
 
     const wb = await reload((await buildPeriodWorkbook(patched, req)).buffer);
     const totals = wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet;
@@ -350,17 +549,27 @@ describe('buildPeriodWorkbook', () => {
     const baseline = (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).rowCount;
     const { template: t2, req: r2 } = await request({ totalsNote: '' });
     const again = await reload((await buildPeriodWorkbook(t2, r2)).buffer);
-    expect((again.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).rowCount).toBe(baseline);
+    expect(
+      (again.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).rowCount,
+    ).toBe(baseline);
   });
 
   it('a single-sheet report names the copies after the scopes, as the exports always did', async () => {
-    const { template, req } = await request({ selectedSheets: ['Nhập'], fields: FIELDS });
+    const { template, req } = await request({
+      selectedSheets: ['Nhập'],
+      fields: FIELDS,
+    });
     const { buffer } = await buildPeriodWorkbook(template, req);
     const wb = await reload(buffer);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['TỔNG', 'Đội 3', 'Đội 4', META_SHEET_NAME]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual([
+      'TỔNG',
+      'Đội 3',
+      'Đội 4',
+      META_SHEET_NAME,
+    ]);
   });
 
-  it('every copy keeps the template\'s look: merges, widths, heights, number formats, fills, freeze', async () => {
+  it("every copy keeps the template's look: merges, widths, heights, number formats, fills, freeze", async () => {
     const { template, req } = await request();
     const { buffer } = await buildPeriodWorkbook(template, req);
     const wb = await reload(buffer);
@@ -374,13 +583,16 @@ describe('buildPeriodWorkbook', () => {
       expect(ws.getCell('A1').font?.size).toBe(14);
       expect(ws.getCell('A1').alignment?.horizontal).toBe('center');
       expect(ws.getCell('B2').numFmt).toBe('#,##0');
-      expect(ws.getCell('B4').fill).toMatchObject({ pattern: 'solid', fgColor: { argb: 'FFFFFF00' } });
+      expect(ws.getCell('B4').fill).toMatchObject({
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFFF00' },
+      });
       expect(ws.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
       expect(ws.getCell('A2').value).toBe('Số vụ'); // static text travels with the copy
     }
   });
 
-  it('writes each scope\'s own numbers into its own copy, never the template\'s sample', async () => {
+  it("writes each scope's own numbers into its own copy, never the template's sample", async () => {
     const { template, req } = await request();
     const { buffer } = await buildPeriodWorkbook(template, req);
     const wb = await reload(buffer);
@@ -401,8 +613,14 @@ describe('buildPeriodWorkbook', () => {
       const tinh = wb.getWorksheet('TỔNG - Tính') as ExcelJS.Worksheet;
       expect(nhap.getCell('B4').value).toEqual({ formula: 'B2*2', result: 60 });
       // Cross-sheet references are re-pointed at the TOTALS copy of the sheet, not at a team's.
-      expect(tinh.getCell('A1').value).toEqual({ formula: "'TỔNG - Nhập'!B2+1", result: 31 });
-      expect(tinh.getCell('A2').value).toEqual({ formula: "SUM('TỔNG - Nhập'!B2:B3)", result: 30 });
+      expect(tinh.getCell('A1').value).toEqual({
+        formula: "'TỔNG - Nhập'!B2+1",
+        result: 31,
+      });
+      expect(tinh.getCell('A2').value).toEqual({
+        formula: "SUM('TỔNG - Nhập'!B2:B3)",
+        result: 30,
+      });
       // What the system could not work out is a plain value: Excel would have made "missing" a 0.
       expect(tinh.getCell('A3').value).toEqual({ error: '#DIV/0!' });
       expect(tinh.getCell('A4').value).toBe('Thiếu dữ liệu');
@@ -415,7 +633,9 @@ describe('buildPeriodWorkbook', () => {
       const { buffer, outcome } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
       expect(wb.getWorksheet('TỔNG - Tính')?.getCell('A2').value).toBeNull();
-      expect(outcome.unresolvedTotals).toEqual(expect.arrayContaining(['Nhập!B4', 'Tính!A2', 'Tính!A3', 'Tính!A4']));
+      expect(outcome.unresolvedTotals).toEqual(
+        expect.arrayContaining(['Nhập!B4', 'Tính!A2', 'Tính!A3', 'Tính!A4']),
+      );
       const meta = readExportMeta(wb) as Record<string, string>;
       expect(Object.values(meta)).toContain('Tính!A2');
     });
@@ -433,7 +653,9 @@ describe('buildPeriodWorkbook', () => {
       req.scopes[0].values['Nhập!B2'] = '900719925474099301';
       const { buffer, outcome } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
-      expect(wb.getWorksheet('TỔNG - Nhập')?.getCell('B2').value).toBe('900719925474099301');
+      expect(wb.getWorksheet('TỔNG - Nhập')?.getCell('B2').value).toBe(
+        '900719925474099301',
+      );
       expect(outcome.textNumbers).toContain('TOTAL:Nhập!B2');
     });
   });
@@ -448,18 +670,32 @@ describe('buildPeriodWorkbook', () => {
       expect(f('Đội 3 - Tính', 'A1')).toBe("'Đội 3 - Nhập'!B2+1");
       expect(f('Đội 4 - Tính', 'A1')).toBe("'Đội 4 - Nhập'!B2+1");
       expect(f('Đội 3 - Tính', 'A2')).toBe("SUM('Đội 3 - Nhập'!B2:B3)");
-      expect(f('Đội 3 - Tính', 'A3')).toBe("IF('Đội 3 - Nhập'!B2=0,0,10/'Đội 3 - Nhập'!B2)");
+      expect(f('Đội 3 - Tính', 'A3')).toBe(
+        "IF('Đội 3 - Nhập'!B2=0,0,10/'Đội 3 - Nhập'!B2)",
+      );
     });
 
     it('a formula that names no sheet is left exactly as it was (it means "this sheet")', async () => {
       const { template, req } = await request();
       const { buffer } = await buildPeriodWorkbook(template, req);
       const wb = await reload(buffer);
-      expect((wb.getWorksheet('Đội 4 - Tính')?.getCell('A4').value as { formula: string }).formula).toBe('A1*2');
-      expect((wb.getWorksheet('Đội 4 - Nhập')?.getCell('B4').value as { formula: string }).formula).toBe('B2*2');
+      expect(
+        (
+          wb.getWorksheet('Đội 4 - Tính')?.getCell('A4').value as {
+            formula: string;
+          }
+        ).formula,
+      ).toBe('A1*2');
+      expect(
+        (
+          wb.getWorksheet('Đội 4 - Nhập')?.getCell('B4').value as {
+            formula: string;
+          }
+        ).formula,
+      ).toBe('B2*2');
     });
 
-    it('carries the figure worked out from THAT team\'s numbers as the cached result', async () => {
+    it("carries the figure worked out from THAT team's numbers as the cached result", async () => {
       const { template, req } = await request();
       const { buffer } = await buildPeriodWorkbook(template, req);
       // Team 1 typed 10: B4 = B2*2 = 20 and Tính!A1 = 11; team 2 typed 20: 40 and 21.
@@ -495,9 +731,9 @@ describe('buildPeriodWorkbook', () => {
     it('lists the sheets in the same table the names were allocated from', async () => {
       const { template, req } = await request();
       const { names } = await buildPeriodWorkbook(template, req);
-      expect([...names.entries()]).toEqual(
-        [...allocateSheetNames(req.scopes, SHEETS).entries()],
-      );
+      expect([...names.entries()]).toEqual([
+        ...allocateSheetNames(req.scopes, SHEETS).entries(),
+      ]);
     });
   });
 
@@ -505,20 +741,40 @@ describe('buildPeriodWorkbook', () => {
     const pl7 = fs.readFileSync(path.join(REAL, 'hsln_17_sheets.xlsx'));
     const raw = await readRawGridInfo(pl7);
     const wbx = await reload(pl7);
-    const model = extractGridModel(wbx, { selectedSheets: ['Đội 3'], excludedSheets: [], raw });
+    const model = extractGridModel(wbx, {
+      selectedSheets: ['Đội 3'],
+      excludedSheets: [],
+      raw,
+    });
     const { buffer } = await buildPeriodWorkbook(pl7, {
       selectedSheets: ['Đội 3'],
-      fields: [{ sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', type: 'NUM' }],
+      fields: [
+        { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', type: 'NUM' },
+      ],
       scopes: [
-        { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Đội 3!C6': '5' } },
-        { scope: 't1', label: 'Tổ 1', kind: 'TEAM', values: { 'Đội 3!C6': '2' } },
+        {
+          scope: 'TOTAL',
+          label: 'TỔNG',
+          kind: 'TOTAL',
+          values: { 'Đội 3!C6': '5' },
+        },
+        {
+          scope: 't1',
+          label: 'Tổ 1',
+          kind: 'TEAM',
+          values: { 'Đội 3!C6': '2' },
+        },
       ],
       grid: model,
       totalOutcomes: {},
       meta: { kind: 'PERIOD' },
     });
     const wb = await reload(buffer);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['TỔNG', 'Tổ 1', META_SHEET_NAME]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual([
+      'TỔNG',
+      'Tổ 1',
+      META_SHEET_NAME,
+    ]);
     // Both copies come from the same original: the same merges and widths.
     const a = wb.getWorksheet('TỔNG') as ExcelJS.Worksheet;
     const b = wb.getWorksheet('Tổ 1') as ExcelJS.Worksheet;
@@ -536,10 +792,12 @@ describe('buildPeriodWorkbook', () => {
       kind: 'TEAM' as const,
       values: {},
     }));
-    expect(many.length * SHEETS.length).toBeGreaterThan(PERIOD_EXPORT_MAX_SHEETS);
-    await expect(buildPeriodWorkbook(template, { ...req, scopes: many })).rejects.toBeInstanceOf(
-      PeriodExportTooLargeError,
+    expect(many.length * SHEETS.length).toBeGreaterThan(
+      PERIOD_EXPORT_MAX_SHEETS,
     );
+    await expect(
+      buildPeriodWorkbook(template, { ...req, scopes: many }),
+    ).rejects.toBeInstanceOf(PeriodExportTooLargeError);
   });
 });
 
@@ -556,7 +814,14 @@ describe('buildPeriodWorkbook — every copy of a real template looks like the t
     ['a10_99_formulas', ['A10']],
     ['bao_cao_ngay_shared_formulas', ['Sheet1']],
     ['phu_luc_07_08_multi_sheet', ['Thống kê sl vụ việc', 'Thống kê sl vụ án']],
-    ['phu_luc_1_6_merges', ['DS hồ sơ VV hiện hành (trừ TĐC)', 'DS vv TĐC hết thời hiệu', 'DS vv TĐC còn thời hiệu']],
+    [
+      'phu_luc_1_6_merges',
+      [
+        'DS hồ sơ VV hiện hành (trừ TĐC)',
+        'DS vv TĐC hết thời hiệu',
+        'DS vv TĐC còn thời hiệu',
+      ],
+    ],
   ];
 
   /**
@@ -577,7 +842,11 @@ describe('buildPeriodWorkbook — every copy of a real template looks like the t
     const template = fs.readFileSync(path.join(REAL, `${stem}.xlsx`));
     const wbT = await reload(template);
     const rawT = await readRawGridInfo(template);
-    const original = extractGridModel(wbT, { selectedSheets: selected, excludedSheets: [], raw: rawT });
+    const original = extractGridModel(wbT, {
+      selectedSheets: selected,
+      excludedSheets: [],
+      raw: rawT,
+    });
 
     const scopeList: PeriodExportScope[] = [
       { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: {} },
@@ -594,16 +863,32 @@ describe('buildPeriodWorkbook — every copy of a real template looks like the t
 
     const wbE = await reload(buffer);
     const rawE = await readRawGridInfo(buffer);
-    const exportedNames = scopeList.flatMap((sc) => selected.map((o) => names.get(sheetNameKey(sc.scope, o)) as string));
-    const exported = extractGridModel(wbE, { selectedSheets: exportedNames, excludedSheets: [], raw: rawE });
+    const exportedNames = scopeList.flatMap((sc) =>
+      selected.map((o) => names.get(sheetNameKey(sc.scope, o)) as string),
+    );
+    const exported = extractGridModel(wbE, {
+      selectedSheets: exportedNames,
+      excludedSheets: [],
+      raw: rawE,
+    });
 
     for (const sc of scopeList) {
       for (const orig of selected) {
-        const a = original.sheets.find((x) => x.name === orig) as GridModel['sheets'][number];
-        const b = exported.sheets.find((x) => x.name === names.get(sheetNameKey(sc.scope, orig))) as GridModel['sheets'][number];
+        const a = original.sheets.find(
+          (x) => x.name === orig,
+        ) as GridModel['sheets'][number];
+        const b = exported.sheets.find(
+          (x) => x.name === names.get(sheetNameKey(sc.scope, orig)),
+        ) as GridModel['sheets'][number];
         expect(b).toBeDefined();
         const byPosition = (m: GridModel['sheets'][number]['merges']) =>
-          [...m].sort((x, y) => x.top - y.top || x.left - y.left || x.bottom - y.bottom || x.right - y.right);
+          [...m].sort(
+            (x, y) =>
+              x.top - y.top ||
+              x.left - y.left ||
+              x.bottom - y.bottom ||
+              x.right - y.right,
+          );
         expect(byPosition(b.merges)).toEqual(byPosition(a.merges)); // the order of the list means nothing
         expect(b.colWidthsPx).toEqual(a.colWidthsPx);
         expect(b.rowHeightsPx).toEqual(a.rowHeightsPx);
@@ -616,7 +901,9 @@ describe('buildPeriodWorkbook — every copy of a real template looks like the t
         for (const [address, cell] of Object.entries(a.cells)) {
           const other = b.cells[address];
           expect(other).toBeDefined();
-          expect(effective(exported, other.s)).toEqual(effective(original, cell.s));
+          expect(effective(exported, other.s)).toEqual(
+            effective(original, cell.s),
+          );
         }
       }
     }
@@ -661,7 +948,10 @@ describe('buildPeriodWorkbook — templates that are not tidy', () => {
     // "Alpha" is dropped (not selected) — and a team is called "Alpha", so a sheet named "Alpha" exists in the file.
     const { wb, outcome } = await build(
       (b) => {
-        b.addWorksheet('Input').getCell('B1').value = { formula: 'Alpha!A1+1', result: 2 };
+        b.addWorksheet('Input').getCell('B1').value = {
+          formula: 'Alpha!A1+1',
+          result: 2,
+        };
         b.addWorksheet('Alpha').getCell('A1').value = 1;
       },
       ['Input'],
@@ -677,7 +967,10 @@ describe('buildPeriodWorkbook — templates that are not tidy', () => {
     const { wb } = await build(
       (b) => {
         b.addWorksheet('Input').getCell('A1').value = 5;
-        b.addWorksheet('Calc').getCell('A1').value = { formula: 'input!A1*2', result: 10 };
+        b.addWorksheet('Calc').getCell('A1').value = {
+          formula: 'input!A1*2',
+          result: 10,
+        };
       },
       ['Input', 'Calc'],
       [],
@@ -694,7 +987,11 @@ describe('buildPeriodWorkbook — templates that are not tidy', () => {
       [],
       'Alpha',
     );
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['TỔNG', 'Alpha', META_SHEET_NAME]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual([
+      'TỔNG',
+      'Alpha',
+      META_SHEET_NAME,
+    ]);
   });
 
   it('the cells an array formula fills hold no stale sample number in either kind of copy', async () => {
@@ -703,7 +1000,12 @@ describe('buildPeriodWorkbook — templates that are not tidy', () => {
         const ws = b.addWorksheet('Input');
         ws.getCell('A1').value = 1;
         ws.getCell('A2').value = 2;
-        ws.getCell('B1').value = { formula: 'A1:A2*2', result: 2, shareType: 'array', ref: 'B1:B2' } as ExcelJS.CellValue;
+        ws.getCell('B1').value = {
+          formula: 'A1:A2*2',
+          result: 2,
+          shareType: 'array',
+          ref: 'B1:B2',
+        } as ExcelJS.CellValue;
         ws.getCell('B2').value = 88; // the sample result of the second row
       },
       ['Input'],
@@ -718,7 +1020,10 @@ describe('buildPeriodWorkbook — templates that are not tidy', () => {
   it('a template whose formulas use a named range is refused, rather than exported with #NAME? in every team file', async () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet('Input').getCell('A1').value = 5;
-    wb.addWorksheet('Calc').getCell('A1').value = { formula: 'Amount*2', result: 10 };
+    wb.addWorksheet('Calc').getCell('A1').value = {
+      formula: 'Amount*2',
+      result: 10,
+    };
     wb.definedNames.add('Input!$A$1', 'Amount');
     const template = Buffer.from(await wb.xlsx.writeBuffer());
     const grid = await gridOf(template);
@@ -738,7 +1043,10 @@ describe('buildPeriodWorkbook — templates that are not tidy', () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet('Input').getCell('A1').value = 5;
     const calc = wb.addWorksheet('Calc');
-    calc.getCell('A1').value = { formula: 'IF(1=1,"Amount","x")', result: 'Amount' };
+    calc.getCell('A1').value = {
+      formula: 'IF(1=1,"Amount","x")',
+      result: 'Amount',
+    };
     calc.getCell('A2').value = { formula: 'AmountTotal+1', result: 1 };
     wb.definedNames.add('Input!$A$1', 'Amount');
     const template = Buffer.from(await wb.xlsx.writeBuffer());
