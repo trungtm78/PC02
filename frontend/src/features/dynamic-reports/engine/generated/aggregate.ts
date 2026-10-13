@@ -11,7 +11,9 @@ import type { AggregateType } from './token';
  * Two blank policies (D03): `IGNORE` is the FRD's original wording ("AVG
  * bỏ null, tính cả 0") — a blank contribution is excluded entirely, from
  * both the sum and the denominator. `ZERO` (the system default per D03) —
- * a blank counts as 0, so it IS included in COUNT and in AVG's denominator.
+ * a blank counts as 0 in arithmetic and AVG's denominator. COUNT measures
+ * entered numbers (including explicit zero), excluding blanks under either
+ * policy, as required by the corrected AC-025 example.
  * Either way, an empty contributing set (no contributions at all, or every
  * contribution blank under IGNORE) yields `null` for SUM/AVG/MIN/MAX
  * ("—"), never a misleading 0 — except COUNT, which is always a real
@@ -87,7 +89,7 @@ export function aggregateValues(
 
   if (aggregateType === 'COUNT') {
     return {
-      value: String(values.length),
+      value: String(countNonBlank),
       displayNotAggregated: false,
       contributors: contributions,
       countTotal,

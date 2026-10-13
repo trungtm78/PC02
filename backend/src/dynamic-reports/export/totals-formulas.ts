@@ -6,9 +6,9 @@ import { MAX_FORMULA_LENGTH } from '../engine/expr';
  * It must give, when Excel works it out, exactly what `engine/aggregate.ts` gives for the same teams — that is what the
  * screen and the closed period show — so the blank policy is spelled out rather than left to Excel's habits:
  *
- *  - ZERO  a blank counts as 0 and is part of COUNT and of AVG's divisor. Excel's SUM already treats a blank as 0;
+ *  - ZERO  a blank counts as 0 and is part of AVG's divisor. Excel's SUM already treats a blank as 0;
  *          AVG is the sum over the number of teams; MIN/MAX add 0 to each cell (`ref+0`: a blank becomes 0, MIN/MAX
- *          alone would skip it); COUNT is the number of teams, which is a constant, not a formula.
+ *          alone would skip it). COUNT counts entered numbers under either policy (AC-025).
  *  - IGNORE a blank is left out of everything. When EVERY cell is blank the system says "—", Excel's SUM would say 0:
  *          the formula returns "" in that case.
  *
@@ -73,8 +73,8 @@ function countOf(refs: string[]): string {
 }
 
 /**
- * The formula of one totals cell, or null when it stays a plain number (nothing to add up, COUNT with the ZERO policy
- * which is just the number of teams, or a formula that would not fit in an Excel cell).
+ * The formula of one totals cell, or null when it stays a plain number (nothing to add up
+ * or a formula that would not fit in an Excel cell).
  * `sheetNames` are the sheets of the teams that count, in the order of the file; `address` is the cell on each of them.
  */
 export function buildTotalsFormula(input: {
@@ -104,10 +104,13 @@ export function buildTotalsFormula(input: {
     case 'MAX':
       formula = ignoring
         ? `IF(${countOf(refs)}=0,"",${foldExtreme(aggregate, refs)})`
-        : fold(aggregate, refs.map((r) => `${r}+0`));
+        : fold(
+            aggregate,
+            refs.map((r) => `${r}+0`),
+          );
       break;
     case 'COUNT':
-      formula = ignoring ? countOf(refs) : null;
+      formula = countOf(refs);
       break;
   }
   if (formula === null || formula.length > MAX_FORMULA_LENGTH) return null;

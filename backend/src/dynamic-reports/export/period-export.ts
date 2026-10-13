@@ -135,8 +135,15 @@ function writeTotalsNote(ws: ExcelJS.Worksheet, note: string): void {
   }
 }
 
-function isFormulaValue(v: unknown): v is { formula?: string; sharedFormula?: string } {
-  return !!v && typeof v === 'object' && !(v instanceof Date) && ('formula' in v || 'sharedFormula' in v);
+function isFormulaValue(
+  v: unknown,
+): v is { formula?: string; sharedFormula?: string } {
+  return (
+    !!v &&
+    typeof v === 'object' &&
+    !(v instanceof Date) &&
+    ('formula' in v || 'sharedFormula' in v)
+  );
 }
 
 function decodeAddress(address: string): { row: number; col: number } {
@@ -155,7 +162,11 @@ function decodeAddress(address: string): { row: number; col: number } {
  * merge gives every covered cell the style of the block's first cell, which
  * drops the borders the file keeps on the covered cells; those are put back.
  */
-function cloneSheet(workbook: ExcelJS.Workbook, source: ExcelJS.Worksheet, name: string): ExcelJS.Worksheet {
+function cloneSheet(
+  workbook: ExcelJS.Workbook,
+  source: ExcelJS.Worksheet,
+  name: string,
+): ExcelJS.Worksheet {
   const copy = workbook.addWorksheet(name);
   const model = structuredClone(source.model) as unknown as Record<string, unknown>;
   model.name = name;
@@ -190,8 +201,16 @@ function clearArrayResults(ws: ExcelJS.Worksheet): void {
   const ranges: Array<{ master: string; ref: string }> = [];
   ws.eachRow({ includeEmpty: false }, (row) =>
     row.eachCell({ includeEmpty: false }, (cell) => {
-      const v = cell.value as unknown as { ref?: string; shareType?: string } | null;
-      if (v && typeof v === 'object' && v.shareType === 'array' && typeof v.ref === 'string') {
+      const v = cell.value as unknown as {
+        ref?: string;
+        shareType?: string;
+      } | null;
+      if (
+        v &&
+        typeof v === 'object' &&
+        v.shareType === 'array' &&
+        typeof v.ref === 'string'
+      ) {
         ranges.push({ master: cell.address, ref: v.ref });
       }
     }),
@@ -249,9 +268,16 @@ function bareWords(formula: string): string {
  * had (a name points at ONE sheet, and the originals are replaced by one copy per scope), leaving `#NAME?` in every
  * team's file; the export says it cannot reproduce such a template rather than hand out a quietly broken one.
  */
-function assertNoNamedRangesInUse(workbook: ExcelJS.Workbook, originals: ExcelJS.Worksheet[]): void {
-  const model = (workbook.definedNames as unknown as { model?: Array<{ name: string }> }).model ?? [];
-  const names = model.map((n) => n.name).filter((n) => n && !n.startsWith('_xlnm.'));
+function assertNoNamedRangesInUse(
+  workbook: ExcelJS.Workbook,
+  originals: ExcelJS.Worksheet[],
+): void {
+  const model =
+    (workbook.definedNames as unknown as { model?: Array<{ name: string }> })
+      .model ?? [];
+  const names = model
+    .map((n) => n.name)
+    .filter((n) => n && !n.startsWith('_xlnm.'));
   if (names.length === 0) return;
   const pattern = new RegExp(
     `(?<![A-Za-z0-9_.!$'])(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![A-Za-z0-9_.(!'])`,
@@ -275,11 +301,19 @@ function assertNoNamedRangesInUse(workbook: ExcelJS.Workbook, originals: ExcelJS
 }
 
 /** What a totals cell shows in place of a formula: the figure the system reported, as a plain value. */
-function constantOf(outcome: FormulaOutcome, key: string, scope: string, out: PeriodExportOutcome): ExcelJS.CellValue {
+function constantOf(
+  outcome: FormulaOutcome,
+  key: string,
+  scope: string,
+  out: PeriodExportOutcome,
+): ExcelJS.CellValue {
   if (!outcome.ok) {
     // "Missing" has no Excel error of its own and must not become a 0: say it.
-    if (outcome.code === 'MISSING_DATA') return describeFormulaError('MISSING_DATA').text;
-    return { error: describeFormulaError(outcome.code as FormulaErrorCode).text } as ExcelJS.CellValue;
+    if (outcome.code === 'MISSING_DATA')
+      return describeFormulaError('MISSING_DATA').text;
+    return {
+      error: describeFormulaError(outcome.code as FormulaErrorCode).text,
+    } as ExcelJS.CellValue;
   }
   if (outcome.type === 'boolean') return outcome.value;
   if (outcome.type === 'string') return outcome.value.slice(0, EXCEL_CELL_TEXT_LIMIT);
@@ -335,8 +369,17 @@ function resolveTotalsFormulas(
 function expandSharedFormulas(ws: ExcelJS.Worksheet): void {
   ws.eachRow({ includeEmpty: false }, (row) =>
     row.eachCell({ includeEmpty: false }, (cell) => {
-      const v = cell.value as unknown as { sharedFormula?: string; shareType?: string; result?: unknown } | null;
-      if (!v || typeof v !== 'object' || (v.sharedFormula === undefined && v.shareType !== 'shared')) return;
+      const v = cell.value as unknown as {
+        sharedFormula?: string;
+        shareType?: string;
+        result?: unknown;
+      } | null;
+      if (
+        !v ||
+        typeof v !== 'object' ||
+        (v.sharedFormula === undefined && v.shareType !== 'shared')
+      )
+        return;
       const text = (cell as unknown as { formula?: string }).formula;
       if (typeof text === 'string') cell.value = { formula: text, result: v.result } as ExcelJS.CellValue;
     }),
@@ -344,7 +387,9 @@ function expandSharedFormulas(ws: ExcelJS.Worksheet): void {
 }
 
 /** The result a kept formula carries: the figure as a number Excel holds exactly, a boolean or a text. undefined: write it as a plain value instead. */
-function resultOf(outcome: Extract<FormulaOutcome, { ok: true }>): number | boolean | string | undefined {
+function resultOf(
+  outcome: Extract<FormulaOutcome, { ok: true }>,
+): number | boolean | string | undefined {
   if (outcome.type === 'boolean') return outcome.value;
   if (outcome.type === 'string') return outcome.value.slice(0, EXCEL_CELL_TEXT_LIMIT);
   return toExactNumber(outcome.value) ?? undefined;
@@ -378,7 +423,9 @@ function writeTotalsFormulas(
       keep('a figure has more digits than Excel holds');
       continue;
     }
-    const sheetNames = counted.map((s) => names.get(sheetNameKey(s.scope, field.sheetKey)) as string);
+    const sheetNames = counted.map(
+      (s) => names.get(sheetNameKey(s.scope, field.sheetKey)) as string,
+    );
     const formula = buildTotalsFormula({
       aggregate: aggregate as TotalsAggregate,
       blankPolicy: (field.blankPolicy ?? 'ZERO') as TotalsBlankPolicy,
@@ -386,7 +433,7 @@ function writeTotalsFormulas(
       address: field.address,
     });
     if (!formula) {
-      keep(aggregate === 'COUNT' ? 'COUNT counts the teams: a number' : 'too many teams for one formula');
+      keep('too many teams for one formula');
       continue;
     }
     const ws = copies.get(sheetNameKey(total.scope, field.sheetKey));
@@ -394,18 +441,31 @@ function writeTotalsFormulas(
     const cell = ws.getCell(field.address);
     const raw = total.values[key] ?? null;
     // The system's figure is the result the formula carries; "" where the system says "—" (every cell blank).
-    cell.value = { formula, result: raw === null || raw === '' ? '' : toExactNumber(raw) ?? '' } as ExcelJS.CellValue;
+    cell.value = {
+      formula,
+      result: raw === null || raw === '' ? '' : (toExactNumber(raw) ?? ''),
+    } as ExcelJS.CellValue;
   }
 }
 
 export async function buildPeriodWorkbook(
   template: Buffer | Uint8Array,
   request: PeriodExportRequest,
-): Promise<{ buffer: Buffer; outcome: PeriodExportOutcome; names: Map<string, string> }> {
+): Promise<{
+  buffer: Buffer;
+  outcome: PeriodExportOutcome;
+  names: Map<string, string>;
+}> {
   const sheets = request.selectedSheets.filter((n) => n !== META_SHEET_NAME);
   const tooManySheets = request.scopes.length * sheets.length;
-  const cellsPerScope = request.grid.sheets.reduce((n, s) => n + Object.keys(s.cells).length, 0);
-  if (tooManySheets > PERIOD_EXPORT_MAX_SHEETS || cellsPerScope * request.scopes.length > PERIOD_EXPORT_MAX_CELLS) {
+  const cellsPerScope = request.grid.sheets.reduce(
+    (n, s) => n + Object.keys(s.cells).length,
+    0,
+  );
+  if (
+    tooManySheets > PERIOD_EXPORT_MAX_SHEETS ||
+    cellsPerScope * request.scopes.length > PERIOD_EXPORT_MAX_CELLS
+  ) {
     throw new PeriodExportTooLargeError(
       `Báo cáo quá lớn để xuất thành một file (${request.scopes.length} phạm vi × ${sheets.length} sheet). Hãy xuất theo từng tổ.`,
     );
@@ -425,9 +485,17 @@ export async function buildPeriodWorkbook(
     }
   }
 
-  const outcome: PeriodExportOutcome = { textNumbers: [], truncated: [], unresolvedTotals: [], unrewritten: [], constantTotals: [] };
+  const outcome: PeriodExportOutcome = {
+    textNumbers: [],
+    truncated: [],
+    unresolvedTotals: [],
+    unrewritten: [],
+    constantTotals: [],
+  };
   const names = allocateSheetNames(request.scopes, present);
-  const originals = present.map((n) => workbook.getWorksheet(n) as ExcelJS.Worksheet);
+  const originals = present.map(
+    (n) => workbook.getWorksheet(n) as ExcelJS.Worksheet,
+  );
   assertNoNamedRangesInUse(workbook, originals);
 
   // Excel compares sheet names case-insensitively: `input!A1` names the sheet "Input".
@@ -441,7 +509,10 @@ export async function buildPeriodWorkbook(
   for (const scope of request.scopes) {
     const rename = (sheet: string): string => {
       const original = canonical.get(sheet.toLowerCase());
-      return (original && names.get(sheetNameKey(scope.scope, original))) || DANGLING_SHEET;
+      return (
+        (original && names.get(sheetNameKey(scope.scope, original))) ||
+        DANGLING_SHEET
+      );
     };
     for (const original of originals) {
       const copy = cloneSheet(workbook, original, `__dr_tmp_${temporary++}`);
@@ -474,21 +545,46 @@ export async function buildPeriodWorkbook(
     for (const field of request.fields) {
       const ws = copies.get(sheetNameKey(scope.scope, field.sheetKey));
       if (!ws) continue;
-      writeValue(ws.getCell(field.address), field, scope.values[field.fieldKey] ?? null, date1904, scoped);
+      writeValue(
+        ws.getCell(field.address),
+        field,
+        scope.values[field.fieldKey] ?? null,
+        date1904,
+        scoped,
+      );
     }
-    outcome.textNumbers.push(...scoped.textNumbers.map((k) => `${scope.scope}:${k}`));
-    outcome.truncated.push(...scoped.truncated.map((k) => `${scope.scope}:${k}`));
+    outcome.textNumbers.push(
+      ...scoped.textNumbers.map((k) => `${scope.scope}:${k}`),
+    );
+    outcome.truncated.push(
+      ...scoped.truncated.map((k) => `${scope.scope}:${k}`),
+    );
 
     if (scope.kind === 'TOTAL') {
-      const totalsHoldText = outcome.textNumbers.some((k) => k.startsWith(`${scope.scope}:`));
+      const totalsHoldText = outcome.textNumbers.some((k) =>
+        k.startsWith(`${scope.scope}:`),
+      );
       for (const original of present) {
-        const ws = copies.get(sheetNameKey(scope.scope, original)) as ExcelJS.Worksheet;
-        resolveTotalsFormulas(ws, original, request.totalOutcomes, scope.scope, outcome, totalsHoldText);
+        const ws = copies.get(
+          sheetNameKey(scope.scope, original),
+        ) as ExcelJS.Worksheet;
+        resolveTotalsFormulas(
+          ws,
+          original,
+          request.totalOutcomes,
+          scope.scope,
+          outcome,
+          totalsHoldText,
+        );
       }
       const first = present.length > 0 ? copies.get(sheetNameKey(scope.scope, present[0])) : undefined;
       if (first && request.totalsNote) writeTotalsNote(first, request.totalsNote);
     } else {
-      const results = computeFormulaResults(request.grid, request.fields, scope.values);
+      const results = computeFormulaResults(
+        request.grid,
+        request.fields,
+        scope.values,
+      );
       for (const [key, result] of Object.entries(results)) {
         const bang = key.lastIndexOf('!');
         const ws = copies.get(sheetNameKey(scope.scope, key.slice(0, bang)));
@@ -505,7 +601,10 @@ export async function buildPeriodWorkbook(
 
   // Excel and LibreOffice recalculate when they open the file (the team copies' formulas): the results
   // above are for viewers that do not.
-  workbook.calcProperties = { ...(workbook.calcProperties ?? {}), fullCalcOnLoad: true };
+  workbook.calcProperties = {
+    ...(workbook.calcProperties ?? {}),
+    fullCalcOnLoad: true,
+  };
 
   const meta = workbook.addWorksheet(META_SHEET_NAME, { state: 'veryHidden' });
   for (const [k, v] of Object.entries(request.meta)) meta.addRow([k, v]);
