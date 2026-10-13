@@ -93,13 +93,14 @@ export default function ReportEditPage() {
           ? 'Không có gì thay đổi.'
           : `Đã lưu: ${result.changed.map((c) => CHANGED_TEXT[c] ?? c).join(', ')}.`,
       );
+      // Wait for fresh detail before remounting a section: its local state reads initial props only once.
+      await queryClient.invalidateQueries({ queryKey: DETAIL_KEY(report.id) });
       if (section === 'info') {
         setName(null);
         setDescription(null);
       } else if (section === 'schedule' || section === 'teams') {
         setResets((r) => ({ ...r, [section]: r[section] + 1 }));
       }
-      await queryClient.invalidateQueries({ queryKey: DETAIL_KEY(report.id) });
       await queryClient.invalidateQueries({ queryKey: SETUP_LIST_KEY });
     } catch (err) {
       const e = extractApiError(err);
@@ -110,11 +111,11 @@ export default function ReportEditPage() {
   }
 
   async function reload() {
+    await detailQ.refetch();
     setError(null);
     setName(null);
     setDescription(null);
     setResets((r) => ({ schedule: r.schedule + 1, teams: r.teams + 1 }));
-    await detailQ.refetch();
   }
 
   const back = (
