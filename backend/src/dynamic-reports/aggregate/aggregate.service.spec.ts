@@ -1016,7 +1016,7 @@ describe('AggregateService', () => {
         const req = request(te);
         expect(req.versionId).toBe('version1');
         expect(req.fields).toEqual([
-          { sheetKey: 'Đội 3', address: 'C6', fieldKey: FIELD.fieldKey, type: 'NUM' },
+          expect.objectContaining({ sheetKey: 'Đội 3', address: 'C6', fieldKey: FIELD.fieldKey, type: 'NUM', aggregate: expect.any(String), blankPolicy: expect.any(String) }),
         ]);
         expect(req.scopes.map((s) => [s.scope, s.kind])).toEqual([
           ['TOTAL', 'TOTAL'],
@@ -1030,6 +1030,13 @@ describe('AggregateService', () => {
         expect(req.scopes[1]).toMatchObject({ label: 'Team a1', values: { [FIELD.fieldKey]: '10' } });
         expect(req.scopes[3].values).toEqual({ [FIELD.fieldKey]: '5' });
         expect(req.scopes[4].values).toEqual({ [FIELD.fieldKey]: null }); // exempt, never started
+        // The teams the totals formulas add up are exactly those the aggregate counts: approved and not exempt.
+        expect(req.scopes.slice(1).map((x) => [x.scope, (x as { counted?: boolean }).counted])).toEqual([
+          ['team-a1', false],
+          ['team-a2', true],
+          ['team-a3', false],
+          ['team-a4', false],
+        ]);
         expect(req.meta).toMatchObject({ kind: 'PERIOD', periodId: 'period1', versionId: 'version1', mode: 'APPROVED' });
       });
 

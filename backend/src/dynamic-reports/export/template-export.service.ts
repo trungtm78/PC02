@@ -25,7 +25,7 @@ export interface TeamExportInput {
 
 export interface PeriodExportInput {
   versionId: string;
-  fields: InputFieldRef[];
+  fields: Array<InputFieldRef & { aggregate?: 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT' | 'NONE'; blankPolicy?: 'ZERO' | 'IGNORE' }>;
   /** The totals first, then the teams in the order they should appear. */
   scopes: PeriodExportScope[];
   /** The official figure of every formula for the totals; null when the system has none. */

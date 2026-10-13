@@ -15,6 +15,7 @@ export interface BasisAssignment {
 }
 
 export interface BasisTeam {
+  teamId: string;
   name: string;
   state: string;
 }
@@ -42,7 +43,7 @@ export function closingBasis(assignments: readonly BasisAssignment[]): ClosingBa
     requiredCount++;
     const name = (a.teamSnapshot as { name?: string } | null)?.name || a.teamId;
     const state = a.submission?.state ?? 'NOT_STARTED';
-    (state === 'APPROVED' ? approved : excluded).push({ name, state });
+    (state === 'APPROVED' ? approved : excluded).push({ teamId: a.teamId, name, state });
   }
   return { requiredCount, approved, excluded };
 }
@@ -63,12 +64,18 @@ export function describeExcluded(excluded: readonly BasisTeam[]): string {
   return excluded.map((t) => `${t.name} (${STATE_WORDS[t.state] ?? t.state})`).join('; ');
 }
 
-/** The line written under the totals in the Excel file, so nobody reads a total as more than it is. */
-export function totalsNote(basis: ClosingBasis): string {
+/**
+ * The line written under the totals in the Excel file, so nobody reads a total as more than it is. `formulas`: the file's
+ * totals are formulas over the sheets of the approved teams (the template-shaped file), not plain figures (the plain list).
+ */
+export function totalsNote(basis: ClosingBasis, formulas = false): string {
   if (basis.requiredCount === 0) return '';
   if (basis.approved.length === 0) {
     return `Chưa có tổ nào được duyệt nên các ô tổng để trống. Chưa tính: ${describeExcluded(basis.excluded)}.`;
   }
   const head = `Số liệu tổng hợp từ ${basis.approved.length}/${basis.requiredCount} tổ đã duyệt.`;
-  return basis.excluded.length === 0 ? head : `${head} Chưa tính: ${describeExcluded(basis.excluded)}.`;
+  const tail = formulas ? ' Các ô tổng là công thức cộng từ sheet của những tổ này: sửa số ở sheet tổ thì TỔNG tự tính lại.' : '';
+  return basis.excluded.length === 0
+    ? `${head}${tail}`
+    : `${head} Chưa tính: ${describeExcluded(basis.excluded)}.${tail}`;
 }
