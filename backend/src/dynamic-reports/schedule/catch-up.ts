@@ -18,6 +18,10 @@ export interface CatchUpResult {
 
 const DAY_MS = 86_400_000;
 
+function startOfUtcDay(d: Date): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 export function computePeriodsToEnsure(
   rule: ScheduleRule,
   cursorStart: Date,
@@ -39,26 +43,30 @@ export function computePeriodsToEnsure(
     };
   }
 
+  // The horizon is measured from `now`: the period containing it plus `lookahead - 1` after it. Measuring from the cursor
+  // instead (as this once did) made every tick — the cursor already being past `now` — add `lookahead` MORE periods:
+  // 6 an hour, 54 in nine hours, reaching 2031 on production (13/10/2026).
+  const [current] = generatePeriods(rule, now, 1, nonWorkingDates);
+  let horizonEnd = new Date(`${current.periodEnd}T00:00:00Z`);
+  for (let k = 1; k < lookahead; k++) {
+    const [next] = generatePeriods(rule, new Date(horizonEnd.getTime() + DAY_MS), 1, nonWorkingDates);
+    horizonEnd = new Date(`${next.periodEnd}T00:00:00Z`);
+  }
+
   const periods: GeneratedPeriod[] = [];
   let cursor = cursorStart;
-  let lookaheadRemaining = -1; // -1 = haven't reached the period containing `now` yet
   let truncated = false;
 
   for (let i = 0; i < maxIterations; i++) {
+    // By calendar day: the cursor may carry a time of day (the first run starts at `effectiveFrom`), the horizon is a date.
+    if (startOfUtcDay(cursor) > horizonEnd.getTime()) break; // everything up to the horizon already exists
     const [period] = generatePeriods(rule, cursor, 1, nonWorkingDates);
     periods.push(period);
 
     const periodEnd = new Date(`${period.periodEnd}T00:00:00Z`);
     cursor = new Date(periodEnd.getTime() + DAY_MS);
 
-    if (lookaheadRemaining === -1 && periodEnd >= now) {
-      lookaheadRemaining = lookahead - 1;
-    } else if (lookaheadRemaining >= 0) {
-      lookaheadRemaining--;
-    }
-
-    if (lookaheadRemaining === 0) break;
-    if (i === maxIterations - 1) truncated = true;
+    if (i === maxIterations - 1 && startOfUtcDay(cursor) <= horizonEnd.getTime()) truncated = true;
   }
 
   return { periods, nextCursor: cursor, truncated };

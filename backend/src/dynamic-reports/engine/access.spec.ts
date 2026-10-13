@@ -61,6 +61,39 @@ describe('resolveAccess — not yet open', () => {
   });
 });
 
+describe('resolveAccess — a grant before the period has opened', () => {
+  const before = new Date('2026-09-30T00:00:00.000Z');
+  const grant = {
+    startsAt: new Date('2026-09-29T00:00:00.000Z'),
+    expiresAt: new Date('2026-10-01T00:00:00.000Z'),
+  };
+
+  it('REGRESSION: an active grant lets the team write although opensAt has not come (it was NOT_YET_OPEN)', () => {
+    const result = resolveAccess(baseInput({ now: before, grants: [grant] }));
+    expect(result.canEdit).toBe(true);
+    expect(result.reason).toBeNull();
+    expect(result.effectiveLockAt).toEqual(grant.expiresAt);
+  });
+
+  it('a revoked, expired or not-yet-started grant does not', () => {
+    for (const g of [
+      { ...grant, revokedAt: new Date('2026-09-29T12:00:00.000Z') },
+      { ...grant, expiresAt: new Date('2026-09-29T12:00:00.000Z') },
+      { ...grant, startsAt: new Date('2026-09-30T12:00:00.000Z') },
+    ]) {
+      const result = resolveAccess(baseInput({ now: before, grants: [g] }));
+      expect(result.canEdit).toBe(false);
+      expect(result.reason).toBe('NOT_YET_OPEN');
+    }
+  });
+
+  it('a grant still does not open a submitted report, a finalized period or a disabled account', () => {
+    expect(resolveAccess(baseInput({ now: before, grants: [grant], state: 'SUBMITTED' })).reason).toBe('WRONG_STATE');
+    expect(resolveAccess(baseInput({ now: before, grants: [grant], periodStatus: 'FINALIZED' })).reason).toBe('PERIOD_FINALIZED');
+    expect(resolveAccess(baseInput({ now: before, grants: [grant], userActive: false })).reason).toBe('USER_INACTIVE');
+  });
+});
+
 describe('resolveAccess — user state and submission state', () => {
   it('blocks a disabled account immediately, regardless of deadline', () => {
     const result = resolveAccess(
