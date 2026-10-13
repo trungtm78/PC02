@@ -245,7 +245,7 @@ describe('ReportPeriodSummaryPage', () => {
 
     await waitFor(() => expect(dynamicReportsApi.finalizePeriod).toHaveBeenCalledTimes(2));
     expect(dynamicReportsApi.finalizePeriod).toHaveBeenNthCalledWith(1, 'period1');
-    expect(dynamicReportsApi.finalizePeriod).toHaveBeenNthCalledWith(2, 'period1', true);
+    expect(dynamicReportsApi.finalizePeriod).toHaveBeenNthCalledWith(2, 'period1', UNAPPROVED.response.data.error.message);
     // The second question carries the server's own words: which team, and why it is not counted.
     expect(confirmSpy.mock.calls[1][0]).toContain('Đội 1 (đã nộp, chưa duyệt)');
     confirmSpy.mockRestore();

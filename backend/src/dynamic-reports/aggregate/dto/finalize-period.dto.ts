@@ -1,8 +1,12 @@
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
-/** Closing a period with teams still outstanding needs the manager to say so; without it the server answers UNAPPROVED_TEAMS (409). */
+/**
+ * Closing a period with teams still outstanding needs the manager to say so. `acknowledgedBasis` is the very sentence the
+ * server showed (UNAPPROVED_TEAMS), sent back; the server accepts it only if it is still what is true.
+ */
 export class FinalizePeriodDto {
   @IsOptional()
-  @IsBoolean()
-  acknowledgeExcluded?: boolean;
+  @IsString()
+  @MaxLength(4000)
+  acknowledgedBasis?: string;
 }

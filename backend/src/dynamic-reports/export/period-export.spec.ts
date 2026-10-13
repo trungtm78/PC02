@@ -160,6 +160,23 @@ describe('buildPeriodWorkbook', () => {
     }
   });
 
+  it('a print area that stops above the note is extended to include it, and the note is merged across the table so it is not cut off (found by Codex)', async () => {
+    const note = 'Số liệu tổng hợp từ 1/3 tổ đã duyệt. Chưa tính: Đội 4 (đã nộp, chưa duyệt); Đội 5 (chưa nhập).';
+    const template = await makeTemplate();
+    const withArea = new ExcelJS.Workbook();
+    await withArea.xlsx.load(template as unknown as ExcelJS.Buffer);
+    (withArea.getWorksheet('Nhập') as ExcelJS.Worksheet).pageSetup.printArea = 'A1:C4';
+    const patched = Buffer.from(await withArea.xlsx.writeBuffer());
+    const { req } = await request({ totalsNote: note, grid: await gridOf(patched) });
+
+    const wb = await reload((await buildPeriodWorkbook(patched, req)).buffer);
+    const totals = wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet;
+    expect(totals.pageSetup.printArea).toBe('A1:C6'); // the note is on row 6: last used row 4, plus two
+    expect(totals.getCell('A6').value).toBe(note);
+    expect(totals.model.merges).toContain('A6:C6');
+    expect(totals.getCell('A6').alignment?.wrapText).toBe(true);
+  });
+
   it('no note, no extra row', async () => {
     const { template, req } = await request();
     const { buffer } = await buildPeriodWorkbook(template, req);

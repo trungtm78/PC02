@@ -85,7 +85,7 @@ describe('AggregateController', () => {
 
     const result = await controller.finalize('period1', {}, user);
 
-    expect(service.finalizePeriod).toHaveBeenCalledWith('period1', 'u1', 'r1', false);
+    expect(service.finalizePeriod).toHaveBeenCalledWith('period1', 'u1', 'r1', undefined);
     expect(result).toBe(finalized);
   });
 

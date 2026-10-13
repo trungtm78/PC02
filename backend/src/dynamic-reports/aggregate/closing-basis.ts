@@ -47,6 +47,18 @@ export function closingBasis(assignments: readonly BasisAssignment[]): ClosingBa
   return { requiredCount, approved, excluded };
 }
 
+/**
+ * The sentence shown to the manager, and the very text they send back to say "yes, with this". Binding the acknowledgement
+ * to it means a team approved, unapproved or added while the question was open changes the sentence, so the old "yes" no
+ * longer matches and the manager is asked again with what is true now.
+ */
+export function excludedMessage(basis: ClosingBasis): string {
+  return (
+    `Số chốt chỉ tính ${basis.approved.length}/${basis.requiredCount} tổ đã duyệt. ` +
+    `Số liệu của các tổ sau KHÔNG nằm trong số chốt: ${describeExcluded(basis.excluded)}.`
+  );
+}
+
 export function describeExcluded(excluded: readonly BasisTeam[]): string {
   return excluded.map((t) => `${t.name} (${STATE_WORDS[t.state] ?? t.state})`).join('; ');
 }

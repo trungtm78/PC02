@@ -92,13 +92,35 @@ export class PeriodExportTooLargeError extends Error {
 /** Two rows under the last row that holds anything, so the template's own layout is left as it is. */
 function writeTotalsNote(ws: ExcelJS.Worksheet, note: string): void {
   let last = 0;
+  let lastCol = 1;
   ws.eachRow({ includeEmpty: false }, (row, number) => {
-    if (row.hasValues) last = number;
+    if (!row.hasValues) return;
+    last = number;
+    row.eachCell({ includeEmpty: false }, (_cell, col) => {
+      lastCol = Math.max(lastCol, col);
+    });
   });
-  const cell = ws.getCell(last + 2, 1);
+  const printArea = ws.pageSetup.printArea as string | undefined;
+  const area = printArea ? /^\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(printArea) : null;
+  if (area) {
+    const right = decodeAddress(`${area[3]}1`).col;
+    lastCol = Math.max(lastCol, right);
+  }
+  const row = last + 2;
+  // Across the width of the table, wrapped, so it stays inside the page the sheet prints on.
+  if (lastCol > 1) ws.mergeCells(row, 1, row, lastCol);
+  let chars = 0;
+  for (let c = 1; c <= lastCol; c++) chars += ws.getColumn(c).width ?? 9;
+  const cell = ws.getCell(row, 1);
   cell.value = note;
   cell.font = { italic: true, color: { argb: 'FF92400E' } };
-  cell.alignment = { wrapText: false, vertical: 'top' };
+  cell.alignment = { wrapText: true, vertical: 'top' };
+  ws.getRow(row).height = 15 * Math.max(1, Math.ceil(note.length / Math.max(20, chars)));
+  // A print area that stops above the note would leave it off the paper (and out of a PDF).
+  if (area) {
+    const bottom = Math.max(Number(area[4]), row);
+    ws.pageSetup.printArea = `${area[1]}${area[2]}:${area[3]}${bottom}`;
+  }
 }
 
 function isFormulaValue(v: unknown): v is { formula?: string; sharedFormula?: string } {

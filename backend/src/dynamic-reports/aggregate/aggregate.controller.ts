@@ -101,7 +101,7 @@ export class AggregateController {
         periodId,
         user.id,
         user.roleId,
-        body?.acknowledgeExcluded === true,
+        body?.acknowledgedBasis,
       ),
     );
   }

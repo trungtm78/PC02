@@ -102,7 +102,8 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
           setFinalizeStatus('idle');
           return;
         }
-        await dynamicReportsApi.finalizePeriod(periodId, true);
+        // Say yes to exactly this sentence; if the teams changed while the question was open, the server asks again.
+        await dynamicReportsApi.finalizePeriod(periodId, e.message);
       }
       await refetch();
       setFinalizeStatus('idle');

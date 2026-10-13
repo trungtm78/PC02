@@ -19,7 +19,7 @@ import type { SubmissionState } from '../engine/access';
 import { SubmissionError } from '../submission/submission.service';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import { TeamsService } from '../../teams/teams.service';
-import { closingBasis, describeExcluded, totalsNote } from './closing-basis';
+import { closingBasis, describeExcluded, excludedMessage, totalsNote } from './closing-basis';
 import {
   sanitizeSheetName,
   sanitizeFileNamePart,
@@ -631,7 +631,7 @@ export class AggregateService {
     periodId: string,
     userId: string,
     roleId: string,
-    acknowledgeExcluded = false,
+    acknowledgedBasis?: string,
   ): Promise<FinalizeResultView> {
     // The formulas are worked out BEFORE the transaction: it holds the period row lock and a pooled connection,
     // and the calculation waits for a worker (and may need more connections to load the grid). Inside the
@@ -646,7 +646,7 @@ export class AggregateService {
           roleId,
           plan,
           attempt < FINALIZE_MAX_ATTEMPTS,
-          acknowledgeExcluded,
+          acknowledgedBasis,
         );
       } catch (err) {
         if (err instanceof StaleFormulaPlanError) continue;
@@ -698,7 +698,7 @@ export class AggregateService {
     roleId: string,
     plan: FrozenFormulaPlan | null,
     mayRetry: boolean,
-    acknowledgeExcluded: boolean,
+    acknowledgedBasis: string | undefined,
   ): Promise<FinalizeResultView> {
     const { result, notify } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
@@ -766,12 +766,10 @@ export class AggregateService {
         );
       }
       // Closing with some teams still outstanding stays possible, but never silently.
-      if (basis.excluded.length > 0 && !acknowledgeExcluded) {
-        throw new SubmissionError(
-          `Số chốt chỉ tính ${basis.approved.length}/${basis.requiredCount} tổ đã duyệt. Số liệu của các tổ sau KHÔNG nằm trong số chốt: ` +
-            `${describeExcluded(basis.excluded)}.`,
-          'UNAPPROVED_TEAMS',
-        );
+      if (basis.excluded.length > 0) {
+        const shown = excludedMessage(basis);
+        // Only a "yes" to exactly this sentence counts (see excludedMessage).
+        if (acknowledgedBasis !== shown) throw new SubmissionError(shown, 'UNAPPROVED_TEAMS');
       }
 
       const {
@@ -1566,7 +1564,7 @@ export class AggregateService {
         `Xuất theo mẫu thất bại cho kỳ ${periodId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
       );
       format = 'LIST';
-      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams);
+      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams, totalsNote(closingBasis(period.assignments)));
     }
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
 
@@ -1648,6 +1646,7 @@ export class AggregateService {
     },
     snapshotValues: Record<string, unknown>,
     teams: Array<{ teamId: string; teamSnapshot: unknown; submission: { values: unknown } | null }>,
+    note = '',
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
 
@@ -1668,6 +1667,16 @@ export class AggregateService {
         value: v?.value ?? null,
         count: v ? `${v.countNonBlank}/${v.countTotal}` : '0/0',
       });
+    }
+    if (note) {
+      // The plain list has no template to protect: the line goes two rows under the figures, across the table's width.
+      const row = totalSheet.rowCount + 2;
+      totalSheet.mergeCells(row, 1, row, 4);
+      const cell = totalSheet.getCell(row, 1);
+      cell.value = note;
+      cell.font = { italic: true, color: { argb: 'FF92400E' } };
+      cell.alignment = { wrapText: true, vertical: 'top' };
+      totalSheet.getRow(row).height = 15 * Math.max(1, Math.ceil(note.length / 80));
     }
 
     for (const a of teams) {
