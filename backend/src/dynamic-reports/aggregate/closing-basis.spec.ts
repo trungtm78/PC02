@@ -35,6 +35,34 @@ describe('closingBasis', () => {
   });
 });
 
+describe('closingBasis by mode (an open period can be exported as the screen shows it)', () => {
+  const teams = [
+    team('Đội 1', 'APPROVED'),
+    team('Đội 2', 'SUBMITTED'),
+    team('Đội 3', 'DRAFT'),
+    team('Đội 4', null),
+    team('Đội 5', 'NOT_STARTED', 'EXEMPT'),
+  ];
+  const counted = (mode: 'APPROVED' | 'SUBMITTED' | 'ALL_SAVED') => closingBasis(teams, mode).approved.map((t) => t.name);
+
+  it('counts the same states as the aggregate screen: approved; submitted + approved; every saved one', () => {
+    expect(counted('APPROVED')).toEqual(['Đội 1']);
+    expect(counted('SUBMITTED')).toEqual(['Đội 1', 'Đội 2']);
+    expect(counted('ALL_SAVED')).toEqual(['Đội 1', 'Đội 2', 'Đội 3', 'Đội 4']);
+  });
+
+  it('a total that is not the closed figure says so first, and names the teams it counts', () => {
+    const note = totalsNote(closingBasis(teams, 'SUBMITTED'));
+    expect(note.startsWith('TẠM TÍNH, chưa phải số chốt.')).toBe(true);
+    expect(note).toContain('từ 2/4 tổ đã nộp hoặc đã duyệt');
+    expect(totalsNote(closingBasis(teams, 'APPROVED'))).not.toContain('TẠM TÍNH');
+  });
+
+  it('nobody submitted: the note says the totals are blank, in the mode\'s words', () => {
+    expect(totalsNote(closingBasis([team('Đội 1', 'DRAFT')], 'SUBMITTED'))).toContain('Chưa có tổ nào nộp hoặc được duyệt');
+  });
+});
+
 describe('totalsNote', () => {
   it('says how many teams the totals come from and who is not in them', () => {
     const note = totalsNote(closingBasis([team('Đội 1', 'APPROVED'), team('Đội 2', 'SUBMITTED'), team('Đội 3', null)]));

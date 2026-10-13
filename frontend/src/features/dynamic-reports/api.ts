@@ -407,9 +407,9 @@ export const dynamicReportsApi = {
       .then((r) => r.data),
 
   /** S25 (PR7 slice 7) — create the export row (persisted, TTL 24h), then fetch its bytes. */
-  exportPeriod: (periodId: string) =>
+  exportPeriod: (periodId: string, mode?: 'SUBMITTED' | 'APPROVED' | 'ALL_SAVED') =>
     api
-      .post<ExportCreateResultView>(`/bao-cao-dong/periods/${periodId}/export`, {})
+      .post<ExportCreateResultView>(`/bao-cao-dong/periods/${periodId}/export`, mode ? { mode } : {})
       .then((r) => r.data),
 
   /** Triggers the browser download directly; `fileName` from `exportPeriod` is the fallback. */

@@ -24,6 +24,7 @@ import { ReportConfigError } from '../config/report-config.service';
 import { SubmissionError } from '../submission/submission.service';
 import { ReopenPeriodDto } from './dto/reopen-period.dto';
 import { FinalizePeriodDto } from './dto/finalize-period.dto';
+import { ExportPeriodDto } from './dto/export-period.dto';
 import { PreviewAddTeamDto } from './dto/preview-add-team.dto';
 import { AddTeamMidPeriodDto } from './dto/add-team-mid-period.dto';
 import { ExemptTeamMidPeriodDto } from './dto/exempt-team-mid-period.dto';
@@ -290,10 +291,11 @@ export class AggregateController {
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async exportPeriod(
     @Param('periodId') periodId: string,
+    @Body() body: ExportPeriodDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.handleWrite(() =>
-      this.aggregateService.exportPeriod(periodId, user.id, user.roleId),
+      this.aggregateService.exportPeriod(periodId, user.id, user.roleId, body?.mode),
     );
   }
 

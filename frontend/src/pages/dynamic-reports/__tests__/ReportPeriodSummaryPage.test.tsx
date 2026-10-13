@@ -392,7 +392,8 @@ describe('ReportPeriodSummaryPage', () => {
     fireEvent.click(screen.getByTestId('btn-export'));
 
     await waitFor(() => {
-      expect(dynamicReportsApi.exportPeriod).toHaveBeenCalledWith('period1');
+      // The file follows the mode on screen (SUBMITTED by default).
+      expect(dynamicReportsApi.exportPeriod).toHaveBeenCalledWith('period1', 'SUBMITTED');
       expect(dynamicReportsApi.downloadExport).toHaveBeenCalledWith('export1', 'HSLN-2026-06.xlsx');
     });
     expect(screen.queryByTestId('export-error')).not.toBeInTheDocument();
