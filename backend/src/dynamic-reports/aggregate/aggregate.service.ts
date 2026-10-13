@@ -1472,7 +1472,7 @@ export class AggregateService {
     const assignmentIdsAtRead = period.assignments.map((x) => x.id).sort().join(',');
     // A closed period exports its official figures, always the approved teams'. An open one may export what the screen
     // shows (SUBMITTED by default there), marked as provisional in the file.
-    const mode: SummaryMode = period.status === 'FINALIZED' ? 'APPROVED' : requestedMode;
+    const mode: SummaryMode = period.status === 'FINALIZED' ? 'APPROVED' : (requestedMode ?? 'APPROVED');
     const computed = this.computeApprovedSnapshot(period, mode);
     let snapshotValues = computed.snapshotValues;
     let snapshotId: string | null = null;
@@ -1582,7 +1582,7 @@ export class AggregateService {
         `Xuất theo mẫu thất bại cho kỳ ${periodId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
       );
       format = 'LIST';
-      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams, totalsNote(closingBasis(period.assignments, mode)));
+      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams, totalsNote(closingBasis(period.assignments, mode)), mode);
     }
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
 
@@ -1608,7 +1608,8 @@ export class AggregateService {
         data: {
           requestedById: userId,
           kind: 'MANAGER_FULL',
-          scope: { periodId, reportId: period.reportId },
+          // The mode is part of what the file is made of: the download checks the teams against it.
+          scope: { periodId, reportId: period.reportId, mode },
           snapshotId,
           status: 'READY',
           fileBytes: fileBuffer as unknown as Uint8Array<ArrayBuffer>,
@@ -1665,6 +1666,7 @@ export class AggregateService {
     snapshotValues: Record<string, unknown>,
     teams: Array<{ teamId: string; teamSnapshot: unknown; submission: { values: unknown } | null }>,
     note = '',
+    mode: SummaryMode = 'APPROVED',
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
 
@@ -1729,7 +1731,7 @@ export class AggregateService {
       `${period.startDate.toISOString().slice(0, 10)} → ${period.endDate.toISOString().slice(0, 10)}`,
     ]);
     metaSheet.addRow(['Trạng thái kỳ', period.status]);
-    metaSheet.addRow(['Chế độ tính', 'APPROVED']);
+    metaSheet.addRow(['Chế độ tính', mode]);
     metaSheet.addRow(['Xuất lúc', new Date().toISOString()]);
     metaSheet.addRow(['Phiên bản mẫu', period.versionId]);
 
@@ -1754,7 +1756,7 @@ export class AggregateService {
     if (!row || !row.fileBytes || !row.fileName) {
       throw new NotFoundException('Không tìm thấy file xuất này.');
     }
-    const scope = row.scope as { periodId: string; reportId: string };
+    const scope = row.scope as { periodId: string; reportId: string; mode?: SummaryMode };
     const actorRole = await this.resolveManagerRole(
       this.prisma,
       scope.reportId,
@@ -1779,7 +1781,8 @@ export class AggregateService {
       },
     });
     if (period) {
-      const { contributorSetHash } = this.computeApprovedSnapshot(period);
+      // Files made before the mode existed were the approved teams'.
+      const { contributorSetHash } = this.computeApprovedSnapshot(period, scope.mode ?? 'APPROVED');
       if (
         row.contributorSetHash &&
         row.contributorSetHash !== contributorSetHash

@@ -1202,6 +1202,67 @@ describe('AggregateService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
+    it('REGRESSION: a file made for the SUBMITTED mode downloads right after it is made — the check uses the mode it was made with (found by Codex)', async () => {
+      const te = buildTemplateExportMock({ buffer: Buffer.from('template-xlsx') });
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+      await service.exportPeriod('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+      const stored = (prisma.dynReportExport.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      expect(stored.scope).toMatchObject({ mode: 'SUBMITTED' });
+      prisma.dynReportExport.findUnique.mockResolvedValue({ ...stored, expiresAt: new Date(Date.now() + 60_000) });
+
+      const result = await service.getExportForDownload('export1', 'mgr1', 'roleMgr');
+
+      expect(result.fileName).toBe('HSLN-2026-06.xlsx');
+    });
+
+    it('a team that changes state after the file was made still invalidates it, whatever the mode (the file must be made again)', async () => {
+      const te = buildTemplateExportMock({ buffer: Buffer.from('template-xlsx') });
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+      await service.exportPeriod('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+      const stored = (prisma.dynReportExport.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      prisma.dynReportExport.findUnique.mockResolvedValue({ ...stored, expiresAt: new Date(Date.now() + 60_000) });
+      // a3 (a draft) submits meanwhile: the set of teams the SUBMITTED mode counts changes
+      const changed = basePeriod({
+        assignments: [assignment('a1', 'SUBMITTED', '10'), assignment('a2', 'APPROVED', '20'), assignment('a3', 'SUBMITTED', '5'), assignment('a4', 'NOT_STARTED', null, { obligation: 'EXEMPT' })],
+      });
+      prisma.dynReportPeriod.findUnique.mockResolvedValue(changed);
+
+      await expect(service.getExportForDownload('export1', 'mgr1', 'roleMgr')).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
+
+    it('an export made without a mode (before the mode existed) is checked as the approved teams\' file', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }]);
+      prisma.dynReportExport.findUnique.mockResolvedValue({
+        fileBytes: Buffer.from('x'),
+        fileName: 'old.xlsx',
+        scope: { periodId: 'period1', reportId: 'report1' },
+        expiresAt: new Date(Date.now() + 60_000),
+        contributorSetHash: null,
+      });
+      await expect(service.getExportForDownload('export1', 'mgr1', 'roleMgr')).resolves.toMatchObject({ fileName: 'old.xlsx' });
+    });
+
+    it('a null mode is "no mode" (the approved teams), not a crash (found by Codex)', async () => {
+      const te = buildTemplateExportMock({ buffer: Buffer.from('template-xlsx') });
+      const { service } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+      await expect(service.exportPeriod('period1', 'mgr1', 'roleMgr', null as unknown as undefined)).resolves.toMatchObject({ format: 'TEMPLATE' });
+    });
+
+    it('the plain-list fallback says which mode its figures are made in (found by Codex)', async () => {
+      const te = buildTemplateExportMock();
+      (te.buildPeriodFile as jest.Mock).mockRejectedValue(new Error('too large'));
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+
+      await service.exportPeriod('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
+
+      const stored = (prisma.dynReportExport.create.mock.calls[0][0] as { data: { fileBytes: Buffer } }).data.fileBytes;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(stored as unknown as never);
+      const rows: string[][] = [];
+      wb.getWorksheet('Metadata')?.eachRow((row) => rows.push([String(row.getCell(1).value), String(row.getCell(2).value)]));
+      expect(rows).toContainEqual(['Chế độ tính', 'SUBMITTED']);
+    });
+
     it('getExportForDownload returns the stored bytes for a manager within the TTL and matching scope', async () => {
       const { service, prisma } = buildExportService(basePeriod(), [
         { role: 'MANAGER' },
