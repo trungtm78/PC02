@@ -102,6 +102,7 @@ describe('ReportSummaryStep', () => {
 
     await waitFor(() => screen.getByTestId('summary-result'));
     expect(screen.getByTestId('summary-result')).toHaveTextContent('lưu nháp');
+    expect(screen.getByTestId('draft-saved-hint')).toHaveTextContent('Xuất bản');
     const [, config] = vi.mocked(dynamicReportsApi.saveReportConfig).mock.calls[0];
     expect(config.publish).toBe(false);
   });

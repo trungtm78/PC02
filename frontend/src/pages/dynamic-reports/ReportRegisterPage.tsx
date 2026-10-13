@@ -27,6 +27,7 @@ import type { DynReportStatus, DynReportPeriodType } from '@/shared/enums/genera
 import { ListPageShell, ColumnPicker, useBoCucCot, type ColumnDef } from '@/components/shared/ListPageShell';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import { formatVNDateTime, formatVNDate } from '@/lib/dates';
+import { extractApiError } from '@/lib/api-errors';
 
 const DYN_REPORTS_QUERY_KEY = ['dynamic-reports', 'setup-list'];
 
@@ -67,6 +68,21 @@ export default function ReportRegisterPage() {
     setDeleting(null);
     setActionNote(outcome === 'deleted' ? `Đã xoá báo cáo "${name}".` : `Đã lưu trữ báo cáo "${name}".`);
     void queryClient.invalidateQueries({ queryKey: DYN_REPORTS_QUERY_KEY });
+  }
+
+  async function handlePublish(report: ReportSetupSummary) {
+    if (!window.confirm(`Xuất bản báo cáo "${report.name}"? Từ lúc này hệ thống sinh kỳ theo lịch và các tổ thấy báo cáo để nhập.`)) return;
+    setSuspendingId(report.id);
+    setActionNote(null);
+    try {
+      await dynamicReportsApi.publishDraftReport(report.id);
+      await queryClient.invalidateQueries({ queryKey: DYN_REPORTS_QUERY_KEY });
+    } catch (err) {
+      // The server says exactly what is missing (a manager, a team's editor, the schedule…): show that, not a generic failure.
+      setActionNote(`Chưa xuất bản được "${report.name}": ${extractApiError(err).message}`);
+    } finally {
+      setSuspendingId(null);
+    }
   }
 
   async function handleResume(report: ReportSetupSummary) {
@@ -163,6 +179,17 @@ export default function ReportRegisterPage() {
             >
               Phiên bản
             </Link>
+            {r.status === 'DRAFT' && (
+              <button
+                type="button"
+                className={`px-2 py-1 text-xs text-green-700 hover:bg-green-50 rounded disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                data-testid={`btn-publish-${r.code}`}
+                disabled={suspendingId === r.id}
+                onClick={() => void handlePublish(r)}
+              >
+                Xuất bản
+              </button>
+            )}
             {r.status === 'PUBLISHED' && (
               <button
                 type="button"

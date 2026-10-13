@@ -305,4 +305,122 @@ run('ReportVersioningService on PostgreSQL', () => {
       await expect(svc.deleteVersion(a.reportId, b.v1)).rejects.toMatchObject({ code: 'REPORT_NOT_FOUND' });
     });
   });
+
+  describe('publishDraft — a report saved only as a draft goes live', () => {
+    /** A draft report as the wizard's "Lưu nháp" leaves it: draft version with its cells, schedule, manager, team and editor. */
+    async function buildDraft(name: string, opts: { fields?: boolean } = {}) {
+      const built = await buildReport(name, [], 'DRAFT');
+      await db.dynReportSchedule.updateMany({
+        where: { reportId: built.reportId },
+        data: { dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' }, openRule: { kind: 'AT_PERIOD_START' } },
+      });
+      if (opts.fields !== false) {
+        await db.dynReportField.createMany({
+          data: [
+            { versionId: built.v1, sheetKey: 'S', address: 'C3', fieldKey: 'S!C3', label: 'Số vụ', type: 'NUM', aggregate: 'SUM', source: 'WEB', required: true },
+            { versionId: built.v1, sheetKey: 'S', address: 'D3', fieldKey: 'S!D3', label: 'Ghi chú', type: 'TEXT', aggregate: 'NONE', source: 'WEB' },
+          ],
+        });
+      }
+      return built;
+    }
+    const reportOf = (id: string) => db.dynReport.findUniqueOrThrow({ where: { id } });
+    const versionOf = (id: string) => db.dynReportVersion.findUniqueOrThrow({ where: { id } });
+    const configOf = () => (svc as unknown as { configService: ReportConfigService }).configService;
+
+    it('publishes the stored configuration as it is: the report and its version go live, the cells are kept', async () => {
+      const { reportId, v1 } = await buildDraft('pd-ok');
+      const before = await reportOf(reportId);
+
+      const out = await svc.publishDraft(reportId);
+
+      expect(out).toMatchObject({ reportId, versionId: v1, version: 1, status: 'PUBLISHED' });
+      const report = await reportOf(reportId);
+      expect(report.status).toBe('PUBLISHED');
+      expect(report.configVersion).toBe(before.configVersion + 1);
+      const version = await versionOf(v1);
+      expect(version.status).toBe('PUBLISHED');
+      expect(version.publishedAt).not.toBeNull();
+      expect(version.layout).toMatchObject({ layout: { sheetOrder: ['S'] } }); // what the file says, not the wizard's copy
+      const fields = await db.dynReportField.findMany({ where: { versionId: v1 }, orderBy: { address: 'asc' } });
+      expect(fields.map((f) => [f.fieldKey, f.type, f.required])).toEqual([
+        ['S!C3', 'NUM', true],
+        ['S!D3', 'TEXT', false],
+      ]);
+    });
+
+    it('the newest draft is the one published; an older draft stays a draft', async () => {
+      const { reportId, v1 } = await buildDraft('pd-two');
+      const second = await svc.createVersion(reportId, input({ publish: false }), FILE, 'v2.xlsx', userId);
+
+      const out = await svc.publishDraft(reportId);
+
+      expect(out.versionId).toBe(second.versionId);
+      expect((await versionOf(second.versionId)).status).toBe('PUBLISHED');
+      expect((await versionOf(v1)).status).toBe('DRAFT');
+    });
+
+    it('a report that is already published is refused and nothing changes', async () => {
+      const { reportId, v1 } = await buildReport('pd-live', []);
+      await expect(svc.publishDraft(reportId)).rejects.toMatchObject({ code: 'INVALID_STATE' });
+      expect((await versionOf(v1)).status).toBe('PUBLISHED');
+    });
+
+    it('an archived or missing report is refused', async () => {
+      const { reportId } = await buildReport('pd-arch', [], 'ARCHIVED');
+      await expect(svc.publishDraft(reportId)).rejects.toMatchObject({ code: 'INVALID_STATE' });
+      await expect(svc.publishDraft('does-not-exist')).rejects.toMatchObject({ code: 'REPORT_NOT_FOUND' });
+    });
+
+    it('what a publish from the wizard would need is needed here too: cells, a manager, a team with an editor, a schedule', async () => {
+      const noFields = await buildDraft('pd-nofields', { fields: false });
+      await expect(svc.publishDraft(noFields.reportId)).rejects.toMatchObject({ code: 'TEMPLATE_INVALID' });
+
+      const noManager = await buildDraft('pd-nomgr');
+      await db.dynReportRole.deleteMany({ where: { reportId: noManager.reportId } });
+      await expect(svc.publishDraft(noManager.reportId)).rejects.toThrow(/quản lý/);
+
+      const noEditor = await buildDraft('pd-noeditor');
+      await db.dynReportTargetEditor.deleteMany({ where: { target: { reportId: noEditor.reportId } } });
+      await expect(svc.publishDraft(noEditor.reportId)).rejects.toThrow(/người nhập/);
+
+      const noSchedule = await buildDraft('pd-nosched');
+      await db.dynReportSchedule.deleteMany({ where: { reportId: noSchedule.reportId } });
+      await expect(svc.publishDraft(noSchedule.reportId)).rejects.toThrow(/lịch/);
+
+      for (const r of [noFields, noManager, noEditor, noSchedule]) {
+        expect((await reportOf(r.reportId)).status).toBe('DRAFT'); // a refusal leaves the draft as it was
+        expect((await versionOf(r.v1)).status).toBe('DRAFT');
+      }
+    });
+
+    it('a draft whose template file disagrees with the stored cells is refused (the file is the fact)', async () => {
+      const { reportId, v1 } = await buildDraft('pd-mismatch');
+      const spy = jest.spyOn(configOf(), 'reconcileWithFile').mockRejectedValueOnce(
+        Object.assign(new Error('Danh sách ô nhập không khớp file mẫu'), { code: 'TEMPLATE_INVALID' }),
+      );
+      await expect(svc.publishDraft(reportId)).rejects.toThrow(/không khớp/);
+      expect((await reportOf(reportId)).status).toBe('DRAFT');
+      expect((await versionOf(v1)).status).toBe('DRAFT');
+    });
+
+    it('an edit saved while the file was being checked is not overwritten: REVISION_CONFLICT, still a draft', async () => {
+      const { reportId } = await buildDraft('pd-race');
+      const spy = jest.spyOn(configOf(), 'reconcileWithFile').mockImplementationOnce(async () => {
+        await db.dynReport.update({ where: { id: reportId }, data: { configVersion: { increment: 1 } } }); // "Sửa cấu hình" lands now
+        return { layout: { sheetOrder: ['S'] }, formulas: [], dataValidations: [] } as never;
+      });
+      await expect(svc.publishDraft(reportId)).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+      expect((await reportOf(reportId)).status).toBe('DRAFT');
+    });
+
+    it('two publishes at once: one wins, the other is told it is no longer a draft', async () => {
+      const { reportId } = await buildDraft('pd-twice');
+      const results = await Promise.allSettled([svc.publishDraft(reportId), svc.publishDraft(reportId)]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const lost = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect(['INVALID_STATE', 'REVISION_CONFLICT']).toContain(lost.reason.code);
+      expect((await reportOf(reportId)).status).toBe('PUBLISHED');
+    });
+  });
 });
