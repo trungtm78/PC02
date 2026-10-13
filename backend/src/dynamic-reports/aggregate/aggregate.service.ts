@@ -1510,6 +1510,16 @@ export class AggregateService {
     }
 
     const teams = await this.assignmentsInTeamOrder(period.assignments);
+    // The teams whose figures are in the totals: the very ones `computeApprovedSnapshot` adds up (approved, not exempt).
+    const counted = new Set(
+      period.assignments
+        .filter(
+          (a) =>
+            a.obligation !== 'EXEMPT' &&
+            CONTRIBUTING_STATES.APPROVED.includes((a.submission?.state ?? 'NOT_STARTED') as SubmissionState),
+        )
+        .map((a) => a.teamId),
+    );
     const scopes: PeriodExportScope[] = [
       {
         scope: 'TOTAL',
@@ -1529,6 +1539,7 @@ export class AggregateService {
           scope: a.teamId,
           label: teamSnapshot?.name || a.teamId,
           kind: 'TEAM' as const,
+          counted: counted.has(a.teamId),
           values: Object.fromEntries(period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null])),
         };
       }),
@@ -1544,10 +1555,12 @@ export class AggregateService {
           address: f.address,
           fieldKey: f.fieldKey,
           type: f.type as 'NUM' | 'TEXT' | 'DATE' | 'TIME',
+          aggregate: f.aggregate,
+          blankPolicy: f.blankPolicy,
         })),
         scopes,
         totalOutcomes,
-        totalsNote: totalsNote(closingBasis(period.assignments)),
+        totalsNote: totalsNote(closingBasis(period.assignments), true),
         meta: {
           kind: 'PERIOD',
           reportId: period.reportId,

@@ -41,6 +41,18 @@ describe('totalsNote', () => {
     expect(note).toBe('Số liệu tổng hợp từ 1/3 tổ đã duyệt. Chưa tính: Đội 2 (đã nộp, chưa duyệt); Đội 3 (chưa nhập).');
   });
 
+  it('a file whose totals are formulas says so, and that editing a team sheet updates them; the plain list does not claim it', () => {
+    const basis = closingBasis([team('Đội 1', 'APPROVED'), team('Đội 2', 'SUBMITTED')]);
+    expect(totalsNote(basis, true)).toContain('công thức');
+    expect(totalsNote(basis, true)).toContain('Chưa tính: Đội 2');
+    expect(totalsNote(basis)).not.toContain('công thức');
+  });
+
+  it('the teams that count are named by id, so the export can line them up with its sheets', () => {
+    const basis = closingBasis([team('Đội 1', 'APPROVED'), team('Đội 2', 'SUBMITTED')]);
+    expect(basis.approved.map((t) => t.teamId)).toEqual(['id-Đội 1']);
+  });
+
   it('says so when nobody is approved (the totals are blank, not zero)', () => {
     expect(totalsNote(closingBasis([team('Đội 1', 'SUBMITTED')]))).toContain('Chưa có tổ nào được duyệt');
   });

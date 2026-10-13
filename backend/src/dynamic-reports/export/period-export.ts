@@ -12,6 +12,8 @@ import {
   EXCEL_CELL_TEXT_LIMIT,
 } from './template-export';
 import type { ExportField, TemplateExportOutcome } from './template-export';
+import { buildTotalsFormula } from './totals-formulas';
+import type { TotalsAggregate, TotalsBlankPolicy } from './totals-formulas';
 import { formatFormula, parseFormula, rewriteSheetRefs } from '../engine/expr';
 import { describeFormulaError } from '../engine/numfmt';
 import type { FormulaErrorCode } from '../engine/numfmt';
@@ -40,8 +42,16 @@ import type { GridModel } from '../engine/grid-types';
 
 export type PeriodScopeKind = 'TOTAL' | 'TEAM';
 
+/** An input cell of the report, with how its total is made (so the totals sheet can carry the formula for it). */
+export interface PeriodExportField extends ExportField {
+  aggregate?: 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT' | 'NONE';
+  blankPolicy?: 'ZERO' | 'IGNORE';
+}
+
 export interface PeriodExportScope extends SheetScope {
   kind: PeriodScopeKind;
+  /** TEAM only: the team's figures are in the totals (it is approved and not exempt). The totals' formulas add up these sheets. */
+  counted?: boolean;
   /** Field key → stored text (the aggregate for the totals, the team's own numbers otherwise); null/'' blank. */
   values: Record<string, string | null>;
 }
@@ -49,7 +59,7 @@ export interface PeriodExportScope extends SheetScope {
 export interface PeriodExportRequest {
   /** The report's sheets, in tab order. Every other sheet of the template is dropped. */
   selectedSheets: string[];
-  fields: ExportField[];
+  fields: PeriodExportField[];
   /** In file order: the totals first, then the teams. */
   scopes: PeriodExportScope[];
   grid: GridModel;
@@ -66,6 +76,8 @@ export interface PeriodExportOutcome extends TemplateExportOutcome {
   unresolvedTotals: string[];
   /** "Sheet!A1" of formulas whose sheet references could not be re-pointed (left as the template has them). */
   unrewritten: string[];
+  /** "Sheet!A1: reason" of totals cells that hold a plain number although a formula was expected. */
+  constantTotals: string[];
 }
 
 /** A file this large would not open comfortably, and building it would run the worker out of memory. */
@@ -277,16 +289,25 @@ function constantOf(outcome: FormulaOutcome, key: string, scope: string, out: Pe
   return outcome.value;
 }
 
-function blankFormulas(
+/**
+ * A formula of the template on a totals sheet. Where the system worked out a figure for it, the formula STAYS (pointed at the
+ * totals' own cells) carrying that figure as its result, so Excel can recalculate it from the totals; where it did not —
+ * missing data, an error — the cell shows that, as a plain value, because Excel would turn "missing" into a 0.
+ */
+function resolveTotalsFormulas(
   ws: ExcelJS.Worksheet,
   original: string,
   outcomes: Record<string, FormulaOutcome> | null,
   scope: string,
   out: PeriodExportOutcome,
+  /** The totals hold a number written as text (more digits than Excel holds): a formula reading it would see text. */
+  allConstant: boolean,
 ): void {
+  expandSharedFormulas(ws);
   ws.eachRow({ includeEmpty: false }, (row) =>
     row.eachCell({ includeEmpty: false }, (cell) => {
-      if (!isFormulaValue(cell.value as unknown)) return;
+      const current = cell.value as unknown;
+      if (!isFormulaValue(current)) return;
       const key = `${original}!${cell.address}`;
       const outcome = outcomes?.[key];
       if (!outcome) {
@@ -294,9 +315,87 @@ function blankFormulas(
         out.unresolvedTotals.push(key);
         return;
       }
+      const holder = current as { shareType?: string };
+      if (outcome.ok && holder.shareType !== 'array' && !allConstant) {
+        const result = resultOf(outcome);
+        if (result !== undefined) {
+          cell.value = { ...(current as object), result } as ExcelJS.CellValue;
+          return;
+        }
+      }
       cell.value = constantOf(outcome, key, scope, out);
     }),
   );
+}
+
+/**
+ * A shared formula is one formula written once with the cells that follow it pointing at it. Replacing the first by a
+ * value while a follower keeps pointing at it makes the file unwritable; each cell gets its own formula first.
+ */
+function expandSharedFormulas(ws: ExcelJS.Worksheet): void {
+  ws.eachRow({ includeEmpty: false }, (row) =>
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      const v = cell.value as unknown as { sharedFormula?: string; shareType?: string; result?: unknown } | null;
+      if (!v || typeof v !== 'object' || (v.sharedFormula === undefined && v.shareType !== 'shared')) return;
+      const text = (cell as unknown as { formula?: string }).formula;
+      if (typeof text === 'string') cell.value = { formula: text, result: v.result } as ExcelJS.CellValue;
+    }),
+  );
+}
+
+/** The result a kept formula carries: the figure as a number Excel holds exactly, a boolean or a text. undefined: write it as a plain value instead. */
+function resultOf(outcome: Extract<FormulaOutcome, { ok: true }>): number | boolean | string | undefined {
+  if (outcome.type === 'boolean') return outcome.value;
+  if (outcome.type === 'string') return outcome.value.slice(0, EXCEL_CELL_TEXT_LIMIT);
+  return toExactNumber(outcome.value) ?? undefined;
+}
+
+/**
+ * Turns the number in a totals input cell into the formula that adds up the counted teams' sheets. The plain number
+ * written before stays whenever a formula would not say the same thing as the system (see the reasons below); it is the cached
+ * result otherwise, so a viewer that does not recalculate shows the system's figure.
+ */
+function writeTotalsFormulas(
+  request: PeriodExportRequest,
+  copies: Map<string, ExcelJS.Worksheet>,
+  names: Map<string, string>,
+  total: PeriodExportScope,
+  textNumbers: ReadonlySet<string>,
+  out: PeriodExportOutcome,
+): void {
+  const counted = request.scopes.filter((s) => s.kind === 'TEAM' && s.counted);
+  for (const field of request.fields) {
+    const aggregate = field.aggregate;
+    if (field.type !== 'NUM' || !aggregate || aggregate === 'NONE') continue;
+    const key = field.fieldKey;
+    const keep = (reason: string) => out.constantTotals.push(`${key}: ${reason}`);
+    if (counted.length === 0) {
+      keep('no team is approved');
+      continue;
+    }
+    // A number Excel cannot hold exactly was written as text: a formula over it would not add it (or would round it).
+    if (textNumbers.has(`${total.scope}:${key}`) || counted.some((s) => textNumbers.has(`${s.scope}:${key}`))) {
+      keep('a figure has more digits than Excel holds');
+      continue;
+    }
+    const sheetNames = counted.map((s) => names.get(sheetNameKey(s.scope, field.sheetKey)) as string);
+    const formula = buildTotalsFormula({
+      aggregate: aggregate as TotalsAggregate,
+      blankPolicy: (field.blankPolicy ?? 'ZERO') as TotalsBlankPolicy,
+      sheetNames,
+      address: field.address,
+    });
+    if (!formula) {
+      keep(aggregate === 'COUNT' ? 'COUNT counts the teams: a number' : 'too many teams for one formula');
+      continue;
+    }
+    const ws = copies.get(sheetNameKey(total.scope, field.sheetKey));
+    if (!ws) continue;
+    const cell = ws.getCell(field.address);
+    const raw = total.values[key] ?? null;
+    // The system's figure is the result the formula carries; "" where the system says "—" (every cell blank).
+    cell.value = { formula, result: raw === null || raw === '' ? '' : toExactNumber(raw) ?? '' } as ExcelJS.CellValue;
+  }
 }
 
 export async function buildPeriodWorkbook(
@@ -326,7 +425,7 @@ export async function buildPeriodWorkbook(
     }
   }
 
-  const outcome: PeriodExportOutcome = { textNumbers: [], truncated: [], unresolvedTotals: [], unrewritten: [] };
+  const outcome: PeriodExportOutcome = { textNumbers: [], truncated: [], unresolvedTotals: [], unrewritten: [], constantTotals: [] };
   const names = allocateSheetNames(request.scopes, present);
   const originals = present.map((n) => workbook.getWorksheet(n) as ExcelJS.Worksheet);
   assertNoNamedRangesInUse(workbook, originals);
@@ -347,7 +446,8 @@ export async function buildPeriodWorkbook(
     for (const original of originals) {
       const copy = cloneSheet(workbook, original, `__dr_tmp_${temporary++}`);
       clearArrayResults(copy);
-      if (scope.kind === 'TEAM') rewriteFormulas(copy, original.name, rename, outcome);
+      // The totals' formulas point at the totals' own cells, a team's at that team's.
+      rewriteFormulas(copy, original.name, rename, outcome);
       copies.set(sheetNameKey(scope.scope, original.name), copy);
     }
   }
@@ -380,9 +480,10 @@ export async function buildPeriodWorkbook(
     outcome.truncated.push(...scoped.truncated.map((k) => `${scope.scope}:${k}`));
 
     if (scope.kind === 'TOTAL') {
+      const totalsHoldText = outcome.textNumbers.some((k) => k.startsWith(`${scope.scope}:`));
       for (const original of present) {
         const ws = copies.get(sheetNameKey(scope.scope, original)) as ExcelJS.Worksheet;
-        blankFormulas(ws, original, request.totalOutcomes, scope.scope, outcome);
+        resolveTotalsFormulas(ws, original, request.totalOutcomes, scope.scope, outcome, totalsHoldText);
       }
       const first = present.length > 0 ? copies.get(sheetNameKey(scope.scope, present[0])) : undefined;
       if (first && request.totalsNote) writeTotalsNote(first, request.totalsNote);
@@ -394,6 +495,12 @@ export async function buildPeriodWorkbook(
         if (ws) applyFormulaResult(ws.getCell(key.slice(bang + 1)), result);
       }
     }
+  }
+
+  // The totals' input cells add up the counted teams' sheets: known only now that every team has been written.
+  const textNumbers = new Set(outcome.textNumbers);
+  for (const scope of request.scopes) {
+    if (scope.kind === 'TOTAL') writeTotalsFormulas(request, copies, names, scope, textNumbers, outcome);
   }
 
   // Excel and LibreOffice recalculate when they open the file (the team copies' formulas): the results
@@ -412,6 +519,7 @@ export async function buildPeriodWorkbook(
   for (const key of outcome.truncated) meta.addRow([`truncated|${key}`, key]);
   for (const key of outcome.unresolvedTotals) meta.addRow([`unresolvedTotal|${key}`, key]);
   for (const key of outcome.unrewritten) meta.addRow([`unrewritten|${key}`, key]);
+  for (const entry of outcome.constantTotals) meta.addRow([`constantTotal|${entry}`, entry]);
 
   const written = Buffer.from(await workbook.xlsx.writeBuffer());
   return { buffer: await pruneUnreferencedMedia(written), outcome, names };

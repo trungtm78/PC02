@@ -1253,6 +1253,7 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
 | Báo cáo | wizard (POST /reports) + **Sao chép cấu hình** | **Sửa cấu hình**: tên, mô tả, lịch, quản lý, tổ + người nhập (PATCH, từ kỳ kế) | Xoá / Lưu trữ / Khôi phục / Xoá kèm số liệu (admin, gõ lại mã) | Đủ (#614, #616) |
 | Phiên bản mẫu | wizard (v1) | **Cập nhật mẫu = phiên bản mới** (D09), tải file về sửa rồi tải lên lại | Xoá bản nháp / bản cũ không kỳ nào dùng | Đủ (#615) |
 | Bản nháp báo cáo | "Lưu nháp" ở bước 4 của wizard (chỉ là lưu tạm) | **Xuất bản** một bấm từ trang chi tiết hoặc danh sách (kiểm lại file và cấu hình đã lưu, như xuất bản trong wizard); "Sửa cấu hình" / "Cập nhật mẫu" vẫn dùng được | Xoá như mọi báo cáo | Đủ |
+| Công thức trong file Excel xuất | Xuất kỳ (S25) | — | Sheet TỔNG: ô nhập là công thức SUM / AVERAGE / MIN / MAX / COUNT cộng từ sheet của các tổ ĐÃ DUYỆT (theo blankPolicy, kết quả đã lưu = số hệ thống); công thức của mẫu trên TỔNG giữ làm công thức thật khi hệ thống tính được; ô nào không an toàn để thành công thức thì giữ số và ghi lý do trong `__dr_meta` (`constantTotal\|…`) | Đủ |
 | Số chốt của kỳ | Chốt kỳ (S38) | — | **Mở chốt**; số chốt CHỈ tính tổ đã duyệt: chốt khi chưa tổ nào được duyệt bị từ chối, còn tổ chưa duyệt thì phải xác nhận (UNAPPROVED_TEAMS) và file Excel ghi dòng "tính từ N/M tổ đã duyệt" dưới TỔNG | Đủ |
 | Ngừng phát sinh | S31 | — | **Tiếp tục phát sinh** | Đủ (#614) |
 | Lịch / quản lý / tổ + người nhập | wizard | Sửa cấu hình (áp từ kỳ kế) | Gỡ tổ / gỡ người (đặt hạn cuối `validTo`, không xoá dòng) | Đủ (#616) |
