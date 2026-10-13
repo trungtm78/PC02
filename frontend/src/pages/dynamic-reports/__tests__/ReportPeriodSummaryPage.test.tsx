@@ -220,6 +220,67 @@ describe('ReportPeriodSummaryPage', () => {
     confirmSpy.mockRestore();
   });
 
+  const UNAPPROVED = {
+    isAxiosError: true,
+    response: {
+      status: 409,
+      data: {
+        error: {
+          code: 'UNAPPROVED_TEAMS',
+          message: 'Số chốt chỉ tính 1/3 tổ đã duyệt. Số liệu của các tổ sau KHÔNG nằm trong số chốt: Đội 1 (đã nộp, chưa duyệt).',
+        },
+      },
+    },
+  };
+
+  it('when the server says some teams are not approved it shows who is left out; confirming closes with the acknowledgement', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.finalizePeriod)
+      .mockRejectedValueOnce(UNAPPROVED)
+      .mockResolvedValueOnce({ periodId: 'period1', status: 'FINALIZED', finalizedAt: '2026-06-15T10:00:00.000Z', snapshotId: 's1' });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-finalize'));
+
+    await waitFor(() => expect(dynamicReportsApi.finalizePeriod).toHaveBeenCalledTimes(2));
+    expect(dynamicReportsApi.finalizePeriod).toHaveBeenNthCalledWith(1, 'period1');
+    expect(dynamicReportsApi.finalizePeriod).toHaveBeenNthCalledWith(2, 'period1', true);
+    // The second question carries the server's own words: which team, and why it is not counted.
+    expect(confirmSpy.mock.calls[1][0]).toContain('Đội 1 (đã nộp, chưa duyệt)');
+    confirmSpy.mockRestore();
+  });
+
+  it('declining the second question closes nothing and shows no error', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.finalizePeriod).mockRejectedValueOnce(UNAPPROVED);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(true).mockReturnValueOnce(false);
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-finalize'));
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(2));
+    expect(dynamicReportsApi.finalizePeriod).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('finalize-error')).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('any other refusal (nobody approved yet) is shown as an error and is not offered as "close anyway"', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.finalizePeriod).mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'INVALID_STATE_TRANSITION', message: 'Chưa có tổ nào được duyệt — hãy duyệt trước.' } } },
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('btn-finalize'));
+
+    expect(await screen.findByTestId('finalize-error')).toHaveTextContent('Chưa có tổ nào được duyệt');
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    confirmSpy.mockRestore();
+  });
+
   it('"Xoá kỳ" opens the impact dialog; deleting an empty period goes back to the report', async () => {
     vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
     vi.mocked(dynamicReportsApi.getPeriodDeletionImpact).mockResolvedValue({

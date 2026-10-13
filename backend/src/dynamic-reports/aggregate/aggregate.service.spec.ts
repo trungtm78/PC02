@@ -561,7 +561,7 @@ describe('AggregateService', () => {
         { role: 'MANAGER' },
       ]);
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(result.status).toBe('FINALIZED');
       expect(result.snapshotId).toBe('snapshot1');
@@ -596,7 +596,7 @@ describe('AggregateService', () => {
       const formulas = buildFormulaMock(outcomes);
       const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
 
-      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
       expect(data.formulaValues).toEqual(outcomes);
@@ -618,7 +618,7 @@ describe('AggregateService', () => {
         return [];
       });
 
-      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(order).toEqual(['evaluate', 'lock']);
       expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function)); // no long timeout needed any more
@@ -636,7 +636,7 @@ describe('AggregateService', () => {
         .mockResolvedValueOnce(changed)
         .mockResolvedValue(changed);
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(result.status).toBe('FINALIZED');
       expect(formulas.evaluate).toHaveBeenCalledTimes(2);
@@ -659,7 +659,7 @@ describe('AggregateService', () => {
         });
       });
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(result.status).toBe('FINALIZED');
       const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
@@ -679,7 +679,7 @@ describe('AggregateService', () => {
       (formulas.evaluate as jest.Mock).mockRejectedValue(new Error('GRID_BUSY'));
       const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(result.status).toBe('FINALIZED');
       const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
@@ -693,7 +693,7 @@ describe('AggregateService', () => {
       ]);
       tx.dynReportRole.findMany.mockResolvedValue([{ userId: 'mgr1' }]);
 
-      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(eventEmitter.emit).toHaveBeenCalledWith(
         'dyn-report.period-finalized',
@@ -707,7 +707,7 @@ describe('AggregateService', () => {
       ]);
 
       await expect(
-        service.finalizePeriod('period1', 'mgr1', 'roleMgr'),
+        service.finalizePeriod('period1', 'mgr1', 'roleMgr', true),
       ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
     });
 
@@ -732,8 +732,54 @@ describe('AggregateService', () => {
       );
 
       await expect(
-        service.finalizePeriod('period1', 'mgr1', 'roleMgr'),
+        service.finalizePeriod('period1', 'mgr1', 'roleMgr', true),
       ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+    });
+
+    it('REGRESSION (production 13/10): a team submitted but none approved is refused — the official numbers would be blank while the screen shows the submitted figures', async () => {
+      const { service, tx } = buildTxService(
+        basePeriod({ assignments: [assignment('a1', 'SUBMITTED', '120'), assignment('a2', 'NOT_STARTED', null)] }),
+        [{ role: 'MANAGER' }],
+      );
+
+      // Even a manager who says "close anyway" cannot close it into nothing.
+      await expect(service.finalizePeriod('period1', 'mgr1', 'roleMgr', true)).rejects.toMatchObject({
+        code: 'INVALID_STATE_TRANSITION',
+        message: expect.stringContaining('Chưa có tổ nào được duyệt'),
+      });
+      expect(tx.dynReportSnapshot.create).not.toHaveBeenCalled();
+      expect(tx.dynReportPeriod.update).not.toHaveBeenCalled();
+    });
+
+    it('closing with a team still outstanding is refused until the manager says so; the refusal names the team and why', async () => {
+      const { service, tx } = buildTxService(
+        basePeriod({ assignments: [assignment('a1', 'SUBMITTED', '120'), assignment('a2', 'APPROVED', '20')] }),
+        [{ role: 'MANAGER' }],
+      );
+
+      await expect(service.finalizePeriod('period1', 'mgr1', 'roleMgr')).rejects.toMatchObject({
+        code: 'UNAPPROVED_TEAMS',
+        message: expect.stringContaining('Team a1 (đã nộp, chưa duyệt)'),
+      });
+      expect(tx.dynReportSnapshot.create).not.toHaveBeenCalled(); // nothing written by a refusal
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
+      expect(result.status).toBe('FINALIZED');
+    });
+
+    it('with every required team approved (and one exempt) it closes without being asked anything', async () => {
+      const { service } = buildTxService(
+        basePeriod({
+          assignments: [
+            assignment('a1', 'APPROVED', '10'),
+            assignment('a2', 'APPROVED', '20'),
+            assignment('a3', 'NOT_STARTED', null, { obligation: 'EXEMPT' }),
+          ],
+        }),
+        [{ role: 'MANAGER' }],
+      );
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      expect(result.status).toBe('FINALIZED');
     });
 
     it('BUG-002 fix: allows finalizing a period where every assignment is EXEMPT (nothing was ever required)', async () => {
@@ -746,7 +792,7 @@ describe('AggregateService', () => {
         [{ role: 'MANAGER' }],
       );
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', true);
 
       expect(result.status).toBe('FINALIZED');
       expect(tx.dynReportPeriod.update).toHaveBeenCalled();

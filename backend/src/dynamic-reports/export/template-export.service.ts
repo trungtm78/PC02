@@ -30,6 +30,8 @@ export interface PeriodExportInput {
   scopes: PeriodExportScope[];
   /** The official figure of every formula for the totals; null when the system has none. */
   totalOutcomes: Record<string, FormulaOutcome> | null;
+  /** A line written under the totals: how many teams they come from and who is not in them. Empty: none. */
+  totalsNote?: string;
   /** Written to the hidden `__dr_meta` sheet. */
   meta: Record<string, string>;
 }
@@ -105,6 +107,7 @@ export class TemplateExportService {
         scopes: input.scopes,
         grid: model,
         totalOutcomes: input.totalOutcomes,
+        totalsNote: input.totalsNote,
         meta: input.meta,
       },
     );

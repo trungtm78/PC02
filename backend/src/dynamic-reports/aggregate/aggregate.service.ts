@@ -19,6 +19,7 @@ import type { SubmissionState } from '../engine/access';
 import { SubmissionError } from '../submission/submission.service';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import { TeamsService } from '../../teams/teams.service';
+import { closingBasis, describeExcluded, totalsNote } from './closing-basis';
 import {
   sanitizeSheetName,
   sanitizeFileNamePart,
@@ -630,6 +631,7 @@ export class AggregateService {
     periodId: string,
     userId: string,
     roleId: string,
+    acknowledgeExcluded = false,
   ): Promise<FinalizeResultView> {
     // The formulas are worked out BEFORE the transaction: it holds the period row lock and a pooled connection,
     // and the calculation waits for a worker (and may need more connections to load the grid). Inside the
@@ -638,7 +640,14 @@ export class AggregateService {
     for (let attempt = 1; ; attempt++) {
       const plan = await this.planFrozenFormulas(periodId, userId, roleId);
       try {
-        return await this.finalizeOnce(periodId, userId, roleId, plan, attempt < FINALIZE_MAX_ATTEMPTS);
+        return await this.finalizeOnce(
+          periodId,
+          userId,
+          roleId,
+          plan,
+          attempt < FINALIZE_MAX_ATTEMPTS,
+          acknowledgeExcluded,
+        );
       } catch (err) {
         if (err instanceof StaleFormulaPlanError) continue;
         throw err;
@@ -689,6 +698,7 @@ export class AggregateService {
     roleId: string,
     plan: FrozenFormulaPlan | null,
     mayRetry: boolean,
+    acknowledgeExcluded: boolean,
   ): Promise<FinalizeResultView> {
     const { result, notify } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
@@ -742,6 +752,25 @@ export class AggregateService {
         throw new SubmissionError(
           'Chưa có tổ nào nộp dữ liệu cho kỳ này — không thể chốt một kỳ trống.',
           'INVALID_STATE_TRANSITION',
+        );
+      }
+
+      // The official numbers are the APPROVED teams' (see closing-basis.ts). A period closed with a team submitted
+      // but none approved froze an empty total while the screen showed that team's figures (production, 13/10/2026).
+      const basis = closingBasis(period.assignments);
+      if (basis.requiredCount > 0 && basis.approved.length === 0) {
+        throw new SubmissionError(
+          'Chưa có tổ nào được duyệt — số chốt chỉ tính các tổ đã duyệt nên kỳ sẽ chốt ra rỗng. ' +
+            `Hãy duyệt các tổ đã nộp trước, rồi chốt kỳ. Hiện: ${describeExcluded(basis.excluded)}.`,
+          'INVALID_STATE_TRANSITION',
+        );
+      }
+      // Closing with some teams still outstanding stays possible, but never silently.
+      if (basis.excluded.length > 0 && !acknowledgeExcluded) {
+        throw new SubmissionError(
+          `Số chốt chỉ tính ${basis.approved.length}/${basis.requiredCount} tổ đã duyệt. Số liệu của các tổ sau KHÔNG nằm trong số chốt: ` +
+            `${describeExcluded(basis.excluded)}.`,
+          'UNAPPROVED_TEAMS',
         );
       }
 
@@ -1520,6 +1549,7 @@ export class AggregateService {
         })),
         scopes,
         totalOutcomes,
+        totalsNote: totalsNote(closingBasis(period.assignments)),
         meta: {
           kind: 'PERIOD',
           reportId: period.reportId,

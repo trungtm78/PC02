@@ -139,6 +139,37 @@ describe('buildPeriodWorkbook', () => {
     expect(wb.getWorksheet(META_SHEET_NAME)?.state).toBe('veryHidden');
   });
 
+  it('the totals carry a line saying which teams they are made of; the team sheets do not (production 13/10: a blank TỔNG nobody could explain)', async () => {
+    const note = 'Số liệu tổng hợp từ 1/3 tổ đã duyệt. Chưa tính: Đội 4 (đã nộp, chưa duyệt).';
+    const { template, req } = await request({ totalsNote: note });
+    const { buffer } = await buildPeriodWorkbook(template, req);
+    const wb = await reload(buffer);
+
+    const totals = wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet;
+    let lastWithValue = 0;
+    totals.eachRow({ includeEmpty: false }, (row, n) => {
+      if (row.hasValues && row.getCell(1).value !== note) lastWithValue = n;
+    });
+    expect(totals.getCell(lastWithValue + 2, 1).value).toBe(note); // two rows under the template's own last row
+    expect(totals.getCell('B2').value).toBe(30); // the figures are where they were
+    for (const name of ['TỔNG - Tính', 'Đội 3 - Nhập', 'Đội 4 - Nhập']) {
+      const ws = wb.getWorksheet(name) as ExcelJS.Worksheet;
+      let found = false;
+      ws.eachRow({ includeEmpty: false }, (row) => row.eachCell((c) => { if (c.value === note) found = true; }));
+      expect(found).toBe(false);
+    }
+  });
+
+  it('no note, no extra row', async () => {
+    const { template, req } = await request();
+    const { buffer } = await buildPeriodWorkbook(template, req);
+    const wb = await reload(buffer);
+    const baseline = (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).rowCount;
+    const { template: t2, req: r2 } = await request({ totalsNote: '' });
+    const again = await reload((await buildPeriodWorkbook(t2, r2)).buffer);
+    expect((again.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).rowCount).toBe(baseline);
+  });
+
   it('a single-sheet report names the copies after the scopes, as the exports always did', async () => {
     const { template, req } = await request({ selectedSheets: ['Nhập'], fields: FIELDS });
     const { buffer } = await buildPeriodWorkbook(template, req);

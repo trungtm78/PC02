@@ -353,9 +353,10 @@ export const dynamicReportsApi = {
       .then((r) => r.data),
 
   /** S38 (PR7 slice 6). */
-  finalizePeriod: (periodId: string) =>
+  /** `acknowledgeExcluded`: the manager has been told which teams the official numbers leave out (server answers UNAPPROVED_TEAMS otherwise). */
+  finalizePeriod: (periodId: string, acknowledgeExcluded = false) =>
     api
-      .post<FinalizeResultView>(`/bao-cao-dong/periods/${periodId}/finalize`, {})
+      .post<FinalizeResultView>(`/bao-cao-dong/periods/${periodId}/finalize`, acknowledgeExcluded ? { acknowledgeExcluded: true } : {})
       .then((r) => r.data),
 
   reopenPeriod: (periodId: string, reason: string) =>

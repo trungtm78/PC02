@@ -55,6 +55,8 @@ export interface PeriodExportRequest {
   grid: GridModel;
   /** "Sheet!A1" → the official figure of that formula, for the TOTAL scope; null when the system has none. */
   totalOutcomes: Record<string, FormulaOutcome> | null;
+  /** A line written under the first totals sheet: how many teams the totals come from and who is not in them. */
+  totalsNote?: string;
   /** Written to the hidden `__dr_meta` sheet (kind PERIOD, ids). */
   meta: Record<string, string>;
 }
@@ -85,6 +87,18 @@ export class PeriodExportTooLargeError extends Error {
     super(message);
     this.name = 'PeriodExportTooLargeError';
   }
+}
+
+/** Two rows under the last row that holds anything, so the template's own layout is left as it is. */
+function writeTotalsNote(ws: ExcelJS.Worksheet, note: string): void {
+  let last = 0;
+  ws.eachRow({ includeEmpty: false }, (row, number) => {
+    if (row.hasValues) last = number;
+  });
+  const cell = ws.getCell(last + 2, 1);
+  cell.value = note;
+  cell.font = { italic: true, color: { argb: 'FF92400E' } };
+  cell.alignment = { wrapText: false, vertical: 'top' };
 }
 
 function isFormulaValue(v: unknown): v is { formula?: string; sharedFormula?: string } {
@@ -348,6 +362,8 @@ export async function buildPeriodWorkbook(
         const ws = copies.get(sheetNameKey(scope.scope, original)) as ExcelJS.Worksheet;
         blankFormulas(ws, original, request.totalOutcomes, scope.scope, outcome);
       }
+      const first = present.length > 0 ? copies.get(sheetNameKey(scope.scope, present[0])) : undefined;
+      if (first && request.totalsNote) writeTotalsNote(first, request.totalsNote);
     } else {
       const results = computeFormulaResults(request.grid, request.fields, scope.values);
       for (const [key, result] of Object.entries(results)) {
