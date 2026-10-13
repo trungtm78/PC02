@@ -31,7 +31,7 @@ run('reopening a submission on PostgreSQL', () => {
   const events: Array<{ name: string }> = [];
 
   /** An open period with one team; the submission starts in `state` with a figure already saved. */
-  async function build(name: string, state: 'NOT_STARTED' | 'DRAFT' | 'SUBMITTED' | 'APPROVED', dueAt = future) {
+  async function build(name: string, state: 'NOT_STARTED' | 'DRAFT' | 'SUBMITTED' | 'APPROVED', dueAt = future, opensAt = past) {
     const report = await db.dynReport.create({ data: { code: `${tag}-${name}`, name: `${tag} ${name}`, status: 'PUBLISHED' } });
     const version = await db.dynReportVersion.create({
       data: { reportId: report.id, version: 1, status: 'PUBLISHED', fileBytes: Buffer.from('x'), sha256: 'f'.repeat(64), fileName: 'm.xlsx', selectedSheets: ['S'], layout: {}, parserVersion: 't', engineVersion: 't' },
@@ -41,7 +41,7 @@ run('reopening a submission on PostgreSQL', () => {
     });
     await db.dynReportRole.create({ data: { reportId: report.id, userId: user.mgr, role: 'MANAGER' } });
     const period = await db.dynReportPeriod.create({
-      data: { reportId: report.id, periodKey: `${tag}-${name}-P`, startDate: new Date('2026-10-01'), endDate: new Date('2026-10-31'), opensAt: past, dueAt, versionId: version.id, scheduleSnapshot: {} },
+      data: { reportId: report.id, periodKey: `${tag}-${name}-P`, startDate: new Date('2026-10-01'), endDate: new Date('2026-10-31'), opensAt, dueAt, versionId: version.id, scheduleSnapshot: {} },
     });
     const assignment = await db.dynReportAssignment.create({ data: { periodId: period.id, teamId, teamSnapshot: { name: 'Đội' } } });
     await db.dynReportAssignmentEditor.create({ data: { assignmentId: assignment.id, userId: user.editor, isActive: true } });
@@ -216,6 +216,18 @@ run('reopening a submission on PostgreSQL', () => {
 
     expect((await db.dynReportUnlock.findUnique({ where: { id: req.id } }))?.status).toBe('PENDING');
     expect((await state(assignmentId)).state).toBe('SUBMITTED');
+  });
+
+  it('REGRESSION: a period that has not opened yet is opened by an approved request (found on production: grant ACTIVE, every save 409)', async () => {
+    const { assignmentId } = await build('not-open-yet', 'NOT_STARTED', new Date('2099-12-31T00:00:00Z'), new Date('2099-01-01T00:00:00Z'));
+    expect((await view(assignmentId)).editable).toBe(false);
+
+    await requestAndApprove(assignmentId);
+
+    const after = await view(assignmentId);
+    expect(after.editable).toBe(true);
+    const saved = await svc.save(assignmentId, user.editor, { 'S!C3': '9' }, after.revision);
+    expect(saved.state).toBe('DRAFT');
   });
 
   it('a never-started submission past its deadline is opened the same way', async () => {

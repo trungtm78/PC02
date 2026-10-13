@@ -43,6 +43,28 @@ describe('computePeriodsToEnsure', () => {
     ]);
   });
 
+  it('REGRESSION: a cursor already past the lookahead window generates nothing and stays put (it used to add `lookahead` more every tick)', () => {
+    const now = new Date('2026-10-13T01:00:00Z');
+    const cursor = new Date('2027-04-01T00:00:00Z'); // 2026-10 .. 2027-03 already exist: the current month + 5
+    const result = computePeriodsToEnsure(monthlyRule, cursor, now, 6);
+    expect(result.periods).toHaveLength(0);
+    expect(result.nextCursor.toISOString()).toBe(cursor.toISOString());
+  });
+
+  it('REGRESSION: tick after tick the horizon holds still — only the month turning over adds one period', () => {
+    const effectiveFrom = new Date('2026-09-30T17:00:00Z');
+    let cursor = effectiveFrom;
+    const keys: string[] = [];
+    for (let hour = 0; hour < 60; hour++) {
+      const now = new Date(Date.UTC(2026, 9, 12, 17 + hour));
+      const result = computePeriodsToEnsure(monthlyRule, cursor, now, 6);
+      keys.push(...result.periods.map((p) => p.periodKey));
+      cursor = result.nextCursor;
+    }
+    // 12/10 17:00Z .. 15/10: October (current) + 5 ahead = 2026-10 .. 2027-03, no more.
+    expect(keys).toEqual(['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03']);
+  });
+
   it('advances the returned cursor to one day past the last generated period, so the next run starts at the following period rather than regenerating the same one', () => {
     const cursor = new Date('2026-06-01T00:00:00Z');
     const now = new Date('2026-06-15T10:00:00Z');

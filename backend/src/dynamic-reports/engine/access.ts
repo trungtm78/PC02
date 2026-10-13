@@ -84,17 +84,22 @@ export function resolveAccess(input: AccessInput): AccessResult {
   if (!EDITABLE_STATES.includes(input.state)) {
     return { canEdit: false, effectiveLockAt: null, reason: 'WRONG_STATE' };
   }
+
+  // Spec §3.2: writing is allowed at `opensAt <= now < dueAt`, OR while a grant is ACTIVE, OR while a return is open.
+  // A grant is the manager explicitly opening a window for this team, so it counts before `opensAt` too — otherwise
+  // "approve the reopening" of a period that has not opened yet leaves the editor locked (found on production
+  // 13/10/2026, with the grant active and every save still answered 409).
+  const grant = activeGrant(input.grants, input.now);
+  if (grant) {
+    return { canEdit: true, effectiveLockAt: grant.expiresAt, reason: null };
+  }
+
   if (input.now.getTime() < input.opensAt.getTime()) {
     return {
       canEdit: false,
       effectiveLockAt: input.opensAt,
       reason: 'NOT_YET_OPEN',
     };
-  }
-
-  const grant = activeGrant(input.grants, input.now);
-  if (grant) {
-    return { canEdit: true, effectiveLockAt: grant.expiresAt, reason: null };
   }
 
   const deadline =
