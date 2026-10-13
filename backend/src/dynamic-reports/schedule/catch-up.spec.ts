@@ -65,6 +65,18 @@ describe('computePeriodsToEnsure', () => {
     expect(keys).toEqual(['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03']);
   });
 
+  it('a lookahead of one still generates the current period when the cursor carries a time of day (found by Codex)', () => {
+    const dailyRule: ScheduleRule = {
+      periodType: 'DAILY',
+      due: { kind: 'DAYS_AFTER_END', days: 1, time: '17:00' },
+      open: { kind: 'AT_PERIOD_START' },
+    };
+    const now = new Date('2026-10-13T10:00:00Z');
+    const result = computePeriodsToEnsure(dailyRule, now, now, 1);
+    expect(result.periods.map((p) => p.periodKey)).toHaveLength(1);
+    expect(result.truncated).toBe(false);
+  });
+
   it('advances the returned cursor to one day past the last generated period, so the next run starts at the following period rather than regenerating the same one', () => {
     const cursor = new Date('2026-06-01T00:00:00Z');
     const now = new Date('2026-06-15T10:00:00Z');
