@@ -261,10 +261,18 @@ describe('AggregateController', () => {
     const exported = { exportId: 'export1', fileName: 'HSLN-2026-06.xlsx' };
     service.exportPeriod.mockResolvedValue(exported);
 
-    const result = await controller.exportPeriod('period1', user);
+    const result = await controller.exportPeriod('period1', {}, user);
 
-    expect(service.exportPeriod).toHaveBeenCalledWith('period1', 'u1', 'r1');
+    expect(service.exportPeriod).toHaveBeenCalledWith('period1', 'u1', 'r1', undefined);
     expect(result).toBe(exported);
+  });
+
+  it('POST export passes the mode of the screen on', async () => {
+    service.exportPeriod.mockResolvedValue({ exportId: 'export1', fileName: 'x.xlsx' });
+
+    await controller.exportPeriod('period1', { mode: 'SUBMITTED' }, user);
+
+    expect(service.exportPeriod).toHaveBeenCalledWith('period1', 'u1', 'r1', 'SUBMITTED');
   });
 
   it('translates a REPORT_LOCKED-style SubmissionError from export via the shared handleWrite', async () => {
@@ -273,7 +281,7 @@ describe('AggregateController', () => {
     );
 
     await expect(
-      controller.exportPeriod('period1', user),
+      controller.exportPeriod('period1', {}, user),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

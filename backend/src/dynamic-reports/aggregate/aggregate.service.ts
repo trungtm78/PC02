@@ -361,7 +361,7 @@ export class AggregateService {
         currentRevision: bigint;
       } | null;
     }>;
-  }): {
+  }, mode: SummaryMode = 'APPROVED'): {
     snapshotValues: Record<
       string,
       { value: string | null; countTotal: number; countNonBlank: number }
@@ -372,7 +372,8 @@ export class AggregateService {
   } {
     // mode=APPROVED — a team not yet APPROVED simply isn't counted, same
     // rule as getPeriodSummary's own mode=APPROVED path.
-    const contributingStates = CONTRIBUTING_STATES.APPROVED;
+    // The default, and the only one a closed period uses; the export of an open period may ask for the mode on screen.
+    const contributingStates = CONTRIBUTING_STATES[mode];
     const contributingAssignments = period.assignments.filter(
       (a) =>
         a.obligation !== 'EXEMPT' &&
@@ -415,7 +416,7 @@ export class AggregateService {
         JSON.stringify({
           periodId: period.id,
           versionId: period.versionId,
-          mode: 'APPROVED',
+          mode,
           sourceRevisions,
         }),
       )
@@ -1444,6 +1445,7 @@ export class AggregateService {
     periodId: string,
     userId: string,
     roleId: string,
+    requestedMode: SummaryMode = 'APPROVED',
   ): Promise<ExportCreateResultView> {
     const period = await this.prisma.dynReportPeriod.findUnique({
       where: { id: periodId },
@@ -1468,7 +1470,10 @@ export class AggregateService {
 
     // The teams this file is made from; checked again when it is stored (see below).
     const assignmentIdsAtRead = period.assignments.map((x) => x.id).sort().join(',');
-    const computed = this.computeApprovedSnapshot(period);
+    // A closed period exports its official figures, always the approved teams'. An open one may export what the screen
+    // shows (SUBMITTED by default there), marked as provisional in the file.
+    const mode: SummaryMode = period.status === 'FINALIZED' ? 'APPROVED' : requestedMode;
+    const computed = this.computeApprovedSnapshot(period, mode);
     let snapshotValues = computed.snapshotValues;
     let snapshotId: string | null = null;
     let officialFormulaValues: Record<string, FormulaOutcome> | null = null;
@@ -1516,7 +1521,7 @@ export class AggregateService {
         .filter(
           (a) =>
             a.obligation !== 'EXEMPT' &&
-            CONTRIBUTING_STATES.APPROVED.includes((a.submission?.state ?? 'NOT_STARTED') as SubmissionState),
+            CONTRIBUTING_STATES[mode].includes((a.submission?.state ?? 'NOT_STARTED') as SubmissionState),
         )
         .map((a) => a.teamId),
     );
@@ -1560,14 +1565,14 @@ export class AggregateService {
         })),
         scopes,
         totalOutcomes,
-        totalsNote: totalsNote(closingBasis(period.assignments), true),
+        totalsNote: totalsNote(closingBasis(period.assignments, mode), true),
         meta: {
           kind: 'PERIOD',
           reportId: period.reportId,
           versionId: period.versionId,
           periodId,
           periodKey: period.periodKey,
-          mode: 'APPROVED',
+          mode,
           snapshotId: snapshotId ?? '',
           exportedAt: new Date().toISOString(),
         },
@@ -1577,7 +1582,7 @@ export class AggregateService {
         `Xuất theo mẫu thất bại cho kỳ ${periodId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
       );
       format = 'LIST';
-      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams, totalsNote(closingBasis(period.assignments)));
+      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams, totalsNote(closingBasis(period.assignments, mode)));
     }
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
 

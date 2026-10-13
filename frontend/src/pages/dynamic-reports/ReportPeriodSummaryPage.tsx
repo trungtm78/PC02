@@ -71,7 +71,8 @@ export default function ReportPeriodSummaryPage() {
     setExportError(null);
     setExportFormat(null);
     try {
-      const { exportId, fileName, format } = await dynamicReportsApi.exportPeriod(periodId);
+      // The file is what the screen shows: the totals follow the mode chosen here (a closed period always exports its official figures).
+      const { exportId, fileName, format } = await dynamicReportsApi.exportPeriod(periodId, mode);
       setExportFormat(format);
       await dynamicReportsApi.downloadExport(exportId, fileName);
     } catch (err) {
@@ -185,6 +186,11 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
           <button
             type="button"
             data-testid="btn-export"
+            title={
+              view.status === 'OPEN'
+                ? `File xuất tính theo chế độ đang chọn: ${MODE_LABEL[mode]}`
+                : 'Kỳ đã chốt: file xuất là số chốt (các tổ đã duyệt)'
+            }
             disabled={isExporting}
             onClick={() => void handleExport()}
             className={`${BTN_OUTLINE_BLUE} ${A11Y_FOCUS_RING} inline-flex items-center gap-2`}
