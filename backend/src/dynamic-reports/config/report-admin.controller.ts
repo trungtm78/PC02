@@ -109,6 +109,14 @@ export class ReportAdminController {
     }
   }
 
+  /** "Xuất bản" a report that was only saved as a draft: the stored configuration goes live as it is. */
+  @Post(':reportId/publish')
+  @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  publish(@Param('reportId') reportId: string) {
+    return this.guard(() => this.versioningService.publishDraft(reportId));
+  }
+
   /** One version's template file — the source for copying a report or starting a new version from the same file. */
   @Get(':reportId/versions/:versionId/file')
   @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })

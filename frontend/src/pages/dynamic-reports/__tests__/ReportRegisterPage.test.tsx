@@ -11,6 +11,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     listForSetup: vi.fn(),
     suspendReportGeneration: vi.fn(),
     resumeReportGeneration: vi.fn(),
+    publishDraftReport: vi.fn(),
     getReportDeletionImpact: vi.fn(),
     deleteReport: vi.fn(),
     deleteReportWithData: vi.fn(),
@@ -141,6 +142,37 @@ describe('ReportRegisterPage', () => {
     await waitFor(() => screen.getByTestId('btn-edit-HSLN'));
     expect(screen.getByTestId('btn-edit-HSLN')).toHaveAttribute('href', '/bao-cao-dong/thiet-lap/r1/sua');
     expect(screen.queryByTestId('btn-edit-OLD')).not.toBeInTheDocument();
+  });
+
+  it('a draft row offers "Xuất bản" (and not "Ngừng phát sinh"); confirming publishes it and reloads the list', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([{ ...SAMPLE, status: 'DRAFT' }]);
+    vi.mocked(dynamicReportsApi.publishDraftReport).mockResolvedValue({ reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' });
+
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-publish-HSLN'));
+    expect(screen.queryByTestId('btn-suspend-HSLN')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-publish-HSLN'));
+
+    await waitFor(() => expect(dynamicReportsApi.publishDraftReport).toHaveBeenCalledWith('r1'));
+    await waitFor(() => expect(dynamicReportsApi.listForSetup).toHaveBeenCalledTimes(2));
+  });
+
+  it('a draft that cannot be published says why, in the server\'s words', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([{ ...SAMPLE, status: 'DRAFT' }]);
+    vi.mocked(dynamicReportsApi.publishDraftReport).mockRejectedValue(new Error('Mỗi tổ phải có ít nhất một người nhập.'));
+
+    renderPage();
+    fireEvent.click(await screen.findByTestId('btn-publish-HSLN'));
+    await waitFor(() => expect(screen.getByTestId('action-note')).toHaveTextContent('Mỗi tổ phải có ít nhất một người nhập'));
+  });
+
+  it('a published report has no "Xuất bản" on its row', async () => {
+    vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([SAMPLE]);
+    renderPage();
+    await waitFor(() => screen.getByTestId('btn-suspend-HSLN'));
+    expect(screen.queryByTestId('btn-publish-HSLN')).not.toBeInTheDocument();
   });
 
   it('a suspended report offers "Tiếp tục phát sinh" (the way back from "Ngừng phát sinh") and calls the API', async () => {

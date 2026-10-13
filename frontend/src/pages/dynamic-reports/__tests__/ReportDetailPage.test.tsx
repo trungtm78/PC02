@@ -11,6 +11,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getReportDetail: vi.fn(),
     suspendReportGeneration: vi.fn(),
     resumeReportGeneration: vi.fn(),
+    publishDraftReport: vi.fn(),
     archiveReport: vi.fn(),
     unarchiveReport: vi.fn(),
     getReportDeletionImpact: vi.fn(),
@@ -114,6 +115,42 @@ describe('ReportDetailPage', () => {
     await screen.findByTestId('btn-suspend');
     expect(screen.queryByTestId('btn-resume')).not.toBeInTheDocument();
     expect(screen.queryByTestId('btn-unarchive')).not.toBeInTheDocument();
+  });
+
+  it('a draft says it is only a temporary save and offers "Xuất bản", which asks first and then publishes it', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(dynamicReportsApi.publishDraftReport).mockResolvedValue({ reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' });
+    renderPage({ ...DETAIL, status: 'DRAFT' });
+
+    expect(await screen.findByTestId('draft-note')).toHaveTextContent('lưu tạm');
+    expect(screen.queryByTestId('btn-suspend')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-publish-draft'));
+
+    await waitFor(() => expect(dynamicReportsApi.publishDraftReport).toHaveBeenCalledWith('r1'));
+    await waitFor(() => expect(dynamicReportsApi.getReportDetail).toHaveBeenCalledTimes(2));
+  });
+
+  it('declining the confirmation publishes nothing; a published report has no "Xuất bản"', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPage({ ...DETAIL, status: 'DRAFT' });
+    fireEvent.click(await screen.findByTestId('btn-publish-draft'));
+    expect(dynamicReportsApi.publishDraftReport).not.toHaveBeenCalled();
+  });
+
+  it('what the server says is missing is shown as it is (e.g. no manager), and the draft stays a draft', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(dynamicReportsApi.publishDraftReport).mockRejectedValue(new Error('Phải có ít nhất một quản lý trước khi xuất bản.'));
+    renderPage({ ...DETAIL, status: 'DRAFT' });
+    fireEvent.click(await screen.findByTestId('btn-publish-draft'));
+    expect(await screen.findByText(/ít nhất một quản lý/)).toBeInTheDocument();
+    expect(screen.getByTestId('btn-publish-draft')).toBeInTheDocument();
+  });
+
+  it('a published report does not offer "Xuất bản"', async () => {
+    renderPage();
+    await screen.findByTestId('btn-suspend');
+    expect(screen.queryByTestId('btn-publish-draft')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('draft-note')).not.toBeInTheDocument();
   });
 
   it('a suspended report offers "Tiếp tục phát sinh" and calls the API, then reloads the detail', async () => {

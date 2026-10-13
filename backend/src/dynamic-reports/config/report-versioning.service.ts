@@ -6,6 +6,8 @@ import { computeSha256 } from '../../xlsx-imports/hostile-xlsx-guard';
 import { ReportConfigError, ReportConfigService } from './report-config.service';
 import type { SaveReportVersionDto } from './dto/save-report-version.dto';
 import type { ParseTemplateResult } from '../template/types';
+import { generatePeriods } from '../engine/period';
+import type { ScheduleRule } from '../engine/period';
 
 const PARSER_VERSION = 'pr3-v1';
 const ENGINE_VERSION = 'pr1-v1';
@@ -21,6 +23,13 @@ export interface CreateVersionResult {
   appliedToPeriods: string[];
   /** Open periods that stay on the version their teams already typed into; the new one applies from the next period. */
   keptOnOldVersionPeriods: string[];
+}
+
+export interface PublishDraftResult {
+  reportId: string;
+  versionId: string;
+  version: number;
+  status: 'PUBLISHED';
 }
 
 /**
@@ -175,6 +184,144 @@ export class ReportVersioningService {
       });
       return payload;
     });
+  }
+
+  /**
+   * "Xuất bản" a report that was only saved as a draft. A draft is a temporary save: everything the wizard had — the
+   * template file, the cells, the schedule, the managers, the teams and their editors — is already stored, so publishing
+   * is deciding that it is ready, not entering it again. The same checks as publishing from the wizard run here, against
+   * what is stored: the file is re-read and the stored cells must agree with it (OV3), and the stored schedule, managers and
+   * teams must be complete.
+   *
+   * The newest draft version becomes the published one and the report goes live (the scheduler starts making its periods).
+   * Any other draft version stays a draft. A draft report has no periods, so there is nothing to move (D09).
+   */
+  async publishDraft(reportId: string): Promise<PublishDraftResult> {
+    const report = await this.prisma.dynReport.findUnique({ where: { id: reportId } });
+    if (!report) throw new ReportConfigError('Không tìm thấy báo cáo này.', 'REPORT_NOT_FOUND');
+    this.assertIsDraft(report.status);
+
+    const version = await this.prisma.dynReportVersion.findFirst({
+      where: { reportId, status: 'DRAFT' },
+      orderBy: { version: 'desc' },
+    });
+    if (!version) {
+      throw new ReportConfigError('Báo cáo nháp này chưa có phiên bản mẫu nào để xuất bản.', 'TEMPLATE_INVALID');
+    }
+    const stored = await this.prisma.dynReportField.findMany({ where: { versionId: version.id }, orderBy: { address: 'asc' } });
+    if (stored.length === 0) {
+      throw new ReportConfigError('Phải có ít nhất một ô nhập trước khi xuất bản.', 'TEMPLATE_INVALID');
+    }
+    const selectedSheets = version.selectedSheets as string[];
+    const fields = stored.map((f) => ({
+      sheetKey: f.sheetKey,
+      address: f.address,
+      fieldKey: f.fieldKey,
+      label: f.label,
+      type: f.type,
+      format: f.format ?? undefined,
+      aggregate: f.aggregate,
+      blankPolicy: f.blankPolicy,
+      required: f.required,
+      scale: f.scale ?? undefined,
+      maxLength: f.maxLength ?? undefined,
+      helpText: f.helpText ?? undefined,
+      source: f.source,
+    }));
+
+    // The file checks parse the workbook in a worker: done before the transaction so no row lock is held meanwhile.
+    const fileBuffer = Buffer.from(version.fileBytes);
+    await this.configService.assertNoBlockingFeatureIssues(fileBuffer);
+    const derived = await this.configService.reconcileWithFile(
+      { selectedSheets, fields } as never,
+      fileBuffer,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM dyn_reports WHERE id = ${reportId} FOR UPDATE`;
+      const locked = await tx.dynReport.findUnique({ where: { id: reportId } });
+      if (!locked) throw new ReportConfigError('Không tìm thấy báo cáo này.', 'REPORT_NOT_FOUND');
+      this.assertIsDraft(locked.status);
+      // Anything saved while the file was being read (another edit, a version deleted) invalidates what was checked above.
+      // Saving a draft version does not bump configVersion, so a newer draft that landed meanwhile is looked for directly:
+      // the one that was checked must still be the newest, or v1 would go live while the newer v2 is left behind.
+      const newest = await tx.dynReportVersion.findFirst({
+        where: { reportId, status: 'DRAFT' },
+        orderBy: { version: 'desc' },
+        select: { id: true },
+      });
+      if (locked.configVersion !== report.configVersion || newest?.id !== version.id) {
+        throw new ReportConfigError(
+          'Cấu hình báo cáo vừa được thay đổi. Hãy mở lại báo cáo rồi xuất bản.',
+          'REVISION_CONFLICT',
+        );
+      }
+
+      await this.assertReadyToPublish(tx, reportId);
+      const schedule = await tx.dynReportSchedule.findFirst({ where: { reportId, supersededAt: null } });
+      if (schedule) {
+        if (schedule.periodType === 'ONE_TIME' && !schedule.oneTimeDate) {
+          throw new ReportConfigError('Loại kỳ "Một lần" phải chọn ngày của kỳ.', 'TEMPLATE_INVALID');
+        }
+        try {
+          generatePeriods(
+            {
+              periodType: schedule.periodType as ScheduleRule['periodType'],
+              periodStartDay: schedule.periodStartDay ?? undefined,
+              due: schedule.dueRule as ScheduleRule['due'],
+              open: schedule.openRule as ScheduleRule['open'],
+              shiftNonWorking: schedule.shiftNonWorking,
+              oneTimeDate: schedule.oneTimeDate ?? undefined,
+            },
+            new Date(),
+            1,
+          );
+        } catch (err) {
+          throw new ReportConfigError(
+            `Không tính được lịch: ${err instanceof Error ? err.message : String(err)}`,
+            'TEMPLATE_INVALID',
+          );
+        }
+      }
+
+      // What a published version stores is what the FILE says (OV3); the cells are written again with the template's own constraints.
+      await tx.dynReportField.deleteMany({ where: { versionId: version.id } });
+      await this.configService.persistFields(tx, version.id, fields as never, derived);
+      await tx.dynReportVersion.update({
+        where: { id: version.id },
+        data: {
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+          layout: { layout: derived.layout, formulas: derived.formulas } as unknown as Prisma.InputJsonValue,
+          parserVersion: PARSER_VERSION,
+          engineVersion: ENGINE_VERSION,
+        },
+      });
+      // The schedule starts when the report goes live, not when the draft was saved: otherwise the scheduler, which walks
+      // from `effectiveFrom`, would make every period since then at once (a daily report saved three weeks ago: 21 past
+      // periods). A start the author deliberately put in the future is kept.
+      const goLiveAt = new Date();
+      const anchor = (d: Date) => (d.getTime() < goLiveAt.getTime() ? goLiveAt : d);
+      await tx.dynReportSchedule.updateMany({
+        where: { reportId, supersededAt: null },
+        data: { effectiveFrom: anchor(schedule?.effectiveFrom ?? goLiveAt) },
+      });
+      await tx.dynReport.update({
+        where: { id: reportId },
+        data: { status: 'PUBLISHED', configVersion: { increment: 1 }, effectiveFrom: anchor(locked.effectiveFrom ?? goLiveAt) },
+      });
+      return { reportId, versionId: version.id, version: version.version, status: 'PUBLISHED' as const };
+    });
+  }
+
+  private assertIsDraft(status: string): void {
+    if (status === 'DRAFT') return;
+    throw new ReportConfigError(
+      status === 'ARCHIVED'
+        ? 'Báo cáo đã lưu trữ — hãy khôi phục trước.'
+        : 'Báo cáo này đã được xuất bản rồi, không còn là bản nháp.',
+      'INVALID_STATE',
+    );
   }
 
   /** A draft report becomes live with its first published version: what the first publish would have required must hold. */

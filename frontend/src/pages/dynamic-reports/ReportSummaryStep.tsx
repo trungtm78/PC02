@@ -111,6 +111,11 @@ export default function ReportSummaryStep({
           {result.status === 'PUBLISHED' ? 'Đã xuất bản báo cáo' : 'Đã lưu nháp báo cáo'}
         </p>
         <p className="text-sm text-slate-500 mt-1">Mã báo cáo: {code}</p>
+        {result.status !== 'PUBLISHED' && (
+          <p className="text-sm text-amber-700 mt-2" data-testid="draft-saved-hint">
+            Bản nháp chỉ là lưu tạm. Khi sẵn sàng, mở báo cáo trong danh sách và bấm "Xuất bản".
+          </p>
+        )}
         <Link
           to="/bao-cao-dong/thiet-lap"
           className={`inline-block mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 ${A11Y_FOCUS_RING}`}

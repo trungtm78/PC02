@@ -124,6 +124,11 @@ export default function ReportDetailPage() {
                 {formatVNDateTime(report.updatedAt)}
               </p>
               {report.description && <p className="text-sm text-slate-600 mt-1">{report.description}</p>}
+              {report.status === 'DRAFT' && (
+                <p className="text-sm text-amber-700 mt-1" data-testid="draft-note">
+                  Đây là bản nháp, chỉ là lưu tạm: chưa sinh kỳ và các tổ chưa thấy báo cáo. Bấm "Xuất bản" khi đã sẵn sàng.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2" data-testid="report-actions">
@@ -160,6 +165,22 @@ export default function ReportDetailPage() {
                 >
                   Sao chép
                 </Link>
+              )}
+              {report.status === 'DRAFT' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  data-testid="btn-publish-draft"
+                  className={`${btn} border-green-600 bg-green-600 text-white hover:bg-green-700`}
+                  onClick={() =>
+                    void changeState(
+                      `Xuất bản báo cáo "${report.name}"? Từ lúc này hệ thống sinh kỳ theo lịch và các tổ thấy báo cáo để nhập.`,
+                      () => dynamicReportsApi.publishDraftReport(report.id),
+                    )
+                  }
+                >
+                  Xuất bản
+                </button>
               )}
               {report.status === 'PUBLISHED' && (
                 <button

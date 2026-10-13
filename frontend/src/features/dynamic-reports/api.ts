@@ -105,6 +105,15 @@ export const dynamicReportsApi = {
       .post<{ status: 'PUBLISHED' }>(`/bao-cao-dong/reports/${reportId}/resume`, {})
       .then((r) => r.data),
 
+  /** "Xuất bản" a report that was only saved as a draft: the stored configuration goes live as it is. */
+  publishDraftReport: (reportId: string) =>
+    api
+      .post<{ reportId: string; versionId: string; version: number; status: 'PUBLISHED' }>(
+        `/bao-cao-dong/reports/${reportId}/publish`,
+        {},
+      )
+      .then((r) => r.data),
+
   /** S01 "Xem" — the whole configuration of one report. */
   getReportDetail: (reportId: string) =>
     api.get<ReportDetailView>(`/bao-cao-dong/reports/${reportId}`).then((r) => r.data),

@@ -1252,6 +1252,7 @@ nên thanh cuộn và các offset sticky không đổi; khối ô gộp luôn đ
 |---|---|---|---|---|
 | Báo cáo | wizard (POST /reports) + **Sao chép cấu hình** | **Sửa cấu hình**: tên, mô tả, lịch, quản lý, tổ + người nhập (PATCH, từ kỳ kế) | Xoá / Lưu trữ / Khôi phục / Xoá kèm số liệu (admin, gõ lại mã) | Đủ (#614, #616) |
 | Phiên bản mẫu | wizard (v1) | **Cập nhật mẫu = phiên bản mới** (D09), tải file về sửa rồi tải lên lại | Xoá bản nháp / bản cũ không kỳ nào dùng | Đủ (#615) |
+| Bản nháp báo cáo | "Lưu nháp" ở bước 4 của wizard (chỉ là lưu tạm) | **Xuất bản** một bấm từ trang chi tiết hoặc danh sách (kiểm lại file và cấu hình đã lưu, như xuất bản trong wizard); "Sửa cấu hình" / "Cập nhật mẫu" vẫn dùng được | Xoá như mọi báo cáo | Đủ |
 | Ngừng phát sinh | S31 | — | **Tiếp tục phát sinh** | Đủ (#614) |
 | Lịch / quản lý / tổ + người nhập | wizard | Sửa cấu hình (áp từ kỳ kế) | Gỡ tổ / gỡ người (đặt hạn cuối `validTo`, không xoá dòng) | Đủ (#616) |
 | Sao chép cấu hình | báo cáo mới từ bản sao (file, ô nhập, quy tắc, lịch, tổ) | — | — | Đủ (#616) |
