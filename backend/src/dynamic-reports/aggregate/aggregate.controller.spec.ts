@@ -83,9 +83,9 @@ describe('AggregateController', () => {
     const finalized = { periodId: 'period1', status: 'FINALIZED' };
     service.finalizePeriod.mockResolvedValue(finalized);
 
-    const result = await controller.finalize('period1', user);
+    const result = await controller.finalize('period1', {}, user);
 
-    expect(service.finalizePeriod).toHaveBeenCalledWith('period1', 'u1', 'r1');
+    expect(service.finalizePeriod).toHaveBeenCalledWith('period1', 'u1', 'r1', undefined);
     expect(result).toBe(finalized);
   });
 
@@ -113,7 +113,7 @@ describe('AggregateController', () => {
       new SubmissionError('already finalized', 'INVALID_STATE_TRANSITION'),
     );
 
-    await expect(controller.finalize('period1', user)).rejects.toBeInstanceOf(
+    await expect(controller.finalize('period1', {}, user)).rejects.toBeInstanceOf(
       ConflictException,
     );
   });

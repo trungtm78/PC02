@@ -1,5 +1,7 @@
+import * as ExcelJS from 'exceljs';
 import { NotFoundException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { closingBasis, excludedMessage } from './closing-basis';
 import { AggregateService } from './aggregate.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TeamsService } from '../../teams/teams.service';
@@ -553,15 +555,17 @@ describe('AggregateService', () => {
         formulas,
         buildTemplateExportMock(),
       );
-      return { service, tx, eventEmitter, prisma };
+      // What a manager who has read the "left out" sentence answers with.
+      const ack = excludedMessage(closingBasis((period as { assignments: never[] }).assignments ?? []));
+      return { service, tx, eventEmitter, prisma, ack };
     }
 
     it('finalizes an OPEN period, writes an official APPROVED snapshot, and flips status', async () => {
-      const { service, tx } = buildTxService(basePeriod(), [
+      const { ack, service, tx } = buildTxService(basePeriod(), [
         { role: 'MANAGER' },
       ]);
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(result.status).toBe('FINALIZED');
       expect(result.snapshotId).toBe('snapshot1');
@@ -594,9 +598,9 @@ describe('AggregateService', () => {
     it('freezes the official formula figures into the snapshot, with the calculator that produced them (OV1/OV10)', async () => {
       const outcomes = { 'Đội 3!G10': { ok: true, type: 'boolean', value: true } };
       const formulas = buildFormulaMock(outcomes);
-      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      const { ack, service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
 
-      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
       expect(data.formulaValues).toEqual(outcomes);
@@ -612,13 +616,13 @@ describe('AggregateService', () => {
         order.push('evaluate');
         return {};
       });
-      const { service, tx, prisma } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      const { ack, service, tx, prisma } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
       tx.$queryRaw.mockImplementation(async () => {
         order.push('lock');
         return [];
       });
 
-      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(order).toEqual(['evaluate', 'lock']);
       expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function)); // no long timeout needed any more
@@ -629,14 +633,14 @@ describe('AggregateService', () => {
         assignments: [assignment('a2', 'APPROVED', '25', { submission: { ...assignment('a2', 'APPROVED', '25').submission, currentRevision: 2n } })],
       });
       const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
-      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      const { ack, service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
       // read order: plan 1 (old numbers) -> transaction (changed) -> plan 2 (changed) -> transaction (changed)
       tx.dynReportPeriod.findUnique
         .mockResolvedValueOnce(basePeriod())
         .mockResolvedValueOnce(changed)
         .mockResolvedValue(changed);
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(result.status).toBe('FINALIZED');
       expect(formulas.evaluate).toHaveBeenCalledTimes(2);
@@ -648,7 +652,7 @@ describe('AggregateService', () => {
 
     it('gives up on the figures, not on the close, when the numbers keep changing', async () => {
       const formulas = buildFormulaMock({ 'Đội 3!G10': { ok: true, type: 'boolean', value: true } });
-      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      const { ack, service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
       let n = 0;
       // The plan always reads one revision, the transaction always sees the next one.
       tx.dynReportPeriod.findUnique.mockImplementation(async () => {
@@ -659,7 +663,7 @@ describe('AggregateService', () => {
         });
       });
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(result.status).toBe('FINALIZED');
       const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
@@ -677,9 +681,9 @@ describe('AggregateService', () => {
     it('still closes the period when the formulas cannot be calculated, and the snapshot says it has none', async () => {
       const formulas = buildFormulaMock();
       (formulas.evaluate as jest.Mock).mockRejectedValue(new Error('GRID_BUSY'));
-      const { service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
+      const { ack, service, tx } = buildTxService(basePeriod(), [{ role: 'MANAGER' }], formulas);
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(result.status).toBe('FINALIZED');
       const data = (tx.dynReportSnapshot.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
@@ -688,12 +692,12 @@ describe('AggregateService', () => {
     });
 
     it('PR9 slice 3: emits dyn-report.period-finalized to every manager of the report', async () => {
-      const { service, tx, eventEmitter } = buildTxService(basePeriod(), [
+      const { ack, service, tx, eventEmitter } = buildTxService(basePeriod(), [
         { role: 'MANAGER' },
       ]);
       tx.dynReportRole.findMany.mockResolvedValue([{ userId: 'mgr1' }]);
 
-      await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(eventEmitter.emit).toHaveBeenCalledWith(
         'dyn-report.period-finalized',
@@ -702,12 +706,12 @@ describe('AggregateService', () => {
     });
 
     it('rejects with INVALID_STATE_TRANSITION when the period is already FINALIZED', async () => {
-      const { service } = buildTxService(basePeriod({ status: 'FINALIZED' }), [
+      const { ack, service } = buildTxService(basePeriod({ status: 'FINALIZED' }), [
         { role: 'MANAGER' },
       ]);
 
       await expect(
-        service.finalizePeriod('period1', 'mgr1', 'roleMgr'),
+        service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack),
       ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
     });
 
@@ -720,7 +724,7 @@ describe('AggregateService', () => {
     });
 
     it('BUG-002 fix: rejects finalizing an empty period — no REQUIRED assignment has reached SUBMITTED/APPROVED', async () => {
-      const { service } = buildTxService(
+      const { ack, service } = buildTxService(
         basePeriod({
           assignments: [
             assignment('a1', 'NOT_STARTED', null),
@@ -732,12 +736,72 @@ describe('AggregateService', () => {
       );
 
       await expect(
-        service.finalizePeriod('period1', 'mgr1', 'roleMgr'),
+        service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack),
       ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
     });
 
-    it('BUG-002 fix: allows finalizing a period where every assignment is EXEMPT (nothing was ever required)', async () => {
+    it('REGRESSION (production 13/10): a team submitted but none approved is refused — the official numbers would be blank while the screen shows the submitted figures', async () => {
+      const { ack, service, tx } = buildTxService(
+        basePeriod({ assignments: [assignment('a1', 'SUBMITTED', '120'), assignment('a2', 'NOT_STARTED', null)] }),
+        [{ role: 'MANAGER' }],
+      );
+
+      // Even a manager who says "close anyway" cannot close it into nothing.
+      await expect(service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack)).rejects.toMatchObject({
+        code: 'INVALID_STATE_TRANSITION',
+        message: expect.stringContaining('Chưa có tổ nào được duyệt'),
+      });
+      expect(tx.dynReportSnapshot.create).not.toHaveBeenCalled();
+      expect(tx.dynReportPeriod.update).not.toHaveBeenCalled();
+    });
+
+    it('closing with a team still outstanding is refused until the manager says so; the refusal names the team and why', async () => {
+      const { ack, service, tx } = buildTxService(
+        basePeriod({ assignments: [assignment('a1', 'SUBMITTED', '120'), assignment('a2', 'APPROVED', '20')] }),
+        [{ role: 'MANAGER' }],
+      );
+
+      await expect(service.finalizePeriod('period1', 'mgr1', 'roleMgr')).rejects.toMatchObject({
+        code: 'UNAPPROVED_TEAMS',
+        message: expect.stringContaining('Team a1 (đã nộp, chưa duyệt)'),
+      });
+      expect(tx.dynReportSnapshot.create).not.toHaveBeenCalled(); // nothing written by a refusal
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
+      expect(result.status).toBe('FINALIZED');
+    });
+
+    it('a "yes" to an older sentence does not count: a team unapproved while the question was open is shown, not swallowed (found by Codex)', async () => {
       const { service, tx } = buildTxService(
+        basePeriod({ assignments: [assignment('a1', 'SUBMITTED', '120'), assignment('a2', 'APPROVED', '20')] }),
+        [{ role: 'MANAGER' }],
+      );
+      const stale = 'Số chốt chỉ tính 2/2 tổ đã duyệt. Số liệu của các tổ sau KHÔNG nằm trong số chốt: .';
+
+      await expect(service.finalizePeriod('period1', 'mgr1', 'roleMgr', stale)).rejects.toMatchObject({
+        code: 'UNAPPROVED_TEAMS',
+        message: expect.stringContaining('Team a1 (đã nộp, chưa duyệt)'),
+      });
+      expect(tx.dynReportSnapshot.create).not.toHaveBeenCalled();
+    });
+
+    it('with every required team approved (and one exempt) it closes without being asked anything', async () => {
+      const { service } = buildTxService(
+        basePeriod({
+          assignments: [
+            assignment('a1', 'APPROVED', '10'),
+            assignment('a2', 'APPROVED', '20'),
+            assignment('a3', 'NOT_STARTED', null, { obligation: 'EXEMPT' }),
+          ],
+        }),
+        [{ role: 'MANAGER' }],
+      );
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      expect(result.status).toBe('FINALIZED');
+    });
+
+    it('BUG-002 fix: allows finalizing a period where every assignment is EXEMPT (nothing was ever required)', async () => {
+      const { ack, service, tx } = buildTxService(
         basePeriod({
           assignments: [
             assignment('a1', 'NOT_STARTED', null, { obligation: 'EXEMPT' }),
@@ -746,7 +810,7 @@ describe('AggregateService', () => {
         [{ role: 'MANAGER' }],
       );
 
-      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr', ack);
 
       expect(result.status).toBe('FINALIZED');
       expect(tx.dynReportPeriod.update).toHaveBeenCalled();
@@ -892,6 +956,23 @@ describe('AggregateService', () => {
       // mode=APPROVED live aggregate: same rule already proven for
       // getPeriodSummary — only a2 (APPROVED) contributes.
       expect(prisma.dynReportSnapshot.findFirst.mock.calls.length).toBe(0);
+    });
+
+    it('the plain-list fallback explains the totals as well — it is the file that gets sent when the template cannot be rendered (found by Codex)', async () => {
+      const te = buildTemplateExportMock();
+      (te.buildPeriodFile as jest.Mock).mockRejectedValue(new Error('too large'));
+      const { service, prisma } = buildExportService(basePeriod(), [{ role: 'MANAGER' }], {}, te);
+
+      const result = await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.format).toBe('LIST');
+      const stored = (prisma.dynReportExport.create.mock.calls[0][0] as { data: { fileBytes: Buffer } }).data.fileBytes;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(stored as unknown as never);
+      const totals = wb.getWorksheet('TỔNG');
+      const texts: string[] = [];
+      totals?.eachRow((row) => row.eachCell((c) => texts.push(String(c.value))));
+      expect(texts.some((t) => t.includes('tổ đã duyệt') && t.includes('Chưa tính'))).toBe(true);
     });
 
     it('uses the frozen official snapshot values when the period is FINALIZED', async () => {

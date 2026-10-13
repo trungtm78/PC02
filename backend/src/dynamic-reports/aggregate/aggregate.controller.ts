@@ -23,11 +23,12 @@ import { ReportLifecycleService } from '../config/report-lifecycle.service';
 import { ReportConfigError } from '../config/report-config.service';
 import { SubmissionError } from '../submission/submission.service';
 import { ReopenPeriodDto } from './dto/reopen-period.dto';
+import { FinalizePeriodDto } from './dto/finalize-period.dto';
 import { PreviewAddTeamDto } from './dto/preview-add-team.dto';
 import { AddTeamMidPeriodDto } from './dto/add-team-mid-period.dto';
 import { ExemptTeamMidPeriodDto } from './dto/exempt-team-mid-period.dto';
 
-const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION', 'HAS_DATA']);
+const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION', 'HAS_DATA', 'UNAPPROVED_TEAMS']);
 
 interface AuthenticatedUser {
   id: string;
@@ -92,10 +93,16 @@ export class AggregateController {
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async finalize(
     @Param('periodId') periodId: string,
+    @Body() body: FinalizePeriodDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.handleWrite(() =>
-      this.aggregateService.finalizePeriod(periodId, user.id, user.roleId),
+      this.aggregateService.finalizePeriod(
+        periodId,
+        user.id,
+        user.roleId,
+        body?.acknowledgedBasis,
+      ),
     );
   }
 

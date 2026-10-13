@@ -353,9 +353,14 @@ export const dynamicReportsApi = {
       .then((r) => r.data),
 
   /** S38 (PR7 slice 6). */
-  finalizePeriod: (periodId: string) =>
+  /**
+   * `acknowledgedBasis`: the sentence the server showed (UNAPPROVED_TEAMS) about the teams the official numbers leave
+   * out, sent back to say yes to exactly that. If the teams changed meanwhile the sentence no longer matches and the
+   * server asks again.
+   */
+  finalizePeriod: (periodId: string, acknowledgedBasis?: string) =>
     api
-      .post<FinalizeResultView>(`/bao-cao-dong/periods/${periodId}/finalize`, {})
+      .post<FinalizeResultView>(`/bao-cao-dong/periods/${periodId}/finalize`, acknowledgedBasis ? { acknowledgedBasis } : {})
       .then((r) => r.data),
 
   reopenPeriod: (periodId: string, reason: string) =>

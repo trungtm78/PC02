@@ -19,6 +19,7 @@ import type { SubmissionState } from '../engine/access';
 import { SubmissionError } from '../submission/submission.service';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import { TeamsService } from '../../teams/teams.service';
+import { closingBasis, describeExcluded, excludedMessage, totalsNote } from './closing-basis';
 import {
   sanitizeSheetName,
   sanitizeFileNamePart,
@@ -630,6 +631,7 @@ export class AggregateService {
     periodId: string,
     userId: string,
     roleId: string,
+    acknowledgedBasis?: string,
   ): Promise<FinalizeResultView> {
     // The formulas are worked out BEFORE the transaction: it holds the period row lock and a pooled connection,
     // and the calculation waits for a worker (and may need more connections to load the grid). Inside the
@@ -638,7 +640,14 @@ export class AggregateService {
     for (let attempt = 1; ; attempt++) {
       const plan = await this.planFrozenFormulas(periodId, userId, roleId);
       try {
-        return await this.finalizeOnce(periodId, userId, roleId, plan, attempt < FINALIZE_MAX_ATTEMPTS);
+        return await this.finalizeOnce(
+          periodId,
+          userId,
+          roleId,
+          plan,
+          attempt < FINALIZE_MAX_ATTEMPTS,
+          acknowledgedBasis,
+        );
       } catch (err) {
         if (err instanceof StaleFormulaPlanError) continue;
         throw err;
@@ -689,6 +698,7 @@ export class AggregateService {
     roleId: string,
     plan: FrozenFormulaPlan | null,
     mayRetry: boolean,
+    acknowledgedBasis: string | undefined,
   ): Promise<FinalizeResultView> {
     const { result, notify } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
@@ -743,6 +753,23 @@ export class AggregateService {
           'Chưa có tổ nào nộp dữ liệu cho kỳ này — không thể chốt một kỳ trống.',
           'INVALID_STATE_TRANSITION',
         );
+      }
+
+      // The official numbers are the APPROVED teams' (see closing-basis.ts). A period closed with a team submitted
+      // but none approved froze an empty total while the screen showed that team's figures (production, 13/10/2026).
+      const basis = closingBasis(period.assignments);
+      if (basis.requiredCount > 0 && basis.approved.length === 0) {
+        throw new SubmissionError(
+          'Chưa có tổ nào được duyệt — số chốt chỉ tính các tổ đã duyệt nên kỳ sẽ chốt ra rỗng. ' +
+            `Hãy duyệt các tổ đã nộp trước, rồi chốt kỳ. Hiện: ${describeExcluded(basis.excluded)}.`,
+          'INVALID_STATE_TRANSITION',
+        );
+      }
+      // Closing with some teams still outstanding stays possible, but never silently.
+      if (basis.excluded.length > 0) {
+        const shown = excludedMessage(basis);
+        // Only a "yes" to exactly this sentence counts (see excludedMessage).
+        if (acknowledgedBasis !== shown) throw new SubmissionError(shown, 'UNAPPROVED_TEAMS');
       }
 
       const {
@@ -1520,6 +1547,7 @@ export class AggregateService {
         })),
         scopes,
         totalOutcomes,
+        totalsNote: totalsNote(closingBasis(period.assignments)),
         meta: {
           kind: 'PERIOD',
           reportId: period.reportId,
@@ -1536,7 +1564,7 @@ export class AggregateService {
         `Xuất theo mẫu thất bại cho kỳ ${periodId}, dùng dạng danh sách: ${err instanceof Error ? err.message : String(err)}`,
       );
       format = 'LIST';
-      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams);
+      fileBuffer = await this.buildPeriodListWorkbook(period, snapshotValues, teams, totalsNote(closingBasis(period.assignments)));
     }
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
 
@@ -1618,6 +1646,7 @@ export class AggregateService {
     },
     snapshotValues: Record<string, unknown>,
     teams: Array<{ teamId: string; teamSnapshot: unknown; submission: { values: unknown } | null }>,
+    note = '',
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
 
@@ -1638,6 +1667,16 @@ export class AggregateService {
         value: v?.value ?? null,
         count: v ? `${v.countNonBlank}/${v.countTotal}` : '0/0',
       });
+    }
+    if (note) {
+      // The plain list has no template to protect: the line goes two rows under the figures, across the table's width.
+      const row = totalSheet.rowCount + 2;
+      totalSheet.mergeCells(row, 1, row, 4);
+      const cell = totalSheet.getCell(row, 1);
+      cell.value = note;
+      cell.font = { italic: true, color: { argb: 'FF92400E' } };
+      cell.alignment = { wrapText: true, vertical: 'top' };
+      totalSheet.getRow(row).height = 15 * Math.max(1, Math.ceil(note.length / 80));
     }
 
     for (const a of teams) {

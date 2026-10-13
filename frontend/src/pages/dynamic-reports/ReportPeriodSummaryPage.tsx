@@ -89,7 +89,22 @@ export default function ReportPeriodSummaryPage() {
     setFinalizeStatus('working');
     setFinalizeError(null);
     try {
-      await dynamicReportsApi.finalizePeriod(periodId);
+      try {
+        await dynamicReportsApi.finalizePeriod(periodId);
+      } catch (err) {
+        // The official numbers count only the approved teams. When some are outstanding the server says which and why;
+        // the manager decides with that in front of them, instead of finding a blank total in the file afterwards.
+        const e = extractApiError(err);
+        if (e.code !== 'UNAPPROVED_TEAMS') throw err;
+        if (!window.confirm(`${e.message}
+
+Vẫn chốt kỳ với số liệu như trên?`)) {
+          setFinalizeStatus('idle');
+          return;
+        }
+        // Say yes to exactly this sentence; if the teams changed while the question was open, the server asks again.
+        await dynamicReportsApi.finalizePeriod(periodId, e.message);
+      }
       await refetch();
       setFinalizeStatus('idle');
     } catch (err) {
