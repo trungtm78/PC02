@@ -360,6 +360,31 @@ run('ReportVersioningService on PostgreSQL', () => {
       expect((await versionOf(v1)).status).toBe('DRAFT');
     });
 
+    it('the schedule starts when the report goes live, not when the draft was saved (no backlog of past periods); a future start is kept', async () => {
+      const old = await buildDraft('pd-old'); // buildReport saved its schedule with effectiveFrom 2020
+      const t0 = Date.now();
+      await svc.publishDraft(old.reportId);
+      const sched = await db.dynReportSchedule.findFirstOrThrow({ where: { reportId: old.reportId } });
+      expect(sched.effectiveFrom.getTime()).toBeGreaterThanOrEqual(t0 - 1000);
+      expect(((await reportOf(old.reportId)).effectiveFrom ?? new Date(0)).getTime()).toBeGreaterThanOrEqual(t0 - 1000);
+
+      const later = await buildDraft('pd-future');
+      await db.dynReportSchedule.updateMany({ where: { reportId: later.reportId }, data: { effectiveFrom: future } });
+      await svc.publishDraft(later.reportId);
+      expect((await db.dynReportSchedule.findFirstOrThrow({ where: { reportId: later.reportId } })).effectiveFrom.toISOString()).toBe(future.toISOString());
+    });
+
+    it('a newer draft version saved while the file was being checked is not left behind: REVISION_CONFLICT, nothing goes live (found by Codex)', async () => {
+      const { reportId, v1 } = await buildDraft('pd-newer');
+      jest.spyOn(configOf(), 'reconcileWithFile').mockImplementationOnce(async () => {
+        await svc.createVersion(reportId, input({ publish: false }), FILE, 'v2.xlsx', userId); // "Cập nhật mẫu" + Lưu nháp lands now
+        return { layout: { sheetOrder: ['S'] }, formulas: [], dataValidations: [] } as never;
+      });
+      await expect(svc.publishDraft(reportId)).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+      expect((await reportOf(reportId)).status).toBe('DRAFT');
+      expect((await versionOf(v1)).status).toBe('DRAFT');
+    });
+
     it('a report that is already published is refused and nothing changes', async () => {
       const { reportId, v1 } = await buildReport('pd-live', []);
       await expect(svc.publishDraft(reportId)).rejects.toMatchObject({ code: 'INVALID_STATE' });

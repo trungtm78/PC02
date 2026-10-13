@@ -243,8 +243,14 @@ export class ReportVersioningService {
       if (!locked) throw new ReportConfigError('Không tìm thấy báo cáo này.', 'REPORT_NOT_FOUND');
       this.assertIsDraft(locked.status);
       // Anything saved while the file was being read (another edit, a version deleted) invalidates what was checked above.
-      const still = await tx.dynReportVersion.findFirst({ where: { id: version.id, reportId, status: 'DRAFT' } });
-      if (locked.configVersion !== report.configVersion || !still) {
+      // Saving a draft version does not bump configVersion, so a newer draft that landed meanwhile is looked for directly:
+      // the one that was checked must still be the newest, or v1 would go live while the newer v2 is left behind.
+      const newest = await tx.dynReportVersion.findFirst({
+        where: { reportId, status: 'DRAFT' },
+        orderBy: { version: 'desc' },
+        select: { id: true },
+      });
+      if (locked.configVersion !== report.configVersion || newest?.id !== version.id) {
         throw new ReportConfigError(
           'Cấu hình báo cáo vừa được thay đổi. Hãy mở lại báo cáo rồi xuất bản.',
           'REVISION_CONFLICT',
@@ -291,9 +297,18 @@ export class ReportVersioningService {
           engineVersion: ENGINE_VERSION,
         },
       });
+      // The schedule starts when the report goes live, not when the draft was saved: otherwise the scheduler, which walks
+      // from `effectiveFrom`, would make every period since then at once (a daily report saved three weeks ago: 21 past
+      // periods). A start the author deliberately put in the future is kept.
+      const goLiveAt = new Date();
+      const anchor = (d: Date) => (d.getTime() < goLiveAt.getTime() ? goLiveAt : d);
+      await tx.dynReportSchedule.updateMany({
+        where: { reportId, supersededAt: null },
+        data: { effectiveFrom: anchor(schedule?.effectiveFrom ?? goLiveAt) },
+      });
       await tx.dynReport.update({
         where: { id: reportId },
-        data: { status: 'PUBLISHED', configVersion: { increment: 1 } },
+        data: { status: 'PUBLISHED', configVersion: { increment: 1 }, effectiveFrom: anchor(locked.effectiveFrom ?? goLiveAt) },
       });
       return { reportId, versionId: version.id, version: version.version, status: 'PUBLISHED' as const };
     });
