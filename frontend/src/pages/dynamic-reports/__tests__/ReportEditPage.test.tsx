@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ReportEditPage from '../ReportEditPage';
@@ -72,6 +72,15 @@ function renderPage(detail: ReportDetailView = DETAIL) {
   );
 }
 
+function delayedDetail() {
+  let resolve!: (detail: ReportDetailView) => void;
+  const promise = new Promise<ReportDetailView>((done) => { resolve = done; });
+  vi.mocked(dynamicReportsApi.getReportDetail).mockImplementation(() => promise);
+  return async (detail: ReportDetailView) => {
+    await act(async () => { resolve(detail); await promise; });
+  };
+}
+
 describe('ReportEditPage — "Sửa cấu hình"', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -82,6 +91,59 @@ describe('ReportEditPage — "Sửa cấu hình"', () => {
         { id: 't2', name: 'Đội 2', isActive: true, wardId: null },
       ],
     });
+  });
+
+  it('keeps the edited schedule visible until delayed refresh finishes, then reads the saved rule', async () => {
+    vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 4, changed: ['schedule'] });
+    renderPage();
+    fireEvent.change(await screen.findByTestId('input-days-after-end'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('edit-name'), { target: { value: 'Tên chưa lưu' } });
+    const finish = delayedDetail();
+    fireEvent.click(screen.getByTestId('btn-schedule-next'));
+    await waitFor(() => expect(dynamicReportsApi.getReportDetail).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('input-days-after-end')).toHaveValue(3);
+    await finish({ ...DETAIL, configVersion: 4, schedule: { ...DETAIL.schedule!, dueRule: { kind: 'DAYS_AFTER_END', days: 4, time: '17:00' } } });
+    await waitFor(() => expect(screen.getByTestId('input-days-after-end')).toHaveValue(4));
+    expect(screen.getByTestId('edit-name')).toHaveValue('Tên chưa lưu');
+  });
+
+  it('keeps saved managers through delayed refresh and preserves the unsaved schedule', async () => {
+    const initial = { ...DETAIL, roles: [...DETAIL.roles, { userId: 'u2', name: 'Lê Bình', role: 'MANAGER' as const, teamScopeId: null }] };
+    vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 4, changed: ['roles'] });
+    renderPage(initial);
+    fireEvent.click(await screen.findByTestId('btn-remove-manager-u1'));
+    fireEvent.change(screen.getByTestId('input-days-after-end'), { target: { value: '9' } });
+    const finish = delayedDetail();
+    fireEvent.click(screen.getByTestId('btn-teams-next'));
+    await waitFor(() => expect(dynamicReportsApi.getReportDetail).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('manager-list')).not.toHaveTextContent('Nguyễn An');
+    await finish({ ...initial, configVersion: 4, roles: initial.roles.filter((role) => role.userId !== 'u1') });
+    await waitFor(() => expect(screen.getByTestId('btn-teams-next')).toBeEnabled());
+    expect(screen.getByTestId('manager-list')).toHaveTextContent('Lê Bình');
+    expect(screen.getByTestId('manager-list')).not.toHaveTextContent('Nguyễn An');
+    expect(screen.getByTestId('input-days-after-end')).toHaveValue(9);
+  });
+
+  it('reloads schedule and managers from the new revision after a delayed conflict refresh', async () => {
+    vi.mocked(dynamicReportsApi.updateReportConfig).mockRejectedValue(Object.assign(new Error('conflict'), {
+      isAxiosError: true, response: { status: 409, data: { error: { code: 'REVISION_CONFLICT', message: 'Conflict' } } },
+    }));
+    renderPage();
+    fireEvent.change(await screen.findByTestId('edit-name'), { target: { value: 'Tên chưa lưu' } });
+    fireEvent.change(screen.getByTestId('input-days-after-end'), { target: { value: '9' } });
+    fireEvent.click(screen.getByTestId('btn-save-info'));
+    await screen.findByTestId('btn-reload');
+    const finish = delayedDetail();
+    fireEvent.click(screen.getByTestId('btn-reload'));
+    await waitFor(() => expect(dynamicReportsApi.getReportDetail).toHaveBeenCalledTimes(2));
+    await finish({ ...DETAIL, name: 'Tên mới từ máy chủ', configVersion: 4,
+      schedule: { ...DETAIL.schedule!, dueRule: { kind: 'DAYS_AFTER_END', days: 2, time: '17:00' } },
+      roles: [{ userId: 'u2', name: 'Lê Bình', role: 'MANAGER', teamScopeId: null }],
+    });
+    await waitFor(() => expect(screen.getByTestId('edit-name')).toHaveValue('Tên mới từ máy chủ'));
+    expect(screen.getByTestId('input-days-after-end')).toHaveValue(2);
+    expect(screen.getByTestId('manager-list')).toHaveTextContent('Lê Bình');
+    expect(screen.getByTestId('manager-list')).not.toHaveTextContent('Nguyễn An');
   });
 
   it('opens with the report as it is now: name, description, the schedule in force, managers, teams and editors', async () => {
