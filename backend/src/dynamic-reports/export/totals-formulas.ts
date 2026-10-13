@@ -23,8 +23,34 @@ export type TotalsBlankPolicy = 'ZERO' | 'IGNORE';
 /** Well under Excel's 255 arguments. */
 export const FORMULA_GROUP_SIZE = 100;
 
+/** The engine keeps 12 decimals of an average (AVG_DECIMAL_PLACES); Excel keeps more, so the formula rounds the same way. */
+const AVG_DECIMALS = 12;
+
+/**
+ * Stands in for a group of cells that are ALL blank inside a MIN / MAX of groups. Excel answers 0 for MIN or MAX of nothing,
+ * which would win a MIN over real figures; a number no figure of the report can reach (they hold 18 digits at most) cannot.
+ * Written out in full: the parser takes no exponent notation.
+ */
+const UNREACHABLE = '100000000000000000000';
+
 export function quoteSheetName(name: string): string {
   return `'${name.replace(/'/g, "''")}'`;
+}
+
+/**
+ * MIN / MAX over cells that may be blank, skipping the blanks, in groups. A group with no figure in it must not answer 0
+ * (Excel's MIN of nothing), so it answers the sentinel on the losing side instead; the caller has already checked
+ * that some cell holds a figure, so the sentinel never reaches the result.
+ */
+function foldExtreme(fn: 'MIN' | 'MAX', refs: string[]): string {
+  if (refs.length <= FORMULA_GROUP_SIZE) return `${fn}(${refs.join(',')})`;
+  const losing = fn === 'MIN' ? UNREACHABLE : `-${UNREACHABLE}`;
+  const groups: string[] = [];
+  for (let i = 0; i < refs.length; i += FORMULA_GROUP_SIZE) {
+    const group = refs.slice(i, i + FORMULA_GROUP_SIZE).join(',');
+    groups.push(`IF(COUNT(${group})=0,${losing},${fn}(${group}))`);
+  }
+  return fold(fn, groups);
 }
 
 /** `fn` over the arguments, in groups when there are more than fit in one call. */
@@ -69,14 +95,15 @@ export function buildTotalsFormula(input: {
       formula = ignoring ? `IF(${countOf(refs)}=0,"",${fold('SUM', refs)})` : fold('SUM', refs);
       break;
     case 'AVG':
-      if (!ignoring) formula = `${fold('SUM', refs)}/${n}`;
-      else if (n <= FORMULA_GROUP_SIZE) formula = `IF(COUNT(${refs.join(',')})=0,"",AVERAGE(${refs.join(',')}))`;
-      else formula = `IF(${countOf(refs)}=0,"",${fold('SUM', refs)}/${countOf(refs)})`;
+      if (!ignoring) formula = `ROUND(${fold('SUM', refs)}/${n},${AVG_DECIMALS})`;
+      else if (n <= FORMULA_GROUP_SIZE) {
+        formula = `IF(COUNT(${refs.join(',')})=0,"",ROUND(AVERAGE(${refs.join(',')}),${AVG_DECIMALS}))`;
+      } else formula = `IF(${countOf(refs)}=0,"",ROUND(${fold('SUM', refs)}/${countOf(refs)},${AVG_DECIMALS}))`;
       break;
     case 'MIN':
     case 'MAX':
       formula = ignoring
-        ? `IF(${countOf(refs)}=0,"",${fold(aggregate, refs)})`
+        ? `IF(${countOf(refs)}=0,"",${foldExtreme(aggregate, refs)})`
         : fold(aggregate, refs.map((r) => `${r}+0`));
       break;
     case 'COUNT':

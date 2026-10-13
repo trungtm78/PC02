@@ -99,7 +99,36 @@ describe('buildTotalsFormula — the formula works out what the aggregate engine
     expect(f('MIN', 'IGNORE')).toContain('MIN(');
     expect(f('MAX', 'ZERO')).toContain('MAX(');
     expect(f('COUNT', 'IGNORE')).toContain('COUNT(');
-    expect(f('AVG', 'ZERO')).toMatch(/^SUM\(.*\)\/3$/);
+    expect(f('AVG', 'ZERO')).toMatch(/^ROUND\(SUM\(.*\)\/3,12\)$/);
+  });
+
+  describe('found by Codex', () => {
+    it('MIN / MAX over many teams where a whole group is blank: that group must not answer 0 (Excel MIN of nothing) and win', () => {
+      const MANY = FORMULA_GROUP_SIZE + 1;
+      const sheets = names(MANY);
+      const onlyLast = Array.from({ length: MANY }, (_, i) => (i === MANY - 1 ? '5' : null));
+      const negativeLast = Array.from({ length: MANY }, (_, i) => (i === MANY - 1 ? '-5' : null));
+      for (const [aggregate, values] of [['MIN', onlyLast], ['MAX', negativeLast], ['MIN', negativeLast], ['MAX', onlyLast]] as const) {
+        const formula = buildTotalsFormula({ aggregate, blankPolicy: 'IGNORE', sheetNames: sheets, address: ADDRESS }) as string;
+        expect(same(work(formula, sheets, [...values]), expected(aggregate, 'IGNORE', [...values]))).toBe(true);
+      }
+      // The mechanism: a group with nothing in it answers a number out of reach, not MIN()/MAX() of nothing.
+      const min = buildTotalsFormula({ aggregate: 'MIN', blankPolicy: 'IGNORE', sheetNames: sheets, address: ADDRESS }) as string;
+      expect(min).toContain('IF(COUNT(');
+    });
+
+    it('an average is rounded to 12 decimals like the engine, whatever the policy', () => {
+      const sheets = names(3);
+      for (const policy of POLICIES) {
+        const formula = buildTotalsFormula({ aggregate: 'AVG', blankPolicy: policy, sheetNames: sheets, address: ADDRESS }) as string;
+        expect(formula).toContain('ROUND(');
+        expect(work(formula, sheets, ['0', '0', '1'])).toBe('0.333333333333');
+      }
+      const many = names(FORMULA_GROUP_SIZE + 5);
+      const values = many.map((_, i) => (i === 0 ? '1' : '0'));
+      const formula = buildTotalsFormula({ aggregate: 'AVG', blankPolicy: 'IGNORE', sheetNames: many, address: ADDRESS }) as string;
+      expect(work(formula, many, values)).toBe(expected('AVG', 'IGNORE', values));
+    });
   });
 
   describe('many teams (Excel takes 255 arguments and 8,192 characters)', () => {

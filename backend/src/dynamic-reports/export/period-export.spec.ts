@@ -265,6 +265,46 @@ describe('buildPeriodWorkbook', () => {
     });
   });
 
+  it('a shared formula whose first cell the system could not work out does not break the file: its followers are written out in full (found by Codex)', async () => {
+    const wbSrc = new ExcelJS.Workbook();
+    const sheet = wbSrc.addWorksheet('Nhập');
+    sheet.getCell('B2').value = 1;
+    sheet.getCell('B3').value = 2;
+    sheet.getCell('C2').value = { formula: 'B2*2', shareType: 'shared', ref: 'C2:C3', result: 2 } as ExcelJS.CellValue;
+    sheet.getCell('C3').value = { sharedFormula: 'C2', result: 4 } as ExcelJS.CellValue;
+    const template = Buffer.from(await wbSrc.xlsx.writeBuffer());
+    const fields: PeriodExportRequest['fields'] = [
+      { sheetKey: 'Nhập', address: 'B2', fieldKey: 'Nhập!B2', type: 'NUM' },
+      { sheetKey: 'Nhập', address: 'B3', fieldKey: 'Nhập!B3', type: 'NUM' },
+    ];
+    const req: PeriodExportRequest = {
+      selectedSheets: ['Nhập'],
+      fields,
+      scopes: [{ scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': null, 'Nhập!B3': '2' } }],
+      grid: await gridOf(template),
+      totalOutcomes: { 'Nhập!C2': { ok: false, code: 'MISSING_DATA' }, 'Nhập!C3': { ok: true, type: 'number', value: '4' } },
+      meta: { kind: 'PERIOD' },
+    };
+
+    const wb = await reload((await buildPeriodWorkbook(template, req)).buffer); // used to throw: follower without its master
+    const totals = wb.getWorksheet('TỔNG') as ExcelJS.Worksheet;
+    expect(totals.getCell('C2').value).toBe('Thiếu dữ liệu');
+    expect(totals.getCell('C3').value).toEqual({ formula: 'B3*2', result: 4 }); // its own formula, not the first cell's
+  });
+
+  it('when a totals figure had to be written as text (more digits than Excel holds) no template formula on the totals stays a formula that would read it as text (found by Codex)', async () => {
+    const { template, req } = await request({
+      scopes: [
+        { scope: 'TOTAL', label: 'TỔNG', kind: 'TOTAL', values: { 'Nhập!B2': '12345678901234567', 'Nhập!B3': null } },
+        { scope: 't1', label: 'Đội 3', kind: 'TEAM', counted: true, values: { 'Nhập!B2': '5', 'Nhập!B3': null } },
+      ],
+    });
+    const wb = await reload((await buildPeriodWorkbook(template, req)).buffer);
+    const totals = wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet;
+    expect(totals.getCell('B2').value).toBe('12345678901234567');
+    expect(totals.getCell('B4').value).toBe(60); // the figure the system reported, as a plain value: not a formula over the text
+  });
+
   it('the totals carry a line saying which teams they are made of; the team sheets do not (production 13/10: a blank TỔNG nobody could explain)', async () => {
     const note = 'Số liệu tổng hợp từ 1/3 tổ đã duyệt. Chưa tính: Đội 4 (đã nộp, chưa duyệt).';
     const { template, req } = await request({ totalsNote: note });

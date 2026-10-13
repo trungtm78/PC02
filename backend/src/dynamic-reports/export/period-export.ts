@@ -300,7 +300,10 @@ function resolveTotalsFormulas(
   outcomes: Record<string, FormulaOutcome> | null,
   scope: string,
   out: PeriodExportOutcome,
+  /** The totals hold a number written as text (more digits than Excel holds): a formula reading it would see text. */
+  allConstant: boolean,
 ): void {
+  expandSharedFormulas(ws);
   ws.eachRow({ includeEmpty: false }, (row) =>
     row.eachCell({ includeEmpty: false }, (cell) => {
       const current = cell.value as unknown;
@@ -313,7 +316,7 @@ function resolveTotalsFormulas(
         return;
       }
       const holder = current as { shareType?: string };
-      if (outcome.ok && holder.shareType !== 'array') {
+      if (outcome.ok && holder.shareType !== 'array' && !allConstant) {
         const result = resultOf(outcome);
         if (result !== undefined) {
           cell.value = { ...(current as object), result } as ExcelJS.CellValue;
@@ -321,6 +324,21 @@ function resolveTotalsFormulas(
         }
       }
       cell.value = constantOf(outcome, key, scope, out);
+    }),
+  );
+}
+
+/**
+ * A shared formula is one formula written once with the cells that follow it pointing at it. Replacing the first by a
+ * value while a follower keeps pointing at it makes the file unwritable; each cell gets its own formula first.
+ */
+function expandSharedFormulas(ws: ExcelJS.Worksheet): void {
+  ws.eachRow({ includeEmpty: false }, (row) =>
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      const v = cell.value as unknown as { sharedFormula?: string; shareType?: string; result?: unknown } | null;
+      if (!v || typeof v !== 'object' || (v.sharedFormula === undefined && v.shareType !== 'shared')) return;
+      const text = (cell as unknown as { formula?: string }).formula;
+      if (typeof text === 'string') cell.value = { formula: text, result: v.result } as ExcelJS.CellValue;
     }),
   );
 }
@@ -462,9 +480,10 @@ export async function buildPeriodWorkbook(
     outcome.truncated.push(...scoped.truncated.map((k) => `${scope.scope}:${k}`));
 
     if (scope.kind === 'TOTAL') {
+      const totalsHoldText = outcome.textNumbers.some((k) => k.startsWith(`${scope.scope}:`));
       for (const original of present) {
         const ws = copies.get(sheetNameKey(scope.scope, original)) as ExcelJS.Worksheet;
-        resolveTotalsFormulas(ws, original, request.totalOutcomes, scope.scope, outcome);
+        resolveTotalsFormulas(ws, original, request.totalOutcomes, scope.scope, outcome, totalsHoldText);
       }
       const first = present.length > 0 ? copies.get(sheetNameKey(scope.scope, present[0])) : undefined;
       if (first && request.totalsNote) writeTotalsNote(first, request.totalsNote);
