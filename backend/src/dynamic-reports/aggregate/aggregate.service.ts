@@ -77,6 +77,17 @@ export interface PeriodSummaryView {
   dueAt: string;
   /** S38 — OPEN shows "Chốt kỳ"; FINALIZED shows "Mở chốt" (admin only, 404 otherwise). */
   status: 'OPEN' | 'FINALIZED';
+  /**
+   * Server-authoritative controls for this caller on this report. The UI
+   * consumes these instead of drawing write actions and waiting for a 404.
+   */
+  actions: {
+    canManageAssignments: boolean;
+    canFinalize: boolean;
+    canReopen: boolean;
+    canDeletePeriod: boolean;
+    canDeletePeriodWithData: boolean;
+  };
   mode: SummaryMode;
   kpi: KpiSummaryView;
   fields: FieldAggregateView[];
@@ -463,6 +474,14 @@ export class AggregateService {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
     }
     const allowedTeamIds = await this.scopedTeamIds(actorRole.teamScopeId);
+    const canManage = actorRole.role === 'ADMIN' || actorRole.role === 'MANAGER';
+    const actions = {
+      canManageAssignments: canManage,
+      canFinalize: canManage,
+      canReopen: actorRole.role === 'ADMIN',
+      canDeletePeriod: canManage,
+      canDeletePeriodWithData: actorRole.role === 'ADMIN',
+    };
     const assignments = allowedTeamIds
       ? period.assignments.filter((a) => allowedTeamIds.has(a.teamId))
       : period.assignments;
@@ -554,6 +573,7 @@ export class AggregateService {
       periodEnd: period.endDate.toISOString().slice(0, 10),
       dueAt: period.dueAt.toISOString(),
       status: period.status as 'OPEN' | 'FINALIZED',
+      actions,
       mode,
       kpi,
       fields,

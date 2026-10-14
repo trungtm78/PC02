@@ -490,6 +490,14 @@ export interface PeriodSummaryView {
   dueAt: string;
   /** S38 — OPEN shows "Chốt kỳ"; FINALIZED shows "Mở chốt" (admin only, 404 otherwise). */
   status: 'OPEN' | 'FINALIZED';
+  /** Controls granted by the server for this caller on this report. */
+  actions: {
+    canManageAssignments: boolean;
+    canFinalize: boolean;
+    canReopen: boolean;
+    canDeletePeriod: boolean;
+    canDeletePeriodWithData: boolean;
+  };
   mode: SummaryMode;
   kpi: KpiSummaryView;
   fields: FieldAggregateView[];

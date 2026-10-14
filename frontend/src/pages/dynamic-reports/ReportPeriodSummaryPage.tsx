@@ -42,6 +42,14 @@ const MODE_LABEL: Record<SummaryMode, string> = {
   ALL_SAVED: 'Tạm tính (mọi bản đã lưu)',
 };
 
+const READ_ONLY_ACTIONS = {
+  canManageAssignments: false,
+  canFinalize: false,
+  canReopen: false,
+  canDeletePeriod: false,
+  canDeletePeriodWithData: false,
+};
+
 export default function ReportPeriodSummaryPage() {
   const { periodId } = useParams<{ periodId: string }>();
   const [mode, setMode] = useState<SummaryMode>('SUBMITTED');
@@ -146,6 +154,9 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
 
   const gridUnavailable = unavailableVersionId === view.versionId;
   const showGrid = layoutMode === 'grid' && !gridUnavailable;
+  // Older cached responses did not contain capabilities. Failing closed keeps
+  // a read-only user from briefly seeing controls that the server will deny.
+  const actions = view.actions ?? READ_ONLY_ACTIONS;
 
   return (
     <div className={`${showGrid ? 'max-w-full' : 'max-w-4xl'} mx-auto p-6`} data-testid="period-summary-page">
@@ -158,14 +169,16 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
           Quay lại danh sách duyệt
         </Link>
         <div className="flex items-center gap-4">
-          <Link
-            to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/to`}
-            data-testid="link-period-teams"
-            className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
-          >
-            <Users className="w-4 h-4" />
-            Thêm tổ / Miễn nộp
-          </Link>
+          {actions.canManageAssignments && (
+            <Link
+              to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/to`}
+              data-testid="link-period-teams"
+              className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
+            >
+              <Users className="w-4 h-4" />
+              Thêm tổ / Miễn nộp
+            </Link>
+          )}
           <Link
             to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/lich-su`}
             data-testid="link-report-history"
@@ -202,15 +215,17 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
             )}
             {isExporting ? 'Đang xuất…' : 'Xuất Excel'}
           </button>
-          <button
-            type="button"
-            data-testid="btn-delete-period-open"
-            onClick={() => setDeletingPeriod(true)}
-            className={`px-3 py-1.5 text-sm text-red-700 border border-red-200 rounded-lg hover:bg-red-50 ${A11Y_FOCUS_RING}`}
-          >
-            Xoá kỳ
-          </button>
-          {view.status === 'OPEN' ? (
+          {actions.canDeletePeriod && (
+            <button
+              type="button"
+              data-testid="btn-delete-period-open"
+              onClick={() => setDeletingPeriod(true)}
+              className={`px-3 py-1.5 text-sm text-red-700 border border-red-200 rounded-lg hover:bg-red-50 ${A11Y_FOCUS_RING}`}
+            >
+              Xoá kỳ
+            </button>
+          )}
+          {view.status === 'OPEN' && actions.canFinalize && (
             <button
               type="button"
               data-testid="btn-finalize"
@@ -221,22 +236,25 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
               <Lock className="w-4 h-4" />
               Chốt kỳ
             </button>
-          ) : (
+          )}
+          {view.status === 'FINALIZED' && (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded" data-testid="finalized-badge">
                 <Lock className="w-3.5 h-3.5" />
                 Đã chốt
               </span>
-              <button
-                type="button"
-                data-testid="btn-reopen"
-                disabled={finalizeStatus === 'working'}
-                onClick={() => void handleReopen()}
-                className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
-              >
-                <Unlock className="w-4 h-4" />
-                Mở chốt
-              </button>
+              {actions.canReopen && (
+                <button
+                  type="button"
+                  data-testid="btn-reopen"
+                  disabled={finalizeStatus === 'working'}
+                  onClick={() => void handleReopen()}
+                  className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                >
+                  <Unlock className="w-4 h-4" />
+                  Mở chốt
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -446,10 +464,11 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
         </table>
       </div>
       )}
-      {view && (
+      {actions.canDeletePeriod && (
         <PeriodDeleteDialog
           periodId={deletingPeriod ? view.periodId : null}
           periodKey={view.periodKey}
+          canDeleteWithData={actions.canDeletePeriodWithData}
           onClose={() => setDeletingPeriod(false)}
           onDeleted={() => {
             setDeletingPeriod(false);

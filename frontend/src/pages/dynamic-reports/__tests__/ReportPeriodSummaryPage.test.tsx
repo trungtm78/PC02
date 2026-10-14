@@ -50,6 +50,13 @@ const VIEW: PeriodSummaryView = {
   periodEnd: '2026-06-30',
   dueAt: '2026-07-05T17:00:00.000Z',
   status: 'OPEN',
+  actions: {
+    canManageAssignments: true,
+    canFinalize: true,
+    canReopen: false,
+    canDeletePeriod: true,
+    canDeletePeriodWithData: false,
+  },
   mode: 'SUBMITTED',
   kpi: {
     requiredCount: 3,
@@ -111,6 +118,27 @@ describe('ReportPeriodSummaryPage', () => {
       'href',
       '/bao-cao-dong/duyet/tong-hop/period1/lich-su',
     );
+  });
+
+  it('keeps a VIEWER read-only by hiding every period-management control', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue({
+      ...VIEW,
+      actions: {
+        canManageAssignments: false,
+        canFinalize: false,
+        canReopen: false,
+        canDeletePeriod: false,
+        canDeletePeriodWithData: false,
+      },
+    });
+    renderPage();
+
+    await screen.findByTestId('period-summary-page');
+    expect(screen.queryByTestId('link-period-teams')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-finalize')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-reopen')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-delete-period-open')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-export')).toBeInTheDocument();
   });
 
   it('renders the KPI cards and the field aggregate table', async () => {
@@ -328,6 +356,7 @@ describe('ReportPeriodSummaryPage', () => {
     vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue({
       ...VIEW,
       status: 'FINALIZED',
+      actions: { ...VIEW.actions, canReopen: true, canDeletePeriodWithData: true },
     });
     vi.mocked(dynamicReportsApi.reopenPeriod).mockResolvedValue({
       periodId: 'period1',
@@ -350,6 +379,7 @@ describe('ReportPeriodSummaryPage', () => {
     vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue({
       ...VIEW,
       status: 'FINALIZED',
+      actions: { ...VIEW.actions, canReopen: true, canDeletePeriodWithData: true },
     });
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
     renderPage();
