@@ -14,11 +14,12 @@ import { BTN_DANGER, BTN_SECONDARY } from '@/constants/styles';
 interface Props {
   periodId: string | null;
   periodKey: string;
+  canDeleteWithData: boolean;
   onClose: () => void;
   onDeleted: () => void;
 }
 
-export default function PeriodDeleteDialog({ periodId, periodKey, onClose, onDeleted }: Props) {
+export default function PeriodDeleteDialog({ periodId, periodKey, canDeleteWithData, onClose, onDeleted }: Props) {
   const [impact, setImpact] = useState<PeriodDeletionImpact | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,7 +106,7 @@ export default function PeriodDeleteDialog({ periodId, periodKey, onClose, onDel
               </p>
             )}
 
-            {impact.hasData && forceOpen && (
+            {impact.hasData && canDeleteWithData && forceOpen && (
               <div className="mb-4 border border-red-200 rounded-lg p-3" data-testid="period-force-box">
                 <label className="block text-sm text-slate-700">
                   Gõ lại mã kỳ <b className="font-mono">{impact.periodKey}</b> để xác nhận xoá kèm số liệu:
@@ -136,7 +137,7 @@ export default function PeriodDeleteDialog({ periodId, periodKey, onClose, onDel
                   Xoá kỳ
                 </button>
               )}
-              {impact.hasData && !forceOpen && (
+              {impact.hasData && canDeleteWithData && !forceOpen && (
                 <button
                   type="button"
                   data-testid="btn-period-force-open"
@@ -147,7 +148,7 @@ export default function PeriodDeleteDialog({ periodId, periodKey, onClose, onDel
                   Xoá kèm số liệu…
                 </button>
               )}
-              {impact.hasData && forceOpen && (
+              {impact.hasData && canDeleteWithData && forceOpen && (
                 <button
                   type="button"
                   data-testid="btn-period-force-delete"
