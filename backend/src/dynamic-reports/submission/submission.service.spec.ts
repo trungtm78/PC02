@@ -349,6 +349,42 @@ describe('SubmissionService', () => {
       expect(view.editable).toBe(false);
     });
 
+    it('names WHY the editor is locked: not-yet-open and past-deadline are different locks', async () => {
+      const lockReasonOf = async (period: Record<string, unknown>) => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(
+          baseAssignment({ period: basePeriod(period) }),
+        );
+        tx.user.findUnique.mockResolvedValue({ isActive: true });
+        const { service } = buildService(tx);
+        return service.getSubmission('assign1', 'u1');
+      };
+      const day = 86_400_000;
+
+      const early = await lockReasonOf({
+        opensAt: new Date(Date.now() + 5 * day),
+        dueAt: new Date(Date.now() + 30 * day),
+      });
+      expect(early.editable).toBe(false);
+      expect(early.lockReason).toBe('NOT_YET_OPEN');
+      // The moment it opens is what the banner tells the person.
+      expect(early.effectiveLockAt).toBe(early.opensAt);
+
+      const late = await lockReasonOf({ dueAt: new Date('2020-01-01T00:00:00Z') });
+      expect(late.lockReason).toBe('PAST_DEADLINE');
+
+      const open = await lockReasonOf({ dueAt: new Date(Date.now() + 30 * day) });
+      expect(open.editable).toBe(true);
+      expect(open.lockReason).toBeNull();
+
+      const finalized = await lockReasonOf({
+        status: 'FINALIZED',
+        dueAt: new Date(Date.now() + 30 * day),
+      });
+      expect(finalized.lockReason).toBe('PERIOD_FINALIZED');
+    });
+
     it('S16: updatedAt is null when the submission has never been saved (firstSavedAt null)', async () => {
       const tx = buildTx();
       tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({

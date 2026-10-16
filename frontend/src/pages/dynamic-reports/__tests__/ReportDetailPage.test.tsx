@@ -104,6 +104,21 @@ describe('ReportDetailPage', () => {
     expect(screen.getByTestId('period-row-2026-10')).toHaveTextContent('1/3');
   });
 
+  it('a period that is OPEN but not yet at its opening time is not called "Đang mở"', async () => {
+    renderPage({
+      ...DETAIL,
+      periods: [
+        { ...DETAIL.periods[0], periodKey: '2099-01', periodId: 'p9', opensAt: '2099-01-01T00:00:00.000Z' },
+        DETAIL.periods[0],
+      ],
+      periodTotal: 2,
+    });
+    const early = await screen.findByTestId('period-row-2099-01');
+    expect(early).toHaveTextContent('Chưa đến giờ mở');
+    expect(early).not.toHaveTextContent('Đang mở');
+    expect(screen.getByTestId('period-row-2026-10')).toHaveTextContent('Đang mở');
+  });
+
   it('each recent period links to its summary screen', async () => {
     renderPage();
     const row = await screen.findByTestId('period-row-2026-10');
