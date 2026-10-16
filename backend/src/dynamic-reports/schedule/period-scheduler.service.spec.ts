@@ -420,6 +420,143 @@ describe('PeriodSchedulerService', () => {
     expect(calendarEvents.expandOccurrences).toHaveBeenCalled();
   });
 
+  it('looks up days off around EVERY due date it writes, including those ahead of now', async () => {
+    const tx = buildTx();
+    tx.dynReport.findMany.mockResolvedValue([
+      {
+        id: 'rep1',
+        schedules: [
+          {
+            id: 'sch1',
+            periodType: 'MONTHLY',
+            periodStartDay: null,
+            dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
+            openRule: { kind: 'AT_PERIOD_START' },
+            shiftNonWorking: true,
+            oneTimeDate: null,
+            lastGeneratedThrough: now,
+            effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+          },
+        ],
+      },
+    ]);
+    tx.dynReportVersion.findFirst.mockResolvedValue({ id: 'ver1' });
+    tx.dynReportTarget.findMany.mockResolvedValue([]);
+    tx.dynReportPeriod.findUnique.mockResolvedValue(null);
+    tx.dynReportPeriod.create.mockResolvedValue({ id: 'period1' });
+    tx.calendarEvent.findMany.mockResolvedValue([]);
+
+    const { service, calendarEvents } = buildService(tx, true);
+    await service.generateForAllReports(tx as never, now);
+
+    const dues: Date[] = tx.dynReportPeriod.create.mock.calls.map(
+      (c: [{ data: { dueAt: Date } }]) => c[0].data.dueAt,
+    );
+    expect(dues.length).toBeGreaterThan(1);
+    // Every due date, including the ones ahead of `now`, must sit inside a window days off were looked up for.
+    const windows: Array<[Date, Date]> = calendarEvents.expandOccurrences.mock.calls.map(
+      (c: [unknown, Date, Date]) => [c[1], c[2]],
+    );
+    for (const due of dues) {
+      expect(windows.some(([from, to]) => from.getTime() <= due.getTime() && due.getTime() <= to.getTime())).toBe(true);
+    }
+    expect(Math.max(...dues.map((d) => d.getTime()))).toBeGreaterThan(now.getTime());
+  });
+
+  it('a holiday on a FUTURE due date moves that period due date to the next working day', async () => {
+    const tx = buildTx();
+    tx.dynReport.findMany.mockResolvedValue([
+      {
+        id: 'rep1',
+        schedules: [
+          {
+            id: 'sch1',
+            periodType: 'MONTHLY',
+            periodStartDay: null,
+            dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
+            openRule: { kind: 'AT_PERIOD_START' },
+            shiftNonWorking: true,
+            oneTimeDate: null,
+            lastGeneratedThrough: now,
+            effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+          },
+        ],
+      },
+    ]);
+    tx.dynReportVersion.findFirst.mockResolvedValue({ id: 'ver1' });
+    tx.dynReportTarget.findMany.mockResolvedValue([]);
+    tx.dynReportPeriod.findUnique.mockResolvedValue(null);
+    tx.dynReportPeriod.create.mockResolvedValue({ id: 'period1' });
+    tx.calendarEvent.findMany.mockResolvedValue([]);
+
+    // Dry run without any holiday, to learn the unshifted due dates the schedule produces.
+    const dry = buildService(tx, true);
+    await dry.service.generateForAllReports(tx as never, now);
+    const plain: Date[] = tx.dynReportPeriod.create.mock.calls.map(
+      (c: [{ data: { dueAt: Date } }]) => c[0].data.dueAt,
+    );
+    const target = plain[plain.length - 1];
+    const targetDay = target.toISOString().slice(0, 10);
+    tx.dynReportPeriod.create.mockClear();
+
+    // The same run again, now with an official day off exactly on the LAST (future) due date.
+    const holiday = buildService(tx, true);
+    holiday.calendarEvents.expandOccurrences.mockImplementation((_e: unknown, from: Date, to: Date) =>
+      new Date(`${targetDay}T00:00:00Z`) >= from && new Date(`${targetDay}T00:00:00Z`) <= to
+        ? [{ occurrenceDate: new Date(`${targetDay}T00:00:00Z`) }]
+        : [],
+    );
+    await holiday.service.generateForAllReports(tx as never, now);
+    const shifted: Date[] = tx.dynReportPeriod.create.mock.calls.map(
+      (c: [{ data: { dueAt: Date } }]) => c[0].data.dueAt,
+    );
+    expect(shifted[shifted.length - 1].getTime()).toBeGreaterThan(target.getTime());
+  });
+
+  it('a day off ON the due day itself counts even when windows do not overlap (quarterly)', async () => {
+    const tx = buildTx();
+    tx.dynReport.findMany.mockResolvedValue([
+      {
+        id: 'rep1',
+        schedules: [
+          {
+            id: 'sch1',
+            periodType: 'QUARTERLY',
+            periodStartDay: null,
+            dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
+            openRule: { kind: 'AT_PERIOD_START' },
+            shiftNonWorking: true,
+            oneTimeDate: null,
+            lastGeneratedThrough: now,
+            effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+          },
+        ],
+      },
+    ]);
+    tx.dynReportVersion.findFirst.mockResolvedValue({ id: 'ver1' });
+    tx.dynReportTarget.findMany.mockResolvedValue([]);
+    tx.dynReportPeriod.findUnique.mockResolvedValue(null);
+    tx.dynReportPeriod.create.mockResolvedValue({ id: 'period1' });
+    tx.calendarEvent.findMany.mockResolvedValue([]);
+    const dueAts = () =>
+      tx.dynReportPeriod.create.mock.calls.map((c: [{ data: { dueAt: Date } }]) => c[0].data.dueAt);
+
+    const dry = buildService(tx, true);
+    await dry.service.generateForAllReports(tx as never, now);
+    const plain: Date[] = dueAts();
+    const lastDay = plain[plain.length - 1].toISOString().slice(0, 10);
+    tx.dynReportPeriod.create.mockClear();
+
+    const holiday = buildService(tx, true);
+    holiday.calendarEvents.expandOccurrences.mockImplementation((_e: unknown, from: Date, to: Date) => {
+      const day = new Date(`${lastDay}T00:00:00Z`);
+      return day >= from && day <= to ? [{ occurrenceDate: day }] : [];
+    });
+    await holiday.service.generateForAllReports(tx as never, now);
+    const shifted: Date[] = dueAts();
+    expect(shifted[shifted.length - 1].getTime()).toBeGreaterThan(plain[plain.length - 1].getTime());
+  });
+
   it('a failure generating one report/schedule is logged and does not abort the other reports in the same tick', async () => {
     const tx = buildTx();
     tx.dynReport.findMany.mockResolvedValue([

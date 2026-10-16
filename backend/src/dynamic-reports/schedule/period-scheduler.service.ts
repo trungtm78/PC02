@@ -27,6 +27,9 @@ import type { ScheduleRule } from '../engine/period';
  */
 
 const LOOKAHEAD_PERIODS = 6; // spec: "Preview tối thiểu 6 kỳ"
+/** How far past a due date days off are looked up; a due date shifts across a run of consecutive days off, assumed shorter than this. */
+const SHIFT_WINDOW_DAYS = 60;
+const VN_OFFSET_MS = 7 * 3_600_000;
 const SCHEDULER_LOCK_KEY = 'dynamic-reports-period-scheduler';
 
 interface LockRow {
@@ -110,19 +113,25 @@ export class PeriodSchedulerService {
     };
   }
 
+  /**
+   * Days off inside each of the given windows. A window per due date (not one long range) keeps every expansion short:
+   * `expandOccurrences` caps one event at a few hundred occurrences, which a weekly day-off rule overruns on a multi-year range.
+   */
   private async resolveNonWorkingDates(
     tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
-    from: Date,
-    to: Date,
+    windows: ReadonlyArray<readonly [Date, Date]>,
   ): Promise<Set<string>> {
     const events = await tx.calendarEvent.findMany({
       where: { scope: 'SYSTEM', isOfficialDayOff: true },
       include: { overrides: true },
     });
-    const occurrences = this.calendarEvents.expandOccurrences(events, from, to);
-    return new Set(
-      occurrences.map((o) => o.occurrenceDate.toISOString().slice(0, 10)),
-    );
+    const dates = new Set<string>();
+    for (const [from, to] of windows) {
+      for (const o of this.calendarEvents.expandOccurrences(events, from, to)) {
+        dates.add(o.occurrenceDate.toISOString().slice(0, 10));
+      }
+    }
+    return dates;
   }
 
   private async generateForSchedule(
@@ -158,17 +167,23 @@ export class PeriodSchedulerService {
 
     const rule = this.toScheduleRule(schedule);
     const cursorStart = schedule.lastGeneratedThrough ?? schedule.effectiveFrom;
-    const nonWorkingDates = schedule.shiftNonWorking
-      ? await this.resolveNonWorkingDates(tx, cursorStart, now)
-      : new Set<string>();
-    const { periods, nextCursor } = computePeriodsToEnsure(
-      rule,
-      cursorStart,
-      now,
-      LOOKAHEAD_PERIODS,
-      1_000,
-      nonWorkingDates,
-    );
+    // A due date that lands on a day off moves FORWARD to the next working day, so what matters is the days off from each
+    // due date onward, and the periods ahead of `now` have due dates ahead of `now`. Looking up only [cursor, now] left every
+    // future period unshifted (the preview endpoint, whose range comes from the wizard, did shift them: the screen promised a
+    // date the scheduler never wrote). So compute once to learn the due dates, look days off up from each of them, compute again.
+    let nonWorkingDates = new Set<string>();
+    let { periods, nextCursor } = computePeriodsToEnsure(rule, cursorStart, now, LOOKAHEAD_PERIODS, 1_000, nonWorkingDates);
+    if (schedule.shiftNonWorking && periods.length > 0) {
+      const windows = periods.map((p) => {
+        // Days off are dates (00:00Z), the due is an instant (17:00 in Vietnam = 10:00Z): start at the Vietnam calendar day's
+        // midnight or the due day itself falls outside the window.
+        const dueVnDay = new Date(p.dueAt).getTime() + VN_OFFSET_MS;
+        const from = Date.UTC(new Date(dueVnDay).getUTCFullYear(), new Date(dueVnDay).getUTCMonth(), new Date(dueVnDay).getUTCDate());
+        return [new Date(from), new Date(from + SHIFT_WINDOW_DAYS * 86_400_000)] as const;
+      });
+      nonWorkingDates = await this.resolveNonWorkingDates(tx, windows);
+      ({ periods, nextCursor } = computePeriodsToEnsure(rule, cursorStart, now, LOOKAHEAD_PERIODS, 1_000, nonWorkingDates));
+    }
 
     const targets = await tx.dynReportTarget.findMany({
       where: {
