@@ -170,6 +170,47 @@ describe('SubmissionInputPage', () => {
     expect(screen.getByTestId('input-Đội 3!C6')).toBeDisabled();
   });
 
+  it('words the locked banner by WHY typing is closed (not yet open vs past deadline vs already submitted)', async () => {
+    const banner = async (view: Partial<SubmissionView>) => {
+      vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({ ...VIEW, editable: false, ...view });
+      const { unmount } = renderPage();
+      const el = await waitFor(() => screen.getByTestId('locked-banner'));
+      const text = el.textContent ?? '';
+      unmount();
+      return text;
+    };
+
+    const early = await banner({
+      lockReason: 'NOT_YET_OPEN',
+      opensAt: '2099-01-02T03:00:00.000Z',
+      effectiveLockAt: '2099-01-02T03:00:00.000Z',
+    });
+    expect(early).toContain('Chưa đến giờ mở nhập');
+    expect(early).not.toContain('Đã khoá');
+    expect(early).toContain('2099');
+
+    const late = await banner({ lockReason: 'PAST_DEADLINE', effectiveLockAt: null });
+    expect(late).toContain('Đã quá hạn nộp');
+
+    const returned = await banner({ lockReason: 'PAST_DEADLINE', state: 'RETURNED', effectiveLockAt: null });
+    expect(returned).toContain('quá hạn sửa lại');
+    expect(returned).not.toContain('quá hạn nộp');
+
+    const done = await banner({ lockReason: 'WRONG_STATE', state: 'SUBMITTED' });
+    expect(done).toContain('Đã nộp');
+    expect(done).not.toContain('quá hạn');
+
+    const approved = await banner({ lockReason: 'WRONG_STATE', state: 'APPROVED' });
+    expect(approved).toContain('Đã duyệt');
+
+    const closed = await banner({ lockReason: 'PERIOD_FINALIZED' });
+    expect(closed).toContain('Kỳ đã chốt');
+
+    // A server that does not name a reason still gets the generic wording.
+    const unknown = await banner({ lockReason: undefined });
+    expect(unknown).toContain('Đã khoá');
+  });
+
   it('sends an unlock request with the prompted reason and shows a pending confirmation', async () => {
     vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
       ...VIEW,

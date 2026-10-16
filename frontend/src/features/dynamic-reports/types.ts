@@ -384,6 +384,8 @@ export interface SubmissionView {
   fields: SubmissionFieldView[];
   editable: boolean;
   effectiveLockAt: string | null;
+  /** Why typing is closed (null while editable); optional so a stale server answer still renders. */
+  lockReason?: 'USER_INACTIVE' | 'PERIOD_FINALIZED' | 'WRONG_STATE' | 'NOT_YET_OPEN' | 'PAST_DEADLINE' | null;
   serverTime: string;
   /** S16 — "lưu lần cuối". `null` when nothing has ever been saved. */
   updatedAt: string | null;

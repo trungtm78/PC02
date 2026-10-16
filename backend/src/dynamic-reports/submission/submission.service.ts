@@ -18,6 +18,7 @@ import {
 } from '../../xlsx-imports/hostile-xlsx-guard';
 import { resolveAccess } from '../engine/access';
 import type {
+  AccessDeniedReason,
   AccessGrant,
   PeriodStatus,
   SubmissionState,
@@ -88,6 +89,8 @@ export interface SubmissionView {
   fields: SubmissionFieldView[];
   editable: boolean;
   effectiveLockAt: string | null;
+  /** Why the editor cannot type right now; null while editable. Lets the screen word "not open yet" differently from "closed". */
+  lockReason: AccessDeniedReason | null;
   serverTime: string;
   /**
    * S16 — "lưu lần cuối". `null` when `firstSavedAt` is still null (R5
@@ -740,6 +743,8 @@ export class SubmissionService {
       fields: period.version.fields.map((f) => this.toFieldView(f)),
       editable: false,
       effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
+      // The manager never types into cells, so "why is typing locked" has no meaning here.
+      lockReason: null,
       serverTime: now.toISOString(),
       updatedAt: submission.firstSavedAt
         ? submission.updatedAt.toISOString()
@@ -1433,6 +1438,7 @@ export class SubmissionService {
       fields: period.version.fields.map((f) => this.toFieldView(f)),
       editable: access.canEdit,
       effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
+      lockReason: access.reason,
       serverTime: now.toISOString(),
       updatedAt: submission.firstSavedAt
         ? submission.updatedAt.toISOString()

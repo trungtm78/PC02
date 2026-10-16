@@ -233,6 +233,42 @@ export default function SubmissionInputPage() {
     );
   }
 
+  // Say WHY typing is closed: "not open yet" and "too late" ask for different
+  // things from the person reading, so one "Đã khoá" for all of them misleads.
+  // Locked by this very session (just submitted) has no server reason yet, but the state tells it.
+  const lockReason =
+    initial.lockReason ?? (state === 'SUBMITTED' || state === 'APPROVED' ? 'WRONG_STATE' : undefined);
+  const notYetOpen = lockReason === 'NOT_YET_OPEN';
+  const opensAtText = formatVNDateTime(effectiveLockAt ?? initial.opensAt);
+  let lockedMessage: string;
+  switch (lockReason) {
+    case 'NOT_YET_OPEN':
+      lockedMessage = `Chưa đến giờ mở nhập — được nhập từ ${opensAtText}.`;
+      break;
+    case 'PAST_DEADLINE':
+      // A returned bản runs on its own correction deadline, not the original one — never quote the wrong date.
+      lockedMessage =
+        state === 'RETURNED'
+          ? 'Đã quá hạn sửa lại, không thể sửa thêm.'
+          : `Đã quá hạn nộp (${formatVNDateTime(initial.dueAt)}), không thể sửa thêm.`;
+      break;
+    case 'PERIOD_FINALIZED':
+      lockedMessage = 'Kỳ đã chốt, không thể sửa thêm.';
+      break;
+    case 'WRONG_STATE':
+      lockedMessage =
+        state === 'APPROVED'
+          ? 'Đã duyệt, không thể sửa thêm.'
+          : state === 'SUBMITTED'
+            ? 'Đã nộp, đang chờ quản lý duyệt — không thể sửa thêm.'
+            : 'Đã khoá, không thể sửa thêm.';
+      break;
+    default:
+      lockedMessage = `Đã khoá, không thể sửa thêm${
+        effectiveLockAt ? ` lúc ${formatVNDateTime(effectiveLockAt)}` : ''
+      }.`;
+  }
+
   return (
     <div
       className={`${layoutMode === 'grid' && !gridUnavailable ? 'max-w-6xl' : 'max-w-3xl'} mx-auto p-6`}
@@ -259,9 +295,8 @@ export default function SubmissionInputPage() {
         >
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
-            <p className="text-sm text-amber-800">
-              Đã khoá, không thể sửa thêm
-              {effectiveLockAt ? ` lúc ${formatVNDateTime(effectiveLockAt)}` : ''}.
+            <p className="text-sm text-amber-800" data-testid="locked-banner-text">
+              {lockedMessage}
             </p>
           </div>
           {requestStatus === 'sent' ? (
@@ -284,7 +319,7 @@ export default function SubmissionInputPage() {
               onClick={() => void handleRequestUnlock()}
               className={`text-xs font-medium text-amber-800 underline hover:text-amber-900 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
             >
-              Xin mở lại
+              {notYetOpen ? 'Xin nhập sớm' : 'Xin mở lại'}
             </button>
           )}
         </div>

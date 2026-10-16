@@ -420,7 +420,11 @@ export default function ReportDetailPage() {
                           {p.periodKey}
                         </Link>
                       </td>
-                      <td className="py-1.5 pr-3 text-slate-600">{PERIOD_STATUS_TEXT[p.status] ?? p.status}</td>
+                      <td className="py-1.5 pr-3 text-slate-600">
+                        {p.status === 'OPEN' && new Date(p.opensAt) > new Date()
+                          ? `Chưa đến giờ mở (từ ${formatVNDateTime(p.opensAt)})`
+                          : (PERIOD_STATUS_TEXT[p.status] ?? p.status)}
+                      </td>
                       <td className="py-1.5 pr-3 text-slate-600">{formatVNDateTime(p.dueAt)}</td>
                       <td className="py-1.5 pr-3 text-slate-600">v{p.version}</td>
                       <td className="py-1.5 text-slate-600">
