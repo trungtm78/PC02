@@ -103,6 +103,36 @@ export function docKhoangNgay(giaTri: string): KhoangNgay | undefined {
   return undefined;
 }
 
+/** Calendar date (yyyy-mm-dd) in Vietnam time of an instant produced by `mocVN`. */
+const chuoiNgayVN = (d: Date): string =>
+  new Date(d.getTime() + LECH_GIO_VN_MS).toISOString().slice(0, 10);
+
+const THOUSANDS_DOT_NUMBER = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
+const PLAIN_DECIMAL_NUMBER = /^\d+([.,]\d+)?$/;
+const INT32_MAX = 2_147_483_647;
+
+/**
+ * Parse a number typed the Vietnamese way: `.` groups thousands (`1.500.000`), `,` is the decimal mark (`1,5`).
+ * A lone dot that cannot be a thousands group (`1.5`) is read as a decimal point. Returns `undefined` for anything
+ * else, so callers answer 400 instead of handing Prisma a value it rejects with a 500.
+ *
+ * `integerOnly`: the column is a Prisma `Int` - decimals and values beyond Int32 are rejected.
+ */
+export function docSo(giaTri: string, integerOnly = false): number | undefined {
+  const v = giaTri.trim();
+  let n: number;
+  if (THOUSANDS_DOT_NUMBER.test(v)) {
+    n = Number(v.replace(/\./g, '').replace(',', '.'));
+  } else if (PLAIN_DECIMAL_NUMBER.test(v)) {
+    n = Number(v.replace(',', '.'));
+  } else {
+    return undefined;
+  }
+  if (!Number.isFinite(n) || n > Number.MAX_SAFE_INTEGER) return undefined;
+  if (integerOnly && (!Number.isInteger(n) || n > INT32_MAX)) return undefined;
+  return n;
+}
+
 function khoangNgay(
   nam: number,
   thang: number,
@@ -135,6 +165,17 @@ export function dieuKienNgay(
 ): DieuKien[] {
   const khoang = docKhoangNgay(giaTri);
   if (!khoang) return [];
+  // A date stored in JSON has an ISO-text shadow column: compare the Vietnam calendar-day range as strings.
+  if (truong.nguonJson) {
+    return [
+      {
+        [cotBongCua(cot).field]: {
+          gte: chuoiNgayVN(khoang.gte),
+          lt: chuoiNgayVN(khoang.lt),
+        },
+      },
+    ];
+  }
   const theoNgayThat: DieuKien = { [cot]: khoang };
   const tienTo = tienToEdtf(giaTri);
   if (!truong.cotEdtf || !tienTo) return [theoNgayThat];
@@ -152,6 +193,12 @@ const timTruong = (khai: KhaiThucThe, key: string): TruongTimKiem | undefined =>
   khai.truong.find((t) => t.key === key);
 
 const loi = (thongBao: string) => new BadRequestException(thongBao);
+
+/** 400 text for a number tag value that cannot be read (user-facing, Vietnamese like the other tag errors). */
+const MSG_SO_KHONG_DOC_DUOC = (giaTri: string, soNguyen: boolean): string =>
+  soNguyen
+    ? `Không đọc được số nguyên "${giaTri}" — gõ số tự nhiên, ví dụ 3`
+    : `Không đọc được số "${giaTri}" — gõ dạng 1500000, 1.500.000 hoặc 1,5`;
 
 /**
  * Đọc thẻ từ query. Khoá lạ → 400, KHÔNG âm thầm bỏ qua: bỏ qua là trả dữ liệu chưa lọc mà trông
@@ -193,6 +240,9 @@ export function docThe(
         `Không đọc được ngày "${giaTri}" — gõ dạng 12/09/2026, 09/2026 hoặc 2026`,
       );
     }
+    if (truong?.kieu === 'so' && docSo(giaTri, truong.soNguyen) === undefined) {
+      throw loi(MSG_SO_KHONG_DOC_DUOC(giaTri, truong.soNguyen === true));
+    }
     const cu = theoKhoa.get(key);
     if (cu) cu.push(giaTri);
     else theoKhoa.set(key, [giaTri]);
@@ -213,6 +263,21 @@ function mauBoDau(giaTri: string): string | undefined {
   const b = boDauTimKiem(giaTri);
   if (!b) return undefined;
   return thoatLike(b);
+}
+
+/**
+ * Text field stored in JSON: filter on its shadow column ONLY. There is no source column to fall back to (the
+ * field's `cot` is virtual), so a not-yet-loaded row simply does not match - the migration backfills every row.
+ *
+ * Input that strips to nothing (only combining/invisible characters) still yields a condition on the raw text,
+ * which the shadow never contains: matching nothing is correct, dropping the condition would return every row
+ * while looking filtered.
+ */
+function dieuKienChuJson(cot: string, giaTri: string): DieuKien[] {
+  const mau = mauBoDau(giaTri);
+  return [
+    { [cotBongCua(cot).field]: { contains: mau ?? thoatLike(giaTri.trim()) } },
+  ];
 }
 
 /** Chứa chuỗi gõ trên cột gốc, không phân biệt hoa thường — cho cột MÃ (không có cột bóng). */
@@ -430,10 +495,22 @@ function dieuKienMotThe(
   const cot = truong.cot as string;
   switch (truong.kieu) {
     case 'chu':
+      if (truong.nguonJson) {
+        return gop(the.giaTri.flatMap((v) => dieuKienChuJson(cot, v)));
+      }
       return gop(
         the.giaTri.flatMap((v) =>
           luaChonChu(cot, truong.cotGhep ?? [cot], v, luiCotGoc),
         ),
+      );
+    case 'so':
+      // Equality on the number. Typing a number in the "all columns" box deliberately does NOT reach this
+      // field: "5" would match every record with 5 victims.
+      return hoac(
+        the.giaTri.flatMap((v) => {
+          const n = docSo(v, truong.soNguyen);
+          return n === undefined ? [] : [{ [cot]: { equals: n } }];
+        }),
       );
     case 'ma-thuong':
       // Mã danh mục / mã cán bộ / IP / thao tác: CHỨA chuỗi gõ ("T0" ra "T01", "192.168" ra IP

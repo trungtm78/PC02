@@ -19,7 +19,28 @@ export type KieuTruong =
   | 'nguoi'
   | 'doi-tuong'
   | 'quan-he'
-  | 'ma-thuong';
+  | 'ma-thuong'
+  | 'so';
+
+/**
+ * A value stored INSIDE a JSON column (e.g. `petitions.metadata`) rather than in a column of its own. The
+ * generator builds the shadow column `<cot>_bd` for it like for any other field; the field's `cot` is then a
+ * VIRTUAL name used only to name the shadow column. It is NOT in schema.prisma, so there is no source column to
+ * fall back to (see `dieuKienChuJson`).
+ */
+export interface NguonJson {
+  /** JSON column that holds the value (jsonb). */
+  cot: string;
+  /** Key inside the JSON. */
+  khoa: string;
+  /**
+   * The JSON value is the ID of a row in another table; the shadow column stores that row's `<cot>` (e.g. crime
+   * id -> crime name). Resolved AT WRITE TIME by the trigger: renaming a row in the target table does NOT update
+   * the shadow column, it must be reloaded. Only use it for near-static target tables (`crimes`: 316 BLHS
+   * articles).
+   */
+  tuBang?: { bang: string; cot: string };
+}
 
 export interface TruongTimKiem {
   /** Khoá thẻ trên URL — tên CHUẨN liên thực thể. */
@@ -96,6 +117,13 @@ export interface TruongTimKiem {
    * định. Thẻ RIÊNG của trường luôn dùng được, `false` chỉ gỡ nó khỏi `*`.
    */
   vaoTatCa?: boolean;
+  /** Kind `chu`/`ngay`: the field lives inside a JSON column - see `NguonJson`. */
+  nguonJson?: NguonJson;
+  /**
+   * Kind `so`: the column is an INTEGER (Prisma `Int`). A decimal or an out-of-Int32 value is a 400 instead of
+   * letting Prisma throw a 500.
+   */
+  soNguyen?: boolean;
 }
 
 /** Một cột thêm vào "tất cả các cột": chuỗi trần khi không có `@map`, object khi có. */
@@ -194,6 +222,32 @@ function kiemKhai(khai: KhaiThucThe): void {
       kiemTen(t.cot, 'nguồn');
       if (t.cotDb) kiemTen(t.cotDb, 'CSDL');
     }
+    if (t.nguonJson) {
+      if (t.kieu !== 'chu' && t.kieu !== 'ngay') {
+        throw new Error(
+          `Field "${t.key}": nguonJson only applies to kind chu or ngay`,
+        );
+      }
+      if (t.cotGhep || t.cotEdtf) {
+        throw new Error(
+          `Field "${t.key}": nguonJson cannot be combined with cotGhep/cotEdtf`,
+        );
+      }
+      kiemTen(t.nguonJson.cot, 'JSON');
+      kiemTen(t.nguonJson.khoa, 'khoá JSON');
+      if (t.nguonJson.tuBang) {
+        if (t.kieu !== 'chu') {
+          throw new Error(
+            `Field "${t.key}": nguonJson.tuBang only applies to kind chu`,
+          );
+        }
+        kiemTen(t.nguonJson.tuBang.bang, 'bảng tra');
+        kiemTen(t.nguonJson.tuBang.cot, 'cột tra');
+      }
+    }
+    if (t.soNguyen && t.kieu !== 'so') {
+      throw new Error(`Field "${t.key}": soNguyen only applies to kind so`);
+    }
     if (t.cotGhep) {
       if (t.kieu !== 'chu' || t.cotGhep.length < 2) {
         throw new Error(
@@ -223,13 +277,43 @@ function kiemKhai(khai: KhaiThucThe): void {
   }
 }
 
+/** Fields that own a shadow column: text columns, plus date fields stored in JSON (ISO text shadow). */
+export const coCotBong = (t: TruongTimKiem): boolean =>
+  t.kieu === 'chu' || (t.kieu === 'ngay' && t.nguonJson !== undefined);
+
 const cotChu = (khai: KhaiThucThe) =>
-  khai.truong.filter((t) => t.kieu === 'chu').map((t) => t.cot as string);
+  khai.truong.filter(coCotBong).map((t) => t.cot as string);
 
 /** Cột có cột bóng riêng: cột chữ (thành thẻ) rồi cột bóng phụ (chỉ làm đích quan hệ), không trùng. */
 const cotCoBong = (khai: KhaiThucThe) => [
   ...new Set([...cotChu(khai), ...(khai.cotBongPhu ?? [])]),
 ];
+
+/** The JSON field behind the shadow column named `cot`, if any. */
+const truongJson = (
+  khai: KhaiThucThe,
+  cot: string,
+): TruongTimKiem | undefined =>
+  khai.truong.find((t) => t.cot === cot && t.nguonJson);
+
+/**
+ * Expression that reads the value of a JSON field. `hanh` is how a column is named: `NEW."x"` in the trigger,
+ * `"x"` in the backfill statement - one body, so trigger and backfill cannot drift apart. The backfill leaves
+ * the JSON column UNQUALIFIED (the `tuBang` target table has no column of the same name; `crimes` has no
+ * `metadata`).
+ */
+function bieuThucJson(t: TruongTimKiem, hanh: (cot: string) => string): string {
+  const j = t.nguonJson as NguonJson;
+  const v = `${hanh(j.cot)}->>'${j.khoa}'`;
+  if (t.kieu === 'ngay') {
+    // Only ISO (yyyy-mm-dd...) is recognised: any other string yields NULL instead of failing the record write.
+    return `CASE WHEN ${v} ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN substr(${v}, 1, 10) END`;
+  }
+  if (j.tuBang) {
+    return `(SELECT t."${j.tuBang.cot}" FROM "${j.tuBang.bang}" t WHERE t."id" = ${v})`;
+  }
+  return v;
+}
 
 /**
  * Cột ghép vào "tất cả các cột": chữ + mã + cột thêm, theo thứ tự khai. Trường `cotGhep` góp CÁC CỘT
@@ -239,14 +323,47 @@ const cotTatCa = (khai: KhaiThucThe) => [
   ...khai.truong
     .filter(
       (t) =>
-        t.kieu === 'chu' ||
-        t.kieu === 'ma' ||
-        t.kieu === 'ma-cu' ||
-        t.kieu === 'ma-thuong',
+        !t.nguonJson &&
+        (t.kieu === 'chu' ||
+          t.kieu === 'ma' ||
+          t.kieu === 'ma-cu' ||
+          t.kieu === 'ma-thuong'),
     )
     .flatMap((t) => (t.cotGhep ? [...t.cotGhep] : [t.cot as string])),
   ...chuanHoaCotThem(khai.cotThemVaoTatCa).map((c) => c.cot),
 ];
+
+/**
+ * Parts of the combined "all columns" shadow, in declaration order: real columns AND text fields stored in JSON
+ * (the JSON read expression). Unlike `cotTatCa`, which holds REAL columns only - the server's fallback to the
+ * source columns must never touch a virtual column.
+ */
+function thanhPhanTatCa(
+  khai: KhaiThucThe,
+  hanh: (cot: string) => string,
+): string[] {
+  const ra: string[] = [];
+  for (const t of khai.truong) {
+    if (t.nguonJson) {
+      if (t.kieu === 'chu') ra.push(bieuThucJson(t, hanh));
+      continue;
+    }
+    if (
+      t.kieu === 'chu' ||
+      t.kieu === 'ma' ||
+      t.kieu === 'ma-cu' ||
+      t.kieu === 'ma-thuong'
+    ) {
+      for (const c of t.cotGhep ?? [t.cot as string]) {
+        ra.push(hanh(tenCotDb(khai, c)));
+      }
+    }
+  }
+  for (const c of chuanHoaCotThem(khai.cotThemVaoTatCa)) {
+    ra.push(hanh(tenCotDb(khai, c.cot)));
+  }
+  return ra;
+}
 
 /** Tên cột CSDL của một trường Prisma trong khai — `cotDb` nếu có `@map`, không thì chính tên trường. */
 const tenCotDb = (khai: KhaiThucThe, cot: string): string =>
@@ -259,6 +376,8 @@ const tenCotDb = (khai: KhaiThucThe, cot: string): string =>
 
 /** Cột CSDL nguồn của cột bóng mang tên `cot`: các cột `cotGhep` nếu có, không thì chính cột ấy. */
 const nguonDb = (khai: KhaiThucThe, cot: string): string[] => {
+  const json = truongJson(khai, cot);
+  if (json) return [(json.nguonJson as NguonJson).cot];
   const ghepNguon = khai.truong.find(
     (t) => t.cot === cot && t.cotGhep,
   )?.cotGhep;
@@ -280,11 +399,22 @@ const coTruongDoiTuong = (khais: readonly KhaiThucThe[]) =>
 const moi = (cot: string) => `NEW."${cot}"`;
 const ghep = (cots: readonly string[]) =>
   `concat_ws(' ', ${cots.map(moi).join(', ')})`;
+const ghepBieu = (bieu: readonly string[]) =>
+  `concat_ws(' ', ${bieu.join(', ')})`;
 
 interface Gan {
   cotBong: string;
   bieuThuc: string;
+  /**
+   * The expression already IS the shadow value (JSON date column: ISO string) - not wrapped in
+   * `' ' || f_bo_dau(...)`, no trigram index, and NULL is a legitimate value (row without a date).
+   */
+  tho?: boolean;
 }
+
+/** Right-hand side of a shadow assignment (or drift comparison): accent-stripped text with a leading space, or the raw expression. */
+const veGan = (g: Gan): string =>
+  g.tho ? g.bieuThuc : `' ' || f_bo_dau(${g.bieuThuc})`;
 
 const tenHam = (bang: string) => `pc02_dat_tim_kiem_${bang}`;
 
@@ -295,9 +425,7 @@ function thanHam(bang: string, gan: readonly Gan[]): string[] {
     `CREATE OR REPLACE FUNCTION ${ham}() RETURNS trigger`,
     'LANGUAGE plpgsql AS $$',
     'BEGIN',
-    ...gan.map(
-      (g) => `  NEW."${g.cotBong}" := ' ' || f_bo_dau(${g.bieuThuc});`,
-    ),
+    ...gan.map((g) => `  NEW."${g.cotBong}" := ${veGan(g)};`),
     '  RETURN NEW;',
     // Trigger hỏng không được chặn thao tác ghi nghiệp vụ: để cột bóng rỗng (thẻ lùi về cột gốc)
     // và cảnh báo vào nhật ký PostgreSQL.
@@ -329,10 +457,13 @@ function khoiBang(
     `  BEFORE INSERT OR UPDATE OF ${cotNguon.map((c) => `"${c}"`).join(', ')} ON "${bang}"`,
     `  FOR EACH ROW EXECUTE FUNCTION ${ham}();`,
     '',
-    ...gan.map(
-      (g) =>
-        `CREATE INDEX IF NOT EXISTS "${bang}_${g.cotBong}_trgm" ON "${bang}" USING gin ("${g.cotBong}" gin_trgm_ops);`,
-    ),
+    // A JSON date column is compared by range on an ISO string, not by substring: a trigram index is useless here.
+    ...gan
+      .filter((g) => !g.tho)
+      .map(
+        (g) =>
+          `CREATE INDEX IF NOT EXISTS "${bang}_${g.cotBong}_trgm" ON "${bang}" USING gin ("${g.cotBong}" gin_trgm_ops);`,
+      ),
     // Máy chủ hỏi "còn dòng chưa nạp không" để quyết có lùi về cột gốc — chỉ mục một phần làm câu
     // hỏi tức thì (không có nó, chính câu hỏi quét cả bảng).
     ...(gan.some((g) => g.cotBong === COT_TAT_CA.cot)
@@ -387,11 +518,23 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
   for (const khai of khais) {
     const cotDbTatCa = cotTatCa(khai).map((c) => tenCotDb(khai, c));
     const cotDbBong = cotCoBong(khai).flatMap((c) => nguonDb(khai, c));
+    // The source JSON column must also be in `UPDATE OF`: editing only `metadata` without firing the trigger leaves a stale shadow.
+    const cotDbJson = khai.truong.flatMap((t) =>
+      t.nguonJson ? [t.nguonJson.cot] : [],
+    );
     ra.push({
       tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
       bang: khai.bang,
       gan: [
-        ...cotCoBong(khai).map((c) => {
+        ...cotCoBong(khai).map((c): Gan => {
+          const json = truongJson(khai, c);
+          if (json) {
+            return {
+              cotBong: cotBongCua(c).cot,
+              bieuThuc: bieuThucJson(json, moi),
+              tho: json.kieu === 'ngay',
+            };
+          }
           const nguon = nguonDb(khai, c);
           return {
             cotBong: cotBongCua(c).cot,
@@ -400,9 +543,12 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
             bieuThuc: nguon.length > 1 ? ghep(nguon) : moi(nguon[0]),
           };
         }),
-        { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotDbTatCa) },
+        {
+          cotBong: COT_TAT_CA.cot,
+          bieuThuc: ghepBieu(thanhPhanTatCa(khai, moi)),
+        },
       ],
-      cotNguon: [...new Set([...cotDbTatCa, ...cotDbBong])],
+      cotNguon: [...new Set([...cotDbTatCa, ...cotDbBong, ...cotDbJson])],
     });
   }
   return gopTheoBang(ra);
@@ -636,7 +782,7 @@ export const CO_MAU_LECH = 200;
  * các lô trước đã sửa (đo trên 47.169 đơn thư: ~15 s mỗi lô).
  */
 function cauNap(bang: string, gan: readonly Gan[]): CauNap {
-  const bieu = (g: Gan) => `' ' || f_bo_dau(${g.bieuThuc})`;
+  const bieu = veGan;
   const lech = gan
     .map((g) => `"${g.cotBong}" IS DISTINCT FROM ${bieu(g)}`)
     .join(' OR ');
@@ -644,7 +790,11 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
   // Biểu thức cột bóng KHÔNG BAO GIỜ NULL (đo prod 19/09/2026: f_bo_dau(NULL) = '', nên dòng đã nạp mang
   // ít nhất ' '). Cột bóng NULL vì thế là dòng chưa có giá trị đúng: chưa từng nạp, HOẶC trigger rơi vào
   // nhánh EXCEPTION, HOẶC đang tắt khẩn (`sinhSqlTatTimKiem`). Cả ba đều cần người xem — nên vẫn báo.
-  const chuaNap = gan.map((g) => `"${g.cotBong}" IS NULL`).join(' OR ');
+  // JSON date columns (`tho`) are excluded: NULL is a legitimate value for them (row without a date).
+  const chuaNap = gan
+    .filter((g) => !g.tho)
+    .map((g) => `"${g.cotBong}" IS NULL`)
+    .join(' OR ');
   return {
     dem: `SELECT count(*)::int AS n FROM "${bang}" WHERE ${lech}`,
     layLo: `SELECT id FROM "${bang}" WHERE id > $1 ORDER BY id LIMIT $2`,
@@ -657,7 +807,15 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
 export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
   kiemKhai(khai);
   return cauNap(khai.bang, [
-    ...cotCoBong(khai).map((c) => {
+    ...cotCoBong(khai).map((c): Gan => {
+      const json = truongJson(khai, c);
+      if (json) {
+        return {
+          cotBong: cotBongCua(c).cot,
+          bieuThuc: bieuThucJson(json, cotDong),
+          tho: json.kieu === 'ngay',
+        };
+      }
       const nguon = nguonDb(khai, c);
       return {
         cotBong: cotBongCua(c).cot,
@@ -666,7 +824,7 @@ export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
     }),
     {
       cotBong: COT_TAT_CA.cot,
-      bieuThuc: ghepDong(cotTatCa(khai).map((c) => tenCotDb(khai, c))),
+      bieuThuc: ghepBieu(thanhPhanTatCa(khai, cotDong)),
     },
   ]);
 }
@@ -697,6 +855,7 @@ export function sinhCacCauNap(
       k.gan.map((g) => ({
         cotBong: g.cotBong,
         bieuThuc: g.bieuThuc.replace(/NEW\./g, ''),
+        tho: g.tho,
       })),
     ),
   }));
@@ -712,7 +871,7 @@ export function sinhFrontendTimKiem(khais: readonly KhaiThucThe[]): string {
     '// AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.',
     '// Nguồn: backend/src/common/tim-kiem/khai/*.khai.ts',
     '',
-    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong' | 'quan-he' | 'ma-thuong';",
+    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong' | 'quan-he' | 'ma-thuong' | 'so';",
   ];
   for (const khai of khais) {
     const ten = khai.thucThe.toUpperCase().replace(/-/g, '_');
