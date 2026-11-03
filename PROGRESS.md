@@ -1,5 +1,9 @@
 # PROGRESS — Case governance
 
+STATUS: ALL_MILESTONES_DONE
+
+Closed 2026-11-03. Evidence: PR #503 (`feat(cases): quản trị đầy đủ vòng đời vụ án`) merged 2026-10-08 as `77811bef`; `docs/uat/UAT-REPORT.md` records 856/856 critical acceptance cases PASS, 0 FAIL, 0 NOT_RUN. Everything below is a historical snapshot taken 2026-10-07, before the work was committed and merged; its task states (T1, T4, T5 "IN PROGRESS", "no Case commit") are superseded and must not be resumed.
+
 Plan: docs/plans/PLAN.md. User approval2026-10-06 “PLEASE IMPLEMENT THIS PLAN”. Worktree10030bed, isolatedfeat/case-governance-20261006. FullCG01–17 scope retained. Implementation in progress; no Case commit, push or production deployment yet.
 
 Token/model audit 2026-10-07: 15 local Case agents used489,023,904 reported tokens, 98.42% of input cached; five long-lived agents consumed about80%. Full report `docs/reviews/SDLC_MODEL_TOKEN_AUDIT_2026-10-07.md`; reproducible scanner `tools/case-governance/audit-sdlc-model-usage.cjs`. Adopted Luna-low deterministic workers, Sol-low implementation, Astra-high one bounded independent gate, xhigh only confirmedcritical; max2threads, compact task packets, no cross-domain agent reuse, raw logs staydisk, targeted→affected→one frozen milestone fullsuite. Scope/quality/UAT/recovery/human productionGO unchanged.
