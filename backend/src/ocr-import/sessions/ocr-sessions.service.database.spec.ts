@@ -484,11 +484,13 @@ run('OcrSessionsService on PostgreSQL', () => {
       });
 
       // The officer's Save lands between the purge listing the session and deleting it.
-      const original = db.ocrSession.findMany.bind(db.ocrSession);
+      const original = db.ocrSession.findMany.bind(
+        db.ocrSession,
+      ) as unknown as (args: unknown) => Promise<unknown>;
       const spy = jest
         .spyOn(db.ocrSession, 'findMany')
         .mockImplementationOnce(((args: never) => {
-          const listed = original(args) as Promise<unknown>;
+          const listed = original(args);
           return listed.then(async (rows) => {
             await db.ocrSession.update({
               where: { id: s.id },
