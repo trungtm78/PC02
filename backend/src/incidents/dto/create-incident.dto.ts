@@ -1,5 +1,6 @@
+import { OcrOutcomeDto } from '../../ocr-import/dto/ocr-outcome.dto';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsObject,
   IsString,
@@ -8,6 +9,8 @@ import {
   IsArray,
   MaxLength,
   MinLength,
+  ArrayMaxSize,
+  ValidateNested,
 } from 'class-validator';
 import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
 import {
@@ -32,6 +35,14 @@ export class CreateIncidentDto {
   @IsString()
   @MaxLength(64)
   ocrPhienBan?: string;
+
+  /** What the officer did with each field the scans filled (names and outcomes only), for quality statistics. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => OcrOutcomeDto)
+  ocrKetQua?: OcrOutcomeDto[];
 
   @IsOptional()
   @IsArray()

@@ -2,6 +2,17 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { OcrEntity, OcrSessionStatus, Prisma } from '@prisma/client';
 import { OcrImportError } from '../ocr-import-error';
 
+export interface OutcomeInput {
+  field: string;
+  outcome: 'KEPT' | 'EDITED' | 'CLEARED';
+  mustConfirm: boolean;
+}
+
+/** A field name as the forms use them: letters, digits, underscore, dot. Anything else is not recorded. */
+const FIELD_NAME = /^[A-Za-z0-9_.]{1,80}$/;
+/** One save adds at most this many rows. */
+const MAX_OUTCOMES = 300;
+
 export interface BindInput {
   sessionId: string;
   /** The analysis the form was filled from (`ocrPhienBan` in the create request). */
@@ -31,7 +42,11 @@ export class OcrBinder {
    */
   async bindIfRequested(
     tx: Prisma.TransactionClient,
-    request: { ocrPhienId?: string; ocrPhienBan?: string },
+    request: {
+      ocrPhienId?: string;
+      ocrPhienBan?: string;
+      ocrKetQua?: OutcomeInput[];
+    },
     context: { entity: OcrEntity; recordId: string; userId: string },
   ): Promise<void> {
     if (!request.ocrPhienId) return;
@@ -39,6 +54,46 @@ export class OcrBinder {
       sessionId: request.ocrPhienId,
       analysisId: request.ocrPhienBan ?? '',
       ...context,
+    });
+    await this.recordOutcomes(
+      tx,
+      request.ocrPhienId,
+      context.entity,
+      request.ocrKetQua ?? [],
+    );
+  }
+
+  /**
+   * What the officer did with each field the reading filled. Names and outcomes only, in the same transaction as the
+   * bind (so a failed save leaves nothing). Which provider, model and prompt produced the reading comes from the
+   * server's own call lineage, never from the request, so the statistics cannot be skewed from the browser.
+   */
+  private async recordOutcomes(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+    entity: OcrEntity,
+    outcomes: readonly OutcomeInput[],
+  ): Promise<void> {
+    const valid = outcomes
+      .filter((o) => FIELD_NAME.test(o.field))
+      .slice(0, MAX_OUTCOMES);
+    if (valid.length === 0) return;
+    const produced = await tx.llmCallLineage.findFirst({
+      where: { sessionRef: sessionId, outcome: 'OK' },
+      orderBy: { createdAt: 'desc' },
+      select: { providerKind: true, model: true, promptVersion: true },
+    });
+    await tx.ocrFieldOutcome.createMany({
+      data: valid.map((o) => ({
+        sessionId,
+        entity,
+        field: o.field,
+        outcome: o.outcome,
+        mustConfirm: o.mustConfirm,
+        providerKind: produced?.providerKind ?? null,
+        model: produced?.model ?? null,
+        promptVersion: produced?.promptVersion ?? null,
+      })),
     });
   }
 

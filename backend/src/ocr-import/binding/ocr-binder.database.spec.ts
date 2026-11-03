@@ -273,6 +273,118 @@ run('OcrBinder on PostgreSQL', () => {
     ).toBe('OCR_SESSION_CLOSED');
   });
 
+  describe('field outcomes', () => {
+    const outcomes = [
+      { field: 'senderName', outcome: 'KEPT' as const, mustConfirm: true },
+      { field: 'senderPhone', outcome: 'EDITED' as const, mustConfirm: false },
+    ];
+
+    it('records what the officer did with each filled field, in the same transaction as the bind, with no values', async () => {
+      const { session, analysisId } = await readySession();
+      await db.llmCallLineage.create({
+        data: {
+          sessionRef: session.id,
+          providerKind: 'GEMINI',
+          model: 'gemini-2.5-flash',
+          outcome: 'OK',
+          promptVersion: 'analyse.v1',
+        },
+      });
+      await db.$transaction((tx) =>
+        binder.bindIfRequested(
+          tx,
+          {
+            ocrPhienId: session.id,
+            ocrPhienBan: analysisId,
+            ocrKetQua: outcomes,
+          },
+          { entity: 'PETITION', recordId: 'rec-1', userId: alice.id },
+        ),
+      );
+      const rows = await db.ocrFieldOutcome.findMany({
+        where: { sessionId: session.id },
+        orderBy: { field: 'asc' },
+      });
+      expect(rows.map((r) => [r.field, r.outcome, r.mustConfirm])).toEqual([
+        ['senderName', 'KEPT', true],
+        ['senderPhone', 'EDITED', false],
+      ]);
+      // which provider and model produced them, taken from the server's own lineage, not from the request
+      expect(rows[0]).toMatchObject({
+        entity: 'PETITION',
+        providerKind: 'GEMINI',
+        model: 'gemini-2.5-flash',
+      });
+      await db.llmCallLineage.deleteMany({ where: { sessionRef: session.id } });
+      await db.ocrFieldOutcome.deleteMany({ where: { sessionId: session.id } });
+    });
+
+    it('a failed save records nothing', async () => {
+      const { session, analysisId } = await readySession();
+      await expect(
+        db.$transaction(async (tx) => {
+          await binder.bindIfRequested(
+            tx,
+            {
+              ocrPhienId: session.id,
+              ocrPhienBan: analysisId,
+              ocrKetQua: outcomes,
+            },
+            { entity: 'PETITION', recordId: 'rec-1', userId: alice.id },
+          );
+          throw new Error('the record could not be created');
+        }),
+      ).rejects.toThrow('could not be created');
+      expect(
+        await db.ocrFieldOutcome.count({ where: { sessionId: session.id } }),
+      ).toBe(0);
+    });
+
+    it('ignores names that are not field names and caps how many rows one save can add', async () => {
+      const { session, analysisId } = await readySession();
+      const many = Array.from({ length: 450 }, (_, i) => ({
+        field: `f${i}`,
+        outcome: 'KEPT' as const,
+        mustConfirm: false,
+      }));
+      await db.$transaction((tx) =>
+        binder.bindIfRequested(
+          tx,
+          {
+            ocrPhienId: session.id,
+            ocrPhienBan: analysisId,
+            ocrKetQua: [
+              { field: 'drop table;--', outcome: 'KEPT', mustConfirm: false },
+              ...many,
+            ],
+          },
+          { entity: 'PETITION', recordId: 'rec-1', userId: alice.id },
+        ),
+      );
+      const rows = await db.ocrFieldOutcome.findMany({
+        where: { sessionId: session.id },
+      });
+      expect(rows.length).toBe(300);
+      expect(rows.some((r) => r.field.includes(';'))).toBe(false);
+      await db.ocrFieldOutcome.deleteMany({ where: { sessionId: session.id } });
+    });
+
+    it('an ordinary request with outcomes but no session records nothing', async () => {
+      await db.$transaction((tx) =>
+        binder.bindIfRequested(
+          tx,
+          { ocrKetQua: outcomes },
+          { entity: 'PETITION', recordId: 'r', userId: alice.id },
+        ),
+      );
+      expect(
+        await db.ocrFieldOutcome.count({
+          where: { sessionId: { startsWith: tag } },
+        }),
+      ).toBe(0);
+    });
+  });
+
   it('an ordinary save, with no session in the request, binds nothing and touches nothing', async () => {
     const { session } = await readySession();
     await db.$transaction((tx) =>

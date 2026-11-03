@@ -1,3 +1,4 @@
+import { OcrOutcomeDto } from '../../ocr-import/dto/ocr-outcome.dto';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import {
   IsString,
@@ -167,6 +168,14 @@ export class CreateCaseDto {
   @IsString()
   @MaxLength(64)
   ocrPhienBan?: string;
+
+  /** What the officer did with each field the scans filled (names and outcomes only), for quality statistics. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => OcrOutcomeDto)
+  ocrKetQua?: OcrOutcomeDto[];
 
   @IsOptional()
   @IsString()

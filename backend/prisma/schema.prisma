@@ -4740,3 +4740,32 @@ model OcrJob {
   @@index([sessionId, state])
   @@map("ocr_jobs")
 }
+
+enum OcrFieldOutcomeKind {
+  /// The officer saved the value as it was read.
+  KEPT
+  /// The officer changed it.
+  EDITED
+  /// The officer emptied it.
+  CLEARED
+}
+
+/// What became of each field a reading filled, recorded when the record is saved. Names and outcomes only: no value,
+/// so statistics never copy anything read from a scan.
+model OcrFieldOutcome {
+  id            String              @id @default(cuid())
+  sessionId     String
+  entity        OcrEntity
+  field         String
+  outcome       OcrFieldOutcomeKind
+  mustConfirm   Boolean             @default(false)
+  providerKind  LlmProviderKind?
+  model         String?
+  promptVersion String?
+  createdAt     DateTime            @default(now())
+
+  @@index([createdAt])
+  @@index([entity, field])
+  @@index([sessionId])
+  @@map("ocr_field_outcomes")
+}
