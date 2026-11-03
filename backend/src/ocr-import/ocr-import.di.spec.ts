@@ -3,6 +3,8 @@ import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 import { LlmGatewayService } from '../llm/llm-gateway.service';
 import { LlmProvidersService } from '../llm/llm-providers.service';
 import { OcrIntakeService } from './ocr-intake.service';
+import { OcrFinaliser } from './binding/ocr-finaliser';
+import { DocumentsService } from '../documents/documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OcrJobQueue } from './jobs/ocr-job-queue';
 import { OcrJobRunner } from './jobs/ocr-job-runner';
@@ -27,6 +29,8 @@ describe('scan intake dependency injection', () => {
         OcrJobScheduler,
         OcrMaintenance,
         OcrIntakeService,
+        OcrFinaliser,
+        { provide: DocumentsService, useValue: { create: jest.fn() } },
         { provide: LlmProvidersService, useValue: {} },
         { provide: PrismaService, useValue: {} },
         { provide: FeatureFlagsService, useValue: { isEnabled: () => false } },

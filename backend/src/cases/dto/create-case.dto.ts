@@ -157,6 +157,17 @@ export class CreateEvidenceInlineDto {
 }
 
 export class CreateCaseDto {
+  /** Scan-intake session the form was filled from, and the analysis it was filled with. Both or neither. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienBan?: string;
+
   @IsOptional()
   @IsString()
   @IsNotEmpty()

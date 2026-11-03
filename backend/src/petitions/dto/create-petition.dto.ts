@@ -42,6 +42,17 @@ export const PHAN_LOAI_NGUON_TIN_VALUES = [
 export { PetitionStatus, LoaiDon };
 
 export class CreatePetitionDto {
+  /** Scan-intake session the form was filled from, and the analysis it was filled with. Both or neither. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienBan?: string;
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

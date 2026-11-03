@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression, Interval } from '@nestjs/schedule';
+import { OcrFinaliser } from '../binding/ocr-finaliser';
 import { OcrSessionsService } from '../sessions/ocr-sessions.service';
 import { ImageStorageService } from '../storage/image-storage.service';
 import { OcrJobRunner } from './ocr-job-runner';
@@ -42,10 +43,28 @@ export class OcrMaintenance {
 /** Polls the job queue every two seconds. The runner itself decides whether the feature is on. */
 @Injectable()
 export class OcrJobScheduler {
-  constructor(private readonly runner: OcrJobRunner) {}
+  private readonly logger = new Logger(OcrJobScheduler.name);
+
+  constructor(
+    private readonly runner: OcrJobRunner,
+    private readonly finaliser: OcrFinaliser,
+  ) {}
 
   @Interval('ocr-job-pump', 2000)
   async tick(): Promise<void> {
     await this.runner.pump();
+  }
+
+  /**
+   * Copies the scans of newly saved records into their documents. Not tied to the feature flag: a record already
+   * saved with scans must get them even if the feature is switched off afterwards.
+   */
+  @Interval('ocr-finalise-sweep', 30_000)
+  async finalise(): Promise<void> {
+    try {
+      await this.finaliser.sweep();
+    } catch (error) {
+      this.logger.error(`finalise sweep failed: ${(error as Error).name}`);
+    }
   }
 }

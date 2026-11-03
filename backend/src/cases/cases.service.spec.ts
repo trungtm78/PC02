@@ -26,6 +26,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CasesService } from './cases.service';
+import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
@@ -235,6 +236,9 @@ function findAuditAction(
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
+// Scan-intake binder: a stand-in, its own behaviour is tested on PostgreSQL in ocr-import/binding.
+const mockOcrBinder = { bindIfRequested: jest.fn().mockResolvedValue(undefined) };
+
 describe('CasesService', () => {
   let service: CasesService;
 
@@ -251,6 +255,7 @@ describe('CasesService', () => {
           provide: CaseSourceCreationService,
           useValue: mockCaseSourceCreation,
         },
+        { provide: OcrBinder, useValue: mockOcrBinder },
       ],
     }).compile();
 
@@ -1008,6 +1013,42 @@ describe('CasesService', () => {
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('binds the scan session the form was filled from, inside the same transaction as the case', async () => {
+      const tx = {
+        user: mockPrisma.user, caseFieldDefinitionVersion: mockPrisma.caseFieldDefinitionVersion, caseGovernanceGrant: mockPrisma.caseGovernanceGrant, $queryRaw: mockPrisma.$queryRaw, featureFlag: mockPrisma.featureFlag, caseHandoff: mockPrisma.caseHandoff, caseEvidenceHold: mockPrisma.caseEvidenceHold,
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'case-new' }) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation((fn: (t: unknown) => Promise<unknown>) => fn(tx));
+
+      await service.create(
+        { name: 'Test', caseProvenance: CaseProvenance.DIRECT_DISCOVERY, ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' },
+        'actor-001',
+      );
+
+      expect(mockOcrBinder.bindIfRequested).toHaveBeenCalledWith(
+        tx,
+        expect.objectContaining({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' }),
+        { entity: 'CASE', recordId: 'case-new', userId: 'actor-001' },
+      );
+    });
+
+    it('does not create the case when the session cannot be bound', async () => {
+      const tx = {
+        user: mockPrisma.user, caseFieldDefinitionVersion: mockPrisma.caseFieldDefinitionVersion, caseGovernanceGrant: mockPrisma.caseGovernanceGrant, $queryRaw: mockPrisma.$queryRaw, featureFlag: mockPrisma.featureFlag, caseHandoff: mockPrisma.caseHandoff, caseEvidenceHold: mockPrisma.caseEvidenceHold,
+        case: { create: jest.fn().mockResolvedValue(mockCase) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation((fn: (t: unknown) => Promise<unknown>) => fn(tx));
+      mockOcrBinder.bindIfRequested.mockRejectedValueOnce(new Error('OCR_SESSION_CLOSED'));
+
+      await expect(
+        service.create({ name: 'Test', caseProvenance: CaseProvenance.DIRECT_DISCOVERY, ocrPhienId: 's' }, 'actor-001'),
+      ).rejects.toThrow('OCR_SESSION_CLOSED');
     });
 
     it('should set default status to TIEP_NHAN', async () => {

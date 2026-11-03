@@ -22,6 +22,17 @@ import { IsCatalogValue } from '../../common/validators/is-catalog-value.validat
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class CreateIncidentDto {
+  /** Scan-intake session the form was filled from, and the analysis it was filled with. Both or neither. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienBan?: string;
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

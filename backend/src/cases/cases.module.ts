@@ -12,8 +12,11 @@ import { DocumentNumbersModule } from '../document-numbers/document-numbers.modu
 import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 import { CaseChildAccessModule } from '../case-child-access/case-child-access.module';
 
+import { OcrBindingModule } from '../ocr-import/binding/ocr-binding.module';
+
 @Module({
   imports: [
+    OcrBindingModule,
     CaseGovernanceModule,
     CaseEvidenceGovernanceModule,
     AuditModule,

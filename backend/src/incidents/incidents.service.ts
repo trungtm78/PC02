@@ -1,7 +1,9 @@
 import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import {
   Injectable,
+  Optional,
   NotFoundException,
   BadRequestException,
   ConflictException,
@@ -225,6 +227,7 @@ export class IncidentsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly caseCreation: CaseSourceCreationService,
     private readonly caseBoundary: CaseChildAccessService,
+    @Optional() private readonly ocrBinder?: OcrBinder,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1213,6 +1216,12 @@ export class IncidentsService {
           await tx.documentNumberLog.update({
             where: { id: logId },
             data: { documentId: rec.id },
+          });
+          // Same transaction as the record: saved together with its link to the scans it was filled from, or not at all.
+          await this.ocrBinder?.bindIfRequested(tx, dto, {
+            entity: 'INCIDENT',
+            recordId: rec.id,
+            userId: actorId,
           });
           await this.audit.log(
             {

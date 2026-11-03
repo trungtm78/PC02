@@ -24,6 +24,24 @@ export interface BindInput {
  */
 @Injectable()
 export class OcrBinder {
+  /**
+   * What the three create services call: a no-op for an ordinary save, a bind when the request carries the scan
+   * session it was filled from. A session id without the analysis it was filled from is refused rather than
+   * ignored, so a client bug cannot silently lose the link to the scans.
+   */
+  async bindIfRequested(
+    tx: Prisma.TransactionClient,
+    request: { ocrPhienId?: string; ocrPhienBan?: string },
+    context: { entity: OcrEntity; recordId: string; userId: string },
+  ): Promise<void> {
+    if (!request.ocrPhienId) return;
+    await this.bind(tx, {
+      sessionId: request.ocrPhienId,
+      analysisId: request.ocrPhienBan ?? '',
+      ...context,
+    });
+  }
+
   async bind(tx: Prisma.TransactionClient, input: BindInput): Promise<void> {
     const rows = await tx.$queryRaw<
       Array<{

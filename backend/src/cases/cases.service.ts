@@ -1,4 +1,5 @@
 import { CaseOperationsService } from './governance/case-operations.service';
+import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import {
   Injectable,
   NotFoundException,
@@ -368,6 +369,7 @@ export class CasesService {
     private readonly eventEmitter: EventEmitter2,
     @Optional()
     private readonly governedSourceCreation?: CaseSourceCreationService,
+    @Optional() private readonly ocrBinder?: OcrBinder,
   ) {}
 
   private async lockCase(tx: PrismaTx, id: string): Promise<void> {
@@ -1853,6 +1855,11 @@ export class CasesService {
               where: { id: committedCaseCode.logId },
               data: { documentId: newCase.id },
             });
+            await this.ocrBinder?.bindIfRequested(tx, dto, {
+              entity: 'CASE',
+              recordId: newCase.id,
+              userId: actorId,
+            });
             await this.createSubEntitiesInTransaction(
               tx,
               newCase.id,
@@ -1980,6 +1987,11 @@ export class CasesService {
             await tx.documentNumberLog.update({
               where: { id: committedCaseCode.logId },
               data: { documentId: newCase.id },
+            });
+            await this.ocrBinder?.bindIfRequested(tx, dto, {
+              entity: 'CASE',
+              recordId: newCase.id,
+              userId: actorId,
             });
             await this.createSubEntitiesInTransaction(
               tx,
@@ -2121,6 +2133,11 @@ export class CasesService {
         await tx.documentNumberLog.update({
           where: { id: committedCaseCode.logId },
           data: { documentId: caseRecord.id },
+        });
+        await this.ocrBinder?.bindIfRequested(tx, dto, {
+          entity: 'CASE',
+          recordId: caseRecord.id,
+          userId: actorId,
         });
         await this.createSubEntitiesInTransaction(
           tx,

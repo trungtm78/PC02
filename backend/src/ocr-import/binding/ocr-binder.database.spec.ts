@@ -273,6 +273,36 @@ run('OcrBinder on PostgreSQL', () => {
     ).toBe('OCR_SESSION_CLOSED');
   });
 
+  it('an ordinary save, with no session in the request, binds nothing and touches nothing', async () => {
+    const { session } = await readySession();
+    await db.$transaction((tx) =>
+      binder.bindIfRequested(
+        tx,
+        {},
+        { entity: 'PETITION', recordId: 'r', userId: alice.id },
+      ),
+    );
+    expect(
+      (await db.ocrSession.findUniqueOrThrow({ where: { id: session.id } }))
+        .status,
+    ).toBe('OPEN');
+  });
+
+  it('a request that names a session but not the analysis is refused, not silently unlinked', async () => {
+    const { session } = await readySession();
+    expect(
+      await codeOf(
+        db.$transaction((tx) =>
+          binder.bindIfRequested(
+            tx,
+            { ocrPhienId: session.id },
+            { entity: 'PETITION', recordId: 'r', userId: alice.id },
+          ),
+        ),
+      ),
+    ).toBe('OCR_ANALYSIS_NOT_FOUND');
+  });
+
   it('two saves racing for one session: exactly one binds', async () => {
     const { session, analysisId } = await readySession();
     const attempt = (recordId: string) =>

@@ -4637,6 +4637,8 @@ model OcrPage {
   /// Copy sent to the provider (rotated, resized, EXIF stripped) and a description of the transforms applied.
   derivedPath       String?
   derivedTransforms String?
+  /// The Document this scan became when its session was bound to a record: makes finalisation idempotent.
+  documentId        String?
   removedAt         DateTime?
   createdAt         DateTime   @default(now())
 
