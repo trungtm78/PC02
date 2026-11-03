@@ -10,7 +10,9 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import type { PolicyOutcome, Validation } from '../../llm/call-policy';
 import type { GatewayContext } from '../../llm/llm-gateway.service';
 import type { LlmRequest, LlmResult } from '../../llm/llm.types';
+import { HttpStatus } from '@nestjs/common';
 import { sampleBundle } from '../evidence/evidence.fixture';
+import { OcrImportError } from '../ocr-import-error';
 import type { PipelineGateway } from '../pipeline';
 import { OcrSessionsService } from '../sessions/ocr-sessions.service';
 import { ImageStorageService } from '../storage/image-storage.service';
@@ -173,8 +175,11 @@ run('OcrReadExecutor on PostgreSQL', () => {
   });
 
   let executor: OcrReadExecutor;
+  const sendPolicy = { assertForUser: jest.fn(() => Promise.resolve()) };
   beforeEach(() => {
     calls = [];
+    sendPolicy.assertForUser.mockReset();
+    sendPolicy.assertForUser.mockResolvedValue(undefined);
     duringAnalysis = null;
     duringReading = null;
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'ocr-exec-'));
@@ -185,6 +190,7 @@ run('OcrReadExecutor on PostgreSQL', () => {
       sessions,
       storage,
       fakeGateway(),
+      sendPolicy as never,
     );
   });
   afterEach(async () => {
@@ -268,6 +274,19 @@ run('OcrReadExecutor on PostgreSQL', () => {
         'cán bộ đã sửa',
       );
       expect(await sessions.currentAnalysis(s.id, alice)).toBeNull();
+    });
+
+    it('sends nothing when the user may no longer send, even though the job was queued while they could', async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      await addScan(s.id, 200);
+      const job = await jobFor(s.id, 'READ');
+      sendPolicy.assertForUser.mockRejectedValue(
+        new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN),
+      );
+
+      expect(await codeOf(executor.execute(job))).toBe('OCR_FORBIDDEN');
+      expect(sendPolicy.assertForUser).toHaveBeenCalledWith(alice.id);
+      expect(calls).toHaveLength(0);
     });
 
     it('a session with no pages cannot be read', async () => {

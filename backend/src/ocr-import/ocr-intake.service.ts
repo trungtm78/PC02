@@ -1,11 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { OcrEntity, OcrJobKind } from '@prisma/client';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
-import { LlmAdminError } from '../llm/llm-admin-error';
-import { LlmProvidersService } from '../llm/llm-providers.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OcrJobQueue, type EnqueuedJob } from './jobs/ocr-job-queue';
 import { OcrImportError } from './ocr-import-error';
+import { OcrSendPolicy } from './ocr-send-policy';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
 import { ImageStorageService } from './storage/image-storage.service';
 
@@ -29,7 +28,7 @@ export class OcrIntakeService {
     private readonly sessions: OcrSessionsService,
     private readonly storage: ImageStorageService,
     private readonly queue: OcrJobQueue,
-    private readonly providers: LlmProvidersService,
+    private readonly sendPolicy: OcrSendPolicy,
   ) {}
 
   async openSession(entity: OcrEntity, user: AuthUser) {
@@ -66,17 +65,8 @@ export class OcrIntakeService {
     kind: OcrJobKind,
     user: AuthUser,
   ): Promise<EnqueuedJob> {
-    const destinations = await this.providers.activeDestinations();
-    if (!destinations.cloud && !destinations.internal) {
-      throw new LlmAdminError(
-        'LLM_NO_PROVIDER',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-    // A fail-over sends the same content to the next provider, so every active kind needs permission.
-    if (destinations.internal)
-      await this.require(user, 'sendInternal', 'OcrImport');
-    if (destinations.cloud) await this.require(user, 'sendCloud', 'OcrImport');
+    // Checked again when the job runs: permissions can change while it waits.
+    await this.sendPolicy.assertForRole(user.roleId);
     return this.queue.enqueue(sessionId, kind, { id: user.id });
   }
 

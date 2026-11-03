@@ -4,6 +4,7 @@ import { LlmGatewayService } from '../../llm/llm-gateway.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { FormEntity } from '../khai-o-form.generated';
 import { OcrImportError } from '../ocr-import-error';
+import { OcrSendPolicy } from '../ocr-send-policy';
 import {
   analyseTranscripts,
   transcribePages,
@@ -39,6 +40,7 @@ export class OcrReadExecutor {
     private readonly sessions: OcrSessionsService,
     private readonly storage: ImageStorageService,
     @Inject(LlmGatewayService) private readonly gateway: PipelineGateway,
+    private readonly sendPolicy: OcrSendPolicy,
   ) {}
 
   async execute(job: OcrJob): Promise<void> {
@@ -51,6 +53,8 @@ export class OcrReadExecutor {
     if (pages.length === 0) {
       throw new OcrImportError('OCR_NO_PAGES', HttpStatus.CONFLICT);
     }
+    // The permission is judged now, not when the job was queued: it may have been revoked while the job waited.
+    await this.sendPolicy.assertForUser(actor.id);
     const context: ReadContext = { userId: actor.id, sessionRef: session.id };
 
     if (job.kind === 'READ') {

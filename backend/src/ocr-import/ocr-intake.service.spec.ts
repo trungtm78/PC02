@@ -16,12 +16,7 @@ const codeOf = async (promise: Promise<unknown>) => {
   }
 };
 
-function setup(
-  options: {
-    granted?: Array<[string, string]>;
-    destinations?: { cloud: boolean; internal: boolean };
-  } = {},
-) {
+function setup(options: { granted?: Array<[string, string]> } = {}) {
   const granted = options.granted ?? [];
   const prisma = {
     rolePermission: {
@@ -62,19 +57,15 @@ function setup(
   const queue = {
     enqueue: jest.fn(() => Promise.resolve({ id: 'j1', deduplicated: false })),
   };
-  const providers = {
-    activeDestinations: jest.fn(() =>
-      Promise.resolve(options.destinations ?? { cloud: false, internal: true }),
-    ),
-  };
+  const sendPolicy = { assertForRole: jest.fn(() => Promise.resolve()) };
   const service = new OcrIntakeService(
     prisma as never,
     sessions as never,
     storage as never,
     queue as never,
-    providers as never,
+    sendPolicy as never,
   );
-  return { service, prisma, sessions, storage, queue, providers };
+  return { service, prisma, sessions, storage, queue, sendPolicy };
 }
 
 describe('OcrIntakeService', () => {
@@ -166,53 +157,22 @@ describe('OcrIntakeService', () => {
   });
 
   describe('requesting a reading', () => {
-    it('needs the send permission of every kind of provider the scans may go to', async () => {
-      const cloudOnly = setup({
-        destinations: { cloud: true, internal: false },
-      });
-      expect(
-        await codeOf(cloudOnly.service.requestRead('s1', 'READ', user)),
-      ).toBe('OCR_FORBIDDEN');
-      const internalOnly = setup({
-        destinations: { cloud: false, internal: true },
-      });
-      expect(
-        await codeOf(internalOnly.service.requestRead('s1', 'READ', user)),
-      ).toBe('OCR_FORBIDDEN');
-
-      // A fail-over to the other kind would send the scans there too, so both are needed.
-      const both = setup({
-        destinations: { cloud: true, internal: true },
-        granted: [['sendCloud', 'OcrImport']],
-      });
-      expect(await codeOf(both.service.requestRead('s1', 'READ', user))).toBe(
-        'OCR_FORBIDDEN',
-      );
-      expect(both.queue.enqueue).not.toHaveBeenCalled();
-    });
-
-    it('queues the work when the user may send to every active destination', async () => {
-      const { service, queue } = setup({
-        destinations: { cloud: true, internal: true },
-        granted: [
-          ['sendCloud', 'OcrImport'],
-          ['sendInternal', 'OcrImport'],
-        ],
-      });
+    it('asks the send policy about the role of the caller, then queues the work', async () => {
+      const { service, queue, sendPolicy } = setup();
       expect(await service.requestRead('s1', 'ANALYSE', user)).toEqual({
         id: 'j1',
         deduplicated: false,
       });
+      expect(sendPolicy.assertForRole).toHaveBeenCalledWith('role-1');
       expect(queue.enqueue).toHaveBeenCalledWith('s1', 'ANALYSE', { id: 'u1' });
     });
 
-    it('reports that no provider is usable instead of queueing work that cannot run', async () => {
-      const { service, queue } = setup({
-        destinations: { cloud: false, internal: false },
-      });
-      expect(await codeOf(service.requestRead('s1', 'READ', user))).toBe(
-        'LLM_NO_PROVIDER',
+    it('queues nothing when the policy refuses', async () => {
+      const { service, queue, sendPolicy } = setup();
+      sendPolicy.assertForRole.mockRejectedValue(
+        new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN),
       );
+      expect(await codeOf(service.requestRead('s1', 'READ', user))).toBe('OCR_FORBIDDEN');
       expect(queue.enqueue).not.toHaveBeenCalled();
     });
   });
