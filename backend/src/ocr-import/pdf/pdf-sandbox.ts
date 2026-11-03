@@ -8,12 +8,22 @@ export interface PdfSandboxOptions {
   timeoutMs: number;
   /** Memory the parser may use before it is stopped. */
   maxMemoryMb?: number;
+  /**
+   * Growth of memory OUTSIDE the JS heap (decoded streams live in array buffers, which `maxMemoryMb` does not bound)
+   * the worker may cause before it is stopped.
+   */
+  maxExtraMemoryMb?: number;
+  /** Reads the process' array-buffer memory in bytes. Injectable for tests. */
+  memoryProbeBytes?: () => number;
+  probeEveryMs?: number;
 }
 
 const DEFAULTS: PdfSandboxOptions = {
   maxPages: 20,
   timeoutMs: 20_000,
   maxMemoryMb: 256,
+  maxExtraMemoryMb: 400,
+  probeEveryMs: 50,
 };
 
 interface WorkerResult {
@@ -51,11 +61,23 @@ export class PdfSandbox {
           maxOldGenerationSizeMb: this.options.maxMemoryMb ?? 256,
         },
       });
+      // A hostile PDF can inflate a small stream into gigabytes of array buffer, which the heap limit does not see.
+      // Watch that memory from here and stop the worker when it grows past the allowance.
+      const probe =
+        this.options.memoryProbeBytes ??
+        (() => process.memoryUsage().arrayBuffers);
+      const baseline = probe();
+      const allowance = (this.options.maxExtraMemoryMb ?? 400) * 1024 * 1024;
+      const watchdog = setInterval(() => {
+        if (probe() - baseline > allowance)
+          done(() => fail('OCR_PDF_TOO_COMPLEX'));
+      }, this.options.probeEveryMs ?? 50);
       let settled = false;
       const done = (action: () => void) => {
         if (settled) return;
         settled = true;
         clearTimeout(deadline);
+        clearInterval(watchdog);
         void worker.terminate();
         action();
       };

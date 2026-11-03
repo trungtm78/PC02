@@ -6,7 +6,10 @@
  * sources under test and from the compiled output (it is copied as an asset by the build).
  */
 const { parentPort, workerData } = require('node:worker_threads');
-const { PDFDocument, EncryptedPDFError } = require('pdf-lib');
+const { PDFDocument, EncryptedPDFError, PDFName } = require('pdf-lib');
+
+// Active or tracking parts of a page that a viewer would act on. The text and the picture are all a reading needs.
+const DROP = ['AA', 'Annots', 'Metadata', 'PieceInfo', 'Thumb', 'B'].map((name) => PDFName.of(name));
 
 async function split({ bytes, maxPages }) {
   let source;
@@ -22,6 +25,7 @@ async function split({ bytes, maxPages }) {
   for (let i = 0; i < count; i += 1) {
     const out = await PDFDocument.create();
     const [page] = await out.copyPages(source, [i]);
+    for (const key of DROP) page.node.delete(key);
     out.addPage(page);
     pages.push(await out.save());
   }

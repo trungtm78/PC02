@@ -45,6 +45,7 @@ run('OcrBinder on PostgreSQL', () => {
   /** An open session with one page and one published analysis; returns the analysis id the form was filled from. */
   const readySession = async (
     entity: 'PETITION' | 'INCIDENT' | 'CASE' = 'PETITION',
+    proposed: string[] = [],
   ) => {
     const s = await sessions.createSession(entity, alice);
     counter += 1;
@@ -67,8 +68,11 @@ run('OcrBinder on PostgreSQL', () => {
         bundle: {},
         cleaned: {},
         issues: [],
-        projection: {},
-        promptVersions: {},
+        projection: {
+          fills: proposed.map((field) => ({ field, value: 'x' })),
+          skips: [],
+        },
+        promptVersions: { transcribe: 'transcribe.v1', analyse: 'analyse.v1' },
       },
       alice,
     );
@@ -274,21 +278,46 @@ run('OcrBinder on PostgreSQL', () => {
   });
 
   describe('field outcomes', () => {
+    const proposed = ['senderName', 'senderPhone'];
     const outcomes = [
       { field: 'senderName', outcome: 'KEPT' as const, mustConfirm: true },
       { field: 'senderPhone', outcome: 'EDITED' as const, mustConfirm: false },
     ];
 
     it('records what the officer did with each filled field, in the same transaction as the bind, with no values', async () => {
-      const { session, analysisId } = await readySession();
-      await db.llmCallLineage.create({
-        data: {
-          sessionRef: session.id,
-          providerKind: 'GEMINI',
-          model: 'gemini-2.5-flash',
-          outcome: 'OK',
-          promptVersion: 'analyse.v1',
-        },
+      const { session, analysisId } = await readySession('PETITION', proposed);
+      const minute = 60_000;
+      const ago = new Date(Date.now() - minute);
+      await db.llmCallLineage.createMany({
+        data: [
+          // the call that produced the bound analysis
+          {
+            sessionRef: session.id,
+            providerKind: 'GEMINI',
+            model: 'gemini-2.5-flash',
+            outcome: 'OK',
+            promptVersion: 'analyse.v1',
+            createdAt: ago,
+          },
+          // the transcription of the same reading: another step, another prompt
+          {
+            sessionRef: session.id,
+            providerKind: 'OPENAI',
+            model: 'gpt-transcriber',
+            outcome: 'OK',
+            promptVersion: 'transcribe.v1',
+            createdAt: new Date(ago.getTime() + 30_000),
+          },
+          // a re-analysis done after the form was filled is a different analysis
+          {
+            sessionRef: session.id,
+            providerKind: 'ANTHROPIC',
+            model: 'claude-later',
+            outcome: 'OK',
+            promptVersion: 'analyse.v1',
+            createdAt: new Date(Date.now() + minute),
+          },
+        ],
       });
       await db.$transaction((tx) =>
         binder.bindIfRequested(
@@ -309,18 +338,19 @@ run('OcrBinder on PostgreSQL', () => {
         ['senderName', 'KEPT', true],
         ['senderPhone', 'EDITED', false],
       ]);
-      // which provider and model produced them, taken from the server's own lineage, not from the request
+      // attributed to the call behind the BOUND analysis, taken from the server's own lineage, not from the request
       expect(rows[0]).toMatchObject({
         entity: 'PETITION',
         providerKind: 'GEMINI',
         model: 'gemini-2.5-flash',
+        promptVersion: 'analyse.v1',
       });
       await db.llmCallLineage.deleteMany({ where: { sessionRef: session.id } });
       await db.ocrFieldOutcome.deleteMany({ where: { sessionId: session.id } });
     });
 
     it('a failed save records nothing', async () => {
-      const { session, analysisId } = await readySession();
+      const { session, analysisId } = await readySession('PETITION', proposed);
       await expect(
         db.$transaction(async (tx) => {
           await binder.bindIfRequested(
@@ -340,9 +370,9 @@ run('OcrBinder on PostgreSQL', () => {
       ).toBe(0);
     });
 
-    it('ignores names that are not field names and caps how many rows one save can add', async () => {
-      const { session, analysisId } = await readySession();
-      const many = Array.from({ length: 450 }, (_, i) => ({
+    it('counts only fields the bound analysis proposed, each once: invented names and repeats add nothing', async () => {
+      const { session, analysisId } = await readySession('PETITION', proposed);
+      const forged = Array.from({ length: 450 }, (_, i) => ({
         field: `f${i}`,
         outcome: 'KEPT' as const,
         mustConfirm: false,
@@ -355,7 +385,11 @@ run('OcrBinder on PostgreSQL', () => {
             ocrPhienBan: analysisId,
             ocrKetQua: [
               { field: 'drop table;--', outcome: 'KEPT', mustConfirm: false },
-              ...many,
+              ...forged,
+              // the same field over and over
+              ...outcomes,
+              ...outcomes,
+              { field: 'senderName', outcome: 'CLEARED', mustConfirm: true },
             ],
           },
           { entity: 'PETITION', recordId: 'rec-1', userId: alice.id },
@@ -363,9 +397,12 @@ run('OcrBinder on PostgreSQL', () => {
       );
       const rows = await db.ocrFieldOutcome.findMany({
         where: { sessionId: session.id },
+        orderBy: { field: 'asc' },
       });
-      expect(rows.length).toBe(300);
-      expect(rows.some((r) => r.field.includes(';'))).toBe(false);
+      expect(rows.map((r) => [r.field, r.outcome])).toEqual([
+        ['senderName', 'KEPT'],
+        ['senderPhone', 'EDITED'],
+      ]);
       await db.ocrFieldOutcome.deleteMany({ where: { sessionId: session.id } });
     });
 

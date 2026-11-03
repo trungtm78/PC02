@@ -40,6 +40,14 @@ describe('fieldOutcomes', () => {
     expect(JSON.stringify(fieldOutcomes(access, form, [patch('a', 'Nguyễn Thị Hương')]))).not.toContain('Hương');
   });
 
+  it('reports the server name of a field the form keeps under another name', () => {
+    const form: Form = { senderName: 'Hương' };
+    const mapped: AppliedPatch = { ...patch('senderName', 'Hương'), source: 'tenCungCap' };
+    expect(fieldOutcomes(access, form, [mapped])).toEqual([
+      { field: 'tenCungCap', outcome: 'KEPT', mustConfirm: false },
+    ]);
+  });
+
   it('is empty when nothing was filled', () => {
     expect(fieldOutcomes(access, {}, [])).toEqual([]);
   });

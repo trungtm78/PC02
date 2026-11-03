@@ -143,4 +143,45 @@ describe('useOcrReread', () => {
     expect(result.current.reread.phase).toBe('IDLE');
     expect(result.current.reread.differences).toEqual([]);
   });
+
+  it('starting a second reading deletes the first session instead of leaving its scans on the server', async () => {
+    api.startReread
+      .mockResolvedValueOnce({ sessionId: 's-first', jobId: 'j1', pages: 1 })
+      .mockResolvedValueOnce({ sessionId: 's-second', jobId: 'j2', pages: 1 });
+    api.analysis.mockResolvedValue(analysis(fill('a', 'x')));
+    const { result } = setup({ a: '' });
+    await act(() => result.current.reread.start());
+    await waitFor(() => expect(result.current.reread.phase).toBe('DONE'));
+    await act(() => result.current.reread.start());
+    await waitFor(() => expect(result.current.reread.phase).toBe('DONE'));
+    expect(api.cancel).toHaveBeenCalledWith('s-first');
+    expect(api.cancel).not.toHaveBeenCalledWith('s-second');
+  });
+
+  it('leaving the screen deletes the session and stops polling', async () => {
+    api.job.mockResolvedValue(job('RUNNING'));
+    const { result, unmount } = setup({ a: '' });
+    act(() => {
+      void result.current.reread.start();
+    });
+    await waitFor(() => expect(api.job).toHaveBeenCalled());
+    unmount();
+    await waitFor(() => expect(api.cancel).toHaveBeenCalledWith('s1'));
+    const polls = api.job.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(api.job.mock.calls.length).toBeLessThanOrEqual(polls + 1);
+    expect(api.analysis).not.toHaveBeenCalled();
+  });
+
+  it('a session that finished setting up after the reading was closed is deleted at once', async () => {
+    let release!: (value: { sessionId: string; jobId: string; pages: number }) => void;
+    api.startReread.mockReturnValue(new Promise((resolve) => (release = resolve)));
+    const { result } = setup({ a: '' });
+    act(() => {
+      void result.current.reread.start();
+    });
+    await act(() => result.current.reread.close());
+    release({ sessionId: 's-late', jobId: 'j9', pages: 1 });
+    await waitFor(() => expect(api.cancel).toHaveBeenCalledWith('s-late'));
+  });
 });

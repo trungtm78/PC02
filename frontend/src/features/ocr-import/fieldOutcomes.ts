@@ -23,6 +23,7 @@ export function fieldOutcomes<TForm>(
     const now = access.read(form, patch.field);
     const text = Array.isArray(now) ? now.join('\u0000') : String(now);
     const outcome: FieldOutcome = text === patch.value ? 'KEPT' : text.trim() === '' ? 'CLEARED' : 'EDITED';
-    return { field: patch.field, outcome, mustConfirm: patch.orange };
+    // Keyed by the server's name for the field, which is what the server checks the list against.
+    return { field: patch.source ?? patch.field, outcome, mustConfirm: patch.orange };
   });
 }

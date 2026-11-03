@@ -47,6 +47,7 @@ function setup(options: { granted?: Array<[string, string]> } = {}) {
     ),
     getSession: jest.fn(() => Promise.resolve({ id: 's1', status: 'OPEN' })),
     addPage: jest.fn(),
+    removePage: jest.fn(() => Promise.resolve({ pageSetRevision: 3 })),
     listPages: jest.fn(),
   };
   const pdfSandbox = { split: jest.fn() };
@@ -213,6 +214,82 @@ describe('OcrIntakeService', () => {
         'OCR_TOO_MANY_PAGES',
       );
       expect(storage.savePdfPage).not.toHaveBeenCalled();
+    });
+
+    const file = (name: string) => ({
+      sha256: name,
+      mimeType: 'application/pdf',
+      sizeBytes: 1,
+      originalPath: `s1/${name}.pdf`,
+    });
+
+    it('adds a page that repeats inside the PDF once instead of failing on the second copy', async () => {
+      const { service, sessions, storage, pdfSandbox } = setup();
+      pdfSandbox.split.mockResolvedValue([
+        new Uint8Array([1]),
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+      ]);
+      sessions.listPages.mockResolvedValue([]);
+      storage.savePdfPage
+        .mockResolvedValueOnce(file('a'))
+        .mockResolvedValueOnce(file('a'))
+        .mockResolvedValueOnce(file('b'));
+      sessions.addPage
+        .mockResolvedValueOnce({ page: { id: 'p1' }, pageSetRevision: 1 })
+        .mockResolvedValueOnce({ page: { id: 'p2' }, pageSetRevision: 2 });
+      const result = await service.uploadPage('s1', pdfBytes, user);
+      expect(sessions.addPage).toHaveBeenCalledTimes(2);
+      expect(result.pages).toEqual([{ id: 'p1' }, { id: 'p2' }]);
+    });
+
+    it('refuses the whole PDF when one of its pages is already in the session, and leaves no files behind', async () => {
+      const { service, sessions, storage, pdfSandbox } = setup();
+      pdfSandbox.split.mockResolvedValue([
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+      ]);
+      sessions.listPages.mockResolvedValue([{ id: 'p0', sha256: 'b' }]);
+      storage.savePdfPage
+        .mockResolvedValueOnce(file('a'))
+        .mockResolvedValueOnce(file('b'));
+      expect(await codeOf(service.uploadPage('s1', pdfBytes, user))).toBe(
+        'OCR_PAGE_DUPLICATE',
+      );
+      expect(sessions.addPage).not.toHaveBeenCalled();
+      expect(storage.deleteFiles).toHaveBeenCalledWith([
+        's1/a.pdf',
+        's1/b.pdf',
+      ]);
+    });
+
+    it('takes back the pages already added when a later one fails', async () => {
+      const { service, sessions, storage, prisma, pdfSandbox } = setup();
+      pdfSandbox.split.mockResolvedValue([
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+      ]);
+      sessions.listPages.mockResolvedValue([]);
+      storage.savePdfPage
+        .mockResolvedValueOnce(file('a'))
+        .mockResolvedValueOnce(file('b'));
+      sessions.addPage
+        .mockResolvedValueOnce({ page: { id: 'p1' }, pageSetRevision: 1 })
+        .mockRejectedValueOnce(
+          new OcrImportError('OCR_TOO_MANY_PAGES', HttpStatus.CONFLICT),
+        );
+      // The first file is held by the page row that was just taken back; the second never got a row.
+      (prisma.ocrPage.count as jest.Mock).mockImplementation(
+        ({ where }: { where: { originalPath: string } }) =>
+          Promise.resolve(where.originalPath === 's1/a.pdf' ? 1 : 0),
+      );
+      expect(await codeOf(service.uploadPage('s1', pdfBytes, user))).toBe(
+        'OCR_TOO_MANY_PAGES',
+      );
+      expect(sessions.removePage).toHaveBeenCalledWith('s1', 'p1', {
+        id: 'u1',
+      });
+      expect(storage.deleteFiles).toHaveBeenCalledWith(['s1/b.pdf']);
     });
 
     it('a plain image still goes the old way and the answer keeps the same shape', async () => {

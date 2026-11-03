@@ -3,6 +3,8 @@ import type { LegacyFieldValue } from '@/features/legacy-form/types';
 /** What the server's analysis says to put in the form (mirrors the backend `Projection`). */
 export interface ProjectionFill {
   field: string;
+  /** The server's own name for this field, kept when `field` is translated to the open form's name. */
+  source?: string;
   value: string | number;
   policy: 'AI_FILL' | 'AI_FILL_MUST_CONFIRM';
   provenance: {
@@ -34,6 +36,8 @@ export interface FormAccess<TForm> {
 
 export interface AppliedPatch {
   field: string;
+  /** The server's name for the field; what the quality statistics are keyed by. */
+  source?: string;
   /** What the field held before, so undo can put it back. */
   before: LegacyFieldValue;
   /** What was written, as text. */
@@ -122,6 +126,7 @@ export function planFill<TForm>(
     form = access.write(form, fill.field, value);
     applied.push({
       field: fill.field,
+      source: fill.source ?? fill.field,
       before: current,
       value,
       orange: fill.policy === 'AI_FILL_MUST_CONFIRM' || fill.warnings.length > 0,

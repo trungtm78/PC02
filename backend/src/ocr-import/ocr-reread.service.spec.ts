@@ -29,6 +29,7 @@ function setup(
     docs?: ReturnType<typeof doc>[];
     editAllowed?: boolean;
     downloadFails?: string;
+    pdf?: boolean;
   } = {},
 ) {
   const docs = options.docs ?? [
@@ -45,7 +46,9 @@ function setup(
       return Promise.resolve({
         success: true,
         data: {
-          stream: Readable.from(Buffer.from(`bytes-of-${id}`)),
+          stream: Readable.from(
+            Buffer.from(options.pdf ? `%PDF-1.4 ${id}` : `bytes-of-${id}`),
+          ),
           originalName: `${id}.jpg`,
           mimeType: 'image/jpeg',
         },
@@ -60,6 +63,14 @@ function setup(
     cancel: jest.fn(() => Promise.resolve()),
   };
   const storage = {
+    savePdfPage: jest.fn((_s: string, bytes: Buffer) =>
+      Promise.resolve({
+        sha256: bytes.toString('hex').slice(0, 8),
+        mimeType: 'application/pdf',
+        sizeBytes: bytes.length,
+        originalPath: `sess-new/${bytes.toString()}.pdf`,
+      }),
+    ),
     saveOriginal: jest.fn((_s: string, bytes: Buffer) =>
       Promise.resolve({
         sha256: bytes.toString('hex').slice(0, 8),
@@ -128,6 +139,14 @@ describe('OcrRereadService', () => {
       id: 'u1',
     });
     expect(result).toEqual({ sessionId: 'sess-new', jobId: 'job-1', pages: 2 });
+  });
+
+  it('reads scans that were attached from a PDF too: they are stored as PDF pages, not refused as images', async () => {
+    const { service, storage, sessions } = setup({ pdf: true });
+    await service.start('PETITION', 'pet-1', user, scope);
+    expect(storage.savePdfPage).toHaveBeenCalledTimes(2);
+    expect(storage.saveOriginal).not.toHaveBeenCalled();
+    expect(sessions.addPage).toHaveBeenCalledTimes(2);
   });
 
   it('looks the scans up under the right parent for each kind of record', async () => {

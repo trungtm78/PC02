@@ -58,6 +58,7 @@ export class OcrBinder {
     await this.recordOutcomes(
       tx,
       request.ocrPhienId,
+      request.ocrPhienBan ?? '',
       context.entity,
       request.ocrKetQua ?? [],
     );
@@ -65,21 +66,51 @@ export class OcrBinder {
 
   /**
    * What the officer did with each field the reading filled. Names and outcomes only, in the same transaction as the
-   * bind (so a failed save leaves nothing). Which provider, model and prompt produced the reading comes from the
-   * server's own call lineage, never from the request, so the statistics cannot be skewed from the browser.
+   * bind (so a failed save leaves nothing).
+   *
+   * The request is not trusted for anything but the officer's choices. Only fields the bound analysis really proposed
+   * are counted, each once, so the statistics can be neither padded nor filled with arbitrary text from the browser;
+   * and which provider, model and prompt produced the reading comes from the server's own call lineage, matched to the
+   * analysis that was bound (not to whatever the session was read with last).
    */
   private async recordOutcomes(
     tx: Prisma.TransactionClient,
     sessionId: string,
+    analysisId: string,
     entity: OcrEntity,
     outcomes: readonly OutcomeInput[],
   ): Promise<void> {
-    const valid = outcomes
-      .filter((o) => FIELD_NAME.test(o.field))
-      .slice(0, MAX_OUTCOMES);
+    if (outcomes.length === 0) return;
+    const analysis = await tx.ocrAnalysis.findFirst({
+      where: { id: analysisId, sessionId },
+      select: { projection: true, promptVersions: true, createdAt: true },
+    });
+    if (!analysis) return;
+    const proposed = new Set(filledFieldNames(analysis.projection));
+    const seen = new Set<string>();
+    const valid: OutcomeInput[] = [];
+    for (const outcome of outcomes) {
+      if (
+        !FIELD_NAME.test(outcome.field) ||
+        !proposed.has(outcome.field) ||
+        seen.has(outcome.field)
+      ) {
+        continue;
+      }
+      seen.add(outcome.field);
+      valid.push(outcome);
+      if (valid.length === MAX_OUTCOMES) break;
+    }
     if (valid.length === 0) return;
+    const analysePrompt = promptVersionOf(analysis.promptVersions);
     const produced = await tx.llmCallLineage.findFirst({
-      where: { sessionRef: sessionId, outcome: 'OK' },
+      where: {
+        sessionRef: sessionId,
+        outcome: 'OK',
+        // The call that produced this analysis ran before it was published; a later re-analysis is another analysis.
+        createdAt: { lte: analysis.createdAt },
+        ...(analysePrompt ? { promptVersion: analysePrompt } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       select: { providerKind: true, model: true, promptVersion: true },
     });
@@ -133,4 +164,19 @@ export class OcrBinder {
       },
     });
   }
+}
+
+/** The server-side field names a stored projection proposed to fill. */
+function filledFieldNames(projection: Prisma.JsonValue): string[] {
+  const fills = (projection as { fills?: unknown } | null)?.fills;
+  if (!Array.isArray(fills)) return [];
+  return fills.flatMap((fill) => {
+    const field = (fill as { field?: unknown } | null)?.field;
+    return typeof field === 'string' ? [field] : [];
+  });
+}
+
+function promptVersionOf(promptVersions: Prisma.JsonValue): string | null {
+  const analyse = (promptVersions as { analyse?: unknown } | null)?.analyse;
+  return typeof analyse === 'string' && analyse !== '' ? analyse : null;
 }

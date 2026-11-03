@@ -9,7 +9,7 @@ import { OcrJobQueue } from './jobs/ocr-job-queue';
 import { OcrImportError } from './ocr-import-error';
 import { OcrSendPolicy } from './ocr-send-policy';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
-import { ImageStorageService } from './storage/image-storage.service';
+import { ImageStorageService, isPdf } from './storage/image-storage.service';
 
 const PARENT_KEY: Readonly<
   Record<OcrEntity, 'petitionId' | 'incidentId' | 'caseId'>
@@ -94,10 +94,11 @@ export class OcrRereadService {
           { userId: user.id },
           dataScope,
         );
-        const stored = await this.storage.saveOriginal(
-          session.id,
-          await toBuffer(data.stream),
-        );
+        const bytes = await toBuffer(data.stream);
+        // A scan attached from a PDF is a single-page PDF, which the image path would refuse.
+        const stored = isPdf(bytes)
+          ? await this.storage.savePdfPage(session.id, bytes)
+          : await this.storage.saveOriginal(session.id, bytes);
         await this.sessions.addPage(session.id, stored, actor);
       }
       const job = await this.queue.enqueue(session.id, 'READ', actor);

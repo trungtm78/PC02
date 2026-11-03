@@ -12,7 +12,7 @@ export function mapFieldNames(
   return {
     ...analysis,
     projection: {
-      fills: analysis.projection.fills.map((fill) => ({ ...fill, field: toPath(fill.field) })),
+      fills: analysis.projection.fills.map((fill) => ({ ...fill, source: fill.field, field: toPath(fill.field) })),
       skips: analysis.projection.skips.map((skip) => ({ ...skip, field: toPath(skip.field) })),
     },
   };

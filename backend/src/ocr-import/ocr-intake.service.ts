@@ -82,17 +82,50 @@ export class OcrIntakeService {
     const pages: Array<
       Awaited<ReturnType<OcrSessionsService['addPage']>>['page']
     > = [];
+    const written: string[] = [];
     let pageSetRevision = 0;
-    for (const part of parts) {
-      const stored = await this.storage.savePdfPage(
-        sessionId,
-        Buffer.from(part),
-      );
-      const added = await this.sessions.addPage(sessionId, stored, actor);
-      pages.push(added.page);
-      pageSetRevision = added.pageSetRevision;
+    try {
+      // Files are content-addressed, so a page repeated inside one PDF (a blank sheet, say) is one file and one page.
+      const stored = new Map<
+        string,
+        Awaited<ReturnType<ImageStorageService['savePdfPage']>>
+      >();
+      for (const part of parts) {
+        const file = await this.storage.savePdfPage(
+          sessionId,
+          Buffer.from(part),
+        );
+        written.push(file.originalPath);
+        if (!stored.has(file.sha256)) stored.set(file.sha256, file);
+      }
+      // A page that is already in the session refuses the whole PDF, before anything is added.
+      const held = new Set(present.map((page) => page.sha256));
+      if ([...stored.keys()].some((sha) => held.has(sha))) {
+        throw new OcrImportError('OCR_PAGE_DUPLICATE', HttpStatus.CONFLICT);
+      }
+      for (const file of stored.values()) {
+        const added = await this.sessions.addPage(sessionId, file, actor);
+        pages.push(added.page);
+        pageSetRevision = added.pageSetRevision;
+      }
+      return { page: pages[0], pages, pageSetRevision };
+    } catch (error) {
+      // All or none: take back the pages already added and drop the files nothing points at any more.
+      for (const page of pages.reverse()) {
+        await this.sessions
+          .removePage(sessionId, page.id, actor)
+          .catch(() => undefined);
+      }
+      const orphans: string[] = [];
+      for (const file of new Set(written)) {
+        const used = await this.prisma.ocrPage.count({
+          where: { sessionId, originalPath: file },
+        });
+        if (used === 0) orphans.push(file);
+      }
+      if (orphans.length > 0) await this.storage.deleteFiles(orphans);
+      throw error;
     }
-    return { page: pages[0], pages, pageSetRevision };
   }
 
   /** Queues a reading ('READ': scans then analysis) or a re-analysis of the stored text ('ANALYSE'). */

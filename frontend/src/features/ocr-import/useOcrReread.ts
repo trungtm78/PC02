@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { FormAccess } from './fillPlan';
 import { mapFieldNames } from './mapFieldNames';
 import { ocrApi, type OcrAnalysisView, type OcrEntityName } from './ocrApi';
@@ -46,15 +46,34 @@ export function useOcrReread<TForm>({
   const [phase, setPhase] = useState<RereadPhase>('IDLE');
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<OcrAnalysisView | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [handled, setHandled] = useState<ReadonlySet<string>>(new Set());
   const [appliedCount, setAppliedCount] = useState(0);
   const formRef = useLatest(form);
   /** Bumped by start/close so a poll still in flight for an older request stops quietly. */
   const epochRef = useRef(0);
+  /** The temporary session this hook created and has not yet deleted. */
+  const sessionRef = useRef<string | null>(null);
+
+  /** Deletes the temporary session, if there is one, so no copy of the scans stays on the server. */
+  const discard = useCallback(async () => {
+    const id = sessionRef.current;
+    sessionRef.current = null;
+    if (id) await ocrApi.cancel(id).catch(() => undefined);
+  }, []);
+
+  // Leaving the screen ends any reading in flight and deletes its session.
+  useEffect(
+    () => () => {
+      epochRef.current += 1;
+      void discard();
+    },
+    [discard],
+  );
 
   const start = useCallback(async () => {
     const mine = (epochRef.current += 1);
+    // A second reading replaces the first: the first one's scans must not be left on the server.
+    void discard();
     setPhase('READING');
     setErrorCode(null);
     setAnalysis(null);
@@ -62,7 +81,12 @@ export function useOcrReread<TForm>({
     setAppliedCount(0);
     try {
       const started = await ocrApi.startReread(entity, recordId);
-      setSessionId(started.sessionId);
+      if (epochRef.current !== mine) {
+        // Closed, restarted or left while the server was still setting this one up.
+        void ocrApi.cancel(started.sessionId).catch(() => undefined);
+        return;
+      }
+      sessionRef.current = started.sessionId;
       for (;;) {
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         if (epochRef.current !== mine) return;
@@ -88,7 +112,7 @@ export function useOcrReread<TForm>({
       setErrorCode(errorCodeOf(error));
       setPhase('ERROR');
     }
-  }, [entity, recordId, pollMs, toFormPath]);
+  }, [entity, recordId, pollMs, toFormPath, discard]);
 
   // Recomputed from the live form on every render: a field the officer edits to match the image drops out by itself.
   const all = (analysis?.projection.fills ?? [])
@@ -125,14 +149,12 @@ export function useOcrReread<TForm>({
   /** Closes the comparison and deletes the temporary session, so no copy of the scans stays on the server. */
   const close = useCallback(async () => {
     epochRef.current += 1;
-    const id = sessionId;
     setPhase('IDLE');
     setAnalysis(null);
-    setSessionId(null);
     setHandled(new Set());
     setErrorCode(null);
-    if (id) await ocrApi.cancel(id).catch(() => undefined);
-  }, [sessionId]);
+    await discard();
+  }, [discard]);
 
   return { phase, errorCode, differences, sameCount, appliedCount, start, apply, skip, close };
 }

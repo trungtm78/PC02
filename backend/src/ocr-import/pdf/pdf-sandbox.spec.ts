@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
 import { isMainThread } from 'node:worker_threads';
 import { PdfSandbox } from './pdf-sandbox';
 
@@ -60,6 +60,49 @@ describe('PdfSandbox', () => {
         sandbox.split(Buffer.from('%PDF-1.4 this is not really a pdf')),
       ),
     ).toBe('OCR_PDF_UNREADABLE');
+  });
+
+  it('removes page actions, annotations and metadata: nothing active survives into the copy a viewer opens', async () => {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([200, 200]);
+    const ctx = doc.context;
+    page.node.set(
+      PDFName.of('AA'),
+      ctx.obj({ O: { S: 'JavaScript', JS: PDFString.of('app.alert(1)') } }),
+    );
+    page.node.set(
+      PDFName.of('Annots'),
+      ctx.obj([
+        ctx.obj({
+          Type: 'Annot',
+          Subtype: 'Link',
+          A: { S: 'URI', URI: PDFString.of('http://evil.example') },
+        }),
+      ]),
+    );
+    const [only] = await sandbox.split(
+      Buffer.from(await doc.save({ useObjectStreams: false })),
+    );
+    const text = Buffer.from(only).toString('latin1');
+    expect(text).not.toContain('JavaScript');
+    expect(text).not.toContain('evil.example');
+    expect(text).not.toContain('/AA');
+    expect(text).not.toContain('/Annots');
+  });
+
+  it('stops a parse whose memory outside the JS heap grows past the allowance (decoded streams live there)', async () => {
+    let reads = 0;
+    const hungry = new PdfSandbox({
+      maxPages: 5,
+      timeoutMs: 15_000,
+      maxExtraMemoryMb: 100,
+      // The first reading is the baseline; every later one reports a parse that has grown by half a gigabyte.
+      memoryProbeBytes: () => (reads++ === 0 ? 0 : 500 * 1024 * 1024),
+      probeEveryMs: 1,
+    });
+    expect(await codeOf(hungry.split(await makePdf(5)))).toBe(
+      'OCR_PDF_TOO_COMPLEX',
+    );
   });
 
   it('stops a parse that runs too long instead of holding the server', async () => {
