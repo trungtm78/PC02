@@ -34,6 +34,14 @@ export const adminMenu: FeatureMenuEntry[] = [
   },
   {
     section: 'admin',
+    id: 'admin-llm-config',
+    label: 'Cấu hình LLM',
+    path: '/admin/cau-hinh-llm',
+    quyen: ['read:LlmConfig'],
+    icon: 'Settings',
+  },
+  {
+    section: 'admin',
     id: 'admin-restore',
     label: 'Khôi phục dữ liệu',
     path: '/admin/khoi-phuc',

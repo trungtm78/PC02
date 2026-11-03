@@ -19,6 +19,8 @@ export {
   getAuditActionLabel,
 } from '@/shared/enums/audit-action-labels';
 
+export { llmConfig } from './llmConfig.vi';
+
 // ── Error messages ────────────────────────────────────────────────────────────
 
 export const errors = {
