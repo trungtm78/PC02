@@ -4607,6 +4607,11 @@ model OcrSession {
   boundAt         DateTime?
   /// Set when the originals have been copied into the record's documents; NULL while a bound session still has work to do.
   finalisedAt     DateTime?
+  /// Held while one instance copies the scans; a claim older than ten minutes is taken to belong to a dead instance.
+  finaliseClaimedAt DateTime?
+  /// Earliest time the sweeper may try again after a failure; NULL means now.
+  finaliseNextAt    DateTime?
+  finaliseAttempts  Int       @default(0)
   /// Revision of the current page set; every change to the page list creates a new, immutable one.
   pageSetRevision Int              @default(0)
   /// An unbound session is purged after this; a bound one never is.

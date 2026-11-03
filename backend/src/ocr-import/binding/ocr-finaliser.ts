@@ -32,6 +32,12 @@ const PARENT_FIELD: Readonly<Record<OcrEntity, ParentRef['field']>> = {
   CASE: 'caseId',
 };
 
+/** A claim older than this belongs to an instance that died mid-way. */
+const CLAIM_STALE_MS = 10 * 60_000;
+/** First retry after a failure waits this long; each further failure doubles it, up to the cap. */
+const RETRY_BASE_MS = 60_000;
+const RETRY_CAP_MS = 6 * 60 * 60_000;
+
 const EXTENSION: Readonly<Record<string, string>> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -73,15 +79,53 @@ export class OcrFinaliser {
   }
 
   async finalise(sessionId: string): Promise<FinaliseResult> {
+    // One instance at a time per session. The claim is a row update, so two instances (or two overlapping sweeps)
+    // cannot both pass it; a claim left by a dead instance goes stale and can be taken over.
+    const now = new Date();
+    const claimed = await this.prisma.ocrSession.updateMany({
+      where: {
+        id: sessionId,
+        status: 'BOUND',
+        finalisedAt: null,
+        OR: [
+          { finaliseClaimedAt: null },
+          { finaliseClaimedAt: { lt: new Date(now.getTime() - CLAIM_STALE_MS) } },
+        ],
+      },
+      data: { finaliseClaimedAt: now },
+    });
+    if (claimed.count === 0) return { state: 'SKIPPED', documents: 0 };
+
+    try {
+      return await this.copyScans(sessionId);
+    } catch (error) {
+      await this.recordFailure(sessionId);
+      throw error;
+    }
+  }
+
+  private async recordFailure(sessionId: string): Promise<void> {
+    const row = await this.prisma.ocrSession.findUnique({
+      where: { id: sessionId },
+      select: { finaliseAttempts: true },
+    });
+    const attempts = (row?.finaliseAttempts ?? 0) + 1;
+    const wait = Math.min(RETRY_BASE_MS * 2 ** (attempts - 1), RETRY_CAP_MS);
+    await this.prisma.ocrSession.update({
+      where: { id: sessionId },
+      data: {
+        finaliseClaimedAt: null,
+        finaliseAttempts: attempts,
+        finaliseNextAt: new Date(Date.now() + wait),
+      },
+    });
+  }
+
+  private async copyScans(sessionId: string): Promise<FinaliseResult> {
     const session = await this.prisma.ocrSession.findUnique({
       where: { id: sessionId },
     });
-    if (
-      !session ||
-      session.status !== 'BOUND' ||
-      !session.boundRecordId ||
-      session.finalisedAt
-    ) {
+    if (!session || !session.boundRecordId) {
       return { state: 'SKIPPED', documents: 0 };
     }
     const parent: ParentRef = {
@@ -137,7 +181,7 @@ export class OcrFinaliser {
 
     await this.prisma.ocrSession.update({
       where: { id: sessionId },
-      data: { finalisedAt: new Date() },
+      data: { finalisedAt: new Date(), finaliseClaimedAt: null, finaliseNextAt: null },
     });
     return { state: 'DONE', documents: made };
   }
@@ -151,6 +195,8 @@ export class OcrFinaliser {
       where: {
         status: 'BOUND',
         finalisedAt: null,
+        // A session that failed is not tried again before its time, so it cannot sit at the front of every batch.
+        OR: [{ finaliseNextAt: null }, { finaliseNextAt: { lte: new Date() } }],
         ...(scopeTag ? { createdById: { startsWith: scopeTag } } : {}),
       },
       orderBy: { boundAt: 'asc' },
