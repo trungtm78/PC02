@@ -20,6 +20,7 @@ export {
 } from '@/shared/enums/audit-action-labels';
 
 export { llmConfig } from './llmConfig.vi';
+export { ocrImport, ocrErrorText } from './ocrImport.vi';
 
 // ── Error messages ────────────────────────────────────────────────────────────
 
