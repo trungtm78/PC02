@@ -1,4 +1,8 @@
-export type ProviderKind = 'ANTHROPIC' | 'GEMINI' | 'OPENAI_COMPATIBLE';
+/**
+ * OPENAI and SELF_HOSTED are served by the same OpenAI-compatible adapter, but they are different kinds:
+ * OPENAI is a foreign cloud (a cross-border transfer of personal data), SELF_HOSTED is the unit's own server.
+ */
+export type ProviderKind = 'ANTHROPIC' | 'GEMINI' | 'OPENAI' | 'SELF_HOSTED';
 
 export interface LlmImage {
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp';

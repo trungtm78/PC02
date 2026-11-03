@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "LlmProviderKind" AS ENUM ('ANTHROPIC', 'GEMINI', 'OPENAI_COMPATIBLE');
+CREATE TYPE "LlmProviderKind" AS ENUM ('ANTHROPIC', 'GEMINI', 'OPENAI', 'SELF_HOSTED');
 
 -- CreateEnum
 CREATE TYPE "LlmProviderRole" AS ENUM ('PRIMARY', 'FALLBACK', 'OFF');

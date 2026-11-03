@@ -4492,7 +4492,8 @@ model DynReportIdempotency {
 enum LlmProviderKind {
   ANTHROPIC
   GEMINI
-  OPENAI_COMPATIBLE
+  OPENAI
+  SELF_HOSTED
 }
 
 enum LlmProviderRole {
@@ -4507,7 +4508,7 @@ model LlmProvider {
   label             String
   apiKeyEncrypted   String
   apiKeyLast4       String
-  baseUrl           String? // self-hosted (OPENAI_COMPATIBLE) only
+  baseUrl           String? // SELF_HOSTED only
   model             String
   dataRegion        String? // where the provider says it processes data
   zeroRetention     Boolean         @default(false)
