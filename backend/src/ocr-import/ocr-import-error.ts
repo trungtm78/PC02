@@ -10,7 +10,10 @@ export type OcrImportErrorCode =
   | 'OCR_PAGE_DUPLICATE'
   | 'OCR_TOO_MANY_PAGES'
   | 'OCR_PAGE_NOT_FOUND'
-  | 'OCR_PAGE_SET_MISMATCH';
+  | 'OCR_PAGE_SET_MISMATCH'
+  | 'OCR_IMAGE_UNSUPPORTED'
+  | 'OCR_IMAGE_TOO_LARGE'
+  | 'OCR_IMAGE_UNREADABLE';
 
 export class OcrImportError extends HttpException {
   constructor(
