@@ -1,5 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+vi.mock('../ReviewPanel', () => ({
+  ReviewPanel: ({ onReanalyse }: { onReanalyse: () => void }) => (
+    <button type="button" onClick={onReanalyse}>
+      panel-đối-chiếu
+    </button>
+  ),
+}));
+
 import { IntakeDrawer, type IntakeDrawerProps } from '../IntakeDrawer';
 
 const page = (id: string, fileName: string) => ({
@@ -112,6 +120,21 @@ describe('IntakeDrawer', () => {
     expect(screen.getByText('Bà Hương tố cáo ông Bình lừa đảo.')).toBeTruthy();
     expect(screen.getByText(/2 điểm hệ thống nghi ngờ/)).toBeTruthy();
     expect(screen.getByText(/Kiểm tra tự động, không thay việc đọc/)).toBeTruthy();
+  });
+
+  it('after a reading, opens the side-by-side review, and analysing again re-reads from the corrected text', () => {
+    const intake = baseIntake({
+      phase: 'DONE',
+      analysis: {
+        id: 'a', entity: 'PETITION', pageSetRevision: 1, inputFingerprint: 'f',
+        cleaned: {}, issues: [], projection: { fills: [], skips: [] }, promptVersions: {},
+      },
+    });
+    show(intake);
+    expect(screen.queryByText('panel-đối-chiếu')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Đối chiếu ảnh và sửa bản chép' }));
+    fireEvent.click(screen.getByText('panel-đối-chiếu'));
+    expect(intake.read).toHaveBeenCalledWith('ANALYSE');
   });
 
   it('cancel deletes the uploaded scans, close only hides the drawer', () => {

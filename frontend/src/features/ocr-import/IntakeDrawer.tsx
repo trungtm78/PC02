@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { ocrErrorText, ocrImport } from '@/locales/vi';
+import { ReviewPanel } from './ReviewPanel';
 import type { useOcrIntake } from './useOcrIntake';
 
 export interface IntakeDrawerProps {
@@ -14,6 +16,7 @@ const ACCEPT = 'image/jpeg,image/png,image/webp';
  * reading ends, the analysis goes to the form through `useOcrIntake`'s `onAnalysis`.
  */
 export function IntakeDrawer({ open, onClose, intake }: IntakeDrawerProps) {
+  const [showReview, setShowReview] = useState(false);
   if (!open) return null;
   const reading = intake.phase === 'READING';
   const canRead = intake.pages.length > 0 && !reading && !intake.uploading;
@@ -22,7 +25,7 @@ export function IntakeDrawer({ open, onClose, intake }: IntakeDrawerProps) {
     <aside
       role="dialog"
       aria-label={ocrImport.title}
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-xl"
+      className={`fixed inset-y-0 right-0 z-40 flex w-full ${showReview ? 'max-w-2xl' : 'max-w-md'} flex-col gap-4 overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-xl`}
     >
       <header className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-semibold text-slate-900">{ocrImport.title}</h2>
@@ -144,7 +147,21 @@ export function IntakeDrawer({ open, onClose, intake }: IntakeDrawerProps) {
             <p className="text-amber-800">{ocrImport.issuesCount(intake.analysis.issues.length)}</p>
           )}
           <p className="text-xs text-slate-600">{ocrImport.autoCheckNote}</p>
+          <button
+            type="button"
+            onClick={() => setShowReview((v) => !v)}
+            className="text-sm text-blue-700 underline"
+          >
+            {ocrImport.openReview}
+          </button>
         </section>
+      )}
+      {showReview && intake.sessionId && intake.pages.length > 0 && (
+        <ReviewPanel
+          sessionId={intake.sessionId}
+          pages={intake.pages}
+          onReanalyse={() => void intake.read('ANALYSE')}
+        />
       )}
 
       {intake.sessionId && (
