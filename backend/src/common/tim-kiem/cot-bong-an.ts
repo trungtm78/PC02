@@ -1,5 +1,9 @@
 import { KHAI_TIM_KIEM } from './khai';
-import { cotBongCua, type KhaiThucThe } from './sinh/sinh-tim-kiem';
+import {
+  coCotBong,
+  cotBongCua,
+  type KhaiThucThe,
+} from './sinh/sinh-tim-kiem';
 
 /**
  * Cột bóng tìm kiếm PHẢI ẩn khỏi mọi đường đọc trả về cho người dùng.
@@ -17,10 +21,12 @@ import { cotBongCua, type KhaiThucThe } from './sinh/sinh-tim-kiem';
  * `cot-bong-khong-lot-payload.gate.spec.ts` đối chiếu với `schema.prisma`: còn một trường `*Bd`
  * nào ngoài danh sách là ĐỎ.
  */
-function cotBongCuaKhai(khai: KhaiThucThe): string[] {
+export function cotBongCuaKhai(khai: KhaiThucThe): string[] {
   const ra = new Set<string>(['timKiemBd']);
+  // Same predicate the generator uses to CREATE the shadow columns, so a column can never exist without
+  // being hidden (a JSON-backed date field has a shadow column even though its kind is not `chu`).
   for (const t of khai.truong) {
-    if (t.kieu === 'chu' && t.cot) ra.add(cotBongCua(t.cot).field);
+    if (coCotBong(t) && t.cot) ra.add(cotBongCua(t.cot).field);
   }
   for (const c of khai.cotBongPhu ?? []) ra.add(cotBongCua(c).field);
   return [...ra];

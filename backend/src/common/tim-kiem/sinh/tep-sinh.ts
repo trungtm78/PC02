@@ -95,12 +95,17 @@ export function cotDbLech(
     };
     for (const t of khai.truong) {
       if (!t.cot) continue;
+      if (t.nguonJson) {
+        // `cot` is a virtual name (the value lives inside a JSON column): only the JSON column must exist.
+        kiem(t.nguonJson.cot, t.nguonJson.cot);
+        continue;
+      }
       if (t.cotGhep) {
         // `cot` là tên cột bóng, không có thật — kiểm từng cột nguồn ghép.
         for (const g of t.cotGhep) kiem(g, g);
         continue;
       }
-      if (t.kieu === 'ngay' || t.kieu === 'chon') {
+      if (t.kieu === 'ngay' || t.kieu === 'chon' || t.kieu === 'so') {
         // Chỉ đi qua Prisma bằng tên trường, không vào SQL thô: `@map` không liên quan — chỉ cần
         // trường tồn tại (gõ sai tên thì Prisma ném 500 lúc lọc).
         if (cotSchema(t.cot) === null) {
@@ -157,9 +162,27 @@ export function kieuCotLech(
       }
     };
     for (const t of khai.truong) {
-      if (!t.cot) continue;
+      // A JSON-backed field has no column of its own to type-check.
+      if (!t.cot || t.nguonJson) continue;
       const la = (kieu: string) => (k: string) => k === kieu;
       switch (t.kieu) {
+        case 'so':
+          if (t.soNguyen) {
+            kiem(
+              t.cot,
+              t.kieu,
+              la('Int'),
+              'an integer field needs an Int column',
+            );
+          } else {
+            kiem(
+              t.cot,
+              t.kieu,
+              (k) => k === 'Float' || k === 'Int',
+              'a numeric field needs a Float or Int column',
+            );
+          }
+          break;
         case 'chu':
           for (const c of t.cotGhep ?? [t.cot]) {
             kiem(c, t.kieu, la('String'), 'cột bóng bỏ dấu cần cột String');
