@@ -176,6 +176,25 @@ describe('AggregateService', () => {
     expect(result.fields[0].countTotal).toBe(2);
   });
 
+  it('returns authoritative period actions for a report manager', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+    const result = await service.getPeriodSummary(
+      'period1',
+      'mgr1',
+      'roleMgr',
+      'SUBMITTED',
+    );
+
+    expect((result as { actions?: unknown }).actions).toEqual({
+      canManageAssignments: true,
+      canFinalize: true,
+      canReopen: false,
+      canDeletePeriod: true,
+      canDeletePeriodWithData: false,
+    });
+  });
+
   it('names the template version so the client can fetch the grid for it', async () => {
     const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
     const result = await service.getPeriodSummary('period1', 'mgr1', 'roleMgr', 'SUBMITTED');
@@ -382,6 +401,13 @@ describe('AggregateService', () => {
 
     expect(result.fields[0].value).toBe('30');
     expect(result.fields[0].countTotal).toBe(2);
+    expect((result as { actions?: unknown }).actions).toEqual({
+      canManageAssignments: false,
+      canFinalize: false,
+      canReopen: false,
+      canDeletePeriod: false,
+      canDeletePeriodWithData: false,
+    });
   });
 
   it("R13: a VIEWER scoped to one team subtree only sees that subtree's contributions", async () => {
@@ -449,6 +475,13 @@ describe('AggregateService', () => {
     );
 
     expect(result.fields[0].value).toBe('30');
+    expect((result as { actions?: unknown }).actions).toEqual({
+      canManageAssignments: true,
+      canFinalize: true,
+      canReopen: true,
+      canDeletePeriod: true,
+      canDeletePeriodWithData: true,
+    });
     expect(prisma.dynReportRole.findFirst).not.toHaveBeenCalled();
   });
 

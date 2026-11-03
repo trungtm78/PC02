@@ -14,8 +14,8 @@ const EMPTY: PeriodDeletionImpact = {
 };
 const WITH_DATA: PeriodDeletionImpact = { ...EMPTY, submissionsWithData: 2, revisions: 6, hasData: true };
 
-function renderDialog(onDeleted = vi.fn(), onClose = vi.fn()) {
-  render(<PeriodDeleteDialog periodId="p1" periodKey="2026-10" onClose={onClose} onDeleted={onDeleted} />);
+function renderDialog(onDeleted = vi.fn(), onClose = vi.fn(), canDeleteWithData = true) {
+  render(<PeriodDeleteDialog periodId="p1" periodKey="2026-10" canDeleteWithData={canDeleteWithData} onClose={onClose} onDeleted={onDeleted} />);
   return { onDeleted, onClose };
 }
 
@@ -60,6 +60,15 @@ describe('PeriodDeleteDialog', () => {
 
     await waitFor(() => expect(dynamicReportsApi.deletePeriodWithData).toHaveBeenCalledWith('p1', '2026-10'));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
+  });
+
+  it('does not offer forced deletion to a report manager', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodDeletionImpact).mockResolvedValue(WITH_DATA);
+    renderDialog(vi.fn(), vi.fn(), false);
+
+    expect(await screen.findByTestId('period-delete-has-data')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-delete-period')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-period-force-open')).not.toBeInTheDocument();
   });
 
   it('a refusal (not an admin) is shown and nothing is reported as deleted', async () => {
