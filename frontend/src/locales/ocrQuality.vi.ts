@@ -7,6 +7,12 @@ export const ocrQuality = {
   failed: 'Không tải được thống kê. Hãy thử lại.',
   forbidden: 'Tài khoản không có quyền xem thống kê này.',
   noData: 'Chưa có dữ liệu trong kỳ này.',
+  budget: (used: string, cap: string, percent: number, level: string) =>
+    level === 'EXHAUSTED'
+      ? `Ngân sách tháng đã hết (${used} / ${cap}, ${percent}%): việc đọc ảnh đã dừng cho tới tháng sau hoặc khi quản trị viên nâng trần.`
+      : level === 'WARN'
+        ? `Ngân sách tháng sắp hết: đã dùng ${used} / ${cap} (${percent}%).`
+        : `Ngân sách tháng: đã dùng ${used} / ${cap} (${percent}%).`,
   modelsHeading: 'Theo model: tỉ lệ ô được giữ nguyên',
   worstHeading: 'Các ô bị sửa hoặc xoá nhiều nhất',
   costHeading: 'Chi phí và lỗi theo model',

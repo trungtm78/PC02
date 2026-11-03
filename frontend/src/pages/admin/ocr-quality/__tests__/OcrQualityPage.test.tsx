@@ -12,6 +12,7 @@ const report = {
     { entity: 'PETITION', field: 'senderName', providerKind: 'GEMINI', model: 'flash', promptVersion: 'v1', kept: 8, edited: 2, cleared: 0, total: 10, mustConfirm: 10 },
     { entity: 'PETITION', field: 'senderPhone', providerKind: 'GEMINI', model: 'flash', promptVersion: 'v1', kept: 2, edited: 6, cleared: 2, total: 10, mustConfirm: 0 },
   ],
+  budget: { usedMicroUsd: 17_000_000, capMicroUsd: 20_000_000, level: 'WARN' },
   calls: [
     { providerKind: 'GEMINI', model: 'flash', calls: 12, ok: 10, failed: 2, images: 30, inputTokens: 4000, outputTokens: 900, costMicroUsd: 12500, errors: { RATE_LIMIT: 2 } },
   ],
@@ -37,8 +38,18 @@ describe('OcrQualityPage', () => {
     expect(within(calls).getByText(/RATE_LIMIT: 2/)).toBeTruthy();
   });
 
+  it('warns when the month is close to the cap, and says reading has stopped when it is spent', async () => {
+    get.mockResolvedValue({ data: report });
+    const { unmount } = render(<OcrQualityPage />);
+    expect((await screen.findByTestId('quality-budget')).textContent).toContain('85%');
+    unmount();
+    get.mockResolvedValue({ data: { ...report, budget: { usedMicroUsd: 20_000_000, capMicroUsd: 20_000_000, level: 'EXHAUSTED' } } });
+    render(<OcrQualityPage />);
+    expect((await screen.findByTestId('quality-budget')).textContent).toContain('đã dừng');
+  });
+
   it('says there is no data yet instead of showing empty tables', async () => {
-    get.mockResolvedValue({ data: { period: report.period, fields: [], calls: [] } });
+    get.mockResolvedValue({ data: { period: report.period, fields: [], calls: [], budget: null } });
     render(<OcrQualityPage />);
     expect((await screen.findAllByText('Chưa có dữ liệu trong kỳ này.')).length).toBe(3);
   });

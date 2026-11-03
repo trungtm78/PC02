@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { randomUUID } from 'node:crypto';
 import type { PrismaService } from '../../prisma/prisma.service';
+import type { LlmGatewayService } from '../../llm/llm-gateway.service';
 import { OcrQualityService } from './ocr-quality.service';
 
 /** Quality and cost statistics over real PostgreSQL rows. Runs only with `PETITION_SUGGEST_DATABASE_URL`. */
@@ -138,6 +139,28 @@ run('OcrQualityService on PostgreSQL', () => {
       ok: 1,
       costMicroUsd: 500,
     });
+  });
+
+  it('reports where the month stands against the spending cap, so a warning is visible before calls stop', async () => {
+    const withBudget = new OcrQualityService(
+      db as unknown as PrismaService,
+      {
+        budgetStatus: () =>
+          Promise.resolve({
+            usedMicroUsd: 17_000_000,
+            capMicroUsd: 20_000_000,
+            level: 'WARN' as const,
+          }),
+      } as unknown as LlmGatewayService,
+    );
+    const report = await withBudget.report(window, tag);
+    expect(report.budget).toEqual({
+      usedMicroUsd: 17_000_000,
+      capMicroUsd: 20_000_000,
+      level: 'WARN',
+    });
+    // and nothing is claimed when no budget source is wired
+    expect((await service.report(window, tag)).budget).toBeNull();
   });
 
   it('only counts what falls inside the period', async () => {

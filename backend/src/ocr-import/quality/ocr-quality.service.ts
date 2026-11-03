@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import {
+  LlmGatewayService,
+  type BudgetStatus,
+} from '../../llm/llm-gateway.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface Period {
@@ -40,7 +44,12 @@ export interface CallCostRow {
  */
 @Injectable()
 export class OcrQualityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Typed as the class (not a Pick) so Nest can resolve it: a structural type has no injection token.
+    @Optional()
+    private readonly gateway?: LlmGatewayService,
+  ) {}
 
   async report(
     period: Period,
@@ -49,6 +58,8 @@ export class OcrQualityService {
     period: Period;
     fields: FieldQualityRow[];
     calls: CallCostRow[];
+    /** This month against the spending cap; null when no source is wired. */
+    budget: BudgetStatus | null;
   }> {
     const createdAt = { gte: period.from, lt: period.to };
 
@@ -141,6 +152,11 @@ export class OcrQualityService {
       calls.set(key, entry);
     }
 
-    return { period, fields: [...fields.values()], calls: [...calls.values()] };
+    return {
+      period,
+      fields: [...fields.values()],
+      calls: [...calls.values()],
+      budget: this.gateway ? await this.gateway.budgetStatus() : null,
+    };
   }
 }

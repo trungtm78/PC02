@@ -64,6 +64,26 @@ export default function OcrQualityPage() {
         <p className="text-sm text-slate-600">{t.subtitle}</p>
       </header>
 
+      {report.budget && (
+        <p
+          data-testid="quality-budget"
+          className={`rounded-md border p-3 text-sm ${
+            report.budget.level === 'OK'
+              ? 'border-slate-200 bg-white text-slate-700'
+              : report.budget.level === 'WARN'
+                ? 'border-amber-300 bg-amber-50 text-amber-900'
+                : 'border-red-300 bg-red-50 text-red-900'
+          }`}
+        >
+          {t.budget(
+            microToUsd(report.budget.usedMicroUsd),
+            microToUsd(report.budget.capMicroUsd),
+            Math.round(report.budget.capMicroUsd === 0 ? 0 : (report.budget.usedMicroUsd / report.budget.capMicroUsd) * 100),
+            report.budget.level,
+          )}
+        </p>
+      )}
+
       <section aria-label={t.modelsHeading} className="space-y-2">
         <h2 className="text-base font-medium text-slate-900">{t.modelsHeading}</h2>
         {models.length === 0 ? (

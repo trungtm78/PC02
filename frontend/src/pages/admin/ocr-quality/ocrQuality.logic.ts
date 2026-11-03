@@ -24,10 +24,17 @@ export interface CallCostRow {
   errors: Record<string, number>;
 }
 
+export interface BudgetView {
+  usedMicroUsd: number;
+  capMicroUsd: number;
+  level: 'OK' | 'WARN' | 'EXHAUSTED';
+}
+
 export interface QualityReport {
   period: { from: string; to: string };
   fields: FieldQualityRow[];
   calls: CallCostRow[];
+  budget: BudgetView | null;
 }
 
 const ratio = (part: number, whole: number) => (whole === 0 ? 0 : part / whole);
