@@ -110,6 +110,10 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'read', subject: 'Setting', description: 'Xem cấu hình hệ thống (system settings page)' },
   { action: 'write', subject: 'Setting', description: 'Sửa cấu hình hệ thống + seed defaults' },
 
+  // ── LLM provider configuration for scan-image intake (admin only: ADMIN receives every subject but CaseGovernance) ──
+  { action: 'read', subject: 'LlmConfig', description: 'Xem cấu hình nhà cung cấp LLM (không bao giờ trả khoá API)' },
+  { action: 'write', subject: 'LlmConfig', description: 'Thêm, sửa, kiểm thử, lưu trữ nhà cung cấp LLM và hồ sơ đánh giá chuyển dữ liệu ra nước ngoài' },
+
   // ── Restore (v0.32.0.0) — khôi phục records đã soft-delete ────────────
   // Gắn duy nhất cho ADMIN qua role-permission mapping (xem grant block below).
   // Missing seed → @RequirePermissions trả 403 cho mọi user kể cả ADMIN.

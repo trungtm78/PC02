@@ -4484,3 +4484,87 @@ model DynReportIdempotency {
   @@unique([actorId, action, key])
   @@map("dyn_report_idempotency_records")
 }
+
+// ─────────────────────────────────────────────
+// LLM providers for scan-image intake (admin-configured)
+// The API key is stored encrypted ("v<keyVersion>:iv:ciphertext:authTag") and is never returned by the API.
+// ─────────────────────────────────────────────
+enum LlmProviderKind {
+  ANTHROPIC
+  GEMINI
+  OPENAI_COMPATIBLE
+}
+
+enum LlmProviderRole {
+  PRIMARY
+  FALLBACK
+  OFF
+}
+
+model LlmProvider {
+  id                String          @id @default(cuid())
+  kind              LlmProviderKind
+  label             String
+  apiKeyEncrypted   String
+  apiKeyLast4       String
+  baseUrl           String? // self-hosted (OPENAI_COMPATIBLE) only
+  model             String
+  dataRegion        String? // where the provider says it processes data
+  zeroRetention     Boolean         @default(false)
+  role              LlmProviderRole @default(OFF)
+  fallbackOrder     Int? // order among FALLBACK providers
+  /// sha256 of kind + model + baseUrl + key at the last PASSING test. A role needs this to match the current values.
+  testedFingerprint String?
+  lastTestAt        DateTime?
+  lastTestOk        Boolean?
+  lastTestCode      String?
+  lastTestLatencyMs Int?
+  lastTestById      String?
+  archivedAt        DateTime?
+  createdById       String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([role, archivedAt])
+  @@map("llm_providers")
+}
+
+/// Record that the unit has assessed the cross-border transfer of personal data (Law 91/2025).
+/// A cloud provider may be called only while an assessment exists that has not been withdrawn.
+model LlmTransferAssessment {
+  id            String    @id @default(cuid())
+  fileNumber    String
+  filedAt       DateTime
+  approvedById  String
+  note          String?
+  withdrawnAt   DateTime?
+  withdrawnById String?
+  createdAt     DateTime  @default(now())
+
+  @@index([withdrawnAt])
+  @@map("llm_transfer_assessments")
+}
+
+/// One row per provider call. Holds NO request or reply content: it is the evidence of what left the system.
+/// providerId is a plain string, not a relation, so the lineage survives archiving or deleting the provider.
+model LlmCallLineage {
+  id                    String          @id @default(cuid())
+  sessionRef            String?
+  userId                String?
+  providerId            String?
+  providerKind          LlmProviderKind
+  model                 String
+  dataRegion            String?
+  outcome               String
+  latencyMs             Int?
+  inputTokens           Int?
+  outputTokens          Int?
+  estimatedCostMicroUsd Int?
+  promptVersion         String?
+  createdAt             DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([sessionRef])
+  @@index([userId, createdAt])
+  @@map("llm_call_lineage")
+}
