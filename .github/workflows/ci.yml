@@ -62,7 +62,8 @@ jobs:
 
   engine-gate:
     name: Engine Gate (Chromium + WebKit)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 on 2026-11-03 and Playwright 1.58.2 cannot install browsers there.
+    runs-on: ubuntu-24.04
 
     # VI SAO CAN JOB RIENG: `<input type="date">` xu ly gia tri KHONG hop le khac nhau giua cac
     # engine — do 23/09/2026, `value="undefined"` cho "" tren Chromium nhung GIU NGUYEN
