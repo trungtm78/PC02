@@ -11,6 +11,7 @@ import {
 import {
   runPipeline,
   splitSegments,
+  transcribePages,
   type PageImage,
   type PipelineGateway,
 } from './pipeline';
@@ -213,6 +214,26 @@ describe('runPipeline', () => {
 
   it('accepts a bundle that parses with the evidence schema untouched', () => {
     expect(EvidenceBundleSchema.safeParse(sampleBundle()).success).toBe(true);
+  });
+
+  it('stops sending further pages once one page has failed', async () => {
+    let started = 0;
+    const failing: PipelineGateway = {
+      call() {
+        started += 1;
+        return Promise.reject(new Error('provider refused'));
+      },
+    };
+    const many: PageImage[] = Array.from({ length: 12 }, (_, i) => ({
+      id: `q${i}`,
+      mediaType: 'image/png',
+      dataBase64: `IMG-q${i}`,
+    }));
+    await expect(
+      transcribePages(failing, many, { userId: 'u', sessionRef: 's' }),
+    ).rejects.toThrow('provider refused');
+    // Only the pages that were already in flight; nothing is started after the failure.
+    expect(started).toBeLessThanOrEqual(3);
   });
 
   it('refuses an empty page list', async () => {

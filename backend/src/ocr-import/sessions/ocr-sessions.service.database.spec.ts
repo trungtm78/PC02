@@ -398,6 +398,53 @@ run('OcrSessionsService on PostgreSQL', () => {
     });
   });
 
+  describe('consistent reads and model readings', () => {
+    it('a snapshot gives the fingerprint and the text of the same moment', async () => {
+      const s = await service.createSession('PETITION', alice);
+      const { page } = await service.addPage(s.id, file('snap'), alice);
+      await service.saveTranscript(s.id, page.id, { text: 'văn bản', source: 'OFFICER' }, alice);
+      const snap = await service.snapshotForAnalysis(s.id, alice);
+      expect(snap.fingerprint).toBe(await service.currentFingerprint(s.id));
+      expect(snap.pages).toEqual([{ pageId: page.id, text: 'văn bản' }]);
+    });
+
+    it('stores a model reading of every page together, when the input is still the one it was read from', async () => {
+      const s = await service.createSession('PETITION', alice);
+      const a = await service.addPage(s.id, file('ra'), alice);
+      const b = await service.addPage(s.id, file('rb'), alice);
+      const fp = await service.currentFingerprint(s.id);
+      await service.saveModelReadings(
+        s.id,
+        fp,
+        [
+          { pageId: a.page.id, text: 'A', pageKind: 'COMPLAINT', promptVersion: 'v1' },
+          { pageId: b.page.id, text: 'B', pageKind: 'OTHER', promptVersion: 'v1' },
+        ],
+        alice,
+      );
+      const latest = await service.latestTranscripts(s.id, alice);
+      expect(latest[a.page.id]).toMatchObject({ text: 'A', source: 'MODEL' });
+      expect(latest[b.page.id]).toMatchObject({ text: 'B', source: 'MODEL' });
+    });
+
+    it("refuses to bury an officer's correction under a reading that started before it", async () => {
+      const s = await service.createSession('PETITION', alice);
+      const a = await service.addPage(s.id, file('ca'), alice);
+      const fp = await service.currentFingerprint(s.id);
+      await service.saveTranscript(s.id, a.page.id, { text: 'cán bộ sửa', source: 'OFFICER' }, alice);
+
+      await expect(
+        service.saveModelReadings(
+          s.id,
+          fp,
+          [{ pageId: a.page.id, text: 'máy đọc', pageKind: 'OTHER', promptVersion: 'v1' }],
+          alice,
+        ),
+      ).rejects.toMatchObject({ response: { code: 'OCR_INPUT_CHANGED' } });
+      expect((await service.latestTranscripts(s.id, alice))[a.page.id].text).toBe('cán bộ sửa');
+    });
+  });
+
   describe('purging while a save binds the session', () => {
     it('never reports the files of a session that got bound after it was listed as expired', async () => {
       const s = await service.createSession('PETITION', alice);

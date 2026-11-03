@@ -54,6 +54,8 @@ run('OcrReadExecutor on PostgreSQL', () => {
   let calls: Recorded[];
   /** Runs inside the analysis call: lets a test change the session while the provider is "thinking". */
   let duringAnalysis: (() => Promise<void>) | null;
+  /** Runs inside the first page-reading call. */
+  let duringReading: (() => Promise<void>) | null;
   const tag = `exe-${randomUUID().slice(0, 8)}`;
   const alice = { id: `${tag}-alice` };
 
@@ -65,6 +67,11 @@ run('OcrReadExecutor on PostgreSQL', () => {
     ): Promise<PolicyOutcome<T>> {
       calls.push({ request, context });
       const isPage = (request.images?.length ?? 0) > 0;
+      if (isPage && duringReading) {
+        const hook = duringReading;
+        duringReading = null;
+        await hook();
+      }
       if (!isPage && duringAnalysis) await duringAnalysis();
       const json = isPage
         ? {
@@ -169,6 +176,7 @@ run('OcrReadExecutor on PostgreSQL', () => {
   beforeEach(() => {
     calls = [];
     duringAnalysis = null;
+    duringReading = null;
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'ocr-exec-'));
     sessions = new OcrSessionsService(db as unknown as PrismaService);
     storage = new ImageStorageService({ rootDir: root });
@@ -239,6 +247,27 @@ run('OcrReadExecutor on PostgreSQL', () => {
       const derive = jest.spyOn(storage, 'deriveForProvider');
       await executor.execute(await jobFor(s.id, 'READ'));
       expect(derive).not.toHaveBeenCalled();
+    });
+
+    it("a correction made while the pages were being read is kept, and the stale reading is refused", async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      const { page } = await addScan(s.id, 200);
+      duringReading = async () => {
+        await sessions.saveTranscript(
+          s.id,
+          page.id,
+          { text: 'cán bộ đã sửa', source: 'OFFICER' },
+          alice,
+        );
+      };
+
+      expect(await codeOf(executor.execute(await jobFor(s.id, 'READ')))).toBe(
+        'OCR_INPUT_CHANGED',
+      );
+      expect((await sessions.latestTranscripts(s.id, alice))[page.id].text).toBe(
+        'cán bộ đã sửa',
+      );
+      expect(await sessions.currentAnalysis(s.id, alice)).toBeNull();
     });
 
     it('a session with no pages cannot be read', async () => {

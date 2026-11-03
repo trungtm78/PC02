@@ -56,7 +56,7 @@ export class OcrReadExecutor {
     if (job.kind === 'READ') {
       await this.readPages(session, pages, actor, context);
     }
-    await this.analyse(session.id, pages, actor, context);
+    await this.analyse(session.id, actor, context);
   }
 
   private async readPages(
@@ -65,44 +65,44 @@ export class OcrReadExecutor {
     actor: Actor,
     context: ReadContext,
   ): Promise<void> {
+    // The state this reading starts from. It is stored only if that state still stands when the provider answers.
+    const startedFrom = await this.sessions.currentFingerprint(session.id);
     const images: PageImage[] = [];
     for (const page of pages) {
       images.push(await this.providerImage(session.id, page.id));
     }
     const transcribed = await transcribePages(this.gateway, images, context);
-    for (const t of transcribed) {
-      await this.sessions.saveTranscript(
-        session.id,
-        t.pageId,
-        {
-          text: t.text,
-          source: 'MODEL',
-          pageKind: t.pageKind,
-          promptVersion: TRANSCRIBE_PROMPT_VERSION,
-        },
-        actor,
-      );
-    }
+    await this.sessions.saveModelReadings(
+      session.id,
+      startedFrom,
+      transcribed.map((t) => ({
+        pageId: t.pageId,
+        text: t.text,
+        pageKind: t.pageKind,
+        promptVersion: TRANSCRIBE_PROMPT_VERSION,
+      })),
+      actor,
+    );
   }
 
   private async analyse(
     sessionId: string,
-    pages: PageView[],
     actor: Actor,
     context: ReadContext,
   ): Promise<void> {
-    const transcripts = await this.sessions.latestTranscripts(sessionId, actor);
-    const ordered = pages.map((page) => {
-      const transcript = transcripts[page.id];
-      if (!transcript) {
-        throw new OcrImportError('OCR_TRANSCRIPT_MISSING', HttpStatus.CONFLICT);
+    // Text, page list and fingerprint come from one locked read, so the published analysis is labelled with the state
+    // it really read. If the officer corrects a page while the provider works, the result is kept as history only.
+    const snapshot = await this.sessions.snapshotForAnalysis(sessionId, actor);
+    const ordered = snapshot.pages.map((page) => {
+      if (page.text === null) {
+        throw new OcrImportError(
+          'OCR_TRANSCRIPT_MISSING',
+          HttpStatus.CONFLICT,
+        );
       }
-      return { pageId: page.id, text: transcript.text };
+      return { pageId: page.pageId, text: page.text };
     });
-    // The state the analysis is computed from. If it has moved on by the time the result comes back, the result is
-    // kept as history and does not become the current one.
     const session = await this.sessions.getSession(sessionId, actor);
-    const inputFingerprint = await this.sessions.currentFingerprint(sessionId);
 
     const analysis = await analyseTranscripts(this.gateway, {
       pages: ordered,
@@ -115,8 +115,8 @@ export class OcrReadExecutor {
       sessionId,
       {
         entity: session.entity,
-        pageSetRevision: session.pageSetRevision,
-        inputFingerprint,
+        pageSetRevision: snapshot.pageSetRevision,
+        inputFingerprint: snapshot.fingerprint,
         bundle: json(analysis.bundle),
         cleaned: json(analysis.cleaned),
         issues: json(analysis.issues),

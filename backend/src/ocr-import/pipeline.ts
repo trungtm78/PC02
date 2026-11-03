@@ -108,10 +108,18 @@ async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results: R[] = new Array<R>(items.length);
   let next = 0;
+  let failed = false;
   const worker = async () => {
-    while (next < items.length) {
+    // After one item fails, the others finish what they hold but start nothing new: a failed job must not go on
+    // sending pages to the provider in the background.
+    while (!failed && next < items.length) {
       const index = next++;
-      results[index] = await work(items[index]);
+      try {
+        results[index] = await work(items[index]);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   };
   await Promise.all(

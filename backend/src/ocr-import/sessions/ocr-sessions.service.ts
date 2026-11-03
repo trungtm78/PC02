@@ -259,6 +259,76 @@ export class OcrSessionsService {
     });
   }
 
+  /**
+   * The ordered pages with their latest text, and the fingerprint of that very state, read under the session lock.
+   * An analysis computed from this snapshot carries the fingerprint of the text it really read, so a correction made
+   * a moment later makes it history instead of letting it pass as current.
+   */
+  async snapshotForAnalysis(
+    sessionId: string,
+    actor: Actor,
+  ): Promise<{
+    pageSetRevision: number;
+    fingerprint: string;
+    pages: Array<{ pageId: string; text: string | null }>;
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      const session = await this.lock(tx, sessionId, actor, { open: false });
+      const pages = await this.currentPages(tx, session);
+      const latest = await this.latestRevisions(tx, session);
+      return {
+        pageSetRevision: session.pageSetRevision,
+        fingerprint: await this.fingerprintIn(tx, session),
+        pages: pages.map((p) => ({
+          pageId: p.id,
+          text: latest.get(p.id)?.text ?? null,
+        })),
+      };
+    });
+  }
+
+  /**
+   * Stores the model's reading of several pages, only if the session is still exactly in the state the reading
+   * started from. If the officer corrected a page or changed the page list meanwhile, nothing is written: a slow
+   * reading must not become the newest text and hide a correction.
+   */
+  async saveModelReadings(
+    sessionId: string,
+    expectedFingerprint: string,
+    readings: Array<{
+      pageId: string;
+      text: string;
+      pageKind: string | null;
+      promptVersion: string | null;
+    }>,
+    actor: Actor,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const session = await this.lock(tx, sessionId, actor, { open: true });
+      if ((await this.fingerprintIn(tx, session)) !== expectedFingerprint) {
+        throw new OcrImportError('OCR_INPUT_CHANGED', HttpStatus.CONFLICT);
+      }
+      const current = await this.currentPages(tx, session);
+      for (const reading of readings) {
+        if (!current.some((p) => p.id === reading.pageId)) this.pageNotFound();
+        const last = await tx.ocrTranscript.aggregate({
+          _max: { revision: true },
+          where: { pageId: reading.pageId },
+        });
+        await tx.ocrTranscript.create({
+          data: {
+            pageId: reading.pageId,
+            revision: (last._max.revision ?? 0) + 1,
+            text: reading.text,
+            source: 'MODEL',
+            pageKind: reading.pageKind,
+            promptVersion: reading.promptVersion,
+          },
+        });
+      }
+    });
+  }
+
   async latestTranscripts(
     sessionId: string,
     actor: Actor,
