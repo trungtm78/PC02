@@ -349,20 +349,24 @@ export class OcrSessionsService {
       where: { status: { not: 'BOUND' }, expiresAt: { lt: now } },
       include: { pages: { select: { originalPath: true, derivedPath: true } } },
     });
-    const files = expired.flatMap((s) =>
-      s.pages.flatMap((p) =>
-        [p.originalPath, p.derivedPath].filter((f): f is string => !!f),
-      ),
-    );
-    if (expired.length > 0) {
-      await this.prisma.ocrSession.deleteMany({
-        where: {
-          id: { in: expired.map((s) => s.id) },
-          status: { not: 'BOUND' },
-        },
+    // One session at a time, and files are reported only for sessions this call really deleted: a Save may bind a
+    // listed session at any moment, and the guard in the delete keeps it. Reporting the files of a kept session would
+    // have the caller delete the originals of a record that was just saved.
+    const files: string[] = [];
+    let sessions = 0;
+    for (const session of expired) {
+      const { count } = await this.prisma.ocrSession.deleteMany({
+        where: { id: session.id, status: { not: 'BOUND' } },
       });
+      if (count === 0) continue;
+      sessions += 1;
+      for (const page of session.pages) {
+        for (const file of [page.originalPath, page.derivedPath]) {
+          if (file) files.push(file);
+        }
+      }
     }
-    return { files, sessions: expired.length };
+    return { files, sessions };
   }
 
   // ── internals ───────────────────────────────────────────────────────────────────────────────────────────────────

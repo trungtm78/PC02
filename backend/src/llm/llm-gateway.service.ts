@@ -19,7 +19,7 @@ import {
 } from './cost';
 import { LlmAdminError } from './llm-admin-error';
 import { LlmProvidersService, type ChainEntry } from './llm-providers.service';
-import type { LlmRequest } from './llm.types';
+import { LlmError, type LlmProvider, type LlmRequest } from './llm.types';
 
 const DEFAULT_IMAGE_QUOTA_PER_DAY = 200;
 const DEFAULT_MONTH_BUDGET_MICRO_USD = 20_000_000;
@@ -84,7 +84,7 @@ export class LlmGatewayService {
     let attempts: AttemptRecord[] = [];
     try {
       const outcome = await callWithPolicy(
-        entries.map((entry) => entry.provider),
+        entries.map((entry) => this.guarded(entry)),
         request,
         validate,
         POLICY,
@@ -98,6 +98,27 @@ export class LlmGatewayService {
     } finally {
       await this.writeLineage(attempts, entries, context, images);
     }
+  }
+
+  /**
+   * The provider, re-checked before each outbound attempt. One that is no longer allowed fails as AUTH, which the
+   * policy treats as "not this provider": it moves on to the next one instead of sending anything.
+   */
+  private guarded(entry: ChainEntry): LlmProvider {
+    const { provider } = entry;
+    return {
+      kind: provider.kind,
+      model: provider.model,
+      listModels: () => provider.listModels(),
+      call: async (request) => {
+        if (!(await this.providers.isEligible(entry.id))) {
+          throw new LlmError('AUTH', 'provider is no longer allowed', {
+            retryable: false,
+          });
+        }
+        return provider.call(request);
+      },
+    };
   }
 
   async budgetStatus(): Promise<BudgetStatus> {

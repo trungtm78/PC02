@@ -398,6 +398,38 @@ run('OcrSessionsService on PostgreSQL', () => {
     });
   });
 
+  describe('purging while a save binds the session', () => {
+    it('never reports the files of a session that got bound after it was listed as expired', async () => {
+      const s = await service.createSession('PETITION', alice);
+      await service.addPage(s.id, file('race'), alice);
+      await db.ocrSession.update({
+        where: { id: s.id },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+
+      // The officer's Save lands between the purge listing the session and deleting it.
+      const original = db.ocrSession.findMany.bind(db.ocrSession);
+      const spy = jest
+        .spyOn(db.ocrSession, 'findMany')
+        .mockImplementationOnce(((args: never) => {
+          const listed = original(args) as Promise<unknown>;
+          return listed.then(async (rows) => {
+            await db.ocrSession.update({
+              where: { id: s.id },
+              data: { status: 'BOUND', boundRecordId: 'rec-9', boundAt: new Date() },
+            });
+            return rows;
+          });
+        }) as never);
+
+      const purged = await service.purgeExpired(new Date());
+      spy.mockRestore();
+
+      expect(purged).toEqual({ files: [], sessions: 0 });
+      expect(await db.ocrSession.findUnique({ where: { id: s.id } })).not.toBeNull();
+    });
+  });
+
   describe('database rules', () => {
     it('a BOUND session without a record is rejected by the database', async () => {
       const s = await service.createSession('PETITION', alice);

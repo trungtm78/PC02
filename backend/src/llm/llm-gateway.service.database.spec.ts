@@ -81,6 +81,9 @@ run('LlmGatewayService on PostgreSQL', () => {
   let chain: ChainEntry[] = [];
   let settings: Record<string, number> = {};
   const delays: number[] = [];
+  /** Providers an administrator has switched off or withdrawn the assessment for, as the gateway re-checks them. */
+  const withdrawn = new Set<string>();
+  let onSleep: (() => void) | null = null;
 
   const entry = (
     provider: LlmProvider,
@@ -100,6 +103,7 @@ run('LlmGatewayService on PostgreSQL', () => {
       db as unknown as PrismaService,
       {
         buildChainEntries: () => Promise.resolve(chain),
+        isEligible: (id: string) => Promise.resolve(!withdrawn.has(id)),
       } as unknown as LlmProvidersService,
       {
         getNumericValue: (key: string, fallback: number) =>
@@ -107,6 +111,7 @@ run('LlmGatewayService on PostgreSQL', () => {
       } as unknown as SettingsService,
       (ms: number) => {
         delays.push(ms);
+        onSleep?.();
         return Promise.resolve();
       },
     );
@@ -157,6 +162,8 @@ run('LlmGatewayService on PostgreSQL', () => {
     chain = [entry(scripted('m1', [ok('m1')]))];
     settings = {};
     delays.length = 0;
+    withdrawn.clear();
+    onSleep = null;
   });
 
   const wipe = () =>
@@ -208,6 +215,22 @@ run('LlmGatewayService on PostgreSQL', () => {
       'OK',
     ]);
     expect(delays).toEqual([10]);
+  });
+
+  it('does not retry on a provider that stopped being allowed while the call was waiting', async () => {
+    const first = scripted('m1', [
+      new LlmError('RATE_LIMIT', 'slow', { retryable: true, retryAfterMs: 10 }),
+      ok('m1'),
+    ]);
+    const spy = jest.spyOn(first, 'call');
+    chain = [entry(first), entry(scripted('m2', [ok('m2')]))];
+    // During the wait before the retry, the transfer assessment is withdrawn for the first provider.
+    onSleep = () => withdrawn.add('prov-m1');
+
+    const out = await gateway().call(request(1), accept, context);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(out.result.model).toBe('m2');
   });
 
   it('records every attempt and rethrows when all providers fail', async () => {

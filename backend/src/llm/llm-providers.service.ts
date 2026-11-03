@@ -515,6 +515,15 @@ export class LlmProvidersService {
     };
   }
 
+  /**
+   * Whether a provider may still be called right now. The gateway asks before every outbound attempt, because a call
+   * can wait (a retry delay, a queue) long enough for an administrator to withdraw the transfer assessment or switch
+   * the provider off, and personal data must not leave after that.
+   */
+  async isEligible(providerId: string): Promise<boolean> {
+    return (await this.eligibleRows()).some((row) => row.id === providerId);
+  }
+
   /** PRIMARY then FALLBACKs, minus every provider a call must not use right now. */
   private async eligibleRows() {
     const assessmentActive = (await this.activeAssessment()) !== null;
