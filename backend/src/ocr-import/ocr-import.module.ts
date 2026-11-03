@@ -10,6 +10,7 @@ import { OcrImportController } from './ocr-import.controller';
 import { OcrIntakeService } from './ocr-intake.service';
 import { OcrSendPolicy } from './ocr-send-policy';
 import { OcrRereadService } from './ocr-reread.service';
+import { OcrQualityService } from './quality/ocr-quality.service';
 import { OcrJobScheduler, OcrMaintenance } from './jobs/ocr-maintenance';
 import { OcrJobRunner } from './jobs/ocr-job-runner';
 import { OcrReadExecutor } from './jobs/ocr-read-executor';
@@ -30,6 +31,7 @@ import { ImageStorageService } from './storage/image-storage.service';
     OcrIntakeService,
     OcrSendPolicy,
     OcrRereadService,
+    OcrQualityService,
     OcrFinaliser,
     ImageStorageService,
     OcrJobQueue,

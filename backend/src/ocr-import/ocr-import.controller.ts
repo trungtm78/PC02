@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Put,
   Req,
   Res,
@@ -30,6 +31,7 @@ import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import {
   OpenSessionDto,
   ReorderPagesDto,
+  QualityQueryDto,
   RequestReadDto,
   SaveTranscriptDto,
   StartRereadDto,
@@ -38,6 +40,7 @@ import { OcrJobQueue } from './jobs/ocr-job-queue';
 import { OcrImportError } from './ocr-import-error';
 import { OcrIntakeService } from './ocr-intake.service';
 import { OcrRereadService } from './ocr-reread.service';
+import { OcrQualityService } from './quality/ocr-quality.service';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
 
@@ -75,6 +78,7 @@ export class OcrImportController {
     private readonly queue: OcrJobQueue,
     private readonly intake: OcrIntakeService,
     private readonly reread: OcrRereadService,
+    private readonly quality: OcrQualityService,
   ) {}
 
   @Post('sessions')
@@ -95,6 +99,22 @@ export class OcrImportController {
     @Req() req: ScopedRequest,
   ) {
     return this.reread.start(dto.entity, dto.recordId, user, req.dataScope);
+  }
+
+  /**
+   * Quality and cost statistics (how often officers keep what was read, what the calls cost). Counts only. A
+   * different permission from using the feature: it is for those who choose the model.
+   */
+  @Get('quality')
+  @RequirePermissions({ action: 'read', subject: 'OcrQuality' })
+  qualityReport(@Query() query: QualityQueryDto) {
+    const to = query.to
+      ? new Date(query.to)
+      : new Date(Date.now() + 86_400_000);
+    const from = query.from
+      ? new Date(query.from)
+      : new Date(to.getTime() - 30 * 86_400_000);
+    return this.quality.report({ from, to });
   }
 
   @Get('sessions/:id')

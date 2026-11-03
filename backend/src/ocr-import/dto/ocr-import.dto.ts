@@ -2,9 +2,11 @@ import {
   ArrayMaxSize,
   IsArray,
   IsIn,
+  IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export const OCR_ENTITIES = ['PETITION', 'INCIDENT', 'CASE'] as const;
 export type OcrEntityName = (typeof OCR_ENTITIES)[number];
@@ -25,6 +27,18 @@ export class StartRereadDto {
   @IsString()
   @MaxLength(64)
   recordId!: string;
+}
+
+export class QualityQueryDto {
+  /** Start of the period (YYYY-MM-DD). Defaults to 30 days before `to`. */
+  @IsOptional()
+  @IsNgayThat()
+  from?: string;
+
+  /** End of the period, exclusive (YYYY-MM-DD). Defaults to tomorrow. */
+  @IsOptional()
+  @IsNgayThat()
+  to?: string;
 }
 
 export class ReorderPagesDto {

@@ -120,6 +120,8 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'sendInternal', subject: 'OcrImport', description: 'Cho phép gửi ảnh scan tới máy chủ LLM nội bộ' },
   { action: 'sendCloud', subject: 'OcrImport', description: 'Cho phép gửi ảnh scan tới LLM đám mây (chuyển dữ liệu ra nước ngoài)' },
 
+  { action: 'read', subject: 'OcrQuality', description: 'Xem thống kê chất lượng và chi phí đọc ảnh scan (chỉ số đếm, không có nội dung)' },
+
   // ── Restore (v0.32.0.0) — khôi phục records đã soft-delete ────────────
   // Gắn duy nhất cho ADMIN qua role-permission mapping (xem grant block below).
   // Missing seed → @RequirePermissions trả 403 cho mọi user kể cả ADMIN.

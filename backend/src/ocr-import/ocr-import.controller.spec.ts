@@ -9,6 +9,7 @@ import { OcrJobQueue } from './jobs/ocr-job-queue';
 import { OcrImportController } from './ocr-import.controller';
 import { OcrIntakeService } from './ocr-intake.service';
 import { OcrRereadService } from './ocr-reread.service';
+import { OcrQualityService } from './quality/ocr-quality.service';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
 
 const signedIn = {
@@ -45,6 +46,7 @@ describe('OcrImportController (HTTP)', () => {
     pageImage: jest.fn(),
   };
   const reread = { start: jest.fn() };
+  const quality = { report: jest.fn() };
   const actor = { id: 'u1' };
 
   beforeAll(async () => {
@@ -55,6 +57,7 @@ describe('OcrImportController (HTTP)', () => {
         { provide: OcrJobQueue, useValue: queue },
         { provide: OcrIntakeService, useValue: intake },
         { provide: OcrRereadService, useValue: reread },
+        { provide: OcrQualityService, useValue: quality },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -78,7 +81,7 @@ describe('OcrImportController (HTTP)', () => {
   });
 
   beforeEach(() => {
-    for (const group of [sessions, queue, intake, reread]) {
+    for (const group of [sessions, queue, intake, reread, quality]) {
       Object.values(group).forEach((fn) => fn.mockReset());
     }
   });
@@ -305,6 +308,31 @@ describe('OcrImportController (HTTP)', () => {
       .send({ entity: 'CASE' })
       .expect(400);
     expect(reread.start).not.toHaveBeenCalled();
+  });
+
+  it('serves the quality statistics for a period, with a default of the last 30 days', async () => {
+    quality.report.mockResolvedValue({ period: {}, fields: [], calls: [] });
+    await request(app.getHttpServer())
+      .get('/ocr/quality?from=2026-10-01&to=2026-11-01')
+      .expect(200);
+    const [period] = quality.report.mock.calls[0] as [{ from: Date; to: Date }];
+    expect(period.from.toISOString().slice(0, 10)).toBe('2026-10-01');
+    expect(period.to.toISOString().slice(0, 10)).toBe('2026-11-01');
+
+    quality.report.mockClear();
+    await request(app.getHttpServer()).get('/ocr/quality').expect(200);
+    const [fallback] = quality.report.mock.calls[0] as [
+      { from: Date; to: Date },
+    ];
+    const days = (fallback.to.getTime() - fallback.from.getTime()) / 86_400_000;
+    expect(Math.round(days)).toBe(30);
+  });
+
+  it('refuses a date that does not exist', async () => {
+    await request(app.getHttpServer())
+      .get('/ocr/quality?from=2026-02-31')
+      .expect(400);
+    expect(quality.report).not.toHaveBeenCalled();
   });
 
   it('cancels a session', async () => {
