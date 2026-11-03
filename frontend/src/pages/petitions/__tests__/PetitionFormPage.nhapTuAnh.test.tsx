@@ -89,12 +89,12 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn();
 });
 
-async function renderCreate() {
+async function renderCreate(state?: unknown) {
   const { PetitionFormPage } = await import('../PetitionFormPage');
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/petitions/new']}>
+      <MemoryRouter initialEntries={[{ pathname: '/petitions/new', state }]}>
         <Routes>
           <Route path="/petitions/new" element={<PetitionFormPage />} />
           <Route path="/petitions" element={<div>list</div>} />
@@ -159,6 +159,42 @@ describe('PetitionFormPage — nhập từ ảnh scan', () => {
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).not.toHaveProperty('ocrPhienId');
     });
+  });
+
+  it('after the scans are cancelled, the save no longer names the cancelled session, but fields from the image still need confirming', async () => {
+    await renderCreate();
+    fireEvent.click(await screen.findByTestId('field-senderIsAnonymous'));
+    await readOneScan();
+    fireEvent.click(screen.getByRole('button', { name: 'Huỷ và xoá ảnh đã tải' }));
+    await waitFor(() => expect(ocr.cancel).toHaveBeenCalledWith('sess-1'));
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'chi tiết' } });
+
+    // the filled sender name is still orange and still blocks
+    fireEvent.click(screen.getByTestId('btn-save-top-main'));
+    await waitFor(() => expect(screen.getByText(/ô lấy từ ảnh chưa xác nhận/)).toBeTruthy());
+
+    fireEvent.click(within(screen.getByTestId('ocr-fill-bar')).getByRole('button', { name: 'Xác nhận' }));
+    fireEvent.click(screen.getByTestId('btn-save-top-main'));
+    await waitFor(() => {
+      const calls = vi.mocked(api.post).mock.calls.filter(([u]) => u === '/petitions');
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).not.toHaveProperty('ocrPhienId');
+    });
+  });
+
+  it('a copied petition keeps the officer-visible values: a reading does not overwrite them', async () => {
+    const { taoFormDonThuMoi } = await import('../PetitionFormPage/types');
+    const clone = {
+      formData: { ...taoFormDonThuMoi(), senderName: 'Người gửi đơn cũ', senderPhone: '' },
+      metaState: {},
+    };
+    await renderCreate({ clonePetition: clone });
+    await readOneScan();
+    expect((screen.getByTestId('field-senderName') as HTMLInputElement).value).toBe('Người gửi đơn cũ');
+    expect((screen.getByTestId('field-senderPhone') as HTMLInputElement).value.replaceAll(' ', '')).toBe('0901234567');
+    // the value that was not overwritten is offered, not forced
+    fireEvent.click(within(screen.getByTestId('ocr-fill-bar')).getByText('Ô đã có nội dung, giữ nguyên'));
+    expect(within(screen.getByTestId('ocr-fill-bar')).getByRole('button', { name: 'Dùng giá trị từ ảnh' })).toBeTruthy();
   });
 
   it('undo takes the filled values out again', async () => {

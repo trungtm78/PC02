@@ -140,6 +140,20 @@ describe('useOcrFill', () => {
     expect(result.current.form.a).toBe('gõ tay');
   });
 
+  it('unbind drops the link to the scans but keeps the fill tracked: values from the image still need confirming', () => {
+    const { result } = setup();
+    act(() =>
+      result.current.ocr.applyAnalysis(
+        's',
+        analysis(fill('a', '1', { policy: 'AI_FILL_MUST_CONFIRM' })),
+      ),
+    );
+    act(() => result.current.ocr.unbind());
+    expect(result.current.ocr.bindingForSave()).toEqual({});
+    expect(result.current.ocr.blocksSave).toBe(true);
+    expect(result.current.ocr.applied).toHaveLength(1);
+  });
+
   it('forget drops the link to the session, for a form the officer cleared', () => {
     const { result } = setup();
     act(() => result.current.ocr.applyAnalysis('s', analysis(fill('a', '1'))));

@@ -114,6 +114,9 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
     return { undone: result.undone, conflicts: result.conflicts };
   }, [access, setForm, formRef, appliedRef]);
 
+  /** Drops only the link to the scans (they were deleted): what was filled stays tracked and still needs confirming. */
+  const unbind = useCallback(() => setBinding(null), []);
+
   /** Drops the link to the scans (the form was cleared, or the officer chose not to attach them). */
   const forget = useCallback(() => {
     setApplied([]);
@@ -144,6 +147,7 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
     confirm,
     takeSkippedValue,
     undo,
+    unbind,
     forget,
     bindingForSave,
   };

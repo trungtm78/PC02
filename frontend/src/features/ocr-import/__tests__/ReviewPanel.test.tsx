@@ -55,6 +55,33 @@ describe('ReviewPanel', () => {
     expect(onReanalyse).toHaveBeenCalled();
   });
 
+  it('texts that arrive after the officer already switched page do not land on the wrong page', async () => {
+    let arrive: (v: unknown) => void = () => undefined;
+    api.transcripts.mockReset();
+    api.transcripts.mockImplementation(() => new Promise((resolve) => (arrive = resolve)));
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'Trang 2' }));
+    arrive({
+      p1: { text: 'văn bản trang một', revision: 1, source: 'MODEL' },
+      p2: { text: 'văn bản trang hai', revision: 1, source: 'MODEL' },
+    });
+    await waitFor(() =>
+      expect((screen.getByLabelText('Bản chép') as HTMLTextAreaElement).value).toBe('văn bản trang hai'),
+    );
+    fireEvent.change(screen.getByLabelText('Bản chép'), { target: { value: 'trang hai đã sửa' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu bản sửa' }));
+    await waitFor(() => expect(api.saveTranscript).toHaveBeenCalledWith('s1', 'p2', 'trang hai đã sửa'));
+  });
+
+  it('keeps what the officer typed on a page when they look at another page and come back', async () => {
+    show();
+    const box = await screen.findByLabelText('Bản chép');
+    fireEvent.change(box, { target: { value: 'đang gõ dở' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Trang 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trang 1' }));
+    expect((screen.getByLabelText('Bản chép') as HTMLTextAreaElement).value).toBe('đang gõ dở');
+  });
+
   it('does not offer to analyse again until something was corrected', async () => {
     show();
     await screen.findByLabelText('Bản chép');

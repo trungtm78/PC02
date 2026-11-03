@@ -162,6 +162,76 @@ describe('useOcrIntake', () => {
     expect(api.openSession).toHaveBeenCalledTimes(2);
   });
 
+  it('files chosen while the session is still being opened all go into the same session', async () => {
+    let release: (v: unknown) => void = () => undefined;
+    api.openSession.mockReset();
+    api.openSession.mockImplementation(
+      () => new Promise((resolve) => (release = resolve)),
+    );
+    const { result } = setup();
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => {
+      first = result.current.addFiles([file('a')]);
+      second = result.current.addFiles([file('b')]);
+    });
+    release({ id: 's1', entity: 'PETITION' });
+    await act(async () => {
+      await Promise.all([first, second]);
+    });
+    expect(api.openSession).toHaveBeenCalledTimes(1);
+    expect(api.uploadPage.mock.calls.map((c) => c[0])).toEqual(['s1', 's1']);
+  });
+
+  it('an upload that finishes after cancel is dropped: it does not join the next bundle', async () => {
+    let finish: (v: unknown) => void = () => undefined;
+    api.uploadPage.mockReset();
+    api.uploadPage.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    api.cancel.mockResolvedValue(undefined);
+    const { result } = setup();
+    let pending: Promise<void> = Promise.resolve();
+    act(() => {
+      pending = result.current.addFiles([file('old')]);
+    });
+    await waitFor(() => expect(api.uploadPage).toHaveBeenCalled());
+    await act(() => result.current.cancel());
+    finish({ page: page('late'), pageSetRevision: 1 });
+    await act(async () => {
+      await pending;
+    });
+    expect(result.current.pages).toEqual([]);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('a reading that ends after reset does not hand its analysis to the form', async () => {
+    const onAnalysis = vi.fn();
+    api.read.mockResolvedValue({ id: 'j1', deduplicated: false });
+    api.job.mockResolvedValue(job('SUCCEEDED'));
+    api.analysis.mockResolvedValue(analysis());
+    const { result } = setup(onAnalysis);
+    await act(() => result.current.addFiles([file('a')]));
+    act(() => {
+      void result.current.read('READ');
+    });
+    act(() => result.current.reset());
+    await new Promise((r) => setTimeout(r, 40));
+    expect(onAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('tells the screen when the session ends, by cancel or by reset', async () => {
+    const onEnded = vi.fn();
+    api.cancel.mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useOcrIntake({ entity: 'PETITION', onAnalysis: vi.fn(), pollMs: 5, onSessionEnded: onEnded }),
+    );
+    await act(() => result.current.addFiles([file('a')]));
+    await act(() => result.current.cancel());
+    expect(onEnded).toHaveBeenCalledTimes(1);
+    await act(() => result.current.addFiles([file('b')]));
+    act(() => result.current.reset());
+    expect(onEnded).toHaveBeenCalledTimes(2);
+  });
+
   it('cancelling deletes the session on the server and starts over', async () => {
     api.cancel.mockResolvedValue(undefined);
     const { result } = setup();

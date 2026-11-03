@@ -41,13 +41,20 @@ export interface UseOcrIntakeArgs {
   onAnalysis: (sessionId: string, analysis: OcrAnalysisView) => void;
   /** How often a running job is asked about. Tests make it short. */
   pollMs?: number;
+  /** Called when the session is cancelled or forgotten, so the form can drop its link to the scans. */
+  onSessionEnded?: () => void;
 }
 
 /**
  * The drawer's whole conversation with the server: one session for the bundle of scans, one upload per file, a
  * reading that is polled until it ends, and the analysis handed to the form. Nothing here touches the form itself.
  */
-export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntakeArgs) {
+export function useOcrIntake({
+  entity,
+  onAnalysis,
+  pollMs = 2000,
+  onSessionEnded,
+}: UseOcrIntakeArgs) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pages, setPages] = useState<IntakePage[]>([]);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
@@ -57,6 +64,9 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
   const [uploading, setUploading] = useState(false);
 
   const sessionRef = useRef<string | null>(null);
+  /** The one request that opens the session, shared by every file chosen while it is still pending. */
+  const openingRef = useRef<Promise<string> | null>(null);
+  const onEndedRef = useLatest(onSessionEnded);
   const pagesRef = useLatest(pages);
   const onAnalysisRef = useLatest(onAnalysis);
   /** Bumped by cancel/unmount so a poll still in flight stops quietly. */
@@ -72,25 +82,38 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
     [],
   );
 
-  const ensureSession = useCallback(async (): Promise<string> => {
-    if (sessionRef.current) return sessionRef.current;
-    const session = await ocrApi.openSession(entity);
-    sessionRef.current = session.id;
-    setSessionId(session.id);
-    return session.id;
+  const ensureSession = useCallback((): Promise<string> => {
+    if (sessionRef.current) return Promise.resolve(sessionRef.current);
+    if (openingRef.current) return openingRef.current;
+    const opening = ocrApi
+      .openSession(entity)
+      .then((session) => {
+        sessionRef.current = session.id;
+        setSessionId(session.id);
+        return session.id;
+      })
+      .finally(() => {
+        openingRef.current = null;
+      });
+    openingRef.current = opening;
+    return opening;
   }, [entity]);
 
   const addFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
+      const epoch = epochRef.current;
       setUploading(true);
       setUploadErrors([]);
       const failed: UploadError[] = [];
       try {
         const id = await ensureSession();
         for (const file of files) {
+          if (epochRef.current !== epoch) return;
           try {
             const { page } = await ocrApi.uploadPage(id, file);
+            // Cancelled, reset or left while the upload was in flight: the page belongs to a session that is gone.
+            if (epochRef.current !== epoch) return;
             const added: IntakePage = {
               ...page,
               fileName: file.name,
@@ -104,8 +127,10 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
       } catch (error) {
         failed.push({ name: files[0].name, code: errorCodeOf(error) });
       } finally {
-        setUploadErrors(failed);
-        setUploading(false);
+        if (epochRef.current === epoch) {
+          setUploadErrors(failed);
+          setUploading(false);
+        }
       }
     },
     [ensureSession],
@@ -183,12 +208,15 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
       if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
     }
     sessionRef.current = null;
+    openingRef.current = null;
     setSessionId(null);
     setPages([]);
     setAnalysis(null);
     setUploadErrors([]);
+    setUploading(false);
     setErrorCode(null);
     setPhase('IDLE');
+    onEndedRef.current?.();
     if (id) await ocrApi.cancel(id).catch(() => undefined);
   }, []);
 
@@ -199,13 +227,16 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
       if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
     }
     sessionRef.current = null;
+    openingRef.current = null;
     setSessionId(null);
     setPages([]);
     setAnalysis(null);
     setUploadErrors([]);
+    setUploading(false);
     setErrorCode(null);
     setPhase('IDLE');
-  }, []);
+    onEndedRef.current?.();
+  }, [onEndedRef]);
 
   return {
     sessionId,

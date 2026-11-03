@@ -276,7 +276,13 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   // The form as a fresh create screen starts, defaults included: what "the officer has not touched" is measured against.
   const [ocrBaseline, setOcrBaseline] = useState<FormData | undefined>(undefined);
   useEffect(() => {
-    if (isEditMode || cloneInput || !defaults.isLoaded) return;
+    // A copied petition starts from a blank form plus the copied values, which are the officer's: they are not
+    // defaults, so the baseline is the blank form.
+    if (cloneInput) {
+      setOcrBaseline(taoFormDonThuMoi());
+      return;
+    }
+    if (isEditMode || !defaults.isLoaded) return;
     setOcrBaseline({
       ...taoFormDonThuMoi(),
       receivedDate: defaults.today,
@@ -293,7 +299,14 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   });
   const ocrIntake = useOcrIntake({
     entity: "PETITION",
-    onAnalysis: (sessionId, analysis) => ocrFill.applyAnalysis(sessionId, analysis),
+    // Once the petition is saved (even if a file upload then failed and the page stays open) a late analysis must not
+    // fill it: the confirmation guard and the scan binding only exist for the create request.
+    onAnalysis: (sessionId, analysis) => {
+      if (effectiveEdit) return;
+      ocrFill.applyAnalysis(sessionId, analysis);
+    },
+    // The scans were deleted: save without them. What was already filled still needs confirming.
+    onSessionEnded: () => ocrFill.unbind(),
   });
   const [ocrDrawerOpen, setOcrDrawerOpen] = useState(false);
   const [ocrUndoConflicts, setOcrUndoConflicts] = useState<string[]>([]);
@@ -501,7 +514,7 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
     // Ô lấy từ ảnh mà hệ thống không chắc phải được cán bộ xác nhận trước khi lưu. Danh sách các ô nằm ở thanh trên cùng.
-    if (!effectiveEdit && ocrFill.blocksSave) {
+    if (ocrFill.blocksSave) {
       setErrors([ocrImport.saveBlocked(ocrFill.unconfirmed.length)]);
       setTimeout(() => document.querySelector('[data-testid="ocr-fill-bar"]')?.scrollIntoView?.({ behavior: "smooth", block: "center" }), 0);
       return { ok: false, id: null };
@@ -545,7 +558,8 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
         // PR2: chuyển sang "effective edit" để lưu lần kế = PUT (không tạo đơn trùng).
         if (savedId) setCreatedId(savedId);
         // The scans now belong to the saved record; this screen must not offer them again.
-        if (ocrFill.bindingForSave().ocrPhienId) { ocrFill.forget(); ocrIntake.reset(); }
+        ocrIntake.reset();
+        if (ocrFill.bindingForSave().ocrPhienId) ocrFill.forget();
         // Nạp lại giá trị do backend cấp để form khỏi lệch: SỐ TIẾP NHẬN THẬT (khác preview draft) và HẠN
         // giải quyết vừa tính — thiếu hạn thì lần lưu kế (PUT) gửi null và xoá nó (xem `ketQuaTao.ts`).
         const napLai = phanNapLaiSauKhiTao(data);
