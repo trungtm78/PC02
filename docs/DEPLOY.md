@@ -203,6 +203,7 @@ Tính năng này thêm phụ thuộc và biến môi trường; không có chún
 - **`LLM_KEY_ENCRYPTION_KEY`** (64 ký tự hex) và `LLM_KEY_VERSION`: khoá mã hoá API key của nhà cung cấp LLM. Thiếu khoá thì màn `/admin/cau-hinh-llm` báo "chưa cấu hình" và không lưu được khoá. Xoay khoá: `docs/KEY-ROTATION.md` mục 6.
 - **`OCR_UPLOAD_DIR`**: thư mục lưu ảnh gốc và bản gửi nhà cung cấp (mặc định `uploads/ocr` trong thư mục chạy). Phải nằm ngoài `releases/<sha>` để không mất khi deploy, như `uploads/` hiện có (symlink từ `/home/pc02/shared/`).
 - **`OCR_MAX_PARALLEL`** (mặc định 4): số lượt đọc chạy cùng lúc trên một máy chủ. `OCR_RUNNER=off` tắt bộ chạy nền ở một tiến trình.
+- **PDF**: tệp PDF được tách trang trong một luồng riêng (`pdf-worker.js`, được build chép sang `dist/src/ocr-import/pdf/`). Sau build kiểm `ls dist/src/ocr-import/pdf/pdf-worker.js`; thiếu tệp này thì mọi PDF báo "quá phức tạp". Phụ thuộc `pdf-lib` (JS thuần, không cần gói hệ thống). Máy chủ LLM nội bộ chưa đọc được PDF (chỉ ảnh).
 - Bật tính năng: cờ `ocr_import` (bảng `feature_flags`), cấp `use:OcrImport` cho vai trò dùng, `sendInternal`/`sendCloud` theo đích. **Cloud chỉ chạy khi đã lưu hồ sơ đánh giá tác động chuyển dữ liệu ra nước ngoài** (màn cấu hình LLM).
 
 ## Dựng máy chủ MỚI — cơ sở dữ liệu trống
