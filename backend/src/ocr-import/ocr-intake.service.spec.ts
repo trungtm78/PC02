@@ -1,0 +1,245 @@
+import { HttpStatus } from '@nestjs/common';
+import { OcrImportError } from './ocr-import-error';
+import { OcrIntakeService } from './ocr-intake.service';
+
+const user = { id: 'u1', email: 'u@x', role: 'OFFICER', roleId: 'role-1' };
+
+const codeOf = async (promise: Promise<unknown>) => {
+  try {
+    await promise;
+    return null;
+  } catch (error) {
+    return (
+      (error as { getResponse?: () => { code?: string } }).getResponse?.()
+        .code ?? 'unknown'
+    );
+  }
+};
+
+function setup(
+  options: {
+    granted?: Array<[string, string]>;
+    destinations?: { cloud: boolean; internal: boolean };
+  } = {},
+) {
+  const granted = options.granted ?? [];
+  const prisma = {
+    rolePermission: {
+      count: jest.fn(
+        ({
+          where,
+        }: {
+          where: { permission: { action: string; subject: string } };
+        }) =>
+          Promise.resolve(
+            granted.some(
+              ([a, s]) =>
+                a === where.permission.action && s === where.permission.subject,
+            )
+              ? 1
+              : 0,
+          ),
+      ),
+    },
+    ocrPage: {
+      count: jest.fn(() => Promise.resolve(0)),
+      findUnique: jest.fn(),
+    },
+  };
+  const sessions = {
+    createSession: jest.fn((entity: string) =>
+      Promise.resolve({ id: 's1', entity }),
+    ),
+    getSession: jest.fn(() => Promise.resolve({ id: 's1', status: 'OPEN' })),
+    addPage: jest.fn(),
+    listPages: jest.fn(),
+  };
+  const storage = {
+    saveOriginal: jest.fn(),
+    deleteFiles: jest.fn(() => Promise.resolve(1)),
+    read: jest.fn(),
+  };
+  const queue = {
+    enqueue: jest.fn(() => Promise.resolve({ id: 'j1', deduplicated: false })),
+  };
+  const providers = {
+    activeDestinations: jest.fn(() =>
+      Promise.resolve(options.destinations ?? { cloud: false, internal: true }),
+    ),
+  };
+  const service = new OcrIntakeService(
+    prisma as never,
+    sessions as never,
+    storage as never,
+    queue as never,
+    providers as never,
+  );
+  return { service, prisma, sessions, storage, queue, providers };
+}
+
+describe('OcrIntakeService', () => {
+  describe('opening a session', () => {
+    it('needs write permission on the kind of record being created', async () => {
+      const { service, sessions } = setup({ granted: [['write', 'Incident']] });
+      expect(await codeOf(service.openSession('PETITION', user))).toBe(
+        'OCR_FORBIDDEN',
+      );
+      expect(sessions.createSession).not.toHaveBeenCalled();
+      await service.openSession('INCIDENT', user);
+      expect(sessions.createSession).toHaveBeenCalledWith('INCIDENT', {
+        id: 'u1',
+      });
+    });
+
+    it('maps each kind of record to its own subject', async () => {
+      for (const [entity, subject] of [
+        ['PETITION', 'Petition'],
+        ['INCIDENT', 'Incident'],
+        ['CASE', 'Case'],
+      ] as const) {
+        const { service, sessions } = setup({ granted: [['write', subject]] });
+        await service.openSession(entity, user);
+        expect(sessions.createSession).toHaveBeenCalledTimes(1);
+      }
+    });
+  });
+
+  describe('uploading a page', () => {
+    const stored = {
+      sha256: 'a'.repeat(64),
+      mimeType: 'image/jpeg',
+      sizeBytes: 3,
+      originalPath: 's1/a.jpg',
+    };
+
+    it('stores the original, then records the page', async () => {
+      const { service, sessions, storage } = setup();
+      storage.saveOriginal.mockResolvedValue(stored);
+      sessions.addPage.mockResolvedValue({
+        page: { id: 'p1' },
+        pageSetRevision: 1,
+      });
+      const result = await service.uploadPage('s1', Buffer.from('abc'), user);
+      expect(storage.saveOriginal).toHaveBeenCalledWith(
+        's1',
+        Buffer.from('abc'),
+      );
+      expect(sessions.addPage).toHaveBeenCalledWith('s1', stored, { id: 'u1' });
+      expect(result).toEqual({ page: { id: 'p1' }, pageSetRevision: 1 });
+    });
+
+    it('removes the file again when the page could not be added and nothing else uses it', async () => {
+      const { service, sessions, storage } = setup();
+      storage.saveOriginal.mockResolvedValue(stored);
+      sessions.addPage.mockRejectedValue(
+        new OcrImportError('OCR_TOO_MANY_PAGES', HttpStatus.CONFLICT),
+      );
+      expect(
+        await codeOf(service.uploadPage('s1', Buffer.from('abc'), user)),
+      ).toBe('OCR_TOO_MANY_PAGES');
+      expect(storage.deleteFiles).toHaveBeenCalledWith(['s1/a.jpg']);
+    });
+
+    it('keeps the file when a page row (live or removed) still points at it', async () => {
+      const { service, sessions, storage, prisma } = setup();
+      storage.saveOriginal.mockResolvedValue(stored);
+      prisma.ocrPage.count.mockResolvedValue(1);
+      sessions.addPage.mockRejectedValue(
+        new OcrImportError('OCR_PAGE_DUPLICATE', HttpStatus.CONFLICT),
+      );
+      expect(
+        await codeOf(service.uploadPage('s1', Buffer.from('abc'), user)),
+      ).toBe('OCR_PAGE_DUPLICATE');
+      expect(storage.deleteFiles).not.toHaveBeenCalled();
+    });
+
+    it("does not even store the file when the session is not the caller's", async () => {
+      const { service, sessions, storage } = setup();
+      sessions.getSession.mockRejectedValue(
+        new OcrImportError('OCR_SESSION_NOT_FOUND', HttpStatus.NOT_FOUND),
+      );
+      expect(
+        await codeOf(service.uploadPage('s1', Buffer.from('abc'), user)),
+      ).toBe('OCR_SESSION_NOT_FOUND');
+      expect(storage.saveOriginal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requesting a reading', () => {
+    it('needs the send permission of every kind of provider the scans may go to', async () => {
+      const cloudOnly = setup({
+        destinations: { cloud: true, internal: false },
+      });
+      expect(
+        await codeOf(cloudOnly.service.requestRead('s1', 'READ', user)),
+      ).toBe('OCR_FORBIDDEN');
+      const internalOnly = setup({
+        destinations: { cloud: false, internal: true },
+      });
+      expect(
+        await codeOf(internalOnly.service.requestRead('s1', 'READ', user)),
+      ).toBe('OCR_FORBIDDEN');
+
+      // A fail-over to the other kind would send the scans there too, so both are needed.
+      const both = setup({
+        destinations: { cloud: true, internal: true },
+        granted: [['sendCloud', 'OcrImport']],
+      });
+      expect(await codeOf(both.service.requestRead('s1', 'READ', user))).toBe(
+        'OCR_FORBIDDEN',
+      );
+      expect(both.queue.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('queues the work when the user may send to every active destination', async () => {
+      const { service, queue } = setup({
+        destinations: { cloud: true, internal: true },
+        granted: [
+          ['sendCloud', 'OcrImport'],
+          ['sendInternal', 'OcrImport'],
+        ],
+      });
+      expect(await service.requestRead('s1', 'ANALYSE', user)).toEqual({
+        id: 'j1',
+        deduplicated: false,
+      });
+      expect(queue.enqueue).toHaveBeenCalledWith('s1', 'ANALYSE', { id: 'u1' });
+    });
+
+    it('reports that no provider is usable instead of queueing work that cannot run', async () => {
+      const { service, queue } = setup({
+        destinations: { cloud: false, internal: false },
+      });
+      expect(await codeOf(service.requestRead('s1', 'READ', user))).toBe(
+        'LLM_NO_PROVIDER',
+      );
+      expect(queue.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('viewing a page image', () => {
+    it("serves the original of a page of the caller's own session", async () => {
+      const { service, sessions, storage, prisma } = setup();
+      sessions.listPages.mockResolvedValue([{ id: 'p1' }]);
+      prisma.ocrPage.findUnique.mockResolvedValue({
+        id: 'p1',
+        originalPath: 's1/a.jpg',
+        mimeType: 'image/jpeg',
+      });
+      storage.read.mockResolvedValue(Buffer.from('bytes'));
+      expect(await service.pageImage('s1', 'p1', user)).toEqual({
+        bytes: Buffer.from('bytes'),
+        mimeType: 'image/jpeg',
+      });
+    });
+
+    it('refuses a page that is not in the session', async () => {
+      const { service, sessions, storage } = setup();
+      sessions.listPages.mockResolvedValue([{ id: 'other' }]);
+      expect(await codeOf(service.pageImage('s1', 'p1', user))).toBe(
+        'OCR_PAGE_NOT_FOUND',
+      );
+      expect(storage.read).not.toHaveBeenCalled();
+    });
+  });
+});

@@ -1,0 +1,112 @@
+import { HttpStatus, Injectable } from '@nestjs/common';
+import type { OcrEntity, OcrJobKind } from '@prisma/client';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { LlmAdminError } from '../llm/llm-admin-error';
+import { LlmProvidersService } from '../llm/llm-providers.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { OcrJobQueue, type EnqueuedJob } from './jobs/ocr-job-queue';
+import { OcrImportError } from './ocr-import-error';
+import { OcrSessionsService } from './sessions/ocr-sessions.service';
+import { ImageStorageService } from './storage/image-storage.service';
+
+/** The subject whose `write` permission lets a user create each kind of record. */
+const WRITE_SUBJECT: Readonly<Record<OcrEntity, string>> = {
+  PETITION: 'Petition',
+  INCIDENT: 'Incident',
+  CASE: 'Case',
+};
+
+/**
+ * What a signed-in user may do with a scan-intake session, on top of the session's own owner check.
+ *
+ * Reading a record is not the same as sending it abroad: filling a form from scans needs permission to write that kind
+ * of record, and asking for a reading needs the "send" permission of every kind of provider the scans may go to.
+ */
+@Injectable()
+export class OcrIntakeService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessions: OcrSessionsService,
+    private readonly storage: ImageStorageService,
+    private readonly queue: OcrJobQueue,
+    private readonly providers: LlmProvidersService,
+  ) {}
+
+  async openSession(entity: OcrEntity, user: AuthUser) {
+    await this.require(user, 'write', WRITE_SUBJECT[entity]);
+    return this.sessions.createSession(entity, { id: user.id });
+  }
+
+  /** Stores one uploaded scan as it came, then adds it to the session as the last page. */
+  async uploadPage(sessionId: string, bytes: Buffer, user: AuthUser) {
+    const actor = { id: user.id };
+    // Ownership and openness first, so a stranger's session never gets a file written into it.
+    const session = await this.sessions.getSession(sessionId, actor);
+    if (session.status !== 'OPEN') {
+      throw new OcrImportError('OCR_SESSION_CLOSED', HttpStatus.CONFLICT);
+    }
+    const stored = await this.storage.saveOriginal(sessionId, bytes);
+    try {
+      return await this.sessions.addPage(sessionId, stored, actor);
+    } catch (error) {
+      // The file was written before the page was refused. Remove it unless a page row (even a removed one, which
+      // still counts as history) points at the same file.
+      const stillUsed = await this.prisma.ocrPage.count({
+        where: { sessionId, originalPath: stored.originalPath },
+      });
+      if (stillUsed === 0)
+        await this.storage.deleteFiles([stored.originalPath]);
+      throw error;
+    }
+  }
+
+  /** Queues a reading ('READ': scans then analysis) or a re-analysis of the stored text ('ANALYSE'). */
+  async requestRead(
+    sessionId: string,
+    kind: OcrJobKind,
+    user: AuthUser,
+  ): Promise<EnqueuedJob> {
+    const destinations = await this.providers.activeDestinations();
+    if (!destinations.cloud && !destinations.internal) {
+      throw new LlmAdminError(
+        'LLM_NO_PROVIDER',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+    // A fail-over sends the same content to the next provider, so every active kind needs permission.
+    if (destinations.internal)
+      await this.require(user, 'sendInternal', 'OcrImport');
+    if (destinations.cloud) await this.require(user, 'sendCloud', 'OcrImport');
+    return this.queue.enqueue(sessionId, kind, { id: user.id });
+  }
+
+  /** The original of one page, for the side-by-side view. Only a page of the caller's own session. */
+  async pageImage(sessionId: string, pageId: string, user: AuthUser) {
+    const pages = await this.sessions.listPages(sessionId, { id: user.id });
+    if (!pages.some((page) => page.id === pageId)) {
+      throw new OcrImportError('OCR_PAGE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    const page = await this.prisma.ocrPage.findUnique({
+      where: { id: pageId },
+    });
+    if (!page) {
+      throw new OcrImportError('OCR_PAGE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    return {
+      bytes: await this.storage.read(page.originalPath),
+      mimeType: page.mimeType,
+    };
+  }
+
+  private async require(user: AuthUser, action: string, subject: string) {
+    const granted = await this.prisma.rolePermission.count({
+      where: { roleId: user.roleId, permission: { action, subject } },
+    });
+    if (granted === 0) {
+      throw new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN, {
+        action,
+        subject,
+      });
+    }
+  }
+}

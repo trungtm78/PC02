@@ -15,6 +15,7 @@ import {
 import { LlmProviderFactory } from './provider-factory';
 import {
   CLOUD_KINDS,
+  isCloudKind,
   normalizeBaseUrl,
   providerFingerprint,
   roleBlocker,
@@ -482,29 +483,8 @@ export class LlmProvidersService {
 
   /** Like `buildChain`, with what the gateway needs to write lineage and price each call. */
   async buildChainEntries(): Promise<ChainEntry[]> {
-    const assessmentActive = (await this.activeAssessment()) !== null;
-    const rows = await this.prisma.llmProvider.findMany({
-      where: { archivedAt: null, role: { in: ['PRIMARY', 'FALLBACK'] } },
-    });
-    rows.sort(
-      (a, b) =>
-        Number(b.role === 'PRIMARY') - Number(a.role === 'PRIMARY') ||
-        (a.fallbackOrder ?? Number.MAX_SAFE_INTEGER) -
-          (b.fallbackOrder ?? Number.MAX_SAFE_INTEGER) ||
-        a.createdAt.getTime() - b.createdAt.getTime(),
-    );
-
     const chain: ChainEntry[] = [];
-    for (const row of rows) {
-      const fingerprint = this.currentFingerprint(row);
-      const blocker = roleBlocker({
-        kind: row.kind,
-        testedFingerprint: row.testedFingerprint,
-        currentFingerprint: fingerprint ?? '',
-        transferAssessmentActive: assessmentActive,
-        archived: false,
-      });
-      if (blocker || fingerprint === null) continue;
+    for (const row of await this.eligibleRows()) {
       chain.push({
         id: row.id,
         dataRegion: row.dataRegion,
@@ -521,6 +501,44 @@ export class LlmProvidersService {
       });
     }
     return chain;
+  }
+
+  /**
+   * Where a scan would go if a reading were requested now: to a cloud provider (outside the country), to a
+   * self-hosted one, or nowhere. Decides which "send" permission a user needs; builds no client and decrypts no key.
+   */
+  async activeDestinations(): Promise<{ cloud: boolean; internal: boolean }> {
+    const rows = await this.eligibleRows();
+    return {
+      cloud: rows.some((row) => isCloudKind(row.kind)),
+      internal: rows.some((row) => !isCloudKind(row.kind)),
+    };
+  }
+
+  /** PRIMARY then FALLBACKs, minus every provider a call must not use right now. */
+  private async eligibleRows() {
+    const assessmentActive = (await this.activeAssessment()) !== null;
+    const rows = await this.prisma.llmProvider.findMany({
+      where: { archivedAt: null, role: { in: ['PRIMARY', 'FALLBACK'] } },
+    });
+    rows.sort(
+      (a, b) =>
+        Number(b.role === 'PRIMARY') - Number(a.role === 'PRIMARY') ||
+        (a.fallbackOrder ?? Number.MAX_SAFE_INTEGER) -
+          (b.fallbackOrder ?? Number.MAX_SAFE_INTEGER) ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+    return rows.filter((row) => {
+      const fingerprint = this.currentFingerprint(row);
+      const blocker = roleBlocker({
+        kind: row.kind,
+        testedFingerprint: row.testedFingerprint,
+        currentFingerprint: fingerprint ?? '',
+        transferAssessmentActive: assessmentActive,
+        archived: false,
+      });
+      return !blocker && fingerprint !== null;
+    });
   }
 
   // ---------------------------------------------------------------------------------------------------------------

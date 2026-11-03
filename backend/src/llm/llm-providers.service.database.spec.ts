@@ -357,6 +357,30 @@ run('LlmProvidersService on PostgreSQL', () => {
     expect(await service.buildChain()).toEqual([]);
   });
 
+  it('activeDestinations tells whether scans would leave for a cloud provider, without building any client', async () => {
+    expect(await service.activeDestinations()).toEqual({
+      cloud: false,
+      internal: false,
+    });
+    await assessment();
+    const created = await service.create(
+      input({ label: `${tag}-dest` }),
+      ACTOR,
+    );
+    await service.test(created.id, ACTOR);
+    await service.setRole(created.id, { role: 'PRIMARY' }, ACTOR);
+
+    expect(await service.activeDestinations()).toEqual({
+      cloud: true,
+      internal: false,
+    });
+    await service.withdrawAssessment(ACTOR);
+    expect(await service.activeDestinations()).toEqual({
+      cloud: false,
+      internal: false,
+    });
+  });
+
   it('lists the models of unsaved values, and of a saved provider, without exposing the key', async () => {
     const draft = await service.listModelsDraft({
       kind: 'ANTHROPIC',

@@ -138,7 +138,7 @@ run('LlmGatewayService on PostgreSQL', () => {
       },
     });
 
-  beforeAll(async () => {
+  beforeAll(() => {
     const parsed = new URL(url!);
     if (
       parsed.hostname !== '127.0.0.1' ||
