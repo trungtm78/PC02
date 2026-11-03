@@ -31,6 +31,37 @@ describe('GlobalExceptionFilter', () => {
     } as unknown as ArgumentsHost;
   });
 
+  it('forwards the details array of a domain exception to error.details, next to its stable code', () => {
+    const exception = new HttpException(
+      {
+        code: 'LLM_ROLE_BLOCKED',
+        details: [{ reason: 'NOT_TESTED' }],
+      },
+      HttpStatus.CONFLICT,
+    );
+
+    filter.catch(exception, mockHost);
+
+    const body = mockJson.mock.calls[0][0] as {
+      code: string;
+      error: { code: string; details: unknown[] };
+    };
+    expect(body.code).toBe('LLM_ROLE_BLOCKED');
+    expect(body.error.code).toBe('LLM_ROLE_BLOCKED');
+    expect(body.error.details).toEqual([{ reason: 'NOT_TESTED' }]);
+  });
+
+  it('still ignores a `details` that is not an array, and keeps validation messages as details', () => {
+    filter.catch(
+      new HttpException({ code: 'X_Y', details: 'oops' }, HttpStatus.CONFLICT),
+      mockHost,
+    );
+    expect(
+      (mockJson.mock.calls[0][0] as { error: { details: unknown[] } }).error
+        .details,
+    ).toEqual([]);
+  });
+
   it('should format HttpException with correct status and message', () => {
     const exception = new NotFoundException('User not found');
 

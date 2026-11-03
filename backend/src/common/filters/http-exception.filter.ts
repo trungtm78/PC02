@@ -49,6 +49,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           candidateIds = res.candidateIds;
         }
 
+        // A domain exception may carry structured, non-sensitive details (which rule blocked, which limit) for the
+        // client to translate. Only an array is forwarded: it lands in the envelope slot made for it.
+        if (Array.isArray(res.details)) details = res.details;
+
         // Preserve validation error details from ValidationPipe
         if (Array.isArray(res.message)) {
           details = res.message;

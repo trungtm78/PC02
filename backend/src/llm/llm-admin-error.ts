@@ -24,6 +24,15 @@ export class LlmAdminError extends HttpException {
     status: HttpStatus,
     details: Record<string, unknown> = {},
   ) {
-    super({ code: adminCode, ...details }, status);
+    // `details` is repeated as an array: the global filter forwards it to the client (error.details) so the UI can
+    // show which rule blocked an action; the top-level copy stays for server-side callers and tests.
+    super(
+      {
+        code: adminCode,
+        ...details,
+        ...(Object.keys(details).length > 0 ? { details: [details] } : {}),
+      },
+      status,
+    );
   }
 }
