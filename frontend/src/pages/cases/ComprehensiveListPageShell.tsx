@@ -71,6 +71,7 @@ import {
   TIM_KIEM_VU_AN,
   TIM_KIEM_VU_VIEC,
 } from '@/shared/tim-kiem/generated';
+import { GIA_TRI_CHON_DON_THU } from '@/shared/tim-kiem/gia-tri-chon-don-thu';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 
 type LoaiHoSo = 'CASE' | 'INCIDENT' | 'PETITION';
@@ -112,7 +113,9 @@ const chonTu = <T extends string>(ma: readonly T[], nhan: Record<T, string>) =>
 const GIA_TRI_CHON_THEO_LOAI = {
   CASE: { trangThai: chonTu(Object.values(CaseStatus), CASE_STATUS_LABEL) },
   INCIDENT: { trangThai: chonTu(Object.values(IncidentStatus), INCIDENT_STATUS_LABEL) },
-  PETITION: { trangThai: chonTu(Object.values(PetitionStatus), PETITION_STATUS_LABEL) },
+  // Petition: the shared table (status + handling direction + high-tech flag). It is used with the WHOLE petition
+  // declaration when this type is selected, so a select tag without values here would be offered nowhere.
+  PETITION: GIA_TRI_CHON_DON_THU,
 };
 
 /**

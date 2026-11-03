@@ -13,7 +13,8 @@ describe('petition all-column search', () => {
     expect(sql).toMatch(/COMMIT;\n$/);
     // A full-table UPDATE of ~47k petitions took 312 s on a local copy and held locks through the deploy; the existing
     // rows are loaded in batches by `nap-cot-bong-tim-kiem --that` instead (see the declaration).
-    expect(sql).not.toContain('UPDATE "petitions" SET');
+    // (only a top-level statement: the rename-propagation trigger function legitimately contains an indented UPDATE)
+    expect(sql).not.toMatch(/^UPDATE "petitions" SET/m);
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS "nhan_thay_bd"');
     expect(sql).toContain('CREATE TRIGGER pc02_tim_kiem_petitions');
   });
