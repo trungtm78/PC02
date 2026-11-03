@@ -150,6 +150,18 @@ describe('useOcrIntake', () => {
     expect(api.read).not.toHaveBeenCalled();
   });
 
+  it('reset forgets the session here but leaves the server copy alone (it belongs to a saved record)', async () => {
+    const { result } = setup();
+    await act(() => result.current.addFiles([file('a')]));
+    act(() => result.current.reset());
+    expect(api.cancel).not.toHaveBeenCalled();
+    expect(result.current.sessionId).toBeNull();
+    expect(result.current.pages).toEqual([]);
+    // a new bundle opens a new session
+    await act(() => result.current.addFiles([file('b')]));
+    expect(api.openSession).toHaveBeenCalledTimes(2);
+  });
+
   it('cancelling deletes the session on the server and starts over', async () => {
     api.cancel.mockResolvedValue(undefined);
     const { result } = setup();

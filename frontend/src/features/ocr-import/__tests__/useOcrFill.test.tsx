@@ -122,6 +122,24 @@ describe('useOcrFill', () => {
     expect(result.current.form.b).toBe('cán bộ');
   });
 
+  it('lets the officer take the value from the image for a field they had typed in', () => {
+    const { result } = setup();
+    act(() => result.current.setForm((f) => ({ ...f, a: 'gõ tay' })));
+    act(() => result.current.ocr.applyAnalysis('s', analysis(fill('a', 'từ ảnh'))));
+    expect(result.current.ocr.skipped.map((x) => x.field)).toEqual(['a']);
+
+    act(() => result.current.ocr.takeSkippedValue('a'));
+
+    expect(result.current.form.a).toBe('từ ảnh');
+    expect(result.current.ocr.skipped).toEqual([]);
+    expect(result.current.ocr.applied.map((p) => p.field)).toEqual(['a']);
+    // and undo gives back what the officer had typed
+    act(() => {
+      result.current.ocr.undo();
+    });
+    expect(result.current.form.a).toBe('gõ tay');
+  });
+
   it('forget drops the link to the session, for a form the officer cleared', () => {
     const { result } = setup();
     act(() => result.current.ocr.applyAnalysis('s', analysis(fill('a', '1'))));

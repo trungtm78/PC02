@@ -6,6 +6,7 @@ import {
   type OcrPageView,
   type ReadMode,
 } from './ocrApi';
+import { useLatest } from './useLatest';
 
 export type IntakePhase = 'IDLE' | 'READING' | 'DONE' | 'ERROR';
 
@@ -56,10 +57,8 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
   const [uploading, setUploading] = useState(false);
 
   const sessionRef = useRef<string | null>(null);
-  const pagesRef = useRef<IntakePage[]>([]);
-  pagesRef.current = pages;
-  const onAnalysisRef = useRef(onAnalysis);
-  onAnalysisRef.current = onAnalysis;
+  const pagesRef = useLatest(pages);
+  const onAnalysisRef = useLatest(onAnalysis);
   /** Bumped by cancel/unmount so a poll still in flight stops quietly. */
   const epochRef = useRef(0);
 
@@ -193,6 +192,21 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
     if (id) await ocrApi.cancel(id).catch(() => undefined);
   }, []);
 
+  /** Forgets the session on this screen without deleting it on the server: it was bound to a saved record. */
+  const reset = useCallback(() => {
+    epochRef.current += 1;
+    for (const p of pagesRef.current) {
+      if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+    }
+    sessionRef.current = null;
+    setSessionId(null);
+    setPages([]);
+    setAnalysis(null);
+    setUploadErrors([]);
+    setErrorCode(null);
+    setPhase('IDLE');
+  }, []);
+
   return {
     sessionId,
     pages,
@@ -206,5 +220,6 @@ export function useOcrIntake({ entity, onAnalysis, pollMs = 2000 }: UseOcrIntake
     removePage,
     read,
     cancel,
+    reset,
   };
 }

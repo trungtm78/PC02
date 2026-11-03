@@ -25,6 +25,7 @@ const baseIntake = (over: Partial<IntakeDrawerProps['intake']> = {}): IntakeDraw
   removePage: vi.fn(() => Promise.resolve()),
   read: vi.fn(() => Promise.resolve()),
   cancel: vi.fn(() => Promise.resolve()),
+  reset: vi.fn(),
   ...over,
 });
 

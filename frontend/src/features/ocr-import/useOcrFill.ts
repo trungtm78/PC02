@@ -8,6 +8,7 @@ import {
   type SkippedFill,
 } from './fillPlan';
 import type { OcrAnalysisView } from './ocrApi';
+import { useLatest } from './useLatest';
 
 interface Binding {
   sessionId: string;
@@ -39,13 +40,11 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
   const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
   const [binding, setBinding] = useState<Binding | null>(null);
 
-  const formRef = useRef(form);
-  formRef.current = form;
+  const formRef = useLatest(form);
   const startRef = useRef(form);
-  const baselineRef = useRef<TForm | undefined>(given);
-  baselineRef.current = given;
-  const appliedRef = useRef<AppliedPatch[]>([]);
-  appliedRef.current = applied;
+  const baselineRef = useLatest(given);
+  const appliedRef = useLatest(applied);
+  const skippedRef = useLatest(skipped);
 
   const applyAnalysis = useCallback(
     (sessionId: string, analysis: OcrAnalysisView) => {
@@ -74,12 +73,37 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
       setConfirmed((prev) => new Set([...prev].filter((f) => !refreshed.has(f))));
       setBinding({ sessionId, analysisId: analysis.id });
     },
-    [access, setForm],
+    [access, setForm, formRef, appliedRef, baselineRef, startRef],
   );
 
   const confirm = useCallback((field: string) => {
     setConfirmed((prev) => new Set(prev).add(field));
   }, []);
+
+  /** Takes the value from the image for a field the officer had already filled in; undo restores what they typed. */
+  const takeSkippedValue = useCallback(
+    (field: string) => {
+      const skippedFill = skippedRef.current.find((s) => s.field === field);
+      if (!skippedFill || skippedFill.reason !== 'TYPED_BY_OFFICER') return;
+      const value = String(skippedFill.value);
+      const current = access.read(formRef.current, field);
+      setForm(access.write(formRef.current, field, value));
+      setApplied((prev) => [
+        ...prev.filter((p) => p.field !== field),
+        {
+          field,
+          before: current,
+          value,
+          orange: skippedFill.fill.policy === 'AI_FILL_MUST_CONFIRM' || skippedFill.fill.warnings.length > 0,
+          provenance: skippedFill.fill.provenance,
+          warnings: skippedFill.fill.warnings,
+        },
+      ]);
+      setSkipped((prev) => prev.filter((s) => s.field !== field));
+      setConfirmed((prev) => new Set([...prev].filter((f) => f !== field)));
+    },
+    [access, setForm, formRef, skippedRef],
+  );
 
   const undo = useCallback((): { undone: string[]; conflicts: string[] } => {
     const result = undoFill(access, formRef.current, appliedRef.current);
@@ -88,7 +112,7 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
     setSkipped([]);
     setConfirmed(new Set());
     return { undone: result.undone, conflicts: result.conflicts };
-  }, [access, setForm]);
+  }, [access, setForm, formRef, appliedRef]);
 
   /** Drops the link to the scans (the form was cleared, or the officer chose not to attach them). */
   const forget = useCallback(() => {
@@ -118,6 +142,7 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
     firstUnconfirmedField: unconfirmed[0]?.field ?? null,
     applyAnalysis,
     confirm,
+    takeSkippedValue,
     undo,
     forget,
     bindingForSave,

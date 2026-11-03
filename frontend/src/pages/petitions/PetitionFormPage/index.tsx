@@ -17,7 +17,16 @@ import { LegacyParityFields } from "@/components/LegacyParityFields";
 import {
   KHOA_NHANH_PHU,
   PETITION_LEGACY_SPEC,
+  type PetitionFieldPath,
 } from "@/features/petitions/legacy-form-binding";
+import { FillBar } from "@/features/ocr-import/FillBar";
+import { IntakeDrawer } from "@/features/ocr-import/IntakeDrawer";
+import { buildFieldNotes } from "@/features/ocr-import/FieldNotes";
+import type { FormAccess } from "@/features/ocr-import/fillPlan";
+import { useOcrAvailability } from "@/features/ocr-import/useOcrAvailability";
+import { useOcrFill } from "@/features/ocr-import/useOcrFill";
+import { useOcrIntake } from "@/features/ocr-import/useOcrIntake";
+import { ocrImport } from "@/locales/vi";
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
@@ -86,6 +95,19 @@ interface PetitionCloneState {
  * cán bộ bôi đen chữ trên danh sách để chép rồi bị đưa thẳng vào form có thể gõ nhầm (yêu cầu 08/10/2026).
  */
 export type CheDoDonThu = 'xem' | 'sua';
+
+/** The form as the scan-intake code sees it: read and write a field by the name the layout gives it. */
+const PETITION_OCR_ACCESS: FormAccess<FormData> = {
+  read: (form, field) => PETITION_LEGACY_SPEC.read(form, field as PetitionFieldPath),
+  write: (form, field, value) => PETITION_LEGACY_SPEC.write(form, field as PetitionFieldPath, value),
+};
+
+/** The caption of each field on the form, for the lists that name fields outside their place in the layout. */
+const PETITION_CAPTION_BY_FIELD: ReadonlyMap<string, string> = new Map(
+  Object.values(PETITION_LEGACY_SPEC.layout).flatMap((items) =>
+    items.map((item): [string, string] => [item.field, item.caption]),
+  ),
+);
 
 export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   const navigate = useNavigate();
@@ -248,6 +270,43 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
 
 
   const defaults = useFormDefaults();
+
+  // ── Entering the record from scanned images (feature flag ocr_import) ──
+  const ocrAvailable = useOcrAvailability();
+  // The form as a fresh create screen starts, defaults included: what "the officer has not touched" is measured against.
+  const [ocrBaseline, setOcrBaseline] = useState<FormData | undefined>(undefined);
+  useEffect(() => {
+    if (isEditMode || cloneInput || !defaults.isLoaded) return;
+    setOcrBaseline({
+      ...taoFormDonThuMoi(),
+      receivedDate: defaults.today,
+      unit: defaults.primaryTeamName || "",
+      assignedTeamId: defaults.primaryTeamId || "",
+      canBoDeXuatId: defaults.userId || "",
+    });
+  }, [isEditMode, cloneInput, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName, defaults.userId]);
+  const ocrFill = useOcrFill({
+    access: PETITION_OCR_ACCESS,
+    form: formData,
+    setForm: setFormData,
+    baseline: ocrBaseline,
+  });
+  const ocrIntake = useOcrIntake({
+    entity: "PETITION",
+    onAnalysis: (sessionId, analysis) => ocrFill.applyAnalysis(sessionId, analysis),
+  });
+  const [ocrDrawerOpen, setOcrDrawerOpen] = useState(false);
+  const [ocrUndoConflicts, setOcrUndoConflicts] = useState<string[]>([]);
+  const ocrNotes = useMemo(
+    () =>
+      buildFieldNotes({
+        applied: ocrFill.applied,
+        confirmed: ocrFill.confirmed,
+        pageNumbers: Object.fromEntries(ocrIntake.pages.map((p, i) => [p.id, i + 1])),
+        onConfirm: ocrFill.confirm,
+      }),
+    [ocrFill.applied, ocrFill.confirmed, ocrFill.confirm, ocrIntake.pages],
+  );
 
   // v0.42 — Auto-generate stt via engine in create mode.
   useEffect(() => {
@@ -441,6 +500,12 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
+    // Ô lấy từ ảnh mà hệ thống không chắc phải được cán bộ xác nhận trước khi lưu. Danh sách các ô nằm ở thanh trên cùng.
+    if (!effectiveEdit && ocrFill.blocksSave) {
+      setErrors([ocrImport.saveBlocked(ocrFill.unconfirmed.length)]);
+      setTimeout(() => document.querySelector('[data-testid="ocr-fill-bar"]')?.scrollIntoView?.({ behavior: "smooth", block: "center" }), 0);
+      return { ok: false, id: null };
+    }
     if (!validateForm()) {
       // Mọi ô có thể báo lỗi đều nằm ở tab Thông tin. Đang đứng ở tab khác mà bấm Lưu thì ô
       // lỗi nằm trong khối ẩn — cán bộ thấy thông báo mà không thấy ô nào để sửa. Nhảy về
@@ -472,13 +537,15 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
         savedId = effectiveId ?? null;
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
-        const res = await api.post("/petitions", { ...payload, acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [] });
+        const res = await api.post("/petitions", { ...payload, ...ocrFill.bindingForSave(), acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [] });
         // Envelope {success, data:{id,updatedAt,stt}} — không auto-unwrap (xem lib/api).
         const data = (res?.data as { data?: PhanHoiTaoDon } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
         // PR2: chuyển sang "effective edit" để lưu lần kế = PUT (không tạo đơn trùng).
         if (savedId) setCreatedId(savedId);
+        // The scans now belong to the saved record; this screen must not offer them again.
+        if (ocrFill.bindingForSave().ocrPhienId) { ocrFill.forget(); ocrIntake.reset(); }
         // Nạp lại giá trị do backend cấp để form khỏi lệch: SỐ TIẾP NHẬN THẬT (khác preview draft) và HẠN
         // giải quyết vừa tính — thiếu hạn thì lần lưu kế (PUT) gửi null và xoá nó (xem `ketQuaTao.ts`).
         const napLai = phanNapLaiSauKhiTao(data);
@@ -1066,6 +1133,22 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
             <span className="text-amber-600"> — để tra lại dữ liệu hệ thống cũ</span>
           </div>
         )}
+        {ocrAvailable && !effectiveEdit && !chiXem && (
+          <FillBar
+            applied={ocrFill.applied}
+            unconfirmed={ocrFill.unconfirmed}
+            skipped={ocrFill.skipped}
+            captionOf={(field) => PETITION_CAPTION_BY_FIELD.get(field) ?? field}
+            onOpenDrawer={() => setOcrDrawerOpen(true)}
+            onConfirm={ocrFill.confirm}
+            onTakeSkipped={ocrFill.takeSkippedValue}
+            onUndo={() => setOcrUndoConflicts(ocrFill.undo().conflicts)}
+            undoConflicts={ocrUndoConflicts}
+          />
+        )}
+        {ocrAvailable && !effectiveEdit && (
+          <IntakeDrawer open={ocrDrawerOpen} onClose={() => setOcrDrawerOpen(false)} intake={ocrIntake} />
+        )}
         {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự. */}
         <div className="flex flex-wrap gap-1 border-b border-slate-200" data-testid="thanh-tab-don-thu">
           {(Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]).map((t) => (
@@ -1095,6 +1178,7 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
             nhom={NHOM_O_DON_THU}
             oDangLoi={oDangLoi}
             oAn={O_AN_KHOI_DON_THU}
+            sauO={ocrNotes}
           />
         )}
 
@@ -1111,7 +1195,7 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
             oDangLoi={oDangLoi}
             oAn={O_AN_KHOI_DON_THU}
             // Khoá là tên ô SAU khi dịch sang Đơn thư (doiTab: nhanXet -> nhanThay), không phải tên hệ cũ.
-            sauO={{ nhanThay: khoiNoiDungDeXuat }}
+            sauO={{ ...ocrNotes, nhanThay: khoiNoiDungDeXuat }}
             pinnedTop={
               <div className="rounded-xl border border-slate-200 bg-white p-5">
                 {/*
