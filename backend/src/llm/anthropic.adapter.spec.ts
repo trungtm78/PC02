@@ -27,7 +27,7 @@ interface SentBody {
   model: string;
   max_tokens: number;
   system: string;
-  tool_choice: { type: string; name: string };
+  tool_choice: { type: string; name?: string };
   tools: Array<{ name: string; input_schema: Record<string, unknown> }>;
   messages: Array<{ content: unknown[] }>;
 }
@@ -200,6 +200,46 @@ describe('AnthropicProvider.call', () => {
     );
     expect(timeoutError.code).toBe('TIMEOUT');
     expect(timeoutError.retryable).toBe(true);
+  });
+
+  it('falls back to automatic tool choice for a model that refuses a forced one, and remembers it', async () => {
+    const refusal = () =>
+      json(400, {
+        type: 'error',
+        error: {
+          type: 'invalid_request_error',
+          message:
+            'tool_choice: type "tool" and "any" are not supported for this model.',
+        },
+      });
+    const { fetchImpl, calls } = fakeFetch((call) => {
+      const sent = JSON.parse(call.init.body as string) as SentBody;
+      return sent.tool_choice.type === 'tool' ? refusal() : json(200, okBody);
+    });
+    const p = provider(fetchImpl);
+    const first = await p.call(baseRequest);
+    expect(first.json).toEqual({ ok: true });
+    const bodies = calls.map(
+      (c) => JSON.parse(c.init.body as string) as SentBody,
+    );
+    expect(bodies.map((b) => b.tool_choice.type)).toEqual(['tool', 'auto']);
+    // With nothing forcing the tool, the instructions say to use it.
+    expect(bodies[1].system).toContain('submit_evidence');
+
+    await p.call(baseRequest);
+    expect(calls).toHaveLength(3);
+    expect(
+      (JSON.parse(calls[2].init.body as string) as SentBody).tool_choice.type,
+    ).toBe('auto');
+  });
+
+  it('does not fall back for other bad requests', async () => {
+    const { fetchImpl, calls } = fakeFetch(() =>
+      json(400, { error: { message: 'max_tokens: too large' } }),
+    );
+    const error = await failure(provider(fetchImpl).call(baseRequest));
+    expect(error.code).toBe('BAD_REQUEST');
+    expect(calls).toHaveLength(1);
   });
 
   it('a reply cut off by the output limit is bad JSON, never accepted as a complete result', async () => {

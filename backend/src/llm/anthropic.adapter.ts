@@ -34,6 +34,7 @@ export class AnthropicProvider implements LlmProvider {
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
   private readonly timeoutMs: number;
+  private automaticToolChoice = false;
 
   constructor(options: AnthropicOptions) {
     this.apiKey = options.apiKey;
@@ -58,23 +59,40 @@ export class AnthropicProvider implements LlmProvider {
     content.push({ type: 'text', text: request.userText });
 
     const startedAt = this.now();
-    const response = await this.send('/v1/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: request.maxOutputTokens,
-        system: request.system,
-        tools: [
-          {
-            name: request.schemaName,
-            description: 'Return the structured result',
-            input_schema: inputSchema,
-          },
-        ],
-        tool_choice: { type: 'tool', name: request.schemaName },
-        messages: [{ role: 'user', content }],
-      }),
-    });
+    const post = (automatic: boolean) =>
+      this.send('/v1/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: request.maxOutputTokens,
+          system: automatic
+            ? request.system +
+              String.fromCharCode(10, 10) +
+              `Answer only by calling the ${request.schemaName} tool.`
+            : request.system,
+          tools: [
+            {
+              name: request.schemaName,
+              description: 'Return the structured result',
+              input_schema: inputSchema,
+            },
+          ],
+          tool_choice: automatic
+            ? { type: 'auto' }
+            : { type: 'tool', name: request.schemaName },
+          messages: [{ role: 'user', content }],
+        }),
+      });
+    let response: Response;
+    try {
+      response = await post(this.automaticToolChoice);
+    } catch (error) {
+      // Some models (those that think before answering) refuse a forced tool call. Ask them to use the tool instead,
+      // and remember it: the model of a provider never changes.
+      if (this.automaticToolChoice || !refusesForcedTool(error)) throw error;
+      this.automaticToolChoice = true;
+      response = await post(true);
+    }
     const latencyMs = this.now() - startedAt;
 
     const body = (await response
@@ -225,4 +243,13 @@ interface AnthropicReply {
   content?: Array<{ type: string; input?: unknown }>;
   usage?: { input_tokens?: number; output_tokens?: number };
   stop_reason?: string;
+}
+
+/** The 400 a model gives when it does not accept `tool_choice: tool`. */
+function refusesForcedTool(error: unknown): boolean {
+  return (
+    error instanceof LlmError &&
+    error.code === 'BAD_REQUEST' &&
+    /tool_choice/i.test(error.message)
+  );
 }
