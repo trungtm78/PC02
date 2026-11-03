@@ -1252,3 +1252,11 @@ Kiểm chứng liên quan: test `CaseListPageShell`, test capability/field polic
 | List payload | Unchanged | Unchanged | Prosecution values lifted out of `metadata`; `metadata` dropped | `petitions-ten-toi-danh-khoi-to.spec.ts` |
 
 Rollout: the migration only creates columns, triggers and indexes. Existing rows are loaded by `nap-cot-bong-tim-kiem --that` after deploy (`deploy.sh` step 9e reports them until then); measured on a copy of 47k petitions, the in-migration UPDATE would have taken 312 s under locks.
+
+## Comprehensive search - petition select tags use the shared values - 2026-11-03
+
+`ComprehensiveListPageShell` with the type "Đơn thư" selected uses the whole petition search declaration, so it now takes the select values (status, handling direction, high-tech flag) from the shared table `GIA_TRI_CHON_DON_THU` instead of a status-only copy. Cases and Incidents are unchanged.
+
+| Capability | Cases | Incidents | Petitions | Evidence |
+|---|---|---|---|---|
+| Select tags of the petition declaration can be chosen on the comprehensive screen | Unchanged | Unchanged | Hướng xử lý and Tội phạm công nghệ cao now offered | `gia-tri-chon-don-thu.test.ts` (every screen that offers the whole declaration imports the shared table) |

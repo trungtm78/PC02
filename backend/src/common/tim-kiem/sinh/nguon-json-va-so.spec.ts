@@ -461,3 +461,45 @@ describe('vaoTatCa: false on a text field - tag-only free text', () => {
     expect(rieng).toContain('"nhanThayBd":{"contains":"abc"}');
   });
 });
+
+describe('tuBang: a rename in the referenced table refreshes the shadows that copied the name', () => {
+  const sql = sinhMigrationTimKiem([KHAI]);
+
+  it('creates an AFTER UPDATE OF name trigger on the referenced table, only when the name really changes', () => {
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION pc02_lan_toa_petitions_crimes()',
+    );
+    expect(sql).toContain(
+      'DROP TRIGGER IF EXISTS pc02_lan_toa_petitions_crimes ON "crimes";',
+    );
+    expect(sql).toMatch(
+      /CREATE TRIGGER pc02_lan_toa_petitions_crimes\s+AFTER UPDATE OF "name" ON "crimes"\s+FOR EACH ROW WHEN \(OLD\."name" IS DISTINCT FROM NEW\."name"\)\s+EXECUTE FUNCTION pc02_lan_toa_petitions_crimes\(\);/,
+    );
+  });
+
+  it('re-assigns the JSON column of the dependent rows to itself so the existing search trigger recomputes them', () => {
+    expect(sql).toContain(
+      `UPDATE "petitions" SET "metadata" = "metadata" WHERE "metadata"->>'toiDanhChinhKhoiToId' = NEW."id";`,
+    );
+  });
+
+  it('never blocks the write of the referenced table: a failure is a warning', () => {
+    const fn = sql.slice(
+      sql.indexOf('CREATE OR REPLACE FUNCTION pc02_lan_toa_petitions_crimes()'),
+    );
+    expect(fn.slice(0, fn.indexOf('END $$;'))).toContain(
+      'EXCEPTION WHEN OTHERS THEN',
+    );
+    expect(fn.slice(0, fn.indexOf('END $$;'))).toContain(
+      "RAISE WARNING 'pc02_lan_toa_petitions_crimes: %', SQLERRM;",
+    );
+  });
+
+  it('is not generated when no field copies a name from another table', () => {
+    const khai: KhaiThucThe = {
+      ...KHAI,
+      truong: KHAI.truong.filter((t) => !t.nguonJson?.tuBang),
+    };
+    expect(sinhMigrationTimKiem([khai])).not.toContain('pc02_lan_toa_');
+  });
+});

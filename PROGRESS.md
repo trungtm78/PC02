@@ -40,7 +40,7 @@ Backend `tsc` clean; backend full suite 9099 pass before the last gate fix, 1626
 
 ## Technical debt / risks
 - Pre-existing lint errors left untouched in touched files (backend 72, mostly prettier in `petitions.service.ts`).
-- `tuBang` shadow (crime name) goes stale if a crime is renamed until reloaded.
+- `tuBang` shadow (crime name): a rename of the crime now refreshes the dependent petitions through `pc02_lan_toa_petitions_crimes` (migration `20261103161649_tim_kiem_lan_ten_toi_danh`); the rename scans `petitions` once, so only use `tuBang` for near-static tables.
 - `loc-theo-the.ts` (browser-side filtering) has no number branch; no screen carries a number tag today.
 - Table 470 -> ~663 MB, indexes 74 -> ~229 MB on the copy; single-row write trigger 1.8 -> ~7 ms.
 - CCCD number, phone and address are now in the list payload and export (same permission and data scope as the detail page).

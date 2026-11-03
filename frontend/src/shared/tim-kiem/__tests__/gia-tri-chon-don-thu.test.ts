@@ -45,3 +45,35 @@ describe('GIA_TRI_CHON_DON_THU - values of the petition select tags', () => {
     expect(GIA_TRI_CHON_DON_THU.laCongNgheCao.map((g) => g.value)).toEqual(['co', 'khong']);
   });
 });
+
+/**
+ * GATE: every screen that offers the WHOLE petition declaration must take its select values from the shared table.
+ *
+ * Codex review (twice, with two models) found a screen that offered the declaration but supplied only the status
+ * values: the new select tags were then listed nowhere on it. A screen that passes `TIM_KIEM_DON_THU` wholesale must
+ * import the shared table; screens that only take a SUBSET of the keys (ward pages, duplicates) are not listed here.
+ */
+import comprehensive from '@/pages/cases/ComprehensiveListPageShell.tsx?raw';
+import exportReports from '@/pages/reports/ExportReportsPage.tsx?raw';
+import restore from '@/pages/admin/RestorePage.tsx?raw';
+import petitionList from '@/pages/petitions/PetitionListPageShell.tsx?raw';
+
+describe('screens that offer the whole petition declaration use the shared select values', () => {
+  const MAN = [
+    ['petition list', petitionList],
+    ['comprehensive search', comprehensive],
+    ['restore', restore],
+    ['export reports', exportReports],
+  ] as const;
+
+  it.each(MAN)('%s imports the shared table', (_ten, nguon) => {
+    expect(nguon).toContain("tim-kiem/gia-tri-chon-don-thu");
+    // ...and does not keep a private copy of the status table for petitions.
+    expect(nguon).not.toMatch(/PETITION:\s*\{\s*trangThai:/);
+  });
+
+  it('seeded fault: a source without the import is caught', () => {
+    const hong = comprehensive.replace(/tim-kiem\/gia-tri-chon-don-thu/g, 'tim-kiem/khac');
+    expect(hong).not.toContain('tim-kiem/gia-tri-chon-don-thu');
+  });
+});

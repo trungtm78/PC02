@@ -35,9 +35,9 @@ export interface NguonJson {
   khoa: string;
   /**
    * The JSON value is the ID of a row in another table; the shadow column stores that row's `<cot>` (e.g. crime
-   * id -> crime name). Resolved AT WRITE TIME by the trigger: renaming a row in the target table does NOT update
-   * the shadow column, it must be reloaded. Only use it for near-static target tables (`crimes`: 316 BLHS
-   * articles).
+   * id -> crime name). Resolved AT WRITE TIME by the trigger, and kept fresh by a second trigger on the target table
+   * (`khoiLanToa`): renaming a target row re-runs the search trigger of every dependent row. Only use it for
+   * near-static target tables (`crimes`: 316 BLHS articles) - each rename scans the dependent table once.
    */
   tuBang?: { bang: string; cot: string };
 }
@@ -598,6 +598,49 @@ function gopTheoBang(khois: readonly KhoiTrigger[]): KhoiTrigger[] {
   return [...theoBang.values()];
 }
 
+/**
+ * Triggers that keep a copied name fresh. A `tuBang` field stores the NAME of a row of another table in its shadow
+ * column, resolved when the petition is written; renaming that row later (e.g. a seed correcting a crime's spelling)
+ * would leave the copy stale until the petition is edited. So the referenced table gets an AFTER UPDATE trigger that
+ * re-assigns the JSON column of every dependent row to itself: that fires the existing search trigger of the dependent
+ * table (`UPDATE OF "<json column>"`), which recomputes ALL of its shadows. No business column is touched.
+ *
+ * Only when the name really changes (`WHEN OLD <> NEW`), so a seed that upserts unchanged names costs nothing. A failure
+ * is a warning, never a failed write of the referenced table (same rule as the search triggers).
+ */
+function khoiLanToa(khais: readonly KhaiThucThe[]): string[] {
+  const ra = new Map<string, string>();
+  for (const khai of khais) {
+    for (const t of khai.truong) {
+      const j = t.nguonJson;
+      if (!j?.tuBang) continue;
+      const ten = `pc02_lan_toa_${khai.bang}_${j.tuBang.bang}`;
+      if (ra.has(`${ten}:${j.khoa}`)) continue;
+      ra.set(
+        `${ten}:${j.khoa}`,
+        [
+          `-- ── ${j.tuBang.bang}: a renamed row refreshes the ${khai.bang} shadows that copied its ${j.tuBang.cot} ──`,
+          `CREATE OR REPLACE FUNCTION ${ten}() RETURNS trigger`,
+          'LANGUAGE plpgsql AS $$',
+          'BEGIN',
+          `  UPDATE "${khai.bang}" SET "${j.cot}" = "${j.cot}" WHERE "${j.cot}"->>'${j.khoa}' = NEW."id";`,
+          '  RETURN NULL;',
+          'EXCEPTION WHEN OTHERS THEN',
+          `  RAISE WARNING '${ten}: %', SQLERRM;`,
+          '  RETURN NULL;',
+          'END $$;',
+          `DROP TRIGGER IF EXISTS ${ten} ON "${j.tuBang.bang}";`,
+          `CREATE TRIGGER ${ten}`,
+          `  AFTER UPDATE OF "${j.tuBang.cot}" ON "${j.tuBang.bang}"`,
+          `  FOR EACH ROW WHEN (OLD."${j.tuBang.cot}" IS DISTINCT FROM NEW."${j.tuBang.cot}")`,
+          `  EXECUTE FUNCTION ${ten}();`,
+        ].join('\n'),
+      );
+    }
+  }
+  return [...ra.values()];
+}
+
 const DONG_SINH_TU_DONG =
   '-- SINH TỰ ĐỘNG từ backend/src/common/tim-kiem/khai/*.khai.ts bằng `npm run gen:tim-kiem` — không sửa tay.';
 
@@ -617,6 +660,8 @@ export function sinhMigrationTimKiem(khais: readonly KhaiThucThe[]): string {
   for (const k of cacKhoiTrigger(khais)) {
     phan.push('', k.tieuDe, khoiBang(k.bang, k.gan, k.cotNguon));
   }
+  // A name copied from another table goes stale when that row is renamed: propagate renames (see `khoiLanToa`).
+  for (const khoi of khoiLanToa(khais)) phan.push('', khoi);
   for (const khai of khais) {
     if (khai.refreshExisting) {
       const { nap } = sinhCauNapCotBong(khai);

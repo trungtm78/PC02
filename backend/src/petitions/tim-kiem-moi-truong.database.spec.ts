@@ -39,10 +39,7 @@ chay('petition search tags on PostgreSQL', () => {
   let controlId = '';
 
   /** Search by one tag through the same builder the API uses; returns the matching `stt` values of this run. */
-  const tim = async (
-    tk: string,
-    luiCotGoc?: boolean,
-  ): Promise<string[]> => {
+  const tim = async (tk: string, luiCotGoc?: boolean): Promise<string[]> => {
     const dieuKien = dungDieuKienTimKiem(
       docThe([tk], KHAI_TIM_KIEM_DON_THU),
       KHAI_TIM_KIEM_DON_THU,
@@ -138,7 +135,7 @@ chay('petition search tags on PostgreSQL', () => {
         thoiHanUTDT: new Date('2026-12-31T00:00:00Z'),
         crimeChinhId: crimeA,
         soTienBiThietHai: 1500.5,
-        soLuongBiHai: 37,
+        soLuongBiHai: 2000000007,
         metadata: {
           soQuyetDinhKhoiTo: 'KT-99',
           ngayKhoiTo: '2026-09-12',
@@ -197,7 +194,7 @@ chay('petition search tags on PostgreSQL', () => {
     ['thoiHanUTDT', '31/12/2026'],
     ['toiDanhChinh', 'lua dao'],
     ['soTienBiThietHai', '1.500,5'],
-    ['soLuongBiHai', '37'],
+    ['soLuongBiHai', '2000000007'],
     ['soQuyetDinhKhoiTo', 'kt-99'],
     ['ngayKhoiTo', '12/09/2026'],
     ['toiDanhChinhKhoiTo', 'giet nguoi'],
@@ -234,8 +231,9 @@ chay('petition search tags on PostgreSQL', () => {
   });
 
   it('typing a number in the "all columns" box does NOT match a number field', async () => {
-    // 37 is the target's victim count and appears in no text field.
-    expect(await tim('*~37')).toEqual([]);
+    // 2000000007 is the target's victim count. It has 10 digits, so the 8-hex-char random prefix of the record code
+    // (which is part of the combined shadow) can never contain it; a short number like 37 collided about 3% of runs.
+    expect(await tim('*~2000000007')).toEqual([]);
   });
 
   it('a JSON date stored as an ISO timestamp (migration style) is found on its calendar day', async () => {
@@ -271,6 +269,43 @@ chay('petition search tags on PostgreSQL', () => {
     expect(await tim('soQuyetDinhKhoiTo~ok-1')).toEqual([stt('control')]);
   });
 
+  it('renaming a crime refreshes the petition shadows that copied its name (and renaming back restores them)', async () => {
+    expect(await tim('toiDanhChinhKhoiTo~giet nguoi', false)).toEqual([
+      stt('target'),
+    ]);
+
+    await db.crime.update({
+      where: { id: crimeB },
+      data: { name: 'Tội cố ý gây thương tích' },
+    });
+    // The copied name follows the rename: the old name no longer matches, the new one does - in the own tag AND in
+    // the combined "all columns" shadow - without anybody editing the petition.
+    expect(await tim('toiDanhChinhKhoiTo~giet nguoi', false)).toEqual([]);
+    expect(await tim('toiDanhChinhKhoiTo~gay thuong tich', false)).toEqual([
+      stt('target'),
+    ]);
+    expect(await tim('*~gay thuong tich', false)).toEqual([stt('target')]);
+
+    await db.crime.update({
+      where: { id: crimeB },
+      data: { name: 'Tội giết người' },
+    });
+    expect(await tim('toiDanhChinhKhoiTo~giet nguoi', false)).toEqual([
+      stt('target'),
+    ]);
+    expect(await tim('toiDanhChinhKhoiTo~gay thuong tich', false)).toEqual([]);
+  });
+
+  it('a crime update that does not change the name does not touch any petition row', async () => {
+    const xmin = () =>
+      db.$queryRawUnsafe<Array<{ x: string }>>(
+        `SELECT xmin::text AS x FROM petitions WHERE id = '${targetId}'`,
+      );
+    const truoc = await xmin();
+    await db.crime.update({ where: { id: crimeB }, data: { articleNo: 124 } });
+    expect(await xmin()).toEqual(truoc);
+  });
+
   it('rows written BEFORE the migration: new tags wait for the batch loader (the combined shadow is stale, not NULL)', async () => {
     // The REAL state right after the migration: the new shadow columns are NULL, but the combined `tim_kiem_bd` still
     // holds the OLD value. The server only falls back to the source columns while some row has `tim_kiem_bd IS NULL`
@@ -285,16 +320,23 @@ chay('petition search tags on PostgreSQL', () => {
     expect(await tim('nhanXet~to cong tac so 8', false)).toEqual([]);
     expect(await tim('soQuyetDinhKhoiTo~kt-99', false)).toEqual([]);
     // The "all columns" line keeps working on the old aggregate (it still holds the old fields).
-    expect(await tim('*~nguyen van', false)).toEqual([stt('control'), stt('target')]);
+    expect(await tim('*~nguyen van', false)).toEqual([
+      stt('control'),
+      stt('target'),
+    ]);
 
     // When some row IS unloaded (`tim_kiem_bd IS NULL`) the fallback is on and a real column is found through its
     // source column (the fallback compares the raw text, accents included); a JSON-backed field has no source column.
     expect(await tim('soPhieuChuyen~a16763', true)).toEqual([stt('target')]);
-    expect(await tim('nhanXet~Tổ công tác Số 8', true)).toEqual([stt('target')]);
+    expect(await tim('nhanXet~Tổ công tác Số 8', true)).toEqual([
+      stt('target'),
+    ]);
     expect(await tim('soQuyetDinhKhoiTo~kt-99', true)).toEqual([]);
 
     // The batch loader (`nap-cot-bong-tim-kiem --that`) runs exactly this statement for a batch of ids.
-    const nap = sinhCacCauNap(KHAI_TIM_KIEM).find((c) => c.bang === 'petitions')!.cau.nap;
+    const nap = sinhCacCauNap(KHAI_TIM_KIEM).find(
+      (c) => c.bang === 'petitions',
+    )!.cau.nap;
     const client = new Client({ connectionString: diaChi! });
     await client.connect();
     try {
@@ -308,10 +350,16 @@ chay('petition search tags on PostgreSQL', () => {
     }
 
     expect(await tim('soPhieuChuyen~a16763', false)).toEqual([stt('target')]);
-    expect(await tim('nhanXet~to cong tac so 8', false)).toEqual([stt('target')]);
-    expect(await tim('soQuyetDinhKhoiTo~kt-99', false)).toEqual([stt('target')]);
+    expect(await tim('nhanXet~to cong tac so 8', false)).toEqual([
+      stt('target'),
+    ]);
+    expect(await tim('soQuyetDinhKhoiTo~kt-99', false)).toEqual([
+      stt('target'),
+    ]);
     expect(await tim('ngayKhoiTo~12/09/2026', false)).toEqual([stt('target')]);
-    expect(await tim('toiDanhChinhKhoiTo~giet nguoi', false)).toEqual([stt('target')]);
+    expect(await tim('toiDanhChinhKhoiTo~giet nguoi', false)).toEqual([
+      stt('target'),
+    ]);
     expect(await tim('*~kt-99', false)).toEqual([stt('target')]);
   });
 });

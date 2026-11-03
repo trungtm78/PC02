@@ -26,8 +26,10 @@ const docLF = (tep: string) =>
 /** Mọi `NEW."ten"` xuất hiện trong thân một khối `CREATE OR REPLACE FUNCTION ... $$ ... $$`. */
 function cotTrongThanHam(sql: string): Map<string, Set<string>> {
   const ra = new Map<string, Set<string>>();
+  // Only the functions that FILL shadow columns (`pc02_dat_tim_kiem_*`). The rename-propagation functions
+  // (`pc02_lan_toa_*`, AFTER triggers on the referenced table) assign nothing and have no `BEFORE ... UPDATE OF`.
   const re =
-    /CREATE OR REPLACE FUNCTION (\w+)\(\)[\s\S]*?\$\$([\s\S]*?)\$\$;/g;
+    /CREATE OR REPLACE FUNCTION (pc02_dat_tim_kiem_\w+)\(\)[\s\S]*?\$\$([\s\S]*?)\$\$;/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(sql)) !== null) {
     const cot = new Set<string>();
