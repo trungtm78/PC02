@@ -184,6 +184,21 @@ export interface AnalysisOutput {
   promptVersions: { transcribe: string; analyse: string };
 }
 
+/** Replaces every string that is exactly an alias with the real id it stood for; text and quotes are left alone. */
+function restoreIds<T>(value: T, fromAlias: ReadonlyMap<string, string>): T {
+  const walk = (node: unknown): unknown => {
+    if (typeof node === 'string') return fromAlias.get(node) ?? node;
+    if (Array.isArray(node)) return node.map(walk);
+    if (node !== null && typeof node === 'object') {
+      return Object.fromEntries(
+        Object.entries(node).map(([key, child]) => [key, walk(child)]),
+      );
+    }
+    return node;
+  };
+  return walk(value) as T;
+}
+
 /**
  * G2 to G4 from page transcripts (the model's, or the officer's corrections): analyse the bundle once, verify the
  * analysis by code, and project the verified evidence into the fields of the open form.
@@ -199,19 +214,32 @@ export async function analyseTranscripts(
 ): Promise<AnalysisOutput> {
   const transcripts: Record<string, string> = {};
   const segments: Segment[] = [];
-  for (const page of input.pages) {
+  // What the model sees: short aliases ("p2", "p2.s3"). Real ids are long generated strings that a model shortens or
+  // misspells, which would make every citation unmatchable; the aliases are mapped back below.
+  const fromAlias = new Map<string, string>();
+  const listingLines: string[] = [];
+  const aliasOfPage: string[] = [];
+  input.pages.forEach((page, index) => {
+    const alias = `p${index + 1}`;
+    aliasOfPage.push(alias);
+    fromAlias.set(alias, page.pageId);
     transcripts[page.pageId] = page.text;
-    segments.push(...splitSegments(page.pageId, page.text));
-  }
+    const own = splitSegments(page.pageId, page.text);
+    segments.push(...own);
+    own.forEach((segment, n) => {
+      const segmentAlias = `${alias}.s${n + 1}`;
+      fromAlias.set(segmentAlias, segment.id);
+      listingLines.push(`[${segmentAlias}] ${segment.text}`);
+    });
+  });
 
-  const listing = segments.map((s) => `[${s.id}] ${s.text}`).join('\n');
-  const { value: bundle } = await gateway.call(
+  const { value: modelBundle } = await gateway.call(
     {
       system: analyseSystemPrompt(),
       userText: `${ANALYSE_USER_PREFIX}
-Pages: ${input.pages.map((p) => p.pageId).join(', ')}
+Pages: ${aliasOfPage.join(', ')}
 
-${listing}`,
+${listingLines.join(String.fromCharCode(10))}`,
       schemaName: 'submit_evidence',
       schema: EVIDENCE_BUNDLE_JSON_SCHEMA,
       maxOutputTokens: analyseOutputBudget(input.pages.length),
@@ -219,6 +247,7 @@ ${listing}`,
     validateWith(EvidenceBundleSchema),
     { ...input.context, promptVersion: ANALYSE_PROMPT_VERSION },
   );
+  const bundle = restoreIds(modelBundle, fromAlias);
 
   const { cleaned, issues } = verifyBundle(bundle, {
     transcripts,

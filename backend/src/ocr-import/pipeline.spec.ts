@@ -249,6 +249,50 @@ describe('runPipeline', () => {
   });
 });
 
+describe('ids the model cannot mangle', () => {
+  // Real page ids are long generated strings. A model asked to cite "cmlongp1xxxxxxxx.s3" tends to write "p1.s3",
+  // which no check can match; so the model only ever sees short aliases, and the server maps them back.
+  const longPages: PageImage[] = ['p1', 'p2', 'p3'].map((key) => ({
+    id: `cmlong${key}xxxxxxxx`,
+    mediaType: 'image/png',
+    dataBase64: `IMG-${key}`,
+  }));
+  const runLong = (gateway: PipelineGateway) =>
+    runPipeline(gateway, {
+      pages: longPages,
+      entity: 'petition',
+      context: { userId: 'u1', sessionRef: 's1' },
+    });
+
+  it('shows the model short page and segment aliases, never the real ids', async () => {
+    const { gateway, calls } = fakeGateway();
+    await runLong(gateway);
+    const analyse = calls.find((c) => !c.request.images?.length);
+    expect(analyse?.request.userText).not.toContain('cmlong');
+    expect(analyse?.request.userText).toContain('[p2.s1]');
+    expect(analyse?.request.userText).toMatch(/Pages: p1, p2, p3/);
+  });
+
+  it('maps what the model cited back to the real ids, so nothing is dropped as unknown', async () => {
+    const reference = await run(fakeGateway().gateway);
+    const { gateway } = fakeGateway();
+    const out = await runLong(gateway);
+    const unresolved = (issues: Array<{ code: string }>) =>
+      issues.filter((i) =>
+        ['PAGE_UNKNOWN', 'BROKEN_REFERENCE'].includes(i.code),
+      );
+    expect(unresolved(out.issues)).toEqual(unresolved(reference.issues));
+    expect(out.projection.fills.length).toBe(reference.projection.fills.length);
+    expect(out.segments.every((s) => s.id.startsWith('cmlong'))).toBe(true);
+    const cited = out.projection.fills
+      .map((f) => f.provenance.pageId)
+      .filter((id): id is string => id !== null);
+    expect(cited.length).toBeGreaterThan(0);
+    expect(cited.every((id) => id.startsWith('cmlong'))).toBe(true);
+    expect(out.bundle.documents[0].pageIds).toEqual(['cmlongp1xxxxxxxx']);
+  });
+});
+
 describe('analyseOutputBudget', () => {
   it('grows with the number of pages so a real multi-page bundle is not cut off, up to a ceiling', () => {
     // A real three-page petition used 14,000 tokens; the old fixed 8,000 cut it off mid-reply.
