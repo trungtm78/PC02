@@ -80,6 +80,7 @@ import { petitionsRowActions } from '@/features/petitions/row-actions';
 import { petitionsListFilters, type PetitionFilterValue } from '@/features/petitions/list-filters';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import { HUONG_XU_LY_LABEL } from '@/shared/enums/huong-xu-ly';
+import { GIA_TRI_CHON_DON_THU } from '@/shared/tim-kiem/gia-tri-chon-don-thu';
 import type { HuongXuLyDon } from '@/shared/enums/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
@@ -102,23 +103,6 @@ const THAM_SO_CU_DON_THU = {
 } as const;
 
 /** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn mà cột trên bảng dùng. */
-const GIA_TRI_CHON_DON_THU = {
-  trangThai: Object.values(PetitionStatus).map((v) => ({
-    value: v,
-    label: PETITION_STATUS_LABEL[v],
-  })),
-  // Handling direction: the code goes in the URL, the officer sees the label ("Chuyển đơn").
-  huongXuLy: (Object.keys(HUONG_XU_LY_LABEL) as HuongXuLyDon[]).map((v) => ({
-    value: v,
-    label: HUONG_XU_LY_LABEL[v],
-  })),
-  // Boolean column: the tag value is the key of `giaTriCot` on the server (co / khong).
-  laCongNgheCao: [
-    { value: 'co', label: 'Có' },
-    { value: 'khong', label: 'Không' },
-  ],
-};
-
 /** The column whose search tag is `khoa` (a column may carry several tags). */
 function cotCuaThe<C extends { key: string; timKiem?: string | readonly string[] }>(
   cot: readonly C[],

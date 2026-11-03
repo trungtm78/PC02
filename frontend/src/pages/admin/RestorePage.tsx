@@ -20,12 +20,9 @@ import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/Lis
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { usePermission } from '@/hooks/usePermission';
 import { TIM_KIEM_VU_AN, TIM_KIEM_VU_VIEC, TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
-import {
-  CASE_STATUS_LABEL,
-  INCIDENT_STATUS_LABEL,
-  PETITION_STATUS_LABEL,
-} from '@/shared/enums/status-labels';
-import { CaseStatus, IncidentStatus, PetitionStatus } from '@/shared/enums/generated';
+import { GIA_TRI_CHON_DON_THU } from '@/shared/tim-kiem/gia-tri-chon-don-thu';
+import { CASE_STATUS_LABEL, INCIDENT_STATUS_LABEL } from '@/shared/enums/status-labels';
+import { CaseStatus, IncidentStatus } from '@/shared/enums/generated';
 
 /** Cột "Trạng thái" mỗi loại tìm theo MÃ của đúng enum ấy; nhãn từ bảng nhãn cột trạng thái dùng. */
 const GIA_TRI_CHON_VU_AN = {
@@ -35,12 +32,6 @@ const GIA_TRI_CHON_VU_VIEC = {
   trangThai: Object.values(IncidentStatus).map((v) => ({
     value: v,
     label: INCIDENT_STATUS_LABEL[v],
-  })),
-};
-const GIA_TRI_CHON_DON_THU = {
-  trangThai: Object.values(PetitionStatus).map((v) => ({
-    value: v,
-    label: PETITION_STATUS_LABEL[v],
   })),
 };
 const GOI_Y_THE = 'Tìm trong mọi cột — gõ rồi chọn cột (phím /)';

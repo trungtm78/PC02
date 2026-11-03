@@ -27,16 +27,8 @@ import { formatVNDate, toDateInput } from "@/lib/dates";
 import { OTimKiemThe, DanhSachThe, useTheTimKiem } from "@/components/shared/ListPageShell";
 import { useFeatureBatMacDinh } from "@/lib/features/useFeature";
 import { TIM_KIEM_DON_THU } from "@/shared/tim-kiem/generated";
-import { PETITION_STATUS_LABEL } from "@/shared/enums/status-labels";
-import { PetitionStatus } from "@/shared/enums/generated";
+import { GIA_TRI_CHON_DON_THU } from "@/shared/tim-kiem/gia-tri-chon-don-thu";
 
-/** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn trạng thái đơn thư. */
-const GIA_TRI_CHON_XUAT = {
-  trangThai: Object.values(PetitionStatus).map((v) => ({
-    value: v,
-    label: PETITION_STATUS_LABEL[v],
-  })),
-};
 
 interface Document {
   id: string;
@@ -105,7 +97,7 @@ export default function ExportReportsPage() {
   const timKiem = useTheTimKiem({
     prefix: "exportReports",
     khai: TIM_KIEM_DON_THU,
-    giaTriChon: GIA_TRI_CHON_XUAT,
+    giaTriChon: GIA_TRI_CHON_DON_THU,
     bat: theBat,
   });
   // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
@@ -568,7 +560,7 @@ export default function ExportReportsPage() {
             the={timKiem.the}
             truong={TIM_KIEM_DON_THU}
             khai={TIM_KIEM_DON_THU}
-            giaTriChon={GIA_TRI_CHON_XUAT}
+            giaTriChon={GIA_TRI_CHON_DON_THU}
             onThem={timKiem.them}
             onBoThe={timKiem.boThe}
             onBoGiaTri={timKiem.boGiaTri}
@@ -714,7 +706,7 @@ export default function ExportReportsPage() {
                         <DanhSachThe
                           the={timKiem.the}
                           khai={TIM_KIEM_DON_THU}
-                          giaTriChon={GIA_TRI_CHON_XUAT}
+                          giaTriChon={GIA_TRI_CHON_DON_THU}
                           onBoThe={timKiem.boThe}
                         />
                       </div>
