@@ -226,6 +226,10 @@ run('OcrJobQueue on PostgreSQL', () => {
   });
 
   describe('finishing', () => {
+    const tokenOf = (job: { claimedBy: string | null; attempts: number }) => ({
+      workerId: job.claimedBy!,
+      attempt: job.attempts,
+    });
     const claimOne = async () => {
       const { session } = await newSession();
       const q = await queue.enqueue(session.id, 'READ', alice);
@@ -233,18 +237,22 @@ run('OcrJobQueue on PostgreSQL', () => {
       expect(job?.id).toBe(q.id);
       return job!;
     };
+    const reclaim = async () => {
+      const job = await queue.claim('w', { maxRunning: 50, scopeTag: tag });
+      return job!;
+    };
 
     it('complete marks it succeeded', async () => {
       const job = await claimOne();
-      await queue.complete(job.id);
+      await queue.complete(job.id, tokenOf(job));
       expect(
         await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } }),
       ).toMatchObject({ state: 'SUCCEEDED' });
     });
 
     it('a retryable failure requeues it later, with growing delay, until the attempts run out', async () => {
-      const job = await claimOne();
-      await queue.fail(job.id, 'RATE_LIMIT', { retryable: true });
+      let job = await claimOne();
+      await queue.fail(job.id, 'RATE_LIMIT', { retryable: true }, tokenOf(job));
       let row = await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } });
       expect(row).toMatchObject({
         state: 'QUEUED',
@@ -258,8 +266,8 @@ run('OcrJobQueue on PostgreSQL', () => {
         where: { id: job.id },
         data: { runAfter: new Date() },
       });
-      await queue.claim('w', { maxRunning: 50, scopeTag: tag });
-      await queue.fail(job.id, 'RATE_LIMIT', { retryable: true });
+      job = await reclaim();
+      await queue.fail(job.id, 'RATE_LIMIT', { retryable: true }, tokenOf(job));
       row = await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } });
       expect(row.runAfter.getTime() - Date.now()).toBeGreaterThan(firstDelay);
 
@@ -267,8 +275,8 @@ run('OcrJobQueue on PostgreSQL', () => {
         where: { id: job.id },
         data: { runAfter: new Date() },
       });
-      await queue.claim('w', { maxRunning: 50, scopeTag: tag });
-      await queue.fail(job.id, 'RATE_LIMIT', { retryable: true });
+      job = await reclaim();
+      await queue.fail(job.id, 'RATE_LIMIT', { retryable: true }, tokenOf(job));
       expect(
         await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } }),
       ).toMatchObject({
@@ -279,12 +287,63 @@ run('OcrJobQueue on PostgreSQL', () => {
 
     it('a non-retryable failure ends it at once, with its code', async () => {
       const job = await claimOne();
-      await queue.fail(job.id, 'LLM_QUOTA_EXCEEDED', { retryable: false });
+      await queue.fail(
+        job.id,
+        'LLM_QUOTA_EXCEEDED',
+        { retryable: false },
+        tokenOf(job),
+      );
       expect(
         await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } }),
       ).toMatchObject({
         state: 'FAILED',
         lastErrorCode: 'LLM_QUOTA_EXCEEDED',
+      });
+    });
+
+    it('a worker that lost its claim cannot finish or fail the attempt that replaced it', async () => {
+      const first = await claimOne();
+      const staleToken = tokenOf(first);
+      // The job was taken back as stranded and claimed again by another worker.
+      await db.ocrJob.update({
+        where: { id: first.id },
+        data: { state: 'QUEUED', claimedBy: null, claimedAt: null, runAfter: new Date() },
+      });
+      const second = await queue.claim('other', { maxRunning: 50, scopeTag: tag });
+      expect(second).toMatchObject({ id: first.id, claimedBy: 'other', attempts: 2 });
+
+      await queue.complete(first.id, staleToken);
+      await queue.fail(first.id, 'INTERNAL', { retryable: false }, staleToken);
+
+      expect(
+        await db.ocrJob.findUniqueOrThrow({ where: { id: first.id } }),
+      ).toMatchObject({ state: 'RUNNING', claimedBy: 'other' });
+    });
+
+    it('a heartbeat keeps a long job from being taken back, and only its owner can send one', async () => {
+      const job = await claimOne();
+      await db.ocrJob.update({
+        where: { id: job.id },
+        data: { claimedAt: new Date(Date.now() - 20 * 60_000) },
+      });
+      await queue.heartbeat(job.id, { workerId: 'someone-else', attempt: 1 });
+      expect(await queue.recoverStuck(new Date(), 10 * 60_000, tag)).toEqual({
+        requeued: 1,
+        failed: 0,
+      });
+
+      const again = await (async () => {
+        await db.ocrJob.update({ where: { id: job.id }, data: { runAfter: new Date() } });
+        return reclaim();
+      })();
+      await db.ocrJob.update({
+        where: { id: again.id },
+        data: { claimedAt: new Date(Date.now() - 20 * 60_000) },
+      });
+      await queue.heartbeat(again.id, tokenOf(again));
+      expect(await queue.recoverStuck(new Date(), 10 * 60_000, tag)).toEqual({
+        requeued: 0,
+        failed: 0,
       });
     });
   });

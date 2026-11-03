@@ -14,6 +14,12 @@ export interface ClaimOptions {
   scopeTag?: string;
 }
 
+/** Proof that the caller is the worker holding this attempt of a job. A worker that lost its claim cannot act on it. */
+export interface ClaimToken {
+  workerId: string;
+  attempt: number;
+}
+
 export interface EnqueuedJob {
   id: string;
   /** True when an identical job (same session, kind and input state) was already queued or running. */
@@ -110,10 +116,18 @@ export class OcrJobQueue {
     });
   }
 
-  async complete(jobId: string): Promise<void> {
+  async complete(jobId: string, token: ClaimToken): Promise<void> {
     await this.prisma.ocrJob.updateMany({
-      where: { id: jobId, state: 'RUNNING' },
+      where: this.heldBy(jobId, token),
       data: { state: 'SUCCEEDED', finishedAt: new Date(), lastErrorCode: null },
+    });
+  }
+
+  /** Tells the queue the job is still being worked on, so it is not taken back as stranded. */
+  async heartbeat(jobId: string, token: ClaimToken): Promise<void> {
+    await this.prisma.ocrJob.updateMany({
+      where: this.heldBy(jobId, token),
+      data: { claimedAt: new Date() },
     });
   }
 
@@ -122,9 +136,12 @@ export class OcrJobQueue {
     jobId: string,
     errorCode: string,
     options: { retryable: boolean },
+    token: ClaimToken,
   ): Promise<void> {
-    const job = await this.prisma.ocrJob.findUnique({ where: { id: jobId } });
-    if (!job || job.state !== 'RUNNING') return;
+    const job = await this.prisma.ocrJob.findFirst({
+      where: this.heldBy(jobId, token),
+    });
+    if (!job) return;
     const giveUp = !options.retryable || job.attempts >= job.maxAttempts;
     const data: Prisma.OcrJobUpdateManyMutationInput = giveUp
       ? { state: 'FAILED', finishedAt: new Date(), lastErrorCode: errorCode }
@@ -138,7 +155,7 @@ export class OcrJobQueue {
           ),
         };
     await this.prisma.ocrJob.updateMany({
-      where: { id: jobId, state: 'RUNNING' },
+      where: this.heldBy(jobId, token),
       data,
     });
   }
@@ -165,6 +182,15 @@ export class OcrJobQueue {
           AND "createdById" LIKE ${pattern}`;
       return { requeued, failed };
     });
+  }
+
+  private heldBy(jobId: string, token: ClaimToken): Prisma.OcrJobWhereInput {
+    return {
+      id: jobId,
+      state: 'RUNNING',
+      claimedBy: token.workerId,
+      attempts: token.attempt,
+    };
   }
 
   /** A job is visible only to the owner of its session. */

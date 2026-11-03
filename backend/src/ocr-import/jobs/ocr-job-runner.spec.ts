@@ -4,13 +4,23 @@ import { HttpStatus } from '@nestjs/common';
 import { OcrJobRunner } from './ocr-job-runner';
 
 const job = (id: string): OcrJob =>
-  ({ id, sessionId: `s-${id}`, kind: 'READ', createdById: 'u' }) as OcrJob;
+  ({
+    id,
+    sessionId: `s-${id}`,
+    kind: 'READ',
+    createdById: 'u',
+    claimedBy: 'w-test',
+    attempts: 1,
+  }) as OcrJob;
 
-function setup(options: { enabled?: boolean; maxRunning?: number } = {}) {
+function setup(
+  options: { enabled?: boolean; maxRunning?: number; heartbeatMs?: number } = {},
+) {
   const pending: OcrJob[] = [];
   const queue = {
     claim: jest.fn(() => Promise.resolve(pending.shift() ?? null)),
     complete: jest.fn(() => Promise.resolve()),
+    heartbeat: jest.fn(() => Promise.resolve()),
     fail: jest.fn(() => Promise.resolve()),
     recoverStuck: jest.fn(() => Promise.resolve({ requeued: 0, failed: 0 })),
   };
@@ -24,7 +34,11 @@ function setup(options: { enabled?: boolean; maxRunning?: number } = {}) {
     queue as never,
     executor as never,
     flags as never,
-    { maxRunning: options.maxRunning ?? 2, workerId: 'w-test' },
+    {
+      maxRunning: options.maxRunning ?? 2,
+      workerId: 'w-test',
+      heartbeatMs: options.heartbeatMs ?? 60_000,
+    },
   );
   return { runner, queue, executor, flags, pending };
 }
@@ -59,7 +73,10 @@ describe('OcrJobRunner', () => {
     expect(executor.execute).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'a' }),
     );
-    expect(queue.complete).toHaveBeenCalledWith('a');
+    expect(queue.complete).toHaveBeenCalledWith('a', {
+      workerId: 'w-test',
+      attempt: 1,
+    });
     expect(queue.fail).not.toHaveBeenCalled();
   });
 
@@ -73,12 +90,19 @@ describe('OcrJobRunner', () => {
       .mockRejectedValueOnce(new Error('boom'));
     await runner.pump();
     await runner.idle();
-    expect(queue.fail).toHaveBeenCalledWith('a', 'OCR_NO_PAGES', {
-      retryable: false,
-    });
-    expect(queue.fail).toHaveBeenCalledWith('b', 'INTERNAL', {
-      retryable: true,
-    });
+    const token = { workerId: 'w-test', attempt: 1 };
+    expect(queue.fail).toHaveBeenCalledWith(
+      'a',
+      'OCR_NO_PAGES',
+      { retryable: false },
+      token,
+    );
+    expect(queue.fail).toHaveBeenCalledWith(
+      'b',
+      'INTERNAL',
+      { retryable: true },
+      token,
+    );
     expect(queue.complete).not.toHaveBeenCalled();
   });
 
@@ -99,6 +123,26 @@ describe('OcrJobRunner', () => {
     expect(await runner.pump()).toBe(1);
     release.forEach((r) => r());
     await runner.idle();
+  });
+
+  it('keeps telling the queue a slow job is alive, and stops once it is done', async () => {
+    const { runner, queue, executor, pending } = setup({ heartbeatMs: 5 });
+    let finish: () => void = () => undefined;
+    executor.execute.mockImplementation(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    pending.push(job('a'));
+    await runner.pump();
+    await new Promise((r) => setTimeout(r, 40));
+    expect(queue.heartbeat).toHaveBeenCalledWith('a', {
+      workerId: 'w-test',
+      attempt: 1,
+    });
+    finish();
+    await runner.idle();
+    const beats = queue.heartbeat.mock.calls.length;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(queue.heartbeat.mock.calls.length).toBe(beats);
   });
 
   it('puts stranded jobs back in the queue, at most once a minute', async () => {

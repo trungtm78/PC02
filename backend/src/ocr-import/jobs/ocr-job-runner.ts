@@ -10,12 +10,15 @@ export interface RunnerOptions {
   /** Jobs this server runs at once; also the server-wide cap handed to the queue. */
   maxRunning: number;
   workerId: string;
+  /** How often a running job tells the queue it is alive. */
+  heartbeatMs?: number;
 }
 
 export const OCR_FEATURE_FLAG = 'ocr_import';
 const DEFAULT_MAX_RUNNING = 4;
 /** A job running longer than this is taken to belong to a worker that died. */
 const STUCK_AFTER_MS = 10 * 60_000;
+const HEARTBEAT_MS = 60_000;
 const RECOVER_EVERY_MS = 60_000;
 
 const defaultOptions = (): RunnerOptions => ({
@@ -81,22 +84,33 @@ export class OcrJobRunner {
   }
 
   private async process(job: OcrJob): Promise<void> {
+    // This attempt, as the queue knows it: a worker that lost the job cannot finish or fail it any more.
+    const token = { workerId: job.claimedBy ?? this.options.workerId, attempt: job.attempts };
+    // A long reading is not a stranded one: keep telling the queue it is alive.
+    const beat = setInterval(() => {
+      this.queue.heartbeat(job.id, token).catch(() => undefined);
+    }, this.options.heartbeatMs ?? HEARTBEAT_MS);
     try {
       await this.executor.execute(job);
-      await this.queue.complete(job.id);
+      await this.queue.complete(job.id, token);
     } catch (error) {
       const failure = classifyJobFailure(error);
       // The code only: an error message can carry what was read from a scan.
       this.logger.warn(`job ${job.id} failed: ${failure.code}`);
       try {
-        await this.queue.fail(job.id, failure.code, {
-          retryable: failure.retryable,
-        });
+        await this.queue.fail(
+          job.id,
+          failure.code,
+          { retryable: failure.retryable },
+          token,
+        );
       } catch (recordError) {
         this.logger.error(
           `job ${job.id}: could not record failure: ${(recordError as Error).name}`,
         );
       }
+    } finally {
+      clearInterval(beat);
     }
   }
 
