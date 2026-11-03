@@ -57,12 +57,13 @@ beforeEach(() => {
 });
 
 describe('useOcrFormIntake — drafts', () => {
-  it('takes the values that came from the image out of a copy of the form, and leaves the officer\'s own', () => {
+  it('takes every field that was filled from the image out of a copy of the form, even one the officer then edited', () => {
     const { result } = setup({ a: 'mặc định', b: '' });
     act(() => result.current.ocr.fill.applyAnalysis('s1', analysis(['a', 'từ ảnh'], ['b', 'cũng từ ảnh'])));
     act(() => result.current.setForm((f) => ({ ...f, b: 'cán bộ sửa' })));
     const copy = result.current.ocr.withoutScanValues(result.current.form);
-    expect(copy).toEqual({ a: 'mặc định', b: 'cán bộ sửa' });
+    // b was edited after the fill, but what the officer typed started from the image's text: it stays out of the browser too
+    expect(copy).toEqual({ a: 'mặc định', b: '' });
     // the live form is untouched
     expect(result.current.form.a).toBe('từ ảnh');
   });
@@ -96,6 +97,32 @@ describe('useOcrFormIntake — drafts', () => {
     const missing = setup();
     await act(() => missing.result.current.ocr.restoreFromDraft({ sessionId: 's1', analysisId: 'ana-1' }));
     await waitFor(() => expect(missing.result.current.ocr.restoreNotice).toBe('UNAVAILABLE'));
+  });
+
+  it('refuses a draft whose analysis has been replaced since: it would silently fill different values', async () => {
+    api.analysis.mockResolvedValue(analysis(['a', 'giá trị của bản phân tích mới']));
+    const { result } = setup();
+    await act(() => result.current.ocr.restoreFromDraft({ sessionId: 's1', analysisId: 'ana-OLD' }));
+    expect(result.current.form.a).toBe('');
+    expect(result.current.ocr.restoreNotice).toBe('UNAVAILABLE');
+    expect(result.current.ocr.bindingForSave()).toEqual({});
+  });
+
+  it('a draft discarded while its analysis was still loading is not filled in afterwards', async () => {
+    let arrive: (v: unknown) => void = () => undefined;
+    api.analysis.mockImplementation(() => new Promise((resolve) => (arrive = resolve)));
+    const { result } = setup();
+    let pending: Promise<void> = Promise.resolve();
+    act(() => {
+      pending = result.current.ocr.restoreFromDraft({ sessionId: 's1', analysisId: 'ana-1' });
+    });
+    act(() => result.current.ocr.discardRestore());
+    arrive(analysis(['a', 'đến muộn']));
+    await act(async () => {
+      await pending;
+    });
+    expect(result.current.form.a).toBe('');
+    expect(result.current.ocr.bindingForSave()).toEqual({});
   });
 
   it('does nothing for a draft that never had scans', async () => {

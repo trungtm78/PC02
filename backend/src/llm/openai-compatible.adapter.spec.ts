@@ -282,6 +282,12 @@ describe('OpenAiCompatibleProvider.call', () => {
     );
   });
 
+  it('a blocked address found while connecting stays BLOCKED, not a retryable network error', async () => {
+    const fetchBlocked = (() => Promise.reject(new LlmError('BLOCKED', 'x', { retryable: false }))) as unknown as typeof fetch;
+    const error = await failure(selfHosted(fetchBlocked).call(baseRequest));
+    expect([error.code, error.retryable]).toEqual(['BLOCKED', false]);
+  });
+
   it('a redirect is a failure: an allowed host must not bounce the call to a blocked one', async () => {
     const redirect = fakeFetch(() => {
       throw new TypeError('redirect mode is set to error');

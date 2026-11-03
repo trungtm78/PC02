@@ -169,6 +169,8 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
+      // The connect-time address check reports itself (BLOCKED); it is not a network failure to retry.
+      if (error instanceof LlmError) throw error;
       const name = (error as { name?: unknown } | null)?.name;
       if (name === 'TimeoutError' || name === 'AbortError') {
         throw new LlmError('TIMEOUT', 'the call timed out', {

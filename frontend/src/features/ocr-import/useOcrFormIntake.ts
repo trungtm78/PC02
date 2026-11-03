@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { ocrApi, type OcrAnalysisView } from './ocrApi';
 import { mapFieldNames } from './mapFieldNames';
-import { undoFill } from './fillPlan';
 import { ocrImport } from '@/locales/vi';
 import { buildFieldNotes } from './FieldNotes';
 import type { FormAccess } from './fillPlan';
@@ -78,10 +77,13 @@ export function useOcrFormIntake<TForm>({
   /**
    * A copy of the form without the values that came from the scans, for a draft kept in the browser. Scans and what
    * was read from them are personal data and live on the server for a limited time; a draft in local storage must
-   * not become a second, unmanaged copy. Fields the officer changed after the fill are theirs and stay.
+   * not become a second, unmanaged copy. EVERY field that was filled from the scans goes back to what it held before,
+   * including one the officer edited afterwards: an edited value still starts from the image's text (a corrected name is
+   * still a name), so only a field the scans never touched is kept.
    */
   const withoutScanValues = useCallback(
-    (current: TForm): TForm => undoFill(access, current, fill.applied).form,
+    (current: TForm): TForm =>
+      fill.applied.reduce((form, patch) => access.write(form, patch.field, patch.before), current),
     [access, fill.applied],
   );
 
@@ -94,6 +96,8 @@ export function useOcrFormIntake<TForm>({
   }, [fill]);
 
   const [restoreNotice, setRestoreNotice] = useState<'UNAVAILABLE' | null>(null);
+  /** Bumped when a restore is abandoned (draft discarded, record created), so a slow answer is ignored. */
+  const restoreEpoch = useRef(0);
 
   /**
    * Opening a draft that pointed at scans: fetch the analysis from the server again (with the officer's own login) and
@@ -103,20 +107,31 @@ export function useOcrFormIntake<TForm>({
   const restoreFromDraft = useCallback(
     async (reference: { sessionId: string; analysisId: string } | undefined) => {
       if (!reference) return;
+      const mine = restoreEpoch.current;
       try {
         const found = await ocrApi.analysis(reference.sessionId);
-        if (!found) {
+        if (restoreEpoch.current !== mine) return;
+        // The draft remembers WHICH analysis it was filled from. If the session was analysed again since, the values
+        // would differ without anyone having chosen that, so the draft is treated as expired.
+        if (!found || found.id !== reference.analysisId) {
           setRestoreNotice('UNAVAILABLE');
           return;
         }
         setRestoreNotice(null);
         applyMapped(reference.sessionId, found);
       } catch {
-        setRestoreNotice('UNAVAILABLE');
+        if (restoreEpoch.current === mine) setRestoreNotice('UNAVAILABLE');
       }
     },
     [applyMapped],
   );
+
+  /** The draft was thrown away: forget a restore still in flight and anything it already brought in. */
+  const discardRestore = useCallback(() => {
+    restoreEpoch.current += 1;
+    setRestoreNotice(null);
+    fill.forget();
+  }, [fill]);
 
   /** A message when Save must wait for the officer to confirm fields taken from the scans; null when it may go on. */
   const saveBlockedMessage = fill.blocksSave ? ocrImport.saveBlocked(fill.unconfirmed.length) : null;
@@ -124,6 +139,7 @@ export function useOcrFormIntake<TForm>({
   /** After the create request succeeded: the scans belong to the saved record, this screen forgets them. */
   const afterCreated = useCallback(() => {
     const wasBound = Boolean(fill.bindingForSave().ocrPhienId);
+    restoreEpoch.current += 1;
     intake.reset();
     if (wasBound) fill.forget();
   }, [fill, intake]);
@@ -141,6 +157,7 @@ export function useOcrFormIntake<TForm>({
     withoutScanValues,
     draftReference,
     restoreFromDraft,
+    discardRestore,
     restoreNotice,
     saveBlockedMessage,
     bindingForSave: fill.bindingForSave,

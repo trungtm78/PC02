@@ -232,6 +232,14 @@ describe('CaseFormPage — nhập từ ảnh scan', () => {
     expect(await screen.findByTestId('ocr-draft-unavailable')).toBeTruthy();
   });
 
+  it('a draft holds none of the text read from the scans', async () => {
+    await renderCreate();
+    await readOneScan();
+    fireEvent.click(screen.getByTestId('btn-save-caret'));
+    fireEvent.click(screen.getByTestId('btn-save-item-draft'));
+    expect(localStorage.getItem('caseFormDraft:regular')).not.toContain('Nguyễn Thị Hương');
+  });
+
   it('undo takes the filled values out again', async () => {
     await renderCreate();
     await readOneScan();

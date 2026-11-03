@@ -494,6 +494,12 @@ function CaseFormPage() {
   const handleConfirmSave = async () => {
     if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
     if (chiXem) return;
+    // A reading can finish between opening the summary and confirming it: check again, not only when it opened.
+    if (ocr.saveBlockedMessage) {
+      setShowPreSaveSummary(false);
+      setErrors({ ocr: ocr.saveBlockedMessage });
+      return;
+    }
     if (customFieldSchema.loading || customFieldSchema.error || governanceAccess.error || governanceAccess.capabilities.canEdit === false) return;
     savingRef.current = true;
     setIsSaving(true);
@@ -623,6 +629,9 @@ function CaseFormPage() {
   };
 
   const handleSaveDraft = () => {
+    // The record exists now (an upload may have failed and left this page open): a draft of it would only be a copy
+    // of saved personal data in the browser.
+    if (createdId) return;
     // Values read from scans are not kept in the browser: the draft remembers which scans they came from instead.
     localStorage.setItem(caseDraftKey(formData.caseProvenance || draftProvenance), encodeCaseDraft({ formData: ocr.withoutScanValues(formData), parityState, metaState, subjects, evidences, ocr: ocr.draftReference() }));
     setShowDraftBanner(false);
@@ -772,7 +781,7 @@ function CaseFormPage() {
       {showDraftBanner && !isEditMode && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between">
           <span className="text-sm text-amber-800">Bản nháp được tìm thấy từ lần trước — dữ liệu đã được khôi phục.</span>
-          <button onClick={() => { clearCaseDraft(localStorage, draftProvenance); setFormData(INITIAL_FORM_DATA); setShowDraftBanner(false); }} className="text-xs text-amber-600 hover:text-amber-800 underline ml-4">Bỏ qua</button>
+          <button onClick={() => { clearCaseDraft(localStorage, draftProvenance); setFormData(INITIAL_FORM_DATA); setShowDraftBanner(false); ocr.discardRestore(); }} className="text-xs text-amber-600 hover:text-amber-800 underline ml-4">Bỏ qua</button>
         </div>
       )}
       {/* Header — F4 inline (was <PageHeader /> wrapper, deleted in this PR) */}
