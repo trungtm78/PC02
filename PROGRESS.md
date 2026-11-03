@@ -1,11 +1,39 @@
 # PROGRESS
-Updated: 2026-11-03 | Milestone: M1/1 (Petition list: search every field that holds data) | Task: 2/2 DONE in code, release step pending
+Updated: 2026-11-03 | Epic: scan-image intake with LLM (Petition / Incident / Case) | Milestone: M1/10 | Task: spec written, PR1 starting
 
-STATUS: BLOCKED
+STATUS: IN_PROGRESS
 
-Previous work: Case governance is DONE (PR #503 merged 2026-10-08, UAT 856/856 PASS). Its 2026-10-07 snapshot is in git history (`git log -- PROGRESS.md`).
+Spec (approved design, reviewed + outside-reviewed): `docs/superpowers/specs/2026-11-03-nhap-tu-anh-scan-llm-design.md`.
+Branch: `feat/nhap-tu-anh-scan-llm` (from `origin/main` `5e964b2f`). Working branch is local only; nothing pushed.
 
-Spec and measured decisions: `docs/superpowers/specs/2026-11-03-don-thu-tim-moi-truong-design.md`.
+## Current work (autonomous)
+
+Milestones follow the spec's delivery order (vertical slice first):
+
+| # | Milestone | State |
+|---|---|---|
+| M1 | Contracts and foundations (evidence schema, field catalogue generator, per-field policy, projection rules, unit contract, legal-role table, versioned AES-GCM, `PII_PATTERN`) | in progress |
+| M2 | LLM gateway + configuration, Anthropic adapter | queued |
+| M3 | Vertical-slice pipeline (images) | queued |
+| M4 | Petition UI | queued |
+| M5 | Golden set + scorer, run on the slice | queued |
+| M6 | Gemini + OpenAI-compatible adapters, fallback chain | queued |
+| M7 | PDF subsystem | queued |
+| M8 | Incident + Case | queued |
+| M9 | Re-read on saved records | queued |
+| M10 | Quality + cost dashboard | queued |
+
+BUOC TIEP THEO (next step): M1-T1 AES-GCM extraction (versioned ciphertext) with TDD; then `PII_PATTERN` += `api_?key`; then the field-catalogue generator.
+Files: `backend/src/auth/services/totp-encryption.service.ts`, `backend/src/audit/audit.utils.ts`, `backend/scripts/gen-khai-xuat-day-du.ts` (pattern to copy).
+
+Tooling note: gstack upgraded 1.91.9.0 -> 1.94.15.0; Bun upgraded 1.3.13 -> 1.4.4 because `./setup` crashed on 1.3.13 (`preflight-codex-overlap.ts`).
+
+## Operator prerequisites (do not block code)
+- Transfer-impact-assessment file (Luat 91/2025) before enabling any cloud provider; outbound Internet from the production VM to provider hosts (read-only `curl` probe, needs owner go); Claude key for tests, Gemini key for production.
+
+## Previous work still open: Petition search release (BLOCKED on one owner decision)
+
+Case governance is DONE (PR #503, UAT 856/856 PASS). The petition search work below is merged and live; only the production data load is pending.
 
 ## Blocker report (section 8b/8c)
 1. **Problem.** The code is merged and live (PR #632 `cf638c86`, PR #633 `11a22b85`, production health `ok`, buildId `11a22b85`), but the 30 new petition search tags cannot find OLD petitions until their shadow columns are loaded. `deploy.sh` step 9e says so and ended the deploy RED on purpose: `petitions: CẦN NẠP - còn cột bóng NULL; dòng cũ lệch biểu thức hiện hành` (every other table: `đúng`). Loading them is a **write to the production database** (derived search columns only; batches of 1,000 rows; about 10 min for everything on a 47k-row copy).
