@@ -12,7 +12,7 @@ export interface ProjectionFill {
   };
   warnings: string[];
   /** A value that still has to be matched against a directory: it cannot be written into the form as it is. */
-  pending?: { kind: string };
+  pending?: { kind: string; [detail: string]: unknown };
 }
 
 export interface ProjectionSkip {
