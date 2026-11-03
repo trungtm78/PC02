@@ -37,7 +37,7 @@ const analysis = (...fills: Array<[string, string, boolean?]>): OcrAnalysisView 
   },
 });
 
-const setup = (initial: Form = { a: '', b: '' }) =>
+const setup = (initial: Form = { a: '', b: '' }, toFormPath?: (field: string) => string) =>
   renderHook(() => {
     const [form, setForm] = useState<Form>(initial);
     const ocr = useOcrFormIntake({
@@ -47,6 +47,7 @@ const setup = (initial: Form = { a: '', b: '' }) =>
       setForm,
       baseline: initial,
       saved: false,
+      toFormPath,
     });
     return { form, setForm, ocr };
   });
@@ -102,5 +103,23 @@ describe('useOcrFormIntake — drafts', () => {
     await act(() => result.current.ocr.restoreFromDraft(undefined));
     expect(api.analysis).not.toHaveBeenCalled();
     expect(result.current.ocr.restoreNotice).toBeNull();
+  });
+});
+
+describe('useOcrFormIntake — field names', () => {
+  // The server names fields as the shared layout does ("tenCungCap"); a form stores them under its own path
+  // ("senderName"). The hook translates once, so everything after it speaks the form's names.
+  const toPath = (field: string) => ({ tenCungCap: 'senderName', sdtCungCap: 'senderPhone' })[field] ?? field;
+
+  it('maps the fills and the skipped fields of an analysis that comes from the server', async () => {
+    api.analysis.mockResolvedValue({
+      ...analysis(['tenCungCap', 'Nguyễn Thị Hương', true], ['sdtCungCap', '0901234567']),
+    });
+    const { result } = setup({ senderName: '', senderPhone: '' }, toPath);
+    await act(() => result.current.ocr.restoreFromDraft({ sessionId: 's1', analysisId: 'ana-1' }));
+    expect(result.current.form.senderName).toBe('Nguyễn Thị Hương');
+    expect(result.current.form.senderPhone).toBe('0901234567');
+    expect(result.current.ocr.fill.applied.map((p) => p.field).sort()).toEqual(['senderName', 'senderPhone']);
+    expect(result.current.ocr.notes).toHaveProperty('senderName');
   });
 });

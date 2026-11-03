@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import { ocrApi } from './ocrApi';
+import { ocrApi, type OcrAnalysisView } from './ocrApi';
+import { mapFieldNames } from './mapFieldNames';
 import { undoFill } from './fillPlan';
 import { ocrImport } from '@/locales/vi';
 import { buildFieldNotes } from './FieldNotes';
@@ -18,6 +19,11 @@ export interface UseOcrFormIntakeArgs<TForm> {
   baseline: TForm | undefined;
   /** The record already exists (edit screen, or created a moment ago): scans can no longer be read into the form. */
   saved: boolean;
+  /**
+   * Turns the field name the server uses (the shared layout's name, e.g. "tenCungCap") into the path this form keeps
+   * the value under (e.g. "senderName"). Omit when the form uses the layout's names as they are.
+   */
+  toFormPath?: (serverField: string) => string;
 }
 
 /**
@@ -32,16 +38,23 @@ export function useOcrFormIntake<TForm>({
   setForm,
   baseline,
   saved,
+  toFormPath,
 }: UseOcrFormIntakeArgs<TForm>) {
   const available = useOcrAvailability();
   const fill = useOcrFill({ access, form, setForm, baseline });
+  // Everything after this speaks the form's own field names.
+  const applyMapped = useCallback(
+    (sessionId: string, analysis: OcrAnalysisView) =>
+      fill.applyAnalysis(sessionId, toFormPath ? mapFieldNames(analysis, toFormPath) : analysis),
+    [fill, toFormPath],
+  );
   const intake = useOcrIntake({
     entity,
     // Once the record is saved a late analysis must not fill it: the confirmation guard and the binding only exist
     // for the create request.
     onAnalysis: (sessionId, analysis) => {
       if (saved) return;
-      fill.applyAnalysis(sessionId, analysis);
+      applyMapped(sessionId, analysis);
     },
     // The scans were deleted: save without them. What was filled from them still needs confirming.
     onSessionEnded: fill.unbind,
@@ -97,12 +110,12 @@ export function useOcrFormIntake<TForm>({
           return;
         }
         setRestoreNotice(null);
-        fill.applyAnalysis(reference.sessionId, found);
+        applyMapped(reference.sessionId, found);
       } catch {
         setRestoreNotice('UNAVAILABLE');
       }
     },
-    [fill],
+    [applyMapped],
   );
 
   /** A message when Save must wait for the officer to confirm fields taken from the scans; null when it may go on. */

@@ -17,8 +17,10 @@ import { LegacyParityFields } from "@/components/LegacyParityFields";
 import {
   KHOA_NHANH_PHU,
   PETITION_LEGACY_SPEC,
+  dichLuu,
   type PetitionFieldPath,
 } from "@/features/petitions/legacy-form-binding";
+import type { CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
 import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
 import type { FormAccess } from "@/features/ocr-import/fillPlan";
 import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
@@ -292,6 +294,8 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
     setForm: setFormData,
     baseline: ocrBaseline,
     saved: effectiveEdit,
+    // The server names fields as the shared layout does; this form keeps some of them under its own column names.
+    toFormPath: (field) => dichLuu(field as CaseFieldPath),
   });
 
   // v0.42 — Auto-generate stt via engine in create mode.

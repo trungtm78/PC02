@@ -52,6 +52,8 @@ vi.mock('./PetitionAssignmentSection', () => ({ PetitionAssignmentSection: () =>
 vi.mock('@/components/FKSelect', () => ({ FKSelect: ({ testId }: { testId?: string }) => <div data-testid={testId} /> }));
 vi.mock('@/components/CrimeSelect', () => ({ CrimeSelect: ({ testId }: { testId?: string }) => <div data-testid={testId} /> }));
 
+// The server names fields as the shared layout does ("tenCungCap"); this form keeps them under its own names
+// ("senderName"). The assertions below read the form's own fields, so a missing translation fails them.
 const provenance = { claimKind: 'QUOTED', pageId: 'p1', quote: 'Tôi tên là Nguyễn Thị Hương' };
 const analysis = {
   id: 'ana-1',
@@ -63,8 +65,8 @@ const analysis = {
   promptVersions: {},
   projection: {
     fills: [
-      { field: 'senderName', value: 'Nguyễn Thị Hương', policy: 'AI_FILL_MUST_CONFIRM', provenance, warnings: [] },
-      { field: 'senderPhone', value: '0901234567', policy: 'AI_FILL', provenance, warnings: [] },
+      { field: 'tenCungCap', value: 'Nguyễn Thị Hương', policy: 'AI_FILL_MUST_CONFIRM', provenance, warnings: [] },
+      { field: 'sdtCungCap', value: '0901234567', policy: 'AI_FILL', provenance, warnings: [] },
     ],
     skips: [],
   },

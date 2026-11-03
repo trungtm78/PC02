@@ -110,6 +110,8 @@ describe('IncidentFormPage — nhập từ ảnh scan', () => {
     await readOneScan();
     expect(ocr.openSession).toHaveBeenCalledWith('INCIDENT');
     expect(screen.getByText('Đã điền 2 ô · 1 ô cần xác nhận')).toBeTruthy();
+    // the sender's name really landed in a field of this form, under whatever name the form keeps it
+    expect(screen.getAllByDisplayValue('Nguyễn Thị Hương').length).toBeGreaterThan(0);
     expect(within(screen.getByTestId('ocr-fill-bar')).getAllByRole('button', { name: 'Xác nhận' })).toHaveLength(1);
     // filling never saves
     expect(createCalls()).toHaveLength(0);

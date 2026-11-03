@@ -70,8 +70,10 @@ import {
 import {
   INCIDENT_LEGACY_SPEC,
   KHOA_NHANH_PHU,
+  dichLuu,
   type IncidentFieldPath,
 } from "@/features/incidents/legacy-form-binding";
+import type { CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
 import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
 import type { FormAccess } from "@/features/ocr-import/fillPlan";
 import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
@@ -463,6 +465,8 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
     setForm: setFormData,
     baseline: ocrBaseline,
     saved: isEditMode || createdId !== null,
+    // The server names fields as the shared layout does; this form keeps some of them under its own column names.
+    toFormPath: (field) => dichLuu(field as CaseFieldPath),
   });
 
   // Load users for investigator / canBoNhap pickers
