@@ -99,10 +99,7 @@ export class OcrReadExecutor {
     const snapshot = await this.sessions.snapshotForAnalysis(sessionId, actor);
     const ordered = snapshot.pages.map((page) => {
       if (page.text === null) {
-        throw new OcrImportError(
-          'OCR_TRANSCRIPT_MISSING',
-          HttpStatus.CONFLICT,
-        );
+        throw new OcrImportError('OCR_TRANSCRIPT_MISSING', HttpStatus.CONFLICT);
       }
       return { pageId: page.pageId, text: page.text };
     });

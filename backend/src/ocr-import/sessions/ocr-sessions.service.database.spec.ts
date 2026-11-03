@@ -402,7 +402,12 @@ run('OcrSessionsService on PostgreSQL', () => {
     it('a snapshot gives the fingerprint and the text of the same moment', async () => {
       const s = await service.createSession('PETITION', alice);
       const { page } = await service.addPage(s.id, file('snap'), alice);
-      await service.saveTranscript(s.id, page.id, { text: 'văn bản', source: 'OFFICER' }, alice);
+      await service.saveTranscript(
+        s.id,
+        page.id,
+        { text: 'văn bản', source: 'OFFICER' },
+        alice,
+      );
       const snap = await service.snapshotForAnalysis(s.id, alice);
       expect(snap.fingerprint).toBe(await service.currentFingerprint(s.id));
       expect(snap.pages).toEqual([{ pageId: page.id, text: 'văn bản' }]);
@@ -417,8 +422,18 @@ run('OcrSessionsService on PostgreSQL', () => {
         s.id,
         fp,
         [
-          { pageId: a.page.id, text: 'A', pageKind: 'COMPLAINT', promptVersion: 'v1' },
-          { pageId: b.page.id, text: 'B', pageKind: 'OTHER', promptVersion: 'v1' },
+          {
+            pageId: a.page.id,
+            text: 'A',
+            pageKind: 'COMPLAINT',
+            promptVersion: 'v1',
+          },
+          {
+            pageId: b.page.id,
+            text: 'B',
+            pageKind: 'OTHER',
+            promptVersion: 'v1',
+          },
         ],
         alice,
       );
@@ -431,17 +446,31 @@ run('OcrSessionsService on PostgreSQL', () => {
       const s = await service.createSession('PETITION', alice);
       const a = await service.addPage(s.id, file('ca'), alice);
       const fp = await service.currentFingerprint(s.id);
-      await service.saveTranscript(s.id, a.page.id, { text: 'cán bộ sửa', source: 'OFFICER' }, alice);
+      await service.saveTranscript(
+        s.id,
+        a.page.id,
+        { text: 'cán bộ sửa', source: 'OFFICER' },
+        alice,
+      );
 
       await expect(
         service.saveModelReadings(
           s.id,
           fp,
-          [{ pageId: a.page.id, text: 'máy đọc', pageKind: 'OTHER', promptVersion: 'v1' }],
+          [
+            {
+              pageId: a.page.id,
+              text: 'máy đọc',
+              pageKind: 'OTHER',
+              promptVersion: 'v1',
+            },
+          ],
           alice,
         ),
       ).rejects.toMatchObject({ response: { code: 'OCR_INPUT_CHANGED' } });
-      expect((await service.latestTranscripts(s.id, alice))[a.page.id].text).toBe('cán bộ sửa');
+      expect(
+        (await service.latestTranscripts(s.id, alice))[a.page.id].text,
+      ).toBe('cán bộ sửa');
     });
   });
 
@@ -463,7 +492,11 @@ run('OcrSessionsService on PostgreSQL', () => {
           return listed.then(async (rows) => {
             await db.ocrSession.update({
               where: { id: s.id },
-              data: { status: 'BOUND', boundRecordId: 'rec-9', boundAt: new Date() },
+              data: {
+                status: 'BOUND',
+                boundRecordId: 'rec-9',
+                boundAt: new Date(),
+              },
             });
             return rows;
           });
@@ -473,7 +506,9 @@ run('OcrSessionsService on PostgreSQL', () => {
       spy.mockRestore();
 
       expect(purged).toEqual({ files: [], sessions: 0 });
-      expect(await db.ocrSession.findUnique({ where: { id: s.id } })).not.toBeNull();
+      expect(
+        await db.ocrSession.findUnique({ where: { id: s.id } }),
+      ).not.toBeNull();
     });
   });
 

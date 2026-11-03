@@ -255,7 +255,7 @@ run('OcrReadExecutor on PostgreSQL', () => {
       expect(derive).not.toHaveBeenCalled();
     });
 
-    it("a correction made while the pages were being read is kept, and the stale reading is refused", async () => {
+    it('a correction made while the pages were being read is kept, and the stale reading is refused', async () => {
       const s = await sessions.createSession('PETITION', alice);
       const { page } = await addScan(s.id, 200);
       duringReading = async () => {
@@ -270,9 +270,9 @@ run('OcrReadExecutor on PostgreSQL', () => {
       expect(await codeOf(executor.execute(await jobFor(s.id, 'READ')))).toBe(
         'OCR_INPUT_CHANGED',
       );
-      expect((await sessions.latestTranscripts(s.id, alice))[page.id].text).toBe(
-        'cán bộ đã sửa',
-      );
+      expect(
+        (await sessions.latestTranscripts(s.id, alice))[page.id].text,
+      ).toBe('cán bộ đã sửa');
       expect(await sessions.currentAnalysis(s.id, alice)).toBeNull();
     });
 

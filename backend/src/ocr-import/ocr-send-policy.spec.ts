@@ -21,10 +21,15 @@ function setup(options: {
   const prisma = {
     rolePermission: {
       count: jest.fn(
-        ({ where }: { where: { permission: { action: string; subject: string } } }) =>
+        ({
+          where,
+        }: {
+          where: { permission: { action: string; subject: string } };
+        }) =>
           Promise.resolve(
             granted.some(
-              ([a, s]) => a === where.permission.action && s === where.permission.subject,
+              ([a, s]) =>
+                a === where.permission.action && s === where.permission.subject,
             )
               ? 1
               : 0,
@@ -34,7 +39,9 @@ function setup(options: {
     user: {
       findUnique: jest.fn(() =>
         Promise.resolve(
-          options.user === undefined ? { roleId: 'role-1', isActive: true } : options.user,
+          options.user === undefined
+            ? { roleId: 'role-1', isActive: true }
+            : options.user,
         ),
       ),
     },
@@ -44,13 +51,20 @@ function setup(options: {
       Promise.resolve(options.destinations ?? { cloud: false, internal: true }),
     ),
   };
-  return { policy: new OcrSendPolicy(prisma as never, providers as never), prisma };
+  return {
+    policy: new OcrSendPolicy(prisma as never, providers as never),
+    prisma,
+  };
 }
 
 describe('OcrSendPolicy', () => {
   it('reports that no provider is usable', async () => {
-    const { policy } = setup({ destinations: { cloud: false, internal: false } });
-    expect(await codeOf(policy.assertForRole('role-1'))).toBe('LLM_NO_PROVIDER');
+    const { policy } = setup({
+      destinations: { cloud: false, internal: false },
+    });
+    expect(await codeOf(policy.assertForRole('role-1'))).toBe(
+      'LLM_NO_PROVIDER',
+    );
   });
 
   it('needs the send permission of every kind of provider the content may go to', async () => {
@@ -58,7 +72,9 @@ describe('OcrSendPolicy', () => {
       destinations: { cloud: true, internal: true },
       granted: [['sendCloud', 'OcrImport']],
     });
-    expect(await codeOf(both.policy.assertForRole('role-1'))).toBe('OCR_FORBIDDEN');
+    expect(await codeOf(both.policy.assertForRole('role-1'))).toBe(
+      'OCR_FORBIDDEN',
+    );
 
     const allowed = setup({
       destinations: { cloud: true, internal: true },
@@ -67,7 +83,9 @@ describe('OcrSendPolicy', () => {
         ['sendInternal', 'OcrImport'],
       ],
     });
-    await expect(allowed.policy.assertForRole('role-1')).resolves.toBeUndefined();
+    await expect(
+      allowed.policy.assertForRole('role-1'),
+    ).resolves.toBeUndefined();
   });
 
   it('judges a user by the role they hold now, so revoking the permission stops a queued job', async () => {
@@ -80,7 +98,10 @@ describe('OcrSendPolicy', () => {
   });
 
   it('refuses a user who no longer exists or has been deactivated', async () => {
-    const gone = setup({ user: null, granted: [['sendInternal', 'OcrImport']] });
+    const gone = setup({
+      user: null,
+      granted: [['sendInternal', 'OcrImport']],
+    });
     expect(await codeOf(gone.policy.assertForUser('u1'))).toBe('OCR_FORBIDDEN');
     const off = setup({
       user: { roleId: 'r', isActive: false },

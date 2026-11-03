@@ -21,7 +21,10 @@ export class OcrSendPolicy {
   async assertForRole(roleId: string): Promise<void> {
     const destinations = await this.providers.activeDestinations();
     if (!destinations.cloud && !destinations.internal) {
-      throw new LlmAdminError('LLM_NO_PROVIDER', HttpStatus.SERVICE_UNAVAILABLE);
+      throw new LlmAdminError(
+        'LLM_NO_PROVIDER',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
     // A fail-over sends the same content to the next provider, so every active kind needs permission.
     if (destinations.internal) await this.require(roleId, 'sendInternal');

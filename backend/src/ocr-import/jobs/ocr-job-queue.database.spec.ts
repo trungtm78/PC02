@@ -307,10 +307,22 @@ run('OcrJobQueue on PostgreSQL', () => {
       // The job was taken back as stranded and claimed again by another worker.
       await db.ocrJob.update({
         where: { id: first.id },
-        data: { state: 'QUEUED', claimedBy: null, claimedAt: null, runAfter: new Date() },
+        data: {
+          state: 'QUEUED',
+          claimedBy: null,
+          claimedAt: null,
+          runAfter: new Date(),
+        },
       });
-      const second = await queue.claim('other', { maxRunning: 50, scopeTag: tag });
-      expect(second).toMatchObject({ id: first.id, claimedBy: 'other', attempts: 2 });
+      const second = await queue.claim('other', {
+        maxRunning: 50,
+        scopeTag: tag,
+      });
+      expect(second).toMatchObject({
+        id: first.id,
+        claimedBy: 'other',
+        attempts: 2,
+      });
 
       await queue.complete(first.id, staleToken);
       await queue.fail(first.id, 'INTERNAL', { retryable: false }, staleToken);
@@ -333,7 +345,10 @@ run('OcrJobQueue on PostgreSQL', () => {
       });
 
       const again = await (async () => {
-        await db.ocrJob.update({ where: { id: job.id }, data: { runAfter: new Date() } });
+        await db.ocrJob.update({
+          where: { id: job.id },
+          data: { runAfter: new Date() },
+        });
         return reclaim();
       })();
       await db.ocrJob.update({

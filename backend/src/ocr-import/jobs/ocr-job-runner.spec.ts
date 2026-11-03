@@ -14,7 +14,11 @@ const job = (id: string): OcrJob =>
   }) as OcrJob;
 
 function setup(
-  options: { enabled?: boolean; maxRunning?: number; heartbeatMs?: number } = {},
+  options: {
+    enabled?: boolean;
+    maxRunning?: number;
+    heartbeatMs?: number;
+  } = {},
 ) {
   const pending: OcrJob[] = [];
   const queue = {

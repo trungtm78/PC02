@@ -85,7 +85,10 @@ export class OcrJobRunner {
 
   private async process(job: OcrJob): Promise<void> {
     // This attempt, as the queue knows it: a worker that lost the job cannot finish or fail it any more.
-    const token = { workerId: job.claimedBy ?? this.options.workerId, attempt: job.attempts };
+    const token = {
+      workerId: job.claimedBy ?? this.options.workerId,
+      attempt: job.attempts,
+    };
     // A long reading is not a stranded one: keep telling the queue it is alive.
     const beat = setInterval(() => {
       this.queue.heartbeat(job.id, token).catch(() => undefined);

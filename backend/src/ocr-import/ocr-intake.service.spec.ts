@@ -172,7 +172,9 @@ describe('OcrIntakeService', () => {
       sendPolicy.assertForRole.mockRejectedValue(
         new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN),
       );
-      expect(await codeOf(service.requestRead('s1', 'READ', user))).toBe('OCR_FORBIDDEN');
+      expect(await codeOf(service.requestRead('s1', 'READ', user))).toBe(
+        'OCR_FORBIDDEN',
+      );
       expect(queue.enqueue).not.toHaveBeenCalled();
     });
   });

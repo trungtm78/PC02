@@ -89,7 +89,9 @@ export class OcrFinaliser {
         finalisedAt: null,
         OR: [
           { finaliseClaimedAt: null },
-          { finaliseClaimedAt: { lt: new Date(now.getTime() - CLAIM_STALE_MS) } },
+          {
+            finaliseClaimedAt: { lt: new Date(now.getTime() - CLAIM_STALE_MS) },
+          },
         ],
       },
       data: { finaliseClaimedAt: now },
@@ -181,7 +183,11 @@ export class OcrFinaliser {
 
     await this.prisma.ocrSession.update({
       where: { id: sessionId },
-      data: { finalisedAt: new Date(), finaliseClaimedAt: null, finaliseNextAt: null },
+      data: {
+        finalisedAt: new Date(),
+        finaliseClaimedAt: null,
+        finaliseNextAt: null,
+      },
     });
     return { state: 'DONE', documents: made };
   }

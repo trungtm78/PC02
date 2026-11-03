@@ -340,7 +340,8 @@ run('OcrFinaliser on PostgreSQL', () => {
     // The two failed ones are now waiting, so the next batch reaches the healthy one.
     expect(await finaliser.sweep(2, tag)).toEqual({ finalised: 1, failed: 0 });
     expect(
-      (await db.ocrSession.findUniqueOrThrow({ where: { id: healthy.id } })).finalisedAt,
+      (await db.ocrSession.findUniqueOrThrow({ where: { id: healthy.id } }))
+        .finalisedAt,
     ).toBeInstanceOf(Date);
   });
 
@@ -350,19 +351,28 @@ run('OcrFinaliser on PostgreSQL', () => {
       where: { id: s.id },
       data: { finaliseClaimedAt: new Date() },
     });
-    expect(await finaliser.finalise(s.id)).toEqual({ state: 'SKIPPED', documents: 0 });
+    expect(await finaliser.finalise(s.id)).toEqual({
+      state: 'SKIPPED',
+      documents: 0,
+    });
     expect(created).toHaveLength(0);
 
     await db.ocrSession.update({
       where: { id: s.id },
       data: { finaliseClaimedAt: new Date(Date.now() - 30 * 60_000) },
     });
-    expect(await finaliser.finalise(s.id)).toEqual({ state: 'DONE', documents: 1 });
+    expect(await finaliser.finalise(s.id)).toEqual({
+      state: 'DONE',
+      documents: 1,
+    });
   });
 
   it('two instances finalising the same session at once create each document once', async () => {
     const s = await boundSession(2);
-    const results = await Promise.all([finaliser.finalise(s.id), finaliser.finalise(s.id)]);
+    const results = await Promise.all([
+      finaliser.finalise(s.id),
+      finaliser.finalise(s.id),
+    ]);
     expect(results.map((r) => r.state).sort()).toEqual(['DONE', 'SKIPPED']);
     expect(created).toHaveLength(2);
   });
