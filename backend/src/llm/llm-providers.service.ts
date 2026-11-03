@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LlmAdminError } from './llm-admin-error';
 import { LlmKeyService } from './llm-key.service';
+import type { TokenPrices } from './cost';
 import { runKeyTest, type KeyTestReport } from './key-test';
 import type { LlmProvider, ProviderKind } from './llm.types';
 import { LlmProviderFactory } from './provider-factory';
@@ -31,6 +32,8 @@ export interface CreateProviderInput {
   baseUrl?: string | null;
   dataRegion?: string | null;
   zeroRetention?: boolean;
+  inputPriceMicroUsdPerMTok?: number | null;
+  outputPriceMicroUsdPerMTok?: number | null;
 }
 
 export interface UpdateProviderInput {
@@ -40,6 +43,8 @@ export interface UpdateProviderInput {
   baseUrl?: string | null;
   dataRegion?: string | null;
   zeroRetention?: boolean;
+  inputPriceMicroUsdPerMTok?: number | null;
+  outputPriceMicroUsdPerMTok?: number | null;
 }
 
 /** What the API shows about a provider. There is deliberately no field that could hold the key. */
@@ -52,6 +57,7 @@ export interface ProviderView {
   model: string;
   dataRegion: string | null;
   zeroRetention: boolean;
+  prices: TokenPrices;
   role: ProviderRole;
   fallbackOrder: number | null;
   archivedAt: Date | null;
@@ -66,6 +72,14 @@ export interface ProviderView {
   };
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** A usable provider with the metadata the gateway records about each call. */
+export interface ChainEntry {
+  id: string;
+  dataRegion: string | null;
+  prices: TokenPrices;
+  provider: LlmProvider;
 }
 
 export interface AssessmentInput {
@@ -107,6 +121,8 @@ export class LlmProvidersService {
         baseUrl: this.storedBaseUrl(input.kind, input.baseUrl),
         dataRegion: input.dataRegion?.trim() || null,
         zeroRetention: input.zeroRetention ?? false,
+        inputPriceMicroUsdPerMTok: input.inputPriceMicroUsdPerMTok ?? null,
+        outputPriceMicroUsdPerMTok: input.outputPriceMicroUsdPerMTok ?? null,
         apiKeyEncrypted: this.keys.encrypt(apiKey),
         apiKeyLast4: apiKey.slice(-4),
         role: 'OFF',
@@ -160,6 +176,15 @@ export class LlmProvidersService {
             ? row.dataRegion
             : patch.dataRegion?.trim() || null,
         zeroRetention: patch.zeroRetention ?? row.zeroRetention,
+        // Prices are bookkeeping, not part of what a key test vouches for, so changing them keeps the test valid.
+        inputPriceMicroUsdPerMTok:
+          patch.inputPriceMicroUsdPerMTok === undefined
+            ? row.inputPriceMicroUsdPerMTok
+            : patch.inputPriceMicroUsdPerMTok,
+        outputPriceMicroUsdPerMTok:
+          patch.outputPriceMicroUsdPerMTok === undefined
+            ? row.outputPriceMicroUsdPerMTok
+            : patch.outputPriceMicroUsdPerMTok,
         ...(newKey
           ? {
               apiKeyEncrypted: this.keys.encrypt(newKey),
@@ -408,6 +433,11 @@ export class LlmProvidersService {
    * assessment is in force. The gateway calls this on every request, so a withdrawal takes effect immediately.
    */
   async buildChain(): Promise<LlmProvider[]> {
+    return (await this.buildChainEntries()).map((entry) => entry.provider);
+  }
+
+  /** Like `buildChain`, with what the gateway needs to write lineage and price each call. */
+  async buildChainEntries(): Promise<ChainEntry[]> {
     const assessmentActive = (await this.activeAssessment()) !== null;
     const rows = await this.prisma.llmProvider.findMany({
       where: { archivedAt: null, role: { in: ['PRIMARY', 'FALLBACK'] } },
@@ -420,7 +450,7 @@ export class LlmProvidersService {
         a.createdAt.getTime() - b.createdAt.getTime(),
     );
 
-    const chain: LlmProvider[] = [];
+    const chain: ChainEntry[] = [];
     for (const row of rows) {
       const fingerprint = this.currentFingerprint(row);
       const blocker = roleBlocker({
@@ -431,14 +461,20 @@ export class LlmProvidersService {
         archived: false,
       });
       if (blocker || fingerprint === null) continue;
-      chain.push(
-        this.factory.create({
+      chain.push({
+        id: row.id,
+        dataRegion: row.dataRegion,
+        prices: {
+          inputMicroUsdPerMTok: row.inputPriceMicroUsdPerMTok,
+          outputMicroUsdPerMTok: row.outputPriceMicroUsdPerMTok,
+        },
+        provider: this.factory.create({
           kind: row.kind,
           model: row.model,
           baseUrl: row.baseUrl,
           apiKey: this.keys.decrypt(row.apiKeyEncrypted),
         }),
-      );
+      });
     }
     return chain;
   }
@@ -539,6 +575,10 @@ export class LlmProvidersService {
       model: row.model,
       dataRegion: row.dataRegion,
       zeroRetention: row.zeroRetention,
+      prices: {
+        inputMicroUsdPerMTok: row.inputPriceMicroUsdPerMTok,
+        outputMicroUsdPerMTok: row.outputPriceMicroUsdPerMTok,
+      },
       role: row.role,
       fallbackOrder: row.fallbackOrder,
       archivedAt: row.archivedAt,

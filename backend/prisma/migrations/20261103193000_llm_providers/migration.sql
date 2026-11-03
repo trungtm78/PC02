@@ -15,6 +15,8 @@ CREATE TABLE "llm_providers" (
     "model" TEXT NOT NULL,
     "dataRegion" TEXT,
     "zeroRetention" BOOLEAN NOT NULL DEFAULT false,
+    "inputPriceMicroUsdPerMTok" INTEGER,
+    "outputPriceMicroUsdPerMTok" INTEGER,
     "role" "LlmProviderRole" NOT NULL DEFAULT 'OFF',
     "fallbackOrder" INTEGER,
     "testedFingerprint" TEXT,
@@ -59,6 +61,7 @@ CREATE TABLE "llm_call_lineage" (
     "inputTokens" INTEGER,
     "outputTokens" INTEGER,
     "estimatedCostMicroUsd" INTEGER,
+    "imagesSent" INTEGER NOT NULL DEFAULT 0,
     "promptVersion" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -100,4 +103,12 @@ END $$;
 -- (FeatureFlagsService.isEnabled is default-allow), so the row is inserted explicitly.
 INSERT INTO "feature_flags" ("key","label","description","enabled","domain","rolloutPct","updatedAt")
 VALUES ('ocr_import','Nhập từ ảnh scan bằng LLM','Đọc ảnh scan bằng LLM và điền vào form; cấu hình nhà cung cấp LLM',FALSE,'core',100,CURRENT_TIMESTAMP)
+ON CONFLICT ("key") DO NOTHING;
+
+-- Limits the gateway enforces. Rows are inserted here because deploy runs `migrate deploy`, not the settings seed.
+-- A cap of 0 means unlimited. Cost is in micro-USD (1,000,000 = 1 USD); the default stops spending at 20 USD a month.
+INSERT INTO "system_settings" ("id","key","value","label","unit","updatedAt")
+VALUES
+  ('cfg_llm_quota_images_day','LLM_QUOTA_IMAGES_PER_USER_DAY','200','LLM: số ảnh tối đa mỗi cán bộ mỗi ngày','ảnh',CURRENT_TIMESTAMP),
+  ('cfg_llm_budget_month','LLM_BUDGET_MONTH_MICRO_USD','20000000','LLM: trần chi phí mỗi tháng (micro-USD, 0 = không giới hạn)','micro-USD',CURRENT_TIMESTAMP)
 ON CONFLICT ("key") DO NOTHING;

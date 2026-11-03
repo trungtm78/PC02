@@ -43,6 +43,18 @@ export class CreateProviderDto {
   @IsOptional()
   @IsBoolean()
   zeroRetention?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000_000)
+  inputPriceMicroUsdPerMTok?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000_000)
+  outputPriceMicroUsdPerMTok?: number | null;
 }
 
 /** The kind is fixed at creation: changing it would change what the stored key means. */
@@ -75,6 +87,18 @@ export class UpdateProviderDto {
   @IsOptional()
   @IsBoolean()
   zeroRetention?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000_000)
+  inputPriceMicroUsdPerMTok?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000_000)
+  outputPriceMicroUsdPerMTok?: number | null;
 }
 
 export class SetRoleDto {

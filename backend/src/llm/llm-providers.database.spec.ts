@@ -148,12 +148,14 @@ run('llm provider tables on PostgreSQL', () => {
       (r) => (r as { column_name: string }).column_name,
     );
     expect(names.length).toBeGreaterThan(8);
-    for (const name of names) {
+    // Counters and version labels whose names merely resemble content words. Anything new must be reviewed.
+    const counters = new Set(['imagesSent', 'promptVersion']);
+    for (const name of names.filter((n) => !counters.has(n))) {
       expect(name).not.toMatch(
-        /prompt$|content|transcript|image|text|body|reply|response/i,
+        /prompt|content|transcript|image|text|body|reply|response/i,
       );
     }
-    expect(names).toContain('promptVersion');
+    for (const counter of counters) expect(names).toContain(counter);
   });
 
   it('lineage survives deleting the provider: it holds no foreign key to it', async () => {

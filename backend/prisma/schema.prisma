@@ -4512,6 +4512,9 @@ model LlmProvider {
   model             String
   dataRegion        String? // where the provider says it processes data
   zeroRetention     Boolean         @default(false)
+  /// Prices the administrator enters, in micro-USD per million tokens. Null = unknown, so the call cost is unknown.
+  inputPriceMicroUsdPerMTok  Int?
+  outputPriceMicroUsdPerMTok Int?
   role              LlmProviderRole @default(OFF)
   fallbackOrder     Int? // order among FALLBACK providers
   /// sha256 of kind + model + baseUrl + key at the last PASSING test. A role needs this to match the current values.
@@ -4561,6 +4564,8 @@ model LlmCallLineage {
   inputTokens           Int?
   outputTokens          Int?
   estimatedCostMicroUsd Int?
+  /// Images that left the system in this attempt (the unit of the per-user daily quota).
+  imagesSent            Int             @default(0)
   promptVersion         String?
   createdAt             DateTime        @default(now())
 
