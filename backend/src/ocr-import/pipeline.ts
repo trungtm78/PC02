@@ -77,6 +77,15 @@ const TRANSCRIPT_JSON_SCHEMA = z.toJSONSchema(TRANSCRIPT_SCHEMA) as Record<
 /** At most this many pages are sent to the provider at once. */
 const PAGE_CONCURRENCY = 3;
 
+/**
+ * Room for the evidence bundle of a multi-page bundle of scans. The bundle lists every segment of the transcript and
+ * every point, quote and amount, so it is long: a real three-page petition used 14,000 tokens and was cut off mid-reply
+ * at the old fixed 8,000. It grows with the number of pages, up to a ceiling every current provider accepts.
+ */
+export function analyseOutputBudget(pageCount: number): number {
+  return Math.min(48_000, 6_000 + 5_000 * Math.max(1, pageCount));
+}
+
 /** One segment per non-empty line, with an id the analysis can cite and the checks can verify. */
 export function splitSegments(pageId: string, transcript: string): Segment[] {
   return transcript
@@ -205,7 +214,7 @@ Pages: ${input.pages.map((p) => p.pageId).join(', ')}
 ${listing}`,
       schemaName: 'submit_evidence',
       schema: EVIDENCE_BUNDLE_JSON_SCHEMA,
-      maxOutputTokens: 8000,
+      maxOutputTokens: analyseOutputBudget(input.pages.length),
     },
     validateWith(EvidenceBundleSchema),
     { ...input.context, promptVersion: ANALYSE_PROMPT_VERSION },

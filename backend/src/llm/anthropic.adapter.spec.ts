@@ -202,6 +202,20 @@ describe('AnthropicProvider.call', () => {
     expect(timeoutError.retryable).toBe(true);
   });
 
+  it('a reply cut off by the output limit is bad JSON, never accepted as a complete result', async () => {
+    const cut = fakeFetch(() =>
+      json(200, {
+        // The tool input is whatever had been written when the limit hit: valid JSON, but missing its later keys.
+        content: [{ type: 'tool_use', input: { summary: 'partial' } }],
+        usage: { input_tokens: 1, output_tokens: 8000 },
+        stop_reason: 'max_tokens',
+      }),
+    );
+    const error = await failure(provider(cut.fetchImpl).call(baseRequest));
+    expect(error.code).toBe('BAD_JSON');
+    expect(error.message).toMatch(/output limit/);
+  });
+
   it('a refusal is not retried and a reply with no tool call is bad JSON', async () => {
     const refusal = fakeFetch(() =>
       json(200, {

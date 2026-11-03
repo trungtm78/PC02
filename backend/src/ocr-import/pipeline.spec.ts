@@ -9,6 +9,7 @@ import {
   transcribeSystemPrompt,
 } from './prompt/transcribe.v1';
 import {
+  analyseOutputBudget,
   runPipeline,
   splitSegments,
   transcribePages,
@@ -245,5 +246,15 @@ describe('runPipeline', () => {
         context: { userId: 'u', sessionRef: 's' },
       }),
     ).rejects.toThrow('no pages');
+  });
+});
+
+describe('analyseOutputBudget', () => {
+  it('grows with the number of pages so a real multi-page bundle is not cut off, up to a ceiling', () => {
+    // A real three-page petition used 14,000 tokens; the old fixed 8,000 cut it off mid-reply.
+    expect(analyseOutputBudget(3)).toBeGreaterThan(14_000);
+    expect(analyseOutputBudget(5)).toBeGreaterThan(analyseOutputBudget(3));
+    expect(analyseOutputBudget(0)).toBe(analyseOutputBudget(1));
+    expect(analyseOutputBudget(20)).toBe(48_000);
   });
 });

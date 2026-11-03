@@ -85,6 +85,15 @@ export class AnthropicProvider implements LlmProvider {
         retryable: false,
       });
     }
+    // A tool input cut off by the output limit is still valid JSON, just missing its later keys; never hand it on as a
+    // complete result.
+    if (body?.stop_reason === 'max_tokens') {
+      throw new LlmError(
+        'BAD_JSON',
+        'the reply was cut off by the output limit',
+        { retryable: false },
+      );
+    }
     const toolUse = body?.content?.find((block) => block.type === 'tool_use');
     if (!toolUse || toolUse.input === undefined) {
       throw new LlmError(
