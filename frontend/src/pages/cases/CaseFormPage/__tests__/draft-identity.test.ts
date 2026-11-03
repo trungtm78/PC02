@@ -42,3 +42,28 @@ describe('case form draft isolation', () => {
     expect(decodeCaseDraft(encodeCaseDraft(source))).toEqual(source);
   });
 });
+
+describe('a draft that points at scans', () => {
+  it('keeps the reference to the scan session and analysis, never the scans or their text', async () => {
+    const { encodeCaseDraft, decodeCaseDraft } = await import('../draft-identity');
+    const { INITIAL_FORM_DATA } = await import('../types');
+    const raw = encodeCaseDraft({
+      formData: INITIAL_FORM_DATA,
+      parityState: {},
+      metaState: {},
+      subjects: [],
+      evidences: [],
+      ocr: { sessionId: 'sess-1', analysisId: 'ana-1' },
+    });
+    expect(decodeCaseDraft(raw)?.ocr).toEqual({ sessionId: 'sess-1', analysisId: 'ana-1' });
+  });
+
+  it('a draft without scans decodes with no reference, and a malformed reference is ignored', async () => {
+    const { encodeCaseDraft, decodeCaseDraft } = await import('../draft-identity');
+    const { INITIAL_FORM_DATA } = await import('../types');
+    const plain = encodeCaseDraft({ formData: INITIAL_FORM_DATA, parityState: {}, metaState: {}, subjects: [], evidences: [] });
+    expect(decodeCaseDraft(plain)?.ocr).toBeUndefined();
+    const broken = JSON.stringify({ version: 1, formData: INITIAL_FORM_DATA, ocr: { sessionId: 5 } });
+    expect(decodeCaseDraft(broken)?.ocr).toBeUndefined();
+  });
+});

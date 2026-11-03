@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { ocrApi } from './ocrApi';
+import { undoFill } from './fillPlan';
 import { ocrImport } from '@/locales/vi';
 import { buildFieldNotes } from './FieldNotes';
 import type { FormAccess } from './fillPlan';
@@ -60,6 +62,49 @@ export function useOcrFormIntake<TForm>({
 
   const undo = useCallback(() => setUndoConflicts(fill.undo().conflicts), [fill]);
 
+  /**
+   * A copy of the form without the values that came from the scans, for a draft kept in the browser. Scans and what
+   * was read from them are personal data and live on the server for a limited time; a draft in local storage must
+   * not become a second, unmanaged copy. Fields the officer changed after the fill are theirs and stay.
+   */
+  const withoutScanValues = useCallback(
+    (current: TForm): TForm => undoFill(access, current, fill.applied).form,
+    [access, fill.applied],
+  );
+
+  /** What a draft should remember instead: which session and analysis the form was filled from. */
+  const draftReference = useCallback((): { sessionId: string; analysisId: string } | undefined => {
+    const binding = fill.bindingForSave();
+    return binding.ocrPhienId && binding.ocrPhienBan
+      ? { sessionId: binding.ocrPhienId, analysisId: binding.ocrPhienBan }
+      : undefined;
+  }, [fill]);
+
+  const [restoreNotice, setRestoreNotice] = useState<'UNAVAILABLE' | null>(null);
+
+  /**
+   * Opening a draft that pointed at scans: fetch the analysis from the server again (with the officer's own login) and
+   * fill as before; the risky fields wait for confirmation once more. If the scans were purged, or the text changed
+   * since, nothing is filled and the officer is told.
+   */
+  const restoreFromDraft = useCallback(
+    async (reference: { sessionId: string; analysisId: string } | undefined) => {
+      if (!reference) return;
+      try {
+        const found = await ocrApi.analysis(reference.sessionId);
+        if (!found) {
+          setRestoreNotice('UNAVAILABLE');
+          return;
+        }
+        setRestoreNotice(null);
+        fill.applyAnalysis(reference.sessionId, found);
+      } catch {
+        setRestoreNotice('UNAVAILABLE');
+      }
+    },
+    [fill],
+  );
+
   /** A message when Save must wait for the officer to confirm fields taken from the scans; null when it may go on. */
   const saveBlockedMessage = fill.blocksSave ? ocrImport.saveBlocked(fill.unconfirmed.length) : null;
 
@@ -80,6 +125,10 @@ export function useOcrFormIntake<TForm>({
     closeDrawer: () => setDrawerOpen(false),
     undo,
     undoConflicts,
+    withoutScanValues,
+    draftReference,
+    restoreFromDraft,
+    restoreNotice,
     saveBlockedMessage,
     bindingForSave: fill.bindingForSave,
     afterCreated,

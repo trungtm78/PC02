@@ -20,6 +20,10 @@ import { DynamicExportDocumentsModal } from "@/features/document-templates/compo
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
 import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from "@/components/inputs/RecordDuplicateReview";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { CASE_LEGACY_SPEC, type CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
+import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
+import type { FormAccess } from "@/features/ocr-import/fillPlan";
+import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalContext";
@@ -90,6 +94,19 @@ const TABS: TabItem<TabId>[] = [
 ];
 
 // ─── Main Component ─────────────────────────────────────────────────────────
+
+/** The form as the scan-intake code sees it: read and write a field by the name the layout gives it. */
+const CASE_OCR_ACCESS: FormAccess<CaseFormData> = {
+  read: (form, field) => CASE_LEGACY_SPEC.read(form, field as CaseFieldPath),
+  write: (form, field, value) => CASE_LEGACY_SPEC.write(form, field as CaseFieldPath, value),
+};
+
+/** The caption of each field on the form, for the lists that name fields outside their place in the layout. */
+const CASE_CAPTION_BY_FIELD: ReadonlyMap<string, string> = new Map(
+  Object.values(CASE_LEGACY_SPEC.layout).flatMap((items) =>
+    items.map((item): [string, string] => [item.field, item.caption]),
+  ),
+);
 
 function CaseFormPage() {
   const navigate = useNavigate();
@@ -214,6 +231,9 @@ function CaseFormPage() {
       .finally(() => setIsDraftCodeLoading(false));
   }, [isEditMode, searchParams]);
 
+  // A restored draft that pointed at scans: the reference waits here until the scan-intake hook (declared below) exists.
+  const [pendingOcrRestore, setPendingOcrRestore] = useState<{ sessionId: string; analysisId: string } | undefined>(undefined);
+
   // Load draft from localStorage on mount (only when creating, not editing)
   useEffect(() => {
     if (!isEditMode && !cloneInput) {
@@ -228,6 +248,7 @@ function CaseFormPage() {
             setSubjects(restored.subjects);
             setEvidences(restored.evidences);
             setShowDraftBanner(true);
+            setPendingOcrRestore(restored.ocr);
           }
         } else {
           const legacy = localStorage.getItem(LEGACY_CASE_DRAFT_KEY);
@@ -286,6 +307,40 @@ function CaseFormPage() {
       primaryTeamId: defaults.primaryTeamId,
     }));
   }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
+  // ── Entering the record from scanned images (feature flag ocr_import) ──
+  // The form as a fresh create screen starts, defaults included: what "the officer has not touched" is measured against.
+  const [ocrBaseline, setOcrBaseline] = useState<CaseFormData | undefined>(undefined);
+  useEffect(() => {
+    // A copied record starts from a blank form plus the copied values, which are the officer's, not defaults.
+    if (cloneInput) {
+      setOcrBaseline(INITIAL_FORM_DATA);
+      return;
+    }
+    if (isEditMode || !defaults.isLoaded) return;
+    setOcrBaseline(
+      applyCaseFormDefaults(INITIAL_FORM_DATA, {
+        today: defaults.today,
+        userId: defaults.userId,
+        primaryTeamName: defaults.primaryTeamName,
+        primaryTeamId: defaults.primaryTeamId,
+      }),
+    );
+  }, [isEditMode, cloneInput, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
+  const ocr = useOcrFormIntake({
+    entity: 'CASE',
+    access: CASE_OCR_ACCESS,
+    form: formData,
+    setForm: setFormData,
+    baseline: ocrBaseline,
+    saved: isEditMode || createdId !== null,
+  });
+  useEffect(() => {
+    if (!pendingOcrRestore) return;
+    void ocr.restoreFromDraft(pendingOcrRestore);
+    setPendingOcrRestore(undefined);
+    // Runs once per restored draft; the hook object changes every render and must not retrigger it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOcrRestore]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
@@ -402,6 +457,12 @@ function CaseFormPage() {
 
   const beginSave = async () => {
     if (chiXem) return; // chỉ xem: máy chủ sẽ 403 — không gửi
+    // Fields taken from the scans that the system is not sure of must be confirmed first; the list is in the bar above.
+    if (ocr.saveBlockedMessage) {
+      setErrors({ ocr: ocr.saveBlockedMessage });
+      requestAnimationFrame(() => document.querySelector('[data-testid="ocr-fill-bar"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }));
+      return;
+    }
     if (customFieldSchema.loading || customFieldSchema.error || governanceAccess.error || governanceAccess.capabilities.canEdit === false) {
       setErrors({ governance: customFieldSchema.error || governanceAccess.error || 'Đang xác minh chính sách trường và quyền ghi. Vui lòng tải lại hồ sơ trước khi lưu.' });
       return;
@@ -473,13 +534,15 @@ function CaseFormPage() {
         const res = await api.put(`/cases/${savedId}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
-        const res = await api.post("/cases", payload);
+        const res = await api.post("/cases", { ...payload, ...ocr.bindingForSave() });
         // Envelope {success, data:{id,updatedAt}} (cases.service.create) → bắt id + updatedAt.
         const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
         if (savedId) {
           setCreatedId(savedId);
+          // The scans now belong to the saved record; this screen must not offer them again.
+          ocr.afterCreated();
           setSubjects([]);
           setEvidences([]);
           napMucConDaCo(savedId);
@@ -559,7 +622,8 @@ function CaseFormPage() {
   };
 
   const handleSaveDraft = () => {
-    localStorage.setItem(caseDraftKey(formData.caseProvenance || draftProvenance), encodeCaseDraft({ formData, parityState, metaState, subjects, evidences }));
+    // Values read from scans are not kept in the browser: the draft remembers which scans they came from instead.
+    localStorage.setItem(caseDraftKey(formData.caseProvenance || draftProvenance), encodeCaseDraft({ formData: ocr.withoutScanValues(formData), parityState, metaState, subjects, evidences, ocr: ocr.draftReference() }));
     setShowDraftBanner(false);
   };
 
@@ -684,7 +748,7 @@ function CaseFormPage() {
   // ─── Shared tab props ──────────────────────────────────────────────────
 
   const readableFormData = { ...INITIAL_FORM_DATA, ...omitDeniedNativeFields(formData as unknown as Record<string, unknown>, nativePolicies, 'readable') } as CaseFormData;
-  const tabProps = { formData: readableFormData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading, isManualCaseCode: manualCaseCodeInput, onCaseCodeOverride: () => setManualCaseCodeState({ routeKey: location.key, manual: true }) };
+  const tabProps = { formData: readableFormData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading, ocrNotes: ocr.notes, isManualCaseCode: manualCaseCodeInput, onCaseCodeOverride: () => setManualCaseCodeState({ routeKey: location.key, manual: true }) };
 
   // ─── Render ────────────────────────────────────────────────────────────
 
@@ -772,6 +836,14 @@ function CaseFormPage() {
           </div>
         </div>
       )}
+
+      <div className="px-6 pt-4 empty:hidden">
+        <OcrIntakeSection
+          ocr={ocr}
+          visible={!isEditMode && createdId === null && !chiXem}
+          captionOf={(field) => CASE_CAPTION_BY_FIELD.get(field) ?? field}
+        />
+      </div>
 
       {/* Tabs */}
       <TabBar tabs={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />

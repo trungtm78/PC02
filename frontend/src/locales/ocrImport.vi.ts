@@ -32,6 +32,8 @@ export const ocrImport = {
   saveCorrection: 'Lưu bản sửa',
   imageFailed: 'Không tải được ảnh trang này.',
   openReview: 'Đối chiếu ảnh và sửa bản chép',
+  draftScansUnavailable:
+    'Bản nháp này có ảnh scan đã hết hạn hoặc nội dung đã đổi nên không điền lại được. Các ô anh/chị tự nhập vẫn còn; hãy chọn ảnh và đọc lại nếu cần.',
   summaryHeading: 'Tóm tắt nội dung',
   issuesHeading: 'Điểm cần xem lại',
   issuesCount: (n: number) => `${n} điểm hệ thống nghi ngờ`,

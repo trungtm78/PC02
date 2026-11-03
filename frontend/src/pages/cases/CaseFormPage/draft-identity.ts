@@ -8,10 +8,19 @@ export interface CaseDraftState {
   metaState: Record<string, unknown>;
   subjects: Subject[];
   evidences: Evidence[];
+  /** Which scan session and analysis the form was filled from. Never the scans or their text. */
+  ocr?: { sessionId: string; analysisId: string };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function decodeOcrReference(value: unknown): CaseDraftState['ocr'] {
+  if (!isRecord(value)) return undefined;
+  return typeof value.sessionId === 'string' && typeof value.analysisId === 'string'
+    ? { sessionId: value.sessionId, analysisId: value.analysisId }
+    : undefined;
 }
 
 export function encodeCaseDraft(state: CaseDraftState): string {
@@ -28,6 +37,7 @@ export function decodeCaseDraft(raw: string): CaseDraftState | null {
       metaState: isRecord(parsed.metaState) ? parsed.metaState : {},
       subjects: Array.isArray(parsed.subjects) ? parsed.subjects as Subject[] : [],
       evidences: Array.isArray(parsed.evidences) ? parsed.evidences as Evidence[] : [],
+      ocr: decodeOcrReference(parsed.ocr),
     };
   }
   if (typeof parsed.caseCode === 'string' && typeof parsed.caseProvenance === 'string') {

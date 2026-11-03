@@ -381,6 +381,8 @@ export interface TabProps {
   isDraftCodeLoading?: boolean;
   onCaseCodeOverride?: () => void;
   isManualCaseCode?: boolean;
+  /** Notes shown under fields that were filled from scanned images, by field. */
+  ocrNotes?: Record<string, React.ReactNode>;
 }
 
 export const INITIAL_FORM_DATA: CaseFormData = {

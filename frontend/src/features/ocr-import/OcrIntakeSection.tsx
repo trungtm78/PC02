@@ -1,3 +1,4 @@
+import { ocrImport } from '@/locales/vi';
 import { FillBar } from './FillBar';
 import { IntakeDrawer } from './IntakeDrawer';
 import type { OcrFormIntake } from './useOcrFormIntake';
@@ -26,6 +27,11 @@ export function OcrIntakeSection<TForm>({ ocr, captionOf, visible }: OcrIntakeSe
         onUndo={ocr.undo}
         undoConflicts={ocr.undoConflicts}
       />
+      {ocr.restoreNotice === 'UNAVAILABLE' && (
+        <p role="status" className="text-sm text-amber-800" data-testid="ocr-draft-unavailable">
+          {ocrImport.draftScansUnavailable}
+        </p>
+      )}
       <IntakeDrawer open={ocr.drawerOpen} onClose={ocr.closeDrawer} intake={ocr.intake} />
     </>
   );
