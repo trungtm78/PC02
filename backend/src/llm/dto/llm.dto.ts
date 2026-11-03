@@ -1,6 +1,5 @@
 import {
   IsBoolean,
-  IsDateString,
   IsIn,
   IsInt,
   IsOptional,
@@ -9,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 import { PROVIDER_KINDS } from '../provider-rules';
 import type { ProviderKind } from '../llm.types';
 
@@ -117,7 +117,7 @@ export class TransferAssessmentDto {
   @MaxLength(120)
   fileNumber!: string;
 
-  @IsDateString()
+  @IsNgayThat()
   filedAt!: string;
 
   @IsOptional()
