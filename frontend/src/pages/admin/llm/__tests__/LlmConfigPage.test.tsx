@@ -272,8 +272,18 @@ describe('the provider form', () => {
   const fill = (dialog: HTMLElement, label: string, value: string) =>
     fireEvent.change(within(dialog).getByLabelText(label), { target: { value } });
 
+  const chooseKind = (dialog: HTMLElement, kind: string) =>
+    fireEvent.change(within(dialog).getByLabelText('Loại nhà cung cấp'), { target: { value: kind } });
+
+  it('starts on Gemini, the default provider', async () => {
+    const dialog = await open();
+    expect((within(dialog).getByLabelText('Loại nhà cung cấp') as HTMLSelectElement).value).toBe('GEMINI');
+    expect(within(dialog).queryByTestId('kind-not-supported')).toBeNull();
+  });
+
   it('loads the models of the typed key and preselects the preferred one', async () => {
     const dialog = await open();
+    chooseKind(dialog, 'ANTHROPIC');
     fill(dialog, 'Khoá API', SECRET);
     post.mockResolvedValue(ok([{ id: 'claude-opus-5-5' }, { id: 'claude-haiku-5-5' }]) as never);
     fireEvent.click(within(dialog).getByText('Tải danh sách model'));
@@ -284,6 +294,7 @@ describe('the provider form', () => {
 
   it('tests the typed key before it is saved, and shows the steps', async () => {
     const dialog = await open();
+    chooseKind(dialog, 'ANTHROPIC');
     fill(dialog, 'Tên hiển thị', 'Claude');
     fill(dialog, 'Khoá API', SECRET);
     fill(dialog, 'Model', 'claude-haiku-5-5');
@@ -303,10 +314,21 @@ describe('the provider form', () => {
     expect(within(dialog).getByLabelText('Địa chỉ máy chủ')).toBeTruthy();
   });
 
-  it('says plainly when a kind has no working adapter yet', async () => {
+  it('offers all four kinds, each with a working adapter', async () => {
     const dialog = await open();
-    fireEvent.change(within(dialog).getByLabelText('Loại nhà cung cấp'), { target: { value: 'GEMINI' } });
-    expect(within(dialog).getByTestId('kind-not-supported')).toBeTruthy();
+    const options = within(dialog)
+      .getByLabelText('Loại nhà cung cấp')
+      .querySelectorAll('option');
+    expect(Array.from(options).map((o) => (o as HTMLOptionElement).value)).toEqual([
+      'GEMINI',
+      'ANTHROPIC',
+      'OPENAI',
+      'SELF_HOSTED',
+    ]);
+    for (const kind of ['GEMINI', 'ANTHROPIC', 'OPENAI', 'SELF_HOSTED']) {
+      chooseKind(dialog, kind);
+      expect(within(dialog).queryByTestId('kind-not-supported')).toBeNull();
+    }
   });
 
   it('saves with prices converted to micro-USD and shows server rule violations in Vietnamese', async () => {

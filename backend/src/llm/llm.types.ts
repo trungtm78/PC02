@@ -56,6 +56,7 @@ export interface LlmProvider {
  *   BAD_REQUEST  the request itself is invalid; every provider would refuse it, so never retried or failed over.
  *   BAD_JSON     the reply was missing or did not match the schema.
  *   REFUSED      the model declined to answer.
+ *   BLOCKED      the configured server address is not allowed; this provider cannot be used, another might.
  */
 export type LlmErrorCode =
   | 'AUTH'
@@ -65,7 +66,8 @@ export type LlmErrorCode =
   | 'SERVER'
   | 'BAD_REQUEST'
   | 'BAD_JSON'
-  | 'REFUSED';
+  | 'REFUSED'
+  | 'BLOCKED';
 
 export interface LlmErrorOptions {
   retryable: boolean;

@@ -1,5 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AnthropicProvider } from './anthropic.adapter';
+import { GeminiProvider } from './gemini.adapter';
+import { OpenAiCompatibleProvider } from './openai-compatible.adapter';
 import { LlmAdminError } from './llm-admin-error';
 import type { LlmProvider, ProviderKind } from './llm.types';
 
@@ -21,14 +23,33 @@ export class LlmProviderFactory {
           model: settings.model,
         });
       case 'GEMINI':
+        return new GeminiProvider({
+          apiKey: settings.apiKey,
+          model: settings.model,
+        });
       case 'OPENAI':
+        // The cloud host is fixed in the adapter; a base URL stored with this kind is never used.
+        return new OpenAiCompatibleProvider({
+          kind: 'OPENAI',
+          apiKey: settings.apiKey,
+          model: settings.model,
+        });
       case 'SELF_HOSTED':
-        // Their adapters arrive in a later milestone; a configuration can be stored but not yet used.
-        throw new LlmAdminError(
-          'LLM_PROVIDER_KIND_UNSUPPORTED',
-          HttpStatus.NOT_IMPLEMENTED,
-          { kind: settings.kind },
-        );
+        if (!settings.baseUrl) {
+          throw new LlmAdminError(
+            'LLM_PROVIDER_INVALID',
+            HttpStatus.BAD_REQUEST,
+            {
+              violations: [{ field: 'baseUrl', rule: 'REQUIRED' }],
+            },
+          );
+        }
+        return new OpenAiCompatibleProvider({
+          kind: 'SELF_HOSTED',
+          apiKey: settings.apiKey,
+          model: settings.model,
+          baseUrl: settings.baseUrl,
+        });
       default: {
         const unreachable: never = settings.kind;
         throw new Error(`unhandled provider kind ${String(unreachable)}`);

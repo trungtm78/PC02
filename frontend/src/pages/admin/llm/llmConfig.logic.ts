@@ -5,12 +5,14 @@ import type { ProviderView } from './llmApi';
 /** Kinds that send data to a foreign cloud. Only SELF_HOSTED keeps it inside the unit. */
 export const isCloudKind = (kind: LlmProviderKind): boolean => kind !== LlmProviderKind.SELF_HOSTED;
 
-/**
- * Kinds that already have a working adapter. Gemini is the intended default (Flash); it becomes the default here the
- * moment its adapter lands, by editing these two constants.
- */
-export const SUPPORTED_KINDS: readonly LlmProviderKind[] = [LlmProviderKind.ANTHROPIC];
-export const DEFAULT_KIND: LlmProviderKind = LlmProviderKind.ANTHROPIC;
+/** Every kind has a working adapter. Gemini (Flash) is the default for a new provider. */
+export const SUPPORTED_KINDS: readonly LlmProviderKind[] = [
+  LlmProviderKind.GEMINI,
+  LlmProviderKind.ANTHROPIC,
+  LlmProviderKind.OPENAI,
+  LlmProviderKind.SELF_HOSTED,
+];
+export const DEFAULT_KIND: LlmProviderKind = LlmProviderKind.GEMINI;
 
 /** Substring that marks the model family a provider should default to when the administrator has not chosen. */
 const PREFERRED: Partial<Record<LlmProviderKind, { prefer: string; avoid?: string }>> = {

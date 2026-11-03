@@ -144,6 +144,8 @@ export const llmConfig = {
     BAD_REQUEST: 'Nhà cung cấp từ chối yêu cầu thử (model hoặc cấu hình không hợp lệ).',
     BAD_JSON: 'Nhà cung cấp trả về kết quả không đọc được.',
     REFUSED: 'Mô hình từ chối trả lời.',
+    BLOCKED:
+      'Địa chỉ máy chủ không được phép (địa chỉ nội bộ đặc biệt như 169.254.x.x, hoặc tên miền không phân giải được). Kiểm tra lại địa chỉ.',
     MODEL_NOT_FOUND: 'Model này không có trong danh sách của nhà cung cấp.',
     READ_MISMATCH:
       'Mô hình gọi được nhưng đọc sai ảnh thử tiếng Việt: không nên dùng model này để đọc giấy tờ.',
