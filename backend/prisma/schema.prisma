@@ -4605,6 +4605,8 @@ model OcrSession {
   /// Id of the Petition/Incident/Case this session was bound to when the officer saved it.
   boundRecordId   String?
   boundAt         DateTime?
+  /// Set when the originals have been copied into the record's documents; NULL while a bound session still has work to do.
+  finalisedAt     DateTime?
   /// Revision of the current page set; every change to the page list creates a new, immutable one.
   pageSetRevision Int              @default(0)
   /// An unbound session is purged after this; a bound one never is.
@@ -4619,6 +4621,7 @@ model OcrSession {
 
   @@index([createdById, status])
   @@index([status, expiresAt])
+  @@index([status, finalisedAt])
   @@map("ocr_sessions")
 }
 
