@@ -42,6 +42,14 @@ export const adminMenu: FeatureMenuEntry[] = [
   },
   {
     section: 'admin',
+    id: 'admin-ocr-quality',
+    label: 'Chất lượng đọc ảnh scan',
+    path: '/admin/chat-luong-ocr',
+    quyen: ['read:OcrQuality'],
+    icon: 'Settings',
+  },
+  {
+    section: 'admin',
     id: 'admin-restore',
     label: 'Khôi phục dữ liệu',
     path: '/admin/khoi-phuc',
