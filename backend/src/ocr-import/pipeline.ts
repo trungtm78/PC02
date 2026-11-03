@@ -120,51 +120,81 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-/**
- * G1 to G4 for a bundle of pages: transcribe each page, analyse the bundle once, verify the analysis by code, and
- * project the verified evidence into the fields of the open form. Nothing here writes to a database or to the form:
- * the caller stores the result and applies the projection.
- */
-export async function runPipeline(
+export interface PageTranscript {
+  pageId: string;
+  pageKind: string;
+  printedPageNumber: string | null;
+  text: string;
+}
+
+/** G1: transcribe each page (at most three at a time). One provider call per page. */
+export async function transcribePages(
   gateway: PipelineGateway,
-  input: PipelineInput,
-): Promise<PipelineOutput> {
-  if (input.pages.length === 0) throw new Error('no pages to read');
+  pages: readonly PageImage[],
+  context: PipelineInput['context'],
+): Promise<PageTranscript[]> {
+  if (pages.length === 0) throw new Error('no pages to read');
+  return mapWithConcurrency(pages, PAGE_CONCURRENCY, async (page) => {
+    const { value } = await gateway.call(
+      {
+        system: transcribeSystemPrompt(),
+        userText: TRANSCRIBE_USER_TEXT,
+        images: [{ mediaType: page.mediaType, dataBase64: page.dataBase64 }],
+        schemaName: 'submit_transcript',
+        schema: TRANSCRIPT_JSON_SCHEMA,
+        maxOutputTokens: 4000,
+      },
+      validateWith(TRANSCRIPT_SCHEMA),
+      { ...context, promptVersion: TRANSCRIBE_PROMPT_VERSION },
+    );
+    return {
+      pageId: page.id,
+      pageKind: value.pageKind,
+      printedPageNumber: value.printedPageNumber,
+      text: value.transcript,
+    };
+  });
+}
 
-  const transcribed = await mapWithConcurrency(
-    input.pages,
-    PAGE_CONCURRENCY,
-    async (page) => {
-      const { value } = await gateway.call(
-        {
-          system: transcribeSystemPrompt(),
-          userText: TRANSCRIBE_USER_TEXT,
-          images: [{ mediaType: page.mediaType, dataBase64: page.dataBase64 }],
-          schemaName: 'submit_transcript',
-          schema: TRANSCRIPT_JSON_SCHEMA,
-          maxOutputTokens: 4000,
-        },
-        validateWith(TRANSCRIPT_SCHEMA),
-        { ...input.context, promptVersion: TRANSCRIBE_PROMPT_VERSION },
-      );
-      return { page, ...value };
-    },
-  );
+export interface AnalysisOutput {
+  segments: Segment[];
+  /** What the model returned, kept as the record of the analysis. */
+  bundle: EvidenceBundle;
+  /** The bundle after verification: only this is projected into the form. */
+  cleaned: EvidenceBundle;
+  issues: VerifyIssue[];
+  projection: Projection;
+  promptVersions: { transcribe: string; analyse: string };
+}
 
+/**
+ * G2 to G4 from page transcripts (the model's, or the officer's corrections): analyse the bundle once, verify the
+ * analysis by code, and project the verified evidence into the fields of the open form.
+ */
+export async function analyseTranscripts(
+  gateway: PipelineGateway,
+  input: {
+    /** In reading order. */
+    pages: ReadonlyArray<{ pageId: string; text: string }>;
+    entity: FormEntity;
+    context: PipelineInput['context'];
+  },
+): Promise<AnalysisOutput> {
   const transcripts: Record<string, string> = {};
-  const pageKinds: Record<string, string> = {};
   const segments: Segment[] = [];
-  for (const t of transcribed) {
-    transcripts[t.page.id] = t.transcript;
-    pageKinds[t.page.id] = t.pageKind;
-    segments.push(...splitSegments(t.page.id, t.transcript));
+  for (const page of input.pages) {
+    transcripts[page.pageId] = page.text;
+    segments.push(...splitSegments(page.pageId, page.text));
   }
 
   const listing = segments.map((s) => `[${s.id}] ${s.text}`).join('\n');
   const { value: bundle } = await gateway.call(
     {
       system: analyseSystemPrompt(),
-      userText: `${ANALYSE_USER_PREFIX}\nPages: ${input.pages.map((p) => p.id).join(', ')}\n\n${listing}`,
+      userText: `${ANALYSE_USER_PREFIX}
+Pages: ${input.pages.map((p) => p.pageId).join(', ')}
+
+${listing}`,
       schemaName: 'submit_evidence',
       schema: EVIDENCE_BUNDLE_JSON_SCHEMA,
       maxOutputTokens: 8000,
@@ -178,8 +208,6 @@ export async function runPipeline(
     segmentIds: segments.map((s) => s.id),
   });
   return {
-    transcripts,
-    pageKinds,
     segments,
     bundle,
     cleaned,
@@ -189,5 +217,29 @@ export async function runPipeline(
       transcribe: TRANSCRIBE_PROMPT_VERSION,
       analyse: ANALYSE_PROMPT_VERSION,
     },
+  };
+}
+
+/** G1 to G4 for a bundle of pages. Nothing here writes to a database or to the form: the caller stores the result. */
+export async function runPipeline(
+  gateway: PipelineGateway,
+  input: PipelineInput,
+): Promise<PipelineOutput> {
+  const transcribed = await transcribePages(
+    gateway,
+    input.pages,
+    input.context,
+  );
+  const analysis = await analyseTranscripts(gateway, {
+    pages: transcribed.map((t) => ({ pageId: t.pageId, text: t.text })),
+    entity: input.entity,
+    context: input.context,
+  });
+  return {
+    transcripts: Object.fromEntries(transcribed.map((t) => [t.pageId, t.text])),
+    pageKinds: Object.fromEntries(
+      transcribed.map((t) => [t.pageId, t.pageKind]),
+    ),
+    ...analysis,
   };
 }
