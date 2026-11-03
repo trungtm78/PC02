@@ -4615,6 +4615,7 @@ model OcrSession {
   pages    OcrPage[]
   pageSets OcrPageSet[]
   analyses OcrAnalysis[]
+  jobs     OcrJob[]
 
   @@index([createdById, status])
   @@index([status, expiresAt])
@@ -4690,4 +4691,42 @@ model OcrAnalysis {
 
   @@index([sessionId, isCurrent])
   @@map("ocr_analyses")
+}
+
+enum OcrJobKind {
+  /// Transcribe every page, then analyse.
+  READ
+  /// Re-analyse the stored transcripts (after an officer corrected one): no provider call per page.
+  ANALYSE
+}
+
+enum OcrJobState {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Background work, claimed with FOR UPDATE SKIP LOCKED so it survives a restart and works with several instances.
+model OcrJob {
+  id               String      @id @default(cuid())
+  sessionId        String
+  session          OcrSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind             OcrJobKind
+  state            OcrJobState @default(QUEUED)
+  /// Fingerprint of the input state this job was queued for: asking twice for the same state is one job.
+  inputFingerprint String
+  attempts         Int         @default(0)
+  maxAttempts      Int         @default(3)
+  runAfter         DateTime    @default(now())
+  claimedBy        String?
+  claimedAt        DateTime?
+  finishedAt       DateTime?
+  lastErrorCode    String?
+  createdById      String
+  createdAt        DateTime    @default(now())
+
+  @@index([state, runAfter])
+  @@index([sessionId, state])
+  @@map("ocr_jobs")
 }
