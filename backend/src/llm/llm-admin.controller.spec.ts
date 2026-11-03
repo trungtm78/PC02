@@ -36,6 +36,8 @@ describe('LlmAdminController (HTTP)', () => {
     list: jest.fn(),
     create: jest.fn(),
     testDraft: jest.fn(),
+    listModelsDraft: jest.fn(),
+    listModels: jest.fn(),
     update: jest.fn(),
     test: jest.fn(),
     setRole: jest.fn(),
@@ -135,6 +137,28 @@ describe('LlmAdminController (HTTP)', () => {
       .expect(200);
     expect(providers.testDraft).toHaveBeenCalledTimes(1);
     expect(providers.test).not.toHaveBeenCalled();
+  });
+
+  it('lists models for unsaved values through POST, so the key is never in a URL', async () => {
+    providers.listModelsDraft.mockResolvedValue([{ id: 'm1' }]);
+    const res = await request(app.getHttpServer())
+      .post('/llm/providers/list-models')
+      .send({ kind: 'ANTHROPIC', apiKey: 'sk-ant-1234567890' })
+      .expect(200);
+    expect(res.body).toEqual([{ id: 'm1' }]);
+    await request(app.getHttpServer())
+      .post('/llm/providers/list-models')
+      .send({ kind: 'ANTHROPIC', apiKey: 'k', label: 'extra' })
+      .expect(400);
+  });
+
+  it('lists the models of a saved provider by id', async () => {
+    providers.listModels.mockResolvedValue([{ id: 'm2' }]);
+    await request(app.getHttpServer())
+      .get('/llm/providers/p1/models')
+      .expect(200);
+    const [id] = providers.listModels.mock.calls[0] as [string];
+    expect(id).toBe('p1');
   });
 
   it('tests a saved provider by id', async () => {

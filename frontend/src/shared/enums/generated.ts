@@ -312,6 +312,21 @@ export const HuongXuLyDon = {
 } as const;
 export type HuongXuLyDon = (typeof HuongXuLyDon)[keyof typeof HuongXuLyDon];
 
+export const LlmProviderKind = {
+  ANTHROPIC: 'ANTHROPIC',
+  GEMINI: 'GEMINI',
+  OPENAI: 'OPENAI',
+  SELF_HOSTED: 'SELF_HOSTED',
+} as const;
+export type LlmProviderKind = (typeof LlmProviderKind)[keyof typeof LlmProviderKind];
+
+export const LlmProviderRole = {
+  PRIMARY: 'PRIMARY',
+  FALLBACK: 'FALLBACK',
+  OFF: 'OFF',
+} as const;
+export type LlmProviderRole = (typeof LlmProviderRole)[keyof typeof LlmProviderRole];
+
 export const DynReportStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',

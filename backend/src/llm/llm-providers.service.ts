@@ -6,7 +6,12 @@ import { LlmAdminError } from './llm-admin-error';
 import { LlmKeyService } from './llm-key.service';
 import type { TokenPrices } from './cost';
 import { runKeyTest, type KeyTestReport } from './key-test';
-import type { LlmProvider, ProviderKind } from './llm.types';
+import {
+  LlmError,
+  type LlmProvider,
+  type ModelInfo,
+  type ProviderKind,
+} from './llm.types';
 import { LlmProviderFactory } from './provider-factory';
 import {
   CLOUD_KINDS,
@@ -269,6 +274,45 @@ export class LlmProvidersService {
     return report;
   }
 
+  /** Models the provider offers for unsaved values, so the administrator can pick one instead of typing it. */
+  async listModelsDraft(input: {
+    kind: ProviderKind;
+    apiKey: string;
+    baseUrl?: string | null;
+  }): Promise<ModelInfo[]> {
+    this.assertValid(
+      {
+        kind: input.kind,
+        label: '-',
+        model: '-',
+        baseUrl: input.baseUrl,
+        apiKey: input.apiKey,
+      },
+      true,
+    );
+    return this.fetchModels(
+      this.factory.create({
+        kind: input.kind,
+        model: '-',
+        baseUrl: this.storedBaseUrl(input.kind, input.baseUrl),
+        apiKey: input.apiKey.trim(),
+      }),
+    );
+  }
+
+  /** Models offered by a saved provider, using its stored key (which never leaves the server). */
+  async listModels(id: string): Promise<ModelInfo[]> {
+    const row = await this.getActive(id);
+    return this.fetchModels(
+      this.factory.create({
+        kind: row.kind,
+        model: row.model,
+        baseUrl: row.baseUrl,
+        apiKey: this.keys.decrypt(row.apiKeyEncrypted),
+      }),
+    );
+  }
+
   async setRole(
     id: string,
     change: { role: ProviderRole; fallbackOrder?: number },
@@ -492,6 +536,21 @@ export class LlmProvidersService {
       throw new LlmAdminError('LLM_PROVIDER_INVALID', HttpStatus.BAD_REQUEST, {
         violations,
       });
+    }
+  }
+
+  private async fetchModels(provider: LlmProvider): Promise<ModelInfo[]> {
+    try {
+      return await provider.listModels();
+    } catch (error) {
+      if (error instanceof LlmError) {
+        throw new LlmAdminError(
+          'LLM_PROVIDER_CALL_FAILED',
+          HttpStatus.BAD_GATEWAY,
+          { cause: error.code },
+        );
+      }
+      throw error;
     }
   }
 

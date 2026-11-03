@@ -22,6 +22,7 @@ import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator'
 import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import {
   CreateProviderDto,
+  ListModelsDto,
   SetRoleDto,
   TransferAssessmentDto,
   UpdateProviderDto,
@@ -83,6 +84,22 @@ export class LlmAdminController {
     @Req() req: Request,
   ) {
     return this.providers.testDraft(dto, actorOf(user, req));
+  }
+
+  /** Models offered for unsaved values. POST because the body carries a key, which must never sit in a URL. */
+  @Post('providers/list-models')
+  @HttpCode(HttpStatus.OK)
+  @Throttle(TEST_THROTTLE)
+  @RequirePermissions({ action: 'write', subject: 'LlmConfig' })
+  listModelsDraft(@Body() dto: ListModelsDto) {
+    return this.providers.listModelsDraft(dto);
+  }
+
+  @Get('providers/:id/models')
+  @Throttle(TEST_THROTTLE)
+  @RequirePermissions({ action: 'read', subject: 'LlmConfig' })
+  listModels(@Param('id') id: string) {
+    return this.providers.listModels(id);
   }
 
   @Patch('providers/:id')

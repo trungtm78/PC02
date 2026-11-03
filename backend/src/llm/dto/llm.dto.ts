@@ -125,3 +125,18 @@ export class TransferAssessmentDto {
   @MaxLength(500)
   note?: string | null;
 }
+
+/** Unsaved values the administrator typed, used only to ask the provider which models it offers. */
+export class ListModelsDto {
+  @IsIn(PROVIDER_KINDS)
+  kind!: ProviderKind;
+
+  @IsString()
+  @MaxLength(500)
+  apiKey!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  baseUrl?: string | null;
+}

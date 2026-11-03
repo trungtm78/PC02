@@ -43,7 +43,7 @@ function scriptedProvider(
     listModels: () =>
       failure
         ? Promise.reject(failure)
-        : Promise.resolve([{ id: settings.model }]),
+        : Promise.resolve([{ id: settings.model }, { id: 'other-model' }]),
     call: (request: LlmRequest) =>
       Promise.resolve(
         request.images?.length
@@ -355,6 +355,31 @@ run('LlmProvidersService on PostgreSQL', () => {
 
     await service.withdrawAssessment(ACTOR);
     expect(await service.buildChain()).toEqual([]);
+  });
+
+  it('lists the models of unsaved values, and of a saved provider, without exposing the key', async () => {
+    const draft = await service.listModelsDraft({
+      kind: 'ANTHROPIC',
+      apiKey: PLAIN_KEY,
+    });
+    expect(draft.map((m) => m.id)).toContain('other-model');
+
+    const created = await service.create(input(), ACTOR);
+    const saved = await service.listModels(created.id);
+    expect(saved.map((m) => m.id)).toContain('other-model');
+    expect(JSON.stringify(saved)).not.toContain(PLAIN_KEY);
+  });
+
+  it('turns a provider failure while listing into a stable admin error naming the cause', async () => {
+    failNext = new LlmError('AUTH', 'rejected', { retryable: false });
+    const error = await service
+      .listModelsDraft({ kind: 'ANTHROPIC', apiKey: PLAIN_KEY })
+      .catch((e: unknown) => e);
+    const body = (
+      error as { getResponse(): { code: string; cause: string } }
+    ).getResponse();
+    expect(body.code).toBe('LLM_PROVIDER_CALL_FAILED');
+    expect(body.cause).toBe('AUTH');
   });
 
   it('testDraft tests unsaved values without writing anything', async () => {
