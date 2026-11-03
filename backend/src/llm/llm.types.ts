@@ -19,6 +19,8 @@ export interface LlmRequest {
   /** JSON Schema of the reply; must pass `findProviderUnsafeParts`. */
   schema: Record<string, unknown>;
   maxOutputTokens: number;
+  /** How long to wait for this call. A long analysis needs more than the provider's default. */
+  timeoutMs?: number;
 }
 
 export interface LlmUsage {

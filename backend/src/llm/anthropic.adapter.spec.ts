@@ -233,6 +233,28 @@ describe('AnthropicProvider.call', () => {
     ).toBe('auto');
   });
 
+  it('calls made at the same time all recover, not only the one that discovered the refusal', async () => {
+    const { fetchImpl } = fakeFetch((call) => {
+      const sent = JSON.parse(call.init.body as string) as SentBody;
+      return sent.tool_choice.type === 'tool'
+        ? json(400, {
+            error: { message: 'tool_choice: type "tool" is not supported' },
+          })
+        : json(200, okBody);
+    });
+    const p = provider(fetchImpl);
+    const results = await Promise.all([
+      p.call(baseRequest),
+      p.call(baseRequest),
+      p.call(baseRequest),
+    ]);
+    expect(results.map((r) => r.json)).toEqual([
+      { ok: true },
+      { ok: true },
+      { ok: true },
+    ]);
+  });
+
   it('does not fall back for other bad requests', async () => {
     const { fetchImpl, calls } = fakeFetch(() =>
       json(400, { error: { message: 'max_tokens: too large' } }),

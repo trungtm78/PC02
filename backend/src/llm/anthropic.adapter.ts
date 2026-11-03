@@ -62,6 +62,7 @@ export class AnthropicProvider implements LlmProvider {
     const post = (automatic: boolean) =>
       this.send('/v1/messages', {
         method: 'POST',
+        timeoutMs: request.timeoutMs,
         body: JSON.stringify({
           model: this.model,
           max_tokens: request.maxOutputTokens,
@@ -84,12 +85,14 @@ export class AnthropicProvider implements LlmProvider {
         }),
       });
     let response: Response;
+    // Another call may discover the refusal while this one is in flight, so remember what THIS call sent.
+    const sentAutomatic = this.automaticToolChoice;
     try {
-      response = await post(this.automaticToolChoice);
+      response = await post(sentAutomatic);
     } catch (error) {
       // Some models (those that think before answering) refuse a forced tool call. Ask them to use the tool instead,
       // and remember it: the model of a provider never changes.
-      if (this.automaticToolChoice || !refusesForcedTool(error)) throw error;
+      if (sentAutomatic || !refusesForcedTool(error)) throw error;
       this.automaticToolChoice = true;
       response = await post(true);
     }
@@ -148,18 +151,19 @@ export class AnthropicProvider implements LlmProvider {
 
   private async send(
     path: string,
-    init: { method: string; body?: string },
+    init: { method: string; body?: string; timeoutMs?: number },
   ): Promise<Response> {
+    const { timeoutMs, ...fetchInit } = init;
     let response: Response;
     try {
       response = await this.fetchImpl(`${BASE_URL}${path}`, {
-        ...init,
+        ...fetchInit,
         headers: {
           'x-api-key': this.apiKey,
           'anthropic-version': API_VERSION,
           'content-type': 'application/json',
         },
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs ?? this.timeoutMs),
       });
     } catch (error) {
       throw this.networkError(error);

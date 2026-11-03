@@ -107,6 +107,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     const startedAt = this.now();
     const response = await this.send('/v1/chat/completions', {
       method: 'POST',
+      timeoutMs: request.timeoutMs,
       body: JSON.stringify({
         model: this.model,
         ...limit,
@@ -173,8 +174,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 
   private async send(
     path: string,
-    init: { method: string; body?: string },
+    init: { method: string; body?: string; timeoutMs?: number },
   ): Promise<Response> {
+    const { timeoutMs, ...fetchInit } = init;
     if (this.kind === 'SELF_HOSTED') {
       await assertSafeBaseUrl(this.baseUrl, this.lookup);
     }
@@ -185,11 +187,11 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     let response: Response;
     try {
       response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-        ...init,
+        ...fetchInit,
         headers,
         // An allowed host must not be able to send the call (and the key) on to a blocked one.
         redirect: 'error',
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs ?? this.timeoutMs),
       });
     } catch (error) {
       // The connect-time address check reports itself (BLOCKED); it is not a network failure to retry.

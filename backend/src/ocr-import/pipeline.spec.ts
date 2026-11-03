@@ -10,6 +10,7 @@ import {
 } from './prompt/transcribe.v1';
 import {
   analyseOutputBudget,
+  analyseTimeoutMs,
   runPipeline,
   splitSegments,
   transcribePages,
@@ -299,6 +300,22 @@ describe('analyseOutputBudget', () => {
     expect(analyseOutputBudget(3)).toBeGreaterThan(14_000);
     expect(analyseOutputBudget(5)).toBeGreaterThan(analyseOutputBudget(3));
     expect(analyseOutputBudget(0)).toBe(analyseOutputBudget(1));
-    expect(analyseOutputBudget(20)).toBe(48_000);
+    expect(analyseOutputBudget(20)).toBe(64_000);
+  });
+});
+
+describe('analyseTimeoutMs', () => {
+  it('allows more time for more pages, never beyond what a provider accepts without streaming', () => {
+    expect(analyseTimeoutMs(1)).toBeGreaterThan(120_000);
+    expect(analyseTimeoutMs(5)).toBeGreaterThan(analyseTimeoutMs(3));
+    expect(analyseTimeoutMs(0)).toBe(analyseTimeoutMs(1));
+    expect(analyseTimeoutMs(20)).toBe(600_000);
+  });
+
+  it('is sent with the analysis request', async () => {
+    const { gateway, calls } = fakeGateway();
+    await run(gateway);
+    const analyse = calls.find((c) => !c.request.images?.length);
+    expect(analyse?.request.timeoutMs).toBe(analyseTimeoutMs(3));
   });
 });

@@ -58,6 +58,7 @@ export class GeminiProvider implements LlmProvider {
       `/models/${encodeURIComponent(this.model)}:generateContent`,
       {
         method: 'POST',
+        timeoutMs: request.timeoutMs,
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: request.system }] },
           contents: [{ role: 'user', parts }],
@@ -133,19 +134,20 @@ export class GeminiProvider implements LlmProvider {
 
   private async send(
     path: string,
-    init: { method: string; body?: string },
+    init: { method: string; body?: string; timeoutMs?: number },
   ): Promise<Response> {
+    const { timeoutMs, ...fetchInit } = init;
     let response: Response;
     try {
       response = await this.fetchImpl(`${BASE_URL}${path}`, {
-        ...init,
+        ...fetchInit,
         headers: {
           'x-goog-api-key': this.apiKey,
           'content-type': 'application/json',
         },
         // The key is in a header and the body holds the scan: a redirect must not carry either elsewhere.
         redirect: 'error',
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs ?? this.timeoutMs),
       });
     } catch (error) {
       const name = (error as { name?: unknown } | null)?.name;

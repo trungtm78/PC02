@@ -83,7 +83,16 @@ const PAGE_CONCURRENCY = 3;
  * at the old fixed 8,000. It grows with the number of pages, up to a ceiling every current provider accepts.
  */
 export function analyseOutputBudget(pageCount: number): number {
-  return Math.min(48_000, 6_000 + 5_000 * Math.max(1, pageCount));
+  return Math.min(64_000, 8_000 + 8_000 * Math.max(1, pageCount));
+}
+
+/**
+ * How long the analysis may take. A long reply is generated token by token, so the wait grows with the pages;
+ * real five-page bundles needed more than the two-minute default, and ten minutes is the most a provider accepts
+ * without streaming.
+ */
+export function analyseTimeoutMs(pageCount: number): number {
+  return Math.min(600_000, 120_000 + 60_000 * Math.max(1, pageCount));
 }
 
 /** One segment per non-empty line, with an id the analysis can cite and the checks can verify. */
@@ -243,6 +252,7 @@ ${listingLines.join(String.fromCharCode(10))}`,
       schemaName: 'submit_evidence',
       schema: EVIDENCE_BUNDLE_JSON_SCHEMA,
       maxOutputTokens: analyseOutputBudget(input.pages.length),
+      timeoutMs: analyseTimeoutMs(input.pages.length),
     },
     validateWith(EvidenceBundleSchema),
     { ...input.context, promptVersion: ANALYSE_PROMPT_VERSION },
