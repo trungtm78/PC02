@@ -461,6 +461,8 @@ describe('PetitionsService', () => {
               "chậm mà đúng, không bao giờ im lặng bỏ nhánh người".
             */
             expect.objectContaining({ enteredBy: expect.anything() }),
+            // Fourth branch (03/11/2026): the initial crime name, via `tatCaGomQuanHe: ['toiDanhChinh']`.
+            expect.objectContaining({ crimeChinh: expect.anything() }),
           ],
         });
       });
@@ -2482,6 +2484,8 @@ await service.convertToCase('petition-001', validCaseDto, 'user-001');
           không bao giờ im lặng bỏ nhánh người".
         */
         expect.objectContaining({ enteredBy: expect.anything() }),
+        // Fourth branch (03/11/2026): the initial crime name, via `tatCaGomQuanHe: ['toiDanhChinh']`.
+        expect.objectContaining({ crimeChinh: expect.anything() }),
       ],
     });
 

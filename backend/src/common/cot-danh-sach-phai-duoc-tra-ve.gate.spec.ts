@@ -35,6 +35,11 @@ const BANG: Man[] = [
       'linkedCase',
       'linkedIncident',
       'crimeChinh',
+      // Lifted out of `metadata` AFTER the query by `PetitionsService.gonTruongKhoiTo` (the three prosecution values the
+      // form keeps in JSON; Prisma cannot select a sub-key). Proven by `petitions-ten-toi-danh-khoi-to.spec.ts`.
+      'soQuyetDinhKhoiTo',
+      'ngayKhoiTo',
+      'toiDanhChinhKhoiToTen',
     ],
   },
   {

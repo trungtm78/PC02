@@ -1,10 +1,25 @@
 import type { KhaiCotXuat } from '../common/xuat-danh-sach/xuat-danh-sach';
-import { hoTenCanBo, ngayVN } from '../common/xuat-danh-sach/dinh-dang';
-import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import { hoTenCanBo, ngayVN, soVN } from '../common/xuat-danh-sach/dinh-dang';
+import {
+  HUONG_XU_LY_LABEL,
+  PETITION_STATUS_LABEL,
+} from '../common/constants/status-labels.constants';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 import { LOAI_DON_LABEL_BE } from './petitions.constants';
 import type { DongDanhSachDonThu } from './petitions.service';
+
+/**
+ * A string stored under `key` in the petition `metadata` JSON, or '' when the JSON is missing, not an object, or the
+ * value is not a string. Never throws: one malformed JSON must not fail a whole export.
+ */
+export function chuoiMetadata(metadata: unknown, key: string): string {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return '';
+  }
+  const v = (metadata as Record<string, unknown>)[key];
+  return typeof v === 'string' ? v : '';
+}
 
 /**
  * Cột xuất Excel của danh sách Đơn thư. `key` TRÙNG khoá cột trên `PetitionListPageShell` (cổng
@@ -144,6 +159,196 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       tieuDe: 'Ngày cấp CCCD',
       rong: 13,
       doc: (d) => ngayVN(d.senderIdIssueDate),
+    },
+    /*
+      Every other form field that holds data (03/11/2026). Same rule as the date columns above: a column the list can
+      show must be exportable, otherwise the officer filters, exports, and loses exactly the column just filtered.
+    */
+    {
+      key: 'soPhieuChuyen',
+      tieuDe: 'Số phiếu chuyển/ Công văn/ Ủy thác điều tra',
+      rong: 22,
+      doc: (d) => d.soPhieuChuyen ?? '',
+    },
+    {
+      key: 'nhanThay',
+      tieuDe: 'Nhận xét',
+      rong: 50,
+      doc: (d) => d.nhanThay ?? '',
+    },
+    {
+      key: 'deXuat',
+      tieuDe: 'Đề xuất xử lý',
+      rong: 40,
+      doc: (d) => d.deXuat ?? '',
+    },
+    {
+      key: 'huongXuLy',
+      tieuDe: 'Hướng xử lý',
+      rong: 16,
+      doc: (d) => (d.huongXuLy ? HUONG_XU_LY_LABEL[d.huongXuLy] : ''),
+    },
+    {
+      key: 'raSoatTrung',
+      tieuDe: 'Ghi chú trùng đơn',
+      rong: 26,
+      doc: (d) => d.raSoatTrung ?? '',
+    },
+    {
+      key: 'baoCaoBanGiamDocText',
+      tieuDe: 'Trường hợp báo cáo Ban Giám đốc',
+      rong: 26,
+      doc: (d) => d.baoCaoBanGiamDocText ?? '',
+    },
+    {
+      key: 'ghiChuKhac',
+      tieuDe: 'Ghi chú khác',
+      rong: 30,
+      doc: (d) => d.ghiChuKhac ?? '',
+    },
+    {
+      key: 'phuongThucThuDoan',
+      tieuDe: 'Phương thức thủ đoạn',
+      rong: 30,
+      doc: (d) => d.phuongThucThuDoan ?? '',
+    },
+    {
+      key: 'phanLoaiNguonTin',
+      tieuDe: 'Phân loại ban đầu',
+      rong: 20,
+      doc: (d) => d.phanLoaiNguonTin ?? '',
+    },
+    {
+      key: 'laCongNgheCao',
+      tieuDe: 'Tội phạm công nghệ cao',
+      rong: 14,
+      doc: (d) =>
+        d.laCongNgheCao === null || d.laCongNgheCao === undefined
+          ? ''
+          : d.laCongNgheCao
+            ? 'Có'
+            : 'Không',
+    },
+    {
+      key: 'dieuTraVien',
+      tieuDe: 'Điều tra viên thụ lý',
+      rong: 22,
+      doc: (d) => d.dieuTraVien ?? '',
+    },
+    {
+      key: 'senderPhone',
+      tieuDe: 'Số điện thoại nguyên đơn',
+      rong: 16,
+      doc: (d) => d.senderPhone ?? '',
+    },
+    {
+      key: 'senderBirthYear',
+      tieuDe: 'Sinh năm',
+      rong: 10,
+      doc: (d) => d.senderBirthYear ?? '',
+    },
+    {
+      key: 'senderIdNumber',
+      tieuDe: 'Số căn cước công dân',
+      rong: 16,
+      doc: (d) => d.senderIdNumber ?? '',
+    },
+    {
+      key: 'senderIdIssuePlace',
+      tieuDe: 'Nơi cấp CCCD',
+      rong: 20,
+      doc: (d) => d.senderIdIssuePlace ?? '',
+    },
+    {
+      key: 'senderAddress',
+      tieuDe: 'Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+      rong: 36,
+      doc: (d) => d.senderAddress ?? '',
+    },
+    {
+      key: 'soQDPhanCongNguonTin',
+      tieuDe: 'Quyết định phân công giải quyết nguồn tin tội phạm',
+      rong: 26,
+      doc: (d) => d.soQDPhanCongNguonTin ?? '',
+    },
+    {
+      key: 'ngayQDPhanCongNguonTin',
+      tieuDe: 'Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm',
+      rong: 16,
+      doc: (d) => ngayVN(d.ngayQDPhanCongNguonTin),
+    },
+    {
+      key: 'soQDTamDinhChiNguonTin',
+      tieuDe: 'Quyết định Tạm đình chỉ nguồn tin',
+      rong: 24,
+      doc: (d) => d.soQDTamDinhChiNguonTin ?? '',
+    },
+    {
+      key: 'ngayQDTamDinhChiNguonTin',
+      tieuDe: 'Ngày ra Quyết định Tạm đình chỉ nguồn tin',
+      rong: 16,
+      doc: (d) => ngayVN(d.ngayQDTamDinhChiNguonTin),
+    },
+    {
+      key: 'canCuTamDinhChiNguonTin',
+      tieuDe: 'Căn cứ Tạm đình chỉ nguồn tin',
+      rong: 30,
+      doc: (d) => d.canCuTamDinhChiNguonTin ?? '',
+    },
+    {
+      key: 'soPhucHoiNguonTin',
+      tieuDe: 'Số Phục hồi nguồn tin tội phạm',
+      rong: 22,
+      doc: (d) => d.soPhucHoiNguonTin ?? '',
+    },
+    {
+      key: 'ngayPhucHoiNguonTin',
+      tieuDe: 'Ngày Phục hồi nguồn tin tội phạm',
+      rong: 16,
+      doc: (d) => ngayVN(d.ngayPhucHoiNguonTin),
+    },
+    {
+      key: 'thoiHanUTDT',
+      tieuDe: 'Thời hạn thực hiện Uỷ thác điều tra',
+      rong: 16,
+      doc: (d) => ngayVN(d.thoiHanUTDT),
+    },
+    {
+      key: 'crimeChinh',
+      tieuDe: 'Tội danh chính - BLHS 2015 (nhận định ban đầu)',
+      rong: 30,
+      doc: (d) => d.crimeChinh?.name ?? '',
+    },
+    {
+      key: 'soTienBiThietHai',
+      tieuDe: 'Số tiền bị thiệt hại (triệu Việt nam Đồng)',
+      rong: 18,
+      doc: (d) => soVN(d.soTienBiThietHai),
+    },
+    {
+      key: 'soLuongBiHai',
+      tieuDe: 'Số lượng người bị hại',
+      rong: 14,
+      doc: (d) => soVN(d.soLuongBiHai),
+    },
+    // The three prosecution fields live in `metadata` JSON; the service flattens them onto the row (`gonTruongKhoiTo`).
+    {
+      key: 'soQuyetDinhKhoiTo',
+      tieuDe: 'Số Quyết định Khởi tố vụ án',
+      rong: 22,
+      doc: (d) => d.soQuyetDinhKhoiTo ?? '',
+    },
+    {
+      key: 'ngayKhoiTo',
+      tieuDe: 'Ngày ra Quyết định Khởi tố vụ án',
+      rong: 16,
+      doc: (d) => ngayVN(d.ngayKhoiTo),
+    },
+    {
+      key: 'toiDanhChinhKhoiTo',
+      tieuDe: 'Tội danh chính khi khởi tố',
+      rong: 30,
+      doc: (d) => d.toiDanhChinhKhoiToTen ?? '',
     },
   ];
 

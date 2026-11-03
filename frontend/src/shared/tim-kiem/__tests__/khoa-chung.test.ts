@@ -25,6 +25,9 @@ const KHOA_CHUNG_HO_SO = [
   'ngayVietDon',
   'ngayPhieuChuyen',
   'ngayCapCCCD',
+  // Added 03/11/2026 when the petition declaration gained the initial-crime relation tag: Vụ việc and Vụ án
+  // already had it with the same kind, so it became common to all three.
+  'toiDanhChinh',
 ];
 
 describe('khoaChung (giao diện)', () => {

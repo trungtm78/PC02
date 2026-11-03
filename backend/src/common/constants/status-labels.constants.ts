@@ -1,4 +1,10 @@
-import { CaseStatus, IncidentStatus, PetitionStatus, ProposalStatus } from '@prisma/client';
+import {
+  CaseStatus,
+  HuongXuLyDon,
+  IncidentStatus,
+  PetitionStatus,
+  ProposalStatus,
+} from '@prisma/client';
 
 export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.TIEP_NHAN]: 'Tiếp nhận',
@@ -33,6 +39,17 @@ export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.DA_NHAP_VU_KHAC]: 'Đã nhập vụ khác',
   [IncidentStatus.PHAN_LOAI_DAN_SU]: 'Phân loại dân sự',
   [IncidentStatus.DINH_CHI]: 'Đình chỉ',
+};
+
+/**
+ * Labels of the three petition handling directions. Mirror of `HUONG_XU_LY_LABEL` in
+ * `frontend/src/shared/enums/huong-xu-ly.ts` - the wording is the one officers use when assigning work, so keep
+ * the two in step. Used by the search declaration so typing a label in the "all columns" box finds the direction.
+ */
+export const HUONG_XU_LY_LABEL: Record<HuongXuLyDon, string> = {
+  [HuongXuLyDon.GIAO_DON]: 'Giao đơn',
+  [HuongXuLyDon.CHUYEN_DON]: 'Chuyển đơn',
+  [HuongXuLyDon.TRA_LUU_DON]: 'Trả đơn/Lưu đơn',
 };
 
 export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {

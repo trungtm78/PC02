@@ -1224,6 +1224,30 @@ model Petition {
   donViGiaiQuyetBd     String?   @map("don_vi_giai_quyet_bd")
   ketQuaXuLyKhacBd     String?   @map("ket_qua_xu_ly_khac_bd")
   suspectedPersonBd    String?   @map("suspected_person_bd")
+  /// Shadow columns for the 03/11/2026 expansion (every form field that holds data). Same read-only
+  /// contract as above. The last three come from `metadata` JSON keys (no column of their own);
+  /// `ngayKhoiToBd` is an ISO yyyy-mm-dd TEXT used for date-range search, not an accent-stripped string.
+  soPhieuChuyenBd          String? @map("so_phieu_chuyen_bd")
+  nhanThayBd               String? @map("nhan_thay_bd")
+  deXuatBd                 String? @map("de_xuat_bd")
+  raSoatTrungBd            String? @map("ra_soat_trung_bd")
+  baoCaoBanGiamDocTextBd   String? @map("bao_cao_ban_giam_doc_text_bd")
+  ghiChuKhacBd             String? @map("ghi_chu_khac_bd")
+  phuongThucThuDoanBd      String? @map("phuong_thuc_thu_doan_bd")
+  phanLoaiNguonTinBd       String? @map("phan_loai_nguon_tin_bd")
+  dieuTraVienBd            String? @map("dieu_tra_vien_bd")
+  senderPhoneBd            String? @map("sender_phone_bd")
+  senderBirthYearBd        String? @map("sender_birth_year_bd")
+  senderIdNumberBd         String? @map("sender_id_number_bd")
+  senderIdIssuePlaceBd     String? @map("sender_id_issue_place_bd")
+  senderAddressBd          String? @map("sender_address_bd")
+  soQDPhanCongNguonTinBd   String? @map("so_qdphan_cong_nguon_tin_bd")
+  soQDTamDinhChiNguonTinBd String? @map("so_qdtam_dinh_chi_nguon_tin_bd")
+  canCuTamDinhChiNguonTinBd String? @map("can_cu_tam_dinh_chi_nguon_tin_bd")
+  soPhucHoiNguonTinBd      String? @map("so_phuc_hoi_nguon_tin_bd")
+  soQuyetDinhKhoiToBd      String? @map("so_quyet_dinh_khoi_to_bd")
+  ngayKhoiToBd             String? @map("ngay_khoi_to_bd")
+  toiDanhChinhKhoiToBd     String? @map("toi_danh_chinh_khoi_to_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + số hồ sơ cũ — thẻ "tất cả các cột".
   timKiemBd            String?   @map("tim_kiem_bd")
   /// CHỈ ĐỌC — cột SINH TỰ ĐỘNG của CSDL (migration `don_trung_chuan_hoa`), dùng để gom nhóm ở màn Đơn

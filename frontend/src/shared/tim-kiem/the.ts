@@ -17,6 +17,8 @@ export interface TruongTimKiem {
   readonly key: string;
   readonly nhan: string;
   readonly kieu: KieuTruongTimKiem;
+  /** Kind `so` only: the column is an integer, so a decimal is not a valid value (the server answers 400). */
+  readonly soNguyen?: boolean;
 }
 
 export interface The {
@@ -105,12 +107,26 @@ function maChonHopLe(khoa: string, khai: readonly TruongTimKiem[], giaTriChon?: 
   return (v: string) => !ds || ds.some((g) => g.value === v);
 }
 
+/** A value of a number field must be readable as a number, otherwise the server answers 400 for the whole list. */
+function soHopLe(khoa: string, khai: readonly TruongTimKiem[]) {
+  const truong = khai.find((t) => t.key === khoa);
+  return (v: string) => truong?.kieu !== 'so' || laGiaTriSo(v, truong.soNguyen);
+}
+
+/** Both value checks of a tag: select codes and number readability. */
+function giaTriHopLe(khoa: string, khai: readonly TruongTimKiem[], giaTriChon?: BangMaChon) {
+  const maChon = maChonHopLe(khoa, khai, giaTriChon);
+  const so = soHopLe(khoa, khai);
+  return (v: string) => maChon(v) && so(v);
+}
+
 /**
- * Thẻ hợp lệ trọn vẹn: khoá có trong khai VÀ mọi mã chọn có trong danh sách. Mã lạ (đổi chip loại
- * hồ sơ, đường dẫn cũ gõ tự do, sửa URL tay) gửi đi là 400 cho cả danh sách.
+ * Thẻ hợp lệ trọn vẹn: khoá có trong khai VÀ mọi mã chọn có trong danh sách (và mọi giá trị của cột số
+ * đọc được ra số). Mã lạ (đổi chip loại hồ sơ, đường dẫn cũ gõ tự do, sửa URL tay) gửi đi là 400 cho
+ * cả danh sách.
  */
 export function theHopLe(t: The, khai: readonly TruongTimKiem[], giaTriChon?: BangMaChon): boolean {
-  return khoaHopLe(t.khoa, khai) && t.giaTri.every(maChonHopLe(t.khoa, khai, giaTriChon));
+  return khoaHopLe(t.khoa, khai) && t.giaTri.every(giaTriHopLe(t.khoa, khai, giaTriChon));
 }
 
 /** Phần gửi được của bộ thẻ: bỏ thẻ khoá lạ, bỏ mã chọn lạ (thẻ hết giá trị thì bỏ luôn). */
@@ -121,7 +137,7 @@ export function locTheHopLe(
 ): The[] {
   return the.flatMap((t) => {
     if (!khoaHopLe(t.khoa, khai)) return [];
-    const giaTri = t.giaTri.filter(maChonHopLe(t.khoa, khai, giaTriChon));
+    const giaTri = t.giaTri.filter(giaTriHopLe(t.khoa, khai, giaTriChon));
     return giaTri.length ? [{ khoa: t.khoa, giaTri }] : [];
   });
 }
@@ -145,4 +161,23 @@ export function laGiaTriNgay(giaTri: string): boolean {
   if (m) return ngayHopLe(+m[2], +m[1], 1);
   m = /^(\d{4})$/.exec(v);
   return m ? ngayHopLe(+m[1], 1, 1) : false;
+}
+
+const SO_HANG_NGHIN = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
+const SO_THAP_PHAN = /^\d+([.,]\d+)?$/;
+const INT32_MAX = 2_147_483_647;
+
+/**
+ * Same rule as `docSo` on the server: `.` groups thousands (`1.500.000`), `,` is the decimal mark (`1,5`), a dot that
+ * cannot group thousands is a decimal point. Only to hide meaningless suggestions - the server still decides (400).
+ * `soNguyen`: the column is an integer, so decimals and values beyond Int32 are rejected.
+ */
+export function laGiaTriSo(giaTri: string, soNguyen = false): boolean {
+  const v = giaTri.trim();
+  let n: number;
+  if (SO_HANG_NGHIN.test(v)) n = Number(v.replace(/\./g, '').replace(',', '.'));
+  else if (SO_THAP_PHAN.test(v)) n = Number(v.replace(',', '.'));
+  else return false;
+  if (!Number.isFinite(n) || n > Number.MAX_SAFE_INTEGER) return false;
+  return !soNguyen || (Number.isInteger(n) && n <= INT32_MAX);
 }

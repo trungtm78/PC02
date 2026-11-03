@@ -9,6 +9,9 @@ import {
   ghiTheRaUrl,
   khoaHopLe,
   laGiaTriNgay,
+  laGiaTriSo,
+  locTheHopLe,
+  theHopLe,
   themGiaTri,
   type The,
 } from '../the';
@@ -131,5 +134,42 @@ describe('thẻ tìm kiếm — hợp lệ', () => {
     ['abc', false],
   ])('ngày "%s" → %s (cùng quy ước với máy chủ)', (v, mong) => {
     expect(laGiaTriNgay(v)).toBe(mong);
+  });
+});
+
+describe('number tags (kind so)', () => {
+  it.each([
+    ['1500000', false, true],
+    ['1.500.000', false, true],
+    ['1,5', false, true],
+    ['1.5', false, true],
+    ['0', false, true],
+    ['abc', false, false],
+    ['12abc', false, false],
+    ['', false, false],
+    ['-5', false, false],
+    ['1e9', false, false],
+    ['1,5', true, false], // an integer column rejects decimals
+    ['3', true, true],
+    ['99999999999', true, false], // beyond Int32
+  ])('"%s" (integer column: %s) -> %s, same rule as the server', (v, soNguyen, mong) => {
+    expect(laGiaTriSo(v, soNguyen)).toBe(mong);
+  });
+
+  const KHAI_SO = [
+    { key: 'soTien', nhan: 'Số tiền', kieu: 'so' },
+    { key: 'soNguoi', nhan: 'Số người', kieu: 'so', soNguyen: true },
+  ] as const;
+
+  it('a number tag with unreadable text is invalid (it would be a 400)', () => {
+    expect(theHopLe({ khoa: 'soTien', giaTri: ['1.500'] }, KHAI_SO)).toBe(true);
+    expect(theHopLe({ khoa: 'soTien', giaTri: ['abc'] }, KHAI_SO)).toBe(false);
+    expect(theHopLe({ khoa: 'soNguoi', giaTri: ['1,5'] }, KHAI_SO)).toBe(false);
+  });
+
+  it('unreadable number values are dropped before sending, readable ones are kept', () => {
+    expect(
+      locTheHopLe([{ khoa: 'soTien', giaTri: ['1.500', 'abc'] }, { khoa: 'soNguoi', giaTri: ['x'] }], KHAI_SO),
+    ).toEqual([{ khoa: 'soTien', giaTri: ['1.500'] }]);
   });
 });

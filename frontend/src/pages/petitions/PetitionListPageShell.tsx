@@ -79,6 +79,9 @@ import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { petitionsRowActions } from '@/features/petitions/row-actions';
 import { petitionsListFilters, type PetitionFilterValue } from '@/features/petitions/list-filters';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
+import { HUONG_XU_LY_LABEL } from '@/shared/enums/huong-xu-ly';
+import { GIA_TRI_CHON_DON_THU } from '@/shared/tim-kiem/gia-tri-chon-don-thu';
+import type { HuongXuLyDon } from '@/shared/enums/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 
@@ -100,12 +103,15 @@ const THAM_SO_CU_DON_THU = {
 } as const;
 
 /** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn mà cột trên bảng dùng. */
-const GIA_TRI_CHON_DON_THU = {
-  trangThai: Object.values(PetitionStatus).map((v) => ({
-    value: v,
-    label: PETITION_STATUS_LABEL[v],
-  })),
-};
+/** The column whose search tag is `khoa` (a column may carry several tags). */
+function cotCuaThe<C extends { key: string; timKiem?: string | readonly string[] }>(
+  cot: readonly C[],
+  khoa: string,
+): C | undefined {
+  return cot.find((c) =>
+    typeof c.timKiem === 'string' ? c.timKiem === khoa : (c.timKiem ?? []).includes(khoa),
+  );
+}
 
 function getVietnameseErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -160,6 +166,58 @@ interface PetitionRow {
   ngayGiaoDonViGiaiQuyet?: string | null;
   ngayPhieuChuyen?: string | null;
   senderIdIssueDate?: string | null;
+  /*
+    Every other form field that holds data (03/11/2026): all hidden by default, all searchable. Names are the
+    column names the form writes (gate `cotDanhSachPhaiTroDungCotForm`), except the flattened prosecution fields
+    which the server lifts out of `metadata`.
+  */
+  soPhieuChuyen?: string | null;
+  nhanThay?: string | null;
+  deXuat?: string | null;
+  huongXuLy?: HuongXuLyDon | null;
+  raSoatTrung?: string | null;
+  baoCaoBanGiamDocText?: string | null;
+  ghiChuKhac?: string | null;
+  phuongThucThuDoan?: string | null;
+  phanLoaiNguonTin?: string | null;
+  laCongNgheCao?: boolean | null;
+  dieuTraVien?: string | null;
+  senderPhone?: string | null;
+  senderBirthYear?: string | null;
+  senderIdNumber?: string | null;
+  senderIdIssuePlace?: string | null;
+  senderAddress?: string | null;
+  soQDPhanCongNguonTin?: string | null;
+  ngayQDPhanCongNguonTin?: string | null;
+  soQDTamDinhChiNguonTin?: string | null;
+  ngayQDTamDinhChiNguonTin?: string | null;
+  canCuTamDinhChiNguonTin?: string | null;
+  soPhucHoiNguonTin?: string | null;
+  ngayPhucHoiNguonTin?: string | null;
+  thoiHanUTDT?: string | null;
+  /** FK written by the form; the column reads it first so a name is only shown for a record that has a crime id. */
+  crimeChinhId?: string | null;
+  crimeChinh?: { name: string } | null;
+  soTienBiThietHai?: number | null;
+  soLuongBiHai?: number | null;
+  soQuyetDinhKhoiTo?: string | null;
+  ngayKhoiTo?: string | null;
+  toiDanhChinhKhoiToTen?: string | null;
+}
+
+/** Short value in a hidden column: the text, or a muted dash when the record has none. */
+function VanBanNgan({ value }: { value?: string | null }) {
+  const text = (value ?? '').trim();
+  return text ? <span>{text}</span> : <span className="text-slate-400">—</span>;
+}
+
+/** Number in Vietnamese notation, or a muted dash when the record has none. */
+function SoCell({ value }: { value?: number | null }) {
+  return value === null || value === undefined ? (
+    <span className="text-slate-400">—</span>
+  ) : (
+    <span>{value.toLocaleString('vi-VN')}</span>
+  );
 }
 
 interface KyDaGiaiFE {
@@ -809,6 +867,253 @@ export function PetitionListPageShell() {
         optional: 'hide',
         render: (r) => <DateCell value={r.senderIdIssueDate} />,
       },
+
+      /*
+        Every other form field that holds data (03/11/2026). Hidden by default; the officer turns one on from the
+        column picker, or by choosing its tag from the suggestions of the search box. A tag without a column is
+        invisible to the officer who typed the value (gate `timKiemCotKhai`), so each declared tag has its column.
+        Each render reads the form's own column first (gate `cotDanhSachPhaiTroDungCotForm`).
+      */
+      {
+        key: 'soPhieuChuyen',
+        header: 'Số phiếu chuyển/ Công văn/ Ủy thác điều tra',
+        timKiem: 'soPhieuChuyen',
+        width: '10rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.soPhieuChuyen} />,
+      },
+      {
+        key: 'nhanThay',
+        header: 'Nhận xét',
+        timKiem: 'nhanXet',
+        width: '16rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.nhanThay} />,
+      },
+      {
+        key: 'deXuat',
+        header: 'Đề xuất xử lý',
+        timKiem: 'deXuat',
+        width: '16rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.deXuat} />,
+      },
+      {
+        key: 'huongXuLy',
+        header: 'Hướng xử lý',
+        timKiem: 'huongXuLy',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.huongXuLy ? HUONG_XU_LY_LABEL[r.huongXuLy] : null} />,
+      },
+      {
+        key: 'raSoatTrung',
+        header: 'Ghi chú trùng đơn',
+        timKiem: 'ghiChuTrungDon',
+        width: '12rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.raSoatTrung} />,
+      },
+      {
+        key: 'baoCaoBanGiamDocText',
+        header: 'Trường hợp báo cáo Ban Giám đốc',
+        timKiem: 'baoCaoBanGiamDoc',
+        width: '12rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.baoCaoBanGiamDocText} />,
+      },
+      {
+        key: 'ghiChuKhac',
+        header: 'Ghi chú khác',
+        timKiem: 'ghiChuKhac',
+        width: '12rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.ghiChuKhac} />,
+      },
+      {
+        key: 'phuongThucThuDoan',
+        header: 'Phương thức thủ đoạn',
+        timKiem: 'phuongThucThuDoan',
+        width: '14rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.phuongThucThuDoan} />,
+      },
+      {
+        key: 'phanLoaiNguonTin',
+        header: 'Phân loại ban đầu',
+        timKiem: 'phanLoaiNguonTin',
+        width: '10rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.phanLoaiNguonTin} />,
+      },
+      {
+        key: 'laCongNgheCao',
+        header: 'Tội phạm công nghệ cao',
+        timKiem: 'laCongNgheCao',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.laCongNgheCao === null || r.laCongNgheCao === undefined ? null : r.laCongNgheCao ? 'Có' : 'Không'} />,
+      },
+      {
+        key: 'dieuTraVien',
+        header: 'Điều tra viên thụ lý',
+        timKiem: 'dieuTraVien',
+        width: '10rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.dieuTraVien} />,
+      },
+      {
+        key: 'senderPhone',
+        header: 'Số điện thoại nguyên đơn',
+        timKiem: 'soDienThoai',
+        width: '9rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.senderPhone} />,
+      },
+      {
+        key: 'senderBirthYear',
+        header: 'Sinh năm',
+        timKiem: 'namSinh',
+        width: '5rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.senderBirthYear} />,
+      },
+      {
+        key: 'senderIdNumber',
+        header: 'Số căn cước công dân',
+        timKiem: 'soCccd',
+        width: '9rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.senderIdNumber} />,
+      },
+      {
+        key: 'senderIdIssuePlace',
+        header: 'Nơi cấp CCCD',
+        timKiem: 'noiCapCccd',
+        width: '10rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.senderIdIssuePlace} />,
+      },
+      {
+        key: 'senderAddress',
+        header: 'Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        timKiem: 'diaChi',
+        width: '16rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.senderAddress} />,
+      },
+      {
+        key: 'soQDPhanCongNguonTin',
+        header: 'Quyết định phân công giải quyết nguồn tin tội phạm',
+        timKiem: 'soQDPhanCongNguonTin',
+        width: '12rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.soQDPhanCongNguonTin} />,
+      },
+      {
+        key: 'ngayQDPhanCongNguonTin',
+        header: 'Ngày QĐ phân công nguồn tin',
+        timKiem: 'ngayQDPhanCongNguonTin',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayQDPhanCongNguonTin} />,
+      },
+      {
+        key: 'soQDTamDinhChiNguonTin',
+        header: 'Quyết định Tạm đình chỉ nguồn tin',
+        timKiem: 'soQDTamDinhChiNguonTin',
+        width: '12rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.soQDTamDinhChiNguonTin} />,
+      },
+      {
+        key: 'ngayQDTamDinhChiNguonTin',
+        header: 'Ngày ra Quyết định Tạm đình chỉ nguồn tin',
+        timKiem: 'ngayQDTamDinhChiNguonTin',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayQDTamDinhChiNguonTin} />,
+      },
+      {
+        key: 'canCuTamDinhChiNguonTin',
+        header: 'Căn cứ Tạm đình chỉ nguồn tin',
+        timKiem: 'canCuTamDinhChiNguonTin',
+        width: '14rem',
+        optional: 'hide',
+        render: (r) => <SummaryCell value={r.canCuTamDinhChiNguonTin} />,
+      },
+      {
+        key: 'soPhucHoiNguonTin',
+        header: 'Số Phục hồi nguồn tin tội phạm',
+        timKiem: 'soPhucHoiNguonTin',
+        width: '10rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.soPhucHoiNguonTin} />,
+      },
+      {
+        key: 'ngayPhucHoiNguonTin',
+        header: 'Ngày Phục hồi nguồn tin tội phạm',
+        timKiem: 'ngayPhucHoiNguonTin',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayPhucHoiNguonTin} />,
+      },
+      {
+        key: 'thoiHanUTDT',
+        header: 'Thời hạn thực hiện Uỷ thác điều tra',
+        timKiem: 'thoiHanUTDT',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.thoiHanUTDT} />,
+      },
+      {
+        key: 'crimeChinh',
+        header: 'Tội danh chính - BLHS 2015 (nhận định ban đầu)',
+        timKiem: 'toiDanhChinh',
+        width: '14rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.crimeChinhId ? r.crimeChinh?.name : null} />,
+      },
+      {
+        key: 'soTienBiThietHai',
+        header: 'Số tiền bị thiệt hại (triệu Việt nam Đồng)',
+        timKiem: 'soTienBiThietHai',
+        width: '9rem',
+        optional: 'hide',
+        render: (r) => <SoCell value={r.soTienBiThietHai} />,
+      },
+      {
+        key: 'soLuongBiHai',
+        header: 'Số lượng người bị hại',
+        timKiem: 'soLuongBiHai',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <SoCell value={r.soLuongBiHai} />,
+      },
+      {
+        key: 'soQuyetDinhKhoiTo',
+        header: 'Số Quyết định Khởi tố vụ án',
+        timKiem: 'soQuyetDinhKhoiTo',
+        width: '10rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.soQuyetDinhKhoiTo} />,
+      },
+      {
+        key: 'ngayKhoiTo',
+        header: 'Ngày khởi tố',
+        timKiem: 'ngayKhoiTo',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayKhoiTo} />,
+      },
+      {
+        key: 'toiDanhChinhKhoiTo',
+        header: 'Tội danh chính khi khởi tố',
+        timKiem: 'toiDanhChinhKhoiTo',
+        width: '14rem',
+        optional: 'hide',
+        render: (r) => <VanBanNgan value={r.toiDanhChinhKhoiToTen} />,
+      },
     ],
     [actionCtx, canEdit],
   );
@@ -996,6 +1301,11 @@ export function PetitionListPageShell() {
               onThem={timKiem.them}
               onBoThe={timKiem.boThe}
               onBoGiaTri={timKiem.boGiaTri}
+              // Choosing a tag of a hidden column switches that column on (saved in the officer's layout).
+              onChonTruongAn={(khoa) => {
+                const cot = cotCuaThe(columns, khoa);
+                if (cot && !isVisible(cot.key)) toggle(cot.key);
+              }}
               placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
           ) : undefined

@@ -1235,3 +1235,20 @@ The new migration rebuilds stale existing petition search shadows in the same tr
 | Feature flag | Cờ `CASE_GOVERNANCE_V1` mặc định OFF | Migration tạo cờ với `enabled=false`, `rolloutPct=0` | DONE |
 
 Kiểm chứng liên quan: test `CaseListPageShell`, test capability/field policy, backend scope/export tests và UAT Case Governance. UAT tổng vẫn là cổng release độc lập; cập nhật ma trận này không tự cấp GO production.
+
+## Petition list - every form field that holds data is searchable - 2026-11-03
+
+`PetitionListPageShell` gains 30 columns (all hidden by default, offered in the column picker) so that every tag of the petition search declaration has a column the officer can turn on, and each of them is also an export column. Cases and Incidents are unchanged except where the shared declaration already overlaps.
+
+| Capability | Cases | Incidents | Petitions | Evidence |
+|---|---|---|---|---|
+| 30 searchable form fields (text, relation, dates, selects, numbers, three JSON-backed) | Unchanged | Unchanged | Added | `form-don-thu-tim-duoc.gate.spec.ts` (every non-empty form field is searchable), PostgreSQL spec 38 cases |
+| 30 hidden list columns with the form's own captions | Unchanged | Unchanged | Added, `optional: 'hide'` | `timKiemCotKhai`, `cotDanhSachPhaiTroDungCotForm`, `boCotMacDinhKhopHeCu` gates, page tests |
+| 30 export columns (same keys as the list columns) | Unchanged | Unchanged | Added | `khaiCotXuat` gate, `petitions-xuat-danh-sach.spec.ts` |
+| Choosing the tag of a hidden column switches the column on | Unchanged | Unchanged | Added (`onChonTruongAn`) | `OTimKiemThe` and page tests |
+| Select values for the new select tags shared by list, Restore and Export reports | Unchanged | Unchanged | One shared table | `gia-tri-chon-don-thu.test.ts` |
+| Number tags validated like the server before they are offered | Unchanged | Unchanged | Added | `the.test.ts`, `OTimKiemThe` tests |
+| Long free text is searchable by its own tag, not from the plain "all columns" line | Unchanged | Unchanged | `vaoTatCa: false` on 7 fields | Measured: all fields in the combined shadow made common terms 2-5x slower |
+| List payload | Unchanged | Unchanged | Prosecution values lifted out of `metadata`; `metadata` dropped | `petitions-ten-toi-danh-khoi-to.spec.ts` |
+
+Rollout: the migration only creates columns, triggers and indexes. Existing rows are loaded by `nap-cot-bong-tim-kiem --that` after deploy (`deploy.sh` step 9e reports them until then); measured on a copy of 47k petitions, the in-migration UPDATE would have taken 312 s under locks.

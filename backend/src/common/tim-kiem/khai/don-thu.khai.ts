@@ -1,6 +1,9 @@
-import { PetitionStatus } from '@prisma/client';
+import { HuongXuLyDon, PetitionStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
-import { PETITION_STATUS_LABEL } from '../../constants/status-labels.constants';
+import {
+  HUONG_XU_LY_LABEL,
+  PETITION_STATUS_LABEL,
+} from '../../constants/status-labels.constants';
 
 /**
  * Khai trường tìm được của danh sách Đơn thư — NGUỒN DUY NHẤT cho: cột bóng + trigger + chỉ mục
@@ -17,7 +20,13 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
   thucThe: 'don-thu',
   bang: 'petitions',
   model: 'Petition',
-  refreshExisting: true,
+  /*
+    NO `refreshExisting` (removed 03/11/2026). With 21 more shadow columns the in-migration UPDATE of the 47k existing
+    petitions ran 312 s on a local copy (about 6.6 ms/row: `f_bo_dau` over ~5 KB of text per row, plus ~40 index entries),
+    holding row locks through the whole deploy. The project norm is the opposite: the migration only creates columns,
+    triggers and indexes, and existing rows are loaded in batches by `nap-cot-bong-tim-kiem --that` (1,000 rows per
+    statement, writers keep working). `deploy.sh` step 9e detects unloaded rows and ends red until that is done.
+  */
   truong: [
     { key: 'stt', nhan: 'STT', kieu: 'ma', cot: 'stt' },
     { key: 'sttCu', nhan: 'STT cũ', kieu: 'ma-cu', cot: 'sttCu' },
@@ -150,7 +159,228 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       kieu: 'ngay',
       cot: 'senderIdIssueDate',
     },
+    /*
+      `vaoTatCa: false` below = long free text (Nhận xét, Đề xuất, ghi chú, căn cứ, phương thức): searchable through
+      its OWN tag, but kept out of the combined "all columns" shadow. Measured on 47k petitions, adding every new field
+      to that shadow made common terms 2-5x slower and doubled its index; the short identifiers stay in it.
+    */
+    /*
+      Every remaining form field that holds data (added 03/11/2026). The form has 130 fields; only 12 were
+      searchable. 88 are empty on production (0 / 47.626, `cot-xuat-day-du.loai-tru.ts`), the other 30 are
+      declared here. The gate `form-don-thu-tim-duoc.gate.spec.ts` keeps the two lists complete.
+
+      Each tag ships with an `optional: 'hide'` column on `PetitionListPageShell` (gate `timKiemCotKhai`).
+    */
+    {
+      key: 'soPhieuChuyen',
+      nhan: 'Số phiếu chuyển/ Công văn/ Ủy thác điều tra',
+      kieu: 'chu',
+      cot: 'soPhieuChuyen',
+    },
+    // The form calls it "Nhận xét" (legacy field `nhanXet`) but on a petition it is stored in `nhanThay`:
+    // pointing the tag at `nhanXet` (a `cases` column) would match nothing and never fail.
+    {
+      key: 'nhanXet',
+      nhan: 'Nhận xét',
+      kieu: 'chu',
+      cot: 'nhanThay',
+      vaoTatCa: false,
+    },
+    {
+      key: 'deXuat',
+      nhan: 'Đề xuất xử lý',
+      kieu: 'chu',
+      cot: 'deXuat',
+      vaoTatCa: false,
+    },
+    {
+      key: 'huongXuLy',
+      nhan: 'Hướng xử lý',
+      kieu: 'chon',
+      cot: 'huongXuLy',
+      giaTriHopLe: Object.values(HuongXuLyDon),
+      nhanGiaTri: HUONG_XU_LY_LABEL,
+    },
+    {
+      key: 'ghiChuTrungDon',
+      nhan: 'Ghi chú trùng đơn',
+      kieu: 'chu',
+      cot: 'raSoatTrung',
+      vaoTatCa: false,
+    },
+    {
+      key: 'baoCaoBanGiamDoc',
+      nhan: 'Trường hợp báo cáo Ban Giám đốc',
+      kieu: 'chu',
+      cot: 'baoCaoBanGiamDocText',
+      vaoTatCa: false,
+    },
+    {
+      key: 'ghiChuKhac',
+      nhan: 'Ghi chú khác',
+      kieu: 'chu',
+      cot: 'ghiChuKhac',
+      vaoTatCa: false,
+    },
+    {
+      key: 'phuongThucThuDoan',
+      nhan: 'Phương thức thủ đoạn',
+      kieu: 'chu',
+      cot: 'phuongThucThuDoan',
+      vaoTatCa: false,
+    },
+    {
+      key: 'phanLoaiNguonTin',
+      nhan: 'Phân loại ban đầu',
+      kieu: 'chu',
+      cot: 'phanLoaiNguonTin',
+    },
+    {
+      key: 'laCongNgheCao',
+      nhan: 'Tội phạm công nghệ cao',
+      kieu: 'chon',
+      cot: 'laCongNgheCao',
+      giaTriCot: { co: true, khong: false },
+    },
+    {
+      key: 'dieuTraVien',
+      nhan: 'Điều tra viên thụ lý',
+      kieu: 'chu',
+      cot: 'dieuTraVien',
+    },
+    // The person who supplied the information (sender* columns).
+    {
+      key: 'soDienThoai',
+      nhan: 'Số điện thoại nguyên đơn',
+      kieu: 'chu',
+      cot: 'senderPhone',
+    },
+    { key: 'namSinh', nhan: 'Sinh năm', kieu: 'chu', cot: 'senderBirthYear' },
+    {
+      key: 'soCccd',
+      nhan: 'Số căn cước công dân',
+      kieu: 'chu',
+      cot: 'senderIdNumber',
+    },
+    {
+      key: 'noiCapCccd',
+      nhan: 'Nơi cấp CCCD',
+      kieu: 'chu',
+      cot: 'senderIdIssuePlace',
+    },
+    {
+      key: 'diaChi',
+      nhan: 'Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+      kieu: 'chu',
+      cot: 'senderAddress',
+    },
+    // Source suspension / resumption / assignment decisions.
+    {
+      key: 'soQDPhanCongNguonTin',
+      nhan: 'Quyết định phân công giải quyết nguồn tin tội phạm',
+      kieu: 'chu',
+      cot: 'soQDPhanCongNguonTin',
+    },
+    {
+      key: 'ngayQDPhanCongNguonTin',
+      nhan: 'Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm',
+      kieu: 'ngay',
+      cot: 'ngayQDPhanCongNguonTin',
+    },
+    {
+      key: 'soQDTamDinhChiNguonTin',
+      nhan: 'Quyết định Tạm đình chỉ nguồn tin',
+      kieu: 'chu',
+      cot: 'soQDTamDinhChiNguonTin',
+    },
+    {
+      key: 'ngayQDTamDinhChiNguonTin',
+      nhan: 'Ngày ra Quyết định Tạm đình chỉ nguồn tin',
+      kieu: 'ngay',
+      cot: 'ngayQDTamDinhChiNguonTin',
+    },
+    {
+      key: 'canCuTamDinhChiNguonTin',
+      nhan: 'Căn cứ Tạm đình chỉ nguồn tin',
+      kieu: 'chu',
+      cot: 'canCuTamDinhChiNguonTin',
+      vaoTatCa: false,
+    },
+    {
+      key: 'soPhucHoiNguonTin',
+      nhan: 'Số Phục hồi nguồn tin tội phạm',
+      kieu: 'chu',
+      cot: 'soPhucHoiNguonTin',
+    },
+    {
+      key: 'ngayPhucHoiNguonTin',
+      nhan: 'Ngày Phục hồi nguồn tin tội phạm',
+      kieu: 'ngay',
+      cot: 'ngayPhucHoiNguonTin',
+    },
+    {
+      key: 'thoiHanUTDT',
+      nhan: 'Thời hạn thực hiện Uỷ thác điều tra',
+      kieu: 'ngay',
+      cot: 'thoiHanUTDT',
+    },
+    // Initial crime classification: same relation tag as Vụ việc / Vụ án, so the combined list shares the key.
+    {
+      key: 'toiDanhChinh',
+      nhan: 'Tội danh chính - BLHS 2015 (nhận định ban đầu)',
+      kieu: 'quan-he',
+      quanHe: 'crimeChinh',
+      modelDich: 'Crime',
+      cotDich: 'nameBd',
+      cotNguonDich: ['name'],
+    },
+    // Numbers: equality only, never reachable from the "all columns" box.
+    {
+      key: 'soTienBiThietHai',
+      nhan: 'Số tiền bị thiệt hại (triệu Việt nam Đồng)',
+      kieu: 'so',
+      cot: 'soTienBiThietHai',
+    },
+    {
+      key: 'soLuongBiHai',
+      nhan: 'Số lượng người bị hại',
+      kieu: 'so',
+      cot: 'soLuongBiHai',
+      soNguyen: true,
+    },
+    /*
+      Prosecution decision fields: a petition has no column for them, the form keeps them in `metadata`.
+      `cot` is a virtual name for the shadow column (not in schema.prisma). Measured on production
+      (29/09/2026, see `cot-xuat-day-du.loai-tru.ts`): these three are the only `metadata` keys that hold data.
+    */
+    {
+      key: 'soQuyetDinhKhoiTo',
+      nhan: 'Số Quyết định Khởi tố vụ án',
+      kieu: 'chu',
+      cot: 'soQuyetDinhKhoiTo',
+      nguonJson: { cot: 'metadata', khoa: 'soQuyetDinhKhoiTo' },
+    },
+    {
+      key: 'ngayKhoiTo',
+      nhan: 'Ngày ra Quyết định Khởi tố vụ án',
+      kieu: 'ngay',
+      cot: 'ngayKhoiTo',
+      nguonJson: { cot: 'metadata', khoa: 'ngayKhoiTo' },
+    },
+    {
+      key: 'toiDanhChinhKhoiTo',
+      nhan: 'Tội danh chính khi khởi tố',
+      kieu: 'chu',
+      cot: 'toiDanhChinhKhoiTo',
+      // The form stores the crime ID; the shadow keeps the crime NAME so typing a name finds it.
+      nguonJson: {
+        cot: 'metadata',
+        khoa: 'toiDanhChinhKhoiToId',
+        tuBang: { bang: 'crimes', cot: 'name' },
+      },
+    },
   ],
+  tatCaGomQuanHe: ['toiDanhChinh'],
   // Preserve legacy identifiers and the free-text value rendered by the petition date column.
   cotThemVaoTatCa: [
     'soHoSoCu',

@@ -20,9 +20,30 @@ describe('sinhCauNapCotBong', () => {
 
   it('biểu thức cột bóng giống hệt trigger, nhưng trên cột của dòng (không NEW.)', () => {
     expect(nap).toContain(`"sender_name_bd" = ' ' || f_bo_dau("senderName")`);
+    // The combined shadow starts with the original columns and ends with the extra "all columns" ones; the SHORT fields
+    // added on 03/11/2026 sit in between (including JSON-backed ones read as "metadata"->>'<key>'). The long free text
+    // (Nhận xét, Đề xuất, ghi chú...) is tag-only and must NOT be in it.
     expect(nap).toContain(
-      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "stt", "sttCu", "loaiThongTin", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soHoSoCu", "ngay_viet_don_chu"))`,
+      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "stt", "sttCu", "loaiThongTin", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soPhieuChuyen", "phanLoaiNguonTin", "dieuTraVien", `,
     );
+    expect(nap).toContain(`"metadata"->>'soQuyetDinhKhoiTo'`);
+    // Only the SET expression: the WHERE clause legitimately mentions every shadow's source column.
+    const tongHop = nap.slice(
+      nap.indexOf('"tim_kiem_bd" = '),
+      nap.indexOf(' WHERE id = ANY'),
+    );
+    for (const dai of [
+      '"nhanThay"',
+      '"deXuat"',
+      '"raSoatTrung"',
+      '"ghiChuKhac"',
+      '"phuongThucThuDoan"',
+      '"canCuTamDinhChiNguonTin"',
+      '"baoCaoBanGiamDocText"',
+    ]) {
+      expect(tongHop).not.toContain(dai);
+    }
+    expect(nap).toContain(`"soHoSoCu", "ngay_viet_don_chu"))`);
     expect(nap).not.toContain('NEW.');
   });
 
@@ -81,8 +102,16 @@ describe('sinhCauNapCotBong', () => {
    * mọi cột — ghi thừa trên cả bảng. Không đụng `updatedAt`: danh sách "sửa gần đây" không ngập.
    */
   it('chỉ SET cột bóng — không SET cột nguồn, không đụng updatedAt', () => {
-    const phanSet = nap.slice(nap.indexOf(' SET ') + 5, nap.indexOf(' WHERE '));
-    const cotBiSet = [...phanSet.matchAll(/"([a-z_]+)" = /g)].map((m) => m[1]);
+    // The end marker is the batch clause, not the first " WHERE ": a JSON-backed field resolved through another
+    // table carries its own sub-select WHERE.
+    const phanSet = nap.slice(
+      nap.indexOf(' SET ') + 5,
+      nap.indexOf(' WHERE id = ANY'),
+    );
+    // Only shadow columns are assigned: the `_bd` suffix also skips the `t."id" =` of a sub-select.
+    const cotBiSet = [...phanSet.matchAll(/"([a-z_]+_bd)" = /g)].map(
+      (m) => m[1],
+    );
     expect(cotBiSet).toEqual([
       'loai_thong_tin_bd',
       'nguon_don_bd',
@@ -91,6 +120,27 @@ describe('sinhCauNapCotBong', () => {
       'don_vi_giai_quyet_bd',
       'ket_qua_xu_ly_khac_bd',
       'suspected_person_bd',
+      'so_phieu_chuyen_bd',
+      'nhan_thay_bd',
+      'de_xuat_bd',
+      'ra_soat_trung_bd',
+      'bao_cao_ban_giam_doc_text_bd',
+      'ghi_chu_khac_bd',
+      'phuong_thuc_thu_doan_bd',
+      'phan_loai_nguon_tin_bd',
+      'dieu_tra_vien_bd',
+      'sender_phone_bd',
+      'sender_birth_year_bd',
+      'sender_id_number_bd',
+      'sender_id_issue_place_bd',
+      'sender_address_bd',
+      'so_qdphan_cong_nguon_tin_bd',
+      'so_qdtam_dinh_chi_nguon_tin_bd',
+      'can_cu_tam_dinh_chi_nguon_tin_bd',
+      'so_phuc_hoi_nguon_tin_bd',
+      'so_quyet_dinh_khoi_to_bd',
+      'ngay_khoi_to_bd',
+      'toi_danh_chinh_khoi_to_bd',
       'tim_kiem_bd',
     ]);
     expect(nap).not.toMatch(/updatedAt/);

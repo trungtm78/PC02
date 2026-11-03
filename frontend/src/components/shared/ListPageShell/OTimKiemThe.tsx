@@ -8,6 +8,7 @@ import { SEARCH_MESSAGES } from "@/shared/tim-kiem/messages";
 import {
   KHOA_TAT_CA,
   laGiaTriNgay,
+  laGiaTriSo,
   theHopLe,
   type The,
   type TruongTimKiem,
@@ -36,6 +37,12 @@ export interface OTimKiemTheProps {
   showDatePicker?: boolean;
   /** Lý do thẻ đỏ — màn tự nói đúng lý do của mình (vd Tổng hợp: chưa chọn loại hồ sơ). */
   lyDoKhongHopLe?: string;
+  /**
+   * Called after a tag was ADDED for a field whose column is currently hidden (not in `truong`). The page switches
+   * that column on, so the officer sees the column they just filtered by instead of rows that match for a reason
+   * they cannot see. Never called for the "all columns" tag, for a tag the page refused, or for a visible column.
+   */
+  onChonTruongAn?(khoa: string): void;
 }
 
 interface LuaChon {
@@ -181,6 +188,7 @@ export function OTimKiemThe({
   placeholder = "Tìm kiếm…",
   showDatePicker = false,
   lyDoKhongHopLe,
+  onChonTruongAn,
 }: OTimKiemTheProps) {
   const [chu, setChu] = useState("");
   const [mo, setMo] = useState(false);
@@ -260,6 +268,8 @@ export function OTimKiemThe({
         // Cột ngày mà chữ không phải ngày: KHÔNG dựng dòng riêng — một dòng hướng dẫn chung là
         // đủ. Chín cột ngày × một dòng giống hệt nhau là chín dòng rác.
         else if (t.kieu === "ngay" && !laNgay) continue;
+        // Same for a number field: text that is not a number would be a 400, so do not offer the line.
+        else if (t.kieu === "so" && !laGiaTriSo(giaTri, t.soNguyen)) continue;
         else
           ds2.push({ khoa: t.key, giaTri, nhan: `Tìm ${t.nhan}: "${giaTri}"` });
       }
@@ -419,6 +429,14 @@ export function OTimKiemThe({
 
   const chon = (l: LuaChon) => {
     if (l.tat || !onThem(l.khoa, l.giaTri)) return;
+    // The tag was accepted: if its column is hidden, let the page switch it on (the "all columns" tag has no column).
+    if (
+      onChonTruongAn &&
+      l.khoa !== KHOA_TAT_CA &&
+      !truong.some((t) => t.key === l.khoa)
+    ) {
+      onChonTruongAn(l.khoa);
+    }
     setChu("");
     setUuTienKhoa(null);
     dong();

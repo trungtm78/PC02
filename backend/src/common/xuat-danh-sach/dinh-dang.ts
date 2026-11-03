@@ -8,6 +8,12 @@ export function ngayVN(d: Date | string | null | undefined): string {
   return ngay.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 }
 
+/** Number in Vietnamese notation (`1.500,5`) as shown on screen. No value means a blank cell, never `0` or `NaN`. */
+export function soVN(n: number | null | undefined): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return '';
+  return n.toLocaleString('vi-VN');
+}
+
 /** Họ tên cán bộ như cột "Người nhập"/"Điều tra viên" trên màn: họ + tên, không có thì tên đăng nhập. */
 export function hoTenCanBo(
   u:
