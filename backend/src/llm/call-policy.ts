@@ -67,6 +67,21 @@ function backoffDelay(
   return Math.min(error.retryAfterMs ?? exponential, policy.maxDelayMs);
 }
 
+/** Field paths and reasons only (never values, which may be personal data), so the model can repair its own reply. */
+function withRejection(request: LlmRequest, issues: readonly string[]): string {
+  const listed = issues.slice(0, MAX_ISSUES_SHOWN).join('; ');
+  return (
+    request.userText +
+    String.fromCharCode(10, 10) +
+    'Your previous reply was rejected because it did not match the required structure: ' +
+    listed +
+    '. Return the complete result again, with every required field present.'
+  );
+}
+
+/** Enough to point at the problem without turning a badly broken reply into a long prompt. */
+const MAX_ISSUES_SHOWN = 12;
+
 /**
  * Calls the providers in order with bounded retry, then fails over.
  *
@@ -88,13 +103,15 @@ export async function callWithPolicy<T>(
 
   for (const provider of chain) {
     let validationRetriesLeft = VALIDATION_RETRIES;
+    // The request as sent to this provider: after a rejected reply it also says which fields were wrong.
+    let asked = request;
     for (
       let attemptIndex = 0;
       attemptIndex < policy.maxAttemptsPerProvider;
       attemptIndex += 1
     ) {
       try {
-        const result = await provider.call(request);
+        const result = await provider.call(asked);
         const checked = validate(result.json);
         if (checked.ok) {
           attempts.push({
@@ -122,6 +139,10 @@ export async function callWithPolicy<T>(
         );
         if (validationRetriesLeft === 0) break;
         validationRetriesLeft -= 1;
+        asked = {
+          ...request,
+          userText: withRejection(request, checked.issues),
+        };
       } catch (error) {
         if (!(error instanceof LlmError)) throw error;
         attempts.push({

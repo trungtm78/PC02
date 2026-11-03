@@ -38,6 +38,7 @@ const result = (
 
 interface Scripted extends LlmProvider {
   calls: number;
+  requests: LlmRequest[];
 }
 
 function scripted(
@@ -49,7 +50,9 @@ function scripted(
     kind,
     model,
     calls: 0,
-    call() {
+    requests: [],
+    call(asked) {
+      provider.requests.push(asked);
       const step = steps[Math.min(provider.calls, steps.length - 1)];
       provider.calls += 1;
       return step instanceof LlmError
@@ -213,6 +216,26 @@ describe('callWithPolicy', () => {
     expect(out.attempts.filter((a) => a.outcome === 'BAD_JSON')).toHaveLength(
       2,
     );
+  });
+
+  it('tells the model which fields were wrong when it re-asks, naming paths only', async () => {
+    const p = scripted('ANTHROPIC', 'm1', [
+      result('ANTHROPIC', 'm1', { secret: 'personal value' }),
+      result('ANTHROPIC', 'm1', { ok: true }),
+    ]);
+    const validate = (json: unknown): Validation<unknown> =>
+      (json as { ok?: boolean }).ok
+        ? { ok: true, value: json }
+        : {
+            ok: false,
+            issues: ['points: expected array', 'summary: required'],
+          };
+    await callWithPolicy([p], request, validate, policy, deps());
+    expect(p.requests[0].userText).toBe('u');
+    expect(p.requests[1].userText).toContain('u');
+    expect(p.requests[1].userText).toContain('points: expected array');
+    expect(p.requests[1].userText).toContain('summary: required');
+    expect(p.requests[1].userText).not.toContain('personal value');
   });
 
   it('recovers when the second try after bad JSON validates', async () => {
