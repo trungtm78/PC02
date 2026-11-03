@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { ocrApi, type OcrAnalysisView } from './ocrApi';
+import { fieldOutcomes, type FieldOutcomeRow } from './fieldOutcomes';
 import { mapFieldNames } from './mapFieldNames';
 import { ocrImport } from '@/locales/vi';
 import { buildFieldNotes } from './FieldNotes';
@@ -133,6 +134,21 @@ export function useOcrFormIntake<TForm>({
     fill.forget();
   }, [fill]);
 
+  /**
+   * What the create request carries about the scans: which session and analysis the form was filled from, and what
+   * became of each filled field (names and outcomes, no values). Empty when no scans were read.
+   */
+  const bindingForSave = useCallback((): {
+    ocrPhienId?: string;
+    ocrPhienBan?: string;
+    ocrKetQua?: FieldOutcomeRow[];
+  } => {
+    const binding = fill.bindingForSave();
+    return binding.ocrPhienId
+      ? { ...binding, ocrKetQua: fieldOutcomes(access, form, fill.applied) }
+      : {};
+  }, [fill, access, form]);
+
   /** A message when Save must wait for the officer to confirm fields taken from the scans; null when it may go on. */
   const saveBlockedMessage = fill.blocksSave ? ocrImport.saveBlocked(fill.unconfirmed.length) : null;
 
@@ -160,7 +176,7 @@ export function useOcrFormIntake<TForm>({
     discardRestore,
     restoreNotice,
     saveBlockedMessage,
-    bindingForSave: fill.bindingForSave,
+    bindingForSave,
     afterCreated,
   };
 }

@@ -68,6 +68,23 @@ describe('useOcrFormIntake — drafts', () => {
     expect(result.current.form.a).toBe('từ ảnh');
   });
 
+  it('sends, with the save, what became of each filled field: kept, edited or emptied, and never a value', () => {
+    const { result } = setup({ a: '', b: '' });
+    act(() => result.current.ocr.fill.applyAnalysis('s1', analysis(['a', 'giữ nguyên', true], ['b', 'sẽ sửa'])));
+    act(() => result.current.setForm((f) => ({ ...f, b: 'đã sửa' })));
+    const sent = result.current.ocr.bindingForSave();
+    expect(sent.ocrKetQua).toEqual([
+      { field: 'a', outcome: 'KEPT', mustConfirm: true },
+      { field: 'b', outcome: 'EDITED', mustConfirm: false },
+    ]);
+    expect(JSON.stringify(sent.ocrKetQua)).not.toContain('giữ nguyên');
+  });
+
+  it('sends nothing when no scans were read', () => {
+    const { result } = setup();
+    expect(result.current.ocr.bindingForSave()).toEqual({});
+  });
+
   it('names the session and analysis a draft should point to, or nothing when no scans were read', () => {
     const { result } = setup();
     expect(result.current.ocr.draftReference()).toBeUndefined();
@@ -83,7 +100,7 @@ describe('useOcrFormIntake — drafts', () => {
     expect(result.current.form.a).toBe('từ ảnh');
     expect(result.current.ocr.saveBlockedMessage).not.toBeNull();
     expect(result.current.ocr.restoreNotice).toBeNull();
-    expect(result.current.ocr.bindingForSave()).toEqual({ ocrPhienId: 's1', ocrPhienBan: 'ana-1' });
+    expect(result.current.ocr.bindingForSave()).toMatchObject({ ocrPhienId: 's1', ocrPhienBan: 'ana-1' });
   });
 
   it('says so when the scans of a draft are gone or no longer match, and fills nothing', async () => {
