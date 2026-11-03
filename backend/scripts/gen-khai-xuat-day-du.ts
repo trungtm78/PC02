@@ -39,7 +39,14 @@ export interface TruongForm {
 
 /** Ô của bố cục, theo THỨ TỰ xuất hiện; ô trùng tên ở nhiều tab chỉ lấy lần đầu. */
 export function docBoCuc(src: string): { field: string; caption: string }[] {
-  const ra: { field: string; caption: string }[] = [];
+  return docMucThoBoCuc(src).map(({ field, caption }) => ({ field, caption }));
+}
+
+/** Như `docBoCuc` nhưng giữ cả THÂN literal của ô, để bộ dò khác đọc `kind`, `required`, `source`. */
+export function docMucThoBoCuc(
+  src: string,
+): { field: string; caption: string; raw: string }[] {
+  const ra: { field: string; caption: string; raw: string }[] = [];
   const thay = new Set<string>();
   /*
     Mỗi mục là một literal `{ caption: "...", field: "...", ... }` trên MỘT dòng.
@@ -63,17 +70,22 @@ export function docBoCuc(src: string): { field: string; caption: string }[] {
     const field = m[2] ?? m[3];
     if (!field || thay.has(field)) continue;
     thay.add(field);
-    ra.push({ field, caption });
+    ra.push({ field, caption, raw: m[0] });
   }
   return ra;
 }
 
-/** Ánh xạ ô đặc tả → cột thật của Đơn thư (`CO_COT_RIENG`). */
-export function docAnhXaCot(src: string): Record<string, string> {
-  const i = src.indexOf('CO_COT_RIENG');
+/**
+ * Ánh xạ ô đặc tả → cột thật, đọc từ hằng `ten` (mặc định `CO_COT_RIENG` của Đơn thư).
+ *
+ * Nhận cả dấu nháy đơn lẫn nháy kép ở giá trị: `LEGACY_FIELD_TO_COLUMN` của Vụ án viết nháy kép.
+ */
+export function docAnhXaCot(src: string, ten = 'CO_COT_RIENG'): Record<string, string> {
+  const i = src.indexOf(ten);
+  if (i < 0) throw new Error(`mapping constant ${ten} not found in source`);
   const j = src.indexOf('};', i);
   const ra: Record<string, string> = {};
-  const re = /'?([A-Za-z0-9_.]+)'?\s*:\s*'([A-Za-z0-9_]+)'/g;
+  const re = /['"]?([A-Za-z0-9_.]+)['"]?\s*:\s*['"]([A-Za-z0-9_]+)['"]/g;
   let m: RegExpExecArray | null;
   const khoi = src.slice(i, j);
   while ((m = re.exec(khoi))) ra[m[1]] = m[2];

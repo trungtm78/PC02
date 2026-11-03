@@ -22,7 +22,8 @@ describe('aes-gcm primitives (legacy "iv:ct:tag" format)', () => {
 
   it('decrypts a ciphertext produced by the pre-extraction TOTP implementation (regression vector)', () => {
     // Produced with the original TotpEncryptionService algorithm, fixed IV a1b2c3d4e5f60718293a4b5c.
-    const legacy = 'obLD1OX2BxgpOktc:ofE3IcTUGm2JNT1BOviL7w==:WvYBYbVWYKxr9+/RIKg8pA==';
+    const legacy =
+      'obLD1OX2BxgpOktc:ofE3IcTUGm2JNT1BOviL7w==:WvYBYbVWYKxr9+/RIKg8pA==';
     const legacyKey = parseAesKeyHex(
       '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
     );
@@ -46,7 +47,9 @@ describe('aes-gcm primitives (legacy "iv:ct:tag" format)', () => {
   });
 
   it('rejects a malformed string', () => {
-    expect(() => decryptAesGcm('notvalid', key)).toThrow('Invalid encrypted format');
+    expect(() => decryptAesGcm('notvalid', key)).toThrow(
+      'Invalid encrypted format',
+    );
   });
 
   it('rejects keys that are not exactly 32 bytes of hex', () => {
@@ -73,7 +76,9 @@ describe('versioned ciphertext (key rotation)', () => {
   it('still decrypts old-version data after the current version moves on', () => {
     const oldCiphertext = encryptVersioned('sk-old', ringV1);
     expect(decryptVersioned(oldCiphertext, ringV2)).toBe('sk-old');
-    expect(decryptVersioned(encryptVersioned('sk-new', ringV2), ringV2)).toBe('sk-new');
+    expect(decryptVersioned(encryptVersioned('sk-new', ringV2), ringV2)).toBe(
+      'sk-new',
+    );
   });
 
   it('fails with a clear message when the version is not in the ring', () => {
@@ -82,15 +87,15 @@ describe('versioned ciphertext (key rotation)', () => {
   });
 
   it('rejects an unversioned string', () => {
-    expect(() => decryptVersioned(encryptAesGcm('x', parseAesKeyHex(KEY_A)), ringV1)).toThrow(
-      'Invalid versioned format',
-    );
+    expect(() =>
+      decryptVersioned(encryptAesGcm('x', parseAesKeyHex(KEY_A)), ringV1),
+    ).toThrow('Invalid versioned format');
   });
 
   it('rejects a ring whose current version has no key, or with duplicate versions', () => {
-    expect(() => new KeyRing([{ version: 1, key: parseAesKeyHex(KEY_A) }], 2)).toThrow(
-      'current version',
-    );
+    expect(
+      () => new KeyRing([{ version: 1, key: parseAesKeyHex(KEY_A) }], 2),
+    ).toThrow('current version');
     expect(
       () =>
         new KeyRing(
