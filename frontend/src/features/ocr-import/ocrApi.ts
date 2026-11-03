@@ -72,6 +72,10 @@ export const ocrApi = {
   openSession: async (entity: OcrEntityName) =>
     (await api.post<OcrSessionView>('/ocr/sessions', { entity })).data,
 
+  /** Reads the scans attached to a saved record again: a new temporary session and the job to follow. */
+  startReread: async (entity: OcrEntityName, recordId: string) =>
+    (await api.post<{ sessionId: string; jobId: string; pages: number }>('/ocr/rereads', { entity, recordId })).data,
+
   getSession: async (id: string) =>
     (await api.get<OcrSessionState>(`/ocr/sessions/${id}`)).data,
 

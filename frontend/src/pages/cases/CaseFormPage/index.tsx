@@ -22,6 +22,7 @@ import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from "@/compo
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { CASE_LEGACY_SPEC, type CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
 import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
+import { OcrRereadPanel } from "@/features/ocr-import/OcrRereadPanel";
 import type { FormAccess } from "@/features/ocr-import/fillPlan";
 import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
@@ -838,6 +839,17 @@ function CaseFormPage() {
       )}
 
       <div className="px-6 pt-4 empty:hidden">
+        {isEditMode && id && (
+          <OcrRereadPanel
+            entity="CASE"
+            recordId={id}
+            access={CASE_OCR_ACCESS}
+            form={formData}
+            setForm={setFormData}
+            captionOf={(field) => CASE_CAPTION_BY_FIELD.get(field) ?? field}
+            visible={!chiXem}
+          />
+        )}
         <OcrIntakeSection
           ocr={ocr}
           visible={!isEditMode && createdId === null && !chiXem}

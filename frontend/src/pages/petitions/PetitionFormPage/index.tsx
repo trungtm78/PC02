@@ -22,6 +22,7 @@ import {
 } from "@/features/petitions/legacy-form-binding";
 import type { CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
 import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
+import { OcrRereadPanel } from "@/features/ocr-import/OcrRereadPanel";
 import type { FormAccess } from "@/features/ocr-import/fillPlan";
 import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
@@ -1122,6 +1123,18 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
             {legacyRaw.stt_cu ? ` · STT cũ ${String(legacyRaw.stt_cu)}` : ""}
             <span className="text-amber-600"> — để tra lại dữ liệu hệ thống cũ</span>
           </div>
+        )}
+        {isEditMode && id && (
+          <OcrRereadPanel
+            entity="PETITION"
+            recordId={id}
+            access={PETITION_OCR_ACCESS}
+            form={formData}
+            setForm={setFormData}
+            toFormPath={(field) => dichLuu(field as CaseFieldPath)}
+            captionOf={(field) => PETITION_CAPTION_BY_FIELD.get(field) ?? field}
+            visible={!chiXem}
+          />
         )}
         <OcrIntakeSection
           ocr={ocr}

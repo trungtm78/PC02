@@ -79,3 +79,6 @@ backend/reports/mutation/
 
 # Khoá ADB cá nhân của máy dev — không đưa vào repo (20/09/2026)
 .android/
+
+# Real scans used for local UAT: personal data, never committed
+qa/ocr/

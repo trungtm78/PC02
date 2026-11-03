@@ -75,6 +75,7 @@ import {
 } from "@/features/incidents/legacy-form-binding";
 import type { CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
 import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
+import { OcrRereadPanel } from "@/features/ocr-import/OcrRereadPanel";
 import type { FormAccess } from "@/features/ocr-import/fillPlan";
 import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
 import { NHOM_O_VU_VIEC } from "@/features/incidents/nhom-o.def";
@@ -944,6 +945,18 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
           />
         )}
 
+        {isEditMode && id && (
+          <OcrRereadPanel
+            entity="INCIDENT"
+            recordId={id}
+            access={INCIDENT_OCR_ACCESS}
+            form={formData}
+            setForm={setFormData}
+            toFormPath={(field) => dichLuu(field as CaseFieldPath)}
+            captionOf={(field) => INCIDENT_CAPTION_BY_FIELD.get(field) ?? field}
+            visible={!chiXem}
+          />
+        )}
         <OcrIntakeSection
           ocr={ocr}
           visible={!isEditMode && createdId === null && !chiXem}

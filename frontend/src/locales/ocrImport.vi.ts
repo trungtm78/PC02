@@ -34,6 +34,18 @@ export const ocrImport = {
   openReview: 'Đối chiếu ảnh và sửa bản chép',
   draftScansUnavailable:
     'Bản nháp này có ảnh scan đã hết hạn hoặc nội dung đã đổi nên không điền lại được. Các ô anh/chị tự nhập vẫn còn; hãy chọn ảnh và đọc lại nếu cần.',
+  rereadOpen: 'Đọc lại từ ảnh scan',
+  rereadClose: 'Đóng so sánh',
+  rereadReading: 'Đang đọc lại các ảnh đính kèm, có thể mất vài chục giây…',
+  rereadHint:
+    'Các ô dưới đây khác với hồ sơ hiện tại. Chọn "Dùng giá trị từ ảnh" để đưa vào form (chưa lưu), rồi bấm Lưu như thường.',
+  rereadNothingDiffers: 'Mọi ô đọc được đều khớp với hồ sơ.',
+  rereadSame: (n: number) => `${n} ô khớp với ảnh`,
+  rereadCurrent: 'Hiện có trong hồ sơ',
+  rereadFromImage: 'Đọc được từ ảnh',
+  rereadEmpty: '(trống)',
+  rereadUse: 'Dùng giá trị từ ảnh',
+  rereadKeep: 'Giữ giá trị hiện tại',
   summaryHeading: 'Tóm tắt nội dung',
   issuesHeading: 'Điểm cần xem lại',
   issuesCount: (n: number) => `${n} điểm hệ thống nghi ngờ`,
