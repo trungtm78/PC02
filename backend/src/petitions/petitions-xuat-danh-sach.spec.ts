@@ -223,6 +223,110 @@ describe('Xuất Đơn thư — ngày viết đơn THIẾU thành phần', () =>
       'ngayGiaoDonViGiaiQuyet',
       'ngayPhieuChuyen',
       'senderIdIssueDate',
+      // Every other form field that holds data (03/11/2026): searchable, so it must be visible AND exportable.
+      'soPhieuChuyen',
+      'nhanThay',
+      'deXuat',
+      'huongXuLy',
+      'raSoatTrung',
+      'baoCaoBanGiamDocText',
+      'ghiChuKhac',
+      'phuongThucThuDoan',
+      'phanLoaiNguonTin',
+      'laCongNgheCao',
+      'dieuTraVien',
+      'senderPhone',
+      'senderBirthYear',
+      'senderIdNumber',
+      'senderIdIssuePlace',
+      'senderAddress',
+      'soQDPhanCongNguonTin',
+      'ngayQDPhanCongNguonTin',
+      'soQDTamDinhChiNguonTin',
+      'ngayQDTamDinhChiNguonTin',
+      'canCuTamDinhChiNguonTin',
+      'soPhucHoiNguonTin',
+      'ngayPhucHoiNguonTin',
+      'thoiHanUTDT',
+      'crimeChinh',
+      'soTienBiThietHai',
+      'soLuongBiHai',
+      'soQuyetDinhKhoiTo',
+      'ngayKhoiTo',
+      'toiDanhChinhKhoiTo',
     ]);
+  });
+
+  /**
+   * Values the new columns render, from a fully populated row - a column that exports blank for data the list
+   * shows is the silent failure the date columns suffered before.
+   */
+  it('new columns read the right fields of a populated row', () => {
+    const row = {
+      soPhieuChuyen: 'A16763',
+      nhanThay: 'Bị can do Tổ công tác Số 8 thụ lý',
+      deXuat: 'Đề xuất giao đơn',
+      huongXuLy: 'CHUYEN_DON',
+      raSoatTrung: 'Trùng đơn 2026-00001',
+      baoCaoBanGiamDocText: 'Báo cáo BGĐ',
+      ghiChuKhac: 'Ghi chú',
+      phuongThucThuDoan: 'Giả danh',
+      phanLoaiNguonTin: 'Tố giác',
+      laCongNgheCao: true,
+      dieuTraVien: 'Nguyễn Văn A',
+      senderPhone: '0901234567',
+      senderBirthYear: '1980',
+      senderIdNumber: '079080001234',
+      senderIdIssuePlace: 'Cục CSQLHC',
+      senderAddress: '12 Lê Lợi, Q1',
+      soQDPhanCongNguonTin: 'QD-PC-1',
+      ngayQDPhanCongNguonTin: new Date('2026-08-02T00:00:00Z'),
+      soQDTamDinhChiNguonTin: 'QD-TDC-1',
+      ngayQDTamDinhChiNguonTin: new Date('2026-08-03T00:00:00Z'),
+      canCuTamDinhChiNguonTin: 'Căn cứ',
+      soPhucHoiNguonTin: 'PH-1',
+      ngayPhucHoiNguonTin: new Date('2026-08-04T00:00:00Z'),
+      thoiHanUTDT: new Date('2026-12-31T00:00:00Z'),
+      crimeChinh: { name: 'Tội lừa đảo chiếm đoạt tài sản' },
+      soTienBiThietHai: 1500.5,
+      soLuongBiHai: 3,
+      metadata: { soQuyetDinhKhoiTo: 'KT-9', ngayKhoiTo: '2026-09-12' },
+      toiDanhChinhKhoiToTen: 'Tội giết người',
+    };
+    const doc = (key: string) =>
+      KHAI_COT_XUAT_DON_THU.find((c) => c.key === key)!.doc(row as never);
+    expect(doc('soPhieuChuyen')).toBe('A16763');
+    expect(doc('nhanThay')).toBe('Bị can do Tổ công tác Số 8 thụ lý');
+    expect(doc('huongXuLy')).toBe('Chuyển đơn');
+    expect(doc('laCongNgheCao')).toBe('Có');
+    expect(doc('ngayQDPhanCongNguonTin')).toBe('2/8/2026');
+    expect(doc('thoiHanUTDT')).toBe('31/12/2026');
+    expect(doc('crimeChinh')).toBe('Tội lừa đảo chiếm đoạt tài sản');
+    expect(doc('soTienBiThietHai')).toBe('1.500,5');
+    expect(doc('soLuongBiHai')).toBe('3');
+    expect(doc('soQuyetDinhKhoiTo')).toBe('KT-9');
+    expect(doc('ngayKhoiTo')).toBe('12/9/2026');
+    expect(doc('toiDanhChinhKhoiTo')).toBe('Tội giết người');
+  });
+
+  it('new columns export blank (never "undefined"/"null") for a row without the data', () => {
+    for (const key of [
+      'soPhieuChuyen',
+      'huongXuLy',
+      'laCongNgheCao',
+      'ngayQDPhanCongNguonTin',
+      'crimeChinh',
+      'soTienBiThietHai',
+      'soLuongBiHai',
+      'soQuyetDinhKhoiTo',
+      'ngayKhoiTo',
+      'toiDanhChinhKhoiTo',
+    ]) {
+      const out = KHAI_COT_XUAT_DON_THU.find((c) => c.key === key)!.doc({
+        laCongNgheCao: null,
+        metadata: null,
+      } as never);
+      expect(out).toBe('');
+    }
   });
 });

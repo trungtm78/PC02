@@ -1,10 +1,11 @@
 import { docThe, dungDieuKienTimKiem } from './dieu-kien';
 import { KHAI_TIM_KIEM_DON_THU } from './khai/don-thu.khai';
+import { KHAI_TIM_KIEM_TOI_DANH } from './khai/toi-danh.khai';
 import { sinhCauNapCotBong, sinhMigrationTimKiem } from './sinh/sinh-tim-kiem';
 
 describe('petition all-column search', () => {
   it('replaces triggers and refreshes stale aggregates in one transaction', () => {
-    const sql = sinhMigrationTimKiem([KHAI_TIM_KIEM_DON_THU]);
+    const sql = sinhMigrationTimKiem([KHAI_TIM_KIEM_TOI_DANH, KHAI_TIM_KIEM_DON_THU]);
     expect(sql).toContain('\nBEGIN;\n');
     expect(sql).toContain('UPDATE "petitions" SET');
     expect(sql).toContain('WHERE (');
@@ -32,7 +33,7 @@ describe('petition all-column search', () => {
   );
 
   it('indexes information type and free-text petition dates for global search', () => {
-    const sql = sinhMigrationTimKiem([KHAI_TIM_KIEM_DON_THU]);
+    const sql = sinhMigrationTimKiem([KHAI_TIM_KIEM_TOI_DANH, KHAI_TIM_KIEM_DON_THU]);
     expect(sql).toContain('NEW."loaiThongTin"');
     expect(sql).toContain('NEW."ngay_viet_don_chu"');
     expect(sql).toContain('"loai_thong_tin_bd"');

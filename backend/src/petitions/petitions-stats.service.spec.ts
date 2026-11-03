@@ -192,6 +192,8 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
               đúng, không bao giờ im lặng bỏ nhánh người".
             */
             expect.objectContaining({ enteredBy: expect.anything() }),
+            // Fourth branch (03/11/2026): the initial crime name, via `tatCaGomQuanHe: ['toiDanhChinh']`.
+            expect.objectContaining({ crimeChinh: expect.anything() }),
       ],
     });
   });

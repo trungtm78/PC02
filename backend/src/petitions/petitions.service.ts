@@ -72,6 +72,7 @@ import {
   type CotXuatDto,
 } from '../common/xuat-danh-sach/cot-xuat.dto';
 import {
+  chuoiMetadata,
   KHAI_COT_XUAT_DON_THU,
   KHAI_COT_XUAT_DON_THU_PHUONG,
 } from './xuat-danh-sach-don-thu';
@@ -244,12 +245,49 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   ngayGiaoDonViGiaiQuyet: true,
   ngayPhieuChuyen: true,
   senderIdIssueDate: true,
+  /*
+    Every other form field that holds data (03/11/2026): searchable, so each has a hidden list column and an export
+    column. The select is explicit, so a field missing here renders as an empty column without any error.
+  */
+  soPhieuChuyen: true,
+  nhanThay: true,
+  deXuat: true,
+  huongXuLy: true,
+  raSoatTrung: true,
+  baoCaoBanGiamDocText: true,
+  ghiChuKhac: true,
+  phuongThucThuDoan: true,
+  phanLoaiNguonTin: true,
+  laCongNgheCao: true,
+  dieuTraVien: true,
+  senderPhone: true,
+  senderBirthYear: true,
+  senderIdNumber: true,
+  senderIdIssuePlace: true,
+  senderAddress: true,
+  soQDPhanCongNguonTin: true,
+  ngayQDPhanCongNguonTin: true,
+  soQDTamDinhChiNguonTin: true,
+  ngayQDTamDinhChiNguonTin: true,
+  canCuTamDinhChiNguonTin: true,
+  soPhucHoiNguonTin: true,
+  ngayPhucHoiNguonTin: true,
+  thoiHanUTDT: true,
+  soTienBiThietHai: true,
+  soLuongBiHai: true,
+  crimeChinh: { select: { name: true } },
+  // The prosecution decision fields (number, date, crime id) live in this JSON; Prisma cannot select a sub-key.
+  // Measured on 47,169 real petitions: 1.6 KB average per row (about 32 KB for a 20-row page).
+  metadata: true,
 } satisfies Prisma.PetitionSelect;
 
 /** Một dòng danh sách Đơn thư như `getList` trả. */
 export type DongDanhSachDonThu = Prisma.PetitionGetPayload<{
   select: typeof CHON_DONG_DANH_SACH_DON_THU;
-}>;
+}> & {
+  /** Name of the crime whose ID is stored in `metadata.toiDanhChinhKhoiToId`; resolved per page, not stored. */
+  toiDanhChinhKhoiToTen?: string | null;
+};
 
 const MSG_GIO_TUONG_LAI = 'Giờ tiếp nhận không được ở tương lai (ngày hôm nay, giờ Việt Nam)';
 
@@ -427,6 +465,31 @@ export class PetitionsService {
     });
   }
 
+  /**
+   * Attach the crime NAME for the prosecution-decision crime stored by ID in `metadata.toiDanhChinhKhoiToId`.
+   * One lookup per page (or per export batch), only when some row carries an ID - a page without one costs nothing.
+   * An ID that matches no crime (deleted/unknown) yields `null`: a blank cell, never the raw ID.
+   */
+  private async gonTenToiDanhKhoiTo<T extends { metadata: unknown }>(
+    rows: T[],
+  ): Promise<Array<T & { toiDanhChinhKhoiToTen: string | null }>> {
+    const idCuaDong = (r: T): string =>
+      chuoiMetadata(r.metadata, 'toiDanhChinhKhoiToId');
+    const ids = [...new Set(rows.map(idCuaDong).filter(Boolean))];
+    const ten = new Map<string, string>();
+    if (ids.length > 0) {
+      const toiDanh = await this.prisma.crime.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true },
+      });
+      for (const c of toiDanh) ten.set(c.id, c.name);
+    }
+    return rows.map((r) => ({
+      ...r,
+      toiDanhChinhKhoiToTen: ten.get(idCuaDong(r)) ?? null,
+    }));
+  }
+
   async getList(query: QueryPetitionsDto, dataScope?: DataScope | null) {
     const {
       limit = 20,
@@ -439,7 +502,7 @@ export class PetitionsService {
 
     const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
 
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.petition.findMany({
         where,
         select: CHON_DONG_DANH_SACH_DON_THU,
@@ -449,6 +512,7 @@ export class PetitionsService {
       }),
       this.prisma.petition.count({ where }),
     ]);
+    const data = await this.gonTenToiDanhKhoiTo(rows);
 
     return {
       success: true,
@@ -2203,11 +2267,13 @@ export class PetitionsService {
             take: toiDa,
           })
         ).map((d) => d.id),
-      layDong: (ids) =>
-        this.prisma.petition.findMany({
-          where: { id: { in: ids }, deletedAt: null },
-          select: CHON_DONG_DANH_SACH_DON_THU,
-        }),
+      layDong: async (ids) =>
+        this.gonTenToiDanhKhoiTo(
+          await this.prisma.petition.findMany({
+            where: { id: { in: ids }, deletedAt: null },
+            select: CHON_DONG_DANH_SACH_DON_THU,
+          }),
+        ),
     });
     if (actor) {
       await this.audit.log({
@@ -2262,11 +2328,13 @@ export class PetitionsService {
             take: toiDa,
           })
         ).map((d) => d.id),
-      layDong: (ids) =>
-        this.prisma.petition.findMany({
-          where: { id: { in: ids }, deletedAt: null },
-          select: CHON_DONG_DANH_SACH_DON_THU,
-        }),
+      layDong: async (ids) =>
+        this.gonTenToiDanhKhoiTo(
+          await this.prisma.petition.findMany({
+            where: { id: { in: ids }, deletedAt: null },
+            select: CHON_DONG_DANH_SACH_DON_THU,
+          }),
+        ),
       // Tệp phường có sẵn từ trước vẫn trả tệp (chỉ tiêu đề) khi không có đơn nào — giữ hành vi.
       choPhepRong: true,
     });

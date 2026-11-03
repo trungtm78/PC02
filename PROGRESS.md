@@ -19,6 +19,10 @@ Related files: `backend/src/common/tim-kiem/{dieu-kien.ts,sinh/sinh-tim-kiem.ts,
 2. M1-T3 PR3 frontend: 30 hidden columns in `PetitionListPageShell.tsx`, "Hidden columns" group in `OTimKiemThe` that enables the column, `GIA_TRI_CHON_DON_THU` (huongXuLy, laCongNgheCao), client-side `loc-theo-the` handling of `so`.
 3. Final: `UAT-COVERAGE.md` matrix + UAT per row, then set `STATUS: ALL_MILESTONES_DONE`.
 
+## Update 2026-11-03 (later): PR1 merged (#632, deployed buildId cf638c86). PR2 and PR3 MERGED INTO ONE PR
+Reason: two cross-package gates make them inseparable - `timKiemCotKhai` (frontend) needs a list column for EVERY declared tag key, and `khaiCotXuat` (frontend reads `backend/src/petitions/xuat-danh-sach-don-thu.ts`) needs an export column with the same key as every list column. Declaring 30 tags without the 30 columns (or the reverse) turns `main` red.
+Branch: `feat/don-thu-tim-moi-truong`. Backend done (khai, migration `20261103125717_tim_kiem_don_thu_moi_truong`, schema fields, list select + crime-name lookup, 30 export columns, completeness gate, PostgreSQL spec 37/37 on PG18 local, CI job updated). NEXT STEP: frontend - 30 hidden columns in `PetitionListPageShell.tsx`, "Hidden columns" suggestion group in `OTimKiemThe`, `GIA_TRI_CHON_DON_THU`, client-side `so` in `loc-theo-the.ts`; then measurements (migration time, write cost, search timings on `pc02_that` copy), full suites, review, PR.
+
 ## Architecture decisions
 | Date | Decision | Reason | Impact |
 |---|---|---|---|
