@@ -244,6 +244,16 @@ describe('OpenAiCompatibleProvider.call', () => {
     expect((await run(400)).code).toBe('BAD_REQUEST');
   });
 
+  it('a model that no longer exists lets the next provider try instead of stopping the chain', async () => {
+    const { fetchImpl } = fakeFetch(() =>
+      json(404, {
+        error: { message: 'The model does not exist', code: 'model_not_found' },
+      }),
+    );
+    const error = await failure(cloud(fetchImpl).call(baseRequest));
+    expect([error.code, error.retryable]).toEqual(['MODEL_UNAVAILABLE', false]);
+  });
+
   it('never lets the key or key-shaped text into an error message', async () => {
     const { fetchImpl } = fakeFetch(() =>
       json(401, {

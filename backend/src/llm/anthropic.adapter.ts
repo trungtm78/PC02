@@ -166,6 +166,16 @@ export class AnthropicProvider implements LlmProvider {
         { retryable: false, status },
       );
     }
+    if (status === 404) {
+      return new LlmError(
+        'MODEL_UNAVAILABLE',
+        `the model is not available (HTTP 404)${suffix}`,
+        {
+          retryable: false,
+          status,
+        },
+      );
+    }
     if (status === 429) {
       const seconds = Number(response.headers.get('retry-after'));
       return new LlmError('RATE_LIMIT', `rate limited (HTTP 429)${suffix}`, {

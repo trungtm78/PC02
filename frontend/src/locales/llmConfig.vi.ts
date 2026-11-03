@@ -147,6 +147,7 @@ export const llmConfig = {
     BLOCKED:
       'Địa chỉ máy chủ không được phép (địa chỉ nội bộ đặc biệt như 169.254.x.x, hoặc tên miền không phân giải được). Kiểm tra lại địa chỉ.',
     MODEL_NOT_FOUND: 'Model này không có trong danh sách của nhà cung cấp.',
+    MODEL_UNAVAILABLE: 'Model này không còn hoặc không truy cập được. Chọn model khác cho nhà cung cấp.',
     READ_MISMATCH:
       'Mô hình gọi được nhưng đọc sai ảnh thử tiếng Việt: không nên dùng model này để đọc giấy tờ.',
     SCHEMA_MISMATCH: 'Mô hình không trả đúng cấu trúc dữ liệu yêu cầu.',

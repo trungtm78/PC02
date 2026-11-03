@@ -57,6 +57,7 @@ export interface LlmProvider {
  *   BAD_JSON     the reply was missing or did not match the schema.
  *   REFUSED      the model declined to answer.
  *   BLOCKED      the configured server address is not allowed; this provider cannot be used, another might.
+ *   MODEL_UNAVAILABLE  the configured model no longer exists or is not accessible; this provider cannot be used, another might.
  */
 export type LlmErrorCode =
   | 'AUTH'
@@ -67,7 +68,8 @@ export type LlmErrorCode =
   | 'BAD_REQUEST'
   | 'BAD_JSON'
   | 'REFUSED'
-  | 'BLOCKED';
+  | 'BLOCKED'
+  | 'MODEL_UNAVAILABLE';
 
 export interface LlmErrorOptions {
   retryable: boolean;

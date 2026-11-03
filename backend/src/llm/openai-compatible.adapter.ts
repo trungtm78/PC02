@@ -1,3 +1,4 @@
+import { createPinnedFetch } from './pinned-fetch';
 import { assertSafeBaseUrl, type Lookup } from './ssrf-guard';
 import {
   LlmError,
@@ -54,7 +55,12 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     } else {
       this.baseUrl = OPENAI_BASE_URL;
     }
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // A self-hosted server is reached through a client that checks the address as the socket connects.
+    this.fetchImpl =
+      options.fetchImpl ??
+      (options.kind === 'SELF_HOSTED'
+        ? createPinnedFetch(options.lookup)
+        : fetch);
     this.now = options.now ?? Date.now;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.lookup = options.lookup;
@@ -188,6 +194,16 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       return new LlmError(
         'AUTH',
         `the key was rejected (HTTP ${status})${suffix}`,
+        {
+          retryable: false,
+          status,
+        },
+      );
+    }
+    if (status === 404) {
+      return new LlmError(
+        'MODEL_UNAVAILABLE',
+        `the model is not available (HTTP 404)${suffix}`,
         {
           retryable: false,
           status,

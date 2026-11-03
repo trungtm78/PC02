@@ -22,6 +22,8 @@ export function isBlockedAddress(address: string): boolean {
   const lower = address.toLowerCase();
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
   if (mapped) return isBlockedAddress(mapped[1]);
+  const embedded = embeddedIpv4(lower);
+  if (embedded) return isBlockedAddress(embedded);
 
   if (isIP(lower) === 4) {
     const [a, b] = lower.split('.').map(Number);
@@ -33,6 +35,48 @@ export function isBlockedAddress(address: string): boolean {
     if (lower.startsWith('fd00:ec2:')) return true; // AWS IPv6 metadata
   }
   return false;
+}
+
+/** The eight 16-bit groups of an IPv6 address, or null when it is not one. */
+function hextets(address: string): number[] | null {
+  if (isIP(address) !== 6) return null;
+  const [head, tail] = address.split('::');
+  const toGroups = (part: string): number[] =>
+    part === ''
+      ? []
+      : part.split(':').flatMap((g) => {
+          if (g.includes('.')) {
+            const [a, b, c, d] = g.split('.').map(Number);
+            return [(a << 8) | b, (c << 8) | d];
+          }
+          return [parseInt(g, 16)];
+        });
+  const first = toGroups(head);
+  if (tail === undefined) return first.length === 8 ? first : null;
+  const last = toGroups(tail);
+  return [
+    ...first,
+    ...new Array<number>(8 - first.length - last.length).fill(0),
+    ...last,
+  ];
+}
+
+/**
+ * The IPv4 address hidden inside an IPv6 one: IPv4-mapped (::ffff:a.b.c.d, in dotted or hex spelling), the NAT64
+ * prefix 64:ff9b::/96 and the deprecated IPv4-compatible form. A URL parser rewrites a dotted tail into hex, so a
+ * check that only knows the dotted spelling is bypassed by `http://[::ffff:169.254.169.254]`.
+ */
+function embeddedIpv4(address: string): string | null {
+  const g = hextets(address);
+  if (!g) return null;
+  const tailIpv4 = `${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`;
+  const upperZero = g.slice(0, 5).every((x) => x === 0);
+  if (upperZero && g[5] === 0xffff) return tailIpv4; // mapped
+  if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0))
+    return tailIpv4; // NAT64
+  if (g.slice(0, 6).every((x) => x === 0) && (g[6] !== 0 || g[7] > 1))
+    return tailIpv4; // IPv4-compatible
+  return null;
 }
 
 /**

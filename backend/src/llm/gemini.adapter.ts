@@ -108,7 +108,10 @@ export class GeminiProvider implements LlmProvider {
       json: parsed,
       usage: {
         inputTokens: body?.usageMetadata?.promptTokenCount ?? 0,
-        outputTokens: body?.usageMetadata?.candidatesTokenCount ?? 0,
+        // Thinking tokens are billed like output tokens, so they count as output.
+        outputTokens:
+          (body?.usageMetadata?.candidatesTokenCount ?? 0) +
+          (body?.usageMetadata?.thoughtsTokenCount ?? 0),
       },
       latencyMs,
       model: this.model,
@@ -140,6 +143,8 @@ export class GeminiProvider implements LlmProvider {
           'x-goog-api-key': this.apiKey,
           'content-type': 'application/json',
         },
+        // The key is in a header and the body holds the scan: a redirect must not carry either elsewhere.
+        redirect: 'error',
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
@@ -177,6 +182,16 @@ export class GeminiProvider implements LlmProvider {
         'AUTH',
         `the key was rejected (HTTP ${status})${suffix}`,
         { retryable: false, status },
+      );
+    }
+    if (status === 404) {
+      return new LlmError(
+        'MODEL_UNAVAILABLE',
+        `the model is not available (HTTP 404)${suffix}`,
+        {
+          retryable: false,
+          status,
+        },
       );
     }
     if (status === 429) {
@@ -227,5 +242,9 @@ interface GeminiReply {
     finishReason?: string;
   }>;
   promptFeedback?: { blockReason?: string };
-  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
 }

@@ -133,6 +133,35 @@ describe('GeminiProvider.call', () => {
     });
   });
 
+  it('counts the thinking tokens as output: they are billed like output', async () => {
+    const { fetchImpl } = fakeFetch(() =>
+      json(200, {
+        ...okBody,
+        usageMetadata: {
+          promptTokenCount: 10,
+          candidatesTokenCount: 20,
+          thoughtsTokenCount: 1000,
+        },
+      }),
+    );
+    const result = await provider(fetchImpl).call(baseRequest);
+    expect(result.usage).toEqual({ inputTokens: 10, outputTokens: 1020 });
+  });
+
+  it('refuses to follow a redirect: the key travels in a header and the body holds the scan', async () => {
+    const { fetchImpl, calls } = fakeFetch(() => json(200, okBody));
+    await provider(fetchImpl).call(baseRequest);
+    expect(calls[0].init.redirect).toBe('error');
+  });
+
+  it('a model that no longer exists lets the next provider try instead of stopping the chain', async () => {
+    const { fetchImpl } = fakeFetch(() =>
+      json(404, { error: { message: 'models/x is not found' } }),
+    );
+    const error = await failure(provider(fetchImpl).call(baseRequest));
+    expect([error.code, error.retryable]).toEqual(['MODEL_UNAVAILABLE', false]);
+  });
+
   it('treats a reply that is not JSON as retryable bad output', async () => {
     const { fetchImpl } = fakeFetch(() =>
       json(200, {

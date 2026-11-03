@@ -33,8 +33,30 @@ describe('isBlockedAddress', () => {
     }
   });
 
-  it('blocks an IPv6 form that wraps a blocked IPv4 address', () => {
-    expect(isBlockedAddress('::ffff:169.254.169.254')).toBe(true);
+  it('blocks an IPv6 form that wraps a blocked IPv4 address, in every spelling a URL can end up with', () => {
+    for (const a of [
+      '::ffff:169.254.169.254',
+      '::ffff:a9fe:a9fe', // what new URL('http://[::ffff:169.254.169.254]').hostname becomes
+      '0:0:0:0:0:ffff:a9fe:a9fe',
+      '0000:0000:0000:0000:0000:ffff:a9fe:a9fe',
+      '64:ff9b::a9fe:a9fe', // NAT64 prefix
+      '::a9fe:a9fe', // deprecated IPv4-compatible form
+    ]) {
+      expect(isBlockedAddress(a)).toBe(true);
+    }
+    // and the same shapes around an allowed address stay allowed
+    expect(isBlockedAddress('::ffff:a00:5')).toBe(false); // 10.0.0.5
+  });
+
+  it('refuses a URL whose host is a bracketed IPv6 wrapping the metadata address', async () => {
+    expect(
+      await codeOf(
+        assertSafeBaseUrl(
+          'http://[::ffff:169.254.169.254]/latest',
+          resolvesTo('10.0.0.5'),
+        ),
+      ),
+    ).toBe('BLOCKED');
   });
 
   it("allows the private ranges a unit's own server lives in, and loopback for a server on the same machine", () => {

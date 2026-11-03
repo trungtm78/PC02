@@ -251,6 +251,16 @@ describe('AnthropicProvider.call', () => {
   });
 });
 
+describe('AnthropicProvider unknown model', () => {
+  it('a model that no longer exists lets the next provider try instead of stopping the chain', async () => {
+    const { fetchImpl } = fakeFetch(() =>
+      json(404, { error: { type: 'not_found_error', message: 'model: x' } }),
+    );
+    const error = await failure(provider(fetchImpl).call(baseRequest));
+    expect([error.code, error.retryable]).toEqual(['MODEL_UNAVAILABLE', false]);
+  });
+});
+
 describe('AnthropicProvider.listModels', () => {
   it('lists Claude model ids and sends the key', async () => {
     const { fetchImpl, calls } = fakeFetch(() =>

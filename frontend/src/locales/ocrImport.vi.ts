@@ -90,6 +90,8 @@ export const ocrImport = {
     SERVER: 'Nhà cung cấp đang gặp sự cố. Hãy bấm đọc lại sau ít phút.',
     BAD_JSON: 'Kết quả đọc không đúng định dạng. Hãy bấm đọc lại.',
     REFUSED: 'Nhà cung cấp từ chối đọc nội dung này.',
+    MODEL_UNAVAILABLE: 'Model đọc ảnh không còn dùng được. Liên hệ quản trị viên.',
+    BLOCKED: 'Địa chỉ máy chủ đọc ảnh nội bộ không được phép. Liên hệ quản trị viên.',
     INTERNAL: 'Có lỗi khi đọc ảnh. Hãy bấm đọc lại.',
   } as Readonly<Record<string, string>>,
   errorFallback: (code: string) => `Không đọc được ảnh (mã lỗi ${code}). Hãy bấm đọc lại.`,
