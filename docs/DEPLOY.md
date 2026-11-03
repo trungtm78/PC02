@@ -195,6 +195,16 @@ ssh pc02@171.244.40.245 "ls -1dt /home/pc02/releases/*/ | tail -n +3 | xargs rm 
 - VM authorized_keys giới hạn theo IP của GitHub Actions runners (Microsoft Azure) — không cần thêm restriction
 - Sau khi key compromise: generate keypair mới, paste vào VM, update GitHub Secret, revoke old key
 
+## Nhập từ ảnh scan (tính năng `ocr_import`, TẮT mặc định)
+
+Tính năng này thêm phụ thuộc và biến môi trường; không có chúng thì máy chủ vẫn chạy, chỉ riêng tính năng này không dùng được.
+
+- **`sharp`** (xoay, thu nhỏ, bóc EXIF ảnh scan): dùng bản dựng sẵn cho `linux-x64`. Sau `npm ci` trên VM kiểm: `node -e "require('sharp')"` phải im lặng. Nếu báo thiếu `@img/sharp-linux-x64`, chạy `npm ci --include=optional` (không bao giờ `--omit=optional`).
+- **`LLM_KEY_ENCRYPTION_KEY`** (64 ký tự hex) và `LLM_KEY_VERSION`: khoá mã hoá API key của nhà cung cấp LLM. Thiếu khoá thì màn `/admin/cau-hinh-llm` báo "chưa cấu hình" và không lưu được khoá. Xoay khoá: `docs/KEY-ROTATION.md` mục 6.
+- **`OCR_UPLOAD_DIR`**: thư mục lưu ảnh gốc và bản gửi nhà cung cấp (mặc định `uploads/ocr` trong thư mục chạy). Phải nằm ngoài `releases/<sha>` để không mất khi deploy, như `uploads/` hiện có (symlink từ `/home/pc02/shared/`).
+- **`OCR_MAX_PARALLEL`** (mặc định 4): số lượt đọc chạy cùng lúc trên một máy chủ. `OCR_RUNNER=off` tắt bộ chạy nền ở một tiến trình.
+- Bật tính năng: cờ `ocr_import` (bảng `feature_flags`), cấp `use:OcrImport` cho vai trò dùng, `sendInternal`/`sendCloud` theo đích. **Cloud chỉ chạy khi đã lưu hồ sơ đánh giá tác động chuyển dữ liệu ra nước ngoài** (màn cấu hình LLM).
+
 ## Dựng máy chủ MỚI — cơ sở dữ liệu trống
 
 `prisma migrate deploy` **KHÔNG dựng được cơ sở dữ liệu từ số không.** Migration đầu tiên
