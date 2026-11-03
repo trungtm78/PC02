@@ -4574,3 +4574,120 @@ model LlmCallLineage {
   @@index([userId, createdAt])
   @@map("llm_call_lineage")
 }
+
+// ─────────────────────────────────────────────
+// Scan-image intake (OCR via LLM). A session holds the pages of ONE bundle; everything derived from them
+// is stored as an immutable revision so a late result can never overwrite a newer one.
+// ─────────────────────────────────────────────
+enum OcrEntity {
+  PETITION
+  INCIDENT
+  CASE
+}
+
+enum OcrSessionStatus {
+  OPEN
+  BOUND
+  CANCELLED
+  EXPIRED
+}
+
+enum OcrTranscriptSource {
+  MODEL
+  OFFICER
+}
+
+model OcrSession {
+  id              String           @id @default(cuid())
+  entity          OcrEntity
+  createdById     String
+  status          OcrSessionStatus @default(OPEN)
+  /// Id of the Petition/Incident/Case this session was bound to when the officer saved it.
+  boundRecordId   String?
+  boundAt         DateTime?
+  /// Revision of the current page set; every change to the page list creates a new, immutable one.
+  pageSetRevision Int              @default(0)
+  /// An unbound session is purged after this; a bound one never is.
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  pages    OcrPage[]
+  pageSets OcrPageSet[]
+  analyses OcrAnalysis[]
+
+  @@index([createdById, status])
+  @@index([status, expiresAt])
+  @@map("ocr_sessions")
+}
+
+model OcrPage {
+  id                String     @id @default(cuid())
+  sessionId         String
+  session           OcrSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// sha256 of the ORIGINAL bytes as uploaded: the evidence of what the officer provided.
+  sha256            String
+  mimeType          String
+  sizeBytes         Int
+  originalPath      String
+  /// Copy sent to the provider (rotated, resized, EXIF stripped) and a description of the transforms applied.
+  derivedPath       String?
+  derivedTransforms String?
+  removedAt         DateTime?
+  createdAt         DateTime   @default(now())
+
+  transcripts OcrTranscript[]
+
+  @@index([sessionId])
+  @@map("ocr_pages")
+}
+
+/// An immutable, ordered list of the pages of a session at one revision: [{ id, sha256 }].
+model OcrPageSet {
+  id        String     @id @default(cuid())
+  sessionId String
+  session   OcrSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  revision  Int
+  pages     Json
+  createdAt DateTime   @default(now())
+
+  @@unique([sessionId, revision])
+  @@map("ocr_page_sets")
+}
+
+/// One revision of the text of one page. A new reading or an officer's correction adds a revision; none is edited.
+model OcrTranscript {
+  id            String              @id @default(cuid())
+  pageId        String
+  page          OcrPage             @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  revision      Int
+  text          String
+  source        OcrTranscriptSource
+  pageKind      String?
+  promptVersion String?
+  createdAt     DateTime            @default(now())
+
+  @@unique([pageId, revision])
+  @@map("ocr_transcripts")
+}
+
+/// Result of analysing the bundle for one input state. Exactly one analysis per session is current: the one whose
+/// inputFingerprint still equals the fingerprint of the session's present state.
+model OcrAnalysis {
+  id               String     @id @default(cuid())
+  sessionId        String
+  session          OcrSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  entity           OcrEntity
+  pageSetRevision  Int
+  inputFingerprint String
+  bundle           Json
+  cleaned          Json
+  issues           Json
+  projection       Json
+  promptVersions   Json
+  isCurrent        Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+
+  @@index([sessionId, isCurrent])
+  @@map("ocr_analyses")
+}
