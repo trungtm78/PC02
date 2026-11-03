@@ -13,7 +13,7 @@ Milestones follow the spec's delivery order (vertical slice first):
 | # | Milestone | State |
 |---|---|---|
 | M1 | Contracts and foundations | DONE in code (commits 4e4b48ce, 91539819, 746f554a, 606fd969, c8ebbafb); full-suite run pending |
-| M2 | LLM gateway + configuration, Anthropic adapter | M2-a DONE (af2b8dfa: provider interface, Anthropic adapter, retry/fallback policy; 29 tests, line coverage 97%); M2-b persistence/permissions/flag next |
+| M2 | LLM gateway + configuration, Anthropic adapter | M2-a/b/c DONE: core, tables+flag+permissions, provider service (13 PostgreSQL specs), five-step key test (real Haiku run passed 5/5), admin API + HTTP spec, env docs. LEFT: gateway (quotas, cost cap, lineage rows), admin UI (M2-d) |
 | M3 | Vertical-slice pipeline (images) | queued |
 | M4 | Petition UI | queued |
 | M5 | Golden set + scorer, run on the slice | queued |
@@ -23,7 +23,7 @@ Milestones follow the spec's delivery order (vertical slice first):
 | M9 | Re-read on saved records | queued |
 | M10 | Quality + cost dashboard | queued |
 
-BUOC TIEP THEO (next step): M2-b - persistence for LLM providers. Prisma models (`LlmProvider` with encrypted key `v<N>:iv:ct:tag`, last4, role PRIMARY/FALLBACK/OFF + partial unique index for one PRIMARY, test fingerprint; `LlmTransferAssessment`; `LlmCallLineage` with no content), a migration, `LlmKeyService` (KeyRing from `LLM_KEY_ENCRYPTION_KEY`/`LLM_KEY_VERSION`), providers service (CRUD, archive instead of delete when lineage exists, role needs a passing test for the exact key+model+url fingerprint), gateway service (chain from DB, cross-border gate, quotas, cost cap, lineage), controller with `LlmConfig:read/write` + `ocr_import` flag, permission seed (ADMIN only), `.env.production.example`/`docs/KEY-ROTATION.md`. Then M2-c key test endpoint (6 steps), M2-d admin UI.
+BUOC TIEP THEO (next step): M2 gateway service `LlmGatewayService` in `backend/src/llm/`: `call(request, schema, {userId, sessionRef, promptVersion})` = `providers.buildChain()` -> `callWithPolicy` -> one `LlmCallLineage` row per attempt (no content; estimated cost from a per-model price table) with per-user daily page quota and a monthly cost cap (warn 80 %, stop 100 %, via SystemSetting keys seeded by a migration `INSERT ... ON CONFLICT DO NOTHING`; GIA_TRI_HOP_LE for integers). Then M2-d admin UI `/admin/cau-hinh-llm` (frontend: list, create/edit form with draft key test, role/archive/delete, transfer-assessment file/withdraw; strings in `frontend/src/locales/vi.ts`; route in `frontend/src/features/*` with `wrapRoute`; add to `featureRegistry.test.tsx` expected list only if a frontend feature manifest is added).
 Test tooling: run jest directly (`node node_modules/jest/bin/jest.js <path> --no-coverage`); the RTK wrapper hides suite load failures as "PASS 0 FAIL 0" and its log files are easy to misread. Full backend suite must be re-run before closing M2 (the earlier background run was killed by a session restart).
 
 M1 delivered: shared AES-GCM + KeyRing (`common/crypto`), `PII_PATTERN` += api_?key, field catalogue generator (`npm run gen:khai-nhap-tu-anh`, 130/132/132 fields) + drift gate, per-field AI policy (7 fill / 15 must-confirm / 113 never) + gate, typed evidence schema (zod, provider-safe checked), unit contract (loss amount = VND), legal-role table (accused is never SUSPECT without a quoted decision).
