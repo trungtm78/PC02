@@ -23,6 +23,21 @@ describe('audit.utils', () => {
       }
     });
 
+    it('matches provider API key field names, which carry no other secret-like word', () => {
+      for (const field of ['apiKey', 'api_key', 'apiKeyMaHoa', 'llmApiKey', 'API_KEY']) {
+        expect(PII_PATTERN.test(field)).toBe(true);
+      }
+    });
+
+    it('drops an API key nested inside audit metadata', () => {
+      const out = sanitizeMetadataRecursive({
+        provider: 'GEMINI',
+        config: { model: 'm', apiKey: 'sk-live-123', list: [{ api_key: 'k2', ok: 1 }] },
+      }) as any;
+      expect(out.provider).toBe('GEMINI');
+      expect(out.config).toEqual({ model: 'm', list: [{ ok: 1 }] });
+    });
+
     it('does not match non-PII field names', () => {
       const safeFields = [
         'email',
