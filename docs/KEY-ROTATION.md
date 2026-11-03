@@ -112,3 +112,38 @@ Rotate trong GitHub UI:
 - Settings → Secrets and variables → Actions → tên secret → Update.
 
 Secrets hiện tại: `VM_HOST`, `VM_PORT`, `VM_USER`, `VM_SSH_PRIVATE_KEY` (sau khi rotate cần cập nhật `~/.ssh/authorized_keys` trên VM tương ứng).
+
+## 6. LLM provider key encryption (`LLM_KEY_ENCRYPTION_KEY`)
+
+Khoá API của nhà cung cấp LLM (Gemini, OpenAI, Anthropic, máy chủ nội bộ) do quản trị viên nhập được lưu trong
+`llm_providers.apiKeyEncrypted` dưới dạng `v<phiên bản>:iv:ciphertext:authTag` (AES-256-GCM). Khoá giải mã lấy từ env
+`LLM_KEY_ENCRYPTION_KEY` (64 ký tự hex) và `LLM_KEY_VERSION`. Khác với TOTP, cơ chế này **hỗ trợ xoay khoá có chuyển tiếp**
+vì mỗi bản mã mang số phiên bản của khoá đã mã hoá nó.
+
+**Khi rotate**: nghi env bị lộ, hoặc theo lịch.
+
+**Impact** nếu làm sai: các khoá API đã lưu không giải mã được; quản trị viên phải nhập lại từng khoá và kiểm thử lại.
+
+**Procedure**:
+
+```
+# 1. Sinh khoá mới
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# 2. Trong .env trên VM: đặt khoá MỚI làm hiện hành với phiên bản kế tiếp, giữ khoá CŨ để đọc dữ liệu cũ
+#    Ví dụ đang ở phiên bản 1:
+#      LLM_KEY_ENCRYPTION_KEY=<khoá mới>
+#      LLM_KEY_VERSION=2
+#      LLM_KEY_ENCRYPTION_KEY_V1=<khoá cũ>
+
+# 3. Restart backend
+sudo systemctl restart pc02-backend
+
+# 4. Trên màn Cấu hình LLM, sửa lại khoá của từng nhà cung cấp (nhập lại khoá API) để mã hoá lại dưới phiên bản 2.
+#    Nhập lại khoá sẽ làm mất hiệu lực kết quả kiểm thử: kiểm thử lại rồi gán lại vai trò.
+
+# 5. Khi không còn bản mã phiên bản 1 nào (SELECT count(*) FROM llm_providers WHERE "apiKeyEncrypted" LIKE 'v1:%' = 0),
+#    xoá LLM_KEY_ENCRYPTION_KEY_V1 khỏi .env và restart.
+```
+
+**Rollback**: đặt lại env cũ (khoá cũ + phiên bản cũ) rồi restart; các bản mã phiên bản mới sẽ không đọc được cho tới khi quay lại khoá mới.
