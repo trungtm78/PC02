@@ -13,7 +13,10 @@ export type LlmAdminErrorCode =
   | 'LLM_PROVIDER_IN_USE'
   | 'LLM_ROLE_BLOCKED'
   | 'LLM_ASSESSMENT_INVALID'
-  | 'LLM_ASSESSMENT_NOT_FOUND';
+  | 'LLM_ASSESSMENT_NOT_FOUND'
+  | 'LLM_NO_PROVIDER'
+  | 'LLM_QUOTA_EXCEEDED'
+  | 'LLM_BUDGET_EXHAUSTED';
 
 export class LlmAdminError extends HttpException {
   constructor(
