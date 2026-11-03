@@ -12,8 +12,8 @@ Milestones follow the spec's delivery order (vertical slice first):
 
 | # | Milestone | State |
 |---|---|---|
-| M1 | Contracts and foundations (evidence schema, field catalogue generator, per-field policy, projection rules, unit contract, legal-role table, versioned AES-GCM, `PII_PATTERN`) | in progress |
-| M2 | LLM gateway + configuration, Anthropic adapter | queued |
+| M1 | Contracts and foundations | DONE in code (commits 4e4b48ce, 91539819, 746f554a, 606fd969, c8ebbafb); full-suite run pending |
+| M2 | LLM gateway + configuration, Anthropic adapter | M2-a DONE (af2b8dfa: provider interface, Anthropic adapter, retry/fallback policy; 29 tests, line coverage 97%); M2-b persistence/permissions/flag next |
 | M3 | Vertical-slice pipeline (images) | queued |
 | M4 | Petition UI | queued |
 | M5 | Golden set + scorer, run on the slice | queued |
@@ -23,8 +23,16 @@ Milestones follow the spec's delivery order (vertical slice first):
 | M9 | Re-read on saved records | queued |
 | M10 | Quality + cost dashboard | queued |
 
-BUOC TIEP THEO (next step): M1-T1 AES-GCM extraction (versioned ciphertext) with TDD; then `PII_PATTERN` += `api_?key`; then the field-catalogue generator.
-Files: `backend/src/auth/services/totp-encryption.service.ts`, `backend/src/audit/audit.utils.ts`, `backend/scripts/gen-khai-xuat-day-du.ts` (pattern to copy).
+BUOC TIEP THEO (next step): M2-b - persistence for LLM providers. Prisma models (`LlmProvider` with encrypted key `v<N>:iv:ct:tag`, last4, role PRIMARY/FALLBACK/OFF + partial unique index for one PRIMARY, test fingerprint; `LlmTransferAssessment`; `LlmCallLineage` with no content), a migration, `LlmKeyService` (KeyRing from `LLM_KEY_ENCRYPTION_KEY`/`LLM_KEY_VERSION`), providers service (CRUD, archive instead of delete when lineage exists, role needs a passing test for the exact key+model+url fingerprint), gateway service (chain from DB, cross-border gate, quotas, cost cap, lineage), controller with `LlmConfig:read/write` + `ocr_import` flag, permission seed (ADMIN only), `.env.production.example`/`docs/KEY-ROTATION.md`. Then M2-c key test endpoint (6 steps), M2-d admin UI.
+Test tooling: run jest directly (`node node_modules/jest/bin/jest.js <path> --no-coverage`); the RTK wrapper hides suite load failures as "PASS 0 FAIL 0" and its log files are easy to misread. Full backend suite must be re-run before closing M2 (the earlier background run was killed by a session restart).
+
+M1 delivered: shared AES-GCM + KeyRing (`common/crypto`), `PII_PATTERN` += api_?key, field catalogue generator (`npm run gen:khai-nhap-tu-anh`, 130/132/132 fields) + drift gate, per-field AI policy (7 fill / 15 must-confirm / 113 never) + gate, typed evidence schema (zod, provider-safe checked), unit contract (loss amount = VND), legal-role table (accused is never SUSPECT without a quoted decision).
+
+Moved to M3 (sequencing choice): deterministic projection rules (G3) per fillable field. Known catalogue gap for M4/M8: fields outside the legacy layout (Petition `receivedDate`, `suspectedPerson`, `suspectedAddress`, `petitionType`, `senderEmail`; Incident `name`; Case `name`, `subjects[]`) need explicit "native field" declarations with the same policy gate.
+
+Learnings from the real Haiku probe (03/11): Anthropic accepts the evidence schema as a tool and Haiku returns a validator-clean bundle (VND amounts right, no invented offence, 6/6 segments covered), BUT it labelled "Don to cao" COMPLAINT instead of DENUNCIATION and wrote the summary in English. The analysis prompt needs a Vietnamese legal glossary and forced Vietnamese text output. Also add `modusOperandi` (string|null) to the evidence schema for the "phuong thuc thu doan" field.
+
+Test credentials: the owner pasted an Anthropic key in chat (03/11) for tests with `claude-haiku-5-5`. It is NOT stored anywhere; pass it per command via `ANTHROPIC_API_KEY`. Ask the owner to re-supply it in a new session; recommend rotating it.
 
 Tooling note: gstack upgraded 1.91.9.0 -> 1.94.15.0; Bun upgraded 1.3.13 -> 1.4.4 because `./setup` crashed on 1.3.13 (`preflight-codex-overlap.ts`).
 
