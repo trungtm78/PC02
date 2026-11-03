@@ -122,6 +122,11 @@ function validBundle(): EvidenceBundle {
       opening: 'Bà Hương tố cáo bị chiếm đoạt tài sản.',
       pointIds: ['k1'],
     },
+    modusOperandi: {
+      text: 'Hứa giới thiệu công trình để nhận tiền ứng trước rồi bỏ đi.',
+      claimKind: 'QUOTED',
+      evidence: [ref('p3', 'đã dùng thủ đoạn gian dối')],
+    },
     mixedBundleWarning: false,
   };
 }

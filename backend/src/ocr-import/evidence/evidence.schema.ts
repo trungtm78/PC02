@@ -205,6 +205,14 @@ export const EvidenceBundleSchema = z.strictObject({
     pointIds: z.array(z.string()),
   }),
   /** True when the pages look like they belong to different complaints. */
+  /** How the act was committed, in the writer's terms; null when the paperwork does not say. */
+  modusOperandi: z
+    .strictObject({
+      text: z.string(),
+      claimKind: ClaimKind,
+      evidence: z.array(Evidence),
+    })
+    .nullable(),
   mixedBundleWarning: z.boolean(),
 });
 
