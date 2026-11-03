@@ -107,6 +107,28 @@ describe('projectToForm (Petition)', () => {
     expect(inferred.crimeChinhId.warnings).toContain('INFERRED_VALUE');
   });
 
+  it('falls back to the offence name when the paperwork names the offence but no article', () => {
+    const bundle = sampleBundle();
+    bundle.legalAssessments[0].article = null;
+    const f = byField(projectToForm(bundle, 'petition').fills);
+    expect(f.crimeChinhId.pending).toEqual({
+      kind: 'CRIME_BY_NAME',
+      name: 'Lừa đảo chiếm đoạt tài sản',
+    });
+    expect(f.crimeChinhId.policy).toBe('AI_FILL_MUST_CONFIRM');
+  });
+
+  it('skips the offence when there is neither an article nor a name', () => {
+    const bundle = sampleBundle();
+    bundle.legalAssessments[0].article = null;
+    bundle.legalAssessments[0].offence = '  ';
+    const { fills, skips } = projectToForm(bundle, 'petition');
+    expect(byField(fills).crimeChinhId).toBeUndefined();
+    expect(skips.find((s) => s.field === 'crimeChinhId')?.reason).toBe(
+      'NO_ARTICLE',
+    );
+  });
+
   it('never fills a field the form does not have: the accused go to the incident field only', () => {
     const petition = byField(projectToForm(sampleBundle(), 'petition').fills);
     expect(petition.nghiVanDoiTuong).toBeUndefined();

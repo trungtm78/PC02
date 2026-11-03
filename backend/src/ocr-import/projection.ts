@@ -36,6 +36,7 @@ export interface Provenance {
 /** A value that still has to be matched against a directory (needs the database), so it is not a form value yet. */
 export type PendingResolution =
   | { kind: 'CRIME_BY_ARTICLE'; article: number; law: string | null }
+  | { kind: 'CRIME_BY_NAME'; name: string }
   | { kind: 'DIRECTORY'; directory: 'NGUON_DON'; text: string };
 
 export interface FieldFill {
@@ -169,24 +170,36 @@ export const PROJECTION_RULES: Readonly<Record<string, Rule>> = {
   },
 
   crimeChinhId: (bundle) => {
-    const withArticle = bundle.legalAssessments.filter(
-      (l) => l.article !== null,
-    );
-    if (withArticle.length === 0) {
-      return bundle.legalAssessments.length > 0 ? { skip: 'NO_ARTICLE' } : null;
-    }
+    if (bundle.legalAssessments.length === 0) return null;
     // A stated offence beats an inferred one.
-    const best =
-      withArticle.find((l) => l.claimKind !== 'INFERRED') ?? withArticle[0];
+    const ranked = [...bundle.legalAssessments].sort(
+      (a, b) =>
+        Number(a.claimKind === 'INFERRED') - Number(b.claimKind === 'INFERRED'),
+    );
+    const warn = (claimKind: ClaimKindValue): WarningCode[] =>
+      claimKind === 'INFERRED' ? ['INFERRED_VALUE'] : [];
+
+    const withArticle = ranked.find((l) => l.article !== null);
+    if (withArticle) {
+      return {
+        value: '',
+        provenance: provenanceOf(withArticle.claimKind, withArticle.evidence),
+        warnings: warn(withArticle.claimKind),
+        pending: {
+          kind: 'CRIME_BY_ARTICLE',
+          article: withArticle.article as number,
+          law: withArticle.law,
+        },
+      };
+    }
+    // No article: the offence may still be named ("lừa đảo chiếm đoạt tài sản"), which the directory can match.
+    const named = ranked.find((l) => l.offence.trim() !== '');
+    if (!named) return { skip: 'NO_ARTICLE' };
     return {
       value: '',
-      provenance: provenanceOf(best.claimKind, best.evidence),
-      warnings: best.claimKind === 'INFERRED' ? ['INFERRED_VALUE'] : [],
-      pending: {
-        kind: 'CRIME_BY_ARTICLE',
-        article: best.article as number,
-        law: best.law,
-      },
+      provenance: provenanceOf(named.claimKind, named.evidence),
+      warnings: warn(named.claimKind),
+      pending: { kind: 'CRIME_BY_NAME', name: named.offence.trim() },
     };
   },
 
