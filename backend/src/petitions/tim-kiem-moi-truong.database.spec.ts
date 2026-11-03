@@ -39,10 +39,14 @@ chay('petition search tags on PostgreSQL', () => {
   let controlId = '';
 
   /** Search by one tag through the same builder the API uses; returns the matching `stt` values of this run. */
-  const tim = async (tk: string): Promise<string[]> => {
+  const tim = async (
+    tk: string,
+    luiCotGoc?: boolean,
+  ): Promise<string[]> => {
     const dieuKien = dungDieuKienTimKiem(
       docThe([tk], KHAI_TIM_KIEM_DON_THU),
       KHAI_TIM_KIEM_DON_THU,
+      luiCotGoc === undefined ? undefined : { luiCotGoc },
     );
     const rows = await db.petition.findMany({
       where: { AND: [...dieuKien, { stt: { startsWith: prefix } }] } as never,
@@ -267,25 +271,30 @@ chay('petition search tags on PostgreSQL', () => {
     expect(await tim('soQuyetDinhKhoiTo~ok-1')).toEqual([stt('control')]);
   });
 
-  it('rows written BEFORE the migration: real columns still match, JSON fields wait for the batch loader', async () => {
-    // Simulate an old row: the migration added the shadow columns but did not fill them (it does not rewrite the
-    // table - that is the batch loader's job). Wipe the shadows without touching any source column (no trigger).
+  it('rows written BEFORE the migration: new tags wait for the batch loader (the combined shadow is stale, not NULL)', async () => {
+    // The REAL state right after the migration: the new shadow columns are NULL, but the combined `tim_kiem_bd` still
+    // holds the OLD value. The server only falls back to the source columns while some row has `tim_kiem_bd IS NULL`
+    // (`BoTimKiem.luiCotGoc`), so here the fallback is OFF. Simulate it without touching any source column (no trigger).
     await db.$executeRawUnsafe(
       `UPDATE petitions SET so_phieu_chuyen_bd = NULL, nhan_thay_bd = NULL, so_quyet_dinh_khoi_to_bd = NULL,
-         ngay_khoi_to_bd = NULL, toi_danh_chinh_khoi_to_bd = NULL, tim_kiem_bd = NULL WHERE id = '${targetId}'`,
+         ngay_khoi_to_bd = NULL, toi_danh_chinh_khoi_to_bd = NULL WHERE id = '${targetId}'`,
     );
-    // A real column falls back to its source column while the shadow is NULL, so the old row is still found...
-    expect(await tim('soPhieuChuyen~a16763')).toEqual([stt('target')]);
-    // (the fallback compares the raw source column, so here the text must carry its accents)
-    expect(await tim('nhanXet~Tổ công tác Số 8')).toEqual([stt('target')]);
-    // ...but a JSON-backed field has no source column to fall back to: it is invisible until the shadow is loaded.
-    expect(await tim('soQuyetDinhKhoiTo~kt-99')).toEqual([]);
-    expect(await tim('ngayKhoiTo~12/09/2026')).toEqual([]);
+    // Contract, stated on purpose: until `nap-cot-bong-tim-kiem --that` has run, the NEW tags do not find old rows -
+    // not even those on real columns. `deploy.sh` step 9e reports the unloaded rows and ends red until then.
+    expect(await tim('soPhieuChuyen~a16763', false)).toEqual([]);
+    expect(await tim('nhanXet~to cong tac so 8', false)).toEqual([]);
+    expect(await tim('soQuyetDinhKhoiTo~kt-99', false)).toEqual([]);
+    // The "all columns" line keeps working on the old aggregate (it still holds the old fields).
+    expect(await tim('*~nguyen van', false)).toEqual([stt('control'), stt('target')]);
+
+    // When some row IS unloaded (`tim_kiem_bd IS NULL`) the fallback is on and a real column is found through its
+    // source column (the fallback compares the raw text, accents included); a JSON-backed field has no source column.
+    expect(await tim('soPhieuChuyen~a16763', true)).toEqual([stt('target')]);
+    expect(await tim('nhanXet~Tổ công tác Số 8', true)).toEqual([stt('target')]);
+    expect(await tim('soQuyetDinhKhoiTo~kt-99', true)).toEqual([]);
 
     // The batch loader (`nap-cot-bong-tim-kiem --that`) runs exactly this statement for a batch of ids.
-    const nap = sinhCacCauNap(KHAI_TIM_KIEM).find(
-      (c) => c.bang === 'petitions',
-    )!.cau.nap;
+    const nap = sinhCacCauNap(KHAI_TIM_KIEM).find((c) => c.bang === 'petitions')!.cau.nap;
     const client = new Client({ connectionString: diaChi! });
     await client.connect();
     try {
@@ -298,11 +307,11 @@ chay('petition search tags on PostgreSQL', () => {
       await client.end();
     }
 
-    expect(await tim('soPhieuChuyen~a16763')).toEqual([stt('target')]);
-    expect(await tim('nhanXet~to cong tac so 8')).toEqual([stt('target')]);
-    expect(await tim('soQuyetDinhKhoiTo~kt-99')).toEqual([stt('target')]);
-    expect(await tim('ngayKhoiTo~12/09/2026')).toEqual([stt('target')]);
-    expect(await tim('toiDanhChinhKhoiTo~giet nguoi')).toEqual([stt('target')]);
-    expect(await tim('*~kt-99')).toEqual([stt('target')]);
+    expect(await tim('soPhieuChuyen~a16763', false)).toEqual([stt('target')]);
+    expect(await tim('nhanXet~to cong tac so 8', false)).toEqual([stt('target')]);
+    expect(await tim('soQuyetDinhKhoiTo~kt-99', false)).toEqual([stt('target')]);
+    expect(await tim('ngayKhoiTo~12/09/2026', false)).toEqual([stt('target')]);
+    expect(await tim('toiDanhChinhKhoiTo~giet nguoi', false)).toEqual([stt('target')]);
+    expect(await tim('*~kt-99', false)).toEqual([stt('target')]);
   });
 });

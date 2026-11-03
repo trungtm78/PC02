@@ -44,7 +44,7 @@ Backend full suite (before the last gate fix): 9099 pass / 1 fail (fixed). Backe
 
 ## Technical debt / risks
 - Pre-existing lint errors left untouched (backend 72 across the touched files, mostly prettier in `petitions.service.ts`): the diff only touches lines it needs.
-- Until the batch loader runs after deploy: old petitions are not found by the three JSON-backed tags, and the combined "all columns" shadow lacks the new short fields for old rows (real-column tags fall back to the source column, accent-sensitive).
+- Until the batch loader runs after deploy: old petitions are NOT found by any of the 30 new tags (the combined `tim_kiem_bd` is stale-but-non-NULL, so the server does not fall back to the source columns), and the plain "all columns" shadow lacks the new short fields for old rows. Existing tags and the plain line are unaffected. Pinned by the PostgreSQL spec; `deploy.sh` step 9e ends red until the loader has run.
 - `tuBang` shadow (crime name) goes stale if a crime is renamed until reloaded.
 - `loc-theo-the.ts` (client-side filtering) has no `so` branch; no screen carries a number tag today.
 - Prod read/write access is blocked for the agent: the loader and any prod verification need the user.
