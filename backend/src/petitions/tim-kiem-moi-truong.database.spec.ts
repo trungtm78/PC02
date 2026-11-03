@@ -135,7 +135,7 @@ chay('petition search tags on PostgreSQL', () => {
         thoiHanUTDT: new Date('2026-12-31T00:00:00Z'),
         crimeChinhId: crimeA,
         soTienBiThietHai: 1500.5,
-        soLuongBiHai: 37,
+        soLuongBiHai: 2000000007,
         metadata: {
           soQuyetDinhKhoiTo: 'KT-99',
           ngayKhoiTo: '2026-09-12',
@@ -194,7 +194,7 @@ chay('petition search tags on PostgreSQL', () => {
     ['thoiHanUTDT', '31/12/2026'],
     ['toiDanhChinh', 'lua dao'],
     ['soTienBiThietHai', '1.500,5'],
-    ['soLuongBiHai', '37'],
+    ['soLuongBiHai', '2000000007'],
     ['soQuyetDinhKhoiTo', 'kt-99'],
     ['ngayKhoiTo', '12/09/2026'],
     ['toiDanhChinhKhoiTo', 'giet nguoi'],
@@ -231,8 +231,9 @@ chay('petition search tags on PostgreSQL', () => {
   });
 
   it('typing a number in the "all columns" box does NOT match a number field', async () => {
-    // 37 is the target's victim count and appears in no text field.
-    expect(await tim('*~37')).toEqual([]);
+    // 2000000007 is the target's victim count. It has 10 digits, so the 8-hex-char random prefix of the record code
+    // (which is part of the combined shadow) can never contain it; a short number like 37 collided about 3% of runs.
+    expect(await tim('*~2000000007')).toEqual([]);
   });
 
   it('a JSON date stored as an ISO timestamp (migration style) is found on its calendar day', async () => {
