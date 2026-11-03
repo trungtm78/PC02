@@ -48,7 +48,7 @@ export class AnthropicProvider implements LlmProvider {
     const inputSchema = { ...request.schema };
     delete inputSchema.$schema;
     const content: unknown[] = (request.images ?? []).map((image) => ({
-      type: 'image',
+      type: image.mediaType === 'application/pdf' ? 'document' : 'image',
       source: {
         type: 'base64',
         media_type: image.mediaType,

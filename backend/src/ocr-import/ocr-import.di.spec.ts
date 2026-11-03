@@ -6,6 +6,7 @@ import { OcrIntakeService } from './ocr-intake.service';
 import { OcrSendPolicy } from './ocr-send-policy';
 import { OcrRereadService } from './ocr-reread.service';
 import { OcrQualityService } from './quality/ocr-quality.service';
+import { PdfSandbox } from './pdf/pdf-sandbox';
 import { OcrFinaliser } from './binding/ocr-finaliser';
 import { DocumentsService } from '../documents/documents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -36,6 +37,7 @@ describe('scan intake dependency injection', () => {
         OcrSendPolicy,
         OcrRereadService,
         OcrQualityService,
+        PdfSandbox,
         { provide: DocumentsService, useValue: { create: jest.fn() } },
         { provide: LlmProvidersService, useValue: {} },
         { provide: PrismaService, useValue: {} },

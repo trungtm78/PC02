@@ -3,7 +3,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { ImageStorageService, sniffImage } from './image-storage.service';
+import {
+  ImageStorageService,
+  isPdf,
+  sniffImage,
+} from './image-storage.service';
 
 const codeOf = async (promise: Promise<unknown>): Promise<string | null> => {
   try {
@@ -150,6 +154,37 @@ describe('ImageStorageService', () => {
       expect(await codeOf(storage.saveOriginal('sess1', broken))).toBe(
         'OCR_IMAGE_UNREADABLE',
       );
+    });
+  });
+
+  describe('single-page PDFs', () => {
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+
+    it('stores a single-page PDF byte for byte, named by its hash, with its own type', async () => {
+      const saved = await storage.savePdfPage('sess1', pdf);
+      expect(saved).toMatchObject({
+        mimeType: 'application/pdf',
+        sizeBytes: pdf.length,
+      });
+      expect(saved.sha256).toBe(createHash('sha256').update(pdf).digest('hex'));
+      expect(saved.originalPath).toBe(
+        path.join('sess1', `${saved.sha256}.pdf`),
+      );
+      expect(fs.readFileSync(path.join(root, saved.originalPath))).toEqual(pdf);
+    });
+
+    it('refuses bytes that do not start like a PDF, and a name that tries to leave its folder', async () => {
+      expect(
+        await codeOf(storage.savePdfPage('sess1', Buffer.from('not a pdf'))),
+      ).toBe('OCR_IMAGE_UNSUPPORTED');
+      expect(await codeOf(storage.savePdfPage('../escape', pdf))).toBe(
+        'OCR_SESSION_NOT_FOUND',
+      );
+    });
+
+    it('recognises a PDF by its first bytes, not by what the upload claims to be', () => {
+      expect(isPdf(pdf)).toBe(true);
+      expect(isPdf(Buffer.from('<html>%PDF-</html>'))).toBe(false);
     });
   });
 

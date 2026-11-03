@@ -69,10 +69,33 @@ export class OpenAiCompatibleProvider implements LlmProvider {
   async call(request: LlmRequest): Promise<LlmResult> {
     const schema = { ...request.schema };
     delete schema.$schema;
-    const content: unknown[] = (request.images ?? []).map((image) => ({
-      type: 'image_url',
-      image_url: { url: `data:${image.mediaType};base64,${image.dataBase64}` },
-    }));
+    if (
+      this.kind === 'SELF_HOSTED' &&
+      request.images?.some((i) => i.mediaType === 'application/pdf')
+    ) {
+      // Self-hosted servers take images only; rasterising a PDF is not done here. Say so, so the next provider is tried.
+      throw new LlmError(
+        'UNSUPPORTED_INPUT',
+        'a self-hosted server cannot read a PDF page',
+        { retryable: false },
+      );
+    }
+    const content: unknown[] = (request.images ?? []).map((image) =>
+      image.mediaType === 'application/pdf'
+        ? {
+            type: 'file',
+            file: {
+              filename: 'page.pdf',
+              file_data: `data:application/pdf;base64,${image.dataBase64}`,
+            },
+          }
+        : {
+            type: 'image_url',
+            image_url: {
+              url: `data:${image.mediaType};base64,${image.dataBase64}`,
+            },
+          },
+    );
     content.push({ type: 'text', text: request.userText });
 
     // Cloud OpenAI's newer models refuse `max_tokens`; self-hosted servers only know the older name.

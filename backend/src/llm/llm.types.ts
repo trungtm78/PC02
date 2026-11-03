@@ -5,7 +5,8 @@
 export type ProviderKind = 'ANTHROPIC' | 'GEMINI' | 'OPENAI' | 'SELF_HOSTED';
 
 export interface LlmImage {
-  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  /** A single-page PDF is sent in the same list as the images; providers that read PDFs take it natively. */
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
   dataBase64: string;
 }
 
@@ -57,6 +58,7 @@ export interface LlmProvider {
  *   BAD_JSON     the reply was missing or did not match the schema.
  *   REFUSED      the model declined to answer.
  *   BLOCKED      the configured server address is not allowed; this provider cannot be used, another might.
+ *   UNSUPPORTED_INPUT  this provider cannot read what was sent (a PDF page for a self-hosted server); another might.
  *   MODEL_UNAVAILABLE  the configured model no longer exists or is not accessible; this provider cannot be used, another might.
  */
 export type LlmErrorCode =
@@ -69,7 +71,8 @@ export type LlmErrorCode =
   | 'BAD_JSON'
   | 'REFUSED'
   | 'BLOCKED'
-  | 'MODEL_UNAVAILABLE';
+  | 'MODEL_UNAVAILABLE'
+  | 'UNSUPPORTED_INPUT';
 
 export interface LlmErrorOptions {
   retryable: boolean;

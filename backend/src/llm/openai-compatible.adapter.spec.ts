@@ -283,7 +283,10 @@ describe('OpenAiCompatibleProvider.call', () => {
   });
 
   it('a blocked address found while connecting stays BLOCKED, not a retryable network error', async () => {
-    const fetchBlocked = (() => Promise.reject(new LlmError('BLOCKED', 'x', { retryable: false }))) as unknown as typeof fetch;
+    const fetchBlocked = (() =>
+      Promise.reject(
+        new LlmError('BLOCKED', 'x', { retryable: false }),
+      )) as unknown as typeof fetch;
     const error = await failure(selfHosted(fetchBlocked).call(baseRequest));
     expect([error.code, error.retryable]).toEqual(['BLOCKED', false]);
   });
@@ -295,6 +298,35 @@ describe('OpenAiCompatibleProvider.call', () => {
     expect(
       (await failure(selfHosted(redirect.fetchImpl).call(baseRequest))).code,
     ).toBe('NETWORK');
+  });
+});
+
+describe('PDF pages', () => {
+  const pdfRequest: LlmRequest = {
+    ...baseRequest,
+    images: [{ mediaType: 'application/pdf', dataBase64: 'JVBER' }],
+  };
+
+  it('cloud OpenAI receives a PDF page as a file part', async () => {
+    const { fetchImpl, calls } = fakeFetch(() => json(200, okBody));
+    await cloud(fetchImpl).call(pdfRequest);
+    const body = JSON.parse(calls[0].init.body as string) as {
+      messages: Array<{ content: unknown }>;
+    };
+    expect((body.messages[1].content as unknown[])[0]).toEqual({
+      type: 'file',
+      file: {
+        filename: 'page.pdf',
+        file_data: 'data:application/pdf;base64,JVBER',
+      },
+    });
+  });
+
+  it('a self-hosted server cannot read a PDF page: it fails over rather than sending something it cannot use', async () => {
+    const { fetchImpl, calls } = fakeFetch(() => json(200, okBody));
+    const error = await failure(selfHosted(fetchImpl).call(pdfRequest));
+    expect([error.code, error.retryable]).toEqual(['UNSUPPORTED_INPUT', false]);
+    expect(calls).toHaveLength(0);
   });
 });
 

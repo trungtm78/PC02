@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
+import { PDFDocument } from 'pdf-lib';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { PolicyOutcome, Validation } from '../../llm/call-policy';
 import type { GatewayContext } from '../../llm/llm-gateway.service';
@@ -244,6 +245,28 @@ run('OcrReadExecutor on PostgreSQL', () => {
       expect(page.derivedPath).toBeTruthy();
       expect(page.derivedTransforms).toContain('strip-metadata');
       expect(fs.existsSync(path.join(root, page.derivedPath!))).toBe(true);
+    });
+
+    it('sends a PDF page as it is stored: a single-page PDF, with its own media type, never run through the image tools', async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      const doc = await PDFDocument.create();
+      doc.addPage([200, 200]);
+      const stored = await storage.savePdfPage(
+        s.id,
+        Buffer.from(await doc.save()),
+      );
+      await sessions.addPage(s.id, stored, alice);
+      const derive = jest.spyOn(storage, 'deriveForProvider');
+
+      await executor.execute(await jobFor(s.id, 'READ'));
+
+      const sent = calls.find((c) => (c.request.images?.length ?? 0) > 0)!
+        .request.images![0];
+      expect(sent.mediaType).toBe('application/pdf');
+      expect(
+        Buffer.from(sent.dataBase64, 'base64').subarray(0, 5).toString(),
+      ).toBe('%PDF-');
+      expect(derive).not.toHaveBeenCalled();
     });
 
     it('reuses the stored derived copy on the next reading instead of deriving again', async () => {

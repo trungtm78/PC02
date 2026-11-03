@@ -20,7 +20,11 @@ export type OcrImportErrorCode =
   | 'OCR_TRANSCRIPT_MISSING'
   | 'OCR_IMAGE_UNSUPPORTED'
   | 'OCR_IMAGE_TOO_LARGE'
-  | 'OCR_IMAGE_UNREADABLE';
+  | 'OCR_IMAGE_UNREADABLE'
+  | 'OCR_PDF_ENCRYPTED'
+  | 'OCR_PDF_UNREADABLE'
+  | 'OCR_PDF_TOO_MANY_PAGES'
+  | 'OCR_PDF_TOO_COMPLEX';
 
 export class OcrImportError extends HttpException {
   constructor(

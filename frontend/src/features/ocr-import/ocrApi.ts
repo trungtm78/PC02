@@ -88,7 +88,7 @@ export const ocrApi = {
     const body = new FormData();
     body.append('file', file);
     return (
-      await api.post<{ page: OcrPageView; pageSetRevision: number }>(
+      await api.post<{ page: OcrPageView; pages?: OcrPageView[]; pageSetRevision: number }>(
         `/ocr/sessions/${id}/pages`,
         body,
       )

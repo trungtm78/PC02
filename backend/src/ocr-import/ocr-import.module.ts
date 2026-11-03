@@ -11,6 +11,7 @@ import { OcrIntakeService } from './ocr-intake.service';
 import { OcrSendPolicy } from './ocr-send-policy';
 import { OcrRereadService } from './ocr-reread.service';
 import { OcrQualityService } from './quality/ocr-quality.service';
+import { PdfSandbox } from './pdf/pdf-sandbox';
 import { OcrJobScheduler, OcrMaintenance } from './jobs/ocr-maintenance';
 import { OcrJobRunner } from './jobs/ocr-job-runner';
 import { OcrReadExecutor } from './jobs/ocr-read-executor';
@@ -32,6 +33,7 @@ import { ImageStorageService } from './storage/image-storage.service';
     OcrSendPolicy,
     OcrRereadService,
     OcrQualityService,
+    PdfSandbox,
     OcrFinaliser,
     ImageStorageService,
     OcrJobQueue,

@@ -85,6 +85,22 @@ describe('useOcrIntake', () => {
     expect(result.current.sessionId).toBe('s1');
   });
 
+  it('a PDF becomes one page per PDF page, shown without a preview image and named after its file', async () => {
+    api.uploadPage.mockReset();
+    api.uploadPage.mockResolvedValueOnce({
+      page: page('q1'),
+      pages: [page('q1'), page('q2'), page('q3')],
+      pageSetRevision: 3,
+    });
+    const { result } = setup();
+    const pdf = new File(['%PDF-'], 'don.pdf', { type: 'application/pdf' });
+    await act(() => result.current.addFiles([pdf]));
+    expect(result.current.pages.map((p) => p.id)).toEqual(['q1', 'q2', 'q3']);
+    expect(result.current.pages.map((p) => p.fileName)).toEqual(['don.pdf · trang 1', 'don.pdf · trang 2', 'don.pdf · trang 3']);
+    expect(result.current.pages.every((p) => p.previewUrl === null)).toBe(true);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
   it('a file the server refuses is reported by its code and does not stop the others', async () => {
     api.uploadPage
       .mockRejectedValueOnce({ response: { data: { code: 'OCR_IMAGE_UNSUPPORTED' } } })

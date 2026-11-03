@@ -18,6 +18,13 @@ export interface StoredOriginal {
   originalPath: string;
 }
 
+/** A PDF starts with its signature; anything else is not one, whatever the upload claims to be. */
+export function isPdf(bytes: Buffer): boolean {
+  return (
+    bytes.length >= 5 && bytes.subarray(0, 5).toString('latin1') === '%PDF-'
+  );
+}
+
 export interface DerivedImage {
   buffer: Buffer;
   mediaType: 'image/jpeg';
@@ -39,6 +46,7 @@ const EXTENSION: Readonly<Record<string, string>> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
+  'application/pdf': 'pdf',
 };
 
 /** Identifies JPEG, PNG and WebP by their magic bytes. Anything else, HEIC included, is not accepted. */
@@ -157,6 +165,34 @@ export class ImageStorageService {
     return {
       sha256,
       mimeType: sniffed.mimeType,
+      sizeBytes: bytes.length,
+      originalPath: relative,
+    };
+  }
+
+  /** Stores one page of a PDF (already split by the sandbox) the way an original image is stored. */
+  async savePdfPage(sessionId: string, bytes: Buffer): Promise<StoredOriginal> {
+    if (!SAFE_SEGMENT.test(sessionId)) {
+      throw new OcrImportError('OCR_SESSION_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    if (!isPdf(bytes)) {
+      throw new OcrImportError(
+        'OCR_IMAGE_UNSUPPORTED',
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+      );
+    }
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const relative = path.join(sessionId, `${sha256}.pdf`);
+    const absolute = this.resolve(relative);
+    await fs.promises.mkdir(path.dirname(absolute), { recursive: true });
+    try {
+      await fs.promises.writeFile(absolute, bytes, { flag: 'wx', mode: 0o444 });
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'EEXIST') throw error;
+    }
+    return {
+      sha256,
+      mimeType: 'application/pdf',
       sizeBytes: bytes.length,
       originalPath: relative,
     };

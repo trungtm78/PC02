@@ -118,6 +118,20 @@ describe('GeminiProvider.call', () => {
     });
   });
 
+  it('sends a PDF page as inline data with its own type', async () => {
+    const { fetchImpl, calls } = fakeFetch(() => json(200, okBody));
+    await provider(fetchImpl).call({
+      ...baseRequest,
+      images: [{ mediaType: 'application/pdf', dataBase64: 'JVBER' }],
+    });
+    const body = JSON.parse(calls[0].init.body as string) as {
+      contents: Array<{ parts: unknown[] }>;
+    };
+    expect(body.contents[0].parts[0]).toEqual({
+      inlineData: { mimeType: 'application/pdf', data: 'JVBER' },
+    });
+  });
+
   it('returns the parsed JSON, the token counts and the latency', async () => {
     const times = [1000, 1250];
     const { fetchImpl } = fakeFetch(() => json(200, okBody));

@@ -88,6 +88,13 @@ describe('ReviewPanel', () => {
     expect(screen.queryByRole('button', { name: 'Phân tích lại từ bản chép' })).toBeNull();
   });
 
+  it('shows a PDF page in an embedded viewer instead of an image', async () => {
+    api.pageImage.mockResolvedValue(new Blob(['%PDF-'], { type: 'application/pdf' }));
+    const { container } = render(<ReviewPanel sessionId="s1" pages={pages} onReanalyse={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('embed[type="application/pdf"]')).not.toBeNull());
+    expect(container.querySelector('img')).toBeNull();
+  });
+
   it('marks a page whose text came from the officer', async () => {
     api.transcripts.mockResolvedValue({
       p1: { text: 'đã sửa', revision: 2, source: 'OFFICER' },

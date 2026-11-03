@@ -136,7 +136,7 @@ export class OcrReadExecutor {
     const page = await this.prisma.ocrPage.findUniqueOrThrow({
       where: { id: pageId },
     });
-    if (page.derivedPath) {
+    if (page.mimeType !== 'application/pdf' && page.derivedPath) {
       try {
         const stored = await this.storage.read(page.derivedPath);
         return this.toImage(pageId, stored);
@@ -148,6 +148,14 @@ export class OcrReadExecutor {
       }
     }
     const original = await this.storage.read(page.originalPath);
+    // A single-page PDF is sent as it is: the image tools do not apply to it.
+    if (page.mimeType === 'application/pdf') {
+      return {
+        id: pageId,
+        mediaType: 'application/pdf',
+        dataBase64: original.toString('base64'),
+      };
+    }
     const derived = await this.storage.deriveForProvider(original);
     const derivedPath = await this.storage.saveDerived(
       sessionId,

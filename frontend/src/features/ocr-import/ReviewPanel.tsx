@@ -21,7 +21,7 @@ export function ReviewPanel({ sessionId, pages, onReanalyse }: ReviewPanelProps)
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [corrected, setCorrected] = useState(false);
   /** The scan of one page, tagged with the page it belongs to so a slow answer for another page is never shown. */
-  const [image, setImage] = useState<{ key: string; url: string | null; failed: boolean } | null>(null);
+  const [image, setImage] = useState<{ key: string; url: string | null; failed: boolean; pdf?: boolean } | null>(null);
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function ReviewPanel({ sessionId, pages, onReanalyse }: ReviewPanelProps)
         .then((blob) => {
           if (!live) return;
           url = URL.createObjectURL(blob);
-          setImage({ key: imageKey, url, failed: false });
+          setImage({ key: imageKey, url, failed: false, pdf: blob.type === 'application/pdf' });
         })
         .catch(() => {
           if (live) setImage({ key: imageKey, url: null, failed: true });
@@ -102,7 +102,10 @@ export function ReviewPanel({ sessionId, pages, onReanalyse }: ReviewPanelProps)
           <span>{Math.round(zoom * 100)}%</span>
         </div>
         <div className="max-h-80 overflow-auto rounded border border-slate-200 bg-slate-50">
-          {shown?.url && (
+          {shown?.url && shown.pdf && (
+            <embed src={shown.url} type="application/pdf" className="h-80 w-full" />
+          )}
+          {shown?.url && !shown.pdf && (
             <img
               src={shown.url}
               alt={ocrImport.pageLabel(pageNumber)}

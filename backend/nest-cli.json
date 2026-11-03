@@ -6,6 +6,11 @@
     "deleteOutDir": true,
     "assets": [
       {
+        "include": "ocr-import/pdf/pdf-worker.js",
+        "outDir": "dist/src",
+        "watchAssets": true
+      },
+      {
         "include": "../templates/xlsx/*.xlsx",
         "outDir": "dist/templates",
         "watchAssets": true

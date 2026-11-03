@@ -251,6 +251,21 @@ describe('AnthropicProvider.call', () => {
   });
 });
 
+describe('AnthropicProvider PDF pages', () => {
+  it('sends a PDF page as a document block, not as an image', async () => {
+    const { fetchImpl, calls } = fakeFetch(() => json(200, okBody));
+    await provider(fetchImpl).call({
+      ...baseRequest,
+      images: [{ mediaType: 'application/pdf', dataBase64: 'JVBER' }],
+    });
+    const body = JSON.parse(calls[0].init.body as string) as SentBody;
+    expect(body.messages[0].content[0]).toEqual({
+      type: 'document',
+      source: { type: 'base64', media_type: 'application/pdf', data: 'JVBER' },
+    });
+  });
+});
+
 describe('AnthropicProvider unknown model', () => {
   it('a model that no longer exists lets the next provider try instead of stopping the chain', async () => {
     const { fetchImpl } = fakeFetch(() =>

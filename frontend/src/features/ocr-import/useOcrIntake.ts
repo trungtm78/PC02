@@ -111,15 +111,18 @@ export function useOcrIntake({
         for (const file of files) {
           if (epochRef.current !== epoch) return;
           try {
-            const { page } = await ocrApi.uploadPage(id, file);
+            const uploaded = await ocrApi.uploadPage(id, file);
+            const made = uploaded.pages ?? [uploaded.page];
             // Cancelled, reset or left while the upload was in flight: the page belongs to a session that is gone.
             if (epochRef.current !== epoch) return;
-            const added: IntakePage = {
-              ...page,
-              fileName: file.name,
-              previewUrl: URL.createObjectURL(file),
-            };
-            setPages((prev) => [...prev, added]);
+            // A PDF is several pages with no preview of their own; an image previews itself.
+            const isPdf = file.type === 'application/pdf' || made.some((p) => p.mimeType === 'application/pdf');
+            const added: IntakePage[] = made.map((p, n) => ({
+              ...p,
+              fileName: isPdf ? `${file.name} · trang ${n + 1}` : file.name,
+              previewUrl: isPdf ? null : URL.createObjectURL(file),
+            }));
+            setPages((prev) => [...prev, ...added]);
           } catch (error) {
             failed.push({ name: file.name, code: errorCodeOf(error) });
           }

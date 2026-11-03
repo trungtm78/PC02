@@ -6,7 +6,11 @@ import { OcrJobQueue, type EnqueuedJob } from './jobs/ocr-job-queue';
 import { OcrImportError } from './ocr-import-error';
 import { OcrSendPolicy } from './ocr-send-policy';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
-import { ImageStorageService } from './storage/image-storage.service';
+import { PdfSandbox } from './pdf/pdf-sandbox';
+import { ImageStorageService, isPdf } from './storage/image-storage.service';
+
+/** Same ceiling as a session's own page limit; a PDF is checked against it before any page is added. */
+const MAX_SESSION_PAGES = 20;
 
 /** The subject whose `write` permission lets a user create each kind of record. */
 const WRITE_SUBJECT: Readonly<Record<OcrEntity, string>> = {
@@ -29,6 +33,7 @@ export class OcrIntakeService {
     private readonly storage: ImageStorageService,
     private readonly queue: OcrJobQueue,
     private readonly sendPolicy: OcrSendPolicy,
+    private readonly pdfSandbox: PdfSandbox,
   ) {}
 
   async openSession(entity: OcrEntity, user: AuthUser) {
@@ -44,9 +49,11 @@ export class OcrIntakeService {
     if (session.status !== 'OPEN') {
       throw new OcrImportError('OCR_SESSION_CLOSED', HttpStatus.CONFLICT);
     }
+    if (isPdf(bytes)) return this.uploadPdf(sessionId, bytes, actor);
     const stored = await this.storage.saveOriginal(sessionId, bytes);
     try {
-      return await this.sessions.addPage(sessionId, stored, actor);
+      const added = await this.sessions.addPage(sessionId, stored, actor);
+      return { ...added, pages: [added.page] };
     } catch (error) {
       // The file was written before the page was refused. Remove it unless a page row (even a removed one, which
       // still counts as history) points at the same file.
@@ -57,6 +64,35 @@ export class OcrIntakeService {
         await this.storage.deleteFiles([stored.originalPath]);
       throw error;
     }
+  }
+
+  /** One uploaded PDF becomes one page per PDF page, all or none: a PDF that does not fit is refused whole. */
+  private async uploadPdf(
+    sessionId: string,
+    bytes: Buffer,
+    actor: { id: string },
+  ) {
+    const parts = await this.pdfSandbox.split(bytes);
+    const present = await this.sessions.listPages(sessionId, actor);
+    if (present.length + parts.length > MAX_SESSION_PAGES) {
+      throw new OcrImportError('OCR_TOO_MANY_PAGES', HttpStatus.CONFLICT, {
+        limit: MAX_SESSION_PAGES,
+      });
+    }
+    const pages: Array<
+      Awaited<ReturnType<OcrSessionsService['addPage']>>['page']
+    > = [];
+    let pageSetRevision = 0;
+    for (const part of parts) {
+      const stored = await this.storage.savePdfPage(
+        sessionId,
+        Buffer.from(part),
+      );
+      const added = await this.sessions.addPage(sessionId, stored, actor);
+      pages.push(added.page);
+      pageSetRevision = added.pageSetRevision;
+    }
+    return { page: pages[0], pages, pageSetRevision };
   }
 
   /** Queues a reading ('READ': scans then analysis) or a re-analysis of the stored text ('ANALYSE'). */

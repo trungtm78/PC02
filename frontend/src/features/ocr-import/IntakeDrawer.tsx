@@ -9,7 +9,7 @@ export interface IntakeDrawerProps {
   intake: ReturnType<typeof useOcrIntake>;
 }
 
-const ACCEPT = 'image/jpeg,image/png,image/webp';
+const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
 
 /**
  * Side drawer for choosing the scans of one bundle and starting the reading. It changes nothing in the form: when a

@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
+import { PDFDocument } from 'pdf-lib';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { OcrSessionsService } from '../sessions/ocr-sessions.service';
 import { ImageStorageService } from '../storage/image-storage.service';
@@ -293,6 +294,47 @@ run('OcrFinaliser on PostgreSQL', () => {
       (await db.ocrPage.findUniqueOrThrow({ where: { id: page.id } }))
         .documentId,
     ).toBe(`old-ban-scan-1-${page.sha256.slice(0, 8)}.jpg`);
+  });
+
+  it('a PDF page becomes a PDF document with the right type and extension', async () => {
+    const s = await sessions.createSession('PETITION', alice);
+    const doc = await PDFDocument.create();
+    doc.addPage([100, 100]);
+    const stored = await storage.savePdfPage(
+      s.id,
+      Buffer.from(await doc.save()),
+    );
+    await sessions.addPage(s.id, stored, alice);
+    const analysis = await sessions.publishAnalysis(
+      s.id,
+      {
+        entity: 'PETITION',
+        pageSetRevision: 1,
+        inputFingerprint: await sessions.currentFingerprint(s.id),
+        bundle: {},
+        cleaned: {},
+        issues: [],
+        projection: {},
+        promptVersions: {},
+      },
+      alice,
+    );
+    await db.$transaction((tx) =>
+      new OcrBinder().bind(tx, {
+        sessionId: s.id,
+        analysisId: analysis.id,
+        entity: 'PETITION',
+        recordId: 'rec-pdf',
+        userId: alice.id,
+      }),
+    );
+    await finaliser.finalise(s.id);
+    expect(created[0].dto).toMatchObject({
+      mimeType: 'application/pdf',
+      documentType: 'BAN_SCAN',
+    });
+    expect(String(created[0].dto.originalName)).toMatch(/.pdf$/);
+    expect(String(created[0].dto.fileName)).toMatch(/.pdf$/);
   });
 
   it('does nothing for a session that is not bound', async () => {

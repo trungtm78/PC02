@@ -49,8 +49,10 @@ function setup(options: { granted?: Array<[string, string]> } = {}) {
     addPage: jest.fn(),
     listPages: jest.fn(),
   };
+  const pdfSandbox = { split: jest.fn() };
   const storage = {
     saveOriginal: jest.fn(),
+    savePdfPage: jest.fn(),
     deleteFiles: jest.fn(() => Promise.resolve(1)),
     read: jest.fn(),
   };
@@ -64,8 +66,9 @@ function setup(options: { granted?: Array<[string, string]> } = {}) {
     storage as never,
     queue as never,
     sendPolicy as never,
+    pdfSandbox as never,
   );
-  return { service, prisma, sessions, storage, queue, sendPolicy };
+  return { service, prisma, sessions, storage, queue, sendPolicy, pdfSandbox };
 }
 
 describe('OcrIntakeService', () => {
@@ -116,7 +119,11 @@ describe('OcrIntakeService', () => {
         Buffer.from('abc'),
       );
       expect(sessions.addPage).toHaveBeenCalledWith('s1', stored, { id: 'u1' });
-      expect(result).toEqual({ page: { id: 'p1' }, pageSetRevision: 1 });
+      expect(result).toEqual({
+        page: { id: 'p1' },
+        pages: [{ id: 'p1' }],
+        pageSetRevision: 1,
+      });
     });
 
     it('removes the file again when the page could not be added and nothing else uses it', async () => {
@@ -153,6 +160,78 @@ describe('OcrIntakeService', () => {
         await codeOf(service.uploadPage('s1', Buffer.from('abc'), user)),
       ).toBe('OCR_SESSION_NOT_FOUND');
       expect(storage.saveOriginal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('uploading a PDF', () => {
+    const pdfBytes = Buffer.from('%PDF-1.4 whole file');
+
+    it('splits it in the sandbox and adds each page to the session, in order', async () => {
+      const { service, sessions, storage, pdfSandbox } = setup();
+      pdfSandbox.split.mockResolvedValue([
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+      ]);
+      sessions.listPages.mockResolvedValue([]);
+      storage.savePdfPage
+        .mockResolvedValueOnce({
+          sha256: 'a',
+          mimeType: 'application/pdf',
+          sizeBytes: 1,
+          originalPath: 's1/a.pdf',
+        })
+        .mockResolvedValueOnce({
+          sha256: 'b',
+          mimeType: 'application/pdf',
+          sizeBytes: 1,
+          originalPath: 's1/b.pdf',
+        });
+      sessions.addPage
+        .mockResolvedValueOnce({ page: { id: 'p1' }, pageSetRevision: 1 })
+        .mockResolvedValueOnce({ page: { id: 'p2' }, pageSetRevision: 2 });
+
+      const result = await service.uploadPage('s1', pdfBytes, user);
+
+      expect(pdfSandbox.split).toHaveBeenCalledWith(pdfBytes);
+      expect(storage.saveOriginal).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        page: { id: 'p1' },
+        pages: [{ id: 'p1' }, { id: 'p2' }],
+        pageSetRevision: 2,
+      });
+    });
+
+    it('refuses before adding anything when the pages would not fit the session', async () => {
+      const { service, sessions, storage, pdfSandbox } = setup();
+      pdfSandbox.split.mockResolvedValue(
+        Array.from({ length: 5 }, () => new Uint8Array([1])),
+      );
+      sessions.listPages.mockResolvedValue(
+        Array.from({ length: 17 }, (_, i) => ({ id: `p${i}` })),
+      );
+      expect(await codeOf(service.uploadPage('s1', pdfBytes, user))).toBe(
+        'OCR_TOO_MANY_PAGES',
+      );
+      expect(storage.savePdfPage).not.toHaveBeenCalled();
+    });
+
+    it('a plain image still goes the old way and the answer keeps the same shape', async () => {
+      const { service, sessions, storage } = setup();
+      storage.saveOriginal.mockResolvedValue({
+        sha256: 'a'.repeat(64),
+        mimeType: 'image/jpeg',
+        sizeBytes: 3,
+        originalPath: 's1/a.jpg',
+      });
+      sessions.addPage.mockResolvedValue({
+        page: { id: 'p1' },
+        pageSetRevision: 1,
+      });
+      expect(await service.uploadPage('s1', Buffer.from('abc'), user)).toEqual({
+        page: { id: 'p1' },
+        pages: [{ id: 'p1' }],
+        pageSetRevision: 1,
+      });
     });
   });
 
