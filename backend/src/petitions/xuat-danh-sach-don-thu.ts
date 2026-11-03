@@ -170,7 +170,12 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       rong: 22,
       doc: (d) => d.soPhieuChuyen ?? '',
     },
-    { key: 'nhanThay', tieuDe: 'Nhận xét', rong: 50, doc: (d) => d.nhanThay ?? '' },
+    {
+      key: 'nhanThay',
+      tieuDe: 'Nhận xét',
+      rong: 50,
+      doc: (d) => d.nhanThay ?? '',
+    },
     {
       key: 'deXuat',
       tieuDe: 'Đề xuất xử lý',
@@ -326,24 +331,23 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       rong: 14,
       doc: (d) => soVN(d.soLuongBiHai),
     },
-    // The three prosecution fields live in `metadata` JSON (no column of their own).
+    // The three prosecution fields live in `metadata` JSON; the service flattens them onto the row (`gonTruongKhoiTo`).
     {
       key: 'soQuyetDinhKhoiTo',
       tieuDe: 'Số Quyết định Khởi tố vụ án',
       rong: 22,
-      doc: (d) => chuoiMetadata(d.metadata, 'soQuyetDinhKhoiTo'),
+      doc: (d) => d.soQuyetDinhKhoiTo ?? '',
     },
     {
       key: 'ngayKhoiTo',
       tieuDe: 'Ngày ra Quyết định Khởi tố vụ án',
       rong: 16,
-      doc: (d) => ngayVN(chuoiMetadata(d.metadata, 'ngayKhoiTo') || null),
+      doc: (d) => ngayVN(d.ngayKhoiTo),
     },
     {
       key: 'toiDanhChinhKhoiTo',
       tieuDe: 'Tội danh chính khi khởi tố',
       rong: 30,
-      // `metadata` holds only the crime ID; the name is resolved per page by `gonTenToiDanhKhoiTo`.
       doc: (d) => d.toiDanhChinhKhoiToTen ?? '',
     },
   ];

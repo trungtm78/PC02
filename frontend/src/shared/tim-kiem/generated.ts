@@ -50,7 +50,7 @@ export const TIM_KIEM_DON_THU = [
   { key: 'thoiHanUTDT', nhan: 'Thời hạn thực hiện Uỷ thác điều tra', kieu: 'ngay' },
   { key: 'toiDanhChinh', nhan: 'Tội danh chính - BLHS 2015 (nhận định ban đầu)', kieu: 'quan-he' },
   { key: 'soTienBiThietHai', nhan: 'Số tiền bị thiệt hại (triệu Việt nam Đồng)', kieu: 'so' },
-  { key: 'soLuongBiHai', nhan: 'Số lượng người bị hại', kieu: 'so' },
+  { key: 'soLuongBiHai', nhan: 'Số lượng người bị hại', kieu: 'so', soNguyen: true },
   { key: 'soQuyetDinhKhoiTo', nhan: 'Số Quyết định Khởi tố vụ án', kieu: 'chu' },
   { key: 'ngayKhoiTo', nhan: 'Ngày ra Quyết định Khởi tố vụ án', kieu: 'ngay' },
   { key: 'toiDanhChinhKhoiTo', nhan: 'Tội danh chính khi khởi tố', kieu: 'chu' },

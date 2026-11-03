@@ -290,7 +290,8 @@ describe('Xuất Đơn thư — ngày viết đơn THIẾU thành phần', () =>
       crimeChinh: { name: 'Tội lừa đảo chiếm đoạt tài sản' },
       soTienBiThietHai: 1500.5,
       soLuongBiHai: 3,
-      metadata: { soQuyetDinhKhoiTo: 'KT-9', ngayKhoiTo: '2026-09-12' },
+      soQuyetDinhKhoiTo: 'KT-9',
+      ngayKhoiTo: '2026-09-12',
       toiDanhChinhKhoiToTen: 'Tội giết người',
     };
     const doc = (key: string) =>
@@ -324,7 +325,6 @@ describe('Xuất Đơn thư — ngày viết đơn THIẾU thành phần', () =>
     ]) {
       const out = KHAI_COT_XUAT_DON_THU.find((c) => c.key === key)!.doc({
         laCongNgheCao: null,
-        metadata: null,
       } as never);
       expect(out).toBe('');
     }

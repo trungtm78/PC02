@@ -115,6 +115,12 @@ export interface TruongTimKiem {
    * Bỏ trống = vào (giữ hành vi cũ). Cổng `vao-tat-ca.gate.spec.ts` bắt buộc khai rõ với các cột
    * sổ sách (`createdAt`/`updatedAt`/`deadline`) — quên khai là ĐỎ, không phải âm thầm nhận mặc
    * định. Thẻ RIÊNG của trường luôn dùng được, `false` chỉ gỡ nó khỏi `*`.
+   *
+   * Kind `chu` (03/11/2026): `false` keeps the field OUT of the combined shadow `tim_kiem_bd` (and of the "*" branch
+   * and its fallback), while it keeps its own shadow column, trigger and tag. Used for long free text. Measured on
+   * 47k petitions: putting every new field into the combined shadow made common terms 2-5x slower ("cong an" 51 ms ->
+   * 207 ms, "nguyen van" 84 ms -> 438 ms) and doubled its index (21 -> 25 MB narrow); keeping only the short fields
+   * stayed within ~10% of the old latency for most terms.
    */
   vaoTatCa?: boolean;
   /** Kind `chu`/`ngay`: the field lives inside a JSON column - see `NguonJson`. */
@@ -324,6 +330,7 @@ const cotTatCa = (khai: KhaiThucThe) => [
     .filter(
       (t) =>
         !t.nguonJson &&
+        t.vaoTatCa !== false &&
         (t.kieu === 'chu' ||
           t.kieu === 'ma' ||
           t.kieu === 'ma-cu' ||
@@ -344,6 +351,8 @@ function thanhPhanTatCa(
 ): string[] {
   const ra: string[] = [];
   for (const t of khai.truong) {
+    // Tag-only fields (`vaoTatCa: false`) keep their own shadow but are not part of the combined one.
+    if (t.vaoTatCa === false) continue;
     if (t.nguonJson) {
       if (t.kieu === 'chu') ra.push(bieuThucJson(t, hanh));
       continue;
@@ -878,7 +887,7 @@ export function sinhFrontendTimKiem(khais: readonly KhaiThucThe[]): string {
     dong.push('', `export const TIM_KIEM_${ten} = [`);
     for (const t of khai.truong) {
       dong.push(
-        `  { key: ${chuoiTs(t.key)}, nhan: ${chuoiTs(t.nhan)}, kieu: ${chuoiTs(t.kieu)} },`,
+        `  { key: ${chuoiTs(t.key)}, nhan: ${chuoiTs(t.nhan)}, kieu: ${chuoiTs(t.kieu)}${t.soNguyen ? ', soNguyen: true' : ''} },`,
       );
     }
     dong.push('] as const;');

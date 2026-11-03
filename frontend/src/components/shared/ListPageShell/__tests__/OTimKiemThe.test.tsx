@@ -456,3 +456,107 @@ describe('<OTimKiemThe> — lỗi lượt soát bắt', () => {
     expect(chuCacLuaChon().join('\n')).toContain('Trạng thái: Tạm đình chỉ');
   });
 });
+
+describe('<OTimKiemThe> - choosing a tag of a HIDDEN column (03/11/2026)', () => {
+  /**
+   * An officer filters by a field whose column is hidden (e.g. "Nhận xét"). The table then shows the matching rows
+   * but not the column that matched, so they cannot see why. Choosing such a tag reports it so the page can switch
+   * the column on.
+   */
+  const chonDong = (text: string) => {
+    const dong = cacLuaChon().find((l) => (l.textContent ?? '').includes(text));
+    expect(dong).toBeDefined();
+    fireEvent.mouseDown(dong!);
+    fireEvent.click(dong!);
+  };
+
+  it('choosing a hidden-column field adds the tag AND reports the column to enable', () => {
+    const onChonTruongAn = vi.fn();
+    const { props, o } = dungRong({ onChonTruongAn });
+    goChu(o, 'nguyen');
+    chonDong('Đối tượng bị tố');
+    expect(props.onThem).toHaveBeenCalledWith('doiTuong', 'nguyen');
+    expect(onChonTruongAn).toHaveBeenCalledTimes(1);
+    expect(onChonTruongAn).toHaveBeenCalledWith('doiTuong');
+  });
+
+  it('choosing a field whose column is already visible does not report anything', () => {
+    const onChonTruongAn = vi.fn();
+    const { props, o } = dungRong({ onChonTruongAn });
+    goChu(o, 'nguyen');
+    chonDong('Người gửi');
+    expect(props.onThem).toHaveBeenCalledWith('nguoiGui', 'nguyen');
+    expect(onChonTruongAn).not.toHaveBeenCalled();
+  });
+
+  it('the "all columns" line never enables a column', () => {
+    const onChonTruongAn = vi.fn();
+    const { o } = dungRong({ onChonTruongAn });
+    goChu(o, 'nguyen');
+    chonDong('Tìm trong tất cả các cột');
+    expect(onChonTruongAn).not.toHaveBeenCalled();
+  });
+
+  it('a tag the page refuses (duplicate / over the limit) does not enable the column either', () => {
+    const onChonTruongAn = vi.fn();
+    const { o } = dungRong({ onChonTruongAn, onThem: vi.fn(() => false) });
+    goChu(o, 'nguyen');
+    chonDong('Đối tượng bị tố');
+    expect(onChonTruongAn).not.toHaveBeenCalled();
+  });
+
+  it('works through the keyboard (Enter) exactly like a click', () => {
+    const onChonTruongAn = vi.fn();
+    const { o } = dungRong({ onChonTruongAn });
+    // "ten cot:" syntax puts only the hidden field in the list.
+    goChu(o, 'doi tuong bi to:nguyen');
+    const dongDau = cacLuaChon()[0];
+    expect(dongDau).toHaveTextContent('Đối tượng bị tố');
+    fireEvent.keyDown(o, { key: 'Enter' });
+    expect(onChonTruongAn).toHaveBeenCalledWith('doiTuong');
+  });
+
+  it('without the prop the behaviour is unchanged (other screens)', () => {
+    const { props, o } = dungRong();
+    goChu(o, 'nguyen');
+    chonDong('Đối tượng bị tố');
+    expect(props.onThem).toHaveBeenCalledWith('doiTuong', 'nguyen');
+  });
+});
+
+describe('<OTimKiemThe> - number fields (kind so)', () => {
+  const KHAI_SO = [
+    { key: 'nguoiGui', nhan: 'Người gửi', kieu: 'chu' },
+    { key: 'soTien', nhan: 'Số tiền thiệt hại', kieu: 'so' },
+    { key: 'soNguoi', nhan: 'Số người bị hại', kieu: 'so', soNguyen: true },
+  ] as const;
+  const dungSo = () => dung({ truong: KHAI_SO, khai: KHAI_SO });
+
+  it('text that is not a number offers no number tag (the server would answer 400)', () => {
+    const { o } = dungSo();
+    goChu(o, 'nguyen');
+    const nhan = cacLuaChon().map((x) => x.textContent ?? '').join('|');
+    expect(nhan).toContain('Người gửi');
+    expect(nhan).not.toContain('Số tiền thiệt hại');
+    expect(nhan).not.toContain('Số người bị hại');
+  });
+
+  it('a readable number offers the number tags, and Enter on one adds it', () => {
+    const { props, o } = dungSo();
+    goChu(o, '1.500');
+    const nhan = cacLuaChon().map((x) => x.textContent ?? '').join('|');
+    expect(nhan).toContain('Tìm Số tiền thiệt hại: "1.500"');
+    expect(nhan).toContain('Tìm Số người bị hại: "1.500"');
+    goChu(o, 'so tien thiet hai:2,5');
+    fireEvent.keyDown(o, { key: 'Enter' });
+    expect(props.onThem).toHaveBeenCalledWith('soTien', '2,5');
+  });
+
+  it('an integer field is not offered for a decimal', () => {
+    const { o } = dungSo();
+    goChu(o, '1,5');
+    const nhan = cacLuaChon().map((x) => x.textContent ?? '').join('|');
+    expect(nhan).toContain('Số tiền thiệt hại');
+    expect(nhan).not.toContain('Số người bị hại');
+  });
+});

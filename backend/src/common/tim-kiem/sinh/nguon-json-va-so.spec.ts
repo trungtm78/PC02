@@ -190,6 +190,10 @@ describe('sinhFrontendTimKiem - kind so', () => {
     expect(ts).toContain(
       `{ key: 'soTienBiThietHai', nhan: 'Số tiền', kieu: 'so' },`,
     );
+    // An integer column travels to the UI so the suggestion box can refuse a decimal.
+    expect(ts).toContain(
+      `{ key: 'soLuongBiHai', nhan: 'Số người bị hại', kieu: 'so', soNguyen: true },`,
+    );
   });
 });
 
@@ -396,5 +400,64 @@ describe('dungDieuKienTimKiem - JSON source', () => {
     expect(dk).toContain('"senderName"');
     expect(dk).not.toContain('"soQuyetDinhKhoiTo":');
     expect(dk).not.toContain('"toiDanhChinhKhoiTo":');
+  });
+});
+
+describe('vaoTatCa: false on a text field - tag-only free text', () => {
+  const KHAI_NGAN: KhaiThucThe = {
+    thucThe: 'don-thu',
+    bang: 'petitions',
+    model: 'Petition',
+    truong: [
+      { key: 'nguoiGui', nhan: 'Người gửi', kieu: 'chu', cot: 'senderName' },
+      // Long free text: keeps its own shadow + tag, but stays OUT of the combined "all columns" shadow.
+      {
+        key: 'nhanXet',
+        nhan: 'Nhận xét',
+        kieu: 'chu',
+        cot: 'nhanThay',
+        vaoTatCa: false,
+      },
+    ],
+  };
+  const sql = sinhMigrationTimKiem([KHAI_NGAN]);
+
+  it('still gets its own shadow column, trigger assignment and trigram index', () => {
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS "nhan_thay_bd" text');
+    expect(sql).toContain(
+      `NEW."nhan_thay_bd" := ' ' || f_bo_dau(NEW."nhanThay");`,
+    );
+    expect(sql).toContain('"petitions_nhan_thay_bd_trgm"');
+  });
+
+  it('is left out of the combined shadow (trigger and backfill agree)', () => {
+    const dong = sql
+      .split('\n')
+      .find((d) => d.includes('NEW."tim_kiem_bd" :='))!;
+    expect(dong).toContain('NEW."senderName"');
+    expect(dong).not.toContain('nhanThay');
+    const nap = sinhCacCauNap([KHAI_NGAN]).find((c) => c.bang === 'petitions')!
+      .cau.nap;
+    expect(nap).toContain(
+      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "senderName"))`,
+    );
+  });
+
+  it('the trigger still listens to the column, so its own shadow is refreshed', () => {
+    expect(sql).toMatch(
+      /BEFORE INSERT OR UPDATE OF [^\n]*"nhanThay"[^\n]* ON "petitions"/,
+    );
+  });
+
+  it('the "all columns" box neither searches it nor falls back to it, while its own tag does', () => {
+    const tatCa = JSON.stringify(
+      dungDieuKienTimKiem([the('*', 'abc')], KHAI_NGAN),
+    );
+    expect(tatCa).toContain('"senderName"');
+    expect(tatCa).not.toContain('nhanThay');
+    const rieng = JSON.stringify(
+      dungDieuKienTimKiem([the('nhanXet', 'abc')], KHAI_NGAN),
+    );
+    expect(rieng).toContain('"nhanThayBd":{"contains":"abc"}');
   });
 });

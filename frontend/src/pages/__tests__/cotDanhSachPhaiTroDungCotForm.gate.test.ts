@@ -68,6 +68,19 @@ const MIEN_TRU_THEO_MAN: Readonly<Record<string, string>> = {
     'mốc tiếp nhận của hệ mới (`receivedDate`), hệ cũ không có ô này',
   'Vụ án|Ngày nhận':
     'mốc nhận hồ sơ của hệ mới (`receiveDate`), hệ cũ không có ô này',
+  // 03/11/2026: two fields of the NEW petition form (the "Nội dung phiếu đề xuất" block), not part of the legacy layout.
+  'Đơn thư|Đề xuất xử lý':
+    'ô của form đơn thư mới (khối "Nội dung phiếu đề xuất"), bố cục hệ cũ không có; đọc cột `deXuat`',
+  'Đơn thư|Hướng xử lý':
+    'ô của form đơn thư mới (chọn Giao đơn/Chuyển đơn/Trả-Lưu đơn), bố cục hệ cũ không có; đọc cột `huongXuLy`',
+  // 03/11/2026: the three prosecution fields of a petition have no column - the form keeps them in `metadata` JSON, so
+  // the layout registry (which maps captions to COLUMNS) has no entry. The server lifts them onto the list row.
+  'Đơn thư|Số Quyết định Khởi tố vụ án':
+    'khoá `metadata.soQuyetDinhKhoiTo` của đơn thư, không có cột riêng; máy chủ làm phẳng thành `soQuyetDinhKhoiTo`',
+  'Đơn thư|Ngày khởi tố':
+    'khoá `metadata.ngayKhoiTo` của đơn thư, không có cột riêng; máy chủ làm phẳng thành `ngayKhoiTo`',
+  'Đơn thư|Tội danh chính khi khởi tố':
+    'khoá `metadata.toiDanhChinhKhoiToId` (mã tội danh); máy chủ tra TÊN theo mã và gắn `toiDanhChinhKhoiToTen`',
 };
 
 /**
@@ -112,6 +125,9 @@ const NHAN_FORM_CUA_NHAN_DANH_SACH: Readonly<Record<string, string>> = {
   'Ngày QĐ phân công nguồn tin':
     'Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm',
   'Ngày khởi tố': 'Ngày ra Quyết định Khởi tố vụ án',
+  // 03/11/2026: the form caption is a whole sentence; the column header keeps the three words an officer says.
+  'Tội phạm công nghệ cao':
+    'Bấm chọn nếu xác định đây là tội phạm công nghệ cao',
 };
 
 /** Cột form ứng với một nhãn trên danh sách. */

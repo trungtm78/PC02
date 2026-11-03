@@ -20,12 +20,29 @@ describe('sinhCauNapCotBong', () => {
 
   it('biểu thức cột bóng giống hệt trigger, nhưng trên cột của dòng (không NEW.)', () => {
     expect(nap).toContain(`"sender_name_bd" = ' ' || f_bo_dau("senderName")`);
-    // The combined shadow starts with the original columns and ends with the extra "all columns" ones; the fields
-    // added on 03/11/2026 sit in between (including JSON-backed ones read as "metadata"->>'<key>').
+    // The combined shadow starts with the original columns and ends with the extra "all columns" ones; the SHORT fields
+    // added on 03/11/2026 sit in between (including JSON-backed ones read as "metadata"->>'<key>'). The long free text
+    // (Nhận xét, Đề xuất, ghi chú...) is tag-only and must NOT be in it.
     expect(nap).toContain(
-      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "stt", "sttCu", "loaiThongTin", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soPhieuChuyen", "nhanThay", `,
+      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "stt", "sttCu", "loaiThongTin", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soPhieuChuyen", "phanLoaiNguonTin", "dieuTraVien", `,
     );
     expect(nap).toContain(`"metadata"->>'soQuyetDinhKhoiTo'`);
+    // Only the SET expression: the WHERE clause legitimately mentions every shadow's source column.
+    const tongHop = nap.slice(
+      nap.indexOf('"tim_kiem_bd" = '),
+      nap.indexOf(' WHERE id = ANY'),
+    );
+    for (const dai of [
+      '"nhanThay"',
+      '"deXuat"',
+      '"raSoatTrung"',
+      '"ghiChuKhac"',
+      '"phuongThucThuDoan"',
+      '"canCuTamDinhChiNguonTin"',
+      '"baoCaoBanGiamDocText"',
+    ]) {
+      expect(tongHop).not.toContain(dai);
+    }
     expect(nap).toContain(`"soHoSoCu", "ngay_viet_don_chu"))`);
     expect(nap).not.toContain('NEW.');
   });

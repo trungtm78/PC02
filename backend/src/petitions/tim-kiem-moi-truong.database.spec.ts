@@ -5,7 +5,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { docThe, dungDieuKienTimKiem } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM } from '../common/tim-kiem/khai';
 import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
+import { sinhCacCauNap } from '../common/tim-kiem/sinh/sinh-tim-kiem';
 import { thuMucMigrationTimKiemMoiNhat } from '../common/tim-kiem/sinh/tep-sinh';
 
 /**
@@ -52,7 +54,10 @@ chay('petition search tags on PostgreSQL', () => {
 
   beforeAll(async () => {
     const url = new URL(diaChi!);
-    if (url.hostname !== '127.0.0.1' || url.pathname !== '/pc02_goiy_scope_test') {
+    if (
+      url.hostname !== '127.0.0.1' ||
+      url.pathname !== '/pc02_goiy_scope_test'
+    ) {
       throw new Error(
         'Refused: PETITION_SUGGEST_DATABASE_URL must point to 127.0.0.1/pc02_goiy_scope_test',
       );
@@ -73,15 +78,32 @@ chay('petition search tags on PostgreSQL', () => {
       await client.end();
     }
 
-    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: diaChi! }) });
+    db = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: diaChi! }),
+    });
     await db.crime.createMany({
       data: [
-        { id: crimeA, code: `DA-${prefix}`, name: 'Tội lừa đảo chiếm đoạt tài sản', articleNo: 174, chapter: 'XVIII' },
-        { id: crimeB, code: `DB-${prefix}`, name: 'Tội giết người', articleNo: 123, chapter: 'XIV' },
+        {
+          id: crimeA,
+          code: `DA-${prefix}`,
+          name: 'Tội lừa đảo chiếm đoạt tài sản',
+          articleNo: 174,
+          chapter: 'XVIII',
+        },
+        {
+          id: crimeB,
+          code: `DB-${prefix}`,
+          name: 'Tội giết người',
+          articleNo: 123,
+          chapter: 'XIV',
+        },
       ],
     });
 
-    const base = { receivedDate: new Date('2026-10-08T00:00:00Z'), senderName: 'Nguyễn Văn Thử' };
+    const base = {
+      receivedDate: new Date('2026-10-08T00:00:00Z'),
+      senderName: 'Nguyễn Văn Thử',
+    };
     const target = await db.petition.create({
       data: {
         ...base,
@@ -181,15 +203,30 @@ chay('petition search tags on PostgreSQL', () => {
     expect(THE).toHaveLength(30);
   });
 
-  it.each(THE)('tag %s finds the target and not the control (typing "%s")', async (key, go) => {
-    expect(await tim(`${key}~${go}`)).toEqual([stt('target')]);
-  });
+  it.each(THE)(
+    'tag %s finds the target and not the control (typing "%s")',
+    async (key, go) => {
+      expect(await tim(`${key}~${go}`)).toEqual([stt('target')]);
+    },
+  );
 
   it('the "all columns" box finds a JSON text field, a JSON date and the initial crime name', async () => {
     expect(await tim('*~kt-99')).toEqual([stt('target')]);
     expect(await tim('*~12/09/2026')).toEqual([stt('target')]);
     expect(await tim('*~lua dao')).toEqual([stt('target')]);
     expect(await tim('*~nhan xet khong lien quan')).toEqual([]);
+  });
+
+  it('long free text is tag-only: the "all columns" box does not search it, its own tag does', async () => {
+    // Nhận xét / Đề xuất stay out of the combined shadow (measured: putting them in made common terms 2-5x slower).
+    expect(await tim('*~to cong tac so 8')).toEqual([]);
+    expect(await tim('*~giao don vi ngoai')).toEqual([]);
+    expect(await tim('nhanXet~to cong tac so 8')).toEqual([stt('target')]);
+    expect(await tim('deXuat~giao don vi ngoai')).toEqual([stt('target')]);
+    // Short identifiers are still reachable from the box.
+    expect(await tim('*~a16763')).toEqual([stt('target')]);
+    expect(await tim('*~079075009999')).toEqual([stt('target')]);
+    expect(await tim('*~nguyen hue')).toEqual([stt('target')]);
   });
 
   it('typing a number in the "all columns" box does NOT match a number field', async () => {
@@ -230,28 +267,33 @@ chay('petition search tags on PostgreSQL', () => {
     expect(await tim('soQuyetDinhKhoiTo~ok-1')).toEqual([stt('control')]);
   });
 
-  it('rows written BEFORE the migration are backfilled when it runs (refreshExisting)', async () => {
-    // Simulate an old row: wipe its shadows without touching any source column (so no trigger fires).
+  it('rows written BEFORE the migration: real columns still match, JSON fields wait for the batch loader', async () => {
+    // Simulate an old row: the migration added the shadow columns but did not fill them (it does not rewrite the
+    // table - that is the batch loader's job). Wipe the shadows without touching any source column (no trigger).
     await db.$executeRawUnsafe(
       `UPDATE petitions SET so_phieu_chuyen_bd = NULL, nhan_thay_bd = NULL, so_quyet_dinh_khoi_to_bd = NULL,
          ngay_khoi_to_bd = NULL, toi_danh_chinh_khoi_to_bd = NULL, tim_kiem_bd = NULL WHERE id = '${targetId}'`,
     );
     // A real column falls back to its source column while the shadow is NULL, so the old row is still found...
     expect(await tim('soPhieuChuyen~a16763')).toEqual([stt('target')]);
+    // (the fallback compares the raw source column, so here the text must carry its accents)
+    expect(await tim('nhanXet~Tổ công tác Số 8')).toEqual([stt('target')]);
     // ...but a JSON-backed field has no source column to fall back to: it is invisible until the shadow is loaded.
-    // That is exactly why the migration backfills every row.
     expect(await tim('soQuyetDinhKhoiTo~kt-99')).toEqual([]);
     expect(await tim('ngayKhoiTo~12/09/2026')).toEqual([]);
 
-    const thuMuc = thuMucMigrationTimKiemMoiNhat()!;
-    const sql = fs.readFileSync(
-      path.join(__dirname, '../../prisma/migrations', thuMuc, 'migration.sql'),
-      'utf-8',
-    );
+    // The batch loader (`nap-cot-bong-tim-kiem --that`) runs exactly this statement for a batch of ids.
+    const nap = sinhCacCauNap(KHAI_TIM_KIEM).find(
+      (c) => c.bang === 'petitions',
+    )!.cau.nap;
     const client = new Client({ connectionString: diaChi! });
     await client.connect();
     try {
-      await client.query(sql);
+      const ra = await client.query(nap, [[targetId]]);
+      expect(ra.rowCount).toBe(1);
+      // Idempotent: a second run finds nothing left to write.
+      const lai = await client.query(nap, [[targetId]]);
+      expect(lai.rowCount).toBe(0);
     } finally {
       await client.end();
     }

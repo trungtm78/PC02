@@ -29,6 +29,8 @@ const dong = (id: string, metadata: unknown) => ({
 
 describe('PetitionsService.getList - prosecution crime name', () => {
   let service: PetitionsService;
+  // The shared fixture is untyped (`any`); holding it as `unknown` keeps the lint rule about unsafe assignment honest.
+  const childAccess: unknown = ordinaryChildFixture(mockPrisma);
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -37,7 +39,7 @@ describe('PetitionsService.getList - prosecution crime name', () => {
       providers: [
         {
           provide: CaseChildAccessService,
-          useValue: ordinaryChildFixture(mockPrisma),
+          useValue: childAccess,
         },
         {
           provide: CaseEvidenceGovernanceService,
@@ -103,6 +105,28 @@ describe('PetitionsService.getList - prosecution crime name', () => {
         (d) => d.toiDanhChinhKhoiToTen,
       ),
     ).toEqual(['Tội giết người', 'Tội giết người', 'Tội cướp tài sản']);
+  });
+
+  it('flattens the three prosecution fields out of metadata and DROPS metadata from the row', async () => {
+    mockPrisma.petition.findMany.mockResolvedValue([
+      dong('a', {
+        soQuyetDinhKhoiTo: 'KT-9',
+        ngayKhoiTo: '2026-09-12',
+        toiDanhChinhKhoiToId: 'c1',
+        description: 'long legacy text that must not ship with every list row',
+      }),
+    ]);
+    mockPrisma.crime.findMany.mockResolvedValue([
+      { id: 'c1', name: 'Tội giết người' },
+    ]);
+
+    const ra = await service.getList({ limit: 20, offset: 0 } as never, null);
+    const row = ra.data[0] as unknown as Record<string, unknown>;
+
+    expect(row.soQuyetDinhKhoiTo).toBe('KT-9');
+    expect(row.ngayKhoiTo).toBe('2026-09-12');
+    expect(row.toiDanhChinhKhoiToTen).toBe('Tội giết người');
+    expect(row).not.toHaveProperty('metadata');
   });
 
   it('does not query crimes when no row carries an ID (malformed metadata is ignored, not fatal)', async () => {
@@ -173,6 +197,7 @@ describe('PetitionsService.getList - prosecution crime name', () => {
       'thoiHanUTDT',
       'soTienBiThietHai',
       'soLuongBiHai',
+      'crimeChinhId',
       'crimeChinh',
       'metadata',
     ]) {

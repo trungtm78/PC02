@@ -20,7 +20,13 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
   thucThe: 'don-thu',
   bang: 'petitions',
   model: 'Petition',
-  refreshExisting: true,
+  /*
+    NO `refreshExisting` (removed 03/11/2026). With 21 more shadow columns the in-migration UPDATE of the 47k existing
+    petitions ran 312 s on a local copy (about 6.6 ms/row: `f_bo_dau` over ~5 KB of text per row, plus ~40 index entries),
+    holding row locks through the whole deploy. The project norm is the opposite: the migration only creates columns,
+    triggers and indexes, and existing rows are loaded in batches by `nap-cot-bong-tim-kiem --that` (1,000 rows per
+    statement, writers keep working). `deploy.sh` step 9e detects unloaded rows and ends red until that is done.
+  */
   truong: [
     { key: 'stt', nhan: 'STT', kieu: 'ma', cot: 'stt' },
     { key: 'sttCu', nhan: 'STT cũ', kieu: 'ma-cu', cot: 'sttCu' },
@@ -154,6 +160,11 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       cot: 'senderIdIssueDate',
     },
     /*
+      `vaoTatCa: false` below = long free text (Nhận xét, Đề xuất, ghi chú, căn cứ, phương thức): searchable through
+      its OWN tag, but kept out of the combined "all columns" shadow. Measured on 47k petitions, adding every new field
+      to that shadow made common terms 2-5x slower and doubled its index; the short identifiers stay in it.
+    */
+    /*
       Every remaining form field that holds data (added 03/11/2026). The form has 130 fields; only 12 were
       searchable. 88 are empty on production (0 / 47.626, `cot-xuat-day-du.loai-tru.ts`), the other 30 are
       declared here. The gate `form-don-thu-tim-duoc.gate.spec.ts` keeps the two lists complete.
@@ -168,8 +179,20 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
     },
     // The form calls it "Nhận xét" (legacy field `nhanXet`) but on a petition it is stored in `nhanThay`:
     // pointing the tag at `nhanXet` (a `cases` column) would match nothing and never fail.
-    { key: 'nhanXet', nhan: 'Nhận xét', kieu: 'chu', cot: 'nhanThay' },
-    { key: 'deXuat', nhan: 'Đề xuất xử lý', kieu: 'chu', cot: 'deXuat' },
+    {
+      key: 'nhanXet',
+      nhan: 'Nhận xét',
+      kieu: 'chu',
+      cot: 'nhanThay',
+      vaoTatCa: false,
+    },
+    {
+      key: 'deXuat',
+      nhan: 'Đề xuất xử lý',
+      kieu: 'chu',
+      cot: 'deXuat',
+      vaoTatCa: false,
+    },
     {
       key: 'huongXuLy',
       nhan: 'Hướng xử lý',
@@ -183,19 +206,28 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       nhan: 'Ghi chú trùng đơn',
       kieu: 'chu',
       cot: 'raSoatTrung',
+      vaoTatCa: false,
     },
     {
       key: 'baoCaoBanGiamDoc',
       nhan: 'Trường hợp báo cáo Ban Giám đốc',
       kieu: 'chu',
       cot: 'baoCaoBanGiamDocText',
+      vaoTatCa: false,
     },
-    { key: 'ghiChuKhac', nhan: 'Ghi chú khác', kieu: 'chu', cot: 'ghiChuKhac' },
+    {
+      key: 'ghiChuKhac',
+      nhan: 'Ghi chú khác',
+      kieu: 'chu',
+      cot: 'ghiChuKhac',
+      vaoTatCa: false,
+    },
     {
       key: 'phuongThucThuDoan',
       nhan: 'Phương thức thủ đoạn',
       kieu: 'chu',
       cot: 'phuongThucThuDoan',
+      vaoTatCa: false,
     },
     {
       key: 'phanLoaiNguonTin',
@@ -272,6 +304,7 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       nhan: 'Căn cứ Tạm đình chỉ nguồn tin',
       kieu: 'chu',
       cot: 'canCuTamDinhChiNguonTin',
+      vaoTatCa: false,
     },
     {
       key: 'soPhucHoiNguonTin',

@@ -67,3 +67,28 @@ The form's "Nhận xét" (legacy field `nhanXet`) is translated by `doiTab` to *
 - `nguon-json-va-so.spec.ts`: 31 cases covering SQL generation, backfill statements, Prisma field requirements, frontend union, declaration guards, schema-drift gates, number parsing and condition building.
 - Patch coverage 189/189 lines; backend `tsc`, frontend `tsc -b`, 945 related backend tests green.
 - The regenerated migration output for the current declarations is byte-identical, so deploying PR1 changes no database behaviour.
+
+## PR2+PR3 (merged into one PR) - what was built, and what the measurements changed
+
+PR2 (backend) and PR3 (UI) could not ship separately: the frontend gate `timKiemCotKhai` requires a list column for every declared tag key, and `khaiCotXuat` requires an export column with the same key as every list column (it reads `backend/src/petitions/xuat-danh-sach-don-thu.ts`). Declaring 30 tags without the 30 columns turns `main` red.
+
+### Built
+- 30 tags in `khai/don-thu.khai.ts` (21 shadow columns, three of them read from `metadata` JSON), migration `20261103125717_tim_kiem_don_thu_moi_truong`, read-only shadow fields in `schema.prisma`.
+- List API: the new columns; the three prosecution values are lifted out of `metadata` onto the row and `metadata` is dropped from the response; the crime NAME is resolved with one lookup per page (the form stores an id).
+- 30 export columns, 30 hidden list columns, select values for "Hướng xử lý" and "Tội phạm công nghệ cao".
+- Choosing the tag of a hidden column also switches that column on (`OTimKiemThe.onChonTruongAn`); the existing "Cột khác" suggestion group already offered hidden fields.
+- Number tags are validated in the UI with the same rule as the server, so an unreadable number is never offered (it would be a 400).
+
+### Measured on a copy of real data (47,271 petitions, PG18 local) - three decisions
+1. **No row rewrite inside the migration.** With the declaration's `refreshExisting`, the migration UPDATE of all petitions took 312 s (one statement; index creation was negligible, moving it changed 467 s -> 408 s) and held row locks through the deploy. The project norm is the opposite (see `nap-cot-bong-tim-kiem.ts`): the migration creates columns, triggers and indexes; existing rows are loaded in batches by `nap-cot-bong-tim-kiem --that`; `deploy.sh` step 9e detects unloaded rows and ends red until that is run. `refreshExisting` was removed for petitions. While rows are unloaded, real-column tags fall back to the source column (accent-sensitive, slower) and the three JSON-backed tags find nothing for old rows.
+2. **Long free text is tag-only.** Putting every new field into the combined `tim_kiem_bd` shadow made common terms 2-5x slower on identical data (narrow-table comparison: "nguyen van" 84 -> 438 ms, "cong an" 51 -> 207 ms) and doubled its index. Keeping only the short fields in it stayed within about 10% of the old latency for most terms. Nhận xét, Đề xuất, Ghi chú trùng đơn, Báo cáo Ban Giám đốc, Ghi chú khác, Phương thức thủ đoạn and Căn cứ tạm đình chỉ are searchable through their own tags (`vaoTatCa: false`), not from the plain "all columns" line.
+3. **`metadata` stays out of the list payload** (1.6 KB average per row, mostly legacy text).
+
+### Cost, for the record
+- Table 470 MB -> ~663 MB, indexes 74 -> ~229 MB. A single-row write fires the trigger in ~7 ms (was ~1.8 ms).
+- Final migration on the copy: 86 s (almost all of it the refresh of Vụ việc / Vụ án rows that this copy never loaded; those tables are already loaded on production). Batch loader for all stale tables: 575 s, in 1,000-row statements.
+
+### Known limits
+- Tags of numeric fields are equality only and are never reachable from the "all columns" line.
+- The three JSON-backed tags need the batch loader to have run before old petitions are found by them.
+- `loc-theo-the.ts` (screens that filter in the browser) has no `so` branch: no such screen carries a number tag today.

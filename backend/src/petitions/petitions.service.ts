@@ -275,19 +275,29 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   thoiHanUTDT: true,
   soTienBiThietHai: true,
   soLuongBiHai: true,
+  crimeChinhId: true,
   crimeChinh: { select: { name: true } },
-  // The prosecution decision fields (number, date, crime id) live in this JSON; Prisma cannot select a sub-key.
-  // Measured on 47,169 real petitions: 1.6 KB average per row (about 32 KB for a 20-row page).
+  // The prosecution decision fields (number, date, crime id) live in this JSON and Prisma cannot select a sub-key.
+  // `gonTruongKhoiTo` flattens those three values onto the row and DROPS `metadata` before the row leaves the
+  // service (measured on 47,169 real petitions: 1.6 KB per row, ~32 KB per 20-row page, mostly legacy text).
   metadata: true,
 } satisfies Prisma.PetitionSelect;
 
-/** Một dòng danh sách Đơn thư như `getList` trả. */
-export type DongDanhSachDonThu = Prisma.PetitionGetPayload<{
-  select: typeof CHON_DONG_DANH_SACH_DON_THU;
-}> & {
-  /** Name of the crime whose ID is stored in `metadata.toiDanhChinhKhoiToId`; resolved per page, not stored. */
-  toiDanhChinhKhoiToTen?: string | null;
-};
+/** The three prosecution-decision values a petition keeps in `metadata`, flattened onto the list row. */
+export interface TruongKhoiToPhang {
+  soQuyetDinhKhoiTo: string | null;
+  /** ISO text as stored (`yyyy-mm-dd`), not a Date: it comes from JSON. */
+  ngayKhoiTo: string | null;
+  /** Name of the crime whose ID is in `metadata.toiDanhChinhKhoiToId`; resolved per page, never stored. */
+  toiDanhChinhKhoiToTen: string | null;
+}
+
+/** Một dòng danh sách Đơn thư như `getList` trả (`metadata` đã được làm phẳng và bỏ đi). */
+export type DongDanhSachDonThu = Omit<
+  Prisma.PetitionGetPayload<{ select: typeof CHON_DONG_DANH_SACH_DON_THU }>,
+  'metadata'
+> &
+  Partial<TruongKhoiToPhang>;
 
 const MSG_GIO_TUONG_LAI = 'Giờ tiếp nhận không được ở tương lai (ngày hôm nay, giờ Việt Nam)';
 
@@ -466,13 +476,16 @@ export class PetitionsService {
   }
 
   /**
-   * Attach the crime NAME for the prosecution-decision crime stored by ID in `metadata.toiDanhChinhKhoiToId`.
-   * One lookup per page (or per export batch), only when some row carries an ID - a page without one costs nothing.
-   * An ID that matches no crime (deleted/unknown) yields `null`: a blank cell, never the raw ID.
+   * Flatten the prosecution-decision values stored in `metadata` onto the row and drop `metadata`.
+   *
+   * The crime is kept there as an ID, so its NAME is resolved with ONE lookup per page (or export batch), and only
+   * when some row carries an ID - a page without one costs nothing. An ID that matches no crime (deleted/unknown)
+   * yields `null`: a blank cell, never the raw ID. Dropping `metadata` keeps ~1.6 KB of mostly legacy text per row
+   * out of the list payload; nothing on the list reads it.
    */
-  private async gonTenToiDanhKhoiTo<T extends { metadata: unknown }>(
+  private async gonTruongKhoiTo<T extends { metadata: unknown }>(
     rows: T[],
-  ): Promise<Array<T & { toiDanhChinhKhoiToTen: string | null }>> {
+  ): Promise<Array<Omit<T, 'metadata'> & TruongKhoiToPhang>> {
     const idCuaDong = (r: T): string =>
       chuoiMetadata(r.metadata, 'toiDanhChinhKhoiToId');
     const ids = [...new Set(rows.map(idCuaDong).filter(Boolean))];
@@ -484,9 +497,12 @@ export class PetitionsService {
       });
       for (const c of toiDanh) ten.set(c.id, c.name);
     }
-    return rows.map((r) => ({
-      ...r,
-      toiDanhChinhKhoiToTen: ten.get(idCuaDong(r)) ?? null,
+    return rows.map(({ metadata, ...phan }) => ({
+      ...phan,
+      soQuyetDinhKhoiTo: chuoiMetadata(metadata, 'soQuyetDinhKhoiTo') || null,
+      ngayKhoiTo: chuoiMetadata(metadata, 'ngayKhoiTo') || null,
+      toiDanhChinhKhoiToTen:
+        ten.get(chuoiMetadata(metadata, 'toiDanhChinhKhoiToId')) ?? null,
     }));
   }
 
@@ -512,7 +528,7 @@ export class PetitionsService {
       }),
       this.prisma.petition.count({ where }),
     ]);
-    const data = await this.gonTenToiDanhKhoiTo(rows);
+    const data = await this.gonTruongKhoiTo(rows);
 
     return {
       success: true,
@@ -2268,7 +2284,7 @@ export class PetitionsService {
           })
         ).map((d) => d.id),
       layDong: async (ids) =>
-        this.gonTenToiDanhKhoiTo(
+        this.gonTruongKhoiTo(
           await this.prisma.petition.findMany({
             where: { id: { in: ids }, deletedAt: null },
             select: CHON_DONG_DANH_SACH_DON_THU,
@@ -2329,7 +2345,7 @@ export class PetitionsService {
           })
         ).map((d) => d.id),
       layDong: async (ids) =>
-        this.gonTenToiDanhKhoiTo(
+        this.gonTruongKhoiTo(
           await this.prisma.petition.findMany({
             where: { id: { in: ids }, deletedAt: null },
             select: CHON_DONG_DANH_SACH_DON_THU,

@@ -1042,3 +1042,141 @@ describe('PetitionListPageShell — hàng nút Bộ lọc căn thẳng', () => {
     expect(screen.getByTestId('btn-clear-filters').parentElement?.className).toContain('flex-wrap');
   });
 });
+
+/**
+ * 03/11/2026: every form field that holds data is searchable from the list. Each has a column that is hidden by
+ * default; choosing the tag of a hidden column filters AND switches that column on, so the officer sees the field
+ * they just filtered by.
+ */
+describe('PetitionListPageShell - hidden-column tags (every form field)', () => {
+  const mockGet = () => api.get as unknown as ReturnType<typeof vi.fn>;
+  const oThe = () => screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+  const thamSoCuoi = (url: string) => {
+    const goi = mockGet().mock.calls.filter((c) => c[0] === url);
+    return (goi[goi.length - 1]?.[1]?.params ?? {}) as Record<string, unknown>;
+  };
+  const dongDayDu = {
+    ...sampleRow,
+    stt: '2026-11171',
+    nhanThay: 'Bị can do Tổ công tác Số 8 thụ lý',
+    soPhieuChuyen: 'A16763',
+    huongXuLy: 'CHUYEN_DON',
+    laCongNgheCao: true,
+    soTienBiThietHai: 1500.5,
+    crimeChinhId: 'crime-1',
+    crimeChinh: { name: 'Tội lừa đảo chiếm đoạt tài sản' },
+    soQuyetDinhKhoiTo: 'KT-9',
+    ngayKhoiTo: '2026-09-12',
+    toiDanhChinhKhoiToTen: 'Tội giết người',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
+    // Saving the column layout is a PUT; the file-level mock only provides `get`.
+    (api as unknown as { put: ReturnType<typeof vi.fn> }).put = vi
+      .fn()
+      .mockResolvedValue({ data: {} });
+    mockGet().mockImplementation((url: string) => {
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      if (url === '/petitions') return Promise.resolve({ data: { data: [dongDayDu], total: 1 } });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  const HEADERS_MOI = [
+    'Số phiếu chuyển/ Công văn/ Ủy thác điều tra',
+    'Nhận xét',
+    'Đề xuất xử lý',
+    'Hướng xử lý',
+    'Tội phạm công nghệ cao',
+    'Số tiền bị thiệt hại (triệu Việt nam Đồng)',
+    'Số Quyết định Khởi tố vụ án',
+    'Ngày khởi tố',
+    'Tội danh chính khi khởi tố',
+    'Tội danh chính - BLHS 2015 (nhận định ban đầu)',
+  ];
+
+  it('the new columns are hidden by default but offered in the column picker', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('26-11171')).toBeInTheDocument());
+    for (const h of HEADERS_MOI) {
+      expect(screen.queryByRole('columnheader', { name: h })).not.toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    const menu = within(screen.getByTestId('column-picker-menu'));
+    for (const h of HEADERS_MOI) expect(menu.getByText(h)).toBeInTheDocument();
+  });
+
+  it('choosing the tag of a HIDDEN column filters by it and shows the column with the value', async () => {
+    renderWithRouter();
+    const o = await oThe();
+    fireEvent.change(o, { target: { value: 'to cong tac' } });
+    const dong = within(screen.getByRole('listbox'))
+      .getAllByRole('option')
+      .find((x) => (x.textContent ?? '').startsWith('Tìm Nhận xét:'));
+    expect(dong).toBeDefined();
+    fireEvent.click(dong!);
+
+    await waitFor(() => expect(thamSoCuoi('/petitions').tk).toEqual(['nhanXet~to cong tac']));
+    expect(await screen.findByRole('columnheader', { name: 'Nhận xét' })).toBeInTheDocument();
+    expect(screen.getByText('Bị can do Tổ công tác Số 8 thụ lý')).toBeInTheDocument();
+  });
+
+  it('choosing the tag of a VISIBLE column does not switch any hidden column on', async () => {
+    renderWithRouter();
+    const o = await oThe();
+    fireEvent.change(o, { target: { value: 'nguyen' } });
+    const dong = within(screen.getByRole('listbox'))
+      .getAllByRole('option')
+      .find((x) => (x.textContent ?? '').startsWith('Tìm Tên cá nhân'));
+    expect(dong).toBeDefined();
+    fireEvent.click(dong!);
+    await waitFor(() => expect(thamSoCuoi('/petitions').tk).toEqual(['nguoiGui~nguyen']));
+    expect(screen.queryByRole('columnheader', { name: 'Nhận xét' })).not.toBeInTheDocument();
+  });
+
+  it('"Hướng xử lý" offers its labels and sends the CODE', async () => {
+    renderWithRouter();
+    const o = await oThe();
+    fireEvent.change(o, { target: { value: 'chuyen don' } });
+    const dong = within(screen.getByRole('listbox'))
+      .getAllByRole('option')
+      .find((x) => (x.textContent ?? '').includes('Hướng xử lý: Chuyển đơn'));
+    expect(dong).toBeDefined();
+    fireEvent.click(dong!);
+    await waitFor(() => expect(thamSoCuoi('/petitions').tk).toEqual(['huongXuLy~CHUYEN_DON']));
+    // The column is switched on and shows the LABEL (the word also appears in the tag chip, so ask for the header).
+    expect(await screen.findByRole('columnheader', { name: 'Hướng xử lý' })).toBeInTheDocument();
+  });
+
+  // One page per column: the layout is saved through a mocked server, so a single toggle per render is what is reliable.
+  it.each([
+    ['soPhieuChuyen', 'Số phiếu chuyển/ Công văn/ Ủy thác điều tra', 'A16763'],
+    ['laCongNgheCao', 'Tội phạm công nghệ cao', 'Có'],
+    ['soTienBiThietHai', 'Số tiền bị thiệt hại (triệu Việt nam Đồng)', '1.500,5'],
+    ['soQuyetDinhKhoiTo', 'Số Quyết định Khởi tố vụ án', 'KT-9'],
+    ['toiDanhChinhKhoiTo', 'Tội danh chính khi khởi tố', 'Tội giết người'],
+    ['crimeChinh', 'Tội danh chính - BLHS 2015 (nhận định ban đầu)', 'Tội lừa đảo chiếm đoạt tài sản'],
+  ])('column %s shows its value once switched on', async (key, tieuDe, giaTri) => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('26-11171')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    fireEvent.click(within(screen.getByTestId(`column-toggle-${key}`)).getByRole('checkbox'));
+    expect(await screen.findByRole('columnheader', { name: tieuDe })).toBeInTheDocument();
+    expect(screen.getByText(giaTri)).toBeInTheDocument();
+  });
+
+  it('a record without the data shows a muted dash, not "undefined"/"null"', async () => {
+    mockGet().mockImplementation((url: string) => {
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({ data: { data: [{ ...sampleRow, stt: '2026-11171' }], total: 1 } });
+    });
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('26-11171')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    fireEvent.click(within(screen.getByTestId('column-toggle-soPhieuChuyen')).getByRole('checkbox'));
+    await screen.findByRole('columnheader', { name: 'Số phiếu chuyển/ Công văn/ Ủy thác điều tra' });
+    expect(document.body.textContent).not.toMatch(/undefined|null/);
+  });
+});
