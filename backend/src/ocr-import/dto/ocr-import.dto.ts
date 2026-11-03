@@ -18,6 +18,15 @@ export class OpenSessionDto {
   entity!: OcrEntityName;
 }
 
+export class StartRereadDto {
+  @IsIn(OCR_ENTITIES)
+  entity!: OcrEntityName;
+
+  @IsString()
+  @MaxLength(64)
+  recordId!: string;
+}
+
 export class ReorderPagesDto {
   @IsArray()
   @ArrayMaxSize(MAX_PAGE_IDS)

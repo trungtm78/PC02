@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Req,
   Res,
   StreamableFile,
   UploadedFile,
@@ -31,10 +32,13 @@ import {
   ReorderPagesDto,
   RequestReadDto,
   SaveTranscriptDto,
+  StartRereadDto,
 } from './dto/ocr-import.dto';
 import { OcrJobQueue } from './jobs/ocr-job-queue';
 import { OcrImportError } from './ocr-import-error';
 import { OcrIntakeService } from './ocr-intake.service';
+import { OcrRereadService } from './ocr-reread.service';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
 
 /** One scan per request, under nginx's 25 MB body limit. */
@@ -70,11 +74,27 @@ export class OcrImportController {
     private readonly sessions: OcrSessionsService,
     private readonly queue: OcrJobQueue,
     private readonly intake: OcrIntakeService,
+    private readonly reread: OcrRereadService,
   ) {}
 
   @Post('sessions')
   openSession(@Body() dto: OpenSessionDto, @CurrentUser() user: AuthUser) {
     return this.intake.openSession(dto.entity, user);
+  }
+
+  /**
+   * Reads the scans attached to a SAVED record again. Returns the new session and the job to follow; the result is a
+   * proposal the officer applies field by field through the ordinary update.
+   */
+  @Post('rereads')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle(READ_THROTTLE)
+  startReread(
+    @Body() dto: StartRereadDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.reread.start(dto.entity, dto.recordId, user, req.dataScope);
   }
 
   @Get('sessions/:id')

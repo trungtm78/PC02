@@ -8,6 +8,7 @@ import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import { OcrJobQueue } from './jobs/ocr-job-queue';
 import { OcrImportController } from './ocr-import.controller';
 import { OcrIntakeService } from './ocr-intake.service';
+import { OcrRereadService } from './ocr-reread.service';
 import { OcrSessionsService } from './sessions/ocr-sessions.service';
 
 const signedIn = {
@@ -43,6 +44,7 @@ describe('OcrImportController (HTTP)', () => {
     requestRead: jest.fn(),
     pageImage: jest.fn(),
   };
+  const reread = { start: jest.fn() };
   const actor = { id: 'u1' };
 
   beforeAll(async () => {
@@ -52,6 +54,7 @@ describe('OcrImportController (HTTP)', () => {
         { provide: OcrSessionsService, useValue: sessions },
         { provide: OcrJobQueue, useValue: queue },
         { provide: OcrIntakeService, useValue: intake },
+        { provide: OcrRereadService, useValue: reread },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -75,7 +78,7 @@ describe('OcrImportController (HTTP)', () => {
   });
 
   beforeEach(() => {
-    for (const group of [sessions, queue, intake]) {
+    for (const group of [sessions, queue, intake, reread]) {
       Object.values(group).forEach((fn) => fn.mockReset());
     }
   });
@@ -275,6 +278,33 @@ describe('OcrImportController (HTTP)', () => {
     expect(res.headers['content-type']).toContain('image/jpeg');
     expect(res.headers['cache-control']).toBe('private, no-store');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('starts a re-read of the scans of a saved record, with the signed-in user and their data scope', async () => {
+    reread.start.mockResolvedValue({ sessionId: 's9', jobId: 'j9', pages: 2 });
+    const res = await request(app.getHttpServer())
+      .post('/ocr/rereads')
+      .send({ entity: 'PETITION', recordId: 'pet-1' })
+      .expect(202);
+    expect(res.body).toEqual({ sessionId: 's9', jobId: 'j9', pages: 2 });
+    expect(reread.start).toHaveBeenCalledWith(
+      'PETITION',
+      'pet-1',
+      expect.objectContaining({ id: 'u1' }),
+      undefined,
+    );
+  });
+
+  it('refuses a re-read request with an unknown kind of record or no record id', async () => {
+    await request(app.getHttpServer())
+      .post('/ocr/rereads')
+      .send({ entity: 'USER', recordId: 'x' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/ocr/rereads')
+      .send({ entity: 'CASE' })
+      .expect(400);
+    expect(reread.start).not.toHaveBeenCalled();
   });
 
   it('cancels a session', async () => {

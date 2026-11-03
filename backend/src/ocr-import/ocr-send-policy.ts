@@ -45,14 +45,23 @@ export class OcrSendPolicy {
     await this.assertForRole(user.roleId);
   }
 
-  private async require(roleId: string, action: string): Promise<void> {
+  private require(roleId: string, action: string): Promise<void> {
+    return this.requirePermission(roleId, action, 'OcrImport');
+  }
+
+  /** Throws OCR_FORBIDDEN unless the role holds `action:subject`. */
+  async requirePermission(
+    roleId: string,
+    action: string,
+    subject: string,
+  ): Promise<void> {
     const granted = await this.prisma.rolePermission.count({
-      where: { roleId, permission: { action, subject: 'OcrImport' } },
+      where: { roleId, permission: { action, subject } },
     });
     if (granted === 0) {
       throw new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN, {
         action,
-        subject: 'OcrImport',
+        subject,
       });
     }
   }
