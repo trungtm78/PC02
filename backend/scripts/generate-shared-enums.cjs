@@ -66,6 +66,8 @@ const SHARED_ENUMS = [
   'CaseType', // v0.44 — UTDT
   'LoaiUyThac', // v0.44 — UTDT loại ủy thác
   'HuongXuLyDon', // v0.76 — ba hướng xử lý đơn thư (thay ô tích "Thuộc thẩm quyền")
+  'LlmProviderKind', // 03/11/2026 — màn cấu hình nhà cung cấp LLM
+  'LlmProviderRole', // 03/11/2026 — vai trò PRIMARY / FALLBACK / OFF
   'DynReportStatus', // PR4 — S01 Danh sách báo cáo
   'DynReportPeriodType', // PR4 — S01 cột "Loại kỳ"
   'DynReportSubmissionState', // PR6 — S11 trạng thái bản nộp

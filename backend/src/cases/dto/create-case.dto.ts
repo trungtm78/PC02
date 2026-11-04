@@ -1,3 +1,4 @@
+import { OcrOutcomeDto } from '../../ocr-import/dto/ocr-outcome.dto';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import {
   IsString,
@@ -157,6 +158,25 @@ export class CreateEvidenceInlineDto {
 }
 
 export class CreateCaseDto {
+  /** Scan-intake session the form was filled from, and the analysis it was filled with. Both or neither. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienBan?: string;
+
+  /** What the officer did with each field the scans filled (names and outcomes only), for quality statistics. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => OcrOutcomeDto)
+  ocrKetQua?: OcrOutcomeDto[];
+
   @IsOptional()
   @IsString()
   @IsNotEmpty()

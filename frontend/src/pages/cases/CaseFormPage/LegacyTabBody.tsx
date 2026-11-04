@@ -18,7 +18,7 @@ import { CASE_NULLABLE_BOOLEAN_FIELDS, readCasePath, unchangedCaseFallback, conf
 import { CaseNullableBooleanField } from '@/features/cases/CaseNullableBooleanField';
 import { nativeFieldAllowed, useNativeFieldPolicies } from '@/features/cases/native-field-policy';
 
-interface Props extends Pick<TabProps, "formData" | "setFormData" | "errors" | "setErrors"> {
+interface Props extends Pick<TabProps, "formData" | "setFormData" | "errors" | "setErrors" | "ocrNotes"> {
   tabId: LegacyTabId;
   /** Khối luôn hiện, đặt trên bố cục hệ cũ. Dùng cho ô bắt buộc của hệ mới. */
   pinnedTop?: ReactNode;
@@ -31,6 +31,26 @@ interface Props extends Pick<TabProps, "formData" | "setFormData" | "errors" | "
   nhom?: readonly NhomOKhai<CaseFormData>[];
 }
 
+/** Puts the scan-intake notes after whatever annotation a field already has. */
+function withOcrNotes(
+  annotations: Record<string, ReactNode>,
+  notes: Record<string, ReactNode> | undefined,
+): Record<string, ReactNode> {
+  if (!notes) return annotations;
+  const merged: Record<string, ReactNode> = { ...annotations };
+  for (const [field, note] of Object.entries(notes)) {
+    merged[field] = annotations[field] ? (
+      <div className="space-y-1">
+        {annotations[field]}
+        {note}
+      </div>
+    ) : (
+      note
+    );
+  }
+  return merged;
+}
+
 export function LegacyTabBody({
   tabId,
   formData,
@@ -41,6 +61,7 @@ export function LegacyTabBody({
   afterLegacy,
   renderOverride,
   nhom,
+  ocrNotes,
   children,
 }: Props) {
   const policies = useNativeFieldPolicies();
@@ -81,7 +102,7 @@ export function LegacyTabBody({
       afterLegacy={afterLegacy}
       renderOverride={{ ...nullableOverrides, ...renderOverride, ...readonlyOverrides }}
       oAn={hiddenFields}
-      sauO={sourceAnnotations}
+      sauO={withOcrNotes(sourceAnnotations, ocrNotes)}
       nhom={nhom}
     >
       {children}

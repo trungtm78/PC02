@@ -1,5 +1,6 @@
+import { OcrOutcomeDto } from '../../ocr-import/dto/ocr-outcome.dto';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsObject,
   IsString,
@@ -8,6 +9,8 @@ import {
   IsArray,
   MaxLength,
   MinLength,
+  ArrayMaxSize,
+  ValidateNested,
 } from 'class-validator';
 import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
 import {
@@ -22,6 +25,25 @@ import { IsCatalogValue } from '../../common/validators/is-catalog-value.validat
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class CreateIncidentDto {
+  /** Scan-intake session the form was filled from, and the analysis it was filled with. Both or neither. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienBan?: string;
+
+  /** What the officer did with each field the scans filled (names and outcomes only), for quality statistics. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => OcrOutcomeDto)
+  ocrKetQua?: OcrOutcomeDto[];
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

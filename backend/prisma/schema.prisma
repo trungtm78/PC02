@@ -4484,3 +4484,288 @@ model DynReportIdempotency {
   @@unique([actorId, action, key])
   @@map("dyn_report_idempotency_records")
 }
+
+// ─────────────────────────────────────────────
+// LLM providers for scan-image intake (admin-configured)
+// The API key is stored encrypted ("v<keyVersion>:iv:ciphertext:authTag") and is never returned by the API.
+// ─────────────────────────────────────────────
+enum LlmProviderKind {
+  ANTHROPIC
+  GEMINI
+  OPENAI
+  SELF_HOSTED
+}
+
+enum LlmProviderRole {
+  PRIMARY
+  FALLBACK
+  OFF
+}
+
+model LlmProvider {
+  id                String          @id @default(cuid())
+  kind              LlmProviderKind
+  label             String
+  apiKeyEncrypted   String
+  apiKeyLast4       String
+  baseUrl           String? // SELF_HOSTED only
+  model             String
+  dataRegion        String? // where the provider says it processes data
+  zeroRetention     Boolean         @default(false)
+  /// Prices the administrator enters, in micro-USD per million tokens. Null = unknown, so the call cost is unknown.
+  inputPriceMicroUsdPerMTok  Int?
+  outputPriceMicroUsdPerMTok Int?
+  role              LlmProviderRole @default(OFF)
+  fallbackOrder     Int? // order among FALLBACK providers
+  /// sha256 of kind + model + baseUrl + key at the last PASSING test. A role needs this to match the current values.
+  testedFingerprint String?
+  lastTestAt        DateTime?
+  lastTestOk        Boolean?
+  lastTestCode      String?
+  lastTestLatencyMs Int?
+  lastTestById      String?
+  archivedAt        DateTime?
+  createdById       String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([role, archivedAt])
+  @@map("llm_providers")
+}
+
+/// Record that the unit has assessed the cross-border transfer of personal data (Law 91/2025).
+/// A cloud provider may be called only while an assessment exists that has not been withdrawn.
+model LlmTransferAssessment {
+  id            String    @id @default(cuid())
+  fileNumber    String
+  filedAt       DateTime
+  approvedById  String
+  note          String?
+  withdrawnAt   DateTime?
+  withdrawnById String?
+  createdAt     DateTime  @default(now())
+
+  @@index([withdrawnAt])
+  @@map("llm_transfer_assessments")
+}
+
+/// One row per provider call. Holds NO request or reply content: it is the evidence of what left the system.
+/// providerId is a plain string, not a relation, so the lineage survives archiving or deleting the provider.
+model LlmCallLineage {
+  id                    String          @id @default(cuid())
+  sessionRef            String?
+  userId                String?
+  providerId            String?
+  providerKind          LlmProviderKind
+  model                 String
+  dataRegion            String?
+  outcome               String
+  latencyMs             Int?
+  inputTokens           Int?
+  outputTokens          Int?
+  estimatedCostMicroUsd Int?
+  /// Images that left the system in this attempt (the unit of the per-user daily quota).
+  imagesSent            Int             @default(0)
+  promptVersion         String?
+  createdAt             DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([sessionRef])
+  @@index([userId, createdAt])
+  @@map("llm_call_lineage")
+}
+
+// ─────────────────────────────────────────────
+// Scan-image intake (OCR via LLM). A session holds the pages of ONE bundle; everything derived from them
+// is stored as an immutable revision so a late result can never overwrite a newer one.
+// ─────────────────────────────────────────────
+enum OcrEntity {
+  PETITION
+  INCIDENT
+  CASE
+}
+
+enum OcrSessionStatus {
+  OPEN
+  BOUND
+  CANCELLED
+  EXPIRED
+}
+
+enum OcrTranscriptSource {
+  MODEL
+  OFFICER
+}
+
+model OcrSession {
+  id              String           @id @default(cuid())
+  entity          OcrEntity
+  createdById     String
+  status          OcrSessionStatus @default(OPEN)
+  /// Id of the Petition/Incident/Case this session was bound to when the officer saved it.
+  boundRecordId   String?
+  boundAt         DateTime?
+  /// Set when the originals have been copied into the record's documents; NULL while a bound session still has work to do.
+  finalisedAt     DateTime?
+  /// Held while one instance copies the scans; a claim older than ten minutes is taken to belong to a dead instance.
+  finaliseClaimedAt DateTime?
+  /// Earliest time the sweeper may try again after a failure; NULL means now.
+  finaliseNextAt    DateTime?
+  finaliseAttempts  Int       @default(0)
+  /// Revision of the current page set; every change to the page list creates a new, immutable one.
+  pageSetRevision Int              @default(0)
+  /// An unbound session is purged after this; a bound one never is.
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  pages    OcrPage[]
+  pageSets OcrPageSet[]
+  analyses OcrAnalysis[]
+  jobs     OcrJob[]
+
+  @@index([createdById, status])
+  @@index([status, expiresAt])
+  @@index([status, finalisedAt])
+  @@map("ocr_sessions")
+}
+
+model OcrPage {
+  id                String     @id @default(cuid())
+  sessionId         String
+  session           OcrSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// sha256 of the ORIGINAL bytes as uploaded: the evidence of what the officer provided.
+  sha256            String
+  mimeType          String
+  sizeBytes         Int
+  originalPath      String
+  /// Copy sent to the provider (rotated, resized, EXIF stripped) and a description of the transforms applied.
+  derivedPath       String?
+  derivedTransforms String?
+  /// The Document this scan became when its session was bound to a record: makes finalisation idempotent.
+  documentId        String?
+  removedAt         DateTime?
+  createdAt         DateTime   @default(now())
+
+  transcripts OcrTranscript[]
+
+  @@index([sessionId])
+  @@map("ocr_pages")
+}
+
+/// An immutable, ordered list of the pages of a session at one revision: [{ id, sha256 }].
+model OcrPageSet {
+  id        String     @id @default(cuid())
+  sessionId String
+  session   OcrSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  revision  Int
+  pages     Json
+  createdAt DateTime   @default(now())
+
+  @@unique([sessionId, revision])
+  @@map("ocr_page_sets")
+}
+
+/// One revision of the text of one page. A new reading or an officer's correction adds a revision; none is edited.
+model OcrTranscript {
+  id            String              @id @default(cuid())
+  pageId        String
+  page          OcrPage             @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  revision      Int
+  text          String
+  source        OcrTranscriptSource
+  pageKind      String?
+  promptVersion String?
+  createdAt     DateTime            @default(now())
+
+  @@unique([pageId, revision])
+  @@map("ocr_transcripts")
+}
+
+/// Result of analysing the bundle for one input state. Exactly one analysis per session is current: the one whose
+/// inputFingerprint still equals the fingerprint of the session's present state.
+model OcrAnalysis {
+  id               String     @id @default(cuid())
+  sessionId        String
+  session          OcrSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  entity           OcrEntity
+  pageSetRevision  Int
+  inputFingerprint String
+  bundle           Json
+  cleaned          Json
+  issues           Json
+  projection       Json
+  promptVersions   Json
+  isCurrent        Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+
+  @@index([sessionId, isCurrent])
+  @@map("ocr_analyses")
+}
+
+enum OcrJobKind {
+  /// Transcribe every page, then analyse.
+  READ
+  /// Re-analyse the stored transcripts (after an officer corrected one): no provider call per page.
+  ANALYSE
+}
+
+enum OcrJobState {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Background work, claimed with FOR UPDATE SKIP LOCKED so it survives a restart and works with several instances.
+model OcrJob {
+  id               String      @id @default(cuid())
+  sessionId        String
+  session          OcrSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind             OcrJobKind
+  state            OcrJobState @default(QUEUED)
+  /// Fingerprint of the input state this job was queued for: asking twice for the same state is one job.
+  inputFingerprint String
+  attempts         Int         @default(0)
+  maxAttempts      Int         @default(3)
+  runAfter         DateTime    @default(now())
+  claimedBy        String?
+  claimedAt        DateTime?
+  finishedAt       DateTime?
+  lastErrorCode    String?
+  createdById      String
+  createdAt        DateTime    @default(now())
+
+  @@index([state, runAfter])
+  @@index([sessionId, state])
+  @@map("ocr_jobs")
+}
+
+enum OcrFieldOutcomeKind {
+  /// The officer saved the value as it was read.
+  KEPT
+  /// The officer changed it.
+  EDITED
+  /// The officer emptied it.
+  CLEARED
+}
+
+/// What became of each field a reading filled, recorded when the record is saved. Names and outcomes only: no value,
+/// so statistics never copy anything read from a scan.
+model OcrFieldOutcome {
+  id            String              @id @default(cuid())
+  sessionId     String
+  entity        OcrEntity
+  field         String
+  outcome       OcrFieldOutcomeKind
+  mustConfirm   Boolean             @default(false)
+  providerKind  LlmProviderKind?
+  model         String?
+  promptVersion String?
+  createdAt     DateTime            @default(now())
+
+  @@index([createdAt])
+  @@index([entity, field])
+  @@index([sessionId])
+  @@map("ocr_field_outcomes")
+}

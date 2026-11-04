@@ -5,6 +5,8 @@ export const LOAI_TAI_LIEU: { type: string; code: string; name: string; order: n
   { type: 'DOCUMENT_TYPE', code: 'AM_THANH',  name: 'Âm thanh', order: 4 },
   { type: 'DOCUMENT_TYPE', code: 'KHAC',      name: 'Khác', order: 5 },
   { type: 'DOCUMENT_TYPE', code: 'KET_QUA_DON_VI_XU_LY', name: 'Kết quả từ đơn vị xử lý', order: 6 },
+  // Ảnh scan đã dùng để nhập hồ sơ (tính năng ocr_import): gắn vào hồ sơ khi cán bộ Lưu.
+  { type: 'DOCUMENT_TYPE', code: 'BAN_SCAN', name: 'Bản scan', order: 7 },
 ];
 
 /**

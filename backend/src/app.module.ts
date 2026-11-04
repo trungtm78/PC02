@@ -42,6 +42,8 @@ import { UserTableLayoutsModule } from './user-table-layouts/user-table-layouts.
 import { UserExportPreferencesModule } from './user-export-preferences/user-export-preferences.module';
 import { TdacModule } from './reports/tdac/tdac.module';
 import { EventCategoriesModule } from './event-categories/event-categories.module';
+import { LlmModule } from './llm/llm.module';
+import { OcrImportModule } from './ocr-import/ocr-import.module';
 import { CalendarEventsModule } from './calendar-events/calendar-events.module';
 import { EventRemindersModule } from './event-reminders/event-reminders.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -122,6 +124,8 @@ import { CatalogModule } from './catalog/catalog.module';
     AdminUnitsModule, // v0.34.0.0
     TdacModule,
     EventCategoriesModule,
+    LlmModule,
+    OcrImportModule,
     CalendarEventsModule,
     EventRemindersModule,
     DocumentNumbersModule,

@@ -70,7 +70,14 @@ import {
 import {
   INCIDENT_LEGACY_SPEC,
   KHOA_NHANH_PHU,
+  dichLuu,
+  type IncidentFieldPath,
 } from "@/features/incidents/legacy-form-binding";
+import type { CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
+import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
+import { OcrRereadPanel } from "@/features/ocr-import/OcrRereadPanel";
+import type { FormAccess } from "@/features/ocr-import/fillPlan";
+import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
 import { NHOM_O_VU_VIEC } from "@/features/incidents/nhom-o.def";
 import {
   INITIAL_INCIDENT_FORM,
@@ -128,6 +135,20 @@ function CollapsibleSection({
     </div>
   );
 }
+
+/** The form as the scan-intake code sees it: read and write a field by the name the layout gives it. */
+const INCIDENT_OCR_ACCESS: FormAccess<IncidentFormData> = {
+  read: (form, field) => INCIDENT_LEGACY_SPEC.read(form, field as IncidentFieldPath),
+  write: (form, field, value) =>
+    INCIDENT_LEGACY_SPEC.write(form, field as IncidentFieldPath, value),
+};
+
+/** The caption of each field on the form, for the lists that name fields outside their place in the layout. */
+const INCIDENT_CAPTION_BY_FIELD: ReadonlyMap<string, string> = new Map(
+  Object.values(INCIDENT_LEGACY_SPEC.layout).flatMap((items) =>
+    items.map((item): [string, string] => [item.field, item.caption]),
+  ),
+);
 
 export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   const navigate = useNavigate();
@@ -411,6 +432,44 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
     defaults.primaryTeamName,
   ]);
 
+  // ── Entering the record from scanned images (feature flag ocr_import) ──
+  // The form as a fresh create screen starts, defaults included: what "the officer has not touched" is measured against.
+  const [ocrBaseline, setOcrBaseline] = useState<IncidentFormData | undefined>(undefined);
+  useEffect(() => {
+    // A copied record starts from a blank form plus the copied values, which are the officer's, not defaults.
+    if (cloneInput) {
+      setOcrBaseline(INITIAL_INCIDENT_FORM);
+      return;
+    }
+    if (isEditMode || !defaults.isLoaded) return;
+    setOcrBaseline({
+      ...INITIAL_INCIDENT_FORM,
+      ngayDeXuat: defaults.today,
+      canBoNhapId: defaults.userId || "",
+      investigatorId: defaults.userId || "",
+      donViGiaiQuyet: defaults.primaryTeamName || "",
+      assignedTeamId: defaults.primaryTeamId || "",
+    });
+  }, [
+    isEditMode,
+    cloneInput,
+    defaults.isLoaded,
+    defaults.today,
+    defaults.userId,
+    defaults.primaryTeamId,
+    defaults.primaryTeamName,
+  ]);
+  const ocr = useOcrFormIntake({
+    entity: "INCIDENT",
+    access: INCIDENT_OCR_ACCESS,
+    form: formData,
+    setForm: setFormData,
+    baseline: ocrBaseline,
+    saved: isEditMode || createdId !== null,
+    // The server names fields as the shared layout does; this form keeps some of them under its own column names.
+    toFormPath: (field) => dichLuu(field as CaseFieldPath),
+  });
+
   // Load users for investigator / canBoNhap pickers
   // Fetch existing data in edit mode
   useEffect(() => {
@@ -482,6 +541,18 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   }> => {
     if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
     if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
+    // Fields taken from the scans that the system is not sure of must be confirmed first; the list is in the bar above.
+    if (ocr.saveBlockedMessage) {
+      setErrors([ocr.saveBlockedMessage]);
+      setTimeout(
+        () =>
+          document
+            .querySelector('[data-testid="ocr-fill-bar"]')
+            ?.scrollIntoView?.({ behavior: "smooth", block: "center" }),
+        0,
+      );
+      return { ok: false, id: null };
+    }
     if (!validateForm()) {
       if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: false, id: null };
@@ -516,6 +587,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
             : "/incidents",
           {
             ...payload,
+            ...ocr.bindingForSave(),
             acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [],
           },
           {
@@ -529,7 +601,11 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
         )?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
-        if (savedId) setCreatedId(savedId);
+        if (savedId) {
+          setCreatedId(savedId);
+          // The scans now belong to the saved record; this screen must not offer them again.
+          ocr.afterCreated();
+        }
       }
       // Refresh optimistic-lock baseline từ response → lưu lần 2 không gửi recordUpdatedAt cũ gây 409.
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
@@ -869,6 +945,24 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
           />
         )}
 
+        {isEditMode && id && (
+          <OcrRereadPanel
+            entity="INCIDENT"
+            recordId={id}
+            access={INCIDENT_OCR_ACCESS}
+            form={formData}
+            setForm={setFormData}
+            toFormPath={(field) => dichLuu(field as CaseFieldPath)}
+            captionOf={(field) => INCIDENT_CAPTION_BY_FIELD.get(field) ?? field}
+            visible={!chiXem}
+          />
+        )}
+        <OcrIntakeSection
+          ocr={ocr}
+          visible={!isEditMode && createdId === null && !chiXem}
+          captionOf={(field) => INCIDENT_CAPTION_BY_FIELD.get(field) ?? field}
+        />
+
         {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự.
             Hệ cũ dùng chung form `/doi-1/Them` cho Đơn thư, Vụ việc và Vụ án; đo lại
             27/08/2026 thì nút "Thêm mới" trên màn vụ việc trỏ thẳng tới đó. */}
@@ -902,6 +996,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
             renderOverride={oRieng}
             nhom={NHOM_O_VU_VIEC}
             oDangLoi={oDangLoi}
+            sauO={ocr.notes}
             disabled={chiXem}
           />
         )}
@@ -917,6 +1012,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
             renderOverride={oRieng}
             nhom={NHOM_O_VU_VIEC}
             oDangLoi={oDangLoi}
+            sauO={ocr.notes}
             disabled={chiXem}
           >
             {/* Section 1: Tiep nhan nguon tin */}

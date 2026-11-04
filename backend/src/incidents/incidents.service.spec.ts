@@ -35,6 +35,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentsService } from './incidents.service';
+import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { IncidentStatus, LoaiNguonTin, Prisma } from '@prisma/client';
@@ -212,6 +213,9 @@ const mockDeadlineRules = {
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
+// Scan-intake binder: a stand-in, its own behaviour is tested on PostgreSQL in ocr-import/binding.
+const mockOcrBinder = { bindIfRequested: jest.fn().mockResolvedValue(undefined) };
+
 describe('IncidentsService', () => {
   let service: IncidentsService;
 
@@ -225,6 +229,7 @@ describe('IncidentsService', () => {
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: OcrBinder, useValue: mockOcrBinder },
       ],
     }).compile();
 
@@ -945,6 +950,31 @@ describe('IncidentsService', () => {
         expect.objectContaining({ action: 'INCIDENT_CREATED' }),
         expect.anything(),
       );
+    });
+
+    it('binds the scan session the form was filled from, inside the same transaction as the record', async () => {
+      mockPrisma.incident.create.mockResolvedValue({ ...mockIncident, id: 'inc-new' });
+
+      await service.create(
+        { name: 'Vu viec test', incidentType: 'Hinh su', ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' } as any,
+        'actor-001',
+      );
+
+      expect(mockOcrBinder.bindIfRequested).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' }),
+        { entity: 'INCIDENT', recordId: 'inc-new', userId: 'actor-001' },
+      );
+    });
+
+    it('does not report success when the session cannot be bound', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+      mockOcrBinder.bindIfRequested.mockRejectedValueOnce(new Error('OCR_SESSION_CLOSED'));
+
+      await expect(
+        service.create({ name: 'Vu viec test', incidentType: 'Hinh su', ocrPhienId: 's' } as any, 'actor-001'),
+      ).rejects.toThrow('OCR_SESSION_CLOSED');
+      expect(mockAudit.log).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when fromDate > toDate', async () => {

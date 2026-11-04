@@ -2,9 +2,11 @@ import { laThoiDiemTuongLai } from '../common/utils/thoi-gian-vn.util';
 import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import type { Petition } from '@prisma/client';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import {
   Injectable,
+  Optional,
   NotFoundException,
   BadRequestException,
   ConflictException,
@@ -315,6 +317,7 @@ export class PetitionsService {
     private readonly caseCreation: CaseSourceCreationService,
     private readonly caseBoundary: CaseChildAccessService,
     private readonly caseEvidence: CaseEvidenceGovernanceService,
+    @Optional() private readonly ocrBinder?: OcrBinder,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -882,7 +885,7 @@ export class PetitionsService {
     }
 
     // enteredById is always the authenticated user (prevent forgery)
-    const record = await this.prisma.$transaction(async (tx: any) => {
+    const createRecord = async (tx: any) => {
       let resolvedStt: string;
       if (dto.stt) {
         resolvedStt = dto.stt;
@@ -954,6 +957,16 @@ export class PetitionsService {
           },
         },
       });
+    };
+    const record = await this.prisma.$transaction(async (tx: any) => {
+      const created = await createRecord(tx);
+      // Same transaction as the record: it is saved together with its link to the scans it was filled from, or not at all.
+      await this.ocrBinder?.bindIfRequested(tx, dto, {
+        entity: 'PETITION',
+        recordId: created.id,
+        userId: actorId,
+      });
+      return created;
     });
 
     await this.audit.log({

@@ -33,6 +33,7 @@ import { INVESTIGATION_SUPPLEMENTS_MANIFEST } from '../investigation-supplements
 import { MASTER_CLASS_MANIFEST } from '../master-class/feature.manifest';
 import { TEAMS_MANIFEST } from '../teams/feature.manifest';
 import { SETTINGS_MANIFEST } from '../settings/feature.manifest';
+import { OCR_IMPORT_MANIFEST } from '../llm/feature.manifest';
 import { WORKFLOW_MANIFEST } from '../workflow/feature.manifest';
 import { CLASSIFICATION_MANIFEST } from '../classification/feature.manifest';
 import { FEATURE_FLAGS_MANIFEST } from './feature.manifest';
@@ -75,6 +76,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   MASTER_CLASS_MANIFEST,
   TEAMS_MANIFEST,
   SETTINGS_MANIFEST,
+  OCR_IMPORT_MANIFEST, // scan-image intake read by an LLM; row inserted OFF by its migration
   WORKFLOW_MANIFEST,
   CLASSIFICATION_MANIFEST,
   FEATURE_FLAGS_MANIFEST,

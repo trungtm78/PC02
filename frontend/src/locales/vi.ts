@@ -19,6 +19,10 @@ export {
   getAuditActionLabel,
 } from '@/shared/enums/audit-action-labels';
 
+export { llmConfig } from './llmConfig.vi';
+export { ocrImport, ocrErrorText } from './ocrImport.vi';
+export { ocrQuality } from './ocrQuality.vi';
+
 // ── Error messages ────────────────────────────────────────────────────────────
 
 export const errors = {

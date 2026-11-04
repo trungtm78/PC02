@@ -13,8 +13,11 @@ import { DeadlineRulesModule } from '../deadline-rules/deadline-rules.module';
 import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
 import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 
+import { OcrBindingModule } from '../ocr-import/binding/ocr-binding.module';
+
 @Module({
   imports: [
+    OcrBindingModule,
     CaseChildAccessModule,
     AuditModule,
     SettingsModule,

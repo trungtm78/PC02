@@ -32,6 +32,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PetitionsService } from './petitions.service';
+import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
@@ -190,6 +191,9 @@ const mockDeadlineRules = {
   getActiveValue: jest.fn(),
 };
 
+// Scan-intake binder: a stand-in, because its own behaviour is tested on PostgreSQL in ocr-import/binding.
+const mockOcrBinder = { bindIfRequested: jest.fn().mockResolvedValue(undefined) };
+
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('PetitionsService', () => {
@@ -205,6 +209,7 @@ describe('PetitionsService', () => {
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: OcrBinder, useValue: mockOcrBinder },
       ],
     }).compile();
 
@@ -701,6 +706,33 @@ describe('PetitionsService', () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('thành công');
+    });
+
+    it('binds the scan session the form was filled from, inside the same transaction as the record', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue({ ...mockPetition, ...validDto, id: 'pet-new' });
+
+      await service.create(
+        { ...validDto, ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' } as CreatePetitionDto,
+        'user-001',
+      );
+
+      expect(mockOcrBinder.bindIfRequested).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' }),
+        { entity: 'PETITION', recordId: 'pet-new', userId: 'user-001' },
+      );
+    });
+
+    it('does not save the petition when the session cannot be bound', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue({ ...mockPetition, ...validDto });
+      mockOcrBinder.bindIfRequested.mockRejectedValueOnce(new Error('OCR_SESSION_CLOSED'));
+
+      await expect(
+        service.create({ ...validDto, ocrPhienId: 'sess-1', ocrPhienBan: 'a' } as CreatePetitionDto, 'user-001'),
+      ).rejects.toThrow('OCR_SESSION_CLOSED');
+      expect(mockAudit.log).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException for future receivedDate', async () => {

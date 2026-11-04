@@ -110,6 +110,18 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'read', subject: 'Setting', description: 'Xem cấu hình hệ thống (system settings page)' },
   { action: 'write', subject: 'Setting', description: 'Sửa cấu hình hệ thống + seed defaults' },
 
+  // ── LLM provider configuration for scan-image intake (admin only: ADMIN receives every subject but CaseGovernance) ──
+  { action: 'read', subject: 'LlmConfig', description: 'Xem cấu hình nhà cung cấp LLM (không bao giờ trả khoá API)' },
+  { action: 'write', subject: 'LlmConfig', description: 'Thêm, sửa, kiểm thử, lưu trữ nhà cung cấp LLM và hồ sơ đánh giá chuyển dữ liệu ra nước ngoài' },
+
+  // ── Scan-image intake. ADMIN receives these automatically; other roles are granted by the role screen. ──
+  // `sendCloud` is deliberately separate: it allows scans to leave the country (Luật 91/2025).
+  { action: 'use', subject: 'OcrImport', description: 'Nhập đơn thư, vụ việc, vụ án từ ảnh scan' },
+  { action: 'sendInternal', subject: 'OcrImport', description: 'Cho phép gửi ảnh scan tới máy chủ LLM nội bộ' },
+  { action: 'sendCloud', subject: 'OcrImport', description: 'Cho phép gửi ảnh scan tới LLM đám mây (chuyển dữ liệu ra nước ngoài)' },
+
+  { action: 'read', subject: 'OcrQuality', description: 'Xem thống kê chất lượng và chi phí đọc ảnh scan (chỉ số đếm, không có nội dung)' },
+
   // ── Restore (v0.32.0.0) — khôi phục records đã soft-delete ────────────
   // Gắn duy nhất cho ADMIN qua role-permission mapping (xem grant block below).
   // Missing seed → @RequirePermissions trả 403 cho mọi user kể cả ADMIN.

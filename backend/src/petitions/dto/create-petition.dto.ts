@@ -1,3 +1,4 @@
+import { OcrOutcomeDto } from '../../ocr-import/dto/ocr-outcome.dto';
 import { DAU_GIO_PHUT } from '../../common/utils/thoi-gian-vn.util';
 import {
   IsString,
@@ -13,8 +14,10 @@ import {
   IsNumber,
   ValidateIf,
   IsIn,
+  ArrayMaxSize,
+  ValidateNested,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { PetitionStatus, LoaiDon, HuongXuLyDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
@@ -42,6 +45,25 @@ export const PHAN_LOAI_NGUON_TIN_VALUES = [
 export { PetitionStatus, LoaiDon };
 
 export class CreatePetitionDto {
+  /** Scan-intake session the form was filled from, and the analysis it was filled with. Both or neither. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ocrPhienBan?: string;
+
+  /** What the officer did with each field the scans filled (names and outcomes only), for quality statistics. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(300)
+  @ValidateNested({ each: true })
+  @Type(() => OcrOutcomeDto)
+  ocrKetQua?: OcrOutcomeDto[];
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
