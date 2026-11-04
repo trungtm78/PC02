@@ -4,6 +4,7 @@ import { mapFieldNames } from './mapFieldNames';
 import { ocrApi, type OcrAnalysisView, type OcrEntityName } from './ocrApi';
 import { errorCodeOf } from './useOcrIntake';
 import { useLatest } from './useLatest';
+import { sameMeaning } from './sameMeaning';
 
 export interface Difference {
   field: string;
@@ -128,8 +129,8 @@ export function useOcrReread<TForm>({
         quote: fill.provenance.quote,
       } satisfies Difference;
     });
-  const differences = all.filter((d) => d.current !== d.proposed && !handled.has(d.field));
-  const sameCount = all.filter((d) => d.current === d.proposed).length;
+  const differences = all.filter((d) => !sameMeaning(d.current, d.proposed) && !handled.has(d.field));
+  const sameCount = all.filter((d) => sameMeaning(d.current, d.proposed)).length;
 
   const apply = useCallback(
     (field: string) => {
