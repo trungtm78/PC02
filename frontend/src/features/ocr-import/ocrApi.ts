@@ -91,6 +91,8 @@ export const ocrApi = {
       await api.post<{ page: OcrPageView; pages?: OcrPageView[]; pageSetRevision: number }>(
         `/ocr/sessions/${id}/pages`,
         body,
+        // The shared client defaults to JSON; without this the server sees no file (OCR_FILE_MISSING).
+        { headers: { 'Content-Type': 'multipart/form-data' } },
       )
     ).data;
   },
