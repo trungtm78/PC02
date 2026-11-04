@@ -31,18 +31,8 @@ export interface ProviderView {
   updatedAt: string;
 }
 
-export interface TransferAssessment {
-  id: string;
-  fileNumber: string;
-  filedAt: string;
-  approvedById: string;
-  note: string | null;
-  createdAt: string;
-}
-
 export interface LlmStatus {
   keyConfigured: boolean;
-  assessment: TransferAssessment | null;
 }
 
 export type KeyTestStepId = 'NETWORK' | 'KEY' | 'MODEL' | 'READ_IMAGE' | 'SCHEMA';
@@ -110,8 +100,4 @@ export const llmApi = {
   remove: async (id: string) => {
     await api.delete(`/llm/providers/${id}`);
   },
-  createAssessment: async (input: { fileNumber: string; filedAt: string; note?: string }) =>
-    unwrap<TransferAssessment>(await api.post('/llm/transfer-assessment', input)),
-  withdrawAssessment: async () =>
-    unwrap<{ providersStopped: number }>(await api.post('/llm/transfer-assessment/withdraw')),
 };

@@ -24,7 +24,6 @@ import {
   CreateProviderDto,
   ListModelsDto,
   SetRoleDto,
-  TransferAssessmentDto,
   UpdateProviderDto,
 } from './dto/llm.dto';
 import { LlmKeyService } from './llm-key.service';
@@ -49,12 +48,11 @@ export class LlmAdminController {
     private readonly keys: LlmKeyService,
   ) {}
 
-  /** What the admin screen needs first: can the server store keys, and is a transfer assessment in force. */
+  /** What the admin screen needs first: can the server store keys. */
   @Get('status')
   @RequirePermissions({ action: 'read', subject: 'LlmConfig' })
-  async status() {
-    const assessment = await this.providers.activeAssessment();
-    return { keyConfigured: this.keys.isConfigured(), assessment };
+  status() {
+    return { keyConfigured: this.keys.isConfigured() };
   }
 
   @Get('providers')
@@ -173,24 +171,5 @@ export class LlmAdminController {
     @Req() req: Request,
   ): Promise<void> {
     await this.providers.remove(id, actorOf(user, req));
-  }
-
-  @Post('transfer-assessment')
-  @Throttle(WRITE_THROTTLE)
-  @RequirePermissions({ action: 'write', subject: 'LlmConfig' })
-  createAssessment(
-    @Body() dto: TransferAssessmentDto,
-    @CurrentUser() user: AuthUser,
-    @Req() req: Request,
-  ) {
-    return this.providers.createAssessment(dto, actorOf(user, req));
-  }
-
-  @Post('transfer-assessment/withdraw')
-  @HttpCode(HttpStatus.OK)
-  @Throttle(WRITE_THROTTLE)
-  @RequirePermissions({ action: 'write', subject: 'LlmConfig' })
-  withdrawAssessment(@CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.providers.withdrawAssessment(actorOf(user, req));
   }
 }

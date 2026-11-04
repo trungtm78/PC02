@@ -4533,8 +4533,9 @@ model LlmProvider {
   @@map("llm_providers")
 }
 
-/// Record that the unit has assessed the cross-border transfer of personal data (Law 91/2025).
-/// A cloud provider may be called only while an assessment exists that has not been withdrawn.
+/// Was: a record that the unit had assessed the cross-border transfer of personal data (Law 91/2025).
+// No longer used since 04/11/2026: the transfer-assessment gate was removed by the owner's decision. The table and its rows
+// stay so the migration history and anything already filed are kept; nothing reads or writes it.
 model LlmTransferAssessment {
   id            String    @id @default(cuid())
   fileNumber    String

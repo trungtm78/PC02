@@ -105,17 +105,13 @@ export function providerFingerprint(input: {
     .digest('hex');
 }
 
-export type RoleBlocker =
-  | 'ARCHIVED'
-  | 'NOT_TESTED'
-  | 'TRANSFER_ASSESSMENT_REQUIRED';
+export type RoleBlocker = 'ARCHIVED' | 'NOT_TESTED';
 
 /** Why a provider cannot hold a role right now, or null when it can. */
 export function roleBlocker(args: {
   kind: ProviderKind;
   testedFingerprint: string | null;
   currentFingerprint: string;
-  transferAssessmentActive: boolean;
   archived: boolean;
 }): RoleBlocker | null {
   if (args.archived) return 'ARCHIVED';
@@ -124,9 +120,6 @@ export function roleBlocker(args: {
     args.testedFingerprint !== args.currentFingerprint
   ) {
     return 'NOT_TESTED';
-  }
-  if (isCloudKind(args.kind) && !args.transferAssessmentActive) {
-    return 'TRANSFER_ASSESSMENT_REQUIRED';
   }
   return null;
 }

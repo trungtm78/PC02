@@ -12,9 +12,11 @@ import {
 } from './llmApi';
 import {
   DEFAULT_KIND,
+  defaultLabel,
   describeError,
   isCloudKind,
   microToUsdPerMTok,
+  modelWarning,
   pickDefaultModel,
   SUPPORTED_KINDS,
   usdPerMTokToMicro,
@@ -40,7 +42,9 @@ const inputClass =
 export function ProviderFormModal({ provider, onClose, onSaved }: Props) {
   const editing = provider !== null;
   const [kind, setKind] = useState<LlmProviderKind>(provider?.kind ?? DEFAULT_KIND);
-  const [label, setLabel] = useState(provider?.label ?? '');
+  const [label, setLabel] = useState(provider?.label ?? defaultLabel(provider?.kind ?? DEFAULT_KIND));
+  /** Until the administrator types a name, the name follows the kind: it is never left to the browser's autofill. */
+  const [labelTouched, setLabelTouched] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? '');
   const [model, setModel] = useState(provider?.model ?? '');
@@ -165,7 +169,9 @@ export function ProviderFormModal({ provider, onClose, onSaved }: Props) {
               value={kind}
               disabled={editing}
               onChange={(e) => {
-                setKind(e.target.value as LlmProviderKind);
+                const next = e.target.value as LlmProviderKind;
+                setKind(next);
+                if (!editing && !labelTouched) setLabel(defaultLabel(next));
                 setModels([]);
                 setReport(null);
               }}
@@ -187,7 +193,17 @@ export function ProviderFormModal({ provider, onClose, onSaved }: Props) {
 
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">{t.form.label}</span>
-            <input className={inputClass} value={label} onChange={(e) => setLabel(e.target.value)} aria-label={t.form.label} />
+            <input
+              className={inputClass}
+              name="llm-provider-label"
+              autoComplete="off"
+              value={label}
+              onChange={(e) => {
+                setLabel(e.target.value);
+                setLabelTouched(true);
+              }}
+              aria-label={t.form.label}
+            />
           </label>
 
           <label className="block text-sm sm:col-span-2">
@@ -195,7 +211,8 @@ export function ProviderFormModal({ provider, onClose, onSaved }: Props) {
             <input
               className={inputClass}
               type="password"
-              autoComplete="off"
+              name="llm-provider-api-key"
+              autoComplete="new-password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={editing ? t.form.apiKeyKeep : ''}
@@ -248,6 +265,11 @@ export function ProviderFormModal({ provider, onClose, onSaved }: Props) {
               </button>
             </div>
             {modelsNote && <span className="text-xs text-slate-500">{modelsNote}</span>}
+            {modelWarning(model) && (
+              <p className="mt-1 text-xs text-amber-700" data-testid="form-model-warning">
+                {t.smallModel}
+              </p>
+            )}
           </div>
 
           <label className="block text-sm">

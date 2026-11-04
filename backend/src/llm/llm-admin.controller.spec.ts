@@ -44,9 +44,6 @@ describe('LlmAdminController (HTTP)', () => {
     archive: jest.fn(),
     restore: jest.fn(),
     remove: jest.fn(),
-    activeAssessment: jest.fn(),
-    createAssessment: jest.fn(),
-    withdrawAssessment: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -194,28 +191,10 @@ describe('LlmAdminController (HTTP)', () => {
     expect(res.text).toBe('');
   });
 
-  it('files and withdraws a transfer assessment', async () => {
-    providers.createAssessment.mockResolvedValue({ id: 'a1' });
-    await request(app.getHttpServer())
-      .post('/llm/transfer-assessment')
-      .send({ fileNumber: 'DGTD-01', filedAt: '2026-11-01' })
-      .expect(201);
-    await request(app.getHttpServer())
-      .post('/llm/transfer-assessment')
-      .send({ fileNumber: 'DGTD-01', filedAt: 'not a date' })
-      .expect(400);
-    providers.withdrawAssessment.mockResolvedValue({ providersStopped: 1 });
-    const res = await request(app.getHttpServer())
-      .post('/llm/transfer-assessment/withdraw')
-      .expect(200);
-    expect(res.body).toEqual({ providersStopped: 1 });
-  });
-
-  it('reports whether keys can be stored and which assessment is in force', async () => {
-    providers.activeAssessment.mockResolvedValue({ id: 'a1' });
+  it('reports whether keys can be stored', async () => {
     const res = await request(app.getHttpServer())
       .get('/llm/status')
       .expect(200);
-    expect(res.body).toEqual({ keyConfigured: true, assessment: { id: 'a1' } });
+    expect(res.body).toEqual({ keyConfigured: true });
   });
 });

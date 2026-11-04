@@ -3,6 +3,7 @@ import { AlertCircle, Loader2, Plus, X } from 'lucide-react';
 import { llmConfig as t } from '@/locales/vi';
 import { LlmProviderRole } from '@/shared/enums/generated';
 import { KeyTestReportView } from './KeyTestReportView';
+import { SetupGuide } from './SetupGuide';
 import { ProviderFormModal } from './ProviderFormModal';
 import {
   llmApi,
@@ -10,7 +11,16 @@ import {
   type LlmStatus,
   type ProviderView,
 } from './llmApi';
-import { decodeApiError, describeError, isCloudKind, testBadge } from './llmConfig.logic';
+import {
+  decodeApiError,
+  describeError,
+  isCloudKind,
+  modelWarning,
+  nextStep,
+  setupSteps,
+  testBadge,
+  type SetupStepKey,
+} from './llmConfig.logic';
 
 type LoadState = 'LOADING' | 'READY' | 'FEATURE_OFF' | 'FORBIDDEN' | 'FAILED';
 
@@ -39,10 +49,8 @@ export function LlmConfigPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reports, setReports] = useState<Record<string, KeyTestReport>>({});
   const [modal, setModal] = useState<{ provider: ProviderView | null } | null>(null);
-  const [assessmentOpen, setAssessmentOpen] = useState(false);
-  const [fileNumber, setFileNumber] = useState('');
-  const [filedAt, setFiledAt] = useState('');
-  const [assessmentNote, setAssessmentNote] = useState('');
+  /** Where a message belongs: next to the provider the administrator was working on, not only at the top of the page. */
+  const [rowErrors, setRowErrors] = useState<Record<string, string[]>>({});
 
   const load = useCallback(async () => {
     try {
@@ -68,17 +76,27 @@ export function LlmConfigPage() {
   const run = async (id: string | null, action: () => Promise<unknown>, success = '') => {
     setBusyId(id);
     setActionErrors([]);
+    setRowErrors({});
     setNotice('');
     try {
       await action();
       if (success) setNotice(success);
       await load();
     } catch (error) {
-      setActionErrors(describeError(error));
+      const messages = describeError(error);
+      setActionErrors(messages);
+      // Explained where the administrator was working, not only at the top of the page.
+      if (id) setRowErrors({ [id]: messages });
     } finally {
       setBusyId(null);
     }
   };
+
+  /** Brings the message the administrator needs into view: the one next to their row first, else the one at the top. */
+  useEffect(() => {
+    const target = document.querySelector('[data-testid^="row-error-"]') ?? document.querySelector('[data-testid="action-errors"]');
+    target?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, [actionErrors, rowErrors]);
 
   const test = (provider: ProviderView) =>
     run(provider.id, async () => {
@@ -89,6 +107,21 @@ export function LlmConfigPage() {
   const setRole = (provider: ProviderView, role: LlmProviderRole) =>
     run(provider.id, () => llmApi.setRole(provider.id, role));
 
+  /**
+   * The whole way to "in use" from wherever the provider stands: test it if it has not passed, then make it the one in
+   * use. One click; a failed test stops there and its report is shown.
+   */
+  const activateProvider = (provider: ProviderView) =>
+    run(provider.id, async () => {
+      if (testBadge(provider) !== 'PASSED') {
+        const result = await llmApi.test(provider.id);
+        setReports((current) => ({ ...current, [provider.id]: result }));
+        if (!result.ok) return;
+      }
+      await llmApi.setRole(provider.id, LlmProviderRole.PRIMARY);
+      setNotice(t.actions.nowInUse(provider.label));
+    });
+
   const archive = (provider: ProviderView) => {
     if (!window.confirm(t.actions.archiveConfirm)) return Promise.resolve();
     return run(provider.id, () => llmApi.archive(provider.id));
@@ -97,35 +130,6 @@ export function LlmConfigPage() {
   const remove = (provider: ProviderView) => {
     if (!window.confirm(t.actions.removeConfirm)) return Promise.resolve();
     return run(provider.id, () => llmApi.remove(provider.id));
-  };
-
-  const fileAssessment = () =>
-    run(
-      null,
-      async () => {
-        await llmApi.createAssessment({
-          fileNumber: fileNumber.trim(),
-          filedAt,
-          ...(assessmentNote.trim() ? { note: assessmentNote.trim() } : {}),
-        });
-        setAssessmentOpen(false);
-        setFileNumber('');
-        setFiledAt('');
-        setAssessmentNote('');
-      },
-    );
-
-  const withdraw = async () => {
-    if (!window.confirm(t.assessment.withdrawConfirm)) return;
-    setActionErrors([]);
-    setNotice('');
-    try {
-      const { providersStopped } = await llmApi.withdrawAssessment();
-      setNotice(t.assessment.withdrawn(providersStopped));
-      await load();
-    } catch (error) {
-      setActionErrors(describeError(error));
-    }
   };
 
   if (state === 'LOADING') {
@@ -161,7 +165,20 @@ export function LlmConfigPage() {
   }
 
   const shown = providers.filter((p) => showArchived || !p.archivedAt);
-  const assessment = status?.assessment ?? null;
+  const steps = setupSteps({ keyConfigured: status?.keyConfigured ?? false, providers });
+  const upNext = nextStep(steps);
+
+  const doStep = (key: SetupStepKey) => {
+    const live = providers.filter((p) => p.archivedAt === null);
+    if (key === 'PROVIDER') setModal({ provider: null });
+    else if (key === 'TEST') {
+      const untested = live.find((p) => testBadge(p) !== 'PASSED');
+      if (untested) void test(untested);
+    } else if (key === 'ACTIVE') {
+      const candidate = live.find((p) => testBadge(p) === 'PASSED') ?? live[0];
+      if (candidate) void activateProvider(candidate);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -169,6 +186,8 @@ export function LlmConfigPage() {
         <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
         <p className="mt-1 text-sm text-slate-600">{t.subtitle}</p>
       </div>
+
+      <SetupGuide steps={steps} next={upNext} busy={busyId !== null} onAction={doStep} />
 
       {status && !status.keyConfigured && (
         <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800" role="alert" data-testid="key-not-configured">
@@ -194,50 +213,6 @@ export function LlmConfigPage() {
           {notice}
         </p>
       )}
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="assessment-title">
-        <h2 id="assessment-title" className="text-lg font-semibold text-slate-900">
-          {t.assessment.title}
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">{t.assessment.explain}</p>
-        {assessment ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm" data-testid="assessment-active">
-            <span className="rounded bg-green-100 px-2 py-0.5 text-green-800">{t.assessment.inForce}</span>
-            <span>
-              {t.assessment.fileNumber}: <strong>{assessment.fileNumber}</strong>
-            </span>
-            <span>
-              {t.assessment.filedAt}: {assessment.filedAt.slice(0, 10)}
-            </span>
-            <button type="button" onClick={() => void withdraw()} className="ml-auto rounded border border-red-300 px-3 py-1 text-red-700 hover:bg-red-50">
-              {t.assessment.withdraw}
-            </button>
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-amber-800" data-testid="assessment-none">
-            {t.assessment.none}
-          </p>
-        )}
-        {!assessmentOpen ? (
-          <button type="button" onClick={() => setAssessmentOpen(true)} className="mt-3 rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">
-            {t.assessment.record}
-          </button>
-        ) : (
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <input className="rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder={t.assessment.fileNumber} aria-label={t.assessment.fileNumber} value={fileNumber} onChange={(e) => setFileNumber(e.target.value)} />
-            <input type="date" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" aria-label={t.assessment.filedAt} value={filedAt} onChange={(e) => setFiledAt(e.target.value)} />
-            <input className="rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder={t.assessment.note} aria-label={t.assessment.note} value={assessmentNote} onChange={(e) => setAssessmentNote(e.target.value)} />
-            <div className="flex gap-2 sm:col-span-3">
-              <button type="button" onClick={() => void fileAssessment()} disabled={!fileNumber.trim() || !filedAt} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50">
-                {t.assessment.save}
-              </button>
-              <button type="button" onClick={() => setAssessmentOpen(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">
-                {t.assessment.cancel}
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="providers-title">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
@@ -291,7 +266,14 @@ export function LlmConfigPage() {
                         {t.kinds[p.kind]}{' '}
                         <span className="text-xs text-slate-500">{isCloudKind(p.kind) ? t.providers.cloudTag : t.providers.ownTag}</span>
                       </td>
-                      <td className="px-4 py-3 text-sm">{p.model}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {p.model}
+                        {modelWarning(p.model) && (
+                          <p className="mt-1 max-w-xs text-xs text-amber-700" data-testid={`model-warning-${p.id}`}>
+                            {t.smallModel}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-mono text-sm" data-testid={`key-${p.id}`}>
                         ••••{p.apiKeyLast4}
                       </td>
@@ -315,6 +297,23 @@ export function LlmConfigPage() {
                             </option>
                           ))}
                         </select>
+                        {!archived && p.role === LlmProviderRole.OFF && (
+                          <button
+                            type="button"
+                            onClick={() => void activateProvider(p)}
+                            disabled={busyId === p.id}
+                            className="mt-2 block rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {busyId === p.id ? t.actions.using : t.actions.use}
+                          </button>
+                        )}
+                        {rowErrors[p.id] && (
+                          <ul className="mt-2 max-w-xs space-y-1 rounded bg-red-50 p-2 text-xs text-red-700" role="alert" data-testid={`row-error-${p.id}`}>
+                            {rowErrors[p.id].map((message) => (
+                              <li key={message}>{message}</li>
+                            ))}
+                          </ul>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex flex-wrap gap-2">

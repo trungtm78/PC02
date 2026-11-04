@@ -81,15 +81,8 @@ run('LlmProvidersService on PostgreSQL', () => {
     ...overrides,
   });
 
-  const assessment = () =>
-    service.createAssessment(
-      { fileNumber: `${tag}-DGTD`, filedAt: new Date('2026-11-01') },
-      ACTOR,
-    );
-
   const wipe = async () => {
     await db.llmProvider.deleteMany({ where: { label: { startsWith: tag } } });
-    await db.llmTransferAssessment.deleteMany({});
   };
 
   beforeAll(async () => {
@@ -209,23 +202,14 @@ run('LlmProvidersService on PostgreSQL', () => {
     ).toBe('NOT_TESTED');
   });
 
-  it('refuses a cloud role without a transfer assessment, and allows it once one is filed', async () => {
+  it('a tested cloud provider can take a role at once: there is no further paperwork', async () => {
     const created = await service.create(input(), ACTOR);
     await service.test(created.id, ACTOR);
-    const blocked = await service
-      .setRole(created.id, { role: 'PRIMARY' }, ACTOR)
-      .catch((e: unknown) => e);
-    expect(
-      (blocked as { getResponse(): { reason: string } }).getResponse().reason,
-    ).toBe('TRANSFER_ASSESSMENT_REQUIRED');
-
-    await assessment();
     const view = await service.setRole(created.id, { role: 'PRIMARY' }, ACTOR);
     expect(view.role).toBe('PRIMARY');
   });
 
   it('a new PRIMARY demotes the old one to FALLBACK without breaking the one-primary rule', async () => {
-    await assessment();
     const a = await service.create(input({ label: `${tag}-a` }), ACTOR);
     const b = await service.create(input({ label: `${tag}-b` }), ACTOR);
     await service.test(a.id, ACTOR);
@@ -262,27 +246,6 @@ run('LlmProvidersService on PostgreSQL', () => {
     row = await storedRow(created.id);
     expect(row.role).toBe('OFF');
     expect(row.apiKeyLast4).toBe('4321');
-  });
-
-  it('withdrawing the transfer assessment takes cloud providers out of service at once, not self-hosted ones', async () => {
-    await assessment();
-    const cloud = await service.create(input({ label: `${tag}-cloud` }), ACTOR);
-    const own = await service.create(
-      input({
-        label: `${tag}-own`,
-        kind: 'SELF_HOSTED',
-        baseUrl: 'http://10.0.0.5:8000',
-      }),
-      ACTOR,
-    );
-    for (const p of [cloud, own]) await service.test(p.id, ACTOR);
-    await service.setRole(cloud.id, { role: 'PRIMARY' }, ACTOR);
-    await service.setRole(own.id, { role: 'FALLBACK' }, ACTOR);
-
-    await service.withdrawAssessment(ACTOR);
-    expect((await storedRow(cloud.id)).role).toBe('OFF');
-    expect((await storedRow(own.id)).role).toBe('FALLBACK');
-    expect(await service.activeAssessment()).toBeNull();
   });
 
   it('archive removes the role and blocks a new one; restore does not give it back; delete needs role OFF', async () => {
@@ -322,8 +285,7 @@ run('LlmProvidersService on PostgreSQL', () => {
     ).toBeNull();
   });
 
-  it('buildChain returns PRIMARY then FALLBACKs by order, skipping archived, OFF and cloud without an assessment', async () => {
-    await assessment();
+  it('buildChain returns PRIMARY then FALLBACKs by order, skipping archived and OFF ones', async () => {
     const names = ['p', 'f2', 'f1', 'off'];
     const made: Record<string, string> = {};
     for (const n of names) {
@@ -353,8 +315,12 @@ run('LlmProvidersService on PostgreSQL', () => {
       'model-f2',
     ]);
 
-    await service.withdrawAssessment(ACTOR);
-    expect(await service.buildChain()).toEqual([]);
+    // Switching the primary off takes it out of the chain at once.
+    await service.setRole(made.p, { role: 'OFF' }, ACTOR);
+    expect((await service.buildChain()).map((p) => p.model)).toEqual([
+      'model-f1',
+      'model-f2',
+    ]);
   });
 
   it('activeDestinations tells whether scans would leave for a cloud provider, without building any client', async () => {
@@ -362,7 +328,6 @@ run('LlmProvidersService on PostgreSQL', () => {
       cloud: false,
       internal: false,
     });
-    await assessment();
     const created = await service.create(
       input({ label: `${tag}-dest` }),
       ACTOR,
@@ -374,7 +339,7 @@ run('LlmProvidersService on PostgreSQL', () => {
       cloud: true,
       internal: false,
     });
-    await service.withdrawAssessment(ACTOR);
+    await service.setRole(created.id, { role: 'OFF' }, ACTOR);
     expect(await service.activeDestinations()).toEqual({
       cloud: false,
       internal: false,
