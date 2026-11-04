@@ -144,3 +144,24 @@
     --be-rong-cot-thao-tac: 2.5rem;
   }
 }
+
+/* The sliding bar of the "reading scans" progress panel; still when the user prefers less motion. */
+@keyframes ocr-progress-slide {
+  0% {
+    left: -35%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+.ocr-progress-slide {
+  animation: ocr-progress-slide 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ocr-progress-slide {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.4;
+  }
+}

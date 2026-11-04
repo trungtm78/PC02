@@ -24,12 +24,17 @@ const page = (id: string): OcrPageView => ({
   createdAt: '2026-11-03T00:00:00Z',
 });
 
-const job = (state: OcrJobView['state'], lastErrorCode: string | null = null): OcrJobView => ({
+const job = (
+  state: OcrJobView['state'],
+  lastErrorCode: string | null = null,
+  stage: OcrJobView['stage'] = null,
+): OcrJobView => ({
   id: 'j1',
   kind: 'READ',
   state,
   attempts: 1,
   lastErrorCode,
+  stage,
   createdAt: '2026-11-03T00:00:00Z',
   finishedAt: null,
 });
@@ -146,6 +151,67 @@ describe('useOcrIntake', () => {
     expect(api.read).toHaveBeenCalledWith('s1', 'READ');
     expect(onAnalysis).toHaveBeenCalledWith('s1', analysis());
     expect(result.current.analysis?.id).toBe('ana-1');
+  });
+
+  it('follows the step the server reports while the job runs, and when the reading was asked for', async () => {
+    api.read.mockResolvedValue({ id: 'j1', deduplicated: false });
+    // Each later answer waits for the test, so every step can be looked at while it is the current one.
+    const open: Array<() => void> = [];
+    const hold = () => new Promise<void>((resolve) => open.push(resolve));
+    api.job
+      .mockResolvedValueOnce(job('RUNNING', null, 'READING_PAGES'))
+      .mockImplementationOnce(async () => {
+        await hold();
+        return job('RUNNING', null, 'ANALYSING');
+      })
+      .mockImplementation(async () => {
+        await hold();
+        return job('SUCCEEDED');
+      });
+    api.analysis.mockResolvedValue(analysis());
+    const { result } = setup();
+    await act(() => result.current.addFiles([file('a')]));
+    const before = Date.now();
+
+    // `read` only returns when the job ends, so it is started without waiting for it.
+    let reading: Promise<void> = Promise.resolve();
+    act(() => {
+      reading = result.current.read('READ');
+    });
+    await waitFor(() => expect(result.current.stage).toBe('READING_PAGES'));
+    expect(result.current.startedAt).toBeGreaterThanOrEqual(before);
+    expect(result.current.readMode).toBe('READ');
+
+    await act(async () => open.shift()?.());
+    await waitFor(() => expect(result.current.stage).toBe('ANALYSING'));
+
+    await act(async () => {
+      await waitFor(() => expect(open.length).toBe(1));
+      open.shift()?.();
+    });
+    await act(() => reading);
+    expect(result.current.phase).toBe('DONE');
+  });
+
+  it('a new reading forgets the step of the previous one', async () => {
+    api.read.mockResolvedValue({ id: 'j1', deduplicated: false });
+    api.job.mockResolvedValueOnce(job('RUNNING', null, 'ANALYSING')).mockResolvedValue(job('SUCCEEDED'));
+    api.analysis.mockResolvedValue(analysis());
+    const { result } = setup();
+    await act(() => result.current.addFiles([file('a')]));
+    await act(() => result.current.read('ANALYSE'));
+    await waitFor(() => expect(result.current.phase).toBe('DONE'));
+    expect(result.current.readMode).toBe('ANALYSE');
+
+    // The second reading never ends here; cancelling it stops the polling.
+    api.cancel.mockResolvedValue(undefined);
+    api.job.mockResolvedValue(job('QUEUED'));
+    act(() => {
+      void result.current.read('READ');
+    });
+    expect(result.current.stage).toBeNull();
+    expect(result.current.readMode).toBe('READ');
+    await act(() => result.current.cancel());
   });
 
   it('a failed job ends in an error carrying its code, and fills nothing', async () => {

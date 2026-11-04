@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ocrErrorText, ocrImport } from '@/locales/vi';
+import { ReadingProgress } from './ReadingProgress';
 import { ReviewPanel } from './ReviewPanel';
 import type { useOcrIntake } from './useOcrIntake';
 
@@ -125,9 +126,14 @@ export function IntakeDrawer({ open, onClose, intake }: IntakeDrawerProps) {
       </button>
 
       {reading && (
-        <p className="text-sm text-slate-700" role="status">
-          {ocrImport.reading}
-        </p>
+        <ReadingProgress
+          kind={intake.readMode}
+          stage={intake.stage}
+          pageCount={intake.pages.length}
+          startedAt={intake.startedAt}
+          finalStep="fill"
+          canLeave
+        />
       )}
       {intake.phase === 'ERROR' && intake.errorCode && (
         <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">

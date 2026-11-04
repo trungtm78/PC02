@@ -14,6 +14,9 @@ const diff = (field: string, current: string, proposed: string, orange = false):
 const make = (over: Partial<RereadSectionProps['reread']> = {}): RereadSectionProps['reread'] => ({
   phase: 'IDLE',
   errorCode: null,
+  stage: null,
+  pageCount: 2,
+  startedAt: Date.now(),
   differences: [],
   sameCount: 0,
   appliedCount: 0,
@@ -48,7 +51,8 @@ describe('RereadSection', () => {
 
   it('says it is reading, and cannot be started twice meanwhile', () => {
     show(make({ phase: 'READING' }));
-    expect(screen.getByRole('status').textContent).toContain('Đang đọc');
+    expect(screen.getByRole('status').textContent).toContain('Hệ thống đang xử lý ảnh');
+    expect(screen.getByRole('status').textContent).toContain('So sánh với hồ sơ hiện tại');
     expect((screen.getByRole('button', { name: 'Đọc lại từ ảnh scan' }) as HTMLButtonElement).disabled).toBe(true);
   });
 

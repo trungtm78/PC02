@@ -60,6 +60,7 @@ const jobView = (job: OcrJob | null) =>
     state: job.state,
     attempts: job.attempts,
     lastErrorCode: job.lastErrorCode,
+    stage: job.state === 'RUNNING' ? job.stage : null,
     createdAt: job.createdAt,
     finishedAt: job.finishedAt,
   };

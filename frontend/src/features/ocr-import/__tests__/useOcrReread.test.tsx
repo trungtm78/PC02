@@ -40,8 +40,12 @@ const analysis = (...fills: ProjectionFill[]): OcrAnalysisView => ({
   promptVersions: {},
 });
 
-const job = (state: OcrJobView['state'], lastErrorCode: string | null = null): OcrJobView => ({
-  id: 'j1', kind: 'READ', state, attempts: 1, lastErrorCode,
+const job = (
+  state: OcrJobView['state'],
+  lastErrorCode: string | null = null,
+  stage: OcrJobView['stage'] = null,
+): OcrJobView => ({
+  id: 'j1', kind: 'READ', state, attempts: 1, lastErrorCode, stage,
   createdAt: '2026-11-03T00:00:00Z', finishedAt: null,
 });
 

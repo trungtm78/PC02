@@ -3,6 +3,7 @@ import {
   ocrApi,
   type OcrAnalysisView,
   type OcrEntityName,
+  type OcrJobStage,
   type OcrPageView,
   type ReadMode,
 } from './ocrApi';
@@ -62,6 +63,10 @@ export function useOcrIntake({
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<OcrAnalysisView | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** The step the running job reports, and when the reading was asked for: what the waiting panel shows. */
+  const [stage, setStage] = useState<OcrJobStage | null>(null);
+  const [mode, setMode] = useState<ReadMode>('READ');
+  const [startedAt, setStartedAt] = useState(0);
 
   const sessionRef = useRef<string | null>(null);
   /** The one request that opens the session, shared by every file chosen while it is still pending. */
@@ -170,6 +175,9 @@ export function useOcrIntake({
       const epoch = (epochRef.current += 1);
       setPhase('READING');
       setErrorCode(null);
+      setStage(null);
+      setMode(mode);
+      setStartedAt(Date.now());
       try {
         await ocrApi.read(id, mode);
         // Ask until the job ends. The server keeps working if this screen goes away; only the asking stops.
@@ -183,6 +191,7 @@ export function useOcrIntake({
             setPhase('ERROR');
             return;
           }
+          setStage(job?.stage ?? null);
         }
         const found = await ocrApi.analysis(id);
         if (epochRef.current !== epoch) return;
@@ -249,6 +258,9 @@ export function useOcrIntake({
     phase,
     errorCode,
     analysis,
+    stage,
+    readMode: mode,
+    startedAt,
     addFiles,
     movePage,
     removePage,
