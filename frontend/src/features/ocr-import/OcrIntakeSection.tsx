@@ -1,6 +1,7 @@
 import { ocrImport } from '@/locales/vi';
 import { FillBar } from './FillBar';
 import { IntakeDrawer } from './IntakeDrawer';
+import { ReadingProgress } from './ReadingProgress';
 import type { OcrFormIntake } from './useOcrFormIntake';
 
 export interface OcrIntakeSectionProps<TForm> {
@@ -25,6 +26,16 @@ export function OcrIntakeSection<TForm>({ ocr, captionOf, visible }: OcrIntakeSe
         onUndo={ocr.undo}
         undoConflicts={ocr.undoConflicts}
       />
+      {ocr.intake.phase === 'READING' && !ocr.drawerOpen && (
+        <ReadingProgress
+          kind={ocr.intake.readMode}
+          stage={ocr.intake.stage}
+          pageCount={ocr.intake.pages.length}
+          startedAt={ocr.intake.startedAt}
+          finalStep="fill"
+          canLeave
+        />
+      )}
       {ocr.restoreNotice === 'UNAVAILABLE' && (
         <p role="status" className="text-sm text-amber-800" data-testid="ocr-draft-unavailable">
           {ocrImport.draftScansUnavailable}

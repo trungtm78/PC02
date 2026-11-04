@@ -3,6 +3,8 @@ import type { Projection } from './fillPlan';
 
 export type OcrEntityName = 'PETITION' | 'INCIDENT' | 'CASE';
 export type OcrJobState = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+/** The step a running job is on; null until the server has started it. */
+export type OcrJobStage = 'READING_PAGES' | 'ANALYSING';
 
 export interface OcrSessionView {
   id: string;
@@ -29,6 +31,7 @@ export interface OcrJobView {
   state: OcrJobState;
   attempts: number;
   lastErrorCode: string | null;
+  stage: OcrJobStage | null;
   createdAt: string;
   finishedAt: string | null;
 }

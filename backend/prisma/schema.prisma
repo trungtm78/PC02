@@ -4734,6 +4734,8 @@ model OcrJob {
   claimedAt        DateTime?
   finishedAt       DateTime?
   lastErrorCode    String?
+  /// The step a RUNNING job is on (OCR_JOB_STAGE); only meaningful while it runs, so the screen can say what it waits for.
+  stage            String?
   createdById      String
   createdAt        DateTime    @default(now())
 

@@ -19,6 +19,7 @@ import {
   type SessionView,
 } from '../sessions/ocr-sessions.service';
 import { ImageStorageService } from '../storage/image-storage.service';
+import { OCR_JOB_STAGE, type OcrJobStage } from './ocr-job-stage';
 
 interface ReadContext {
   userId: string;
@@ -58,9 +59,32 @@ export class OcrReadExecutor {
     const context: ReadContext = { userId: actor.id, sessionRef: session.id };
 
     if (job.kind === 'READ') {
+      await this.markStage(job, OCR_JOB_STAGE.READING_PAGES);
       await this.readPages(session, pages, actor, context);
     }
+    await this.markStage(job, OCR_JOB_STAGE.ANALYSING);
     await this.analyse(session.id, actor, context);
+  }
+
+  /**
+   * Tells the screen which step the job is on. Purely informational, so a failed write must never fail the reading.
+   */
+  private async markStage(job: OcrJob, stage: OcrJobStage): Promise<void> {
+    try {
+      // Only the attempt that holds the claim may say where the job is: a worker that stalled and was replaced must not
+      // overwrite the step of the attempt that took over.
+      await this.prisma.ocrJob.updateMany({
+        where: {
+          id: job.id,
+          state: 'RUNNING',
+          claimedBy: job.claimedBy,
+          attempts: job.attempts,
+        },
+        data: { stage },
+      });
+    } catch {
+      // The job row may be gone (session cancelled); the reading itself decides what that means.
+    }
   }
 
   private async readPages(

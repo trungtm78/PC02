@@ -225,6 +225,62 @@ run('OcrReadExecutor on PostgreSQL', () => {
       expect(calls.every((c) => c.context.userId === alice.id)).toBe(true);
     });
 
+    it('records which step the job is on while it works, so the screen can say what it waits for', async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      await addScan(s.id, 200);
+      const job = await jobFor(s.id, 'READ');
+      const seen: Array<string | null> = [];
+      const stageNow = async () =>
+        (await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } })).stage;
+      duringReading = async () => {
+        seen.push(await stageNow());
+      };
+      duringAnalysis = async () => {
+        seen.push(await stageNow());
+      };
+
+      await executor.execute(job);
+
+      expect(seen).toEqual(['READING_PAGES', 'ANALYSING']);
+    });
+
+    it('a worker that lost its claim cannot change the step of the attempt that replaced it', async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      await addScan(s.id, 200);
+      const job = await jobFor(s.id, 'READ');
+      // Recovery gave the job to another attempt while this worker was stalled.
+      await db.ocrJob.update({
+        where: { id: job.id },
+        data: { attempts: 2, stage: 'READING_PAGES' },
+      });
+      const seen: Array<string | null> = [];
+      duringAnalysis = async () => {
+        seen.push(
+          (await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } })).stage,
+        );
+      };
+
+      await executor.execute(job);
+
+      expect(seen).toEqual(['READING_PAGES']);
+    });
+
+    it('an analysis-only job goes straight to the analysing step', async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      await addScan(s.id, 200);
+      await executor.execute(await jobFor(s.id, 'READ'));
+      const job = await jobFor(s.id, 'ANALYSE');
+      let seen: string | null = null;
+      duringAnalysis = async () => {
+        seen = (await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } }))
+          .stage;
+      };
+
+      await executor.execute(job);
+
+      expect(seen).toBe('ANALYSING');
+    });
+
     it('sends the provider a rotated copy without EXIF, and keeps that copy next to the original', async () => {
       const s = await sessions.createSession('PETITION', alice);
       await addScan(s.id, 200);

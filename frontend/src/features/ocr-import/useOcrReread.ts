@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { FormAccess } from './fillPlan';
 import { mapFieldNames } from './mapFieldNames';
-import { ocrApi, type OcrAnalysisView, type OcrEntityName } from './ocrApi';
+import { ocrApi, type OcrAnalysisView, type OcrEntityName, type OcrJobStage } from './ocrApi';
 import { errorCodeOf } from './useOcrIntake';
 import { useLatest } from './useLatest';
 import { sameMeaning } from './sameMeaning';
@@ -51,6 +51,9 @@ export function useOcrReread<TForm>({
   const [analysis, setAnalysis] = useState<OcrAnalysisView | null>(null);
   const [handled, setHandled] = useState<ReadonlySet<string>>(new Set());
   const [appliedCount, setAppliedCount] = useState(0);
+  const [stage, setStage] = useState<OcrJobStage | null>(null);
+  const [pageCount, setPageCount] = useState(0);
+  const [startedAt, setStartedAt] = useState(0);
   const formRef = useLatest(form);
   /** Bumped by start/close so a poll still in flight for an older request stops quietly. */
   const epochRef = useRef(0);
@@ -82,6 +85,9 @@ export function useOcrReread<TForm>({
     setAnalysis(null);
     setHandled(new Set());
     setAppliedCount(0);
+    setStage(null);
+    setPageCount(0);
+    setStartedAt(Date.now());
     try {
       const started = await ocrApi.startReread(entity, recordId);
       if (epochRef.current !== mine) {
@@ -90,16 +96,20 @@ export function useOcrReread<TForm>({
         return;
       }
       sessionRef.current = started.sessionId;
+      setPageCount(started.pages);
       for (;;) {
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         if (epochRef.current !== mine) return;
         const job = await ocrApi.job(started.sessionId);
+        // Closed or restarted while the answer was on its way: it belongs to a reading that is gone.
+        if (epochRef.current !== mine) return;
         if (job?.state === 'SUCCEEDED') break;
         if (job?.state === 'FAILED') {
           setErrorCode(job.lastErrorCode ?? 'INTERNAL');
           setPhase('ERROR');
           return;
         }
+        setStage(job?.stage ?? null);
       }
       const found = await ocrApi.analysis(started.sessionId);
       if (epochRef.current !== mine) return;
@@ -157,8 +167,9 @@ export function useOcrReread<TForm>({
     setAnalysis(null);
     setHandled(new Set());
     setErrorCode(null);
+    setStage(null);
     await discard();
   }, [discard]);
 
-  return { phase, errorCode, differences, sameCount, appliedCount, start, apply, skip, close };
+  return { phase, errorCode, stage, pageCount, startedAt, differences, sameCount, appliedCount, start, apply, skip, close };
 }

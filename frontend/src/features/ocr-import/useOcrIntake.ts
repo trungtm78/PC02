@@ -3,6 +3,7 @@ import {
   ocrApi,
   type OcrAnalysisView,
   type OcrEntityName,
+  type OcrJobStage,
   type OcrPageView,
   type ReadMode,
 } from './ocrApi';
@@ -62,6 +63,10 @@ export function useOcrIntake({
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<OcrAnalysisView | null>(null);
   const [uploading, setUploading] = useState(false);
+  /** The step the running job reports, and when the reading was asked for: what the waiting panel shows. */
+  const [stage, setStage] = useState<OcrJobStage | null>(null);
+  const [mode, setMode] = useState<ReadMode>('READ');
+  const [startedAt, setStartedAt] = useState(0);
 
   const sessionRef = useRef<string | null>(null);
   /** The one request that opens the session, shared by every file chosen while it is still pending. */
@@ -170,6 +175,9 @@ export function useOcrIntake({
       const epoch = (epochRef.current += 1);
       setPhase('READING');
       setErrorCode(null);
+      setStage(null);
+      setMode(mode);
+      setStartedAt(Date.now());
       try {
         await ocrApi.read(id, mode);
         // Ask until the job ends. The server keeps working if this screen goes away; only the asking stops.
@@ -177,12 +185,15 @@ export function useOcrIntake({
           await new Promise((resolve) => setTimeout(resolve, pollMs));
           if (epochRef.current !== epoch) return;
           const job = await ocrApi.job(id);
+          // Cancelled or restarted while the answer was on its way: it belongs to a reading that is gone.
+          if (epochRef.current !== epoch) return;
           if (job?.state === 'SUCCEEDED') break;
           if (job?.state === 'FAILED') {
             setErrorCode(job.lastErrorCode ?? 'INTERNAL');
             setPhase('ERROR');
             return;
           }
+          setStage(job?.stage ?? null);
         }
         const found = await ocrApi.analysis(id);
         if (epochRef.current !== epoch) return;
@@ -218,6 +229,7 @@ export function useOcrIntake({
     setUploadErrors([]);
     setUploading(false);
     setErrorCode(null);
+    setStage(null);
     setPhase('IDLE');
     onEndedRef.current?.();
     if (id) await ocrApi.cancel(id).catch(() => undefined);
@@ -237,6 +249,7 @@ export function useOcrIntake({
     setUploadErrors([]);
     setUploading(false);
     setErrorCode(null);
+    setStage(null);
     setPhase('IDLE');
     onEndedRef.current?.();
   }, [onEndedRef]);
@@ -249,6 +262,9 @@ export function useOcrIntake({
     phase,
     errorCode,
     analysis,
+    stage,
+    readMode: mode,
+    startedAt,
     addFiles,
     movePage,
     removePage,

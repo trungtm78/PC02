@@ -1,4 +1,5 @@
 import { ocrErrorText, ocrImport } from '@/locales/vi';
+import { ReadingProgress } from './ReadingProgress';
 import type { useOcrReread } from './useOcrReread';
 
 export interface RereadSectionProps {
@@ -6,7 +7,7 @@ export interface RereadSectionProps {
   available: boolean;
   reread: Pick<
     ReturnType<typeof useOcrReread>,
-    'phase' | 'errorCode' | 'differences' | 'sameCount' | 'appliedCount' | 'start' | 'apply' | 'skip' | 'close'
+    'phase' | 'errorCode' | 'stage' | 'pageCount' | 'startedAt' | 'differences' | 'sameCount' | 'appliedCount' | 'start' | 'apply' | 'skip' | 'close'
   >;
   captionOf: (field: string) => string;
 }
@@ -38,9 +39,13 @@ export function RereadSection({ available, reread, captionOf }: RereadSectionPro
       </div>
 
       {reading && (
-        <p role="status" className="text-sm text-slate-700">
-          {ocrImport.rereadReading}
-        </p>
+        <ReadingProgress
+          kind="READ"
+          stage={reread.stage}
+          pageCount={reread.pageCount}
+          startedAt={reread.startedAt}
+          finalStep="compare"
+        />
       )}
       {reread.phase === 'ERROR' && reread.errorCode && (
         <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-800">

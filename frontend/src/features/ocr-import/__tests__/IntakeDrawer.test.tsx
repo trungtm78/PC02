@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../ReviewPanel', () => ({
   ReviewPanel: ({ onReanalyse }: { onReanalyse: () => void }) => (
@@ -28,6 +28,9 @@ const baseIntake = (over: Partial<IntakeDrawerProps['intake']> = {}): IntakeDraw
   phase: 'IDLE',
   errorCode: null,
   analysis: null,
+  stage: null,
+  readMode: 'READ',
+  startedAt: Date.now(),
   addFiles: vi.fn(() => Promise.resolve()),
   movePage: vi.fn(() => Promise.resolve()),
   removePage: vi.fn(() => Promise.resolve()),
@@ -78,8 +81,17 @@ describe('IntakeDrawer', () => {
 
   it('cannot start another reading while one is running, and says it is running', () => {
     show(baseIntake({ phase: 'READING' }));
-    expect(screen.getByText(/Đang đọc và phân tích/)).toBeTruthy();
+    expect(screen.getByTestId('ocr-reading-progress')).toBeTruthy();
     expect(readButton().disabled).toBe(true);
+  });
+
+  it('while reading, shows the step the server reports and the page count', () => {
+    show(baseIntake({ phase: 'READING', stage: 'ANALYSING' }));
+    const panel = screen.getByTestId('ocr-reading-progress');
+    expect(panel.textContent).toContain('Đọc chữ trên 2 trang ảnh');
+    const steps = within(within(panel).getByRole('list'));
+    expect(steps.getByText(/Phân tích nội dung/).closest('li')?.getAttribute('data-state')).toBe('now');
+    expect(steps.getByText('Đọc chữ trên 2 trang ảnh').closest('li')?.getAttribute('data-state')).toBe('done');
   });
 
   it('moves and removes pages', () => {
