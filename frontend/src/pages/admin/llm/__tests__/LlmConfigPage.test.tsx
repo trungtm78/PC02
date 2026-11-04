@@ -63,11 +63,11 @@ const report = (okValue: boolean): KeyTestReport => ({
   outputTokens: 147,
 });
 
-function serve(options: { providers?: ProviderView[]; keyConfigured?: boolean; assessment?: object | null } = {}) {
+function serve(options: { providers?: ProviderView[]; keyConfigured?: boolean } = {}) {
   get.mockImplementation((url: string) => {
     if (url === '/llm/status') {
       return Promise.resolve(
-        ok({ keyConfigured: options.keyConfigured ?? true, assessment: options.assessment ?? null }),
+        ok({ keyConfigured: options.keyConfigured ?? true }),
       ) as never;
     }
     if (url === '/llm/providers') return Promise.resolve(ok(options.providers ?? [provider()])) as never;
@@ -163,13 +163,13 @@ describe('roles', () => {
 
   it('explains in Vietnamese why the server blocked a role, from its reason code', async () => {
     serve({ providers: [provider({ test: passed })] });
-    post.mockRejectedValue(fail(409, 'LLM_ROLE_BLOCKED', [{ reason: 'TRANSFER_ASSESSMENT_REQUIRED' }]));
+    post.mockRejectedValue(fail(409, 'LLM_ROLE_BLOCKED', [{ reason: 'NOT_TESTED' }]));
     render(<LlmConfigPage />);
     await screen.findByTestId('provider-row-p1');
     fireEvent.change(roleSelect(), { target: { value: 'PRIMARY' } });
     const alert = await screen.findByTestId('action-errors');
     expect(alert.textContent).toContain('Chưa thể gán vai trò');
-    expect(alert.textContent).toContain('hồ sơ đánh giá tác động');
+    expect(alert.textContent).toContain('Cần kiểm thử đạt');
   });
 });
 
@@ -188,40 +188,13 @@ describe('testing a saved key', () => {
   });
 });
 
-describe('transfer assessment', () => {
-  it('warns that cloud providers are blocked while no assessment is in force', async () => {
-    serve();
-    render(<LlmConfigPage />);
-    expect((await screen.findByTestId('assessment-none')).textContent).toContain('bị chặn');
-  });
-
-  it('files an assessment with trimmed values', async () => {
-    serve();
-    post.mockResolvedValue(ok({ id: 'a1' }) as never);
-    render(<LlmConfigPage />);
-    await screen.findByTestId('assessment-none');
-    fireEvent.click(screen.getByText('Ghi nhận hồ sơ'));
-    fireEvent.change(screen.getByLabelText('Số hồ sơ'), { target: { value: '  DGTD-01 ' } });
-    fireEvent.change(screen.getByLabelText('Ngày nộp'), { target: { value: '2026-11-01' } });
-    fireEvent.click(screen.getByText('Lưu hồ sơ'));
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith('/llm/transfer-assessment', { fileNumber: 'DGTD-01', filedAt: '2026-11-01' }),
-    );
-  });
-
-  it('withdrawing asks first, and reports how many cloud providers were stopped', async () => {
-    serve({ assessment: { id: 'a1', fileNumber: 'DGTD-01', filedAt: '2026-11-01T00:00:00.000Z' } });
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
-    post.mockResolvedValue(ok({ providersStopped: 2 }) as never);
-    render(<LlmConfigPage />);
-    await screen.findByTestId('assessment-active');
-
-    fireEvent.click(screen.getByText('Rút hồ sơ'));
-    expect(post).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText('Rút hồ sơ'));
-    expect((await screen.findByTestId('notice')).textContent).toContain('ngừng 2 nhà cung cấp');
-    expect(confirm).toHaveBeenCalledTimes(2);
+describe('no transfer assessment step', () => {
+  it('the screen has no section for it any more: a tested cloud provider needs nothing else', async () => {
+    serve({ providers: [provider({ test: passed })] });
+    const { container } = render(<LlmConfigPage />);
+    await screen.findByTestId('provider-row-p1');
+    expect(container.textContent).not.toContain('Hồ sơ đánh giá tác động');
+    expect(screen.queryByText('Ghi nhận hồ sơ')).toBeNull();
   });
 });
 
@@ -285,11 +258,11 @@ describe('the provider form', () => {
     const dialog = await open();
     chooseKind(dialog, 'ANTHROPIC');
     fill(dialog, 'Khoá API', SECRET);
-    post.mockResolvedValue(ok([{ id: 'claude-opus-5-5' }, { id: 'claude-haiku-5-5' }]) as never);
+    post.mockResolvedValue(ok([{ id: 'claude-opus-5-5' }, { id: 'claude-haiku-5-5' }, { id: 'claude-sonnet-5-5' }]) as never);
     fireEvent.click(within(dialog).getByText('Tải danh sách model'));
-    await within(dialog).findByText('Đã tải 2 model từ nhà cung cấp.');
+    await within(dialog).findByText('Đã tải 3 model từ nhà cung cấp.');
     expect(post).toHaveBeenCalledWith('/llm/providers/list-models', { kind: 'ANTHROPIC', apiKey: SECRET });
-    expect((within(dialog).getByLabelText('Model') as HTMLSelectElement).value).toBe('claude-haiku-5-5');
+    expect((within(dialog).getByLabelText('Model') as HTMLSelectElement).value).toBe('claude-sonnet-5-5');
   });
 
   it('tests the typed key before it is saved, and shows the steps', async () => {

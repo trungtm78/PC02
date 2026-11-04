@@ -17,14 +17,15 @@ export const DEFAULT_KIND: LlmProviderKind = LlmProviderKind.GEMINI;
 /** Substring that marks the model family a provider should default to when the administrator has not chosen. */
 const PREFERRED: Partial<Record<LlmProviderKind, { prefer: string; avoid?: string }>> = {
   [LlmProviderKind.GEMINI]: { prefer: 'flash', avoid: 'lite' },
-  [LlmProviderKind.ANTHROPIC]: { prefer: 'haiku' },
+  // Haiku answered with a wrongly shaped analysis on 5 of 7 real handwritten bundles; Sonnet read all 7.
+  [LlmProviderKind.ANTHROPIC]: { prefer: 'sonnet' },
   [LlmProviderKind.OPENAI]: { prefer: 'mini', avoid: 'nano' },
 };
 
 const newestFirst = (a: string, b: string) => b.localeCompare(a, 'en', { numeric: true });
 
 /**
- * The model to preselect from the list a provider returned: Gemini Flash by default, Claude Haiku, an OpenAI mini
+ * The model to preselect from the list a provider returned: Gemini Flash by default, Claude Sonnet, an OpenAI mini
  * model. Newest wins within the preferred family; with no match the first model is used, so a choice always exists.
  */
 export function pickDefaultModel(kind: LlmProviderKind, ids: string[]): string | null {
@@ -103,4 +104,50 @@ export function describeError(error: unknown): string[] {
   const cause = details.map((d) => d.cause).find((c): c is string => typeof c === 'string');
   if (cause) return [`${base} ${t.testCodes[cause] ?? ''}`.trim()];
   return [base];
+}
+
+/** A readable name for a new provider, so the field is never left to whatever the browser autofills. */
+export function defaultLabel(kind: LlmProviderKind): string {
+  return t.defaultLabels[kind] ?? '';
+}
+
+/**
+ * A model that real scans showed to be unreliable for this job. Small Claude models misread handwriting and return an
+ * analysis of the wrong shape; the screen says so before the administrator relies on one.
+ */
+export type ModelWarning = 'SMALL_MODEL';
+export function modelWarning(model: string): ModelWarning | null {
+  return /haiku/i.test(model) ? 'SMALL_MODEL' : null;
+}
+
+export type SetupStepKey = 'KEY' | 'PROVIDER' | 'TEST' | 'ACTIVE';
+export interface SetupStep {
+  key: SetupStepKey;
+  done: boolean;
+}
+
+/** The few things that must be true, in the order they must be done, for the scan feature to work. */
+export function setupSteps(input: { keyConfigured: boolean; providers: ProviderView[] }): SetupStep[] {
+  const live = input.providers.filter((p) => p.archivedAt === null);
+  return [
+    { key: 'KEY', done: input.keyConfigured },
+    { key: 'PROVIDER', done: live.length > 0 },
+    { key: 'TEST', done: live.some((p) => testBadge(p) === 'PASSED') },
+    // A primary whose test is out of date is not callable (the server leaves it out), so it does not count as in use.
+    { key: 'ACTIVE', done: live.some((p) => p.role === 'PRIMARY' && testBadge(p) === 'PASSED') },
+  ];
+}
+
+/** The first step still to do, or null when everything is in place. */
+export function nextStep(steps: SetupStep[]): SetupStep | null {
+  return steps.find((s) => !s.done) ?? null;
+}
+
+export type RoleGate = 'ARCHIVED' | 'NOT_TESTED';
+
+/** What stands between a provider and a role: the same rule, in the same order, the server applies. */
+export function roleGate(provider: ProviderView): RoleGate | null {
+  if (provider.archivedAt !== null) return 'ARCHIVED';
+  if (testBadge(provider) !== 'PASSED') return 'NOT_TESTED';
+  return null;
 }

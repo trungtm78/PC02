@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   decodeApiError,
+  defaultLabel,
   isCloudKind,
   microToUsdPerMTok,
+  modelWarning,
+  nextStep,
   pickDefaultModel,
+  roleGate,
+  setupSteps,
   testBadge,
   usdPerMTokToMicro,
 } from '../llmConfig.logic';
@@ -36,10 +41,10 @@ describe('pickDefaultModel', () => {
     );
   });
 
-  it('defaults Anthropic to Haiku and OpenAI to a mini model', () => {
-    expect(pickDefaultModel('ANTHROPIC', ['claude-opus-5-5', 'claude-haiku-5-5'])).toBe(
-      'claude-haiku-5-5',
-    );
+  it('defaults Anthropic to Sonnet (Haiku misreads handwritten paperwork) and OpenAI to a mini model', () => {
+    expect(
+      pickDefaultModel('ANTHROPIC', ['claude-opus-5-5', 'claude-haiku-5-5', 'claude-sonnet-5-5']),
+    ).toBe('claude-sonnet-5-5');
     expect(pickDefaultModel('OPENAI', ['gpt-5', 'gpt-5-mini'])).toBe('gpt-5-mini');
   });
 
@@ -115,5 +120,109 @@ describe('testBadge', () => {
   });
   it('is FAILED after a failing test', () => {
     expect(testBadge(withTest({ ok: false, code: 'AUTH' }))).toBe('FAILED');
+  });
+});
+
+const provider = (patch: Partial<ProviderView> = {}): ProviderView => ({
+  id: 'p1',
+  kind: 'ANTHROPIC',
+  label: 'Claude',
+  apiKeyLast4: 'abcd',
+  baseUrl: null,
+  model: 'claude-sonnet-5-5',
+  dataRegion: null,
+  zeroRetention: false,
+  prices: { inputMicroUsdPerMTok: null, outputMicroUsdPerMTok: null },
+  role: 'OFF',
+  fallbackOrder: null,
+  archivedAt: null,
+  test: { at: null, ok: null, code: null, latencyMs: null, byId: null, current: false },
+  ...patch,
+} as ProviderView);
+
+const tested = (patch: Partial<ProviderView> = {}) =>
+  provider({ test: { at: 'x', ok: true, code: null, latencyMs: 1, byId: null, current: true }, ...patch });
+
+describe('setupSteps and nextStep', () => {
+  it('walks an empty server through the order the administrator has to follow', () => {
+    const none = setupSteps({ keyConfigured: false, providers: [] });
+    expect(none.map((s) => [s.key, s.done])).toEqual([
+      ['KEY', false],
+      ['PROVIDER', false],
+      ['TEST', false],
+      ['ACTIVE', false],
+    ]);
+    expect(nextStep(none)?.key).toBe('KEY');
+  });
+
+  it('moves on one step at a time: key, provider, test, then in use', () => {
+    expect(nextStep(setupSteps({ keyConfigured: true, providers: [] }))?.key).toBe('PROVIDER');
+    expect(nextStep(setupSteps({ keyConfigured: true, providers: [provider()] }))?.key).toBe('TEST');
+    expect(nextStep(setupSteps({ keyConfigured: true, providers: [tested()] }))?.key).toBe('ACTIVE');
+  });
+
+  it('is finished when a tested provider holds the primary role', () => {
+    const done = setupSteps({ keyConfigured: true, providers: [tested({ role: 'PRIMARY' })] });
+    expect(done.every((s) => s.done)).toBe(true);
+    expect(nextStep(done)).toBeNull();
+  });
+
+  it('does not count an archived provider, nor a test that no longer matches the saved settings', () => {
+    const steps = setupSteps({
+      keyConfigured: true,
+      providers: [
+        tested({ archivedAt: '2026-11-01T00:00:00Z', role: 'PRIMARY' }),
+        provider({ test: { at: 'x', ok: true, code: null, latencyMs: 1, byId: null, current: false } }),
+      ],
+    });
+    expect(steps.find((s) => s.key === 'TEST')?.done).toBe(false);
+    expect(steps.find((s) => s.key === 'ACTIVE')?.done).toBe(false);
+  });
+});
+
+describe('setupSteps: in use means a provider that can actually be called', () => {
+  it('does not report "in use" for a primary whose test no longer matches, even when another provider passed', () => {
+    const steps = setupSteps({
+      keyConfigured: true,
+      providers: [
+        // The primary was edited (or its key rotated): its test is out of date, so the server will not call it.
+        provider({
+          id: 'old',
+          role: 'PRIMARY',
+          test: { at: 'x', ok: true, code: null, latencyMs: 1, byId: null, current: false },
+        }),
+        tested({ id: 'new', role: 'OFF' }),
+      ],
+    });
+    expect(steps.find((s) => s.key === 'TEST')?.done).toBe(true);
+    expect(steps.find((s) => s.key === 'ACTIVE')?.done).toBe(false);
+    expect(nextStep(steps)?.key).toBe('ACTIVE');
+  });
+});
+
+describe('roleGate', () => {
+  it('names what stands between a provider and a role: only the test, for a cloud provider as for any other', () => {
+    expect(roleGate(provider())).toBe('NOT_TESTED');
+    expect(roleGate(tested())).toBeNull();
+    expect(roleGate(tested({ kind: 'SELF_HOSTED' }))).toBeNull();
+    expect(roleGate(tested({ archivedAt: '2026-11-01T00:00:00Z' }))).toBe('ARCHIVED');
+  });
+});
+
+describe('modelWarning', () => {
+  it('warns about a small model that real handwritten paperwork showed to be unreliable', () => {
+    expect(modelWarning('claude-haiku-5-5')).toBe('SMALL_MODEL');
+    expect(modelWarning('claude-sonnet-5-5')).toBeNull();
+    expect(modelWarning('gemini-2.5-flash')).toBeNull();
+    expect(modelWarning('')).toBeNull();
+  });
+});
+
+describe('defaultLabel', () => {
+  it('gives a new provider a readable name instead of whatever the browser autofilled', () => {
+    expect(defaultLabel('ANTHROPIC')).toBe('Claude');
+    expect(defaultLabel('GEMINI')).toBe('Gemini');
+    expect(defaultLabel('OPENAI')).toBe('OpenAI');
+    expect(defaultLabel('SELF_HOSTED')).toBe('Máy chủ nội bộ');
   });
 });

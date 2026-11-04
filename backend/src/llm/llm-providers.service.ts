@@ -88,15 +88,6 @@ export interface ChainEntry {
   provider: LlmProvider;
 }
 
-export interface AssessmentInput {
-  fileNumber: string;
-  filedAt: Date | string;
-  note?: string | null;
-}
-
-const MAX_FILE_NUMBER = 120;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 @Injectable()
 export class LlmProvidersService {
   constructor(
@@ -336,7 +327,6 @@ export class LlmProvidersService {
       kind: row.kind,
       testedFingerprint: row.testedFingerprint,
       currentFingerprint: this.currentFingerprint(row) ?? '',
-      transferAssessmentActive: (await this.activeAssessment()) !== null,
       archived: row.archivedAt !== null,
     });
     if (blocker) {
@@ -412,70 +402,10 @@ export class LlmProvidersService {
     });
   }
 
-  async activeAssessment() {
-    return this.prisma.llmTransferAssessment.findFirst({
-      where: { withdrawnAt: null },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async createAssessment(input: AssessmentInput, actor: Actor) {
-    const fileNumber = input.fileNumber.trim();
-    const filedAt = new Date(input.filedAt);
-    if (
-      !fileNumber ||
-      fileNumber.length > MAX_FILE_NUMBER ||
-      Number.isNaN(filedAt.getTime()) ||
-      filedAt.getTime() > Date.now() + DAY_MS
-    ) {
-      throw new LlmAdminError('LLM_ASSESSMENT_INVALID', HttpStatus.BAD_REQUEST);
-    }
-    const created = await this.prisma.llmTransferAssessment.create({
-      data: {
-        fileNumber,
-        filedAt,
-        note: input.note?.trim() || null,
-        approvedById: actor.id,
-      },
-    });
-    await this.record('LLM_ASSESSMENT_CREATED', actor, created.id, {
-      fileNumber,
-    });
-    return created;
-  }
-
-  /**
-   * Withdraws the assessment. Cloud providers lose their role in the same transaction, so nothing can still be
-   * sent abroad on the strength of an assessment that no longer stands. Self-hosted providers are unaffected.
-   */
-  async withdrawAssessment(
-    actor: Actor,
-  ): Promise<{ providersStopped: number }> {
-    const active = await this.activeAssessment();
-    if (!active) {
-      throw new LlmAdminError('LLM_ASSESSMENT_NOT_FOUND', HttpStatus.NOT_FOUND);
-    }
-    const stopped = await this.prisma.$transaction(async (tx) => {
-      await tx.llmTransferAssessment.updateMany({
-        where: { withdrawnAt: null },
-        data: { withdrawnAt: new Date(), withdrawnById: actor.id },
-      });
-      const result = await tx.llmProvider.updateMany({
-        where: { kind: { in: [...CLOUD_KINDS] }, role: { not: 'OFF' } },
-        data: this.clearedRole(),
-      });
-      return result.count;
-    });
-    await this.record('LLM_ASSESSMENT_WITHDRAWN', actor, active.id, {
-      providersStopped: stopped,
-    });
-    return { providersStopped: stopped };
-  }
-
   /**
    * Providers to try for a call, in order: PRIMARY, then FALLBACKs by order. A provider is left out when it is
-   * archived, when its test no longer matches its settings, or when it is a cloud kind and no transfer
-   * assessment is in force. The gateway calls this on every request, so a withdrawal takes effect immediately.
+   * archived or when its test no longer matches its settings. The gateway calls this on every request, so
+   * switching a provider off takes effect immediately.
    */
   async buildChain(): Promise<LlmProvider[]> {
     return (await this.buildChainEntries()).map((entry) => entry.provider);
@@ -517,8 +447,8 @@ export class LlmProvidersService {
 
   /**
    * Whether a provider may still be called right now. The gateway asks before every outbound attempt, because a call
-   * can wait (a retry delay, a queue) long enough for an administrator to withdraw the transfer assessment or switch
-   * the provider off, and personal data must not leave after that.
+   * can wait (a retry delay, a queue) long enough for an administrator to switch the provider off, and personal
+   * data must not leave after that.
    */
   async isEligible(providerId: string): Promise<boolean> {
     return (await this.eligibleRows()).some((row) => row.id === providerId);
@@ -526,7 +456,6 @@ export class LlmProvidersService {
 
   /** PRIMARY then FALLBACKs, minus every provider a call must not use right now. */
   private async eligibleRows() {
-    const assessmentActive = (await this.activeAssessment()) !== null;
     const rows = await this.prisma.llmProvider.findMany({
       where: { archivedAt: null, role: { in: ['PRIMARY', 'FALLBACK'] } },
     });
@@ -543,7 +472,6 @@ export class LlmProvidersService {
         kind: row.kind,
         testedFingerprint: row.testedFingerprint,
         currentFingerprint: fingerprint ?? '',
-        transferAssessmentActive: assessmentActive,
         archived: false,
       });
       return !blocker && fingerprint !== null;

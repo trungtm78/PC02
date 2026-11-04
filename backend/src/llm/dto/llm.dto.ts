@@ -8,7 +8,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 import { PROVIDER_KINDS } from '../provider-rules';
 import type { ProviderKind } from '../llm.types';
 
@@ -110,20 +109,6 @@ export class SetRoleDto {
   @Min(1)
   @Max(99)
   fallbackOrder?: number;
-}
-
-export class TransferAssessmentDto {
-  @IsString()
-  @MaxLength(120)
-  fileNumber!: string;
-
-  @IsNgayThat()
-  filedAt!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  note?: string | null;
 }
 
 /** Unsaved values the administrator typed, used only to ask the provider which models it offers. */

@@ -19,29 +19,39 @@ export const llmConfig = {
   genericFailure: 'Thao tác không thành công. Vui lòng thử lại.',
   dismiss: 'Đóng thông báo',
 
-  assessment: {
-    title: 'Hồ sơ đánh giá tác động chuyển dữ liệu ra nước ngoài',
-    explain:
-      'Dùng nhà cung cấp đặt ở nước ngoài là chuyển dữ liệu cá nhân xuyên biên giới (Luật Bảo vệ dữ liệu cá nhân 91/2025). Nhà cung cấp đám mây chỉ được gán vai trò và được gọi khi có hồ sơ đang hiệu lực. Máy chủ nội bộ không cần hồ sơ này.',
-    none: 'Chưa có hồ sơ đang hiệu lực: mọi nhà cung cấp đám mây đang bị chặn.',
-    inForce: 'Đang hiệu lực',
-    fileNumber: 'Số hồ sơ',
-    filedAt: 'Ngày nộp',
-    note: 'Ghi chú',
-    record: 'Ghi nhận hồ sơ',
-    save: 'Lưu hồ sơ',
-    cancel: 'Huỷ',
-    withdraw: 'Rút hồ sơ',
-    withdrawConfirm:
-      'Rút hồ sơ sẽ ngừng ngay mọi nhà cung cấp đám mây đang giữ vai trò. Tiếp tục?',
-    withdrawn: (count: number) =>
-      count > 0 ? `Đã rút hồ sơ và ngừng ${count} nhà cung cấp đám mây.` : 'Đã rút hồ sơ.',
+  defaultLabels: {
+    ANTHROPIC: 'Claude',
+    GEMINI: 'Gemini',
+    OPENAI: 'OpenAI',
+    SELF_HOSTED: 'Máy chủ nội bộ',
+  } as Record<string, string>,
+
+  setup: {
+    title: 'Các bước cài đặt',
+    intro: 'Làm lần lượt từ trên xuống. Bước đang chờ được tô đậm, bấm nút bên cạnh để làm ngay.',
+    allDone: 'Đã cài đặt xong. Mở màn tạo Đơn thư, Vụ việc hoặc Vụ án để thử “Nhập từ ảnh scan”.',
+    next: 'Việc tiếp theo',
+    steps: {
+      KEY: 'Máy chủ có khoá mã hoá khoá API',
+      PROVIDER: 'Thêm một nhà cung cấp (khoá API và model)',
+      TEST: 'Kiểm thử khoá đạt',
+      ACTIVE: 'Đặt một nhà cung cấp là “Đang dùng”',
+    } as Record<string, string>,
+    keyHelp: 'Cần quản trị hệ thống đặt LLM_KEY_ENCRYPTION_KEY trên máy chủ (docs/KEY-ROTATION.md, mục 6), rồi tải lại trang.',
+    actions: {
+      PROVIDER: 'Thêm nhà cung cấp đầu tiên',
+      TEST: 'Kiểm thử ngay',
+      ACTIVE: 'Dùng nhà cung cấp này',
+    } as Record<string, string>,
   },
+
+  smallModel:
+    'Model nhỏ (Haiku) đọc chữ viết tay kém: thử trên giấy tờ thật cho kết quả sai cấu trúc ở phần lớn các bộ. Nên chọn Sonnet trở lên hoặc Gemini Flash.',
 
   providers: {
     title: 'Nhà cung cấp',
     add: 'Thêm nhà cung cấp',
-    empty: 'Chưa có nhà cung cấp nào. Thêm một nhà cung cấp, kiểm thử khoá, rồi gán vai trò “Đang dùng”.',
+    empty: 'Chưa có nhà cung cấp nào. Thêm một nhà cung cấp, kiểm thử khoá, rồi đặt “Đang dùng”.',
     showArchived: 'Hiện cả nhà cung cấp đã lưu trữ',
     columns: {
       label: 'Tên',
@@ -87,6 +97,9 @@ export const llmConfig = {
     removeConfirm: 'Xoá hẳn nhà cung cấp này? Nhật ký các lần đã gọi vẫn được giữ.',
     archiveConfirm: 'Lưu trữ nhà cung cấp này? Vai trò sẽ về “Tắt”.',
     roleNeedsTest: 'Cần kiểm thử đạt với đúng khoá, model và địa chỉ đang lưu trước khi gán vai trò.',
+    use: 'Dùng nhà cung cấp này',
+    using: 'Đang xử lý…',
+    nowInUse: (label: string) => `Đã đặt “${label}” là nhà cung cấp đang dùng. Có thể thử “Nhập từ ảnh scan” ngay.`,
   },
 
   form: {
@@ -112,7 +125,7 @@ export const llmConfig = {
     outputPrice: 'Giá ra (USD / 1 triệu token)',
     priceHint: 'Dùng để tính chi phí và trần chi tiêu tháng. Để trống nghĩa là “chưa biết”, không phải miễn phí.',
     cloudNotice:
-      'Nhà cung cấp này ở nước ngoài: dữ liệu ảnh sẽ rời máy chủ PC02. Cần hồ sơ đánh giá tác động đang hiệu lực mới gán được vai trò.',
+      'Nhà cung cấp này ở nước ngoài: dữ liệu ảnh sẽ rời máy chủ PC02.',
     testDraft: 'Kiểm thử khoá',
     save: 'Lưu',
     saving: 'Đang lưu…',
@@ -167,8 +180,6 @@ export const llmConfig = {
   roleBlocked: {
     ARCHIVED: 'Nhà cung cấp đã lưu trữ.',
     NOT_TESTED: 'Cần kiểm thử đạt với đúng khoá, model và địa chỉ đang lưu.',
-    TRANSFER_ASSESSMENT_REQUIRED:
-      'Cần hồ sơ đánh giá tác động chuyển dữ liệu ra nước ngoài đang hiệu lực.',
   } as Record<string, string>,
 
   errors: {
@@ -179,8 +190,6 @@ export const llmConfig = {
     LLM_PROVIDER_KIND_UNSUPPORTED: 'Loại nhà cung cấp này chưa được hỗ trợ ở phiên bản hiện tại.',
     LLM_PROVIDER_IN_USE: 'Nhà cung cấp đang giữ vai trò. Chuyển về “Tắt” hoặc lưu trữ trước khi xoá.',
     LLM_ROLE_BLOCKED: 'Chưa thể gán vai trò.',
-    LLM_ASSESSMENT_INVALID: 'Hồ sơ đánh giá không hợp lệ: số hồ sơ rỗng hoặc quá dài, hoặc ngày nộp không hợp lệ.',
-    LLM_ASSESSMENT_NOT_FOUND: 'Không có hồ sơ đánh giá nào đang hiệu lực.',
     LLM_PROVIDER_CALL_FAILED: 'Nhà cung cấp trả lỗi khi lấy danh sách model.',
   } as Record<string, string>,
 } as const;

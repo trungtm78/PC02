@@ -44,6 +44,11 @@ Tooling note: gstack upgraded 1.91.9.0 -> 1.94.15.0; Bun upgraded 1.3.13 -> 1.4.
 
 Case governance is DONE (PR #503, UAT 856/856 PASS). The petition search work below is merged and live; only the production data load is pending.
 
+## Decision 04/11: the transfer-assessment gate is removed
+The owner decided the Luat 91/2025 transfer-assessment step is not needed. Removed: the rule that a cloud provider needs an active assessment (role assignment and the gateway's per-attempt eligibility), the admin endpoints `POST /llm/transfer-assessment[/withdraw]`, the `assessment` field of `GET /llm/status`, the screen section and its tests. The table `llm_transfer_assessments` and its rows are kept (no migration, nothing reads or writes it). Pre-existing documents (spec, plan) that mention the gate are superseded by this note. The `sendCloud` / `sendInternal` permissions stay: they say who may send scans to which kind of provider.
+
+The LLM config screen was also reworked to be easy: a setup checklist (key, provider, test, in use) with a button for the next step, one click on `Dùng nhà cung cấp này` that tests and makes the provider the one in use, messages shown in the row they belong to, autofill-proof fields with a readable default name, Claude defaulting to Sonnet, and a warning on Haiku.
+
 ## Real-scan run (04/11, key supplied by the owner, passed per command, never stored)
 
 The 7 real bundles in `qa/ocr` (24 scans: 5 + 6x3 pages, handwritten stamps, photos of printed petitions) were run through G1-G4 (`scratchpad/probe-real.cjs`, results outside the repo). It found five defects that no test with ideal ids and canned replies could show; all fixed with tests (commits 3ae23c55, 53e76cf6, a5b2a9ab, 310b8323, 9ff6d889):

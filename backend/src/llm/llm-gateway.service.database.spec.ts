@@ -81,7 +81,7 @@ run('LlmGatewayService on PostgreSQL', () => {
   let chain: ChainEntry[] = [];
   let settings: Record<string, number> = {};
   const delays: number[] = [];
-  /** Providers an administrator has switched off or withdrawn the assessment for, as the gateway re-checks them. */
+  /** Providers an administrator has switched off, as the gateway re-checks them. */
   const withdrawn = new Set<string>();
   let onSleep: (() => void) | null = null;
 
@@ -227,7 +227,7 @@ run('LlmGatewayService on PostgreSQL', () => {
     ]);
     const spy = jest.spyOn(first, 'call');
     chain = [entry(first), entry(scripted('m2', [ok('m2')]))];
-    // During the wait before the retry, the transfer assessment is withdrawn for the first provider.
+    // During the wait before the retry, the administrator switches the first provider off.
     onSleep = () => withdrawn.add('prov-m1');
 
     const out = await gateway().call(request(1), accept, context);

@@ -122,7 +122,6 @@ describe('roleBlocker', () => {
     kind: 'ANTHROPIC' as const,
     testedFingerprint: 'fp',
     currentFingerprint: 'fp',
-    transferAssessmentActive: true,
     archived: false,
   };
   it('lets a tested provider hold a role', () => {
@@ -131,27 +130,15 @@ describe('roleBlocker', () => {
   it('blocks an archived provider', () => {
     expect(roleBlocker({ ...ok, archived: true })).toBe('ARCHIVED');
   });
+  it('lets a tested cloud provider hold a role: no further paperwork stands in the way', () => {
+    for (const kind of CLOUD_KINDS)
+      expect(roleBlocker({ ...ok, kind })).toBeNull();
+  });
   it('blocks a provider that was never tested, or whose key, model or URL changed since the test', () => {
     expect(roleBlocker({ ...ok, testedFingerprint: null })).toBe('NOT_TESTED');
     expect(roleBlocker({ ...ok, currentFingerprint: 'changed' })).toBe(
       'NOT_TESTED',
     );
-  });
-  it('blocks a cloud provider while no transfer assessment is in force', () => {
-    for (const kind of CLOUD_KINDS) {
-      expect(
-        roleBlocker({ ...ok, kind, transferAssessmentActive: false }),
-      ).toBe('TRANSFER_ASSESSMENT_REQUIRED');
-    }
-  });
-  it('a self-hosted provider needs no transfer assessment', () => {
-    expect(
-      roleBlocker({
-        ...ok,
-        kind: 'SELF_HOSTED',
-        transferAssessmentActive: false,
-      }),
-    ).toBeNull();
   });
 });
 
