@@ -48,13 +48,15 @@ export const RecordDuplicateReview = forwardRef<
   const [acknowledged, setAcknowledged] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
+  /** Open while Save is held back by a high-confidence match: the warning and the old records, in front of the form. */
+  const [popupOpen, setPopupOpen] = useState(false);
   const acceptedRef = useRef<{ key: string; ids: string[] } | null>(null);
   const incidentSignals = `${reporter?.trim() ?? ''}:${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}:${content?.trim() ?? ''}:${date?.trim() ?? ''}:${location?.trim() ?? ''}`;
   const currentKey = `${kind}:${name.trim()}:${excludeId ?? ''}:${kind === 'delegation' ? decisionNumber?.trim() ?? '' : ''}:${kind === 'petition' ? `${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}` : kind === 'incident' ? incidentSignals : ''}`;
   const latestKeyRef = useRef(currentKey);
   latestKeyRef.current = currentKey;
 
-  const verify = async (): Promise<{ ok: boolean; acknowledgedIds: string[] }> => {
+  const verify = async (fromSave = false): Promise<{ ok: boolean; acknowledgedIds: string[] }> => {
     const hasIncidentSignal = kind === 'incident' && [reporter, idNumber, phone, content, date, location].some((value) => value?.trim());
     if (name.trim().length < 2 && !(kind === 'delegation' && decisionNumber?.trim()) && !(kind === 'petition' && (idNumber?.trim() || phone?.trim())) && !hasIncidentSignal) {
       return { ok: true, acknowledgedIds: [] };
@@ -97,6 +99,8 @@ export const RecordDuplicateReview = forwardRef<
       setCheckedKey(currentKey);
       setAcknowledged(ok && highIds.length > 0);
       setExpanded(true);
+      // Save was held back: say so in front of the form instead of leaving it silently stuck. A manual review only lists.
+      if (fromSave && !ok) setPopupOpen(true);
       return { ok, acknowledgedIds: ok ? accepted : [] };
     } catch {
       if (latestKeyRef.current === currentKey) {
@@ -109,7 +113,7 @@ export const RecordDuplicateReview = forwardRef<
     }
   };
 
-  useImperativeHandle(ref, () => ({ verify }));
+  useImperativeHandle(ref, () => ({ verify: () => verify(true) }));
 
   const acknowledge = () => {
     acceptedRef.current = {
@@ -118,6 +122,7 @@ export const RecordDuplicateReview = forwardRef<
     };
     setAcknowledged(true);
     setExpanded(false);
+    setPopupOpen(false);
   };
 
   const hasHigh = candidates.some((item) => item.confidence === 'HIGH');
@@ -128,6 +133,35 @@ export const RecordDuplicateReview = forwardRef<
     ? candidates.find((candidate) => candidate.id === openCandidateId)
     : undefined;
   const reasonLabel = (reason: string) => recordReview.reasons[reason as keyof typeof recordReview.reasons] ?? recordReview.reasons.OTHER;
+  const popupVisible = popupOpen && hasHigh && !isAcknowledged && hasCurrentReview;
+  const highCount = candidates.filter((item) => item.confidence === 'HIGH').length;
+
+  const candidateRow = (candidate: DuplicateCandidate) => (
+    <div key={candidate.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
+      <button
+        type="button"
+        onClick={() => setOpenCandidateId(candidate.id)}
+        className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+        aria-label={`${recordReview.candidateDetails}: ${candidate.caseCode ?? candidate.code ?? candidate.stt ?? candidate.name}`}
+      >
+        {candidate.caseCode ?? candidate.code ?? candidate.stt}
+      </button>
+      <span className="ml-2">{candidate.name}</span>
+      <span className="ml-2 text-slate-500">
+        {candidate.confidence === 'HIGH' ? recordReview.highConfidence : recordReview.possibleMatch}
+      </span>
+      {candidate.reasons.length > 0 && <p className="mt-1 text-slate-600">{candidate.reasons.map(reasonLabel).join(', ')}</p>}
+    </div>
+  );
+
+  useEffect(() => {
+    if (!popupVisible || selectedCandidate) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPopupOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [popupVisible, selectedCandidate]);
 
   useEffect(() => {
     if (!selectedCandidate) return;
@@ -146,7 +180,7 @@ export const RecordDuplicateReview = forwardRef<
       </button>
       {error && errorKey === currentKey && <p className="mt-2 text-sm text-red-700" role="alert">{error}</p>}
       {hasCurrentReview && candidates.length === 0 && !(error && errorKey === currentKey) && <p className="mt-2 text-sm text-slate-600">{recordReview.noMatches}</p>}
-      {visibleCandidates && (
+      {visibleCandidates && !popupVisible && (
         <div className="mt-2 space-y-2">
           <button
             type="button"
@@ -160,23 +194,7 @@ export const RecordDuplicateReview = forwardRef<
           {hasHigh && isAcknowledged && <p className="text-sm text-green-700">{recordReview.acknowledged} {recordReview.continueForm}</p>}
           {expanded && <>
           <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-          {candidates.map((candidate) => (
-            <div key={candidate.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
-              <button
-                type="button"
-                onClick={() => setOpenCandidateId(candidate.id)}
-                className="font-semibold text-blue-700 underline-offset-2 hover:underline"
-                aria-label={`${recordReview.candidateDetails}: ${candidate.caseCode ?? candidate.code ?? candidate.stt ?? candidate.name}`}
-              >
-                {candidate.caseCode ?? candidate.code ?? candidate.stt}
-              </button>
-              <span className="ml-2">{candidate.name}</span>
-              <span className="ml-2 text-slate-500">
-                {candidate.confidence === 'HIGH' ? recordReview.highConfidence : recordReview.possibleMatch}
-              </span>
-              {candidate.reasons.length > 0 && <p className="mt-1 text-slate-600">{candidate.reasons.map(reasonLabel).join(', ')}</p>}
-            </div>
-          ))}
+          {candidates.map(candidateRow)}
           </div>
           {hasHigh && !isAcknowledged && (
             <button type="button" onClick={acknowledge} className="rounded bg-blue-700 px-3 py-2 text-sm text-white">
@@ -186,8 +204,33 @@ export const RecordDuplicateReview = forwardRef<
           </>}
         </div>
       )}
+      {popupVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={recordReview.popupTitle}
+            data-testid="duplicate-popup"
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+          >
+            <h2 className="text-lg font-semibold text-red-800">{recordReview.popupTitle}</h2>
+            <p className="mt-2 text-sm text-slate-800" role="alert">
+              {recordReview.popupWarning.replace('{count}', String(highCount))}
+            </p>
+            <div className="mt-3 max-h-[50vh] space-y-2 overflow-y-auto pr-1">{candidates.map(candidateRow)}</div>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setPopupOpen(false)} className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
+                {recordReview.popupBack}
+              </button>
+              <button type="button" onClick={acknowledge} className="rounded bg-blue-700 px-3 py-2 text-sm text-white hover:bg-blue-800">
+                {recordReview.popupContinue}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {selectedCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onMouseDown={(event) => {
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setOpenCandidateId(null);
         }}>
           <div role="dialog" aria-modal="true" aria-label={recordReview.candidateDetails} className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
