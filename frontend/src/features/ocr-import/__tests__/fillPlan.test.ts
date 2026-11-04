@@ -3,7 +3,6 @@ import type { LegacyFieldValue } from '@/features/legacy-form/types';
 import {
   planFill,
   undoFill,
-  unconfirmedPatches,
   type FormAccess,
   type Projection,
 } from '../fillPlan';
@@ -183,33 +182,5 @@ describe('undoFill', () => {
     expect(result.form).toEqual({ a: '', b: 'cán bộ đã sửa', c: 'mặc định' });
     expect(result.undone).toEqual(['a', 'c']);
     expect(result.conflicts).toEqual(['b']);
-  });
-});
-
-describe('unconfirmedPatches', () => {
-  const orange = (field: string, value: string) => ({
-    field,
-    before: '' as LegacyFieldValue,
-    value,
-    orange: true,
-    provenance: { claimKind: 'QUOTED' as const, pageId: null, quote: null },
-    warnings: [],
-  });
-
-  it('lists orange fields not yet confirmed that still hold the filled value', () => {
-    const form: Form = { a: '1', b: '2' };
-    const list = unconfirmedPatches(access, form, [orange('a', '1'), orange('b', '2')], new Set(['a']));
-    expect(list.map((p) => p.field)).toEqual(['b']);
-  });
-
-  it('a field the officer changed is no longer waiting: they have decided it', () => {
-    const form: Form = { a: 'đổi rồi' };
-    expect(unconfirmedPatches(access, form, [orange('a', '1')], new Set())).toEqual([]);
-  });
-
-  it('plain fields never wait for confirmation', () => {
-    const form: Form = { a: '1' };
-    const plain = { ...orange('a', '1'), orange: false };
-    expect(unconfirmedPatches(access, form, [plain], new Set())).toEqual([]);
   });
 });

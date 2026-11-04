@@ -24,7 +24,7 @@ export const ocrImport = {
   reading: 'Đang đọc và phân tích, có thể mất vài chục giây…',
   cancel: 'Huỷ và xoá ảnh đã tải',
   close: 'Đóng',
-  done: 'Đã điền vào form. Hãy kiểm tra các ô, ô màu cam cần bấm Xác nhận.',
+  done: 'Đã điền vào form. Hãy đọc lại và sửa chỗ nào chưa đúng, rồi bấm Lưu.',
   noPages: 'Chưa có trang nào.',
   reviewHeading: 'Đối chiếu ảnh và bản chép',
   transcript: 'Bản chép',
@@ -50,21 +50,15 @@ export const ocrImport = {
   issuesHeading: 'Điểm cần xem lại',
   issuesCount: (n: number) => `${n} điểm hệ thống nghi ngờ`,
   autoCheckNote: 'Kiểm tra tự động, không thay việc đọc.',
-  filledBar: (filled: number, toConfirm: number) =>
-    `Đã điền ${filled} ô · ${toConfirm} ô cần xác nhận`,
+  filledBar: (filled: number) => `Đã điền ${filled} ô từ ảnh`,
   undo: 'Hoàn tác phần điền từ ảnh',
   undoConflicts: (fields: string) =>
     `Giữ nguyên các ô anh/chị đã sửa sau khi điền: ${fields}`,
   fromImage: 'Từ ảnh',
   fromPage: (p: string) => `trang ${p}`,
   inferred: 'Hệ thống suy ra, không có trong đơn',
-  confirm: 'Xác nhận',
-  confirmed: 'Đã xác nhận',
-  needsConfirm: 'Cần xác nhận',
   skippedHeading: 'Ô đã có nội dung, giữ nguyên',
   skippedUse: 'Dùng giá trị từ ảnh',
-  saveBlocked: (n: number) =>
-    `Còn ${n} ô lấy từ ảnh chưa xác nhận. Hãy kiểm tra các ô màu cam trước khi lưu.`,
   errors: {
     NETWORK: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.',
     HTTP_413: 'Ảnh quá lớn (tối đa 20 MB mỗi ảnh).',

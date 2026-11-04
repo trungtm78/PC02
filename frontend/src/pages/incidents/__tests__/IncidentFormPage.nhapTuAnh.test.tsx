@@ -105,31 +105,27 @@ const createCalls = () =>
   vi.mocked(api.post).mock.calls.filter(([path]) => path === '/incidents');
 
 describe('IncidentFormPage — nhập từ ảnh scan', () => {
-  it('reads the scans of an INCIDENT session and fills the form; the risky field is listed in the bar even on a tab that is not open', async () => {
+  it('reads the scans of an INCIDENT session and fills the form, with nothing left to confirm', async () => {
     await renderCreate();
     await readOneScan();
     expect(ocr.openSession).toHaveBeenCalledWith('INCIDENT');
-    expect(screen.getByText('Đã điền 2 ô · 1 ô cần xác nhận')).toBeTruthy();
+    expect(screen.getByText('Đã điền 2 ô từ ảnh')).toBeTruthy();
     // the sender's name really landed in a field of this form, under whatever name the form keeps it
     expect(screen.getAllByDisplayValue('Nguyễn Thị Hương').length).toBeGreaterThan(0);
-    expect(within(screen.getByTestId('ocr-fill-bar')).getAllByRole('button', { name: 'Xác nhận' })).toHaveLength(1);
+    expect(within(screen.getByTestId('ocr-fill-bar')).queryByRole('button', { name: 'Xác nhận' })).toBeNull();
     // filling never saves
     expect(createCalls()).toHaveLength(0);
   });
 
-  it('blocks Save while a risky field is unconfirmed, then saves naming the session and the analysis', async () => {
+  it('saves straight after the fill, naming the session and the analysis', async () => {
     await renderCreate();
     await readOneScan();
     fireEvent.change(screen.getByTestId('field-name'), { target: { value: 'Vụ việc lừa đảo qua mạng' } });
 
     fireEvent.click(screen.getByTestId('btn-save-top'));
-    await waitFor(() => expect(screen.getByText(/ô lấy từ ảnh chưa xác nhận/)).toBeTruthy());
-    expect(createCalls()).toHaveLength(0);
-
-    fireEvent.click(within(screen.getByTestId('ocr-fill-bar')).getByRole('button', { name: 'Xác nhận' }));
-    fireEvent.click(screen.getByTestId('btn-save-top'));
     await waitFor(() => expect(createCalls()).toHaveLength(1));
     expect(createCalls()[0][1]).toMatchObject({ ocrPhienId: 'sess-9', ocrPhienBan: 'ana-1' });
+    expect(screen.queryByText(/chưa xác nhận/)).toBeNull();
   });
 
   it('an ordinary save, with no scans read, does not mention a session', async () => {

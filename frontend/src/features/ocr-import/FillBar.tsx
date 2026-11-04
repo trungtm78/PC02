@@ -3,14 +3,11 @@ import type { AppliedPatch, SkippedFill } from './fillPlan';
 
 export interface FillBarProps {
   applied: readonly AppliedPatch[];
-  /** Orange fields still waiting for the officer. */
-  unconfirmed: readonly AppliedPatch[];
   /** Fields the reading could fill but the officer had already typed in. */
   skipped: readonly SkippedFill[];
   /** The caption the officer sees on the form for a field. */
   captionOf: (field: string) => string;
   onOpenDrawer: () => void;
-  onConfirm: (field: string) => void;
   onTakeSkipped: (field: string) => void;
   onUndo: () => void;
   /** Fields the last undo left alone because the officer had changed them. */
@@ -18,17 +15,14 @@ export interface FillBarProps {
 }
 
 /**
- * The strip above the form: the button that opens the drawer, how much was filled from the scans, and the way to deal
- * with it. Every field that blocks Save is listed here with its own Confirm button, so none can hide in a collapsed
- * block or a custom control. There is deliberately no "confirm all".
+ * The strip above the form: the button that opens the drawer, how much was filled from the scans, and the way to take
+ * it back. Nothing here blocks Save: the officer reads the form and corrects what is wrong.
  */
 export function FillBar({
   applied,
-  unconfirmed,
   skipped,
   captionOf,
   onOpenDrawer,
-  onConfirm,
   onTakeSkipped,
   onUndo,
   undoConflicts = [],
@@ -48,7 +42,7 @@ export function FillBar({
         {applied.length > 0 && (
           <>
             <span className="text-sm text-slate-800">
-              {ocrImport.filledBar(applied.length, unconfirmed.length)}
+              {ocrImport.filledBar(applied.length)}
             </span>
             <button
               type="button"
@@ -65,27 +59,6 @@ export function FillBar({
         <p className="text-xs text-slate-700">
           {ocrImport.undoConflicts(undoConflicts.map(captionOf).join(', '))}
         </p>
-      )}
-
-      {unconfirmed.length > 0 && (
-        <ul className="space-y-1" aria-label={ocrImport.needsConfirm}>
-          {unconfirmed.map((p) => (
-            <li
-              key={p.field}
-              className="flex flex-wrap items-center gap-2 rounded-md border border-orange-300 bg-orange-50 px-2 py-1 text-sm"
-            >
-              <span className="font-medium text-orange-900">{captionOf(p.field)}</span>
-              <span className="text-slate-800">{p.value}</span>
-              <button
-                type="button"
-                onClick={() => onConfirm(p.field)}
-                className="ml-auto rounded bg-orange-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-orange-700"
-              >
-                {ocrImport.confirm}
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
 
       {typed.length > 0 && (

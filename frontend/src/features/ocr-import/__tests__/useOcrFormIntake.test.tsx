@@ -92,13 +92,13 @@ describe('useOcrFormIntake — drafts', () => {
     expect(result.current.ocr.draftReference()).toEqual({ sessionId: 's1', analysisId: 'ana-1' });
   });
 
-  it('restores a draft by fetching the analysis from the server again; the risky fields wait for confirmation again', async () => {
+  it('restores a draft by fetching the analysis from the server again', async () => {
     api.analysis.mockResolvedValue(analysis(['a', 'từ ảnh', true]));
     const { result } = setup();
     await act(() => result.current.ocr.restoreFromDraft({ sessionId: 's1', analysisId: 'ana-1' }));
     expect(api.analysis).toHaveBeenCalledWith('s1');
     expect(result.current.form.a).toBe('từ ảnh');
-    expect(result.current.ocr.saveBlockedMessage).not.toBeNull();
+    expect((result.current.ocr as Record<string, unknown>).saveBlockedMessage).toBeUndefined();
     expect(result.current.ocr.restoreNotice).toBeNull();
     expect(result.current.ocr.bindingForSave()).toMatchObject({ ocrPhienId: 's1', ocrPhienBan: 'ana-1' });
   });

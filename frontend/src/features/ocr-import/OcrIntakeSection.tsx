@@ -18,11 +18,9 @@ export function OcrIntakeSection<TForm>({ ocr, captionOf, visible }: OcrIntakeSe
     <>
       <FillBar
         applied={ocr.fill.applied}
-        unconfirmed={ocr.fill.unconfirmed}
         skipped={ocr.fill.skipped}
         captionOf={captionOf}
         onOpenDrawer={ocr.openDrawer}
-        onConfirm={ocr.fill.confirm}
         onTakeSkipped={ocr.fill.takeSkippedValue}
         onUndo={ocr.undo}
         undoConflicts={ocr.undoConflicts}

@@ -28,11 +28,9 @@ const skipped = (field: string): SkippedFill => ({
 
 const props = (over: Partial<FillBarProps> = {}): FillBarProps => ({
   applied: [patch('a'), patch('b', true), patch('c', true)],
-  unconfirmed: [patch('b', true), patch('c', true)],
   skipped: [],
   captionOf: (field) => `Nhãn ${field}`,
   onOpenDrawer: vi.fn(),
-  onConfirm: vi.fn(),
   onTakeSkipped: vi.fn(),
   onUndo: vi.fn(),
   ...over,
@@ -40,28 +38,22 @@ const props = (over: Partial<FillBarProps> = {}): FillBarProps => ({
 
 describe('FillBar', () => {
   it('opens the drawer from its button even before anything was filled', () => {
-    const p = props({ applied: [], unconfirmed: [] });
+    const p = props({ applied: [] });
     render(<FillBar {...p} />);
     fireEvent.click(screen.getByRole('button', { name: 'Nhập từ ảnh scan' }));
     expect(p.onOpenDrawer).toHaveBeenCalled();
     expect(screen.queryByText(/Đã điền/)).toBeNull();
   });
 
-  it('counts the fields filled and the ones still waiting for confirmation', () => {
+  it('counts the fields filled from the scans, with nothing left waiting', () => {
     render(<FillBar {...props()} />);
-    expect(screen.getByText('Đã điền 3 ô · 2 ô cần xác nhận')).toBeTruthy();
+    expect(screen.getByText('Đã điền 3 ô từ ảnh')).toBeTruthy();
+    expect(screen.queryByText(/cần xác nhận/)).toBeNull();
   });
 
-  it('lists every field waiting for confirmation by its caption, each with its own button', () => {
-    const p = props();
-    render(<FillBar {...p} />);
-    expect(screen.getByText('Nhãn b')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Xác nhận' })[1]);
-    expect(p.onConfirm).toHaveBeenCalledWith('c');
-  });
-
-  it('has no "confirm all": a risky field is confirmed one at a time', () => {
+  it('has no Confirm button at all, not even for the fields the system was not sure of', () => {
     render(<FillBar {...props()} />);
+    expect(screen.queryByRole('button', { name: 'Xác nhận' })).toBeNull();
     expect(screen.queryByRole('button', { name: /tất cả/i })).toBeNull();
   });
 

@@ -458,12 +458,6 @@ function CaseFormPage() {
 
   const beginSave = async () => {
     if (chiXem) return; // chỉ xem: máy chủ sẽ 403 — không gửi
-    // Fields taken from the scans that the system is not sure of must be confirmed first; the list is in the bar above.
-    if (ocr.saveBlockedMessage) {
-      setErrors({ ocr: ocr.saveBlockedMessage });
-      requestAnimationFrame(() => document.querySelector('[data-testid="ocr-fill-bar"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }));
-      return;
-    }
     if (customFieldSchema.loading || customFieldSchema.error || governanceAccess.error || governanceAccess.capabilities.canEdit === false) {
       setErrors({ governance: customFieldSchema.error || governanceAccess.error || 'Đang xác minh chính sách trường và quyền ghi. Vui lòng tải lại hồ sơ trước khi lưu.' });
       return;
@@ -494,12 +488,6 @@ function CaseFormPage() {
   const handleConfirmSave = async () => {
     if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
     if (chiXem) return;
-    // A reading can finish between opening the summary and confirming it: check again, not only when it opened.
-    if (ocr.saveBlockedMessage) {
-      setShowPreSaveSummary(false);
-      setErrors({ ocr: ocr.saveBlockedMessage });
-      return;
-    }
     if (customFieldSchema.loading || customFieldSchema.error || governanceAccess.error || governanceAccess.capabilities.canEdit === false) return;
     savingRef.current = true;
     setIsSaving(true);

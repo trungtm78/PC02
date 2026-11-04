@@ -71,7 +71,7 @@ describe('useOcrFill', () => {
     expect(result.current.ocr.skipped.map((s) => s.field)).toEqual(['a']);
   });
 
-  it('keeps Save blocked while an orange field is unconfirmed, and unblocks it when confirmed', () => {
+  it('fills a field the system was not sure of just the same, and holds nothing back: there is no confirmation step', () => {
     const { result } = setup();
     act(() =>
       result.current.ocr.applyAnalysis(
@@ -79,22 +79,12 @@ describe('useOcrFill', () => {
         analysis(fill('a', '1', { policy: 'AI_FILL_MUST_CONFIRM' }), fill('b', '2')),
       ),
     );
-    expect(result.current.ocr.blocksSave).toBe(true);
-    expect(result.current.ocr.firstUnconfirmedField).toBe('a');
-    act(() => result.current.ocr.confirm('a'));
-    expect(result.current.ocr.blocksSave).toBe(false);
-  });
-
-  it('editing an orange field counts as the officer deciding it', () => {
-    const { result } = setup();
-    act(() =>
-      result.current.ocr.applyAnalysis(
-        's',
-        analysis(fill('a', '1', { policy: 'AI_FILL_MUST_CONFIRM' })),
-      ),
-    );
-    act(() => result.current.setForm((f) => ({ ...f, a: 'tôi sửa' })));
-    expect(result.current.ocr.blocksSave).toBe(false);
+    expect(result.current.form.a).toBe('1');
+    expect(result.current.form.b).toBe('2');
+    const ocr = result.current.ocr as Record<string, unknown>;
+    expect(ocr.blocksSave).toBeUndefined();
+    expect(ocr.confirm).toBeUndefined();
+    expect(ocr.unconfirmed).toBeUndefined();
   });
 
   it('undo puts back only what is still the filled value and reports the rest', () => {
@@ -140,7 +130,7 @@ describe('useOcrFill', () => {
     expect(result.current.form.a).toBe('gõ tay');
   });
 
-  it('unbind drops the link to the scans but keeps the fill tracked: values from the image still need confirming', () => {
+  it('unbind drops the link to the scans but keeps the fill tracked', () => {
     const { result } = setup();
     act(() =>
       result.current.ocr.applyAnalysis(
@@ -150,7 +140,6 @@ describe('useOcrFill', () => {
     );
     act(() => result.current.ocr.unbind());
     expect(result.current.ocr.bindingForSave()).toEqual({});
-    expect(result.current.ocr.blocksSave).toBe(true);
     expect(result.current.ocr.applied).toHaveLength(1);
   });
 

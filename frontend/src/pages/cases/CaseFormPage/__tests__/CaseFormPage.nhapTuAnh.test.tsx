@@ -142,32 +142,26 @@ async function readOneScan() {
 const createCalls = () => vi.mocked(api.post).mock.calls.filter(([path]) => path === '/cases');
 
 describe('CaseFormPage — nhập từ ảnh scan', () => {
-  it('reads the scans of a CASE session and fills the form; the risky field is listed in the bar', async () => {
+  it('reads the scans of a CASE session and fills the form, with nothing left to confirm', async () => {
     await renderCreate();
     await readOneScan();
     expect(ocr.openSession).toHaveBeenCalledWith('CASE');
-    expect(screen.getByText('Đã điền 2 ô · 1 ô cần xác nhận')).toBeTruthy();
-    expect(within(screen.getByTestId('ocr-fill-bar')).getAllByRole('button', { name: 'Xác nhận' })).toHaveLength(1);
+    expect(screen.getByText('Đã điền 2 ô từ ảnh')).toBeTruthy();
+    expect(within(screen.getByTestId('ocr-fill-bar')).queryByRole('button', { name: 'Xác nhận' })).toBeNull();
     expect(createCalls()).toHaveLength(0); // filling never saves
   });
 
-  it('blocks Save while a risky field is unconfirmed, then saves naming the session and the analysis', async () => {
+  it('saves straight after the fill, naming the session and the analysis', async () => {
     await renderCreate();
     await readOneScan();
     fireEvent.change(screen.getByTestId('input-case-title'), { target: { value: 'Vụ án lừa đảo qua mạng' } });
 
     await waitFor(() => expect(screen.getByTestId('btn-save')).toBeEnabled());
     fireEvent.click(screen.getByTestId('btn-save'));
-    await waitFor(() => expect(screen.getByText(/ô lấy từ ảnh chưa xác nhận/)).toBeTruthy());
-    expect(screen.queryByTestId('pre-save-summary-modal')).toBeNull();
-    expect(createCalls()).toHaveLength(0);
-
-    fireEvent.click(within(screen.getByTestId('ocr-fill-bar')).getByRole('button', { name: 'Xác nhận' }));
-    await waitFor(() => expect(screen.getByTestId('btn-save')).toBeEnabled());
-    fireEvent.click(screen.getByTestId('btn-save'));
     fireEvent.click(await screen.findByTestId('pre-save-confirm-btn'));
     await waitFor(() => expect(createCalls()).toHaveLength(1));
     expect(createCalls()[0][1]).toMatchObject({ ocrPhienId: 'sess-7', ocrPhienBan: 'ana-1' });
+    expect(screen.queryByText(/chưa xác nhận/)).toBeNull();
   });
 
   it('an ordinary save, with no scans read, does not mention a session', async () => {
@@ -196,7 +190,7 @@ describe('CaseFormPage — nhập từ ảnh scan', () => {
     expect(JSON.parse(raw as string).ocr).toEqual({ sessionId: 'sess-7', analysisId: 'ana-1' });
   });
 
-  it('opening that draft later asks the server for the analysis again; the risky field waits for confirmation again', async () => {
+  it('opening that draft later asks the server for the analysis again and fills the form again', async () => {
     localStorage.setItem(
       'caseFormDraft:regular',
       JSON.stringify({
@@ -211,7 +205,7 @@ describe('CaseFormPage — nhập từ ảnh scan', () => {
     );
     await renderCreate();
     await waitFor(() => expect(ocr.analysis).toHaveBeenCalledWith('sess-7'));
-    expect(await screen.findByText('Đã điền 2 ô · 1 ô cần xác nhận')).toBeTruthy();
+    expect(await screen.findByText('Đã điền 2 ô từ ảnh')).toBeTruthy();
   });
 
   it('says so when the scans of a draft have expired', async () => {
