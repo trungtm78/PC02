@@ -44,7 +44,7 @@ export interface BudgetStatus {
   capMicroUsd: number;
   level: BudgetLevel;
   /**
-   * Successful calls this month with no known cost (the provider has no prices). They are not in `usedMicroUsd`, so
+   * Calls this month that used tokens but have no known cost (the provider has no prices). They are not in `usedMicroUsd`, so
    * while this is above zero the cap protects less than it appears to.
    */
   unpricedCalls: number;
@@ -139,8 +139,9 @@ export class LlmGatewayService {
     const unpricedCalls = await this.prisma.llmCallLineage.count({
       where: {
         createdAt: { gte: monthStartVietnam(new Date()) },
-        outcome: 'OK',
         estimatedCostMicroUsd: null,
+        // An answer that failed the schema used tokens too; a call that never reached the model used none.
+        OR: [{ inputTokens: { gt: 0 } }, { outputTokens: { gt: 0 } }],
       },
     });
     return {

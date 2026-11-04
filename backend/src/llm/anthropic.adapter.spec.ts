@@ -257,7 +257,7 @@ describe('AnthropicProvider.call', () => {
 
   it('does not fall back for other bad requests', async () => {
     const { fetchImpl, calls } = fakeFetch(() =>
-      json(400, { error: { message: 'max_tokens: too large' } }),
+      json(400, { error: { message: 'messages: roles must alternate' } }),
     );
     const error = await failure(provider(fetchImpl).call(baseRequest));
     expect(error.code).toBe('BAD_REQUEST');

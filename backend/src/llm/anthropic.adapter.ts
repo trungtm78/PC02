@@ -5,6 +5,7 @@ import {
   type LlmResult,
   type ModelInfo,
 } from './llm.types';
+import { refusesOutputLength } from './output-limit';
 
 const BASE_URL = 'https://api.anthropic.com';
 const API_VERSION = '2023-06-01';
@@ -222,6 +223,13 @@ export class AnthropicProvider implements LlmProvider {
         'SERVER',
         `provider error (HTTP ${status})${suffix}`,
         { retryable: true, status },
+      );
+    }
+    if (status === 400 && refusesOutputLength(detail)) {
+      return new LlmError(
+        'OUTPUT_LIMIT',
+        `the model cannot return an answer this long (HTTP 400)${suffix}`,
+        { retryable: false, status },
       );
     }
     return new LlmError(

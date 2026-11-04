@@ -94,6 +94,8 @@ export const ocrImport = {
     TIMEOUT: 'Nhà cung cấp trả lời quá chậm. Hãy bấm đọc lại.',
     SERVER: 'Nhà cung cấp đang gặp sự cố. Hãy bấm đọc lại sau ít phút.',
     BAD_JSON: 'Kết quả đọc không đúng định dạng. Hãy bấm đọc lại.',
+    OUTPUT_LIMIT:
+      'Model đọc ảnh không trả được bản phân tích dài như thế này. Hãy chia bộ hồ sơ thành ít trang hơn hoặc nhờ quản trị viên chọn model khác (Cấu hình LLM).',
     REFUSED: 'Nhà cung cấp từ chối đọc nội dung này.',
     MODEL_UNAVAILABLE: 'Model đọc ảnh không còn dùng được. Liên hệ quản trị viên.',
     BLOCKED: 'Địa chỉ máy chủ đọc ảnh nội bộ không được phép. Liên hệ quản trị viên.',

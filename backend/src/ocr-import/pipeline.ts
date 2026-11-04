@@ -104,7 +104,12 @@ export function splitSegments(pageId: string, transcript: string): Segment[] {
     .map((text, index) => ({ id: `${pageId}.s${index + 1}`, pageId, text }));
 }
 
-const validateWith =
+/**
+ * Validates a model reply against its schema. The issues are fed back to the model when it is asked again, so they are
+ * built from the schema's own facts (where, and what kind of failure) and never from text the model wrote: zod puts the
+ * name of an unexpected key in its message, and a key can carry anything, including text lifted from the scan.
+ */
+export const validateWith =
   <T>(schema: z.ZodType<T>) =>
   (json: unknown): Validation<T> => {
     const parsed = schema.safeParse(json);
@@ -112,10 +117,13 @@ const validateWith =
       ? { ok: true, value: parsed.data }
       : {
           ok: false,
-          // Paths and messages only: never the offending values, which may be personal data.
-          issues: parsed.error.issues.map(
-            (i) => `${i.path.join('.')}: ${i.message}`,
-          ),
+          issues: parsed.error.issues.map((i) => {
+            const expected =
+              'expected' in i && typeof i.expected === 'string'
+                ? ` (expected ${i.expected})`
+                : '';
+            return `${i.path.join('.') || 'reply'}: ${i.code}${expected}`;
+          }),
         };
   };
 

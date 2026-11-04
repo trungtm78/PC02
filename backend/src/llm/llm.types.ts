@@ -61,6 +61,7 @@ export interface LlmProvider {
  *   REFUSED      the model declined to answer.
  *   BLOCKED      the configured server address is not allowed; this provider cannot be used, another might.
  *   UNSUPPORTED_INPUT  this provider cannot read what was sent (a PDF page for a self-hosted server); another might.
+ *   OUTPUT_LIMIT       the answer asked for is longer than this model can give; another model might allow it.
  *   MODEL_UNAVAILABLE  the configured model no longer exists or is not accessible; this provider cannot be used, another might.
  */
 export type LlmErrorCode =
@@ -74,7 +75,8 @@ export type LlmErrorCode =
   | 'REFUSED'
   | 'BLOCKED'
   | 'MODEL_UNAVAILABLE'
-  | 'UNSUPPORTED_INPUT';
+  | 'UNSUPPORTED_INPUT'
+  | 'OUTPUT_LIMIT';
 
 export interface LlmErrorOptions {
   retryable: boolean;

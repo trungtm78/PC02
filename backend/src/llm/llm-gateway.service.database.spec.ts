@@ -127,6 +127,7 @@ run('LlmGatewayService on PostgreSQL', () => {
     outcome?: string;
     imagesSent?: number;
     cost?: number | null;
+    tokens?: number | null;
     at?: Date;
     user?: string;
   }) =>
@@ -138,6 +139,8 @@ run('LlmGatewayService on PostgreSQL', () => {
         model: 'seed',
         outcome: data.outcome ?? 'OK',
         imagesSent: data.imagesSent ?? 0,
+        inputTokens: data.tokens ?? null,
+        outputTokens: data.tokens ?? null,
         estimatedCostMicroUsd: data.cost === undefined ? 0 : data.cost,
         ...(data.at ? { createdAt: data.at } : {}),
       },
@@ -349,13 +352,15 @@ run('LlmGatewayService on PostgreSQL', () => {
     });
 
     it('counts the calls whose cost is unknown, so a missing price cannot make the cap look safe', async () => {
-      await seedLineage({ cost: null });
-      await seedLineage({ cost: null });
-      await seedLineage({ cost: 500 });
-      // A failed call is not spend, priced or not.
+      await seedLineage({ cost: null, tokens: 100 });
+      await seedLineage({ cost: null, tokens: 100 });
+      await seedLineage({ cost: 500, tokens: 100 });
+      // An answer that failed the schema still used tokens, so it still counts.
+      await seedLineage({ cost: null, tokens: 100, outcome: 'BAD_JSON' });
+      // A call that never reached the model used nothing, priced or not.
       await seedLineage({ cost: null, outcome: 'SERVER' });
       const status = await gateway().budgetStatus();
-      expect(status.unpricedCalls).toBe(2);
+      expect(status.unpricedCalls).toBe(3);
       expect(status.usedMicroUsd).toBe(500);
     });
 

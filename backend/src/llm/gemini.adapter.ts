@@ -5,6 +5,7 @@ import {
   type LlmResult,
   type ModelInfo,
 } from './llm.types';
+import { refusesOutputLength } from './output-limit';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -219,6 +220,13 @@ export class GeminiProvider implements LlmProvider {
           retryable: true,
           status,
         },
+      );
+    }
+    if (status === 400 && refusesOutputLength(detail)) {
+      return new LlmError(
+        'OUTPUT_LIMIT',
+        `the model cannot return an answer this long (HTTP 400)${suffix}`,
+        { retryable: false, status },
       );
     }
     return new LlmError(

@@ -11,14 +11,20 @@ describe("sameMeaning", () => {
     );
   });
 
-  it("compares numbers written with separators by their digits", () => {
-    expect(sameMeaning("0902422652", "0902 422 652")).toBe(true);
-    expect(sameMeaning("0902.422.652", "0902-422-652")).toBe(true);
-    expect(sameMeaning("074054001179", "074 054 001 179")).toBe(true);
+  it("compares a phone or ID number written with separators by its digits", () => {
+    expect(sameMeaning("0902422652", "0902 422 652", "sdtCungCap")).toBe(true);
+    expect(sameMeaning("0902.422.652", "0902-422-652", "sdtCungCap")).toBe(true);
+    expect(sameMeaning("074054001179", "074 054 001 179", "cccdCungCap")).toBe(true);
+  });
+
+  it("does not strip punctuation from other identifiers, where it can be the difference", () => {
+    // A transfer-slip number 12-34 is not 1234.
+    expect(sameMeaning("12-34", "1234", "soPhieuChuyen")).toBe(false);
+    expect(sameMeaning("0902 422 652", "0902422652")).toBe(false);
   });
 
   it("still reports real differences", () => {
-    expect(sameMeaning("0902422652", "0902422653")).toBe(false);
+    expect(sameMeaning("0902422652", "0902422653", "sdtCungCap")).toBe(false);
     expect(sameMeaning("Nguyễn Văn A", "Nguyễn Văn B")).toBe(false);
     expect(sameMeaning("1954", "1945")).toBe(false);
     expect(sameMeaning("", "0902422652")).toBe(false);

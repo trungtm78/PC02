@@ -10,6 +10,8 @@ export interface Difference {
   field: string;
   current: string;
   proposed: string;
+  /** The server's name of the field, which decides how its two readings are compared (`sameMeaning`). */
+  serverField?: string;
   /** The system is not sure of this one (or the policy asks for confirmation): say so next to it. */
   orange: boolean;
   quote: string | null;
@@ -118,19 +120,20 @@ export function useOcrReread<TForm>({
   // Recomputed from the live form on every render: a field the officer edits to match the image drops out by itself.
   const all = (analysis?.projection.fills ?? [])
     .filter((fill) => !fill.pending)
-    .map((fill) => {
+    .map((fill): Difference => {
       const current = asText(access.read(form, fill.field));
       const proposed = String(fill.value);
       return {
         field: fill.field,
         current,
         proposed,
+        serverField: fill.source ?? fill.field,
         orange: fill.policy === 'AI_FILL_MUST_CONFIRM' || fill.warnings.length > 0,
         quote: fill.provenance.quote,
-      } satisfies Difference;
+      };
     });
-  const differences = all.filter((d) => !sameMeaning(d.current, d.proposed) && !handled.has(d.field));
-  const sameCount = all.filter((d) => sameMeaning(d.current, d.proposed)).length;
+  const differences = all.filter((d) => !sameMeaning(d.current, d.proposed, d.serverField) && !handled.has(d.field));
+  const sameCount = all.filter((d) => sameMeaning(d.current, d.proposed, d.serverField)).length;
 
   const apply = useCallback(
     (field: string) => {
