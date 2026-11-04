@@ -151,6 +151,11 @@ export const recordReview = {
   confidence: 'Mức độ',
   reason: 'Lý do',
   candidateCount: 'Có {count} hồ sơ cần xem',
+  popupTitle: 'Cảnh báo: có hồ sơ trùng',
+  popupWarning:
+    'Có {count} hồ sơ đã có trong hệ thống trùng cao với hồ sơ đang nhập. Bấm vào mã từng hồ sơ để xem chi tiết trước khi quyết định tạo mới.',
+  popupBack: 'Quay lại sửa',
+  popupContinue: 'Đã rà soát, vẫn tạo mới',
   receivedDate: 'Ngày tiếp nhận',
   summary: 'Tóm tắt nội dung',
 } as const;

@@ -1,5 +1,5 @@
 import { createRef, useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from '../RecordDuplicateReview';
 
@@ -131,6 +131,117 @@ describe('RecordDuplicateReview', () => {
     expect(screen.getByText(/Có thể tiếp tục nhập thông tin hoặc lưu hồ sơ/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
     await waitFor(() => expect(screen.getByTestId('saved')).toHaveTextContent('old-1'));
+  });
+
+  describe('the duplicate warning that pops up when Save is held back', () => {
+    const withSummary = () =>
+      get.mockResolvedValue({
+        data: [
+          {
+            id: 'old-1',
+            caseCode: 'UTDT-001',
+            name: 'Ủy thác Trần Văn An',
+            confidence: 'HIGH',
+            reasons: ['NAME_MATCH'],
+            receivedDate: '2026-09-01',
+            summary: 'Nội dung hồ sơ cũ',
+          },
+        ],
+      });
+
+    it('shows a warning and lists the old records in a popup, instead of leaving Save silently stuck', async () => {
+      withSummary();
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      expect(popup).toHaveTextContent('Có 1 hồ sơ');
+      expect(within(popup).getByText('UTDT-001')).toBeInTheDocument();
+      // the list is in the popup only, not twice on the screen
+      expect(screen.getAllByText('UTDT-001')).toHaveLength(1);
+      expect(screen.getByTestId('saved')).toHaveTextContent('');
+    });
+
+    it('opens the details of an old record from the popup, on top of it', async () => {
+      withSummary();
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      fireEvent.click(within(popup).getByRole('button', { name: /Thông tin hồ sơ cần rà soát: UTDT-001/i }));
+      const details = screen.getByRole('dialog', { name: 'Thông tin hồ sơ cần rà soát' });
+      expect(details).toHaveTextContent('Nội dung hồ sơ cũ');
+      fireEvent.click(within(details).getByRole('button', { name: /Đóng thông tin hồ sơ/i }));
+      expect(screen.getByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i })).toBeInTheDocument();
+    });
+
+    it('"Quay lại sửa" closes the popup and keeps the list on the form; Save is still held', async () => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      fireEvent.click(within(popup).getByRole('button', { name: 'Quay lại sửa' }));
+      expect(screen.queryByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i })).not.toBeInTheDocument();
+      expect(screen.getByText('UTDT-001')).toBeInTheDocument();
+      expect(screen.getByTestId('saved')).toHaveTextContent('');
+    });
+
+    it('"Đã rà soát, vẫn tạo mới" closes the popup, and the next Save goes through', async () => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      fireEvent.click(within(popup).getByRole('button', { name: 'Đã rà soát, vẫn tạo mới' }));
+      expect(screen.queryByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      await waitFor(() => expect(screen.getByTestId('saved')).toHaveTextContent('old-1'));
+    });
+
+    it('moves the keyboard into the popup when it opens, so typing cannot reach the form hidden behind it', async () => {
+      render(<Harness />);
+      const save = screen.getByRole('button', { name: 'Lưu' });
+      save.focus();
+      fireEvent.click(save);
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      await waitFor(() => expect(popup.contains(document.activeElement)).toBe(true));
+    });
+
+    it('keeps Tab inside the popup: from the last button it goes back to the first', async () => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      const first = within(popup).getAllByRole('button')[0];
+      const last = within(popup).getByRole('button', { name: 'Đã rà soát, vẫn tạo mới' });
+      last.focus();
+      fireEvent.keyDown(last, { key: 'Tab' });
+      expect(document.activeElement).toBe(first);
+      first.focus();
+      fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+      expect(document.activeElement).toBe(last);
+    });
+
+    it('gives the keyboard back to where it was when the popup closes', async () => {
+      render(<Harness />);
+      const save = screen.getByRole('button', { name: 'Lưu' });
+      save.focus();
+      fireEvent.click(save);
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      fireEvent.click(within(popup).getByRole('button', { name: 'Quay lại sửa' }));
+      await waitFor(() => expect(document.activeElement).toBe(save));
+    });
+
+    it('does not pop up for a manual review, which only lists the matches on the form', async () => {
+      render(<RecordDuplicateReview kind="petition" name="Nguyễn Văn A" idNumber="012345678901" />);
+      get.mockResolvedValue({ data: [{ id: 'p1', stt: 'DT-001', name: 'Nguyễn Văn A', confidence: 'HIGH', reasons: ['ID_NUMBER_MATCH'] }] });
+      fireEvent.click(screen.getByRole('button', { name: /Rà soát trùng/i }));
+      expect(await screen.findByText('DT-001')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('does not pop up for a possible match only: that never holds Save back', async () => {
+      get.mockResolvedValue({ data: [{ id: 'old-1', caseCode: 'UTDT-001', name: 'Ủy thác Trần Văn An', confidence: 'MEDIUM', reasons: ['NAME_SIMILAR'] }] });
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      await waitFor(() => expect(screen.getByTestId('saved')).toHaveTextContent(''));
+      await waitFor(() => expect(get).toHaveBeenCalled());
+      expect(screen.queryByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i })).not.toBeInTheDocument();
+    });
   });
 
   it('requires a new acknowledgement if another high-confidence match appears', async () => {
