@@ -2,6 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { api } from '@/lib/api';
 import { recordReview } from '@/locales/vi';
 
+/** Longest text the incident duplicate-review API accepts for each key (`ReviewIncidentDuplicatesDto`). */
+const INCIDENT_REVIEW_LIMITS = { name: 2000, reporter: 2000, location: 500 } as const;
+
 type RecordKind = 'incident' | 'case' | 'delegation' | 'petition';
 type DuplicateCandidate = {
   id: string;
@@ -62,7 +65,18 @@ export const RecordDuplicateReview = forwardRef<
       const params = kind === 'petition'
         ? { name, idNumber: idNumber?.trim(), phone: phone?.trim(), excludeId }
         : kind === 'incident'
-        ? { name, reporter, idNumber, phone, content, date, location, excludeId }
+        ? {
+            // Keys are trimmed to the review API's limits: a name can be as long as a whole summary (96% of the
+            // existing incidents have names over 255 characters), and a 400 here would block the save.
+            name: name.slice(0, INCIDENT_REVIEW_LIMITS.name),
+            reporter: reporter?.slice(0, INCIDENT_REVIEW_LIMITS.reporter),
+            idNumber,
+            phone,
+            content,
+            date,
+            location: location?.slice(0, INCIDENT_REVIEW_LIMITS.location),
+            excludeId,
+          }
         : {
           name,
           excludeId,

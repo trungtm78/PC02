@@ -96,6 +96,28 @@ describe('RecordDuplicateReview', () => {
     });
   });
 
+  it('trims a very long incident name to what the review API accepts, instead of failing the whole check', async () => {
+    // A scanned petition fills the name with its whole summary (3.5k characters); the API refuses a name over 2000.
+    const longName = 'Đơn tố giác '.repeat(300);
+    render(<RecordDuplicateReview
+      kind="incident"
+      name={longName}
+      reporter={'A'.repeat(2500)}
+      content={longName}
+      location={'B'.repeat(900)}
+      excludeId="current"
+    />);
+    fireEvent.click(screen.getByRole('button', { name: /Rà soát trùng/i }));
+    expect(await screen.findByText('VV-001')).toBeInTheDocument();
+    const sent = post.mock.calls[0][1] as Record<string, string>;
+    expect(sent.name).toHaveLength(2000);
+    expect(sent.name).toBe(longName.slice(0, 2000));
+    expect(sent.reporter).toHaveLength(2000);
+    expect(sent.location).toHaveLength(500);
+    // The content limit is far larger and is not touched.
+    expect(sent.content).toBe(longName);
+  });
+
   it('blocks save until the operator acknowledges a high-confidence delegation match', async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
