@@ -113,10 +113,7 @@ function validBundle(): EvidenceBundle {
     points: [
       { id: 'k1', text: 'Bị chiếm đoạt 495.253.647 đồng.', segmentIds: ['s1'] },
     ],
-    segmentCoverage: [
-      { segmentId: 's1', pointIds: ['k1'], carriesNoPointReason: null },
-      { segmentId: 's2', pointIds: [], carriesNoPointReason: 'national motto' },
-    ],
+    noPointSegmentIds: ['s2'],
     unreadable: [{ pageId: 'p3', note: 'stamp covers the date' }],
     summary: {
       opening: 'Bà Hương tố cáo bị chiếm đoạt tài sản.',

@@ -3,10 +3,13 @@
  *
  * Bump the version for ANY change to the wording (see transcribe.v1.ts).
  *
+ * v2 asks for short quotes and replaces the per-segment coverage table with a short list of the segments that carry no
+ * point: the model's output length, not its reading, was 80-90% of the analysis time (measured 04/11/2026).
+ *
  * The glossary and the language rule exist because a real run of claude-haiku-5-5 on 03/11/2026 labelled an
  * "ĐƠN TỐ CÁO" a complaint (khiếu nại) instead of a denunciation (tố cáo) and wrote the summary in English.
  */
-export const ANALYSE_PROMPT_VERSION = 'analyse.v1';
+export const ANALYSE_PROMPT_VERSION = 'analyse.v2';
 
 export function analyseSystemPrompt(): string {
   return [
@@ -19,6 +22,7 @@ export function analyseSystemPrompt(): string {
     '',
     'Evidence rules:',
     '- Every quote must be copied verbatim from the transcript of the page it cites, and cite that page by its id (p1, p2, ...).',
+    '  Keep each quote short: the fewest words (about 12 at most) that still pin the claim to its place on the page.',
     "- claimKind QUOTED = the paperwork says it in the writer's words; ESTABLISHED = an official document states it;",
     '  INFERRED = you deduce it. An inference needs a short reason and may cite the lines it rests on.',
     '- A person or organisation gets every role the paperwork gives it. COMPLAINANT is who files the complaint; ACCUSED is who',
@@ -45,9 +49,9 @@ export function analyseSystemPrompt(): string {
     '',
     'Legal assessment: give the offence article only when the paperwork states it (QUOTED) or when you infer it (INFERRED).',
     '',
-    'Coverage: the transcript is split into segments with ids like p2.s3. Every segment must appear in segmentCoverage, either',
-    'assigned to the points that use it or declared to carry no point, with the reason (for example the national motto, a form',
-    'heading, a signature block). List regions you could not read in unreadable.',
+    'Coverage: the transcript is split into segments with ids like p2.s3. Each point lists the segments it uses in segmentIds.',
+    'List in noPointSegmentIds only the segments that carry no point (for example the national motto, a form heading, a',
+    'signature block); write no reason. List regions you could not read in unreadable.',
     '',
     'Summary: write an opening paragraph (who reports whom, about what) and numbered points. Every important statement in the',
     'paperwork (each event, each amount, each request, each threat or denial) must be covered by a point; do not leave out a',

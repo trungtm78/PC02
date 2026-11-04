@@ -346,9 +346,6 @@ function checkReferences(
     cleaned.summary.pointIds,
     'summary.pointIds',
   );
-  cleaned.segmentCoverage.forEach((c, i) => {
-    c.pointIds = keepPoints(c.pointIds, `segmentCoverage[${i}].pointIds`);
-  });
 }
 
 // ── identity ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -414,14 +411,10 @@ function checkCoverage(
   context: VerifyContext,
   add: (i: VerifyIssue) => void,
 ): void {
-  const covered = new Set(
-    bundle.segmentCoverage
-      .filter(
-        (c) =>
-          c.pointIds.length > 0 || (c.carriesNoPointReason ?? '').trim() !== '',
-      )
-      .map((c) => c.segmentId),
-  );
+  const covered = new Set([
+    ...bundle.points.flatMap((point) => point.segmentIds),
+    ...bundle.noPointSegmentIds,
+  ]);
   for (const segmentId of context.segmentIds) {
     if (!covered.has(segmentId))
       add({

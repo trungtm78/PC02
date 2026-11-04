@@ -4,7 +4,7 @@ import { EvidenceBundleSchema } from './evidence/evidence.schema';
 import {
   ANALYSE_PROMPT_VERSION,
   analyseSystemPrompt,
-} from './prompt/analyse.v1';
+} from './prompt/analyse.v2';
 import {
   TRANSCRIBE_PROMPT_VERSION,
   transcribeSystemPrompt,
@@ -329,7 +329,7 @@ describe('restoreIds', () => {
         documents: [{ issuer: 'p1', pageIds: ['p1', 'p2'] }],
         evidence: { pageId: 'p2', quote: 'p1' },
         points: [{ segmentIds: ['p1.s1'] }],
-        segmentCoverage: [{ segmentId: 'p1.s1' }],
+        noPointSegmentIds: ['p1.s1'],
         unreadable: [{ pageId: 'p1', note: 'p1.s1' }],
       },
       aliases,
@@ -339,7 +339,7 @@ describe('restoreIds', () => {
       documents: [{ issuer: 'p1', pageIds: ['cmlongA', 'cmlongB'] }],
       evidence: { pageId: 'cmlongB', quote: 'p1' },
       points: [{ segmentIds: ['cmlongA.s1'] }],
-      segmentCoverage: [{ segmentId: 'cmlongA.s1' }],
+      noPointSegmentIds: ['cmlongA.s1'],
       unreadable: [{ pageId: 'cmlongA', note: 'p1.s1' }],
     });
   });

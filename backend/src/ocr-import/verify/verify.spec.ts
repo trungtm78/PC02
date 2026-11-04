@@ -203,13 +203,9 @@ describe('verifyBundle: structure and coverage', () => {
     );
   });
 
-  it('accepts a segment declared to carry no point, with a reason', () => {
+  it('accepts a segment listed as carrying no point', () => {
     const bundle = sampleBundle();
-    bundle.segmentCoverage.push({
-      segmentId: 's3',
-      pointIds: [],
-      carriesNoPointReason: 'national motto',
-    });
+    bundle.noPointSegmentIds = ['s3'];
     expect(
       codes(
         verifyBundle(bundle, ctx({ segmentIds: ['s1', 's2', 's3'] })).issues,
@@ -217,18 +213,14 @@ describe('verifyBundle: structure and coverage', () => {
     ).toEqual([]);
   });
 
-  it('a segment declared point-free with no reason still counts as unassigned', () => {
+  it('counts a segment as covered when a point cites it, with no separate list', () => {
     const bundle = sampleBundle();
-    bundle.segmentCoverage.push({
-      segmentId: 's3',
-      pointIds: [],
-      carriesNoPointReason: '  ',
-    });
+    bundle.points[0].segmentIds = ['s1', 's3'];
     expect(
       codes(
         verifyBundle(bundle, ctx({ segmentIds: ['s1', 's2', 's3'] })).issues,
       ),
-    ).toContain('UNASSIGNED_SEGMENT');
+    ).not.toContain('UNASSIGNED_SEGMENT');
   });
 
   it('reports a point the summary leaves out', () => {

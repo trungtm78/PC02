@@ -14,7 +14,7 @@ import {
   ANALYSE_PROMPT_VERSION,
   ANALYSE_USER_PREFIX,
   analyseSystemPrompt,
-} from './prompt/analyse.v1';
+} from './prompt/analyse.v2';
 import {
   TRANSCRIBE_PROMPT_VERSION,
   TRANSCRIBE_USER_TEXT,
@@ -207,6 +207,7 @@ const REFERENCE_KEYS: ReadonlySet<string> = new Set([
   'pageIds',
   'segmentId',
   'segmentIds',
+  'noPointSegmentIds',
 ]);
 
 /**

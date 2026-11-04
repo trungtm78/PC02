@@ -176,13 +176,6 @@ const PointSchema = z.strictObject({
   segmentIds: z.array(z.string()),
 });
 
-/** Every transcript segment must be assigned to points, or declared to carry none, with the reason. */
-const SegmentCoverageSchema = z.strictObject({
-  segmentId: z.string(),
-  pointIds: z.array(z.string()),
-  carriesNoPointReason: z.string().nullable(),
-});
-
 export const EvidenceBundleSchema = z.strictObject({
   documents: z.array(DocumentSchema),
   people: z.array(PersonSchema),
@@ -198,7 +191,11 @@ export const EvidenceBundleSchema = z.strictObject({
   requests: z.array(RequestSchema),
   contradictions: z.array(ContradictionSchema),
   points: z.array(PointSchema),
-  segmentCoverage: z.array(SegmentCoverageSchema),
+  /**
+   * Segments that carry no point (national motto, form heading, signature block). Every other segment must be cited by
+   * a point's `segmentIds`; G4 works out which are not, so the model does not have to list them one by one.
+   */
+  noPointSegmentIds: z.array(z.string()),
   unreadable: z.array(z.strictObject({ pageId: z.string(), note: z.string() })),
   summary: z.strictObject({
     opening: z.string(),

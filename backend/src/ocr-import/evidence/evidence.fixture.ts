@@ -158,10 +158,7 @@ export function sampleBundle(): EvidenceBundle {
         segmentIds: ['s2'],
       },
     ],
-    segmentCoverage: [
-      { segmentId: 's1', pointIds: ['k1'], carriesNoPointReason: null },
-      { segmentId: 's2', pointIds: ['k2'], carriesNoPointReason: null },
-    ],
+    noPointSegmentIds: [],
     unreadable: [],
     summary: {
       opening:
