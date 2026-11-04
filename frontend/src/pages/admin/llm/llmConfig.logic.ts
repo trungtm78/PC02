@@ -133,7 +133,8 @@ export function setupSteps(input: { keyConfigured: boolean; providers: ProviderV
     { key: 'KEY', done: input.keyConfigured },
     { key: 'PROVIDER', done: live.length > 0 },
     { key: 'TEST', done: live.some((p) => testBadge(p) === 'PASSED') },
-    { key: 'ACTIVE', done: live.some((p) => p.role === 'PRIMARY') },
+    // A primary whose test is out of date is not callable (the server leaves it out), so it does not count as in use.
+    { key: 'ACTIVE', done: live.some((p) => p.role === 'PRIMARY' && testBadge(p) === 'PASSED') },
   ];
 }
 

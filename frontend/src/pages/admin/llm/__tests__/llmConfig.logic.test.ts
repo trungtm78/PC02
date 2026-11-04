@@ -180,6 +180,26 @@ describe('setupSteps and nextStep', () => {
   });
 });
 
+describe('setupSteps: in use means a provider that can actually be called', () => {
+  it('does not report "in use" for a primary whose test no longer matches, even when another provider passed', () => {
+    const steps = setupSteps({
+      keyConfigured: true,
+      providers: [
+        // The primary was edited (or its key rotated): its test is out of date, so the server will not call it.
+        provider({
+          id: 'old',
+          role: 'PRIMARY',
+          test: { at: 'x', ok: true, code: null, latencyMs: 1, byId: null, current: false },
+        }),
+        tested({ id: 'new', role: 'OFF' }),
+      ],
+    });
+    expect(steps.find((s) => s.key === 'TEST')?.done).toBe(true);
+    expect(steps.find((s) => s.key === 'ACTIVE')?.done).toBe(false);
+    expect(nextStep(steps)?.key).toBe('ACTIVE');
+  });
+});
+
 describe('roleGate', () => {
   it('names what stands between a provider and a role: only the test, for a cloud provider as for any other', () => {
     expect(roleGate(provider())).toBe('NOT_TESTED');
