@@ -35,7 +35,7 @@ const ocr = vi.hoisted(() => ({
   read: vi.fn(),
   job: vi.fn(),
   analysis: vi.fn(),
-  cancel: vi.fn(),
+  cancel: vi.fn(() => Promise.resolve()),
   reorder: vi.fn(),
   removePage: vi.fn(),
 }));

@@ -28,7 +28,7 @@ const ocr = vi.hoisted(() => ({
   startReread: vi.fn(),
   job: vi.fn(),
   analysis: vi.fn(),
-  cancel: vi.fn(),
+  cancel: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('@/features/ocr-import/ocrApi', () => ({ ocrApi: ocr }));
 
