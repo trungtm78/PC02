@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { api } from '@/lib/api';
 import { recordReview } from '@/locales/vi';
 
@@ -50,6 +50,9 @@ export const RecordDuplicateReview = forwardRef<
   const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
   /** Open while Save is held back by a high-confidence match: the warning and the old records, in front of the form. */
   const [popupOpen, setPopupOpen] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+  /** Where the keyboard was when the popup opened, to give it back on close. */
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const acceptedRef = useRef<{ key: string; ids: string[] } | null>(null);
   const incidentSignals = `${reporter?.trim() ?? ''}:${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}:${content?.trim() ?? ''}:${date?.trim() ?? ''}:${location?.trim() ?? ''}`;
   const currentKey = `${kind}:${name.trim()}:${excludeId ?? ''}:${kind === 'delegation' ? decisionNumber?.trim() ?? '' : ''}:${kind === 'petition' ? `${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}` : kind === 'incident' ? incidentSignals : ''}`;
@@ -136,6 +139,34 @@ export const RecordDuplicateReview = forwardRef<
   const popupVisible = popupOpen && hasHigh && !isAcknowledged && hasCurrentReview;
   const highCount = candidates.filter((item) => item.confidence === 'HIGH').length;
 
+  // The popup is modal: the keyboard moves into it, stays in it, and goes back where it was when it closes. Without this,
+  // typing after Save (F2) would still edit the field hidden behind it, and changing it would dismiss the warning.
+  useEffect(() => {
+    if (!popupVisible) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    popupRef.current?.focus();
+    return () => returnFocusRef.current?.focus();
+  }, [popupVisible]);
+  // Closing the details of an old record puts the keyboard back in the popup behind it.
+  useEffect(() => {
+    if (popupVisible && !selectedCandidate) popupRef.current?.focus();
+  }, [popupVisible, selectedCandidate]);
+  const keepTabInside = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled])'));
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === event.currentTarget)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   const candidateRow = (candidate: DuplicateCandidate) => (
     <div key={candidate.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
       <button
@@ -207,11 +238,14 @@ export const RecordDuplicateReview = forwardRef<
       {popupVisible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <div
+            ref={popupRef}
+            tabIndex={-1}
+            onKeyDown={keepTabInside}
             role="dialog"
             aria-modal="true"
             aria-label={recordReview.popupTitle}
             data-testid="duplicate-popup"
-            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl outline-none"
           >
             <h2 className="text-lg font-semibold text-red-800">{recordReview.popupTitle}</h2>
             <p className="mt-2 text-sm text-slate-800" role="alert">

@@ -193,6 +193,39 @@ describe('RecordDuplicateReview', () => {
       await waitFor(() => expect(screen.getByTestId('saved')).toHaveTextContent('old-1'));
     });
 
+    it('moves the keyboard into the popup when it opens, so typing cannot reach the form hidden behind it', async () => {
+      render(<Harness />);
+      const save = screen.getByRole('button', { name: 'Lưu' });
+      save.focus();
+      fireEvent.click(save);
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      await waitFor(() => expect(popup.contains(document.activeElement)).toBe(true));
+    });
+
+    it('keeps Tab inside the popup: from the last button it goes back to the first', async () => {
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      const first = within(popup).getAllByRole('button')[0];
+      const last = within(popup).getByRole('button', { name: 'Đã rà soát, vẫn tạo mới' });
+      last.focus();
+      fireEvent.keyDown(last, { key: 'Tab' });
+      expect(document.activeElement).toBe(first);
+      first.focus();
+      fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+      expect(document.activeElement).toBe(last);
+    });
+
+    it('gives the keyboard back to where it was when the popup closes', async () => {
+      render(<Harness />);
+      const save = screen.getByRole('button', { name: 'Lưu' });
+      save.focus();
+      fireEvent.click(save);
+      const popup = await screen.findByRole('dialog', { name: /Cảnh báo: có hồ sơ trùng/i });
+      fireEvent.click(within(popup).getByRole('button', { name: 'Quay lại sửa' }));
+      await waitFor(() => expect(document.activeElement).toBe(save));
+    });
+
     it('does not pop up for a manual review, which only lists the matches on the form', async () => {
       render(<RecordDuplicateReview kind="petition" name="Nguyễn Văn A" idNumber="012345678901" />);
       get.mockResolvedValue({ data: [{ id: 'p1', stt: 'DT-001', name: 'Nguyễn Văn A', confidence: 'HIGH', reasons: ['ID_NUMBER_MATCH'] }] });
