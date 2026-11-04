@@ -21,7 +21,6 @@ export const ocrImport = {
   read: 'Đọc và điền vào form',
   reread: 'Đọc lại từ ảnh',
   reanalyse: 'Phân tích lại từ bản chép',
-  reading: 'Đang đọc và phân tích, có thể mất vài chục giây…',
   progressTitle: 'Hệ thống đang xử lý ảnh',
   progressStepRead: (pages: number) =>
     pages > 1 ? `Đọc chữ trên ${pages} trang ảnh` : 'Đọc chữ trên ảnh',
@@ -50,7 +49,6 @@ export const ocrImport = {
     'Bản nháp này có ảnh scan đã hết hạn hoặc nội dung đã đổi nên không điền lại được. Các ô anh/chị tự nhập vẫn còn; hãy chọn ảnh và đọc lại nếu cần.',
   rereadOpen: 'Đọc lại từ ảnh scan',
   rereadClose: 'Đóng so sánh',
-  rereadReading: 'Đang đọc lại các ảnh đính kèm, có thể mất vài chục giây…',
   rereadHint:
     'Các ô dưới đây khác với hồ sơ hiện tại. Chọn "Dùng giá trị từ ảnh" để đưa vào form (chưa lưu), rồi bấm Lưu như thường.',
   rereadNothingDiffers: 'Mọi ô đọc được đều khớp với hồ sơ.',
