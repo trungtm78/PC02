@@ -18,13 +18,12 @@ import {
   KHOA_NHANH_PHU,
   PETITION_LEGACY_SPEC,
   dichLuu,
-  type PetitionFieldPath,
 } from "@/features/petitions/legacy-form-binding";
 import type { CaseFieldPath } from "@/features/cases/legacy-form-layout.def";
 import { OcrIntakeSection } from "@/features/ocr-import/OcrIntakeSection";
 import { OcrRereadPanel } from "@/features/ocr-import/OcrRereadPanel";
-import type { FormAccess } from "@/features/ocr-import/fillPlan";
 import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
+import { PETITION_OCR_ACCESS } from "./petitionOcrAccess";
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
@@ -93,12 +92,6 @@ interface PetitionCloneState {
  * cán bộ bôi đen chữ trên danh sách để chép rồi bị đưa thẳng vào form có thể gõ nhầm (yêu cầu 08/10/2026).
  */
 export type CheDoDonThu = 'xem' | 'sua';
-
-/** The form as the scan-intake code sees it: read and write a field by the name the layout gives it. */
-const PETITION_OCR_ACCESS: FormAccess<FormData> = {
-  read: (form, field) => PETITION_LEGACY_SPEC.read(form, field as PetitionFieldPath),
-  write: (form, field, value) => PETITION_LEGACY_SPEC.write(form, field as PetitionFieldPath, value),
-};
 
 /** The caption of each field on the form, for the lists that name fields outside their place in the layout. */
 const PETITION_CAPTION_BY_FIELD: ReadonlyMap<string, string> = new Map(
