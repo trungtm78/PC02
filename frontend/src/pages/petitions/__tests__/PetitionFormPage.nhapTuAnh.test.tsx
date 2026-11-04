@@ -124,24 +124,20 @@ describe('PetitionFormPage — nhập từ ảnh scan', () => {
     expect((screen.getByTestId('field-senderName') as HTMLInputElement).value).toBe('Nguyễn Thị Hương');
     expect((screen.getByTestId('field-senderPhone') as HTMLInputElement).value.replaceAll(' ', '')).toBe('0901234567');
     expect(screen.getByTestId('ocr-note-senderName')).toBeTruthy();
-    expect(screen.getByText('Đã điền 2 ô · 1 ô cần xác nhận')).toBeTruthy();
+    expect(screen.getByText('Đã điền 2 ô từ ảnh')).toBeTruthy();
+    // nothing asks the officer to confirm: the values are in the form and the officer corrects what is wrong
+    expect(screen.queryByRole('button', { name: 'Xác nhận' })).toBeNull();
     // nothing was saved by filling
     expect(vi.mocked(api.post).mock.calls.filter(([u]) => u === '/petitions')).toHaveLength(0);
   });
 
-  it('blocks Save while a risky field is unconfirmed, then saves with the session once confirmed', async () => {
+  it('saves straight after the fill, naming the session and the analysis: nothing is held back for confirmation', async () => {
     await renderCreate();
-    // An anonymous petition needs no sender address or offence; the point here is the scan confirmation.
+    // An anonymous petition needs no sender address or offence.
     fireEvent.click(await screen.findByTestId('field-senderIsAnonymous'));
     await readOneScan();
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'chi tiết' } });
 
-    fireEvent.click(screen.getByTestId('btn-save-top-main'));
-    await waitFor(() => expect(screen.getByText(/ô lấy từ ảnh chưa xác nhận/)).toBeTruthy());
-    expect(vi.mocked(api.post).mock.calls.filter(([u]) => u === '/petitions')).toHaveLength(0);
-
-    const bar = screen.getByTestId('ocr-fill-bar');
-    fireEvent.click(within(bar).getByRole('button', { name: 'Xác nhận' }));
     fireEvent.click(screen.getByTestId('btn-save-top-main'));
 
     await waitFor(() => {
@@ -149,6 +145,7 @@ describe('PetitionFormPage — nhập từ ảnh scan', () => {
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).toMatchObject({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' });
     });
+    expect(screen.queryByText(/chưa xác nhận/)).toBeNull();
   });
 
   it('an ordinary save, with no scans read, does not mention a session', async () => {
@@ -163,7 +160,7 @@ describe('PetitionFormPage — nhập từ ảnh scan', () => {
     });
   });
 
-  it('after the scans are cancelled, the save no longer names the cancelled session, but fields from the image still need confirming', async () => {
+  it('after the scans are cancelled, the save no longer names the cancelled session, and keeps what was filled', async () => {
     await renderCreate();
     fireEvent.click(await screen.findByTestId('field-senderIsAnonymous'));
     await readOneScan();
@@ -171,16 +168,12 @@ describe('PetitionFormPage — nhập từ ảnh scan', () => {
     await waitFor(() => expect(ocr.cancel).toHaveBeenCalledWith('sess-1'));
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'chi tiết' } });
 
-    // the filled sender name is still orange and still blocks
-    fireEvent.click(screen.getByTestId('btn-save-top-main'));
-    await waitFor(() => expect(screen.getByText(/ô lấy từ ảnh chưa xác nhận/)).toBeTruthy());
-
-    fireEvent.click(within(screen.getByTestId('ocr-fill-bar')).getByRole('button', { name: 'Xác nhận' }));
     fireEvent.click(screen.getByTestId('btn-save-top-main'));
     await waitFor(() => {
       const calls = vi.mocked(api.post).mock.calls.filter(([u]) => u === '/petitions');
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).not.toHaveProperty('ocrPhienId');
+      expect(calls[0][1]).toMatchObject({ senderName: 'Nguyễn Thị Hương' });
     });
   });
 

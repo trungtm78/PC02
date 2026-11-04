@@ -49,6 +49,9 @@ The owner decided the Luat 91/2025 transfer-assessment step is not needed. Remov
 
 The LLM config screen was also reworked to be easy: a setup checklist (key, provider, test, in use) with a button for the next step, one click on `Dùng nhà cung cấp này` that tests and makes the provider the one in use, messages shown in the row they belong to, autofill-proof fields with a readable default name, Claude defaulting to Sonnet, and a warning on Haiku.
 
+## Decision 04/11 (later): no confirmation step after a reading
+The owner decided the confirm-before-save step is not needed: the reading fills the form as proposed and the officer corrects what is wrong. Removed: the orange fields, the Confirm buttons, the list of fields waiting in the fill bar, and the block on Save (all three create screens). Kept: the source note and quote under each filled field, Undo, the side-by-side review, the re-read, and the rule that a field the officer already typed is never overwritten. The server-side policy (`AI_FILL_MUST_CONFIRM`) and the `mustConfirm` flag in the quality statistics are unchanged; nothing waits on them. This supersedes the design item "fields that must be confirmed block Save" in the spec. The duplicate-record review (a different, older control) still asks to be acknowledged when a record matches an existing one.
+
 ## Real-scan run (04/11, key supplied by the owner, passed per command, never stored)
 
 The 7 real bundles in `qa/ocr` (24 scans: 5 + 6x3 pages, handwritten stamps, photos of printed petitions) were run through G1-G4 (`scratchpad/probe-real.cjs`, results outside the repo). It found five defects that no test with ideal ids and canned replies could show; all fixed with tests (commits 3ae23c55, 53e76cf6, a5b2a9ab, 310b8323, 9ff6d889):

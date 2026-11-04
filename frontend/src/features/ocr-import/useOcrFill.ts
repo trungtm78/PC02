@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   planFill,
   undoFill,
-  unconfirmedPatches,
   type AppliedPatch,
   type FormAccess,
   type SkippedFill,
@@ -28,8 +27,7 @@ export interface UseOcrFillArgs<TForm> {
 
 /**
  * Puts an analysis into the open form and keeps track of what it wrote, so the screen can show where each value came
- * from, ask the officer to confirm the risky ones, take the filling back, and tell the server which scans the saved
- * record was filled from.
+ * from, take the filling back, and tell the server which scans the saved record was filled from.
  *
  * It never saves. It only changes fields the officer has not typed into, and a value that cannot be written as-is
  * (one that needs a directory match) is handed back as skipped rather than guessed.
@@ -37,7 +35,6 @@ export interface UseOcrFillArgs<TForm> {
 export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: UseOcrFillArgs<TForm>) {
   const [applied, setApplied] = useState<AppliedPatch[]>([]);
   const [skipped, setSkipped] = useState<SkippedFill[]>([]);
-  const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
   const [binding, setBinding] = useState<Binding | null>(null);
 
   const formRef = useLatest(form);
@@ -70,15 +67,10 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
       setForm(plan.form);
       setApplied(merged);
       setSkipped(plan.skipped);
-      setConfirmed((prev) => new Set([...prev].filter((f) => !refreshed.has(f))));
       setBinding({ sessionId, analysisId: analysis.id });
     },
     [access, setForm, formRef, appliedRef, baselineRef, startRef],
   );
-
-  const confirm = useCallback((field: string) => {
-    setConfirmed((prev) => new Set(prev).add(field));
-  }, []);
 
   /** Takes the value from the image for a field the officer had already filled in; undo restores what they typed. */
   const takeSkippedValue = useCallback(
@@ -100,7 +92,6 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
         },
       ]);
       setSkipped((prev) => prev.filter((s) => s.field !== field));
-      setConfirmed((prev) => new Set([...prev].filter((f) => f !== field)));
     },
     [access, setForm, formRef, skippedRef],
   );
@@ -110,25 +101,18 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
     setForm(result.form);
     setApplied([]);
     setSkipped([]);
-    setConfirmed(new Set());
     return { undone: result.undone, conflicts: result.conflicts };
   }, [access, setForm, formRef, appliedRef]);
 
-  /** Drops only the link to the scans (they were deleted): what was filled stays tracked and still needs confirming. */
+  /** Drops only the link to the scans (they were deleted): what was filled stays tracked. */
   const unbind = useCallback(() => setBinding(null), []);
 
   /** Drops the link to the scans (the form was cleared, or the officer chose not to attach them). */
   const forget = useCallback(() => {
     setApplied([]);
     setSkipped([]);
-    setConfirmed(new Set());
     setBinding(null);
   }, []);
-
-  const unconfirmed = useMemo(
-    () => unconfirmedPatches(access, form, applied, confirmed),
-    [access, form, applied, confirmed],
-  );
 
   const bindingForSave = useCallback(
     (): { ocrPhienId?: string; ocrPhienBan?: string } =>
@@ -139,12 +123,7 @@ export function useOcrFill<TForm>({ access, form, setForm, baseline: given }: Us
   return {
     applied,
     skipped,
-    confirmed,
-    unconfirmed,
-    blocksSave: unconfirmed.length > 0,
-    firstUnconfirmedField: unconfirmed[0]?.field ?? null,
     applyAnalysis,
-    confirm,
     takeSkippedValue,
     undo,
     unbind,

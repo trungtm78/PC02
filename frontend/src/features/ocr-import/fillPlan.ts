@@ -159,21 +159,3 @@ export function undoFill<TForm>(
   }
   return { form: next, undone, conflicts };
 }
-
-/**
- * Orange fields still waiting for the officer. A field they have edited is no longer waiting, because the value in it
- * is now theirs; so is one they pressed Confirm on.
- */
-export function unconfirmedPatches<TForm>(
-  access: FormAccess<TForm>,
-  form: TForm,
-  applied: readonly AppliedPatch[],
-  confirmed: ReadonlySet<string>,
-): AppliedPatch[] {
-  return applied.filter(
-    (patch) =>
-      patch.orange &&
-      !confirmed.has(patch.field) &&
-      asText(access.read(form, patch.field)) === patch.value,
-  );
-}

@@ -484,12 +484,6 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
-    // Ô lấy từ ảnh mà hệ thống không chắc phải được cán bộ xác nhận trước khi lưu. Danh sách các ô nằm ở thanh trên cùng.
-    if (ocr.saveBlockedMessage) {
-      setErrors([ocr.saveBlockedMessage]);
-      setTimeout(() => document.querySelector('[data-testid="ocr-fill-bar"]')?.scrollIntoView?.({ behavior: "smooth", block: "center" }), 0);
-      return { ok: false, id: null };
-    }
     if (!validateForm()) {
       // Mọi ô có thể báo lỗi đều nằm ở tab Thông tin. Đang đứng ở tab khác mà bấm Lưu thì ô
       // lỗi nằm trong khối ẩn — cán bộ thấy thông báo mà không thấy ô nào để sửa. Nhảy về

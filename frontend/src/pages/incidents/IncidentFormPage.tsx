@@ -541,18 +541,6 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   }> => {
     if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
     if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
-    // Fields taken from the scans that the system is not sure of must be confirmed first; the list is in the bar above.
-    if (ocr.saveBlockedMessage) {
-      setErrors([ocr.saveBlockedMessage]);
-      setTimeout(
-        () =>
-          document
-            .querySelector('[data-testid="ocr-fill-bar"]')
-            ?.scrollIntoView?.({ behavior: "smooth", block: "center" }),
-        0,
-      );
-      return { ok: false, id: null };
-    }
     if (!validateForm()) {
       if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: false, id: null };
