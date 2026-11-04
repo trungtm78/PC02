@@ -238,6 +238,20 @@ describe('callWithPolicy', () => {
     expect(p.requests[1].userText).not.toContain('personal value');
   });
 
+  it('keeps what it echoes back to the model short, however long a reported issue is', async () => {
+    const p = scripted('ANTHROPIC', 'm1', [
+      result('ANTHROPIC', 'm1', { nope: 1 }),
+      result('ANTHROPIC', 'm1', { ok: true }),
+    ]);
+    const long = 'k'.repeat(5000);
+    const validate = (json: unknown): Validation<unknown> =>
+      (json as { ok?: boolean }).ok
+        ? { ok: true, value: json }
+        : { ok: false, issues: [`Unrecognized key: "${long}"`] };
+    await callWithPolicy([p], request, validate, policy, deps());
+    expect(p.requests[1].userText.length).toBeLessThan(1000);
+  });
+
   it('recovers when the second try after bad JSON validates', async () => {
     const p = scripted('ANTHROPIC', 'm1', [
       result('ANTHROPIC', 'm1', { nope: 1 }),

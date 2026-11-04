@@ -70,3 +70,26 @@ describe.each(providers)('%s: time allowed for one call', (_name, build) => {
     expect(spy).not.toHaveBeenCalledWith(400_000);
   });
 });
+
+describe('Gemini output limit', () => {
+  it('never asks for more output than the model can give, however long the analysis budget is', async () => {
+    const seen: number[] = [];
+    const capture = ((_url: string, init: RequestInit) => {
+      const sent = JSON.parse(init.body as string) as {
+        generationConfig: { maxOutputTokens: number };
+      };
+      seen.push(sent.generationConfig.maxOutputTokens);
+      return Promise.resolve(reply());
+    }) as unknown as typeof fetch;
+    const gemini = new GeminiProvider({
+      apiKey: 'k',
+      model: 'm',
+      fetchImpl: capture,
+    });
+    // The analysis of a long bundle asks for 64,000; with room for thinking that is above Gemini's 65,536.
+    await gemini.call({ ...request, maxOutputTokens: 64_000 });
+    await gemini.call({ ...request, maxOutputTokens: 1_000 });
+    expect(seen[0]).toBe(65_536);
+    expect(seen[1]).toBe(1_000 + 8_192);
+  });
+});

@@ -69,7 +69,10 @@ function backoffDelay(
 
 /** Field paths and reasons only (never values, which may be personal data), so the model can repair its own reply. */
 function withRejection(request: LlmRequest, issues: readonly string[]): string {
-  const listed = issues.slice(0, MAX_ISSUES_SHOWN).join('; ');
+  const listed = issues
+    .slice(0, MAX_ISSUES_SHOWN)
+    .map((issue) => issue.slice(0, MAX_ISSUE_LENGTH))
+    .join('; ');
   return (
     request.userText +
     String.fromCharCode(10, 10) +
@@ -81,6 +84,8 @@ function withRejection(request: LlmRequest, issues: readonly string[]): string {
 
 /** Enough to point at the problem without turning a badly broken reply into a long prompt. */
 const MAX_ISSUES_SHOWN = 12;
+/** An issue can quote a key the model wrote, which is model output: bound it before it goes back in a prompt. */
+const MAX_ISSUE_LENGTH = 200;
 
 /**
  * Calls the providers in order with bounded retry, then fails over.

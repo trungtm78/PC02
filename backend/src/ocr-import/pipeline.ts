@@ -193,19 +193,41 @@ export interface AnalysisOutput {
   promptVersions: { transcribe: string; analyse: string };
 }
 
-/** Replaces every string that is exactly an alias with the real id it stood for; text and quotes are left alone. */
-function restoreIds<T>(value: T, fromAlias: ReadonlyMap<string, string>): T {
-  const walk = (node: unknown): unknown => {
-    if (typeof node === 'string') return fromAlias.get(node) ?? node;
-    if (Array.isArray(node)) return node.map(walk);
+/** The evidence fields that hold a page or a segment id: the only places an alias can stand. */
+const REFERENCE_KEYS: ReadonlySet<string> = new Set([
+  'pageId',
+  'pageIds',
+  'segmentId',
+  'segmentIds',
+]);
+
+/**
+ * Replaces the aliases the model cited with the real ids, in the reference fields only. An id the model invented for
+ * something else (it may well call its first person "p1") and quoted text are left exactly as written.
+ */
+export function restoreIds<T>(
+  value: T,
+  fromAlias: ReadonlyMap<string, string>,
+): T {
+  const walk = (node: unknown, key: string | null): unknown => {
+    if (typeof node === 'string') {
+      return key !== null && REFERENCE_KEYS.has(key)
+        ? (fromAlias.get(node) ?? node)
+        : node;
+    }
+    // An array keeps the key of the field that holds it (`pageIds`, `segmentIds`).
+    if (Array.isArray(node)) return node.map((item) => walk(item, key));
     if (node !== null && typeof node === 'object') {
       return Object.fromEntries(
-        Object.entries(node).map(([key, child]) => [key, walk(child)]),
+        Object.entries(node).map(([field, child]) => [
+          field,
+          walk(child, field),
+        ]),
       );
     }
     return node;
   };
-  return walk(value) as T;
+  return walk(value, null) as T;
 }
 
 /**

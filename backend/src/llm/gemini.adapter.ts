@@ -14,6 +14,8 @@ const MAX_ERROR_MESSAGE = 200;
  * model has spent its budget thinking, and the reply is incomplete JSON.
  */
 const THINKING_HEADROOM_TOKENS = 8192;
+/** The most output any current Gemini model returns; asking for more is a 400 that no other provider would cure. */
+const MAX_OUTPUT_TOKENS = 65_536;
 
 export interface GeminiOptions {
   apiKey: string;
@@ -65,7 +67,10 @@ export class GeminiProvider implements LlmProvider {
           generationConfig: {
             responseMimeType: 'application/json',
             responseJsonSchema: schema,
-            maxOutputTokens: request.maxOutputTokens + THINKING_HEADROOM_TOKENS,
+            maxOutputTokens: Math.min(
+              MAX_OUTPUT_TOKENS,
+              request.maxOutputTokens + THINKING_HEADROOM_TOKENS,
+            ),
           },
         }),
       },

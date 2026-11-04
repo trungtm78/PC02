@@ -11,6 +11,7 @@ import {
 import {
   analyseOutputBudget,
   analyseTimeoutMs,
+  restoreIds,
   runPipeline,
   splitSegments,
   transcribePages,
@@ -291,6 +292,43 @@ describe('ids the model cannot mangle', () => {
     expect(cited.length).toBeGreaterThan(0);
     expect(cited.every((id) => id.startsWith('cmlong'))).toBe(true);
     expect(out.bundle.documents[0].pageIds).toEqual(['cmlongp1xxxxxxxx']);
+  });
+});
+
+describe('restoreIds', () => {
+  const aliases = new Map([
+    ['p1', 'cmlongA'],
+    ['p2', 'cmlongB'],
+    ['p1.s1', 'cmlongA.s1'],
+  ]);
+
+  it('maps only the fields that hold page or segment references, not ids the model invented', () => {
+    const restored = restoreIds(
+      {
+        // The model may well call its first person "p1": that is not a page.
+        people: [{ id: 'p1', name: 'p2' }],
+        documents: [{ issuer: 'p1', pageIds: ['p1', 'p2'] }],
+        evidence: { pageId: 'p2', quote: 'p1' },
+        points: [{ segmentIds: ['p1.s1'] }],
+        segmentCoverage: [{ segmentId: 'p1.s1' }],
+        unreadable: [{ pageId: 'p1', note: 'p1.s1' }],
+      },
+      aliases,
+    );
+    expect(restored).toEqual({
+      people: [{ id: 'p1', name: 'p2' }],
+      documents: [{ issuer: 'p1', pageIds: ['cmlongA', 'cmlongB'] }],
+      evidence: { pageId: 'cmlongB', quote: 'p1' },
+      points: [{ segmentIds: ['cmlongA.s1'] }],
+      segmentCoverage: [{ segmentId: 'cmlongA.s1' }],
+      unreadable: [{ pageId: 'cmlongA', note: 'p1.s1' }],
+    });
+  });
+
+  it('leaves an id it does not know as the model wrote it', () => {
+    expect(restoreIds({ pageIds: ['p9'] }, aliases)).toEqual({
+      pageIds: ['p9'],
+    });
   });
 });
 
