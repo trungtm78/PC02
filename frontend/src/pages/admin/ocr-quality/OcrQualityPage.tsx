@@ -81,6 +81,9 @@ export default function OcrQualityPage() {
             Math.round(report.budget.capMicroUsd === 0 ? 0 : (report.budget.usedMicroUsd / report.budget.capMicroUsd) * 100),
             report.budget.level,
           )}
+          {report.budget.unpricedCalls > 0 && (
+            <span className="mt-1 block font-medium text-amber-900">{t.unpriced(report.budget.unpricedCalls)}</span>
+          )}
         </p>
       )}
 

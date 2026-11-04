@@ -43,6 +43,11 @@ export interface BudgetStatus {
   usedMicroUsd: number;
   capMicroUsd: number;
   level: BudgetLevel;
+  /**
+   * Successful calls this month with no known cost (the provider has no prices). They are not in `usedMicroUsd`, so
+   * while this is above zero the cap protects less than it appears to.
+   */
+  unpricedCalls: number;
 }
 
 const realSleep = (ms: number) =>
@@ -131,10 +136,18 @@ export class LlmGatewayService {
       where: { createdAt: { gte: monthStartVietnam(new Date()) } },
     });
     const usedMicroUsd = spent._sum.estimatedCostMicroUsd ?? 0;
+    const unpricedCalls = await this.prisma.llmCallLineage.count({
+      where: {
+        createdAt: { gte: monthStartVietnam(new Date()) },
+        outcome: 'OK',
+        estimatedCostMicroUsd: null,
+      },
+    });
     return {
       usedMicroUsd,
       capMicroUsd,
       level: budgetLevel(usedMicroUsd, capMicroUsd),
+      unpricedCalls,
     };
   }
 

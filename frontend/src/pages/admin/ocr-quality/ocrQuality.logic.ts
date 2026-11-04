@@ -28,6 +28,8 @@ export interface BudgetView {
   usedMicroUsd: number;
   capMicroUsd: number;
   level: 'OK' | 'WARN' | 'EXHAUSTED';
+  /** Successful calls this month with no known cost (no provider price): not counted in `usedMicroUsd`. */
+  unpricedCalls: number;
 }
 
 export interface QualityReport {

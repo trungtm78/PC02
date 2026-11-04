@@ -126,7 +126,7 @@ run('LlmGatewayService on PostgreSQL', () => {
   const seedLineage = (data: {
     outcome?: string;
     imagesSent?: number;
-    cost?: number;
+    cost?: number | null;
     at?: Date;
     user?: string;
   }) =>
@@ -138,7 +138,7 @@ run('LlmGatewayService on PostgreSQL', () => {
         model: 'seed',
         outcome: data.outcome ?? 'OK',
         imagesSent: data.imagesSent ?? 0,
-        estimatedCostMicroUsd: data.cost ?? 0,
+        estimatedCostMicroUsd: data.cost === undefined ? 0 : data.cost,
         ...(data.at ? { createdAt: data.at } : {}),
       },
     });
@@ -346,6 +346,22 @@ run('LlmGatewayService on PostgreSQL', () => {
       expect(status.level).toBe('WARN');
       expect(status.usedMicroUsd).toBe(9_000);
       expect(status.capMicroUsd).toBe(10_000);
+    });
+
+    it('counts the calls whose cost is unknown, so a missing price cannot make the cap look safe', async () => {
+      await seedLineage({ cost: null });
+      await seedLineage({ cost: null });
+      await seedLineage({ cost: 500 });
+      // A failed call is not spend, priced or not.
+      await seedLineage({ cost: null, outcome: 'SERVER' });
+      const status = await gateway().budgetStatus();
+      expect(status.unpricedCalls).toBe(2);
+      expect(status.usedMicroUsd).toBe(500);
+    });
+
+    it('reports no unpriced calls when every call has a cost', async () => {
+      await seedLineage({ cost: 100 });
+      expect((await gateway().budgetStatus()).unpricedCalls).toBe(0);
     });
 
     it('a cap of 0 means unlimited', async () => {

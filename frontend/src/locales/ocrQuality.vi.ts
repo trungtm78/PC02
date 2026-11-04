@@ -13,6 +13,8 @@ export const ocrQuality = {
       : level === 'WARN'
         ? `Ngân sách tháng sắp hết: đã dùng ${used} / ${cap} (${percent}%).`
         : `Ngân sách tháng: đã dùng ${used} / ${cap} (${percent}%).`,
+  unpriced: (n: number) =>
+    `${n} lượt đọc trong tháng chưa tính được chi phí vì nhà cung cấp chưa khai đơn giá, nên số đã dùng ở trên thấp hơn thực tế. Hãy nhập đơn giá ở màn Cấu hình LLM để trần ngân sách có tác dụng.`,
   modelsHeading: 'Theo model: tỉ lệ ô được giữ nguyên',
   worstHeading: 'Các ô bị sửa hoặc xoá nhiều nhất',
   costHeading: 'Chi phí và lỗi theo model',

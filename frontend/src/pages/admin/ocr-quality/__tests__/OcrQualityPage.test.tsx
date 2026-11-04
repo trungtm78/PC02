@@ -12,7 +12,7 @@ const report = {
     { entity: 'PETITION', field: 'senderName', providerKind: 'GEMINI', model: 'flash', promptVersion: 'v1', kept: 8, edited: 2, cleared: 0, total: 10, mustConfirm: 10 },
     { entity: 'PETITION', field: 'senderPhone', providerKind: 'GEMINI', model: 'flash', promptVersion: 'v1', kept: 2, edited: 6, cleared: 2, total: 10, mustConfirm: 0 },
   ],
-  budget: { usedMicroUsd: 17_000_000, capMicroUsd: 20_000_000, level: 'WARN' },
+  budget: { usedMicroUsd: 17_000_000, capMicroUsd: 20_000_000, level: 'WARN', unpricedCalls: 0 },
   calls: [
     { providerKind: 'GEMINI', model: 'flash', calls: 12, ok: 10, failed: 2, images: 30, inputTokens: 4000, outputTokens: 900, costMicroUsd: 12500, errors: { RATE_LIMIT: 2 } },
   ],
@@ -43,9 +43,23 @@ describe('OcrQualityPage', () => {
     const { unmount } = render(<OcrQualityPage />);
     expect((await screen.findByTestId('quality-budget')).textContent).toContain('85%');
     unmount();
-    get.mockResolvedValue({ data: { ...report, budget: { usedMicroUsd: 20_000_000, capMicroUsd: 20_000_000, level: 'EXHAUSTED' } } });
+    get.mockResolvedValue({ data: { ...report, budget: { usedMicroUsd: 20_000_000, capMicroUsd: 20_000_000, level: 'EXHAUSTED', unpricedCalls: 0 } } });
     render(<OcrQualityPage />);
     expect((await screen.findByTestId('quality-budget')).textContent).toContain('đã dừng');
+  });
+
+  it('says so when some calls have no known cost, because the cap then protects less than it shows', async () => {
+    get.mockResolvedValue({ data: { ...report, budget: { usedMicroUsd: 0, capMicroUsd: 20_000_000, level: 'OK', unpricedCalls: 7 } } });
+    render(<OcrQualityPage />);
+    const banner = (await screen.findByTestId('quality-budget')).textContent ?? '';
+    expect(banner).toContain('7 lượt đọc');
+    expect(banner).toMatch(/đơn giá/);
+  });
+
+  it('adds nothing when every call has a cost', async () => {
+    get.mockResolvedValue({ data: report });
+    render(<OcrQualityPage />);
+    expect((await screen.findByTestId('quality-budget')).textContent).not.toMatch(/đơn giá/);
   });
 
   it('says there is no data yet instead of showing empty tables', async () => {
