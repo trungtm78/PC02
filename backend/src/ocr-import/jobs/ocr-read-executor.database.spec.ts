@@ -244,6 +244,27 @@ run('OcrReadExecutor on PostgreSQL', () => {
       expect(seen).toEqual(['READING_PAGES', 'ANALYSING']);
     });
 
+    it('a worker that lost its claim cannot change the step of the attempt that replaced it', async () => {
+      const s = await sessions.createSession('PETITION', alice);
+      await addScan(s.id, 200);
+      const job = await jobFor(s.id, 'READ');
+      // Recovery gave the job to another attempt while this worker was stalled.
+      await db.ocrJob.update({
+        where: { id: job.id },
+        data: { attempts: 2, stage: 'READING_PAGES' },
+      });
+      const seen: Array<string | null> = [];
+      duringAnalysis = async () => {
+        seen.push(
+          (await db.ocrJob.findUniqueOrThrow({ where: { id: job.id } })).stage,
+        );
+      };
+
+      await executor.execute(job);
+
+      expect(seen).toEqual(['READING_PAGES']);
+    });
+
     it('an analysis-only job goes straight to the analysing step', async () => {
       const s = await sessions.createSession('PETITION', alice);
       await addScan(s.id, 200);

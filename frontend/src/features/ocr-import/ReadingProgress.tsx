@@ -51,6 +51,8 @@ export function ReadingProgress({ kind, stage, pageCount, startedAt, finalStep, 
     state: 'pending',
   });
 
+  const current = steps.find((step) => step.state === 'now');
+
   const stateText: Record<StepState, string> = {
     done: ocrImport.progressStateDone,
     now: ocrImport.progressStateNow,
@@ -59,11 +61,14 @@ export function ReadingProgress({ kind, stage, pageCount, startedAt, finalStep, 
 
   return (
     <div
-      role="status"
-      aria-live="polite"
       data-testid="ocr-reading-progress"
       className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-slate-800"
     >
+      {/* Only the step is announced: the clock changes every second and would be read out again and again. */}
+      <p role="status" className="sr-only">
+        {current?.label}
+      </p>
+
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-slate-900">{ocrImport.progressTitle}</span>
         <span className="tabular-nums text-xs text-slate-600">{ocrImport.progressElapsed(clockOf(seconds))}</span>

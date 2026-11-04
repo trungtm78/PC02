@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../ReviewPanel', () => ({
   ReviewPanel: ({ onReanalyse }: { onReanalyse: () => void }) => (
@@ -89,8 +89,9 @@ describe('IntakeDrawer', () => {
     show(baseIntake({ phase: 'READING', stage: 'ANALYSING' }));
     const panel = screen.getByTestId('ocr-reading-progress');
     expect(panel.textContent).toContain('Đọc chữ trên 2 trang ảnh');
-    expect(screen.getByText(/Phân tích nội dung/).closest('li')?.getAttribute('data-state')).toBe('now');
-    expect(screen.getByText('Đọc chữ trên 2 trang ảnh').closest('li')?.getAttribute('data-state')).toBe('done');
+    const steps = within(within(panel).getByRole('list'));
+    expect(steps.getByText(/Phân tích nội dung/).closest('li')?.getAttribute('data-state')).toBe('now');
+    expect(steps.getByText('Đọc chữ trên 2 trang ảnh').closest('li')?.getAttribute('data-state')).toBe('done');
   });
 
   it('moves and removes pages', () => {

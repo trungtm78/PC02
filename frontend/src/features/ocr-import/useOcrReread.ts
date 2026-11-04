@@ -101,6 +101,8 @@ export function useOcrReread<TForm>({
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         if (epochRef.current !== mine) return;
         const job = await ocrApi.job(started.sessionId);
+        // Closed or restarted while the answer was on its way: it belongs to a reading that is gone.
+        if (epochRef.current !== mine) return;
         if (job?.state === 'SUCCEEDED') break;
         if (job?.state === 'FAILED') {
           setErrorCode(job.lastErrorCode ?? 'INTERNAL');
@@ -165,6 +167,7 @@ export function useOcrReread<TForm>({
     setAnalysis(null);
     setHandled(new Set());
     setErrorCode(null);
+    setStage(null);
     await discard();
   }, [discard]);
 

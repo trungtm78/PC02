@@ -185,6 +185,8 @@ export function useOcrIntake({
           await new Promise((resolve) => setTimeout(resolve, pollMs));
           if (epochRef.current !== epoch) return;
           const job = await ocrApi.job(id);
+          // Cancelled or restarted while the answer was on its way: it belongs to a reading that is gone.
+          if (epochRef.current !== epoch) return;
           if (job?.state === 'SUCCEEDED') break;
           if (job?.state === 'FAILED') {
             setErrorCode(job.lastErrorCode ?? 'INTERNAL');
@@ -227,6 +229,7 @@ export function useOcrIntake({
     setUploadErrors([]);
     setUploading(false);
     setErrorCode(null);
+    setStage(null);
     setPhase('IDLE');
     onEndedRef.current?.();
     if (id) await ocrApi.cancel(id).catch(() => undefined);
@@ -246,6 +249,7 @@ export function useOcrIntake({
     setUploadErrors([]);
     setUploading(false);
     setErrorCode(null);
+    setStage(null);
     setPhase('IDLE');
     onEndedRef.current?.();
   }, [onEndedRef]);

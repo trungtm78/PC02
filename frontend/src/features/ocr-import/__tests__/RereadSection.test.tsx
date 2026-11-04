@@ -51,8 +51,9 @@ describe('RereadSection', () => {
 
   it('says it is reading, and cannot be started twice meanwhile', () => {
     show(make({ phase: 'READING' }));
-    expect(screen.getByRole('status').textContent).toContain('Hệ thống đang xử lý ảnh');
-    expect(screen.getByRole('status').textContent).toContain('So sánh với hồ sơ hiện tại');
+    const panel = screen.getByTestId('ocr-reading-progress');
+    expect(panel.textContent).toContain('Hệ thống đang xử lý ảnh');
+    expect(panel.textContent).toContain('So sánh với hồ sơ hiện tại');
     expect((screen.getByRole('button', { name: 'Đọc lại từ ảnh scan' }) as HTMLButtonElement).disabled).toBe(true);
   });
 

@@ -137,6 +137,26 @@ describe('useOcrReread', () => {
     expect(result.current.reread.errorCode).toBe('LLM_BUDGET_EXHAUSTED');
   });
 
+  it('an answer that arrives after the reading was closed does not set a step', async () => {
+    let late: (() => void) | undefined;
+    api.job.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          late = () => resolve(job('RUNNING', null, 'ANALYSING'));
+        }),
+    );
+    const { result } = setup({ b: 'cũ' });
+    act(() => {
+      void result.current.reread.start();
+    });
+    await waitFor(() => expect(late).toBeDefined());
+
+    await act(() => result.current.reread.close());
+    await act(async () => late?.());
+
+    expect(result.current.reread.stage).toBeNull();
+  });
+
   it('closing deletes the temporary session so no copy of the scans stays on the server', async () => {
     api.analysis.mockResolvedValue(analysis(fill('b', 'mới')));
     const { result } = setup({ b: 'cũ' });

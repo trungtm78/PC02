@@ -193,6 +193,29 @@ describe('useOcrIntake', () => {
     expect(result.current.phase).toBe('DONE');
   });
 
+  it('an answer that arrives after the reading was cancelled does not set a step', async () => {
+    api.read.mockResolvedValue({ id: 'j1', deduplicated: false });
+    api.cancel.mockResolvedValue(undefined);
+    let late: (() => void) | undefined;
+    api.job.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          late = () => resolve(job('RUNNING', null, 'ANALYSING'));
+        }),
+    );
+    const { result } = setup();
+    await act(() => result.current.addFiles([file('a')]));
+    act(() => {
+      void result.current.read('READ');
+    });
+    await waitFor(() => expect(late).toBeDefined());
+
+    await act(() => result.current.cancel());
+    await act(async () => late?.());
+
+    expect(result.current.stage).toBeNull();
+  });
+
   it('a new reading forgets the step of the previous one', async () => {
     api.read.mockResolvedValue({ id: 'j1', deduplicated: false });
     api.job.mockResolvedValueOnce(job('RUNNING', null, 'ANALYSING')).mockResolvedValue(job('SUCCEEDED'));
