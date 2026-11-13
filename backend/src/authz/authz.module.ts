@@ -2,6 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthzAdminController } from './admin/authz-admin.controller';
 import { AuthzAdminService } from './admin/authz-admin.service';
+import { AuthzModeController } from './admin/authz-mode.controller';
+import { AuthzModeService } from './admin/authz-mode.service';
 import { AuthzController } from './authz.controller';
 import { AuthzLookupService } from './authz-lookup.service';
 import { AuthzScopeService } from './authz-scope.service';
@@ -14,8 +16,8 @@ import { AuthzService } from './authz.service';
 @Global()
 @Module({
   imports: [AuditModule],
-  controllers: [AuthzController, AuthzAdminController],
-  providers: [AuthzService, AuthzScopeService, AuthzLookupService, AuthzAdminService],
+  controllers: [AuthzController, AuthzAdminController, AuthzModeController],
+  providers: [AuthzService, AuthzScopeService, AuthzLookupService, AuthzAdminService, AuthzModeService],
   exports: [AuthzService, AuthzScopeService],
 })
 export class AuthzModule {}

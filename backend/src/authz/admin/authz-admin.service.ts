@@ -35,7 +35,7 @@ export const AUTHZ_ADMIN_ERROR = {
 } as const;
 
 /** One lock for every writer of the permission configuration (pg_advisory_xact_lock). */
-const CONFIG_WRITE_LOCK = 7226001;
+export const CONFIG_WRITE_LOCK = 7226001;
 
 export interface Expected {
   /** `type:id` -> the revision the editor read (templates and team configurations). */

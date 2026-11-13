@@ -73,11 +73,17 @@ export class AuthzService implements OnApplicationBootstrap, OnModuleDestroy {
   private knownNotEnforcing = false;
 
   /**
-   * Whether the mode ENFORCE may take effect at all. FALSE until every place that decides from the role has been
-   * moved to permissions by team: a system that enforced in the guard but still asked the role elsewhere would
-   * give back permissions the configuration took away. While false, ENFORCE in the database is treated as SHADOW.
+   * Whether the mode ENFORCE may take effect at all. While false, ENFORCE in the database is treated as SHADOW.
+   *
+   * True since every place that decides what a person may do asks permissions by team first: the route guard,
+   * `/auth/me`, the request scope and the record filters, the services that check a permission themselves
+   * (`role-readers.gate.spec.ts`) and the checks that were written against a role name (`role-names.gate.spec.ts`),
+   * proven together on PostgreSQL in `enforce-end-to-end.database.spec.ts`. A build that must not enforce whatever
+   * the database says (an emergency) sets this to false: one line, no migration.
+   *
+   * The mode itself is switched only through `AuthzModeService`: two administrators, on a comparison both read.
    */
-  static enforceAvailable = false;
+  static enforceAvailable = true;
   private readonly logger = new Logger(AuthzService.name);
 
   constructor(private readonly prisma: PrismaService) {}

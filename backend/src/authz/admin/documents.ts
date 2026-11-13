@@ -330,7 +330,16 @@ export function impactOf(
   wanted: readonly WantedItem[],
   now: Date,
 ): PersonImpact[] {
-  const next = withChanges(config, users, wanted);
+  return impactBetween(org, { config, users }, withChanges(config, users, wanted), now);
+}
+
+/** The same between any two states of the configuration and the people (today against enforced, for instance). */
+export function impactBetween(
+  org: OrgSnapshot,
+  was: { config: AuthzConfig; users: ReadonlyMap<string, UserInput> },
+  next: { config: AuthzConfig; users: ReadonlyMap<string, UserInput> },
+  now: Date,
+): PersonImpact[] {
   const impacts: PersonImpact[] = [];
   /** What a record permission reaches, as comparable facts. */
   const reached = (effective: ReturnType<typeof compile>, permission: string) => {
@@ -342,8 +351,8 @@ export function impactOf(
       teams: [...new Set([...scope.exactTeamIds, ...(scope.tree?.teamIds ?? [])])].sort(),
     };
   };
-  for (const [userId, person] of users) {
-    const before = compile(org, config, person, now);
+  for (const [userId, person] of was.users) {
+    const before = compile(org, was.config, person, now);
     const after = compile(org, next.config, next.users.get(userId) ?? person, now);
     const impact: PersonImpact = { userId, gained: [], lost: [], changed: [] };
     for (const permission of new Set([...before.keys, ...after.keys])) {
