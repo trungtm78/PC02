@@ -19,7 +19,7 @@ import { AuthService } from '../auth/auth.service';
 import { UnitScopeService, type DataScope } from '../auth/services/unit-scope.service';
 import { CaseGovernanceService } from '../cases/governance/case-governance.service';
 import { SettingsService } from '../settings/settings.service';
-import { AuthzService, REFRESH_EVERY_MS } from './authz.service';
+import { AuthzService, MAX_SNAPSHOT_AGE_MS, REFRESH_EVERY_MS, REFRESH_TIMEOUT_MS } from './authz.service';
 import { enforcement, setEnforcement, type Enforcement } from './enforcement';
 
 /**
@@ -50,36 +50,146 @@ describe('the registry', () => {
 });
 
 describe('AuthzService keeps the configuration in memory, outside the request path', () => {
+  /** A database with an empty configuration; `mode` is what the settings row says. */
+  function database(mode: string | null, changes = 1) {
+    const none = { findMany: jest.fn().mockResolvedValue([]) };
+    return {
+      $queryRaw: jest.fn().mockImplementation(async () => [{ n: BigInt(changes), last: BigInt(changes) }]),
+      team: none, userTeam: none, teamPermissionConfig: none, permissionTemplate: none, role: none, user: none,
+      userPermissionOverride: none, dataAccessGrant: none,
+      systemSetting: { findUnique: jest.fn().mockResolvedValue(mode === null ? null : { value: mode }) },
+    };
+  }
+  const quiet = (service: AuthzService) => {
+    const logger = (service as unknown as { logger: { error: (m: string) => void; warn: (m: string) => void } }).logger;
+    return { error: jest.spyOn(logger, 'error').mockImplementation(() => undefined), warn: jest.spyOn(logger, 'warn').mockImplementation(() => undefined) };
+  };
+  afterEach(() => {
+    AuthzService.enforceAvailable = false;
+    jest.useRealTimers();
+  });
+
   it('nothing is in memory before the first load, and reading memory never touches the database', () => {
     const prisma = new Proxy({}, { get: () => { throw new Error('the database was touched'); } });
-    expect(new AuthzService(prisma as never).cached()).toBeNull();
+    const service = new AuthzService(prisma as never);
+    expect(service.cached()).toBeNull();
+    expect(service.state()).toBe('UNAVAILABLE');
   });
 
-  it('loads before the application takes requests, then refreshes on a timer that does not keep the process alive', async () => {
+  it('loads before the application takes requests; the next refresh starts only after the previous one ended', async () => {
     jest.useFakeTimers();
-    try {
-      const service = new AuthzService({} as never);
-      const snapshot = jest.spyOn(service, 'snapshot').mockResolvedValue({} as never);
-      await service.onApplicationBootstrap();
-      expect(snapshot).toHaveBeenCalledTimes(1);
-      await jest.advanceTimersByTimeAsync(REFRESH_EVERY_MS * 2);
-      expect(snapshot).toHaveBeenCalledTimes(3);
-      service.onModuleDestroy();
-      await jest.advanceTimersByTimeAsync(REFRESH_EVERY_MS * 3);
-      expect(snapshot).toHaveBeenCalledTimes(3);
-    } finally {
-      jest.useRealTimers();
-    }
+    const service = new AuthzService(database('OFF') as never);
+    const snapshot = jest.spyOn(service, 'snapshot');
+    await service.onApplicationBootstrap();
+    expect(snapshot).toHaveBeenCalledTimes(1);
+    expect(service.state()).toBe('OFF');
+    await jest.advanceTimersByTimeAsync(REFRESH_EVERY_MS);
+    expect(snapshot).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(REFRESH_EVERY_MS);
+    expect(snapshot).toHaveBeenCalledTimes(3);
+    service.onModuleDestroy();
+    await jest.advanceTimersByTimeAsync(REFRESH_EVERY_MS * 3);
+    expect(snapshot).toHaveBeenCalledTimes(3);
   });
 
-  it('a refresh that fails is logged and keeps what is in memory: it never throws into a timer or the start-up', async () => {
-    const service = new AuthzService({} as never);
-    jest.spyOn(service, 'snapshot').mockRejectedValue(new Error('database down'));
-    const logged = jest.spyOn((service as unknown as { logger: { error: (m: string) => void } }).logger, 'error').mockImplementation(() => undefined);
+  it('refreshes do not pile up: callers arriving during one wait for that one', async () => {
+    const service = new AuthzService(database('OFF') as never);
+    const snapshot = jest.spyOn(service, 'snapshot');
+    await Promise.all([service.refresh(), service.refresh(), service.refresh()]);
+    expect(snapshot).toHaveBeenCalledTimes(1);
+    await service.refresh();
+    expect(snapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it('a refresh that hangs is given up after a bound, logged, and does not block the next one', async () => {
+    jest.useFakeTimers();
+    const db = database('OFF');
+    const service = new AuthzService(db as never);
+    const { error } = quiet(service);
+    await service.refresh();
+    db.$queryRaw.mockImplementationOnce(() => new Promise(() => undefined)); // never answers
+    const hung = service.refresh();
+    await jest.advanceTimersByTimeAsync(REFRESH_TIMEOUT_MS);
+    await expect(hung).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining(`no answer within ${REFRESH_TIMEOUT_MS} ms`));
+    // The next one goes through.
+    await expect(service.refresh()).resolves.toBeUndefined();
+    expect(service.state()).toBe('OFF');
+  });
+
+  it('a slow load that finishes after a newer one is not put back over it', async () => {
+    const db = database('OFF', 5);
+    const service = new AuthzService(db as never);
+    await service.refresh();
+    const newer = service.cached();
+    const publish = (service as unknown as { publish: (s: unknown) => void }).publish.bind(service);
+    publish({ ...newer, revision: '3:3' });
+    expect(service.cached()).toBe(newer);
+    publish({ ...newer, revision: '6:6' });
+    expect(service.cached()!.revision).toBe('6:6');
+  });
+
+  it('ENFORCE in the database does not take effect while enforcement is not available in the build: it runs as SHADOW', async () => {
+    const service = new AuthzService(database('ENFORCE') as never);
+    const { warn } = quiet(service);
+    await service.refresh();
+    expect(service.cached()!.mode).toBe('SHADOW');
+    expect(service.state()).toBe('OFF');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('running as SHADOW'));
+  });
+
+  describe('once enforcement is available', () => {
+    beforeEach(() => {
+      AuthzService.enforceAvailable = true;
+    });
+
+    it('enforces from a configuration confirmed recently, and stops trusting one that is too old', async () => {
+      const db = database('ENFORCE');
+      const service = new AuthzService(db as never);
+      quiet(service);
+      await service.refresh();
+      const loadedAt = Date.now();
+      expect(service.state(loadedAt)).toBe('ENFORCE');
+      expect(service.state(loadedAt + MAX_SNAPSHOT_AGE_MS)).toBe('ENFORCE');
+      // No successful refresh for too long (the database stopped answering): nothing may be decided from it.
+      expect(service.state(loadedAt + MAX_SNAPSHOT_AGE_MS + 1)).toBe('UNAVAILABLE');
+      db.$queryRaw.mockRejectedValue(new Error('database down'));
+      await service.refresh();
+      expect(service.cached()!.mode).toBe('ENFORCE');
+      expect(service.state(loadedAt + MAX_SNAPSHOT_AGE_MS + 1)).toBe('UNAVAILABLE');
+    });
+
+    it('nothing could be loaded: OFF only when the mode itself was read and is not ENFORCE; otherwise unavailable', async () => {
+      for (const [mode, expected] of [['OFF', 'OFF'], ['SHADOW', 'OFF'], [null, 'OFF'], ['ENFORCE', 'UNAVAILABLE']] as const) {
+        const db = database(mode);
+        db.$queryRaw.mockRejectedValue(new Error('authz tables unreadable'));
+        const service = new AuthzService(db as never);
+        quiet(service);
+        await service.refresh();
+        expect(service.cached()).toBeNull();
+        expect(service.state()).toBe(expected);
+      }
+      const db = database('OFF');
+      db.$queryRaw.mockRejectedValue(new Error('down'));
+      db.systemSetting.findUnique.mockRejectedValue(new Error('down'));
+      const service = new AuthzService(db as never);
+      quiet(service);
+      await service.refresh();
+      expect(service.state()).toBe('UNAVAILABLE');
+    });
+  });
+
+  it('a refresh that fails is logged and never throws into the timer or the start-up', async () => {
+    const db = database('OFF');
+    db.$queryRaw.mockRejectedValue(new Error('database down'));
+    const service = new AuthzService(db as never);
+    const { error } = quiet(service);
     await expect(service.refresh()).resolves.toBeUndefined();
     await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
     service.onModuleDestroy();
-    expect(logged).toHaveBeenCalledWith(expect.stringContaining('database down'));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('database down'));
+    // While enforcement is not available in the build nothing can be enforcing: the role path is safe.
+    expect(service.state()).toBe('OFF');
   });
 });
 

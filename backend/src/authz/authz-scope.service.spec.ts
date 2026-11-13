@@ -35,6 +35,7 @@ const person = (over: Partial<UserInput> = {}): UserInput => ({
 function service(snap: AuthzSnapshot): AuthzScopeService {
   const authz = new AuthzService({} as never);
   jest.spyOn(authz, 'cached').mockReturnValue(snap);
+  jest.spyOn(authz, 'state').mockReturnValue(snap.mode === 'ENFORCE' ? 'ENFORCE' : 'OFF');
   return new AuthzScopeService(authz);
 }
 const explicit = (teamId: string, memberTemplateId: string): TeamConfigInput => ({ teamId, mode: 'EXPLICIT', memberTemplateId, leaderTemplateId: null, overrides: [] });
@@ -108,45 +109,71 @@ describe('AuthzScopeService', () => {
     expect(scope.precise!.subjects.Case.read.tree).toEqual({ teamIds: ['W'], userIds: ['wardy'], includeUnassigned: false });
   });
 
-  it('answers from memory only: no promise, no database, in any mode', () => {
+  it('answers from memory only: no promise, no database', () => {
     const prisma = new Proxy({}, { get: () => { throw new Error('the database was touched'); } });
     const authz = new AuthzService(prisma as never);
     const s = new AuthzScopeService(authz);
-    // Nothing loaded yet (the process has only just started): not enforced, and still no read.
+    jest.spyOn(authz, 'state').mockReturnValue('OFF');
     expect(s.scopeOf('me')).toBeUndefined();
     expect(s.keysOf('me')).toBeUndefined();
+    jest.spyOn(authz, 'state').mockReturnValue('ENFORCE');
     jest.spyOn(authz, 'cached').mockReturnValue(snapshot('ENFORCE', { users: [person()] }));
     expect(s.keysOf('me')).toEqual([...OFFICER].sort());
     expect(s.scopeOf('me')).not.toBeInstanceOf(Promise);
   });
 
-  it('the mode is that of the snapshot: a scope is never computed from the mode of one moment and the configuration of another', () => {
+  it('when it cannot be told whether anything is enforced, or the configuration is too old: refused, never "ask the role"', () => {
     const authz = new AuthzService({} as never);
-    const cached = jest.spyOn(authz, 'cached').mockReturnValue(snapshot('ENFORCE', { users: [person()] }));
     const s = new AuthzScopeService(authz);
-    expect(s.scopeOf('me')).toBeDefined();
-    cached.mockReturnValue(snapshot('OFF', { users: [person()] }));
-    expect(s.scopeOf('me')).toBeUndefined();
+    // Nothing was ever loaded and the mode itself is unknown.
+    expect(authz.state()).toBe('UNAVAILABLE');
+    expect(() => s.scopeOf('me')).toThrow(expect.objectContaining({ status: 503, response: { code: 'AUTHZ_UNAVAILABLE' } }));
+    expect(() => s.keysOf('me')).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_UNAVAILABLE' } }));
   });
 
-  it('enforced: somebody the configuration does not know is not found, rather than unrestricted', () => {
-    const s = service(snapshot('ENFORCE', { users: [person()] }));
+  it('enforced: somebody the configuration does not know is not found, rather than unrestricted, and a refresh is asked for', () => {
+    const authz = new AuthzService({} as never);
+    jest.spyOn(authz, 'cached').mockReturnValue(snapshot('ENFORCE', { users: [person()] }));
+    jest.spyOn(authz, 'state').mockReturnValue('ENFORCE');
+    const refresh = jest.spyOn(authz, 'refresh').mockResolvedValue(undefined);
+    const s = new AuthzScopeService(authz);
     expect(() => s.scopeOf('ghost')).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_USER_NOT_FOUND' } }));
     expect(() => s.keysOf('ghost')).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_USER_NOT_FOUND' } }));
+    expect(refresh).toHaveBeenCalledTimes(2);
+    s.keysOf('me');
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  it('registers itself as the enforcement of the process, and steps down when its module is destroyed', () => {
-    const s = service(snapshot('OFF', { users: [] }));
-    expect(enforcement()).toBe(s);
-    s.onModuleDestroy();
-    expect(enforcement()).toBeNull();
-  });
+  describe('the registry', () => {
+    it('constructing or compiling is not enough: it becomes the enforcement only when its application starts', () => {
+      const s = new AuthzScopeService(new AuthzService({} as never));
+      expect(enforcement()).toBeNull();
+      s.onApplicationBootstrap();
+      expect(enforcement()).toBe(s);
+      s.onModuleDestroy();
+      expect(enforcement()).toBeNull();
+    });
 
-  it('assertReady fails while the configuration has never been loaded', () => {
-    const authz = new AuthzService({} as never);
-    const s = new AuthzScopeService(authz);
-    expect(() => s.assertReady()).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_NOT_READY' } }));
-    jest.spyOn(authz, 'cached').mockReturnValue(snapshot('OFF', { users: [] }));
-    expect(() => s.assertReady()).not.toThrow();
+    it('a second application takes over while it runs and gives back when it closes, in either order', () => {
+      const a = new AuthzScopeService(new AuthzService({} as never));
+      const b = new AuthzScopeService(new AuthzService({} as never));
+      const compiledOnly = new AuthzScopeService(new AuthzService({} as never));
+      a.onApplicationBootstrap();
+      b.onApplicationBootstrap();
+      expect(enforcement()).toBe(b);
+      // A module that was only compiled closes: it never registered, so it takes nothing away.
+      compiledOnly.onModuleDestroy();
+      expect(enforcement()).toBe(b);
+      b.onModuleDestroy();
+      expect(enforcement()).toBe(a);
+      a.onModuleDestroy();
+      expect(enforcement()).toBeNull();
+
+      a.onApplicationBootstrap();
+      b.onApplicationBootstrap();
+      a.onModuleDestroy(); // the older one closes first: the newer stays
+      expect(enforcement()).toBe(b);
+      b.onModuleDestroy();
+    });
   });
 });

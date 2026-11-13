@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { RECORD_SUBJECTS, type PreciseScope, type PreciseScopes, type RecordSubject } from '../common/utils/precise-scope';
 import { AuthzService, type AuthzSnapshot } from './authz.service';
@@ -29,28 +29,52 @@ const teamsOf = (scope: PreciseScope): string[] => [...new Set([...scope.exactTe
  * reach as far as editing does (each can still be switched off on its own by its permission).
  */
 @Injectable()
-export class AuthzScopeService implements Enforcement, OnModuleDestroy {
-  constructor(private readonly authz: AuthzService) {
+export class AuthzScopeService implements Enforcement, OnApplicationBootstrap, OnModuleDestroy {
+  /** What was registered before this one took over; put back when this one's application closes. */
+  private previous: Enforcement | null = null;
+  private registered = false;
+
+  constructor(private readonly authz: AuthzService) {}
+
+  /**
+   * Becomes the enforcement of the process when its APPLICATION starts, not when it is constructed: a module that is
+   * merely compiled (a test, a tool) has loaded nothing and must not take over from a running application.
+   */
+  onApplicationBootstrap(): void {
+    this.previous = enforcement();
     setEnforcement(this);
+    this.registered = true;
   }
 
   onModuleDestroy(): void {
-    if (enforcement() === this) setEnforcement(null);
+    if (!this.registered) return;
+    this.registered = false;
+    if (enforcement() === this) setEnforcement(this.previous);
+    this.previous = null;
   }
 
-  /** The snapshot to answer from, or null when nothing is enforced. */
-  private enforced(): AuthzSnapshot | null {
-    const snapshot = this.authz.cached();
-    // Nothing loaded yet: the process has only just started and has not read its configuration. `AuthzService`
-    // loads it before the application takes requests; if that load failed nothing is enforced by this process.
-    if (!snapshot || snapshot.mode !== 'ENFORCE') return null;
-    return snapshot;
+  /**
+   * The snapshot to answer from, or null when nothing is enforced. When it cannot be told whether anything is
+   * enforced, or the configuration is too old to trust, the request is REFUSED: answering "not enforced" would hand
+   * back whatever the role holds, exactly when the configuration may have taken it away.
+   */
+  private enforced(now: Date): AuthzSnapshot | null {
+    const state = this.authz.state(now.getTime());
+    if (state === 'OFF') return null;
+    if (state === 'UNAVAILABLE') throw new ServiceUnavailableException({ code: 'AUTHZ_UNAVAILABLE' });
+    return this.authz.cached();
+  }
+
+  /** The person's answer; somebody the configuration in memory does not know yet triggers a refresh for next time. */
+  private effectiveOf(snapshot: AuthzSnapshot, userId: string, now: Date) {
+    if (!snapshot.users.has(userId)) void this.authz.refresh();
+    return this.authz.effectiveIn(snapshot, userId, now);
   }
 
   scopeOf(userId: string, now: Date = new Date()): DataScope | null | undefined {
-    const snapshot = this.enforced();
+    const snapshot = this.enforced(now);
     if (!snapshot) return undefined;
-    const effective = this.authz.effectiveIn(snapshot, userId, now);
+    const effective = this.effectiveOf(snapshot, userId, now);
     if (effective.admin) return null;
 
     const subjects = {} as PreciseScopes['subjects'];
@@ -75,16 +99,8 @@ export class AuthzScopeService implements Enforcement, OnModuleDestroy {
   }
 
   keysOf(userId: string, now: Date = new Date()): readonly string[] | undefined {
-    const snapshot = this.enforced();
+    const snapshot = this.enforced(now);
     if (!snapshot) return undefined;
-    return this.authz.effectiveIn(snapshot, userId, now).keys;
-  }
-
-  /**
-   * For a caller that must not go on without knowing (switching enforcement on): fails when the configuration has
-   * never been loaded, instead of answering "not enforced".
-   */
-  assertReady(): void {
-    if (!this.authz.cached()) throw new ServiceUnavailableException({ code: 'AUTHZ_NOT_READY' });
+    return this.effectiveOf(snapshot, userId, now).keys;
   }
 }
