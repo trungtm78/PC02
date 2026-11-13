@@ -9,6 +9,7 @@ import { permissions as L } from '@/locales/permissions.vi';
 import { authzKeys, permissionsApi } from '@/features/permissions/api';
 import { buildIndex } from '@/features/permissions/labels';
 import { AUTHZ_MODE, PAGE_TAB, PAGE_TABS, SCREEN_PERMISSION, type PageTab } from '@/features/permissions/types';
+import { ApplyTab } from '@/features/permissions/components/ApplyTab';
 import { HistoryTab } from '@/features/permissions/components/HistoryTab';
 import { LookupTab } from '@/features/permissions/components/LookupTab';
 import { TeamsTab } from '@/features/permissions/components/TeamsTab';
@@ -18,7 +19,8 @@ const PARAM = { TAB: 'tab', TEAM: 'team', USER: 'user' } as const;
 const isTab = (value: string | null): value is PageTab => PAGE_TABS.includes(value as PageTab);
 
 /**
- * "Phân quyền theo tổ": templates, what each team gives, what a person ends up with and why, and the history.
+ * "Phân quyền theo tổ": templates, what each team gives, what a person ends up with and why, the history, and the
+ * switch that puts all of it into effect.
  * The tab, the team and the person are in the address (`?tab=teams&team=<id>`, `?tab=lookup&user=<id>`), so the team
  * and user screens can link straight here.
  */
@@ -110,6 +112,7 @@ export default function PermissionsPage() {
             />
           )}
           {tab === PAGE_TAB.HISTORY && <HistoryTab index={index} canWrite={canWrite} />}
+          {tab === PAGE_TAB.APPLY && <ApplyTab index={index} canWrite={canWrite} />}
         </>
       )}
     </div>

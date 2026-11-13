@@ -1,7 +1,7 @@
 import { permissions as L } from '@/locales/permissions.vi';
 import type { ExplainedError } from '../errors';
 import { deltaText, type CatalogueIndex, type DeltaKind } from '../labels';
-import type { PermissionDelta, PreviewResult } from '../types';
+import type { PermissionDelta, PersonImpact, PreviewResult } from '../types';
 
 export const BTN = 'px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50';
 export const BTN_PRIMARY = 'px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50';
@@ -47,31 +47,58 @@ const KINDS: { kind: DeltaKind; label: string }[] = [
   { kind: 'changed', label: L.preview.changed },
 ];
 
+/** The people a change touches, each with what they gain, lose or keep at another reach. The one renderer of impacts. */
+export function ImpactList({
+  impacts,
+  teamNames = {},
+  index,
+  testId,
+}: {
+  impacts: readonly PersonImpact[];
+  teamNames?: Readonly<Record<string, string>>;
+  index: CatalogueIndex;
+  testId: string;
+}) {
+  return (
+    <ul className="mt-1 max-h-72 space-y-1 overflow-y-auto">
+      {impacts.map((impact) => (
+        <li key={impact.userId} data-testid={`${testId}-person-${impact.userId}`}>
+          <span className="font-medium">{impact.name}</span>
+          <ul className="list-disc pl-5 text-xs">
+            {KINDS.flatMap(({ kind, label }) =>
+              (impact[kind] as PermissionDelta[]).map((delta) => (
+                <li key={`${kind}-${delta.permission}`}>
+                  {label}: {deltaText(index, kind, delta, teamNames)}
+                  {/* Kept, but reaching less or more somewhere: said even when no team is gained or lost. */}
+                  {kind === 'changed' && delta.narrower === true && (
+                    <span data-testid={`${testId}-narrower-${impact.userId}-${delta.permission}`} className="ml-1 rounded bg-amber-100 px-1 text-amber-900">
+                      {L.preview.narrower}
+                    </span>
+                  )}
+                  {kind === 'changed' && delta.wider === true && (
+                    <span data-testid={`${testId}-wider-${impact.userId}-${delta.permission}`} className="ml-1 rounded bg-sky-100 px-1 text-sky-900">
+                      {L.preview.wider}
+                    </span>
+                  )}
+                </li>
+              )),
+            )}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Who a change would touch, and what each of them gains, loses or keeps at another reach. Nothing has been saved. */
 export function PreviewBox({ result, index, testId = 'authz-preview' }: { result: PreviewResult | null; index: CatalogueIndex; testId?: string }) {
   if (!result) return null;
-  const names = result.teamNames ?? {};
   return (
     <div data-testid={testId} className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-slate-800">
       <p className="font-semibold" data-testid={`${testId}-count`}>
         {result.impacts.length > 0 ? L.preview.affected(result.impacts.length, result.people) : L.preview.nobody(result.people)}
       </p>
-      <ul className="mt-1 max-h-72 space-y-1 overflow-y-auto">
-        {result.impacts.map((impact) => (
-          <li key={impact.userId} data-testid={`${testId}-person-${impact.userId}`}>
-            <span className="font-medium">{impact.name}</span>
-            <ul className="list-disc pl-5 text-xs">
-              {KINDS.flatMap(({ kind, label }) =>
-                (impact[kind] as PermissionDelta[]).map((delta) => (
-                  <li key={`${kind}-${delta.permission}`}>
-                    {label}: {deltaText(index, kind, delta, names)}
-                  </li>
-                )),
-              )}
-            </ul>
-          </li>
-        ))}
-      </ul>
+      <ImpactList impacts={result.impacts} teamNames={result.teamNames} index={index} testId={testId} />
       <p className="mt-1 text-xs text-slate-500">{L.preview.undoNote}</p>
     </div>
   );

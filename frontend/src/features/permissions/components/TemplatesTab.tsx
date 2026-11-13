@@ -76,6 +76,12 @@ export function TemplatesTab({ resources, index, canWrite }: Props) {
     onError: failed,
   });
 
+  const starters = useMutation({
+    mutationFn: permissionsApi.createStarterTemplates,
+    onSuccess: (result) => done(result.created.length > 0 ? T.startersCreated(result.created.length) : T.startersExisting),
+    onError: failed,
+  });
+
   const startCopy = (template: TemplateSummary) => {
     setError(null);
     setCopying(template);
@@ -127,11 +133,31 @@ export function TemplatesTab({ resources, index, canWrite }: Props) {
           ))}
         </div>
         {canWrite && (
-          <button type="button" data-testid="template-add" className={`${BTN_PRIMARY} ml-auto`} onClick={() => setEditing({ template: null })}>
-            {T.add}
-          </button>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid="template-starters"
+              className={BTN}
+              disabled={starters.isPending}
+              onClick={() => {
+                setError(null);
+                setNotice('');
+                starters.mutate();
+              }}
+            >
+              {starters.isPending ? T.startersWorking : T.starters}
+            </button>
+            <button type="button" data-testid="template-add" className={BTN_PRIMARY} onClick={() => setEditing({ template: null })}>
+              {T.add}
+            </button>
+          </div>
         )}
       </div>
+      {canWrite && (
+        <p className="text-right text-xs text-slate-500" data-testid="template-starters-hint">
+          {T.startersHint}
+        </p>
+      )}
 
       {copying && (
         <div className={`${CARD} p-4`} data-testid="template-copy-dialog">
