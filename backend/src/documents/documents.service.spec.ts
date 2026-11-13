@@ -268,6 +268,41 @@ describe('DocumentsService', () => {
       expect(JSON.stringify(petitionClause)).toContain('deletedAt');
     });
 
+    it('a subject reached without limit stays in the list next to a limited one (it is said as "has such a parent")', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+      const nothing = { all: false, own: false, exactTeamIds: [], tree: null };
+      const all = { ...nothing, all: true };
+      const scope = {
+        userIds: [], teamIds: [], writableTeamIds: [], writableUserIds: [],
+        precise: {
+          userId: 'u1',
+          subjects: {
+            Case: { read: all, write: nothing },
+            Incident: { read: nothing, write: nothing },
+            Petition: { read: nothing, write: nothing },
+          },
+        },
+      };
+
+      await service.getList({}, scope);
+
+      const and = whereCua(mockPrismaService.document.findMany).AND as Array<Record<string, unknown>>;
+      const or = and.flatMap((c) => (c.OR ?? []) as Array<Record<string, unknown>>);
+      // Every document of a case is listed; the two subjects the person reaches nothing of stay impossible.
+      expect(or).toContainEqual({ caseId: { not: null } });
+      expect(or).toContainEqual({ incident: { id: '__no_access__' } });
+      expect(JSON.stringify(or.find((c) => 'petition' in c))).toContain('__no_access__');
+    });
+
+    it('with no limit on anything there is no scope condition at all, as before', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+      await service.getList({}, null);
+      const where = whereCua(mockPrismaService.document.findMany);
+      expect(JSON.stringify(where)).not.toContain('"OR"');
+    });
+
     /**
      * [lỗi có sẵn] Phạm vi từng GÁN `where.OR = [...]` ngay sau khối tìm kiếm cũng ghi `where.OR` —
      * cán bộ có phạm vi gõ tìm là điều kiện tìm bị đè mất, danh sách trả mọi tài liệu trong phạm vi.

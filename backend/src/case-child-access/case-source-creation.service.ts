@@ -15,7 +15,7 @@ import {
   mutationHash,
 } from '../cases/governance/case-governance.contract';
 import { normalizeCanonicalCaseWrite } from '../cases/case-canonical-fields';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertSourceInScope } from '../common/utils/scope-filter.util';
 import type { DataScope } from '../auth/services/unit-scope.service';
 
 type Tx = Prisma.TransactionClient;
@@ -118,7 +118,18 @@ export class CaseSourceCreationService {
                 ? (source as Incident).investigatorId
                 : (source as Petition).assignedToId,
           };
-          assertParentInScope(parent, scope, 'write');
+          assertSourceInScope(
+            input.kind === 'Incident'
+              ? { kind: 'Incident', assignedTeamId: source.assignedTeamId, investigatorId: (source as Incident).investigatorId }
+              : {
+                  kind: 'Petition',
+                  assignedTeamId: source.assignedTeamId,
+                  assignedToId: (source as Petition).assignedToId,
+                  enteredById: (source as Petition).enteredById,
+                },
+            scope,
+            'write',
+          );
           await this.core.assertCaseCreation(tx, actor, parent);
           const enabled = !!(
             await tx.featureFlag.findUnique({

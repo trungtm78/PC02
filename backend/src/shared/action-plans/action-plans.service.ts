@@ -32,7 +32,12 @@ export class ActionPlansService {
     void scope;
     const parent = await this.loadCaseForScope(caseId);
     await this.access.read(caseId, userId);
-    assertParentInScope(parent, await this.access.scope(userId), 'write');
+    assertParentInScope(
+      parent,
+      await this.access.scope(userId),
+      'write',
+      'Case',
+    );
     return this.access.write([caseId], userId, 'Case', 'write', async (tx) => {
       const result = await tx.suspensionActionPlan.create({
         data: {
@@ -66,7 +71,7 @@ export class ActionPlansService {
     scope?: DataScope | null,
   ) {
     const parent = await this.loadIncidentForScope(incidentId);
-    assertParentInScope(parent, scope, 'write');
+    assertParentInScope(parent, scope, 'write', 'Incident');
     return this.prisma.suspensionActionPlan.create({
       data: {
         incidentId,
@@ -90,7 +95,12 @@ export class ActionPlansService {
     const parent = await this.loadCaseForScope(caseId);
     await this.access.entity('Case', 'read', actorId);
     await this.access.read(caseId, actorId);
-    assertParentInScope(parent, await this.access.scope(actorId), 'read');
+    assertParentInScope(
+      parent,
+      await this.access.scope(actorId),
+      'read',
+      'Case',
+    );
     return this.prisma.suspensionActionPlan.findMany({
       where: { caseId },
       orderBy: { ngayLap: 'desc' },
@@ -102,7 +112,7 @@ export class ActionPlansService {
 
   async findAllForIncident(incidentId: string, scope?: DataScope | null) {
     const parent = await this.loadIncidentForScope(incidentId);
-    assertParentInScope(parent, scope, 'read');
+    assertParentInScope(parent, scope, 'read', 'Incident');
     return this.prisma.suspensionActionPlan.findMany({
       where: { incidentId },
       orderBy: { ngayLap: 'desc' },
@@ -129,6 +139,7 @@ export class ActionPlansService {
         record.case,
         await this.access.scope(actorId),
         'write',
+        'Case',
       );
       return this.access.write(
         [record.caseId],
@@ -157,7 +168,7 @@ export class ActionPlansService {
         },
       );
     }
-    assertParentInScope(record.incident, scope, 'write');
+    assertParentInScope(record.incident, scope, 'write', 'Incident');
     return this.prisma.suspensionActionPlan.delete({ where: { id } });
   }
 

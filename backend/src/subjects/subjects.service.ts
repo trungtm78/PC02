@@ -194,7 +194,7 @@ export class SubjectsService {
       throw new NotFoundException(`Đối tượng không tồn tại (id: ${id})`);
     }
 
-    assertParentInScope(record.case, dataScope);
+    assertParentInScope(record.case, dataScope, 'read', 'Case');
     await this.childAccess.read(record.caseId, actorId, db);
 
     return {
@@ -339,6 +339,7 @@ export class SubjectsService {
           this.childAccess.parent(parents, existing.caseId),
           dataScope,
           'write',
+          'Case',
         );
         // Chuyển sang vụ án khác phải kiểm phạm vi GHI của vụ án ĐÍCH (kiểm ở trên chỉ là vụ án hiện tại).
         if (dto.caseId && dto.caseId !== existing.caseId) {
@@ -464,6 +465,7 @@ export class SubjectsService {
           this.childAccess.parent(parents, existing.caseId),
           dataScope,
           'write',
+          'Case',
         );
 
         await tx.subject.update({

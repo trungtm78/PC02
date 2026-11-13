@@ -31,7 +31,12 @@ export class VksMeetingsService {
     void scope;
     const parent = await this.loadCaseForScope(caseId);
     await this.access.read(caseId, userId);
-    assertParentInScope(parent, await this.access.scope(userId), 'write');
+    assertParentInScope(
+      parent,
+      await this.access.scope(userId),
+      'write',
+      'Case',
+    );
     return this.access.write([caseId], userId, 'Case', 'write', async (tx) => {
       const result = await tx.vksMeetingRecord.create({
         data: {
@@ -64,7 +69,7 @@ export class VksMeetingsService {
     scope?: DataScope | null,
   ) {
     const parent = await this.loadIncidentForScope(incidentId);
-    assertParentInScope(parent, scope, 'write');
+    assertParentInScope(parent, scope, 'write', 'Incident');
     return this.prisma.vksMeetingRecord.create({
       data: {
         incidentId,
@@ -87,7 +92,12 @@ export class VksMeetingsService {
     const parent = await this.loadCaseForScope(caseId);
     await this.access.entity('Case', 'read', actorId);
     await this.access.read(caseId, actorId);
-    assertParentInScope(parent, await this.access.scope(actorId), 'read');
+    assertParentInScope(
+      parent,
+      await this.access.scope(actorId),
+      'read',
+      'Case',
+    );
     return this.prisma.vksMeetingRecord.findMany({
       where: { caseId },
       orderBy: { ngayTrao: 'desc' },
@@ -99,7 +109,7 @@ export class VksMeetingsService {
 
   async findAllForIncident(incidentId: string, scope?: DataScope | null) {
     const parent = await this.loadIncidentForScope(incidentId);
-    assertParentInScope(parent, scope, 'read');
+    assertParentInScope(parent, scope, 'read', 'Incident');
     return this.prisma.vksMeetingRecord.findMany({
       where: { incidentId },
       orderBy: { ngayTrao: 'desc' },
@@ -126,6 +136,7 @@ export class VksMeetingsService {
         record.case,
         await this.access.scope(actorId),
         'write',
+        'Case',
       );
       return this.access.write(
         [record.caseId],
@@ -152,7 +163,7 @@ export class VksMeetingsService {
         },
       );
     }
-    assertParentInScope(record.incident, scope, 'write');
+    assertParentInScope(record.incident, scope, 'write', 'Incident');
     return this.prisma.vksMeetingRecord.delete({ where: { id } });
   }
 

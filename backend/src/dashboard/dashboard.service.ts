@@ -199,7 +199,8 @@ export class DashboardService {
     const kyPetition = this.dieuKienKy(ky, 'receivedDate');
 
     // Phạm vi dữ liệu: vụ án/vụ việc theo điều tra viên, đơn thư theo người nhập.
-    const locHoSo = buildScopeFilter(scope);
+    const locVuAn = buildScopeFilter(scope, 'read', 'Case');
+    const locVuViec = buildScopeFilter(scope, 'read', 'Incident');
     const locDonThu = buildPetitionScopeFilter(scope);
 
     const [
@@ -213,7 +214,7 @@ export class DashboardService {
       this.prisma.case.count({
         where: this.gopPhamVi(
           { deletedAt: null, caseType: CaseType.REGULAR, ...kyCase },
-          locHoSo,
+          locVuAn,
         ),
       }),
       // Bị can / Bị cáo: đang điều tra
@@ -222,7 +223,7 @@ export class DashboardService {
         // đúng cách `SubjectsService.getList` đang làm.
         where: this.gopPhamVi(
           { deletedAt: null, type: SubjectType.SUSPECT },
-          locHoSo ? { case: locHoSo } : null,
+          locVuAn ? { case: locVuAn } : null,
         ),
       }),
       // Quản lý đơn thư: chưa giải quyết
@@ -248,7 +249,7 @@ export class DashboardService {
             },
             ...kyIncident,
           },
-          locHoSo,
+          locVuViec,
         ),
       }),
       // Hồ sơ trễ hạn (REGULAR only — v0.44: exclude UTDT)
@@ -266,7 +267,7 @@ export class DashboardService {
               ],
             },
           },
-          locHoSo,
+          locVuAn,
         ),
       }),
     ]);

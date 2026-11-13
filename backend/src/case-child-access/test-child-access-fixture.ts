@@ -35,5 +35,5 @@ export function ordinaryChildFixture(db: any) {
 export function setOrdinaryCurrentScope(db: any, scope: any = null) {
   const fixture = ordinaryChildFixture(db);
   fixture.scope.mockResolvedValue(scope);
-  fixture.listWhere.mockResolvedValue(buildScopeFilter(scope) ?? {});
+  fixture.listWhere.mockResolvedValue(buildScopeFilter(scope, 'read', 'Case') ?? {});
 }

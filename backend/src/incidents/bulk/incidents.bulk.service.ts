@@ -115,7 +115,7 @@ export class IncidentsBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope, 'assign'),
+            ...buildScopeFilter(input.dataScope, 'assign', 'Incident'),
           },
           select: {
             id: true,
@@ -263,7 +263,7 @@ export class IncidentsBulkService {
       id: { in: input.ids },
       deletedAt: null,
     };
-    const scopeFilter = buildScopeFilter(input.dataScope);
+    const scopeFilter = buildScopeFilter(input.dataScope, 'read', 'Incident');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.IncidentWhereInput,
@@ -398,7 +398,7 @@ export class IncidentsBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope, 'write'),
+            ...buildScopeFilter(input.dataScope, 'write', 'Incident'),
           },
           include: {
             petitions: { where: { deletedAt: null }, select: { id: true } },

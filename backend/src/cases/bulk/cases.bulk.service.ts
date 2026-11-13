@@ -156,7 +156,7 @@ export class CasesBulkService {
       deletedAt: null,
       ...(input.caseType ? { caseType: input.caseType } : {}),
     };
-    const scopeFilter = buildScopeFilter(input.dataScope);
+    const scopeFilter = buildScopeFilter(input.dataScope, 'read', 'Case');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,
@@ -321,7 +321,7 @@ export class CasesBulkService {
             id: { in: ids },
             deletedAt: null,
             AND: [visibility],
-            ...buildScopeFilter(input.dataScope, 'assign'),
+            ...buildScopeFilter(input.dataScope, 'assign', 'Case'),
           },
           select: { id: true },
         });
@@ -580,7 +580,7 @@ export class CasesBulkService {
             id: { in: ids },
             deletedAt: null,
             AND: [visibility],
-            ...buildScopeFilter(input.dataScope, 'write'),
+            ...buildScopeFilter(input.dataScope, 'write', 'Case'),
           },
           include: {
             subjects: { where: { deletedAt: null }, select: { id: true } },

@@ -210,7 +210,7 @@ export class DelegationsService {
       if (userIds.length === 0 && teamIds.length === 0) {
         dieuKien.push({ id: '__no_access__' });
       } else {
-        const caseScope = buildScopeFilter(dataScope);
+        const caseScope = buildScopeFilter(dataScope, 'read', 'Case');
         const phamVi: Prisma.DelegationWhereInput[] = [];
         if (caseScope)
           phamVi.push({ relatedCase: caseScope as Prisma.CaseWhereInput });
@@ -278,7 +278,7 @@ export class DelegationsService {
     if (!record)
       throw new NotFoundException(`Ủy thác không tồn tại (id: ${id})`);
     if (record.relatedCase) {
-      assertParentInScope(record.relatedCase, dataScope);
+      assertParentInScope(record.relatedCase, dataScope, 'read', 'Case');
       await this.childAccess.read(record.relatedCaseId!, actorId, db);
     } else {
       assertCreatorInScope(record.createdById, dataScope);
@@ -448,6 +448,7 @@ export class DelegationsService {
             this.childAccess.parent(parents, existing.relatedCaseId),
             dataScope,
             'write',
+            'Case',
           );
         } else {
           assertCreatorInScope(existing.createdById, dataScope, 'write');
@@ -561,6 +562,7 @@ export class DelegationsService {
             this.childAccess.parent(parents, existing.relatedCaseId),
             dataScope,
             'write',
+            'Case',
           );
         } else {
           assertCreatorInScope(existing.createdById, dataScope, 'write');

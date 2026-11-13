@@ -48,6 +48,6 @@ export async function kiemVuAnChaDeGhi(
   });
   if (!vuAn)
     throw new BadRequestException(`Vụ án không tồn tại (id: ${caseId})`);
-  assertParentInScope(vuAn, dataScope, 'write');
+  assertParentInScope(vuAn, dataScope, 'write', 'Case');
   return vuAn;
 }
