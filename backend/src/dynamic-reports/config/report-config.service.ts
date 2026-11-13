@@ -26,6 +26,31 @@ export class ReportConfigError extends Error {
   }
 }
 
+/** How the group headings of a criteria report are kept on its version (nothing is written when there are none). */
+export function criteriaGroupsColumn(
+  groups: readonly { itemKey: string; code?: string; name: string; parentItemKey?: string }[] | undefined,
+): { sourceSelection?: Prisma.InputJsonValue } {
+  if (!groups || groups.length === 0) return {};
+  return {
+    sourceSelection: {
+      groups: groups.map((g) => ({
+        itemKey: g.itemKey,
+        code: g.code ?? null,
+        name: g.name,
+        parentItemKey: g.parentItemKey ?? null,
+      })),
+    },
+  };
+}
+
+/** The group headings stored on a version, or an empty list. */
+export function criteriaGroupsOf(
+  sourceSelection: unknown,
+): { itemKey: string; code: string | null; name: string; parentItemKey: string | null }[] {
+  const groups = (sourceSelection as { groups?: unknown } | null)?.groups;
+  return Array.isArray(groups) ? (groups as ReturnType<typeof criteriaGroupsOf>) : [];
+}
+
 /** A team's subset of criteria, validated against the report's fields; a refusal becomes a ReportConfigError. */
 export function subsetOrConfigError(
   teamId: string,
@@ -406,6 +431,7 @@ export class ReportConfigService {
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
           sourceKind: input.sourceKind ?? 'TEMPLATE',
+          ...criteriaGroupsColumn(input.criteriaGroups),
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,

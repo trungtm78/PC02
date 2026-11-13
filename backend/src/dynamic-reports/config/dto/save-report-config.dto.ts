@@ -1,5 +1,6 @@
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -60,6 +61,17 @@ export class ReportFieldConfigDto {
   @IsOptional() @IsString() @MaxLength(60) unit?: string;
   @IsOptional() @Matches(ITEM_KEY) parentItemKey?: string;
   @IsOptional() @IsIn(CRITERION_ORIGINS) origin?: (typeof CRITERION_ORIGINS)[number];
+}
+
+/**
+ * A criterion that has children: it is not typed (its cell adds its children up), so it is not a field, but the
+ * screens that list criteria by group need its name.
+ */
+export class CriterionGroupDto {
+  @Matches(ITEM_KEY) itemKey!: string;
+  @IsOptional() @IsString() @MaxLength(60) code?: string;
+  @IsString() @IsNotEmpty() @MaxLength(500) name!: string;
+  @IsOptional() @Matches(ITEM_KEY) parentItemKey?: string;
 }
 
 export class ReportScheduleConfigDto {
@@ -129,6 +141,13 @@ export class SaveReportConfigDto {
   @IsArray() @IsString({ each: true }) selectedSheets!: string[];
   /** What the workbook was made from; CRITERIA when the system generated it from a picked list. */
   @IsOptional() @IsIn(VERSION_SOURCES) sourceKind?: (typeof VERSION_SOURCES)[number];
+  /** Criteria reports: the group headings (criteria with children), for the screens that list criteria by group. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(2000)
+  @ValidateNested({ each: true })
+  @Type(() => CriterionGroupDto)
+  criteriaGroups?: CriterionGroupDto[];
   @IsIn(['1900', '1904']) dateSystem!: '1900' | '1904';
 
   @IsArray()

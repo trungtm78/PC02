@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { computeSha256 } from '../../xlsx-imports/hostile-xlsx-guard';
-import { ReportConfigError, ReportConfigService } from './report-config.service';
+import { ReportConfigError, ReportConfigService, criteriaGroupsColumn, criteriaGroupsOf } from './report-config.service';
 import type { SaveReportVersionDto } from './dto/save-report-version.dto';
 import type { ParseTemplateResult } from '../template/types';
 import { generatePeriods } from '../engine/period';
@@ -119,7 +119,7 @@ export class ReportVersioningService {
       // The very same workbook as a version this report already has (the author pressed "use the current file"):
       // what each cell stands for is known, even though nothing in the file itself says it.
       const inherited = await this.inheritCriteriaOfSameFile(tx, reportId, sha256, input);
-      input = { ...input, fields: inherited.fields, sourceKind: inherited.sourceKind };
+      input = { ...input, fields: inherited.fields, sourceKind: inherited.sourceKind, criteriaGroups: inherited.criteriaGroups };
 
       const last = await tx.dynReportVersion.aggregate({ where: { reportId }, _max: { version: true } });
       const versionNo = (last._max.version ?? 0) + 1;
@@ -139,6 +139,7 @@ export class ReportVersioningService {
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
           sourceKind: input.sourceKind ?? 'TEMPLATE',
+          ...criteriaGroupsColumn(input.criteriaGroups),
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,
@@ -417,21 +418,30 @@ export class ReportVersioningService {
     reportId: string,
     sha256: string,
     input: SaveReportVersionDto,
-  ): Promise<{ fields: SaveReportVersionDto['fields']; sourceKind: SaveReportVersionDto['sourceKind'] }> {
-    if (input.fields.some((f) => f.itemKey)) return { fields: input.fields, sourceKind: input.sourceKind };
+  ): Promise<Pick<SaveReportVersionDto, 'fields' | 'sourceKind' | 'criteriaGroups'>> {
+    const asSent = { fields: input.fields, sourceKind: input.sourceKind, criteriaGroups: input.criteriaGroups };
+    if (input.fields.some((f) => f.itemKey)) return asSent;
     const same = await tx.dynReportVersion.findFirst({
       where: { reportId, sha256, sourceKind: 'CRITERIA' },
       orderBy: { version: 'desc' },
       select: {
+        sourceSelection: true,
         fields: {
           select: { fieldKey: true, itemKey: true, criterionCode: true, unit: true, parentItemKey: true, origin: true },
         },
       },
     });
-    if (!same) return { fields: input.fields, sourceKind: input.sourceKind };
+    if (!same) return asSent;
     const known = new Map(same.fields.map((f) => [f.fieldKey, f]));
+    const groups = criteriaGroupsOf(same.sourceSelection).map((g) => ({
+      itemKey: g.itemKey,
+      code: g.code ?? undefined,
+      name: g.name,
+      parentItemKey: g.parentItemKey ?? undefined,
+    }));
     return {
       sourceKind: 'CRITERIA',
+      criteriaGroups: input.criteriaGroups ?? groups,
       fields: input.fields.map((f) => {
         const k = known.get(f.fieldKey);
         return k?.itemKey

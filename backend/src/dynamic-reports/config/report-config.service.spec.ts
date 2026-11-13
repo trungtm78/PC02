@@ -459,13 +459,34 @@ describe('ReportConfigService', () => {
       expect(version.sourceKind).toBe('CRITERIA');
     });
 
+    it('keeps the group headings of a criteria report (criteria with children are not fields)', async () => {
+      const { tx, service } = ready();
+
+      await service.save(
+        baseDraftInput({
+          fields: twoCriteria,
+          sourceKind: 'CRITERIA',
+          criteriaGroups: [{ itemKey: 'dieu-tra', code: 'II', name: 'Điều tra' }],
+        }),
+        BUF,
+        'chi-tieu.xlsx',
+        'actor1',
+      );
+
+      const version = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { sourceSelection?: unknown } }).data;
+      expect(version.sourceSelection).toEqual({
+        groups: [{ itemKey: 'dieu-tra', code: 'II', name: 'Điều tra', parentItemKey: null }],
+      });
+    });
+
     it('an ordinary template report is stored as TEMPLATE, with no item keys', async () => {
       const { tx, service } = ready();
 
       await service.save(baseDraftInput({ fields: fullPublishableInput().fields }), BUF, 'mau.xlsx', 'actor1');
 
-      const version = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { sourceKind: string } }).data;
+      const version = (tx.dynReportVersion.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
       expect(version.sourceKind).toBe('TEMPLATE');
+      expect(version).not.toHaveProperty('sourceSelection');
     });
 
     it('a team given some of the criteria has that subset stored; a team given none specified reports everything', async () => {
