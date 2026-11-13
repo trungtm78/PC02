@@ -2,6 +2,7 @@ import { buildControllerModule, makeReq, mockUser } from '../test-utils/controll
 import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
 import { TeamLifecycleService } from './team-lifecycle.service';
+import { TeamMergeService } from './team-merge.service';
 import { BadRequestException } from '@nestjs/common';
 
 const mockService = {
@@ -16,6 +17,7 @@ const mockService = {
 };
 
 const mockLifecycle = { setStatus: jest.fn(), deleteIfEmpty: jest.fn(), deletionCheck: jest.fn() };
+const mockMerge = { preview: jest.fn(), merge: jest.fn(), undo: jest.fn(), list: jest.fn() };
 
 describe('TeamsController — delegation', () => {
   let controller: TeamsController;
@@ -23,6 +25,7 @@ describe('TeamsController — delegation', () => {
   beforeEach(async () => {
     const module = await buildControllerModule(TeamsController, TeamsService, mockService, [
       { token: TeamLifecycleService, mock: mockLifecycle },
+      { token: TeamMergeService, mock: mockMerge },
     ]);
     controller = module.get(TeamsController);
     jest.clearAllMocks();
@@ -77,6 +80,35 @@ describe('TeamsController — delegation', () => {
     mockLifecycle.deletionCheck.mockResolvedValue({ deletable: true, total: 0, blockers: [] });
     await expect(controller.deletionCheck('team-1')).resolves.toEqual({ deletable: true, total: 0, blockers: [] });
     expect(mockLifecycle.deletionCheck).toHaveBeenCalledWith('team-1');
+  });
+
+  it('mergePreview() asks the merge service what would happen, without changing anything', async () => {
+    mockMerge.preview.mockResolvedValue({ summary: {} });
+    await controller.mergePreview('src', { targetTeamId: 'dst' });
+    expect(mockMerge.preview).toHaveBeenCalledWith('src', 'dst');
+    expect(mockMerge.merge).not.toHaveBeenCalled();
+  });
+
+  it('merge() merges with the actor and audit info', async () => {
+    mockMerge.merge.mockResolvedValue({ operationId: 'op1', summary: {} });
+    await controller.merge('src', { targetTeamId: 'dst' }, mockUser, makeReq());
+    expect(mockMerge.merge).toHaveBeenCalledWith(
+      'src',
+      'dst',
+      mockUser.id,
+      expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
+  });
+
+  it('undoMerge() undoes one operation as the actor', async () => {
+    mockMerge.undo.mockResolvedValue({ restored: 3, skipped: 0 });
+    await controller.undoMerge('op1', mockUser, makeReq());
+    expect(mockMerge.undo).toHaveBeenCalledWith('op1', mockUser.id, expect.objectContaining({ ipAddress: '127.0.0.1' }));
+  });
+
+  it('listMerges() serves the recent operations', async () => {
+    mockMerge.list.mockResolvedValue([{ id: 'op1' }]);
+    await expect(controller.listMerges()).resolves.toEqual([{ id: 'op1' }]);
   });
 
   it('setStatus() hands the new state to the lifecycle with the actor and audit info', async () => {

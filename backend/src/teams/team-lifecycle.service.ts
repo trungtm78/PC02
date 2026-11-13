@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { TeamStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { listTeamReferences, quoteIdent, type RawDb } from './team-references';
 
 /** Machine codes the screen translates; the server never sends a sentence for these. */
 export const TEAM_ERROR = {
@@ -22,14 +23,6 @@ export interface TeamDeletionCheck {
   total: number;
   blockers: TeamBlocker[];
 }
-
-/** Anything that can run the two raw queries below: the client itself, or a transaction. */
-interface RawDb {
-  $queryRaw: PrismaService['$queryRaw'];
-  $queryRawUnsafe: PrismaService['$queryRawUnsafe'];
-}
-
-const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
 
 /** Where a team may go from each state. A paused or active team can be archived; an archived team is only restored. */
 const ALLOWED: Record<TeamStatus, readonly TeamStatus[]> = {
@@ -55,28 +48,18 @@ export class TeamLifecycleService {
     private readonly audit: AuditService,
   ) {}
 
-  /**
-   * Every table and column that refers to `teams`, read from the database catalogue instead of a list kept by hand:
-   * a relation added later (a permission table, a report table) is covered the day it is created. Includes the cascading
-   * ones (members, grants), because deleting those silently would be deleting people's data.
-   */
+  /** Rows that still refer to the team, per table and column. Includes the cascading ones (members, grants), because
+   * deleting those silently would be deleting people's data. */
   private async blockersOf(db: RawDb, id: string): Promise<TeamBlocker[]> {
-    const refs = await db.$queryRaw<{ table_name: string; column_name: string }[]>`
-      SELECT c.conrelid::regclass::text AS table_name, a.attname AS column_name
-      FROM pg_constraint c
-      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
-      WHERE c.contype = 'f' AND c.confrelid = 'teams'::regclass
-      ORDER BY 1, 2`;
     const blockers: TeamBlocker[] = [];
-    for (const ref of refs) {
+    for (const ref of await listTeamReferences(db)) {
       // The identifiers come from the catalogue and are quoted; the team id is always a bound parameter.
-      const table = ref.table_name.startsWith('"') ? ref.table_name : quoteIdent(ref.table_name);
       const rows = await db.$queryRawUnsafe<{ n: number }[]>(
-        `SELECT count(*)::int AS n FROM ${table} WHERE ${quoteIdent(ref.column_name)} = $1`,
+        `SELECT count(*)::int AS n FROM ${quoteIdent(ref.table)} WHERE ${quoteIdent(ref.column)} = $1`,
         id,
       );
       const count = Number(rows[0]?.n ?? 0);
-      if (count > 0) blockers.push({ table: ref.table_name.replace(/^"|"$/g, ''), column: ref.column_name, count });
+      if (count > 0) blockers.push({ table: ref.table, column: ref.column, count });
     }
     return blockers;
   }
@@ -127,26 +110,30 @@ export class TeamLifecycleService {
     return { success: true };
   }
 
-  async setStatus(
+  /**
+   * One transition on a client or transaction the caller owns: validates it, writes `status` and the archive stamps.
+   * The caller writes the audit row. Returns the state the team was in, or null when it already had the asked state.
+   */
+  async applyStatus(
+    db: Pick<PrismaService, 'team'>,
     id: string,
     to: TeamStatus,
     actorId: string,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ) {
+  ): Promise<{ from: TeamStatus; name: string; team: Awaited<ReturnType<PrismaService['team']['update']>> } | null> {
     if (!Object.values(TeamStatus).includes(to)) {
       throw new ConflictException({ code: TEAM_ERROR.STATUS_UNKNOWN });
     }
-    const team = await this.prisma.team.findUnique({ where: { id } });
+    const team = await db.team.findUnique({ where: { id } });
     if (!team) throw new NotFoundException(`Team not found (id: ${id})`);
 
     const from = team.status;
-    if (from === to) return team;
+    if (from === to) return null;
     if (!ALLOWED[from].includes(to)) {
       throw new ConflictException({ code: TEAM_ERROR.INVALID_TRANSITION, from, to });
     }
 
     const archiving = to === 'ARCHIVED';
-    const updated = await this.prisma.team.update({
+    const updated = await db.team.update({
       where: { id },
       data: {
         status: to,
@@ -154,16 +141,30 @@ export class TeamLifecycleService {
         archivedById: archiving ? actorId : null,
       },
     });
+    return { from, name: team.name, team: updated };
+  }
 
+  async setStatus(
+    id: string,
+    to: TeamStatus,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const applied = await this.applyStatus(this.prisma, id, to, actorId);
+    if (!applied) {
+      // Already in the asked state: nothing changes and nothing is audited.
+      const current = await this.prisma.team.findUnique({ where: { id } });
+      return current;
+    }
     await this.audit.log({
       userId: actorId,
-      action: auditAction(from, to),
+      action: auditAction(applied.from, to),
       subject: 'Team',
       subjectId: id,
-      metadata: { name: team.name, from, to },
+      metadata: { name: applied.name, from: applied.from, to },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
-    return updated;
+    return applied.team;
   }
 }

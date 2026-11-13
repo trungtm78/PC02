@@ -18,6 +18,8 @@ import { TeamStatus } from '@prisma/client';
 import type { Request } from 'express';
 import { TeamsService } from './teams.service';
 import { TeamLifecycleService, TEAM_ERROR } from './team-lifecycle.service';
+import { TeamMergeService } from './team-merge.service';
+import { MergeTeamDto } from './dto/merge-team.dto';
 import { SetTeamStatusDto } from './dto/set-team-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -33,6 +35,7 @@ export class TeamsController {
   constructor(
     private readonly teamsService: TeamsService,
     private readonly lifecycle: TeamLifecycleService,
+    private readonly merges: TeamMergeService,
   ) {}
 
   /** Admin list. `?status=ACTIVE|INACTIVE|ARCHIVED|ALL`; no value means active teams only. */
@@ -50,6 +53,27 @@ export class TeamsController {
   @RequirePermissions({ action: 'read', subject: 'Team' })
   getOptions() {
     return this.teamsService.options();
+  }
+
+  /** Recent merges, for the screen that offers Undo. Declared before `:id`. */
+  @Get('merges')
+  @RequirePermissions({ action: 'read', subject: 'Team' })
+  listMerges() {
+    return this.merges.list();
+  }
+
+  @Post('merges/:operationId/undo')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'delete', subject: 'Team' })
+  undoMerge(
+    @Param('operationId') operationId: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.merges.undo(operationId, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   @Get(':id')
@@ -94,6 +118,29 @@ export class TeamsController {
     @Req() req: Request,
   ) {
     return this.lifecycle.setStatus(id, dto.status, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  /** What merging this team into another would do. Read-only. */
+  @Post(':id/merge-preview')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'delete', subject: 'Team' })
+  mergePreview(@Param('id') id: string, @Body() dto: MergeTeamDto) {
+    return this.merges.preview(id, dto.targetTeamId);
+  }
+
+  @Post(':id/merge')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'delete', subject: 'Team' })
+  merge(
+    @Param('id') id: string,
+    @Body() dto: MergeTeamDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.merges.merge(id, dto.targetTeamId, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });

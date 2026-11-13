@@ -2413,6 +2413,51 @@ model UserTeam {
   @@map("user_teams")
 }
 
+enum TeamMergeStatus {
+  APPLIED
+  UNDONE
+}
+
+/// One merge of a team into another. Team ids are plain text on purpose (no foreign key): the manifest must survive
+/// a later delete of either team, and a foreign key would make every merged team look "referenced" to the delete check.
+model TeamMergeOperation {
+  id                   String          @id @default(cuid())
+  sourceTeamId         String
+  sourceName           String
+  targetTeamId         String
+  targetName           String
+  status               TeamMergeStatus @default(APPLIED)
+  sourcePreviousStatus TeamStatus
+  mergedById           String
+  mergedAt             DateTime        @default(now())
+  undoneById           String?
+  undoneAt             DateTime?
+  /// Counts only, never figures from the records: what moved, what was removed as a duplicate, what was left alone.
+  summary              Json
+  items                TeamMergeItem[]
+
+  @@index([sourceTeamId])
+  @@index([targetTeamId])
+  @@index([mergedAt])
+  @@map("team_merge_operations")
+}
+
+/// One record the merge touched, with enough of the previous state to put it back.
+model TeamMergeItem {
+  id          String             @id @default(cuid())
+  operationId String
+  operation   TeamMergeOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  /// REPOINT (a column moved to the target), FIELD (a flag changed on a surviving row), DELETED (a duplicate removed).
+  kind        String
+  tableName   String
+  recordKey   Json
+  before      Json?
+  after       Json?
+
+  @@index([operationId, tableName])
+  @@map("team_merge_items")
+}
+
 // ─────────────────────────────────────────────
 // Data Access Grant (Ủy quyền truy cập dữ liệu)
 // ─────────────────────────────────────────────
