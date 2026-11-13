@@ -27,16 +27,19 @@ function build() {
   const prisma = {
     userTeam: { findMany: jest.fn().mockResolvedValue([{ teamId: 'LED' }]) },
     editWindowResetRequest: {
-      findMany: jest.fn(async (args: { where: { id?: { in: string[] } } }) =>
-        args.where.id ? requests.filter((r) => args.where.id!.in.includes(r.id)) : requests,
+      findMany: jest.fn((args: { where: { id?: { in: string[] } } }) => {
+        const ids = args.where.id?.in;
+        return Promise.resolve(ids ? requests.filter((r) => ids.includes(r.id)) : requests);
+      }),
+      findFirst: jest.fn((args: { where: { id: string } }) =>
+        Promise.resolve(requests.find((r) => r.id === args.where.id) ?? null),
       ),
-      findFirst: jest.fn(async (args: { where: { id: string } }) => requests.find((r) => r.id === args.where.id) ?? null),
       count: jest.fn().mockResolvedValue(requests.length),
     },
     case: {
-      findUnique: jest.fn(async (args: { where: { id: string } }) => ({
-        assignedTeamId: args.where.id === 'case-led' ? 'LED-CHILD' : 'OTHER',
-      })),
+      findUnique: jest.fn((args: { where: { id: string } }) =>
+        Promise.resolve({ assignedTeamId: args.where.id === 'case-led' ? 'LED-CHILD' : 'OTHER' }),
+      ),
     },
     $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<void>) => fn(tx)),
   };
@@ -93,6 +96,39 @@ describe('EditWindowService: who reviews reset requests', () => {
       const listed = await service.list({}, user(ROLE_NAMES.OFFICER));
       expect((listed as { data: { id: string }[] }).data.map((r) => r.id)).toEqual(['q-led']);
       await expect(service.list({ countOnly: true }, user(ROLE_NAMES.OFFICER))).resolves.toEqual({ success: true, count: 1 });
+    });
+
+    it('such an officer rejects a request about their units, not one about another unit', async () => {
+      enforce([REVIEW]);
+      const { service, tx } = build();
+      await expect(service.reject('q-other', 'no', user(ROLE_NAMES.OFFICER))).rejects.toThrow(ForbiddenException);
+      expect(tx.editWindowResetRequest.update).not.toHaveBeenCalled();
+      await expect(service.reject('q-led', 'no', user(ROLE_NAMES.OFFICER))).resolves.toMatchObject({ success: true });
+    });
+
+    it('a holder who leads no team reviews nothing', async () => {
+      enforce([REVIEW]);
+      const { service, prisma } = build();
+      prisma.userTeam.findMany.mockResolvedValue([]);
+      await expect(service.bulkApprove(['q-led'], undefined, user(ROLE_NAMES.OFFICER))).rejects.toThrow(ForbiddenException);
+      await expect(service.reject('q-led', 'no', user(ROLE_NAMES.OFFICER))).rejects.toThrow(ForbiddenException);
+      await expect(service.list({ countOnly: true }, user(ROLE_NAMES.OFFICER))).resolves.toEqual({ success: true, count: 0 });
+    });
+
+    it('a permission withdrawn while the operation runs does not lift the bound of the own units', async () => {
+      // The configuration is refreshed in the background: the first question says "holds it", every later one "does not".
+      const { service, prisma, tx } = build();
+      const withdrawAfterFirstAnswer = () => {
+        let asked = 0;
+        const keys = () => (asked++ === 0 ? [REVIEW] : []);
+        setEnforcement({ scopeOf: () => undefined, keysOf: keys, unconditionalKeysOf: keys, keysOrNone: keys, holdersOf: () => undefined });
+      };
+      withdrawAfterFirstAnswer();
+      await expect(service.bulkApprove(['q-other'], undefined, user(ROLE_NAMES.OFFICER))).rejects.toThrow(ForbiddenException);
+      withdrawAfterFirstAnswer();
+      await expect(service.reject('q-other', 'no', user(ROLE_NAMES.OFFICER))).rejects.toThrow(ForbiddenException);
+      expect(tx.editWindowResetRequest.update).not.toHaveBeenCalled();
+      expect(prisma.userTeam.findMany).toHaveBeenCalledTimes(2);
     });
 
     it('a head of unit whose teams do not give the permission is refused', async () => {

@@ -123,16 +123,17 @@ export class EditWindowService {
   }
 
   /**
-   * A reviewer who answers for the units they LEAD, not for everything. Under permissions by team: anybody but the
-   * administrator who holds the review permission. Otherwise the head-of-unit role, exactly as before.
+   * What a person may review: everything (the administrator), the requests about the units they LEAD, or nothing.
+   * Under permissions by team "their units" is anybody but the administrator who holds the review permission;
+   * otherwise the head-of-unit role, exactly as before.
+   *
+   * Asked ONCE per operation and the answer kept: the permission configuration is refreshed in the background, so
+   * asking again after an `await` could answer differently, and a reviewer whose permission was just withdrawn must
+   * not fall out of the bound of their own units into no bound at all.
    */
-  private reviewsOwnUnitsOnly(user: AuthUser): boolean {
-    if (user.role === ROLE_NAMES.ADMIN) return false;
-    return holdsPermission(user.id, REVIEW_PERMISSION, () => user.role === ROLE_NAMES.HEAD_UNIT);
-  }
-
-  private mayReview(user: AuthUser): boolean {
-    return user.role === ROLE_NAMES.ADMIN || this.reviewsOwnUnitsOnly(user);
+  private reviewStanding(user: AuthUser): 'ALL' | 'OWN_UNITS' | 'NONE' {
+    if (user.role === ROLE_NAMES.ADMIN) return 'ALL';
+    return holdsPermission(user.id, REVIEW_PERMISSION, () => user.role === ROLE_NAMES.HEAD_UNIT) ? 'OWN_UNITS' : 'NONE';
   }
 
   /** The teams a person leads, with everything below them. */
@@ -163,7 +164,7 @@ export class EditWindowService {
     // List all requests then post-filter where subject.assignedTeam IN descendant teams.
     // Trade-off: 1 extra query per page, but correct scope semantics.
     let postFilterSubjectTeamIds: Set<string> | null = null;
-    if (this.reviewsOwnUnitsOnly(user)) {
+    if (this.reviewStanding(user) === 'OWN_UNITS') {
       postFilterSubjectTeamIds = await this.ledTeamIds(user.id);
     }
     // ADMIN sees all
@@ -225,7 +226,8 @@ export class EditWindowService {
     user: AuthUser,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    if (!this.mayReview(user)) {
+    const standing = this.reviewStanding(user);
+    if (standing === 'NONE') {
       throw new ForbiddenException('Chỉ ADMIN hoặc Trưởng đơn vị mới được duyệt yêu cầu reset.');
     }
 
@@ -239,7 +241,7 @@ export class EditWindowService {
     }
 
     // HEAD_UNIT: per-request authorize qua descendant check
-    if (this.reviewsOwnUnitsOnly(user)) {
+    if (standing === 'OWN_UNITS') {
       const descendantTeamIds = await this.ledTeamIds(user.id);
       for (const req of requests) {
         const subjectTeamId = await this.getSubjectAssignedTeamId(req.subjectType, req.subjectId);
@@ -294,7 +296,8 @@ export class EditWindowService {
     user: AuthUser,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    if (!this.mayReview(user)) {
+    const standing = this.reviewStanding(user);
+    if (standing === 'NONE') {
       throw new ForbiddenException('Chỉ ADMIN hoặc Trưởng đơn vị mới được từ chối.');
     }
     const req = await this.prisma.editWindowResetRequest.findFirst({
@@ -304,7 +307,7 @@ export class EditWindowService {
       throw new NotFoundException('Yêu cầu không tồn tại hoặc đã được duyệt/từ chối.');
     }
     // The same bound as approving: a reviewer of their own units decides only about records of those units.
-    if (this.reviewsOwnUnitsOnly(user)) {
+    if (standing === 'OWN_UNITS') {
       const subjectTeamId = await this.getSubjectAssignedTeamId(req.subjectType, req.subjectId);
       if (!subjectTeamId || !(await this.ledTeamIds(user.id)).has(subjectTeamId)) {
         throw new ForbiddenException(
