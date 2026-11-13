@@ -271,6 +271,13 @@ export interface PermissionDelta {
   /** Teams whose records the permission starts or stops reaching (also when the reach word stays the same). */
   teamsGained?: string[];
   teamsLost?: string[];
+  /**
+   * Kept, but reaching LESS somewhere / MORE somewhere (both can be true): a team, the records of a team's people
+   * wherever they sit, unassigned records, the person's own records. A reach can narrow with the same teams listed
+   * (the team as a whole -> exactly the team), so the lists above alone do not say it.
+   */
+  narrower?: boolean;
+  wider?: boolean;
 }
 export interface PersonImpact {
   userId: string;
@@ -333,38 +340,77 @@ export function impactOf(
   return impactBetween(org, { config, users }, withChanges(config, users, wanted), now);
 }
 
-/** The same between any two states of the configuration and the people (today against enforced, for instance). */
+/** What a record permission reaches, as facts that can be compared one by one. */
+interface Reached {
+  all: boolean;
+  own: boolean;
+  unassigned: boolean;
+  /** Assigned to exactly these teams. */
+  exact: string[];
+  /** These teams as a whole, and the records of these people wherever they sit. */
+  treeTeams: string[];
+  treeUsers: string[];
+}
+const NOTHING: Reached = { all: false, own: false, unassigned: false, exact: [], treeTeams: [], treeUsers: [] };
+
+function reachedBy(org: OrgSnapshot, effective: ReturnType<typeof compile>, permission: string): Reached {
+  if (!isRecordScoped(permission) || !effective.grants.has(permission)) return NOTHING;
+  const scope = recordScope(org, effective, permission, operationOf(permission));
+  if (scope.all) return { ...NOTHING, all: true };
+  return {
+    all: false,
+    own: scope.own,
+    unassigned: scope.tree?.includeUnassigned ?? false,
+    exact: [...scope.exactTeamIds].sort(),
+    treeTeams: [...(scope.tree?.teamIds ?? [])].sort(),
+    treeUsers: [...(scope.tree?.userIds ?? [])].sort(),
+  };
+}
+const teamsOf = (r: Reached): string[] => [...new Set([...r.exact, ...r.treeTeams])].sort();
+/** Whether `a` reaches something `b` does not, for the person `userId`. */
+function reachesBeyond(a: Reached, b: Reached, userId: string): boolean {
+  if (b.all) return false;
+  if (a.all) return true;
+  // One's own records are also reached through a team as a whole one belongs to (its people include oneself).
+  const ownOf = (r: Reached): boolean => r.own || r.treeUsers.includes(userId);
+  if (ownOf(a) && !ownOf(b)) return true;
+  if (a.unassigned && !b.unassigned) return true;
+  const bTeams = teamsOf(b);
+  if (teamsOf(a).some((t) => !bTeams.includes(t))) return true;
+  return a.treeUsers.some((u) => !b.treeUsers.includes(u));
+}
+
+/**
+ * The same between any two states of the configuration and the people (today against enforced, for instance).
+ * Each side may be judged on its own picture of the organisation (`org`): "today" counts memberships the engine
+ * no longer counts.
+ */
 export function impactBetween(
   org: OrgSnapshot,
-  was: { config: AuthzConfig; users: ReadonlyMap<string, UserInput> },
+  was: { config: AuthzConfig; users: ReadonlyMap<string, UserInput>; org?: OrgSnapshot },
   next: { config: AuthzConfig; users: ReadonlyMap<string, UserInput> },
   now: Date,
 ): PersonImpact[] {
   const impacts: PersonImpact[] = [];
-  /** What a record permission reaches, as comparable facts. */
-  const reached = (effective: ReturnType<typeof compile>, permission: string) => {
-    if (!isRecordScoped(permission) || !effective.grants.has(permission)) return { flags: '', teams: [] as string[] };
-    const scope = recordScope(org, effective, permission, operationOf(permission));
-    if (scope.all) return { flags: 'all', teams: [] as string[] };
-    return {
-      flags: `${scope.own}|${scope.tree?.includeUnassigned ?? false}`,
-      teams: [...new Set([...scope.exactTeamIds, ...(scope.tree?.teamIds ?? [])])].sort(),
-    };
-  };
+  const orgBefore = was.org ?? org;
   for (const [userId, person] of was.users) {
-    const before = compile(org, was.config, person, now);
+    const before = compile(orgBefore, was.config, person, now);
     const after = compile(org, next.config, next.users.get(userId) ?? person, now);
     const impact: PersonImpact = { userId, gained: [], lost: [], changed: [] };
     for (const permission of new Set([...before.keys, ...after.keys])) {
       const delta: PermissionDelta = { permission, before: widestReach(before, permission), after: widestReach(after, permission) };
-      const was = reached(before, permission);
-      const is = reached(after, permission);
-      const teamsGained = is.teams.filter((t) => !was.teams.includes(t));
-      const teamsLost = was.teams.filter((t) => !is.teams.includes(t));
-      if (delta.before === delta.after && was.flags === is.flags && !teamsGained.length && !teamsLost.length) continue;
+      const had = reachedBy(orgBefore, before, permission);
+      const has = reachedBy(org, after, permission);
+      const narrower = reachesBeyond(had, has, userId);
+      const wider = reachesBeyond(has, had, userId);
+      if (delta.before === delta.after && !narrower && !wider) continue;
       if (delta.before && delta.after) {
+        const teamsGained = teamsOf(has).filter((t) => !teamsOf(had).includes(t));
+        const teamsLost = teamsOf(had).filter((t) => !teamsOf(has).includes(t));
         if (teamsGained.length) delta.teamsGained = teamsGained;
         if (teamsLost.length) delta.teamsLost = teamsLost;
+        if (narrower) delta.narrower = true;
+        if (wider) delta.wider = true;
       }
       if (!delta.before) impact.gained.push(delta);
       else if (!delta.after) impact.lost.push(delta);

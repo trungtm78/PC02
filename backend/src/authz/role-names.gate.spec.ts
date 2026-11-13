@@ -70,6 +70,8 @@ const A_FACT_ABOUT_THE_ROLE: string[] = [
 
   // ── Account and role administration: the ADMIN role itself is what is protected or what authorises a data-access grant ──
   'admin/admin.service.ts::if (role.name === ROLE_NAMES.ADMIN || nguoiSua?.roleId === roleId) {',
+  // The administrator role must keep the role administration (the screen where enforcement is switched off).
+  'admin/admin.service.ts::role.name === ROLE_NAMES.ADMIN',
   'admin/admin.service.ts::if (granterUser?.role?.name === ROLE_NAMES.ADMIN) isAuthorized = true;',
   'admin/admin.service.ts::const isAdmin = revokerUser?.role?.name === ROLE_NAMES.ADMIN;',
 
@@ -97,6 +99,9 @@ const A_FACT_ABOUT_THE_ROLE: string[] = [
 
   // ── The role is the SUBJECT: choosing which role to give a new account, sample rows of an import template ──
   'admin/bulk/bulk-import.service.ts::roles.find((r) => r.name === ROLE_NAMES.INVESTIGATOR)?.id ?? roles[0]?.id;',
+  // Switching permissions by team on and off is for administrators: an active account whose role is the
+  // administrator role, read from the rows and locked there.
+  'authz/admin/authz-mode.service.ts::WHERE u."id" IN (${Prisma.join(ids)}) AND u."isActive" = true AND r."name" = ${ROLE_NAMES.ADMIN}',
   // Starter templates are built from what the officer role holds: the role is read, nobody is judged by it.
   'authz/admin/authz-admin.service.ts::where: { name: ROLE_NAMES.OFFICER },',
   "admin/bulk/bulk-import.controller.ts::role: 'OFFICER',",

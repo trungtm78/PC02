@@ -2,10 +2,11 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { ROLE_NAMES } from '../../common/constants/role.constants';
 import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
 import { AUTHZ_MODES, AuthzService, type AuthzMode, type AuthzSnapshot } from '../authz.service';
 import { compile } from '../engine/compile';
-import type { AuthzConfig, UserInput } from '../engine/types';
+import type { AuthzConfig, OrgSnapshot, UserInput } from '../engine/types';
 import { impactBetween, tokenOf, type PersonImpact } from './documents';
 import { CONFIG_WRITE_LOCK } from './authz-admin.service';
 
@@ -89,10 +90,22 @@ export class AuthzModeService {
   }
 
   private static compare(snapshot: AuthzSnapshot, now: Date): PersonImpact[] {
-    // Today: the role alone decides, and nobody has a personal override. Enforced: the configuration as stored.
+    // Today: the role alone decides, nobody has a personal override, and a membership counts whatever the state of
+    // its team (the role path never looked at it). Enforced: the configuration as stored, on teams that count.
+    // Where the two models could differ in a detail, "today" is the wider one: this is a report of LOSSES, and a
+    // loss shown that does not happen costs a reading, a loss not shown costs somebody their work.
     const today = new Map<string, UserInput>();
     for (const [userId, person] of snapshot.users) today.set(userId, { ...person, overrides: [] });
-    return impactBetween(snapshot.org, { config: EMPTY_CONFIG, users: today }, { config: snapshot.config, users: snapshot.users }, now);
+    const everyTeamCounts: OrgSnapshot = {
+      ...snapshot.org,
+      teams: new Map([...snapshot.org.teams].map(([id, team]) => [id, { ...team, active: true }])),
+    };
+    return impactBetween(
+      snapshot.org,
+      { config: EMPTY_CONFIG, users: today, org: everyTeamCounts },
+      { config: snapshot.config, users: snapshot.users },
+      now,
+    );
   }
 
   private static fingerprintOf(impacts: readonly PersonImpact[]): string {
@@ -112,8 +125,8 @@ export class AuthzModeService {
       people: snapshot.users.size,
       summary: {
         affected: impacts.length,
-        losing: impacts.filter((i) => i.lost.length > 0 || i.changed.some((d) => d.teamsLost?.length)).length,
-        gaining: impacts.filter((i) => i.gained.length > 0 || i.changed.some((d) => d.teamsGained?.length)).length,
+        losing: impacts.filter((i) => i.lost.length > 0 || i.changed.some((d) => d.narrower)).length,
+        gaining: impacts.filter((i) => i.gained.length > 0 || i.changed.some((d) => d.wider)).length,
         changing: impacts.filter((i) => i.changed.length > 0).length,
       },
       impacts: impacts.map((i) => ({ ...i, name: names.get(i.userId) ?? i.userId })),
@@ -172,12 +185,18 @@ export class AuthzModeService {
     return reason;
   }
 
-  /** Administrators only, judged from the configuration in the database (not from what a token says). */
-  private static assertAdministrator(snapshot: AuthzSnapshot, userId: string, now: Date): void {
-    const person = snapshot.users.get(userId);
-    if (!person || !compile(snapshot.org, snapshot.config, person, now).admin) {
-      throw new ForbiddenException({ code: AUTHZ_MODE_ERROR.ADMIN_ONLY });
-    }
+  /**
+   * Administrators only: active accounts whose role is the administrator role, read from the ROWS inside the write
+   * transaction and locked there. Somebody demoted or switched off a moment ago is refused, and nobody can be
+   * demoted or switched off between this check and the change being in (the update waits for this transaction).
+   */
+  private static async assertAdministrators(tx: Tx, userIds: readonly string[]): Promise<void> {
+    const ids = [...new Set(userIds)];
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      SELECT u."id" FROM "users" u JOIN "roles" r ON r."id" = u."roleId"
+      WHERE u."id" IN (${Prisma.join(ids)}) AND u."isActive" = true AND r."name" = ${ROLE_NAMES.ADMIN}
+      FOR SHARE OF u, r`;
+    if (rows.length !== ids.length) throw new ForbiddenException({ code: AUTHZ_MODE_ERROR.ADMIN_ONLY });
   }
 
   /** Enforced, each of these people must still be able to open this screen and switch enforcement off. */
@@ -233,12 +252,13 @@ export class AuthzModeService {
   }
 
   /** Back to OFF, or to SHADOW: one administrator, at once. A request to enforce that was waiting lapses. */
-  async set(actorId: string, mode: AuthzMode, rawReason: string, meta?: Meta, now: Date = new Date()): Promise<{ id: string; mode: AuthzMode }> {
+  async set(actorId: string, mode: AuthzMode, rawReason: string, meta?: Meta, at?: Date): Promise<{ id: string; mode: AuthzMode }> {
     if (mode === 'ENFORCE') throw new BadRequestException({ code: AUTHZ_MODE_ERROR.ENFORCE_NEEDS_REQUEST });
     const reason = AuthzModeService.reasonOf(rawReason);
-    AuthzModeService.assertAdministrator(await this.judged(), actorId, now);
     const id = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CONFIG_WRITE_LOCK})`;
+      const now = at ?? new Date();
+      await AuthzModeService.assertAdministrators(tx, [actorId]);
       const from = await this.storedMode(tx);
       if (from === mode) throw new ConflictException({ code: AUTHZ_MODE_ERROR.ALREADY });
       await tx.authzModeChange.updateMany({ where: { status: 'PENDING' }, data: { status: 'SUPERSEDED', decidedById: actorId, decidedAt: now } });
@@ -254,17 +274,20 @@ export class AuthzModeService {
   }
 
   /** Asks for enforcement. `acknowledge` is the fingerprint of the comparison the asker read. */
-  async requestEnforce(actorId: string, rawReason: string, acknowledge: string, meta?: Meta, now: Date = new Date()): Promise<{ id: string }> {
+  async requestEnforce(actorId: string, rawReason: string, acknowledge: string, meta?: Meta, at?: Date): Promise<{ id: string }> {
     if (!AuthzService.enforceAvailable) throw new ConflictException({ code: AUTHZ_MODE_ERROR.ENFORCE_NOT_AVAILABLE });
     const reason = AuthzModeService.reasonOf(rawReason);
-    const snapshot = await this.judged();
-    AuthzModeService.assertAdministrator(snapshot, actorId, now);
-    const fingerprint = AuthzModeService.fingerprintOf(AuthzModeService.compare(snapshot, now));
-    if (acknowledge !== fingerprint) throw new ConflictException({ code: AUTHZ_MODE_ERROR.COMPARISON_CHANGED });
-    AuthzModeService.assertNoLockOut(snapshot, [actorId], now);
     return this.prisma.$transaction(async (tx) => {
+      // Everything is judged AFTER the lock is held, at the time it is held: a save of the configuration that was
+      // waiting in front of us is in, and an override that ran out while we waited has run out.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CONFIG_WRITE_LOCK})`;
+      const now = at ?? new Date();
+      await AuthzModeService.assertAdministrators(tx, [actorId]);
+      const snapshot = await this.judged();
       await this.assertStill(tx, snapshot);
+      const fingerprint = AuthzModeService.fingerprintOf(AuthzModeService.compare(snapshot, now));
+      if (acknowledge !== fingerprint) throw new ConflictException({ code: AUTHZ_MODE_ERROR.COMPARISON_CHANGED });
+      AuthzModeService.assertNoLockOut(snapshot, [actorId], now);
       const from = await this.storedMode(tx);
       if (from === 'ENFORCE') throw new ConflictException({ code: AUTHZ_MODE_ERROR.ALREADY });
       if (await this.pendingIn(tx, now)) throw new ConflictException({ code: AUTHZ_MODE_ERROR.REQUEST_PENDING });
@@ -277,21 +300,22 @@ export class AuthzModeService {
   }
 
   /** A SECOND administrator, having read the same comparison, switches enforcement on. */
-  async approve(requestId: string, actorId: string, acknowledge: string, meta?: Meta, now: Date = new Date()): Promise<{ id: string; mode: AuthzMode }> {
+  async approve(requestId: string, actorId: string, acknowledge: string, meta?: Meta, at?: Date): Promise<{ id: string; mode: AuthzMode }> {
     if (!AuthzService.enforceAvailable) throw new ConflictException({ code: AUTHZ_MODE_ERROR.ENFORCE_NOT_AVAILABLE });
-    const snapshot = await this.judged();
-    AuthzModeService.assertAdministrator(snapshot, actorId, now);
-    const fingerprint = AuthzModeService.fingerprintOf(AuthzModeService.compare(snapshot, now));
     await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CONFIG_WRITE_LOCK})`;
+      const now = at ?? new Date();
+      await AuthzModeService.assertAdministrators(tx, [actorId]);
       const row = await tx.authzModeChange.findUnique({ where: { id: requestId } });
       if (!row) throw new NotFoundException({ code: AUTHZ_MODE_ERROR.REQUEST_NOT_FOUND });
       if (row.status !== 'PENDING') throw new ConflictException({ code: AUTHZ_MODE_ERROR.REQUEST_NOT_PENDING });
       if (row.createdAt.getTime() + MODE_REQUEST_TTL_MS <= now.getTime()) throw new ConflictException({ code: AUTHZ_MODE_ERROR.REQUEST_EXPIRED });
       if (row.requestedById === actorId) throw new ForbiddenException({ code: AUTHZ_MODE_ERROR.SECOND_ADMIN_REQUIRED });
       // The asker must still be an administrator: a request left behind by somebody who no longer is one is void.
-      AuthzModeService.assertAdministrator(snapshot, row.requestedById, now);
+      await AuthzModeService.assertAdministrators(tx, [row.requestedById]);
+      const snapshot = await this.judged();
       await this.assertStill(tx, snapshot);
+      const fingerprint = AuthzModeService.fingerprintOf(AuthzModeService.compare(snapshot, now));
       // Both read THIS comparison: the one asked on, the one acknowledged now, and the one the database gives now.
       if (row.fingerprint !== fingerprint || acknowledge !== fingerprint) {
         throw new ConflictException({ code: AUTHZ_MODE_ERROR.COMPARISON_CHANGED });
@@ -299,6 +323,9 @@ export class AuthzModeService {
       AuthzModeService.assertNoLockOut(snapshot, [actorId, row.requestedById], now);
       const from = await this.storedMode(tx);
       if (from === 'ENFORCE') throw new ConflictException({ code: AUTHZ_MODE_ERROR.ALREADY });
+      // Teams and memberships are not written under the lock above. One that changed while this transaction ran
+      // would make the comparison another one: looked at once more, as the last thing before the switch.
+      await this.assertStill(tx, snapshot);
       await this.write(tx, 'ENFORCE');
       await tx.authzModeChange.update({ where: { id: row.id }, data: { status: 'APPLIED', fromMode: from, decidedById: actorId, decidedAt: now } });
       await this.log(tx, actorId, 'AUTHZ_MODE_CHANGED', row.id, { from, to: 'ENFORCE', fingerprint, requestedById: row.requestedById }, meta);
@@ -308,10 +335,11 @@ export class AuthzModeService {
   }
 
   /** The way back from a request: the asker withdraws it, another administrator rejects it. */
-  async close(requestId: string, actorId: string, meta?: Meta, now: Date = new Date()): Promise<{ id: string; status: string }> {
-    AuthzModeService.assertAdministrator(await this.judged(), actorId, now);
+  async close(requestId: string, actorId: string, meta?: Meta, at?: Date): Promise<{ id: string; status: string }> {
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CONFIG_WRITE_LOCK})`;
+      const now = at ?? new Date();
+      await AuthzModeService.assertAdministrators(tx, [actorId]);
       const row = await tx.authzModeChange.findUnique({ where: { id: requestId } });
       if (!row) throw new NotFoundException({ code: AUTHZ_MODE_ERROR.REQUEST_NOT_FOUND });
       if (row.status !== 'PENDING') throw new ConflictException({ code: AUTHZ_MODE_ERROR.REQUEST_NOT_PENDING });

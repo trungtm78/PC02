@@ -225,6 +225,25 @@ describe('updateRolePermissions', () => {
     ).rejects.toThrow(/write:User/);
   });
 
+  it('the ADMIN role keeps the role administration too: without it nobody could switch permissions by team off', async () => {
+    const m = dungMoi();
+    m.prisma.role.findUnique.mockResolvedValue(vaiTro('ra', 'ADMIN'));
+    const s = await taoService(m);
+    const save = s.updateRolePermissions(
+      'ra',
+      {
+        permissions: [
+          { action: 'read', subject: 'User' },
+          { action: 'write', subject: 'User' },
+        ],
+        truocKhiSua: [],
+      },
+      'u1',
+    );
+    await expect(save).rejects.toThrow(/read:Role, write:Role/);
+    expect(m.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('người sửa bỏ write:User khỏi CHÍNH vai trò của mình → 400 (tự khoá)', async () => {
     const m = dungMoi();
     m.prisma.role.findUnique.mockResolvedValue(vaiTro('r7', 'QUAN_TRI_TO'));

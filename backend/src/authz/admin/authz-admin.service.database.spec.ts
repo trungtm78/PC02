@@ -430,7 +430,10 @@ run('AuthzAdminService on PostgreSQL', () => {
       const t = await newTemplate({ entries: { 'read:Case': 'OWN' } });
       await controller.saveTeam(id.A, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
       const widened = await controller.preview({ templates: [{ id: t, entries: { 'read:Case': 'TEAM' } }] });
-      expect(widened.impacts.find((i) => i.userId === id.officer)!.changed).toEqual([{ permission: 'read:Case', before: 'OWN', after: 'TEAM', teamsGained: [id.A] }]);
+      expect(widened.impacts.find((i) => i.userId === id.officer)!.changed).toEqual([
+        // Wider (the whole team's records) and narrower (the person's own records that sit in another team).
+        { permission: 'read:Case', before: 'OWN', after: 'TEAM', teamsGained: [id.A], narrower: true, wider: true },
+      ]);
       const gone = await controller.preview({ templates: [{ id: t, entries: null }] });
       expect(gone.impacts.find((i) => i.userId === id.officer)!.lost).toEqual([{ permission: 'read:Case', before: 'OWN', after: null }]);
       const personal = await controller.preview({ users: [{ userId: id.officer, overrides: [{ permission: 'read:Directory', effect: 'GRANT', reach: 'ALL', reason: 'r' }] }] });

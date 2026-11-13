@@ -1,3 +1,5 @@
+import { readersOf } from '../authz/record-readers';
+import type { RecordSubject } from '../common/utils/precise-scope';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
@@ -79,6 +81,16 @@ export class DeadlineScheduler {
   async getTeamRecipients(
     assignedTeamId: string | null,
     directUserId: string | null,
+    subject: RecordSubject,
+  ): Promise<string[]> {
+    const chosen = await this.membersAndGrantees(assignedTeamId, directUserId);
+    // Under permissions by team a notice names a record only to somebody who may open it.
+    return readersOf(chosen, subject, { assignedTeamId, ownerId: directUserId });
+  }
+
+  private async membersAndGrantees(
+    assignedTeamId: string | null,
+    directUserId: string | null,
   ): Promise<string[]> {
     const ids = new Set<string>();
 
@@ -135,7 +147,7 @@ export class DeadlineScheduler {
     });
 
     for (const c of overdue) {
-      const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
+      const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId, 'Case');
       for (const userId of recipients) {
         if (await this.isDuped('case', c.id, userId)) continue;
         await this.markNotified('case', c.id, userId);
@@ -170,7 +182,7 @@ export class DeadlineScheduler {
     for (const c of near) {
       const daysLeft = c.deadline ? differenceInDays(startOfDay(c.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
-      const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId);
+      const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId, 'Case');
       for (const userId of recipients) {
         if (await this.isDuped('case_near', c.id, userId)) continue;
         await this.markNotified('case_near', c.id, userId);
@@ -205,7 +217,7 @@ export class DeadlineScheduler {
     });
 
     for (const inc of overdue) {
-      const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
+      const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId, 'Incident');
       for (const userId of recipients) {
         if (await this.isDuped('incident', inc.id, userId)) continue;
         await this.markNotified('incident', inc.id, userId);
@@ -240,7 +252,7 @@ export class DeadlineScheduler {
     for (const inc of near) {
       const daysLeft = inc.deadline ? differenceInDays(startOfDay(inc.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
-      const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId);
+      const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId, 'Incident');
       for (const userId of recipients) {
         if (await this.isDuped('incident_near', inc.id, userId)) continue;
         await this.markNotified('incident_near', inc.id, userId);
@@ -276,7 +288,7 @@ export class DeadlineScheduler {
     });
 
     for (const p of overdue) {
-      const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
+      const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById, 'Petition');
       for (const userId of recipients) {
         if (await this.isDuped('petition', p.id, userId)) continue;
         await this.markNotified('petition', p.id, userId);
@@ -311,7 +323,7 @@ export class DeadlineScheduler {
     for (const p of near) {
       const daysLeft = p.deadline ? differenceInDays(startOfDay(p.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
-      const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById);
+      const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById, 'Petition');
       for (const userId of recipients) {
         if (await this.isDuped('petition_near', p.id, userId)) continue;
         await this.markNotified('petition_near', p.id, userId);

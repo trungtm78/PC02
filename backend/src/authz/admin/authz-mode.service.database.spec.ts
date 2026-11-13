@@ -148,6 +148,35 @@ run('AuthzModeService on PostgreSQL', () => {
       expect(comparison.people).toBeGreaterThanOrEqual(3);
     });
 
+    it('counts as losing somebody whose reach narrows though no permission goes away', async () => {
+      const comparison = await service.comparison();
+      const officer = comparison.impacts.find((i) => i.userId === id.officer)!;
+      expect(officer.changed.find((d) => d.permission === 'read:Petition')).toMatchObject({ narrower: true });
+      // Take the three lost permissions out of the picture: the narrowing alone must still count.
+      const onlyNarrowed = comparison.impacts.filter((i) => i.lost.length === 0 && i.changed.some((d) => d.narrower));
+      const lostSomething = comparison.impacts.filter((i) => i.lost.length > 0);
+      expect(comparison.summary.losing).toBe(new Set([...onlyNarrowed, ...lostSomething].map((i) => i.userId)).size);
+    });
+
+    it('a member of a team that no longer counts is shown as losing that team (the role path still counts it today)', async () => {
+      const paused = await db.team.create({ data: { code: `${tag}-P`, name: `${tag} Tổ đã ngừng`, status: 'INACTIVE', isActive: false } });
+      const retired = await db.user.create({ data: { username: `${tag}-retired`, passwordHash: 'x', roleId: id.officerRole, isActive: true } });
+      await db.userTeam.create({ data: { userId: retired.id, teamId: paused.id } });
+      try {
+        await authz.refresh();
+        const impact = (await service.comparison()).impacts.find((i) => i.userId === retired.id);
+        // Nothing is configured for that team: the permissions stay, what they reach does not.
+        expect(impact).toBeDefined();
+        expect(impact!.lost).toEqual([]);
+        expect(impact!.changed.find((d) => d.permission === 'read:Petition')).toMatchObject({ teamsLost: [paused.id], narrower: true });
+      } finally {
+        await db.userTeam.deleteMany({ where: { teamId: paused.id } });
+        await db.user.delete({ where: { id: retired.id } });
+        await db.team.delete({ where: { id: paused.id } });
+        await authz.refresh();
+      }
+    });
+
     it('administrators are not in it: nothing changes for them', async () => {
       const comparison = await service.comparison();
       expect(comparison.impacts.filter((i) => [id.adminA, id.adminB].includes(i.userId))).toEqual([]);
@@ -240,6 +269,39 @@ run('AuthzModeService on PostgreSQL', () => {
         await db.permissionTemplateEntry.delete({ where: { templateId_permissionId: { templateId: id.template, permissionId: perm['delete:Petition'] } } });
         await authz.refresh();
       }
+    });
+
+    it('something changed while the approval was being judged: refused, though the fingerprint sent is the right one', async () => {
+      const asked = await onFreshComparison((fingerprint) => service.requestEnforce(id.adminA, 'pilot', fingerprint));
+      const { fingerprint } = await service.comparison();
+      // Every time the configuration is read, something is logged right after: the snapshot judged from is always
+      // one step behind the database. (A team created and removed changes nobody's permissions: the fingerprint
+      // stays right, so only the check against the change log can refuse.)
+      const read = authz.snapshot.bind(authz);
+      const behind = jest.spyOn(authz, 'snapshot').mockImplementation(async () => {
+        const snapshot = await read();
+        const bump = await db.team.create({ data: { code: `${tag}-bump-${randomUUID().slice(0, 6)}`, name: `${tag} bump` } });
+        await db.team.delete({ where: { id: bump.id } });
+        return snapshot;
+      });
+      try {
+        await expect(service.approve(asked.id, id.adminB, fingerprint)).rejects.toEqual(code(AUTHZ_MODE_ERROR.COMPARISON_CHANGED));
+        expect((await stored()) ?? 'OFF').toBe('OFF');
+      } finally {
+        behind.mockRestore();
+      }
+      // With the database standing still, the very same request is approved.
+      await expect(onFreshComparison((again) => service.approve(asked.id, id.adminB, again))).resolves.toEqual({ id: asked.id, mode: 'ENFORCE' });
+    });
+
+    it('an administrator switched off or demoted is refused at once, whatever their token still says', async () => {
+      await db.user.update({ where: { id: id.adminB }, data: { isActive: false } });
+      try {
+        await expect(service.set(id.adminB, 'SHADOW', 'still here')).rejects.toEqual(code(AUTHZ_MODE_ERROR.ADMIN_ONLY));
+      } finally {
+        await db.user.update({ where: { id: id.adminB }, data: { isActive: true } });
+      }
+      expect((await stored()) ?? 'OFF').toBe('OFF');
     });
 
     it('one request at a time; a request nobody approved in time is void and a new one can be made', async () => {

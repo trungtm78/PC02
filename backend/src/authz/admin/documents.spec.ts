@@ -1,5 +1,5 @@
 import type { AuthzConfig, OrgSnapshot, UserInput } from '../engine/types';
-import { additionsOf, canonical, impactOf, normalise, problemsOf, sameDoc, tokenOf, viewProblemsOfTeam, withChanges, type ChangeItem, type OverrideDoc, type TeamDoc, type TemplateDoc, type ValidationContext } from './documents';
+import { additionsOf, canonical, impactBetween, impactOf, normalise, problemsOf, sameDoc, tokenOf, viewProblemsOfTeam, withChanges, type ChangeItem, type OverrideDoc, type TeamDoc, type TemplateDoc, type ValidationContext } from './documents';
 
 const NOW = new Date('2026-11-14T00:00:00Z');
 const tpl = (over: Partial<TemplateDoc> = {}): TemplateDoc => ({ code: 'T', name: 'Mẫu', description: null, status: 'ACTIVE', entries: {}, ...over });
@@ -221,7 +221,8 @@ describe('impactOf: who would gain or lose what', () => {
       userId: 'u1',
       gained: [{ permission: 'read:Petition', before: null, after: 'OWN' }],
       lost: [{ permission: 'delete:Case', before: 'TEAM_TREE', after: null }],
-      changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'OWN', teamsLost: ['A'] }],
+      // Narrower only: the team as a whole already reached the person's own records.
+      changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'OWN', teamsLost: ['A'], narrower: true }],
     });
   });
 
@@ -251,8 +252,75 @@ describe('impactOf: who would gain or lose what', () => {
       { type: 'team', id: 'B', after: team({ memberTemplateId: 't' }) },
     ], NOW);
     expect(impacts).toEqual([
-      { userId: 'u1', gained: [], lost: [], changed: [{ permission: 'read:Case', before: 'TEAM', after: 'TEAM', teamsGained: ['B'], teamsLost: ['A'] }] },
+      { userId: 'u1', gained: [], lost: [], changed: [{ permission: 'read:Case', before: 'TEAM', after: 'TEAM', teamsGained: ['B'], teamsLost: ['A'], narrower: true, wider: true }] },
     ]);
+  });
+
+  describe('a reach that narrows while the same teams stay listed is still a loss', () => {
+    // u1 and mate are in A. Records of mate that sit in ANOTHER team are reached through "A as a whole", and are
+    // not reached through "exactly A".
+    const leaf: OrgSnapshot = {
+      teams: new Map([['A', { id: 'A', parentId: null, active: true, wardId: null }]]),
+      children: new Map(),
+      members: new Map([['A', ['u1', 'mate']]]),
+    };
+    const exactly = (reach: 'TEAM' | 'TEAM_TREE'): AuthzConfig => ({
+      templates: new Map([['t', { id: 't', name: 't', entries: new Map([['read:Case', reach]]) }]]),
+      teamConfigs: new Map([['A', { teamId: 'A', mode: 'EXPLICIT', memberTemplateId: 't', leaderTemplateId: null, overrides: [] }]]),
+    });
+    const people = new Map([['u1', person('u1', ['A'])]]);
+
+    it('the team as a whole -> exactly the team: no team is lost, and it is marked narrower', () => {
+      const impacts = impactBetween(leaf, { config: exactly('TEAM_TREE'), users: people }, { config: exactly('TEAM'), users: people }, NOW);
+      const read = impacts[0].changed.find((d) => d.permission === 'read:Case')!;
+      expect(read).toEqual({ permission: 'read:Case', before: 'TEAM_TREE', after: 'TEAM', narrower: true });
+    });
+
+    it('exactly the team -> the team as a whole: marked wider', () => {
+      const impacts = impactBetween(leaf, { config: exactly('TEAM'), users: people }, { config: exactly('TEAM_TREE'), users: people }, NOW);
+      expect(impacts[0].changed.find((d) => d.permission === 'read:Case')).toEqual({ permission: 'read:Case', before: 'TEAM', after: 'TEAM_TREE', wider: true });
+    });
+
+    it('two teams, one of them narrowed: the widest reach and the teams are the same, the loss is still reported', () => {
+      const two: OrgSnapshot = {
+        teams: new Map([['A', { id: 'A', parentId: null, active: true, wardId: null }], ['B', { id: 'B', parentId: null, active: true, wardId: null }]]),
+        children: new Map(),
+        members: new Map([['A', ['u1']], ['B', ['u1', 'mate']]]),
+      };
+      const both = (reachOfB: 'TEAM' | 'TEAM_TREE'): AuthzConfig => ({
+        templates: new Map([
+          ['tree', { id: 'tree', name: 'tree', entries: new Map([['read:Case', 'TEAM_TREE' as const]]) }],
+          ['b', { id: 'b', name: 'b', entries: new Map([['read:Case', reachOfB]]) }],
+        ]),
+        teamConfigs: new Map([
+          ['A', { teamId: 'A', mode: 'EXPLICIT', memberTemplateId: 'tree', leaderTemplateId: null, overrides: [] }],
+          ['B', { teamId: 'B', mode: 'EXPLICIT', memberTemplateId: 'b', leaderTemplateId: null, overrides: [] }],
+        ]),
+      });
+      const member = new Map([['u1', person('u1', ['A', 'B'])]]);
+      const impacts = impactBetween(two, { config: both('TEAM_TREE'), users: member }, { config: both('TEAM'), users: member }, NOW);
+      expect(impacts).toEqual([
+        { userId: 'u1', gained: [], lost: [], changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'TEAM_TREE', narrower: true }] },
+      ]);
+    });
+  });
+
+  it('each side can be judged on its own picture of the organisation: a team that no longer counts is a loss', () => {
+    const paused: OrgSnapshot = {
+      teams: new Map([['A', { id: 'A', parentId: null, active: false, wardId: null }]]),
+      children: new Map(),
+      members: new Map([['A', ['u1']]]),
+    };
+    const counted: OrgSnapshot = { ...paused, teams: new Map([['A', { id: 'A', parentId: null, active: true, wardId: null }]]) };
+    const people = new Map([['u1', person('u1', ['A'])]]);
+    // Same organisation on both sides: nothing to report.
+    expect(impactBetween(paused, { config, users: people }, { config, users: people }, NOW)).toEqual([]);
+    // "Before" counts the membership, "after" does not: the team's records are lost.
+    const impacts = impactBetween(paused, { config, users: people, org: counted }, { config, users: people }, NOW);
+    expect(impacts).toHaveLength(1);
+    const read = impacts[0].changed.find((d) => d.permission === 'read:Case')!;
+    expect(read).toMatchObject({ teamsLost: ['A'], narrower: true });
+    expect(read.wider).toBeUndefined();
   });
 
   it('withChanges removes what is wanted gone and ignores an override for nobody known', () => {
