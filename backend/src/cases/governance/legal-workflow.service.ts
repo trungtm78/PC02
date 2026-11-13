@@ -1469,7 +1469,7 @@ export class LegalWorkflowService {
         teamInScope(source.assignedTeamId, scope, 'write', subject)
       ) &&
       !(
-        source.createdById && userInScope(source.createdById, scope, 'write')
+        source.createdById && userInScope(source.createdById, scope, 'write', subject)
       ) &&
       source.investigatorId !== actor.actorId
     )

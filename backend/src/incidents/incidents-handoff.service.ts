@@ -340,6 +340,9 @@ export class IncidentsHandoffService {
       limit > 100
     )
       throw new BadRequestException('Phân trang không hợp lệ');
+    // An incoming handoff is shown to the people of the team it was SENT TO: being asked to take a record is what
+    // lets them see its name before it is theirs (it is still assigned to the sending team until accepted). So the
+    // inbox is filtered by destination team, on purpose, and not by the incident's own assignment.
     // The teams whose incidents the viewer reads; null = every team (no filter). A dispatcher is not special here.
     const teamIds = scopeTeamIds(scope, 'read', 'Incident');
     const where: Prisma.IncidentHandoffWhereInput = {

@@ -93,7 +93,7 @@ export class CasePrincipalAccessService {
           const user = await tx.user.findUnique({ where: { id: userId } });
           if (!user) throw new BadRequestException('Principal not found');
           const scope = await this.core.currentActorScope(tx, actor);
-          if (!userInScope(userId, scope, 'write'))
+          if (!userInScope(userId, scope, 'write', 'Case'))
             throw new ForbiddenException('Principal is outside writable scope');
           const replay = await tx.auditLog.findUnique({ where: { id } });
           if (replay) {
@@ -202,7 +202,7 @@ export class CasePrincipalAccessService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('Principal not found');
     const scope = await this.core.currentActorScope(this.prisma, actor);
-    if (!userInScope(userId, scope, 'write'))
+    if (!userInScope(userId, scope, 'write', 'Case'))
       throw new ForbiddenException('Principal outside writable scope');
     return {
       success: true,

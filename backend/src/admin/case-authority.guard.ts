@@ -218,7 +218,7 @@ export async function guardCaseAuthority(
       // The teams whose cases the actor may change; null = every team (no team filter).
       const writableTeams = scopeTeamIds(scope, 'write', 'Case');
       for (const affectedUser of affectedUsers) {
-        if (userInScope(affectedUser.id, scope, 'write')) continue;
+        if (userInScope(affectedUser.id, scope, 'write', 'Case')) continue;
         const membership = await tx.userTeam.findFirst({
           where: {
             userId: affectedUser.id,

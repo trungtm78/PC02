@@ -29,8 +29,12 @@ const OWNERS = [
   'common/utils/scope-filter.util.ts',
   // The precise scope: its `tree` has lists of the same names, read only here and in the helpers.
   'common/utils/precise-scope.ts',
-  // The permission engine: computes the scopes and the lists (kept for compatibility) from the grants.
-  'authz/',
+  // The permission engine's scope computation: builds the lists of a precise scope and of the legacy shape.
+  'authz/engine/scope.ts',
+  // Reads the `tree.teamIds` of the engine's RecordScope to name the teams a permission reaches.
+  'authz/authz-lookup.service.ts',
+  // The preview compares the teams two RecordScopes reach.
+  'authz/admin/documents.ts',
 ];
 
 /**
@@ -59,6 +63,8 @@ const OTHER_OBJECTS = [
   'reports/tdac/tdac.controller.ts::const teamIds = this.parseTeamIds(query.teamIds, req);',
   // `CreateDraftDto`: the teams asked for (then checked against the write scope).
   'reports/tdac/tdac.controller.ts::dto.teamIds ?? [],',
+  // `ApplyTeamsDto` of the permission screen: the teams a configuration is applied to.
+  'authz/admin/authz-admin.controller.ts::const teamIds = [...new Set(body.teamIds)];',
 ];
 
 interface Read {
@@ -77,12 +83,36 @@ export function readsOf(fileName: string, text: string): Read[] {
     const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line;
     reads.push({ line: line + 1, text: lines[line].trim(), why });
   };
-  /** The field a name stands for: an identifier, a string, or a computed string (`['teamIds']`). */
-  const fieldOf = (name: ts.Node | undefined): string | null => {
+  /** `const key = 'teamIds'` anywhere in the file: a computed read through it is a read of the field. */
+  const constants = new Map<string, string>();
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const value = unwrap(node.initializer);
+      if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) constants.set(node.name.text, value.text);
+    }
+    ts.forEachChild(node, collect);
+  };
+  /** `('teamIds')`, `'teamIds' as const`, `<const>'teamIds'`, `x!`: the expression inside. */
+  function unwrap(node: ts.Expression): ts.Expression {
+    let inner = node;
+    while (
+      ts.isParenthesizedExpression(inner) || ts.isAsExpression(inner) || ts.isTypeAssertionExpression(inner) ||
+      ts.isNonNullExpression(inner) || ts.isSatisfiesExpression(inner)
+    ) {
+      inner = inner.expression;
+    }
+    return inner;
+  }
+  collect(source);
+  /** The field a name stands for: an identifier, a string, a computed string, or a constant that holds one. */
+  const fieldOf = (name: ts.Node | undefined, resolveIdentifier = false): string | null => {
     if (!name) return null;
-    const inner = ts.isComputedPropertyName(name) ? name.expression : name;
-    const isName = ts.isIdentifier(inner) || ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner);
-    return isName && FIELDS.has(inner.text) ? inner.text : null;
+    const raw = ts.isComputedPropertyName(name) ? name.expression : name;
+    const inner = ts.isExpression(raw) ? unwrap(raw) : raw;
+    if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) return FIELDS.has(inner.text) ? inner.text : null;
+    if (!ts.isIdentifier(inner)) return null;
+    const text = resolveIdentifier ? (constants.get(inner.text) ?? inner.text) : inner.text;
+    return FIELDS.has(text) ? text : null;
   };
   /** `({ teamIds, userIds: people } = scope)`: an object literal that is being assigned TO takes fields out. */
   const assignmentTargets = (pattern: ts.ObjectLiteralExpression) => {
@@ -99,7 +129,8 @@ export function readsOf(fileName: string, text: string): Read[] {
     if (ts.isPropertyAccessExpression(node) && FIELDS.has(node.name.text)) {
       add(node.name, `reads .${node.name.text}`);
     } else if (ts.isElementAccessExpression(node)) {
-      const field = fieldOf(node.argumentExpression);
+      // `scope[key]`: the key is looked up among the file's string constants.
+      const field = fieldOf(node.argumentExpression, true);
       if (field) add(node.argumentExpression, `reads ['${field}']`);
     } else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
       // `const { teamIds } = scope`, `{ writableUserIds: people }`, a destructured parameter.
@@ -111,6 +142,9 @@ export function readsOf(fileName: string, text: string): Read[] {
       ts.isObjectLiteralExpression(node.left)
     ) {
       assignmentTargets(node.left);
+    } else if ((ts.isForOfStatement(node) || ts.isForInStatement(node)) && ts.isObjectLiteralExpression(node.initializer)) {
+      // `for ({ teamIds: ids } of scopes)`.
+      assignmentTargets(node.initializer);
     }
     ts.forEachChild(node, visit);
   };
@@ -184,6 +218,10 @@ describe('GATE: no service reads the lists of a scope itself', () => {
     [`const teams = scope['teamIds'];`, [`reads ['teamIds']`]],
     [`const teams = scope?.["writableTeamIds"];`, [`reads ['writableTeamIds']`]],
     ['const teams = scope[`userIds`];', [`reads ['userIds']`]],
+    [`const key = 'teamIds' as const; const ids = scope[key];`, [`reads ['teamIds']`]],
+    [`const ids = scope[('teamIds')];`, [`reads ['teamIds']`]],
+    [`const ids = scope['writableUserIds' as const];`, [`reads ['writableUserIds']`]],
+    [`for ({ teamIds: ids } of [scope]) use(ids);`, ['destructures .teamIds']],
     [`const { teamIds } = scope;`, ['destructures .teamIds']],
     [`const { userIds, teamIds, isWardOfficer } = dataScope;`, ['destructures .userIds', 'destructures .teamIds']],
     [`const { writableUserIds: people } = scope;`, ['destructures .writableUserIds']],

@@ -104,9 +104,9 @@ describe('teams and people in reach', () => {
     expect(teamInScope('G', legacy(), 'read', 'Case')).toBe(true);
     expect(teamInScope('G', legacy(), 'write', 'Case')).toBe(false);
     expect(teamInScope('anything', null, 'write', 'Case')).toBe(true);
-    expect(userInScope('guest', legacy(), 'read')).toBe(true);
-    expect(userInScope('guest', legacy(), 'write')).toBe(false);
-    expect(userInScope('anyone', undefined, 'write')).toBe(true);
+    expect(userInScope('guest', legacy(), 'read', 'Case')).toBe(true);
+    expect(userInScope('guest', legacy(), 'write', 'Case')).toBe(false);
+    expect(userInScope('anyone', undefined, 'write', 'Case')).toBe(true);
   });
 
   it('enforced: the teams of "exactly" and "as today" together; null when everything', () => {
@@ -121,11 +121,17 @@ describe('teams and people in reach', () => {
 
   it('enforced: a person is in reach when it is me, or one of the people reached "as today" on cases', () => {
     const scope = precise({ Case: both(TREE_A, OWN) });
-    expect(userInScope('mate', scope, 'read')).toBe(true);
-    expect(userInScope('mate', scope, 'write')).toBe(false);
-    expect(userInScope(ME, scope, 'write')).toBe(true);
-    expect(userInScope('stranger', scope, 'read')).toBe(false);
-    expect(userInScope('stranger', precise({ Case: both(ALL) }), 'write')).toBe(true);
+    expect(userInScope('mate', scope, 'read', 'Case')).toBe(true);
+    expect(userInScope('mate', scope, 'write', 'Case')).toBe(false);
+    expect(userInScope(ME, scope, 'write', 'Case')).toBe(true);
+    expect(userInScope('stranger', scope, 'read', 'Case')).toBe(false);
+    expect(userInScope('stranger', precise({ Case: both(ALL) }), 'write', 'Case')).toBe(true);
+    // Reaching nothing, or only "exactly a team", puts nobody in reach: not even me.
+    expect(userInScope(ME, precise(), 'write', 'Case')).toBe(false);
+    expect(userInScope(ME, precise({ Case: both(TEAM_A) }), 'write', 'Case')).toBe(false);
+    // Measured on the subject asked about, not on cases.
+    expect(userInScope('mate', precise({ Case: both(ALL) }), 'write', 'Petition')).toBe(false);
+    expect(userInScope('mate', precise({ Petition: both(TREE_A) }), 'write', 'Petition')).toBe(true);
   });
 });
 
@@ -141,6 +147,12 @@ describe('creatorFilter: lists of records known only by who created them', () =>
     expect(creatorFilter(legacy({ userIds: [] }), 'read', { dispatcherSeesAll: false, whenTeamOnly: 'all' })).toBeNull();
   });
 
+  it('a dispatcher never changes outside their reach, whatever the list says about reading', () => {
+    expect(creatorFilter(legacy({ canDispatch: true }), 'write', all)).toEqual({ createdById: { in: [ME, 'mate'] } });
+    expect(creatorFilter(precise({}, { canDispatch: true }), 'write', all)).toEqual({ id: '__no_access__' });
+    expect(creatorFilter(precise({}, { canDispatch: true }), 'read', all)).toBeNull();
+  });
+
   it('a dispatcher is unrestricted only where the list says so', () => {
     const dispatcher = legacy({ canDispatch: true });
     expect(creatorFilter(dispatcher, 'read', all)).toBeNull();
@@ -154,6 +166,17 @@ describe('creatorFilter: lists of records known only by who created them', () =>
     expect(creatorFilter(precise({ Case: both(TREE_A, OWN) }), 'write', all)).toEqual({ createdById: { in: [ME] } });
     expect(creatorFilter(precise({ Case: both(ALL) }), 'read', all)).toBeNull();
     expect(creatorFilter(precise(), 'read', all)).toEqual({ id: '__no_access__' });
+  });
+});
+
+describe('a scope built by hand without its write lists', () => {
+  it('is read as "writes nothing by ownership or team": closed, never an error and never the read lists', () => {
+    const partial = { teamIds: ['A'], userIds: [ME] } as unknown as DataScope;
+    expect(recordInScope({ assignedTeamId: 'A', ownerId: ME }, partial, 'write', 'Case')).toBe(false);
+    expect(recordInScope({ assignedTeamId: 'A', ownerId: ME }, partial, 'read', 'Case')).toBe(true);
+    expect(scopeConditions(partial, 'write', 'Case')).toEqual([]);
+    expect(scopeTeamIds(partial, 'write', 'Case')).toEqual([]);
+    expect(userInScope(ME, partial, 'write', 'Case')).toBe(false);
   });
 });
 

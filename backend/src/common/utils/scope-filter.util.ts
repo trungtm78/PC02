@@ -440,15 +440,20 @@ export function teamInScope(teamId: string, scope: DataScope | null | undefined,
 }
 
 /**
- * Whether records owned by `userId` are within reach for `op` whatever team they sit in: the person themselves, and
- * the people of the teams reached "as today". Used where a decision is about a PERSON (acting on a user's records,
- * granting them access), measured on case work.
+ * Whether records of `subject` owned by `userId` are within reach for `op` whatever team they sit in: the people of
+ * the teams reached "as today", and the person themselves when they reach their own records. Used where a decision
+ * is about a PERSON (acting on a user's records, granting them access).
+ *
+ * "Exactly the team" says nothing about a person: a record of theirs in another team is not reached, so it does not
+ * put anybody, not even the person asking, in reach here.
  */
-export function userInScope(userId: string, scope: DataScope | null | undefined, op: 'read' | 'write'): boolean {
+export function userInScope(userId: string, scope: DataScope | null | undefined, op: 'read' | 'write', subject: RecordSubject): boolean {
   if (!scope) return true;
   if (scope.precise) {
-    const p = scope.precise.subjects.Case[op];
-    return p.all || userId === scope.precise.userId || (p.tree?.userIds.includes(userId) ?? false);
+    const p = scope.precise.subjects[subject][op];
+    if (p.all) return true;
+    if (p.own && userId === scope.precise.userId) return true;
+    return p.tree?.userIds.includes(userId) ?? false;
   }
   return phamViTheoThaoTac(scope, op).userIds.includes(userId);
 }
@@ -457,7 +462,8 @@ export function userInScope(userId: string, scope: DataScope | null | undefined,
  * The list filter of records known only by who created them (exchanges, guidance, a delegation or proposal with no
  * case). `null` = no restriction; otherwise ONE condition to AND.
  *
- * `dispatcherSeesAll`: whether a dispatcher is unrestricted here (the lists differ on this today, and keep doing so).
+ * `dispatcherSeesAll`: whether a dispatcher is unrestricted here WHEN READING (the lists differ on this today, and
+ * keep doing so). A dispatcher never changes anything outside their reach.
  * `whenTeamOnly`: what somebody with teams but no people in scope sees today: every record that has a creator
  * ('has-creator'), or every record ('all').
  */
@@ -467,7 +473,7 @@ export function creatorFilter(
   options: { dispatcherSeesAll: boolean; whenTeamOnly: 'has-creator' | 'all' },
 ): Record<string, unknown> | null {
   if (!scope) return null;
-  if (options.dispatcherSeesAll && scope.canDispatch) return null;
+  if (options.dispatcherSeesAll && scope.canDispatch && op === 'read') return null;
   if (scope.precise) {
     const p = scope.precise.subjects.Case[op];
     if (p.all) return null;
