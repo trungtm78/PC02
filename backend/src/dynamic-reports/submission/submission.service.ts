@@ -966,18 +966,33 @@ export class SubmissionService {
       });
       // A grant on a handed-in submission worked by returning it with the grant's expiry as the deadline; revoking
       // the grant must close that window too, or the editor would keep typing until the original expiry. Only the
-      // return this very grant made (nothing saved since): a return a manager issued on its own keeps its deadline.
+      // return this very grant made: a return a manager issued on its own keeps its deadline. That is either still
+      // RETURNED at the revision the grant made, or already DRAFT because the editor saved once (the deadline carries
+      // over to a DRAFT, see resolveAccess) with the grant's own expiry as its deadline.
       const madeReturn = await tx.dynReportUnlock.findUnique({
         where: { id: activeGrant.id },
         select: { reopenedRevision: true },
       });
       if (madeReturn?.reopenedRevision != null) {
+        const expiry = new Date(activeGrant.expiresAt);
+        // A DRAFT carries the deadline of the LAST return. It is this grant's only when no later return has been made:
+        // a manager's own return with the same deadline, made after the editor submitted again, is theirs to keep.
+        const lastReturn = await tx.dynReportRevision.findFirst({
+          where: { submission: { assignmentId }, kind: 'RETURN' },
+          orderBy: { revision: 'desc' },
+          select: { revision: true },
+        });
+        const draftIsThisGrants = lastReturn?.revision === madeReturn.reopenedRevision;
         await tx.dynReportSubmission.updateMany({
           where: {
             assignmentId,
-            state: 'RETURNED',
-            currentRevision: madeReturn.reopenedRevision,
-            returnDueAt: new Date(activeGrant.expiresAt),
+            returnDueAt: expiry,
+            OR: [
+              { state: 'RETURNED', currentRevision: madeReturn.reopenedRevision },
+              ...(draftIsThisGrants
+                ? [{ state: 'DRAFT' as const, currentRevision: { gt: madeReturn.reopenedRevision } }]
+                : []),
+            ],
           },
           data: { returnDueAt: now },
         });

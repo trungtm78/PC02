@@ -172,6 +172,36 @@ describe('resolveAccess — RETURNED state uses returnDueAt, not the original de
   });
 });
 
+describe('resolveAccess — a returned submission keeps its return deadline after the editor has saved', () => {
+  // Saving from RETURNED moves the submission to DRAFT. The deadline the manager gave for the correction must not
+  // vanish with that first save (found on review 13/11/2026: the second save and "Nộp" were answered REPORT_LOCKED).
+  const returnDueAt = new Date(T.getTime() + 3600_000);
+
+  it('a DRAFT that was returned is writable until returnDueAt even though the original deadline has passed', () => {
+    const result = resolveAccess(
+      baseInput({ state: 'DRAFT', now: new Date(T.getTime() + 1800_000), returnDueAt }),
+    );
+    expect(result.canEdit).toBe(true);
+    expect(result.effectiveLockAt).toEqual(returnDueAt);
+  });
+
+  it('and is locked once returnDueAt itself has passed', () => {
+    const result = resolveAccess(
+      baseInput({ state: 'DRAFT', now: new Date(returnDueAt.getTime() + 1), returnDueAt }),
+    );
+    expect(result.canEdit).toBe(false);
+    expect(result.reason).toBe('PAST_DEADLINE');
+  });
+
+  it('a DRAFT that was never returned still follows the original deadline', () => {
+    const result = resolveAccess(
+      baseInput({ state: 'DRAFT', now: new Date(T.getTime() + 1800_000), returnDueAt: null }),
+    );
+    expect(result.canEdit).toBe(false);
+    expect(result.reason).toBe('PAST_DEADLINE');
+  });
+});
+
 describe('resolveAccess — unlock grants', () => {
   it('a grant active after the original deadline allows writing, with effectiveLockAt = the grant expiry', () => {
     const expiresAt = new Date(T.getTime() + 3 * 3600_000);

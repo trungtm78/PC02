@@ -81,6 +81,7 @@ describe('SubmissionService', () => {
       },
       dynReportRevision: {
         create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+        findFirst: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue(null),
       },
       dynReportUnlock: {
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
@@ -2218,6 +2219,8 @@ describe('SubmissionService', () => {
         reason: 'Cho thêm giờ',
       });
       tx.dynReportUnlock.findUnique.mockResolvedValue({ reopenedRevision: BigInt(2) });
+      // The last return in the history is the one this grant made, so a saved DRAFT with its deadline is its own.
+      tx.dynReportRevision.findFirst.mockResolvedValue({ revision: BigInt(2) });
       const { service } = buildService(tx);
 
       await service.revokeActiveGrant(
@@ -2237,10 +2240,15 @@ describe('SubmissionService', () => {
       expect(updateCall.data.revokeReason).toBe('Hết cần thiết');
       // A grant that reopened a handed-in submission set its return deadline to the grant's expiry: revoking closes it too.
       const cut = tx.dynReportSubmission.updateMany.mock.calls[0][0] as {
-        where: { assignmentId: string; state: string };
+        where: { assignmentId: string; returnDueAt: Date; OR: Array<Record<string, unknown>> };
         data: { returnDueAt: Date };
       };
-      expect(cut.where).toMatchObject({ assignmentId: 'assign1', state: 'RETURNED', currentRevision: BigInt(2) });
+      expect(cut.where).toMatchObject({ assignmentId: 'assign1', returnDueAt: expect.any(Date) });
+      // Still RETURNED at the revision the grant made, or DRAFT after the editor saved once (the deadline carries over).
+      expect(cut.where.OR).toEqual([
+        { state: 'RETURNED', currentRevision: BigInt(2) },
+        { state: 'DRAFT', currentRevision: { gt: BigInt(2) } },
+      ]);
       expect(cut.data.returnDueAt).toBeInstanceOf(Date);
     });
 

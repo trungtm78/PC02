@@ -171,6 +171,56 @@ run('reopening a submission on PostgreSQL', () => {
     expect((await state(assignmentId)).returnDueAt!.getTime()).toBeLessThanOrEqual(Date.now());
   });
 
+  it('REGRESSION: a returned report can be corrected over several saves and submitted again, after the original deadline (return, save, save, submit)', async () => {
+    const { assignmentId } = await build('return-late', 'SUBMITTED', new Date('2026-01-01T00:00:00Z'));
+    const sub = await state(assignmentId);
+    const until = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    await svc.returnSubmission(assignmentId, user.mgr, roleUser, sub.currentRevision.toString(), 'Sửa lại số liệu', until);
+
+    const first = await view(assignmentId);
+    expect(first.editable).toBe(true);
+    const saved1 = await svc.save(assignmentId, user.editor, { 'S!C3': '7' }, first.revision);
+    expect(saved1.state).toBe('DRAFT');
+    // The first save used to end the window: from here the original deadline (long past) applied again.
+    expect((await view(assignmentId)).editable).toBe(true);
+    const saved2 = await svc.save(assignmentId, user.editor, { 'S!C3': '8' }, saved1.revision);
+    const resubmitted = await svc.submit(assignmentId, user.editor, saved2.revision);
+
+    expect(resubmitted.state).toBe('SUBMITTED');
+    expect(((await state(assignmentId)).values as Record<string, { v: string }>)['S!C3'].v).toBe('8');
+  });
+
+  it('revoking a grant still closes the window after the editor has already saved once', async () => {
+    const { assignmentId } = await build('revoke-after-save', 'SUBMITTED', new Date('2026-01-01T00:00:00Z'));
+    await requestAndApprove(assignmentId);
+    const opened = await view(assignmentId);
+    const saved = await svc.save(assignmentId, user.editor, { 'S!C3': '9' }, opened.revision);
+    expect(saved.state).toBe('DRAFT');
+    expect((await view(assignmentId)).editable).toBe(true);
+
+    await svc.revokeActiveGrant(assignmentId, user.mgr, roleUser, 'Thu hồi');
+
+    expect((await view(assignmentId)).editable).toBe(false);
+  });
+
+  it('revoking a grant leaves a LATER return the manager made with the very same deadline alone (found by Codex)', async () => {
+    const { assignmentId } = await build('later-return', 'SUBMITTED', new Date('2026-01-01T00:00:00Z'));
+    await requestAndApprove(assignmentId);
+    const grant = await db.dynReportUnlock.findFirstOrThrow({ where: { assignmentId, status: 'ACTIVE' } });
+    const opened = await view(assignmentId);
+    const saved = await svc.save(assignmentId, user.editor, { 'S!C3': '7' }, opened.revision);
+    const resubmitted = await svc.submit(assignmentId, user.editor, saved.revision);
+    // The manager's own return, a few revisions later, happens to carry exactly the grant's expiry as its deadline.
+    await svc.returnSubmission(assignmentId, user.mgr, roleUser, resubmitted.revision, 'Sửa lại lần nữa', grant.expiresAt.toISOString());
+    const again = await view(assignmentId);
+    await svc.save(assignmentId, user.editor, { 'S!C3': '8' }, again.revision);
+
+    await svc.revokeActiveGrant(assignmentId, user.mgr, roleUser, 'Thu hồi');
+
+    expect((await state(assignmentId)).returnDueAt?.toISOString()).toBe(grant.expiresAt.toISOString());
+    expect((await view(assignmentId)).editable).toBe(true);
+  });
+
   it('CONTROL: a draft past its deadline is still opened by a plain grant (the case the grant was built for), state untouched', async () => {
     const { assignmentId } = await build('late-draft', 'DRAFT', new Date('2026-01-01T00:00:00Z'));
     expect((await view(assignmentId)).editable).toBe(false);
