@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   NotFoundException,
   Param,
   Patch,
@@ -28,6 +29,7 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { attachmentDisposition } from '../attachment-disposition.util';
 import { ReportConfigService, ReportConfigError } from './report-config.service';
 import { ReportDetailService } from './report-detail.service';
+import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
 import { ReportLifecycleService } from './report-lifecycle.service';
 import { ReportVersioningService } from './report-versioning.service';
 import { ReportConfigUpdateService } from './report-config-update.service';
@@ -51,7 +53,10 @@ export class ReportAdminController {
     private readonly lifecycleService: ReportLifecycleService,
     private readonly versioningService: ReportVersioningService,
     private readonly updateService: ReportConfigUpdateService,
+    private readonly scheduler: PeriodSchedulerService,
   ) {}
+
+  private readonly logger = new Logger(ReportAdminController.name);
 
   /** Maps the service's error codes onto HTTP: a missing report is 404, "has data" is a 409 the screen can explain. */
   private async guard<T>(run: () => Promise<T>): Promise<T> {
@@ -113,8 +118,17 @@ export class ReportAdminController {
   @Post(':reportId/publish')
   @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  publish(@Param('reportId') reportId: string) {
-    return this.guard(() => this.versioningService.publishDraft(reportId));
+  async publish(@Param('reportId') reportId: string) {
+    const published = await this.guard(() => this.versioningService.publishDraft(reportId));
+    // Make its periods now instead of at the next hourly tick. Best effort: it is published either way.
+    try {
+      await this.scheduler.generateForReport(reportId);
+    } catch (err) {
+      this.logger.error(
+        `Could not make the periods of the report ${reportId} right after publishing: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    return published;
   }
 
   /** One version's template file — the source for copying a report or starting a new version from the same file. */

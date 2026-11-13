@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   Get,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -27,6 +28,7 @@ import {
   ReportConfigError,
 } from './report-config.service';
 import { SaveReportConfigRequestDto } from './dto/save-report-config.dto';
+import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
 
 interface AuthenticatedUser {
   id: string;
@@ -42,7 +44,12 @@ interface AuthenticatedUser {
 @UseGuards(JwtAuthGuard, FeatureFlagGuard, PermissionsGuard)
 @FeatureFlag('dynamic_reports')
 export class ReportConfigController {
-  constructor(private readonly configService: ReportConfigService) {}
+  private readonly logger = new Logger(ReportConfigController.name);
+
+  constructor(
+    private readonly configService: ReportConfigService,
+    private readonly scheduler: PeriodSchedulerService,
+  ) {}
 
   @Post()
   @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
@@ -62,12 +69,14 @@ export class ReportConfigController {
       throw new BadRequestException('Thiếu file mẫu (field "file").');
     }
     try {
-      return await this.configService.save(
+      const saved = await this.configService.save(
         body.config,
         file.buffer,
         file.originalname,
         user.id,
       );
+      if (saved.status === 'PUBLISHED') await this.makePeriodsNow(saved.reportId);
+      return saved;
     } catch (err) {
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_CODE_TAKEN') {
@@ -111,6 +120,21 @@ export class ReportConfigController {
         throw new NotFoundException(err.message);
       }
       throw err;
+    }
+  }
+
+  /**
+   * A published report has no period until the scheduler makes one, which used to be the next hourly tick: nothing for
+   * anyone to enter for up to an hour. Make them now. Best effort: the report is already published, so a failure here
+   * is logged and the hourly tick makes the periods as it always did.
+   */
+  private async makePeriodsNow(reportId: string): Promise<void> {
+    try {
+      await this.scheduler.generateForReport(reportId);
+    } catch (err) {
+      this.logger.error(
+        `Could not make the periods of the report ${reportId} right after publishing: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 }

@@ -31,6 +31,13 @@ const LOOKAHEAD_PERIODS = 6; // spec: "Preview tối thiểu 6 kỳ"
 const SHIFT_WINDOW_DAYS = 60;
 const VN_OFFSET_MS = 7 * 3_600_000;
 const SCHEDULER_LOCK_KEY = 'dynamic-reports-period-scheduler';
+/**
+ * A tick makes the periods of every published report in one transaction. Prisma's default of five seconds rolled a slow
+ * tick back (nothing made, and again an hour later), so ask for what the work needs.
+ */
+const TICK_TX_OPTIONS = { timeout: 120_000, maxWait: 10_000 } as const;
+/** The savepoint each schedule's work runs under; a constant, never built from data. */
+const SCHEDULE_SAVEPOINT = 'dyn_period_schedule';
 
 interface LockRow {
   locked: boolean;
@@ -56,15 +63,35 @@ export class PeriodSchedulerService {
         return;
       }
       await this.generateForAllReports(tx, new Date());
-    });
+    }, TICK_TX_OPTIONS);
+  }
+
+  /**
+   * Makes the periods of ONE report now, for the moment it is published: waiting for the next hourly tick left a
+   * published report with no period (so nothing for anyone to enter) for up to an hour. Same lock as the tick, so the
+   * two can never make the same period; if a tick is running at this moment it is left to do the work (it reads the
+   * report list when it starts, so at worst this report waits for the next one, as before).
+   */
+  async generateForReport(reportId: string, now: Date = new Date()): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const [lockRow] = await tx.$queryRaw<LockRow[]>`
+        SELECT pg_try_advisory_xact_lock(hashtext(${SCHEDULER_LOCK_KEY})) AS locked
+      `;
+      if (!lockRow?.locked) {
+        this.logger.log(`A tick is running — report ${reportId} is left to it.`);
+        return;
+      }
+      await this.generateForAllReports(tx, now, [reportId]);
+    }, TICK_TX_OPTIONS);
   }
 
   async generateForAllReports(
     tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
     now: Date,
+    onlyReportIds?: string[],
   ): Promise<void> {
     const reports = await tx.dynReport.findMany({
-      where: { status: 'PUBLISHED' },
+      where: { status: 'PUBLISHED', ...(onlyReportIds ? { id: { in: onlyReportIds } } : {}) },
       include: { schedules: { where: { supersededAt: null } } },
     });
 
@@ -82,9 +109,15 @@ export class PeriodSchedulerService {
       });
       for (const schedule of schedules) {
         if (schedule.effectiveFrom > now) continue;
+        // A database error aborts the whole PostgreSQL transaction, so catching it is not enough: every later statement
+        // (the next report's) would fail with "current transaction is aborted" and the commit would be lost. Each
+        // schedule runs under a savepoint that is rolled back to on failure, so one bad report costs only itself.
+        await tx.$executeRawUnsafe(`SAVEPOINT ${SCHEDULE_SAVEPOINT}`);
         try {
           await this.generateForSchedule(tx, report.id, schedule, now);
+          await tx.$executeRawUnsafe(`RELEASE SAVEPOINT ${SCHEDULE_SAVEPOINT}`);
         } catch (err) {
+          await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${SCHEDULE_SAVEPOINT}`);
           this.logger.error(
             `Period generation failed for report ${report.id}, schedule ${schedule.id}: ${
               err instanceof Error ? err.message : String(err)
