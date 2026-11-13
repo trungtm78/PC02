@@ -27,7 +27,12 @@ run('PeriodSchedulerService on PostgreSQL', () => {
   let userId = '';
   let teamId = '';
   const past = new Date('2026-10-01T00:00:00Z');
-  const now = new Date('2026-11-13T05:00:00Z');
+  // "Now" for the scheduler must be AFTER the rows the test creates (their validFrom is the database's real clock);
+  // a fixed instant went stale the moment the real clock passed it.
+  let now = new Date();
+  beforeEach(() => {
+    now = new Date(Date.now() + 60_000);
+  });
 
   /** A published monthly report with one team, one editor and a version, whose schedule has made nothing yet. */
   async function buildReport(name: string) {
