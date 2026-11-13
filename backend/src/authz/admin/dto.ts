@@ -4,7 +4,6 @@ import {
   IsArray,
   IsIn,
   IsInt,
-  IsISO8601,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -13,6 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 const REACHES = ['OWN', 'TEAM', 'TEAM_TREE', 'ALL'] as const;
 
@@ -21,7 +21,8 @@ export class OverrideDto {
   @IsIn(['GRANT', 'MUTE']) effect!: 'GRANT' | 'MUTE';
   @IsOptional() @IsIn(REACHES) reach?: (typeof REACHES)[number] | null;
   @IsString() @MaxLength(500) reason!: string;
-  @IsOptional() @IsISO8601() expiresAt?: string | null;
+  /** A real instant: "2026-02-31" would quietly become another day. */
+  @IsOptional() @IsNgayThat() expiresAt?: string | null;
 }
 
 export class TeamOverrideDto extends OverrideDto {
