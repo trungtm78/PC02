@@ -2326,6 +2326,12 @@ model MasterClass {
 // Team (Tổ/Nhóm/Đơn vị)
 // ─────────────────────────────────────────────
 
+enum TeamStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 model Team {
   caseHandoff_fromTeam CaseHandoff[] @relation("CaseHandoff_fromTeam")
   caseHandoff_toTeam   CaseHandoff[] @relation("CaseHandoff_toTeam")
@@ -2337,7 +2343,13 @@ model Team {
   parent               Team?         @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children             Team[]        @relation("TeamHierarchy")
   order                Int           @default(0)
+  // `status` is the source of truth; `isActive` is kept in step by the trigger `teams_status_sync` (migration
+  // 20261113100000_team_status), so seeds and the legacy migration that still write `isActive` stay consistent.
+  // Application code changes the state only through TeamLifecycleService.
   isActive             Boolean       @default(true)
+  status               TeamStatus    @default(ACTIVE)
+  archivedAt           DateTime?
+  archivedById         String?
   // v0.33.0.0: Hybrid ward scoping — Team có thể là functional (wardId=null) hoặc geographic (wardId set)
   wardId               String?
   ward                 Directory?    @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
@@ -2359,6 +2371,7 @@ model Team {
   @@index([parentId])
   @@index([level])
   @@index([wardId])
+  @@index([status])
   @@map("teams")
 }
 

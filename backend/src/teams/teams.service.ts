@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { TeamStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { TeamLifecycleService } from './team-lifecycle.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 
@@ -11,15 +13,30 @@ export class TeamsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly lifecycle: TeamLifecycleService,
   ) {}
 
-  async getList() {
+  /**
+   * The admin list. Defaults to ACTIVE teams so that no screen shows a paused or archived team by accident; the admin
+   * tabs ask for INACTIVE / ARCHIVED explicitly, and `ALL` is for an overview that is never a picker.
+   */
+  async getList(status: TeamStatus | 'ALL' = 'ACTIVE') {
     return this.prisma.team.findMany({
+      where: status === 'ALL' ? {} : { status },
       include: {
         parent: true,
         children: true,
         _count: { select: { members: true } },
       },
+      orderBy: [{ level: 'asc' }, { order: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  /** What every team picker uses: active teams only, and only the fields a picker needs. */
+  async options() {
+    return this.prisma.team.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, name: true, code: true, level: true, parentId: true, wardId: true },
       orderBy: [{ level: 'asc' }, { order: 'asc' }, { name: 'asc' }],
     });
   }
@@ -91,6 +108,11 @@ export class TeamsService {
     const existing = await this.prisma.team.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Team not found (id: ${id})`);
 
+    // The state is not a plain column: it moves through the lifecycle (transition rules, archive stamps, audit).
+    if (dto.isActive !== undefined && dto.isActive !== existing.isActive) {
+      await this.lifecycle.setStatus(id, dto.isActive ? 'ACTIVE' : 'INACTIVE', actorId, meta);
+    }
+
     // v0.29: use wrapUpdate to capture before/after diff (was: changes: dto only).
     return this.audit.wrapUpdate({
       fetchFn: async () => existing,
@@ -103,7 +125,6 @@ export class TeamsService {
             ...(dto.level !== undefined && { level: dto.level }),
             ...(dto.parentId !== undefined && { parentId: dto.parentId }),
             ...(dto.order !== undefined && { order: dto.order }),
-            ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             // v0.33.0.0: allow update wardId/editWindowHours (null = clear)
             ...(dto.wardId !== undefined && { wardId: dto.wardId }),
             ...(dto.editWindowHours !== undefined && { editWindowHours: dto.editWindowHours }),
@@ -122,25 +143,8 @@ export class TeamsService {
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    const existing = await this.prisma.team.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Team not found (id: ${id})`);
-
-    // Soft delete — set isActive to false
-    await this.prisma.team.update({
-      where: { id },
-      data: { isActive: false },
-    });
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'TEAM_DELETED',
-      subject: 'Team',
-      subjectId: id,
-      metadata: { name: existing.name, softDelete: true },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
+    // Until the real delete lands this is a pause, through the lifecycle (the only writer of a team's state).
+    await this.lifecycle.setStatus(id, 'INACTIVE', actorId, meta);
     return { success: true, message: 'Xóa tổ/nhóm thành công' };
   }
 

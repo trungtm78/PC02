@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { TeamLifecycleService } from './team-lifecycle.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ const mockAudit = {
   }),
 };
 
+const mockLifecycle = { setStatus: jest.fn() };
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('TeamsService', () => {
@@ -54,6 +57,7 @@ describe('TeamsService', () => {
         TeamsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: TeamLifecycleService, useValue: mockLifecycle },
       ],
     }).compile();
 
@@ -64,7 +68,31 @@ describe('TeamsService', () => {
   // ── getList ──────────────────────────────────────────────────────────────
 
   describe('getList', () => {
-    it('returns all teams with parent, children, and member count', async () => {
+    it('lists only active teams unless a state is asked for: a paused team is in no list by default', async () => {
+      mockPrisma.team.findMany.mockResolvedValue([]);
+
+      await service.getList();
+
+      expect(mockPrisma.team.findMany.mock.calls[0][0].where).toEqual({ status: 'ACTIVE' });
+    });
+
+    it.each(['INACTIVE', 'ARCHIVED'] as const)('lists the %s teams for the admin tab', async (status) => {
+      mockPrisma.team.findMany.mockResolvedValue([]);
+
+      await service.getList(status);
+
+      expect(mockPrisma.team.findMany.mock.calls[0][0].where).toEqual({ status });
+    });
+
+    it('ALL lifts the filter (admin overview, never a picker)', async () => {
+      mockPrisma.team.findMany.mockResolvedValue([]);
+
+      await service.getList('ALL');
+
+      expect(mockPrisma.team.findMany.mock.calls[0][0].where).toEqual({});
+    });
+
+    it('returns the teams with parent, children, and member count', async () => {
       const fakeTeams = [
         { id: 't1', name: 'Team 1', code: 'T-01', parent: null, children: [], _count: { members: 3 } },
       ];
@@ -82,6 +110,29 @@ describe('TeamsService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // ── options ──────────────────────────────────────────────────────────────
+
+  describe('options', () => {
+    it('is what every picker uses: active teams only, the few fields a picker needs', async () => {
+      const rows = [{ id: 't1', name: 'Team 1', code: 'T-01', level: 1, parentId: null, wardId: null }];
+      mockPrisma.team.findMany.mockResolvedValue(rows);
+
+      const result = await service.options();
+
+      expect(result).toEqual(rows);
+      const args = mockPrisma.team.findMany.mock.calls[0][0];
+      expect(args.where).toEqual({ status: 'ACTIVE' });
+      expect(args.select).toEqual({
+        id: true,
+        name: true,
+        code: true,
+        level: true,
+        parentId: true,
+        wardId: true,
+      });
     });
   });
 
@@ -151,6 +202,25 @@ describe('TeamsService', () => {
       );
     });
 
+    it('a state change through the old isActive field goes through the lifecycle, never straight to the row', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue({ id: 't1', name: 'Old', isActive: true });
+      mockPrisma.team.update.mockResolvedValue({ id: 't1', name: 'Old' });
+
+      await service.update('t1', { isActive: false }, 'actor-1');
+
+      expect(mockLifecycle.setStatus).toHaveBeenCalledWith('t1', 'INACTIVE', 'actor-1', undefined);
+      expect(mockPrisma.team.update.mock.calls[0][0].data).not.toHaveProperty('isActive');
+    });
+
+    it('isActive equal to the current value changes nothing', async () => {
+      mockPrisma.team.findUnique.mockResolvedValue({ id: 't1', name: 'Old', isActive: false });
+      mockPrisma.team.update.mockResolvedValue({ id: 't1', name: 'Old' });
+
+      await service.update('t1', { isActive: false, name: 'Old' }, 'actor-1');
+
+      expect(mockLifecycle.setStatus).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException when team not found', async () => {
       mockPrisma.team.findUnique.mockResolvedValue(null);
 
@@ -163,25 +233,19 @@ describe('TeamsService', () => {
   // ── delete ──────────────────────────────────────────────────────────────
 
   describe('delete', () => {
-    it('soft deletes team successfully', async () => {
+    it('is routed through the lifecycle (pause) until the real delete lands', async () => {
       mockPrisma.team.findUnique.mockResolvedValue({ id: 't1', name: 'Team' });
-      mockPrisma.team.update.mockResolvedValue({ id: 't1', isActive: false });
+      mockLifecycle.setStatus.mockResolvedValue({ id: 't1', status: 'INACTIVE' });
 
       const result = await service.delete('t1', 'actor-1');
 
       expect(result.success).toBe(true);
-      expect(mockPrisma.team.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { isActive: false },
-        }),
-      );
-      expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'TEAM_DELETED' }),
-      );
+      expect(mockLifecycle.setStatus).toHaveBeenCalledWith('t1', 'INACTIVE', 'actor-1', undefined);
+      expect(mockPrisma.team.update).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when team not found', async () => {
-      mockPrisma.team.findUnique.mockResolvedValue(null);
+      mockLifecycle.setStatus.mockRejectedValue(new NotFoundException('Team not found'));
 
       await expect(service.delete('bad-id', 'actor-1')).rejects.toThrow(
         NotFoundException,

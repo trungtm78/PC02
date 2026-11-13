@@ -1,9 +1,12 @@
 import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
 import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
+import { TeamLifecycleService } from './team-lifecycle.service';
+import { BadRequestException } from '@nestjs/common';
 
 const mockService = {
   getList: jest.fn(),
+  options: jest.fn(),
   getById: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
@@ -12,11 +15,15 @@ const mockService = {
   removeMember: jest.fn(),
 };
 
+const mockLifecycle = { setStatus: jest.fn() };
+
 describe('TeamsController — delegation', () => {
   let controller: TeamsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(TeamsController, TeamsService, mockService);
+    const module = await buildControllerModule(TeamsController, TeamsService, mockService, [
+      { token: TeamLifecycleService, mock: mockLifecycle },
+    ]);
     controller = module.get(TeamsController);
     jest.clearAllMocks();
   });
@@ -25,6 +32,45 @@ describe('TeamsController — delegation', () => {
     mockService.getList.mockResolvedValue({ data: [] });
     await controller.getList();
     expect(mockService.getList).toHaveBeenCalled();
+  });
+
+  it('getList() passes the requested state to the service', async () => {
+    mockService.getList.mockResolvedValue([]);
+    await controller.getList('ARCHIVED');
+    expect(mockService.getList).toHaveBeenCalledWith('ARCHIVED');
+  });
+
+  it('getList() with no state asks for the default (active teams)', async () => {
+    mockService.getList.mockResolvedValue([]);
+    await controller.getList(undefined);
+    expect(mockService.getList).toHaveBeenCalledWith(undefined);
+  });
+
+  it('getList() rejects a state that does not exist with a machine code', async () => {
+    expect(() => controller.getList('DELETED')).toThrow(BadRequestException);
+    try {
+      controller.getList('DELETED');
+    } catch (err) {
+      expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'TEAM_STATUS_UNKNOWN' });
+    }
+    expect(mockService.getList).not.toHaveBeenCalled();
+  });
+
+  it('getOptions() serves the picker list', async () => {
+    mockService.options.mockResolvedValue([{ id: 't1' }]);
+    await expect(controller.getOptions()).resolves.toEqual([{ id: 't1' }]);
+  });
+
+  it('setStatus() hands the new state to the lifecycle with the actor and audit info', async () => {
+    mockLifecycle.setStatus.mockResolvedValue({ id: 'team-1', status: 'ARCHIVED' });
+    const req = makeReq();
+    await controller.setStatus('team-1', { status: 'ARCHIVED' }, mockUser, req);
+    expect(mockLifecycle.setStatus).toHaveBeenCalledWith(
+      'team-1',
+      'ARCHIVED',
+      mockUser.id,
+      expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {
