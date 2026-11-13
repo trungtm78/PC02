@@ -75,7 +75,7 @@ beforeEach(() => {
                     : url.endsWith("/rules") ||
                         url.endsWith("/field-definitions")
                       ? []
-                      : url.startsWith("/teams")
+                      : url === "/teams/options"
                         ? [{ id: "t2", name: "Đội nhận" }]
                         : url.startsWith("/admin/users")
                           ? [

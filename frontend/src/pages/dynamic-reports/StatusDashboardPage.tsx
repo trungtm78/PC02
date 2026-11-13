@@ -21,7 +21,7 @@
  * PR8 slice 7 — thêm bộ lọc "Đơn vị" (S27, phần đầu tiên — `teamId` đã
  * được `StatusQueryService` hỗ trợ từ slice 1 kèm `getDescendantIds`,
  * chỉ thiếu UI). **Quyết định phạm vi có chủ đích**: dùng `<select>`
- * PHẲNG (tái dùng đúng `GET /teams` + bộ lọc client `isActive && !wardId`
+ * PHẲNG (tái dùng đúng `GET /teams/options` + bộ lọc client `!wardId`
  * của `ReportTeamsStep.tsx`, S09), KHÔNG dựng cây tổ — repo chưa có
  * component cây tổ tái dùng nào, và dựng mới chỉ cho MỘT bộ lọc là việc
  * lớn hơn giá trị mang lại ở quy mô hiện tại.

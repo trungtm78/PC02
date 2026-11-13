@@ -97,7 +97,7 @@ export default function TdacReportPage() {
   // ── Fetch teams on mount
   useEffect(() => {
     api
-      .get<{ data: Team[] }>("/teams")
+      .get<{ data: Team[] }>("/teams/options")
       .then((res) => {
         const list = res.data?.data ?? (res.data as unknown as Team[]) ?? [];
         setTeams(list);

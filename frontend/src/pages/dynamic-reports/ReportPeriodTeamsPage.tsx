@@ -104,17 +104,16 @@ export default function ReportPeriodTeamsPage() {
   useEffect(() => {
     const controller = new AbortController();
     api
-      .get('/teams', { signal: controller.signal })
+      .get('/teams/options', { signal: controller.signal })
       .then((res) => {
         const items = (Array.isArray(res.data) ? res.data : (res.data?.data ?? [])) as Array<{
           id: string;
           name: string;
-          isActive?: boolean;
           wardId?: string | null;
         }>;
         setAllTeams(
           items
-            .filter((t) => t.isActive !== false && t.wardId == null)
+            .filter((t) => t.wardId == null)
             .map((t) => ({ id: t.id, name: t.name })),
         );
       })

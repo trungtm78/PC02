@@ -20,7 +20,7 @@ function boc({ children }: { children: ReactNode }) {
 /**
  * Hộp phân công CHẾT trên prod, im lặng, ở CẢ HAI ô:
  *
- * 1. `GET /teams` trả MẢNG THÔ, mà hộp đọc `r.data.data ?? []` → danh sách Tổ luôn rỗng.
+ * 1. `GET /teams/options` trả MẢNG THÔ, mà hộp đọc `r.data.data ?? []` → danh sách Tổ luôn rỗng.
  * 2. Hộp hỏi `GET /admin/users?teamId=...`, nhưng `QueryUsersDto` không khai `teamId` và máy
  *    chủ bật `forbidNonWhitelisted` → 400, bị `.catch(() => setUsers([]))` nuốt → danh sách
  *    cán bộ luôn rỗng. Đúng lớp lỗi `isActive` từng gặp ngày 09/09/2026.
@@ -48,7 +48,7 @@ const CHO = { timeout: 5000 };
 
 function dungMayChu() {
   get.mockImplementation((duong: string) => {
-    if (duong === '/teams') return Promise.resolve({ data: DS_TO });
+    if (duong === '/teams/options') return Promise.resolve({ data: DS_TO });
     if (duong === '/admin/users') return Promise.resolve({ data: { data: DS_CAN_BO, total: 2 } });
     return Promise.reject(new Error(`đường lạ: ${duong}`));
   });
@@ -70,10 +70,11 @@ describe('AssignModal — hộp phân công', () => {
     dungMayChu();
   });
 
-  it('hiện danh sách Tổ khi /teams trả MẢNG THÔ', async () => {
+  it('hiện danh sách Tổ khi /teams/options trả MẢNG THÔ', async () => {
     render(<AssignModal {...props} />, { wrapper: boc });
     await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument(), CHO);
     expect(screen.getByRole('option', { name: 'Tổ 2' })).toBeInTheDocument();
+    expect(get).toHaveBeenCalledWith('/teams/options');
   });
 
   it('KHÔNG gửi khoá `teamId` lên /admin/users — máy chủ không khai khoá ấy, gửi là 400', async () => {

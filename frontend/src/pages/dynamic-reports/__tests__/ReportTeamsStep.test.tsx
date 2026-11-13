@@ -20,8 +20,8 @@ const OFFICERS = [
 ];
 
 const TEAMS = [
-  { id: 't1', name: 'Tổ 1', isActive: true, wardId: null },
-  { id: 't2', name: 'Tổ 2', isActive: true, wardId: null },
+  { id: 't1', name: 'Tổ 1', wardId: null },
+  { id: 't2', name: 'Tổ 2', wardId: null },
 ];
 
 function openAndSelect(testId: string, optionValue: string) {
@@ -39,7 +39,7 @@ describe('ReportTeamsStep', () => {
   it('"Tiếp theo" stays disabled until at least one manager and one team-with-editor exist', async () => {
     const onNext = vi.fn();
     render(<ReportTeamsStep onBack={() => {}} onNext={onNext} />);
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/teams', expect.anything()));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/teams/options', expect.anything()));
 
     expect(screen.getByTestId('btn-teams-next')).toBeDisabled();
   });

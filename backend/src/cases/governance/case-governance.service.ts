@@ -562,6 +562,12 @@ export class CaseGovernanceService {
       this.prisma.caseHandoff.findMany({
         where: { caseId },
         orderBy: { sentAt: 'desc' },
+        // The team names travel with the record: a screen that looked them up in the picker list would show "unknown"
+        // for a team that was paused or archived after the handoff was sent.
+        include: {
+          fromTeam: { select: { id: true, name: true } },
+          toTeam: { select: { id: true, name: true } },
+        },
       }),
       this.prisma.caseGovernanceEvent.findMany({
         where: { caseId },

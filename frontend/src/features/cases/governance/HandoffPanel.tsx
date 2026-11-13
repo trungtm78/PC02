@@ -43,15 +43,19 @@ export function HandoffPanel({
     Record<string, ReceiptFacts>
   >({});
   const users = useOfficerRows();
-  const teams = useLookup("/teams");
+  const teams = useLookup("/teams/options");
   const members = (id: string) =>
     users.rows.filter(
       (row) =>
         Array.isArray(row.teams) &&
         (row.teams as { teamId: string }[]).some((team) => team.teamId === id),
     );
-  const teamName = (id: unknown) =>
-    teams.rows.find((team) => team.id === id)?.name ?? "Đội chưa xác minh";
+  /** The name comes from the record first: the picker list holds active teams only, a handoff may name a paused one. */
+  const teamName = (id: unknown, named?: unknown) => {
+    const own = (named as { name?: unknown } | null | undefined)?.name;
+    if (typeof own === "string" && own) return own;
+    return teams.rows.find((team) => team.id === id)?.name ?? "Đội chưa xác minh";
+  };
   const personName = (id: unknown) =>
     users.rows.find((person) => person.id === id)
       ? label(users.rows.find((person) => person.id === id)!)
@@ -97,7 +101,7 @@ export function HandoffPanel({
             <Lookup
               label="Đội nhận hồ sơ"
               disabled={teams.loading}
-              rows={teams.rows.filter((team) => team.isActive !== false)}
+              rows={teams.rows}
               value={team}
               onChange={(value) => {
                 setTeam(value);
@@ -135,7 +139,8 @@ export function HandoffPanel({
         {pending.map((row) => (
           <article key={row.id} className="border rounded-lg p-4 space-y-3">
             <p>
-              Bàn giao {teamName(row.fromTeamId)} → {teamName(row.toTeamId)} ·{" "}
+              Bàn giao {teamName(row.fromTeamId, row.fromTeam)} →{" "}
+              {teamName(row.toTeamId, row.toTeam)} ·{" "}
               <Status value={row.state} />
             </p>
             <p className="text-sm">
@@ -218,7 +223,7 @@ export function HandoffPanel({
         >
           <Lookup
             label="Đội phụ trách"
-            rows={teams.rows.filter((team) => team.isActive !== false)}
+            rows={teams.rows}
             value={assignmentTeam}
             onChange={(value) => {
               setAssignmentTeam(value);

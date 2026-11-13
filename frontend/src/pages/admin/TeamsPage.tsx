@@ -6,7 +6,6 @@ import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import {
   Plus,
   Edit2,
-  Trash2,
   ChevronRight,
   ChevronDown,
   Users,
@@ -18,8 +17,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SingleWardPicker } from '@/components/SingleWardPicker'; // v0.34.0.0
+import { teams as L } from '@/locales/vi';
 
 /* ─── Types ──────────────────────────────────────────── */
+
+type TeamStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+const TAB_ORDER: TeamStatus[] = ['ACTIVE', 'INACTIVE', 'ARCHIVED'];
 
 interface Team {
   id: string;
@@ -29,6 +32,7 @@ interface Team {
   parentId: string | null;
   order: number;
   isActive: boolean;
+  status: TeamStatus;
   wardId?: string | null; // v0.33.0.0: Hybrid ward scoping
   editWindowHours?: number | null; // v0.33.0.0: per-team override
   createdAt: string;
@@ -88,6 +92,8 @@ export default function TeamsPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [tab, setTab] = useState<TeamStatus>('ACTIVE');
+  const [statusError, setStatusError] = useState('');
   const [formData, setFormData] = useState<TeamFormData>({
     name: '',
     code: '',
@@ -103,10 +109,14 @@ export default function TeamsPage() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: teams = [], isLoading, isError: loiTaiTo, error: loiTo } = useQuery<Team[]>({
-    queryKey: ['teams'],
-    queryFn: () => api.get('/teams').then((r) => r.data),
+  // One request for every state: the tabs are a filter over it and their counts come for free.
+  const { data: allTeams = [], isLoading, isError: loiTaiTo, error: loiTo } = useQuery<Team[]>({
+    queryKey: ['teams', 'admin'],
+    queryFn: () => api.get('/teams', { params: { status: 'ALL' } }).then((r) => r.data),
   });
+  const teams = allTeams.filter((t) => t.status === tab);
+  const activeTeams = allTeams.filter((t) => t.status === 'ACTIVE');
+  const countOf = (status: TeamStatus) => allTeams.filter((t) => t.status === status).length;
 
   // Truy vấn hỏng thì `teams` là mảng rỗng mặc định — màn hình nói "{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu tổ/nhóm'}",
   // một khẳng định về thứ chưa hề hỏi được. Quy về cùng một tên `loadError` như các trang khác
@@ -132,9 +142,17 @@ export default function TeamsPage() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/teams/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teams'] }),
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: TeamStatus }) =>
+      api.patch(`/teams/${id}/status`, { status }),
+    onSuccess: () => {
+      setStatusError('');
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => {
+      const { code } = extractApiError(err, L.statusFailed);
+      setStatusError((code && L.errors[code]) || L.statusFailed);
+    },
   });
 
   // ── Team detail (members) query ────────────────────────
@@ -251,10 +269,25 @@ export default function TeamsPage() {
     }
   };
 
-  const handleDelete = (team: Team) => {
-    if (confirm(`Bạn chắc chắn muốn xóa "${team.name}"?`)) {
-      deleteMutation.mutate(team.id);
-    }
+  /** Pausing and archiving hide the team from every list, so they ask first; the way back needs no question. */
+  const changeStatus = (team: Team, status: TeamStatus) => {
+    const question =
+      status === 'INACTIVE' ? L.confirm.deactivate(team.name) : status === 'ARCHIVED' ? L.confirm.archive(team.name) : null;
+    if (question && !confirm(question)) return;
+    statusMutation.mutate({ id: team.id, status });
+  };
+
+  /** What can be done from each state; every action has its way back. */
+  const ACTIONS: Record<TeamStatus, { key: string; label: string; to: TeamStatus }[]> = {
+    ACTIVE: [
+      { key: 'deactivate', label: L.actions.deactivate, to: 'INACTIVE' },
+      { key: 'archive', label: L.actions.archive, to: 'ARCHIVED' },
+    ],
+    INACTIVE: [
+      { key: 'activate', label: L.actions.activate, to: 'ACTIVE' },
+      { key: 'archive', label: L.actions.archive, to: 'ARCHIVED' },
+    ],
+    ARCHIVED: [{ key: 'restore', label: L.actions.restore, to: 'ACTIVE' }],
   };
 
   const toggleExpand = (id: string) => {
@@ -266,11 +299,14 @@ export default function TeamsPage() {
     });
   };
 
-  // Build tree from flat list
-  const rootTeams = teams.filter((t) => !t.parentId);
+  // The active tab is a tree; the other tabs are flat lists (a paused child of an active parent has no parent in its
+  // own tab, so a tree would hide it). A team whose parent is not in the same tab is shown as a root.
+  const inTab = new Set(teams.map((t) => t.id));
+  const flat = tab !== 'ACTIVE';
+  const rootTeams = teams.filter((t) => flat || !t.parentId || !inTab.has(t.parentId));
 
   const getChildren = (parentId: string) =>
-    teams.filter((t) => t.parentId === parentId);
+    flat ? [] : teams.filter((t) => t.parentId === parentId);
 
   const renderMemberPanel = (team: Team) => {
     const isSelected = selectedTeamId === team.id;
@@ -493,7 +529,7 @@ export default function TeamsPage() {
       <div key={team.id}>
         <div
           className={`flex items-center gap-2 px-4 py-2 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${
-            !team.isActive ? 'opacity-50' : ''
+            team.status !== 'ACTIVE' ? 'opacity-50' : ''
           } ${isSelected ? 'bg-blue-50 border-l-2 border-l-primary' : ''}`}
           style={{ paddingLeft: `${depth * 24 + 16}px` }}
           onClick={() => handleSelectTeam(team.id)}
@@ -527,9 +563,9 @@ export default function TeamsPage() {
                 {team._count.members}
               </span>
             )}
-            {!team.isActive && (
+            {team.status !== 'ACTIVE' && (
               <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">
-                Ngừng hoạt động
+                {L.tabs[team.status]}
               </span>
             )}
           </div>
@@ -545,16 +581,20 @@ export default function TeamsPage() {
             >
               <Edit2 className="w-4 h-4" />
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(team);
-              }}
-              className="p-1.5 hover:bg-red-50 rounded text-red-500"
-              title="Xóa"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {ACTIONS[team.status].map((a) => (
+              <button
+                key={a.key}
+                data-testid={`team-action-${a.key}-${team.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  changeStatus(team, a.to);
+                }}
+                disabled={statusMutation.isPending}
+                className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+              >
+                {a.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -598,6 +638,30 @@ export default function TeamsPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="danh sách tổ/nhóm" data-testid="teams-load-error" />
+
+      {statusError && (
+        <div role="alert" data-testid="team-status-error" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {statusError}
+        </div>
+      )}
+
+      <div className="flex gap-1 mb-3" role="tablist">
+        {TAB_ORDER.map((status) => (
+          <button
+            key={status}
+            role="tab"
+            aria-selected={tab === status}
+            data-testid={`team-tab-${status}`}
+            onClick={() => setTab(status)}
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              tab === status ? 'bg-blue-50 border-primary text-primary font-semibold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {L.tabs[status]} ({countOf(status)})
+          </button>
+        ))}
+      </div>
+      {tab !== 'ACTIVE' && <p className="text-xs text-slate-500 mb-3">{L.hint[tab]}</p>}
 
       {/* Form Modal */}
       {showForm && (
@@ -661,7 +725,7 @@ export default function TeamsPage() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
               >
                 <option value="">-- Không --</option>
-                {teams.map((t) => (
+                {activeTeams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.code} - {t.name}
                   </option>
@@ -730,7 +794,7 @@ export default function TeamsPage() {
           <div className="p-8 text-center text-slate-400">Đang tải...</div>
         ) : rootTeams.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
-            {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu tổ/nhóm'}
+            {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : L.emptyTab[tab]}
           </div>
         ) : (
           rootTeams

@@ -54,8 +54,8 @@ function traDuLieu() {
   m.get.mockImplementation((url: string) => {
     if (url.startsWith('/workflow/chuyen-tra'))
       return Promise.resolve({ data: { data: GOP, total: 3179 + 4141 + 36476, tranGop: 2000 } });
-    // GET /teams trả MẢNG THÔ (không bọc {data}) — đúng như máy chủ.
-    if (url.startsWith('/teams')) return Promise.resolve({ data: TO });
+    // GET /teams/options trả MẢNG THÔ (không bọc {data}) — đúng như máy chủ.
+    if (url === '/teams/options') return Promise.resolve({ data: TO });
     return Promise.resolve({ data: [] });
   });
   m.patch.mockResolvedValue({ data: {} });
@@ -232,7 +232,7 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     m.get.mockImplementation((url: string) => {
       if (url.startsWith('/workflow/chuyen-tra'))
         return Promise.resolve({ data: { data: GOP.filter((d) => d.id !== 'c1'), total: 2, tranGop: 2000 } });
-      if (url.startsWith('/teams')) return Promise.resolve({ data: TO });
+      if (url === '/teams/options') return Promise.resolve({ data: TO });
       return Promise.resolve({ data: [] });
     });
     fireEvent.change(screen.getByTestId('loc-loai-ho-so'), { target: { value: 'Vụ việc' } });

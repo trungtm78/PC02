@@ -59,9 +59,9 @@ const ASSIGNMENTS: AssignmentListItemView[] = [
 ];
 
 const TEAMS = [
-  { id: 'team-a1', name: 'Đội 3', isActive: true, wardId: null },
-  { id: 'team-a2', name: 'Đội 4', isActive: true, wardId: null },
-  { id: 'team-new', name: 'Đội 5', isActive: true, wardId: null },
+  { id: 'team-a1', name: 'Đội 3', wardId: null },
+  { id: 'team-a2', name: 'Đội 4', wardId: null },
+  { id: 'team-new', name: 'Đội 5', wardId: null },
 ];
 
 const ADD_PREVIEW: MidPeriodImpactPreview = {
@@ -122,6 +122,13 @@ describe('ReportPeriodTeamsPage (S30)', () => {
     // Already-EXEMPT team has no "Miễn nộp" button.
     expect(screen.queryByTestId('btn-exempt-a2')).not.toBeInTheDocument();
     expect(screen.getByTestId('btn-exempt-a1')).toBeInTheDocument();
+  });
+
+  it('loads the addable teams from /teams/options (the server returns active teams only)', async () => {
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('assignment-row-a1'));
+    expect(api.get).toHaveBeenCalledWith('/teams/options', expect.anything());
   });
 
   it('shows the empty state when the period has no assignments yet', async () => {
@@ -305,7 +312,7 @@ describe('ReportPeriodTeamsPage (S30)', () => {
         assignmentId: 'new1', teamId: 'team-b', teamName: 'Đội 6', obligation: 'REQUIRED',
       });
       vi.mocked(api.get).mockResolvedValue({
-        data: [...TEAMS, { id: 'team-b', name: 'Đội 6', isActive: true, wardId: null }],
+        data: [...TEAMS, { id: 'team-b', name: 'Đội 6', wardId: null }],
       });
       renderPage();
       await waitFor(() => screen.getByTestId('select-add-team-trigger'));

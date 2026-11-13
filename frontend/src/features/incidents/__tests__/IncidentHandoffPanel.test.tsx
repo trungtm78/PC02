@@ -49,8 +49,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   get.mockImplementation((path: string) =>
     Promise.resolve(
-      path === "/teams"
-        ? { data: [{ id: "team-id", name: "Tổ nhận", isActive: true }] }
+      path === "/teams/options"
+        ? { data: [{ id: "team-id", name: "Tổ nhận" }] }
         : { data: { data: [] } },
     ),
   );
@@ -158,7 +158,7 @@ describe("Bàn giao trên màn chi tiết hiện có", () => {
   it("lịch sử đã nhận/đã hủy giữ nhãn riêng", async () => {
     get.mockImplementation((path: string) =>
       Promise.resolve(
-        path === "/teams"
+        path === "/teams/options"
           ? { data: [] }
           : {
               data: {
