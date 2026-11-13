@@ -29,7 +29,7 @@ export interface AccessInput {
   opensAt: Date;
   /** Never changed by a grant — BRD §6.3: "một grant ngắn hơn không rút ngắn hạn gốc". */
   originalDueAt: Date;
-  /** Only consulted when state === 'RETURNED'. */
+  /** Only consulted while the submission is RETURNED, or DRAFT after the editor's first save of a return. */
   returnDueAt?: Date | null;
   grants: AccessGrant[];
   userActive: boolean;
@@ -102,10 +102,12 @@ export function resolveAccess(input: AccessInput): AccessResult {
     };
   }
 
+  // The deadline a manager gave for a correction. The editor's first save moves RETURNED to DRAFT, so it must hold in
+  // both: a DRAFT can only follow a SAVE, and a submission that has since been submitted, approved and returned again
+  // carries the new return's deadline, never an old one (it is not editable in between).
+  const returned = input.state === 'RETURNED' || input.state === 'DRAFT';
   const deadline =
-    input.state === 'RETURNED' && input.returnDueAt
-      ? input.returnDueAt
-      : input.originalDueAt;
+    returned && input.returnDueAt ? input.returnDueAt : input.originalDueAt;
 
   if (input.now.getTime() < deadline.getTime()) {
     return { canEdit: true, effectiveLockAt: deadline, reason: null };

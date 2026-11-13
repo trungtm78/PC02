@@ -966,18 +966,23 @@ export class SubmissionService {
       });
       // A grant on a handed-in submission worked by returning it with the grant's expiry as the deadline; revoking
       // the grant must close that window too, or the editor would keep typing until the original expiry. Only the
-      // return this very grant made (nothing saved since): a return a manager issued on its own keeps its deadline.
+      // return this very grant made: a return a manager issued on its own keeps its deadline. That is either still
+      // RETURNED at the revision the grant made, or already DRAFT because the editor saved once (the deadline carries
+      // over to a DRAFT, see resolveAccess) with the grant's own expiry as its deadline.
       const madeReturn = await tx.dynReportUnlock.findUnique({
         where: { id: activeGrant.id },
         select: { reopenedRevision: true },
       });
       if (madeReturn?.reopenedRevision != null) {
+        const expiry = new Date(activeGrant.expiresAt);
         await tx.dynReportSubmission.updateMany({
           where: {
             assignmentId,
-            state: 'RETURNED',
-            currentRevision: madeReturn.reopenedRevision,
-            returnDueAt: new Date(activeGrant.expiresAt),
+            returnDueAt: expiry,
+            OR: [
+              { state: 'RETURNED', currentRevision: madeReturn.reopenedRevision },
+              { state: 'DRAFT', currentRevision: { gt: madeReturn.reopenedRevision } },
+            ],
           },
           data: { returnDueAt: now },
         });

@@ -2237,10 +2237,15 @@ describe('SubmissionService', () => {
       expect(updateCall.data.revokeReason).toBe('Hết cần thiết');
       // A grant that reopened a handed-in submission set its return deadline to the grant's expiry: revoking closes it too.
       const cut = tx.dynReportSubmission.updateMany.mock.calls[0][0] as {
-        where: { assignmentId: string; state: string };
+        where: { assignmentId: string; returnDueAt: Date; OR: Array<Record<string, unknown>> };
         data: { returnDueAt: Date };
       };
-      expect(cut.where).toMatchObject({ assignmentId: 'assign1', state: 'RETURNED', currentRevision: BigInt(2) });
+      expect(cut.where).toMatchObject({ assignmentId: 'assign1', returnDueAt: expect.any(Date) });
+      // Still RETURNED at the revision the grant made, or DRAFT after the editor saved once (the deadline carries over).
+      expect(cut.where.OR).toEqual([
+        { state: 'RETURNED', currentRevision: BigInt(2) },
+        { state: 'DRAFT', currentRevision: { gt: BigInt(2) } },
+      ]);
       expect(cut.data.returnDueAt).toBeInstanceOf(Date);
     });
 
