@@ -48,12 +48,31 @@ describe('extractApiError — wrapped envelope (current backend)', () => {
       },
     });
     const result = extractApiError(err);
-    expect(result.message).toBe('Validation failed');
+    // The generic words say nothing; the screen shows the first real reason and how many more there are.
+    expect(result.message).toBe('Dữ liệu chưa hợp lệ: name should not be empty (và 1 lỗi khác)');
     expect(result.messages).toEqual([
       'name should not be empty',
       'fromDate must be a valid date string',
     ]);
     expect(result.code).toBe('BAD_REQUEST');
+  });
+
+  it('a single validation reason is shown without a count', () => {
+    const err = axiosErrorWith(400, {
+      success: false,
+      error: { code: 'BAD_REQUEST', message: 'Validation failed', details: ['fields.0.label should not be empty'] },
+    });
+    const result = extractApiError(err);
+    expect(result.message).toBe('Dữ liệu chưa hợp lệ: fields.0.label should not be empty');
+    expect(result.messages).toEqual(['fields.0.label should not be empty']);
+  });
+
+  it('a message the server wrote itself is never replaced by its details', () => {
+    const err = axiosErrorWith(409, {
+      success: false,
+      error: { code: 'REPORT_CODE_TAKEN', message: 'Mã báo cáo đã tồn tại', details: ['x'] },
+    });
+    expect(extractApiError(err).message).toBe('Mã báo cáo đã tồn tại');
   });
 
   it('falls back to the supplied default when message is missing', () => {
