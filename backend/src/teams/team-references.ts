@@ -29,3 +29,10 @@ export async function listTeamReferences(db: RawDb): Promise<TeamReference[]> {
   // `regclass::text` quotes a name only when it has to; normalise to the bare name.
   return rows.map((r) => ({ table: r.table_name.replace(/^"|"$/g, '').replace(/""/g, '"'), column: r.column_name }));
 }
+
+/**
+ * References that are the team's OWN SETTINGS, not somebody's data: they go with the team when it is deleted (the
+ * foreign key cascades) and stay with it when it is merged. A team that only has these is still an empty team.
+ */
+export const TEAM_OWN_SETTINGS: ReadonlySet<string> = new Set(['team_permission_configs.teamId']);
+export const isTeamOwnSetting = (ref: TeamReference): boolean => TEAM_OWN_SETTINGS.has(`${ref.table}.${ref.column}`);

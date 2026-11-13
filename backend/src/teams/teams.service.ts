@@ -6,7 +6,9 @@ import { TeamLifecycleService } from './team-lifecycle.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 
-const MAX_DEPTH = 3;
+/** How deep "the teams under a team" goes. The permission engine uses the same number (authz/engine/scope.ts). */
+export const TEAM_TREE_MAX_DEPTH = 3;
+const MAX_DEPTH = TEAM_TREE_MAX_DEPTH;
 
 @Injectable()
 export class TeamsService {

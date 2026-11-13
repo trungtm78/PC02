@@ -60,6 +60,10 @@ export const SETTINGS_KEY = {
   // 03/11/2026 - gioi han cua cong goi LLM (migration 20261103193000_llm_providers). 0 = khong gioi han.
   LLM_QUOTA_IMAGES_PER_USER_DAY: 'LLM_QUOTA_IMAGES_PER_USER_DAY',
   LLM_BUDGET_MONTH_MICRO_USD: 'LLM_BUDGET_MONTH_MICRO_USD',
+
+  // Permissions by team: OFF (roles decide, as before) | SHADOW (both computed, differences reported) | ENFORCE.
+  // Read by `authz/authz.service.ts`; anything that is not one of the three words is OFF.
+  QUYEN_THEO_TO_CHE_DO: 'QUYEN_THEO_TO_CHE_DO',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];

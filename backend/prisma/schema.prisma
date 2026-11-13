@@ -35,6 +35,9 @@ model Permission {
   createdAt   DateTime @default(now())
 
   roles RolePermission[]
+  templateEntries PermissionTemplateEntry[]
+  teamOverrides   TeamPermissionOverride[]
+  userOverrides   UserPermissionOverride[]
 
   @@unique([action, subject])
   @@map("permissions")
@@ -190,6 +193,7 @@ model User {
   userTeams                       UserTeam[]
   grantsReceived                  DataAccessGrant[]         @relation("GrantReceived")
   grantsGiven                     DataAccessGrant[]         @relation("GrantGiven")
+  permissionOverrides             UserPermissionOverride[]
   abbreviations                   UserAbbreviation[]
   shortcuts                       UserShortcut[]
   tableLayouts                    UserTableLayout[]
@@ -2364,6 +2368,7 @@ model Team {
   incidentsAssigned        Incident[]        @relation("IncidentTeam")
   incidentHandoffsReceived IncidentHandoff[] @relation("IncidentHandoffTarget")
   grantsForUnit            DataAccessGrant[] @relation("GrantUnit")
+  permissionConfig         TeamPermissionConfig?
   calendarEvents           CalendarEvent[] // Calendar Events v2 (PR 1)
   dynReportTargets         DynReportTarget[] // Dynamic Report Builder (Báo cáo động)
   dynReportAssignments     DynReportAssignment[] @relation("DynReportAssignmentTeam")
@@ -4910,4 +4915,168 @@ model OcrFieldOutcome {
   @@index([entity, field])
   @@index([sessionId])
   @@map("ocr_field_outcomes")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Permissions by team (module `src/authz`). Only additions: `roles` and `role_permissions` are untouched, so
+// turning the feature off (setting QUYEN_THEO_TO_CHE_DO = OFF) is the whole rollback.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// How far a grant reaches over records (see prisma/permission-resources.ts). "Not granted" is the absence of a row.
+enum PermissionReach {
+  OWN
+  TEAM
+  TEAM_TREE
+  ALL
+}
+
+enum PermissionTemplateStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum TeamPermissionMode {
+  /// The team has nothing of its own: it follows its nearest ancestor that has, else each member's role (today).
+  INHERIT
+  EXPLICIT
+}
+
+/// Whom of a team an override is for.
+enum TeamPermissionAudience {
+  ALL
+  MEMBER
+  LEADER
+}
+
+enum PermissionOverrideEffect {
+  GRANT
+  MUTE
+}
+
+/// A reusable set of permissions with a reach each ("Cán bộ nhập liệu", "Lãnh đạo tổ").
+model PermissionTemplate {
+  id          String                   @id @default(cuid())
+  code        String                   @unique
+  name        String
+  description String?
+  status      PermissionTemplateStatus @default(ACTIVE)
+  /// Incremented on every change of the template or its entries: what an editor's save is checked against.
+  revision    Int                      @default(1)
+  createdById String?
+  archivedAt  DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  entries         PermissionTemplateEntry[]
+  memberOfTeams   TeamPermissionConfig[]    @relation("TeamMemberTemplate")
+  leaderOfTeams   TeamPermissionConfig[]    @relation("TeamLeaderTemplate")
+
+  @@index([status])
+  @@map("permission_templates")
+}
+
+model PermissionTemplateEntry {
+  templateId   String
+  permissionId String
+  reach        PermissionReach
+
+  template   PermissionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  permission Permission         @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, permissionId])
+  @@map("permission_template_entries")
+}
+
+/// What a team gives its people. It is the team's own setting: it goes when the team is deleted, and a merge leaves
+/// it with the team it was set on.
+model TeamPermissionConfig {
+  teamId           String             @id
+  mode             TeamPermissionMode @default(INHERIT)
+  memberTemplateId String?
+  /// Null = a leader has what a member has.
+  leaderTemplateId String?
+  revision         Int                @default(1)
+  updatedById      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  team           Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  memberTemplate PermissionTemplate?      @relation("TeamMemberTemplate", fields: [memberTemplateId], references: [id], onDelete: Restrict)
+  leaderTemplate PermissionTemplate?      @relation("TeamLeaderTemplate", fields: [leaderTemplateId], references: [id], onDelete: Restrict)
+  overrides      TeamPermissionOverride[]
+
+  @@index([memberTemplateId])
+  @@index([leaderTemplateId])
+  @@map("team_permission_configs")
+}
+
+/// One permission added to, or taken from, what a team's template gives. Hangs off the team's config, not the team.
+model TeamPermissionOverride {
+  id           String                   @id @default(cuid())
+  teamId       String
+  permissionId String
+  audience     TeamPermissionAudience   @default(ALL)
+  effect       PermissionOverrideEffect
+  /// The reach of a GRANT; null for a MUTE.
+  reach        PermissionReach?
+  reason       String
+  expiresAt    DateTime?
+  createdById  String?
+  createdAt    DateTime                 @default(now())
+
+  config     TeamPermissionConfig @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+  permission Permission           @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, permissionId, audience])
+  @@index([expiresAt])
+  @@map("team_permission_overrides")
+}
+
+/// One permission added to, or taken from, one person, whatever their teams give.
+model UserPermissionOverride {
+  id           String                   @id @default(cuid())
+  userId       String
+  permissionId String
+  effect       PermissionOverrideEffect
+  reach        PermissionReach?
+  reason       String
+  expiresAt    DateTime?
+  createdById  String?
+  createdAt    DateTime                 @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([expiresAt])
+  @@map("user_permission_overrides")
+}
+
+/// One saved change of the permission configuration, with what it replaced: the history screen, and what "undo"
+/// puts back (as a new change set).
+model PermissionChangeSet {
+  id          String   @id @default(cuid())
+  kind        String
+  actorId     String
+  reason      String?
+  /// { before, after } of every object the change touched. Configuration only: never record data.
+  changes     Json
+  /// The change set this one undoes, if it is an undo.
+  revertsId   String?  @unique
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@map("permission_change_sets")
+}
+
+/// One row per change of anything a person's effective permissions are computed from, written by database triggers.
+/// Append-only on purpose: a single counter row would be a lock every such writer queues on (and deadlocks with a
+/// long transaction such as a team merge). Readers key their caches by how many rows they can see: a row is visible
+/// exactly when the change that wrote it is committed.
+model AuthzChange {
+  id BigInt   @id @default(autoincrement())
+  at DateTime @default(now())
+
+  @@map("authz_changes")
 }

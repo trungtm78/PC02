@@ -208,6 +208,7 @@ export class SettingsService {
       { key: SETTINGS_KEY.THONG_KE_TRUONG_NGAY, value: MAC_DINH_TRUONG, label: 'Thống kê tính theo ngày nào', unit: null, legalBasis: null },
       { key: SETTINGS_KEY.THONG_KE_TU_NGAY, value: '', label: 'Kỳ thống kê — từ ngày (chỉ dùng khi chọn khoảng tuỳ chọn)', unit: null, legalBasis: null },
       { key: SETTINGS_KEY.THONG_KE_DEN_NGAY, value: '', label: 'Kỳ thống kê — đến ngày (chỉ dùng khi chọn khoảng tuỳ chọn)', unit: null, legalBasis: null },
+      { key: SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO, value: 'OFF', label: 'Phân quyền theo tổ: OFF (theo vai trò như cũ), SHADOW (tính song song để so sánh), ENFORCE (áp dụng)', unit: null, legalBasis: null },
       ...KHOA_GIAO_DIEN.map((key) => ({
         key,
         value: BAM_DONG_MAC_DINH[key],
