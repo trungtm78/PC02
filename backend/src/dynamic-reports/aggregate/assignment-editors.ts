@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { freezeOwnedFieldKeys } from './contributors';
 
 /**
  * Who may type into a period's assignment.
@@ -176,6 +177,30 @@ export async function findUnqualifiedEditors(
   });
   const okIds = new Set(ok.map((u) => u.id));
   return unique.filter((id) => !okIds.has(id));
+}
+
+/**
+ * The criteria the configuration gives a team right now, frozen into the field keys of one version; null when the team
+ * reports everything (no subset configured, or the team is not in the configuration at all).
+ */
+export async function configuredSubsetOf(
+  tx: Tx,
+  reportId: string,
+  versionId: string,
+  teamId: string,
+  now: Date,
+): Promise<string[] | null> {
+  const target = await tx.dynReportTarget.findFirst({
+    where: { reportId, teamId, ...inWindow(now) },
+    select: { itemKeys: true },
+  });
+  if (!Array.isArray(target?.itemKeys)) return null;
+  const fields = await tx.dynReportField.findMany({
+    where: { versionId },
+    select: { fieldKey: true, itemKey: true },
+    orderBy: [{ sheetKey: 'asc' }, { address: 'asc' }],
+  });
+  return freezeOwnedFieldKeys(target.itemKeys, fields);
 }
 
 /** The editors the configuration names for a team right now (active users only), or an empty set. */

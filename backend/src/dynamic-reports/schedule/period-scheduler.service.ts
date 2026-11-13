@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CalendarEventsService } from '../../calendar-events/calendar-events.service';
 import { computePeriodsToEnsure } from './catch-up';
+import { freezeOwnedFieldKeys } from '../aggregate/contributors';
 import type { ScheduleRule } from '../engine/period';
 
 /**
@@ -42,6 +43,9 @@ const SCHEDULE_SAVEPOINT = 'dyn_period_schedule';
 interface LockRow {
   locked: boolean;
 }
+
+/** Why the scheduler exempted a team by itself; shown where an exemption's reason is shown. */
+export const NO_CRITERIA_REASON = 'Phiên bản mẫu hiện hành không còn tiêu chí nào của tổ này.';
 
 @Injectable()
 export class PeriodSchedulerService {
@@ -226,6 +230,14 @@ export class PeriodSchedulerService {
       },
       include: { editors: true, team: true },
     });
+    // Only read the version's fields when some team reports a subset of them.
+    const versionFields = targets.some((t) => Array.isArray(t.itemKeys))
+      ? await tx.dynReportField.findMany({
+          where: { versionId: version.id },
+          select: { fieldKey: true, itemKey: true },
+          orderBy: [{ sheetKey: 'asc' }, { address: 'asc' }],
+        })
+      : [];
 
     for (const period of periods) {
       const existing = await tx.dynReportPeriod.findUnique({
@@ -258,6 +270,8 @@ export class PeriodSchedulerService {
         const activeEditors = target.editors.filter(
           (e) => e.validFrom <= now && (!e.validTo || e.validTo > now),
         );
+        // Frozen now (D09): a later change of the team's criteria never rewrites a period that already exists.
+        const ownedFieldKeys = freezeOwnedFieldKeys(target.itemKeys, versionFields);
         const assignment = await tx.dynReportAssignment.create({
           data: {
             periodId: createdPeriod.id,
@@ -267,7 +281,12 @@ export class PeriodSchedulerService {
               name: target.team.name,
               code: target.team.code,
             },
-            obligation: 'REQUIRED',
+            // A subset that names nothing in this version (a newer version dropped the team's criteria) leaves the
+            // team with nothing to report: it is exempt, with the reason, instead of "required" for zero fields.
+            ...(ownedFieldKeys?.length === 0
+              ? { obligation: 'EXEMPT' as const, exemptReason: NO_CRITERIA_REASON, exemptAt: now }
+              : { obligation: 'REQUIRED' as const }),
+            ...(ownedFieldKeys ? { ownedFieldKeys } : {}),
           },
         });
         for (const editor of activeEditors) {

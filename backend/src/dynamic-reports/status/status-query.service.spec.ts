@@ -218,6 +218,35 @@ describe('StatusQueryService', () => {
     expect(result.items[0].dataCoverageLabel).toBe('1/1');
   });
 
+  it('counts coverage against the fields the team owns, not every field of the report', async () => {
+    const { service, prisma } = buildService(
+      [
+        assignment('a1', {
+          // The team reports one of the two fields; a value saved for the other one is not its to count.
+          ownedFieldKeys: ['Đội 3!C6'],
+          submission: {
+            state: 'DRAFT',
+            values: { 'Đội 3!C6': { t: 'NUM', v: '10' }, 'Đội 3!C7': { t: 'NUM', v: '99' } },
+            firstSavedAt: NOW_FAKE,
+            submittedAt: null,
+            approvedAt: null,
+            updatedAt: NOW_FAKE,
+          },
+        }),
+      ],
+      { isAdmin: true },
+    );
+    const existing = (await prisma.dynReportField.findMany()) as { versionId: string }[];
+    prisma.dynReportField.findMany.mockResolvedValue([
+      ...existing,
+      { ...existing[0], id: 'f-extra', address: 'C7', fieldKey: 'Đội 3!C7' },
+    ]);
+
+    const result = await service.listAssignmentStatuses('admin1', 'roleAdmin', {});
+
+    expect(result.items[0].dataCoverageLabel).toBe('1/1');
+  });
+
   it('computes accessState=REOPENED and timelinessState=OVERDUE_NOT_DONE for a past-due team with an active grant', async () => {
     const { service } = buildService(
       [

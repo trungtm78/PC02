@@ -8,6 +8,7 @@ import type { SaveReportVersionDto } from './dto/save-report-version.dto';
 import type { ParseTemplateResult } from '../template/types';
 import { generatePeriods } from '../engine/period';
 import type { ScheduleRule } from '../engine/period';
+import { freezeOwnedFieldKeys, itemKeyOf } from '../aggregate/contributors';
 
 const PARSER_VERSION = 'pr3-v1';
 const ENGINE_VERSION = 'pr1-v1';
@@ -115,6 +116,11 @@ export class ReportVersioningService {
         await this.assertReadyToPublish(tx, reportId);
       }
 
+      // The very same workbook as a version this report already has (the author pressed "use the current file"):
+      // what each cell stands for is known, even though nothing in the file itself says it.
+      const inherited = await this.inheritCriteriaOfSameFile(tx, reportId, sha256, input);
+      input = { ...input, fields: inherited.fields, sourceKind: inherited.sourceKind };
+
       const last = await tx.dynReportVersion.aggregate({ where: { reportId }, _max: { version: true } });
       const versionNo = (last._max.version ?? 0) + 1;
       const version = await tx.dynReportVersion.create({
@@ -132,6 +138,7 @@ export class ReportVersioningService {
           } as Prisma.InputJsonValue,
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
+          sourceKind: input.sourceKind ?? 'TEMPLATE',
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,
@@ -227,6 +234,11 @@ export class ReportVersioningService {
       maxLength: f.maxLength ?? undefined,
       helpText: f.helpText ?? undefined,
       source: f.source,
+      // What the cell stands for: without these a team's subset would name criteria the published version lacks.
+      itemKey: f.itemKey ?? undefined,
+      unit: f.unit ?? undefined,
+      parentItemKey: f.parentItemKey ?? undefined,
+      origin: f.origin ?? undefined,
     }));
 
     // The file checks parse the workbook in a worker: done before the transaction so no row lock is held meanwhile.
@@ -357,7 +369,7 @@ export class ReportVersioningService {
     await tx.$queryRaw`SELECT id FROM dyn_report_periods WHERE "reportId" = ${reportId} FOR UPDATE`;
     const open = await tx.dynReportPeriod.findMany({
       where: { reportId, status: 'OPEN', versionId: { not: newVersionId } },
-      select: { id: true, periodKey: true },
+      select: { id: true, periodKey: true, versionId: true },
       orderBy: { startDate: 'asc' },
     });
     const applied: string[] = [];
@@ -373,6 +385,16 @@ export class ReportVersioningService {
         kept.push(period.periodKey);
         continue;
       }
+      // A subset is frozen as cell addresses of the OLD version; the same criterion may sit elsewhere in the new one.
+      // Re-freeze each through its criterion code. A team left with nothing keeps the period on the version it has.
+      const remapped = await this.remapSubsets(tx, period.id, period.versionId, newVersionId);
+      if (remapped === null) {
+        kept.push(period.periodKey);
+        continue;
+      }
+      for (const [assignmentId, ownedFieldKeys] of remapped) {
+        await tx.dynReportAssignment.update({ where: { id: assignmentId }, data: { ownedFieldKeys } });
+      }
       await tx.dynReportPeriod.update({ where: { id: period.id }, data: { versionId: newVersionId } });
       // Whatever was summed on the old template no longer describes this period.
       await tx.dynReportSnapshot.updateMany({
@@ -382,6 +404,76 @@ export class ReportVersioningService {
       applied.push(period.periodKey);
     }
     return { applied, kept };
+  }
+
+  /**
+   * A criteria workbook carries no item keys in its cells: they travel in the request. When the request has none and
+   * the file is byte-for-byte a version of this report that has them, they are taken from that version (by cell), so
+   * re-publishing the current file can never strip the codes the teams' subsets are written in.
+   */
+  private async inheritCriteriaOfSameFile(
+    tx: Prisma.TransactionClient,
+    reportId: string,
+    sha256: string,
+    input: SaveReportVersionDto,
+  ): Promise<{ fields: SaveReportVersionDto['fields']; sourceKind: SaveReportVersionDto['sourceKind'] }> {
+    if (input.fields.some((f) => f.itemKey)) return { fields: input.fields, sourceKind: input.sourceKind };
+    const same = await tx.dynReportVersion.findFirst({
+      where: { reportId, sha256, sourceKind: 'CRITERIA' },
+      orderBy: { version: 'desc' },
+      select: { fields: { select: { fieldKey: true, itemKey: true, unit: true, parentItemKey: true, origin: true } } },
+    });
+    if (!same) return { fields: input.fields, sourceKind: input.sourceKind };
+    const known = new Map(same.fields.map((f) => [f.fieldKey, f]));
+    return {
+      sourceKind: 'CRITERIA',
+      fields: input.fields.map((f) => {
+        const k = known.get(f.fieldKey);
+        return k?.itemKey
+          ? {
+              ...f,
+              itemKey: k.itemKey,
+              unit: f.unit ?? k.unit ?? undefined,
+              parentItemKey: k.parentItemKey ?? undefined,
+              origin: k.origin ?? undefined,
+            }
+          : f;
+      }),
+    };
+  }
+
+  /**
+   * The subsets of a period's assignments expressed in the fields of another version: assignment id -> field keys.
+   * Assignments that own everything are not in the map. Returns null when some team would be left with no field at
+   * all (its criteria are not in the new version): the caller then leaves the period where it is.
+   */
+  private async remapSubsets(
+    tx: Prisma.TransactionClient,
+    periodId: string,
+    oldVersionId: string,
+    newVersionId: string,
+  ): Promise<Map<string, string[]> | null> {
+    const assignments = await tx.dynReportAssignment.findMany({
+      where: { periodId },
+      select: { id: true, ownedFieldKeys: true },
+    });
+    const withSubset = assignments.filter((a) => Array.isArray(a.ownedFieldKeys));
+    const out = new Map<string, string[]>();
+    if (withSubset.length === 0) return out;
+    const select = { fieldKey: true, itemKey: true } as const;
+    const orderBy = [{ sheetKey: 'asc' as const }, { address: 'asc' as const }];
+    const oldFields = await tx.dynReportField.findMany({ where: { versionId: oldVersionId }, select, orderBy });
+    const newFields = await tx.dynReportField.findMany({ where: { versionId: newVersionId }, select, orderBy });
+    const itemKeyByFieldKey = new Map(oldFields.map((f) => [f.fieldKey, itemKeyOf(f)]));
+    for (const a of withSubset) {
+      const owned = a.ownedFieldKeys as string[];
+      // An empty subset was already "nothing to report" (the team is exempt); it stays empty.
+      const itemKeys = owned.map((k) => itemKeyByFieldKey.get(k)).filter((k): k is string => k !== undefined);
+      const next = freezeOwnedFieldKeys(itemKeys, newFields) ?? [];
+      if (owned.length > 0 && next.length === 0) return null;
+      out.set(a.id, next);
+    }
+    return out;
   }
 
   /**

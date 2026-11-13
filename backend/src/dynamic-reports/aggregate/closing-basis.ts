@@ -7,15 +7,10 @@
  * Found on production (13/10/2026): a period was closed with one team submitted and none approved; the screen said 120,
  * the closed period and its Excel TỔNG said nothing at all.
  */
+import { CONTRIBUTING_STATES } from './contributors';
+
 /** The modes of the aggregate screen (D03). The closed period's official figures are always APPROVED. */
 export type BasisMode = 'APPROVED' | 'SUBMITTED' | 'ALL_SAVED';
-
-/** Which states put a team's figures in the totals under each mode: the very lists `computeApprovedSnapshot` adds up. */
-const COUNTED_STATES: Record<BasisMode, readonly string[]> = {
-  APPROVED: ['APPROVED'],
-  SUBMITTED: ['SUBMITTED', 'APPROVED'],
-  ALL_SAVED: ['NOT_STARTED', 'DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED'],
-};
 
 /** "tổ ___" in the sentence that says what the totals are made of. */
 const COUNTED_WORDS: Record<BasisMode, string> = {
@@ -68,7 +63,7 @@ export function closingBasis(assignments: readonly BasisAssignment[], mode: Basi
     requiredCount++;
     const name = (a.teamSnapshot as { name?: string } | null)?.name || a.teamId;
     const state = a.submission?.state ?? 'NOT_STARTED';
-    (COUNTED_STATES[mode].includes(state) ? approved : excluded).push({ teamId: a.teamId, name, state });
+    (CONTRIBUTING_STATES[mode].includes(state) ? approved : excluded).push({ teamId: a.teamId, name, state });
   }
   return { mode, requiredCount, approved, excluded };
 }

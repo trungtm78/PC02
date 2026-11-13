@@ -4156,6 +4156,11 @@ model DynReportVersion {
   report         DynReport               @relation(fields: [reportId], references: [id], onDelete: Restrict)
   version        Int
   status         DynReportVersionStatus  @default(DRAFT)
+  sourceKind     DynReportVersionSource  @default(TEMPLATE)
+  /// For a CRITERIA version: the file the author uploaded and what was picked in it, kept to show and to compare.
+  sourceFileBytes Bytes?
+  sourceFileName  String?
+  sourceSelection Json?
   fileBytes      Bytes
   sha256         String
   fileName       String
@@ -4194,6 +4199,18 @@ model DynReportVersionGrid {
   @@map("dyn_report_version_grids")
 }
 
+enum DynReportCriterionOrigin {
+  FILE
+  MANUAL
+}
+
+/// What a version's workbook was made from: an Excel template the author designed, or a list of criteria the author
+/// picked from a file (the system then generated the workbook).
+enum DynReportVersionSource {
+  TEMPLATE
+  CRITERIA
+}
+
 model DynReportField {
   id           String                   @id @default(cuid())
   versionId    String
@@ -4213,6 +4230,15 @@ model DynReportField {
   maxLength    Int?
   helpText     String?
   source       DynReportFieldSource     @default(TOKEN)
+  /// A stable code for the criterion this field stands for. Unlike `fieldKey` (a cell address) it survives a new
+  /// version that inserts or reorders rows. NULL for a field of an ordinary template: its `fieldKey` is then the code.
+  itemKey       String?
+  /// Unit of measure shown next to the criterion ("vụ", "người"). Criteria reports only.
+  unit          String?
+  /// `itemKey` of the parent criterion, when the list is a tree (children add up into the parent).
+  parentItemKey String?
+  /// Where a criterion came from: read from the uploaded file, or typed by hand in the setup screen.
+  origin        DynReportCriterionOrigin?
 
   @@unique([versionId, sheetKey, address])
   @@index([versionId, fieldKey])
@@ -4284,6 +4310,9 @@ model DynReportTarget {
   team       Team                      @relation(fields: [teamId], references: [id], onDelete: Restrict)
   validFrom  DateTime                  @default(now())
   validTo    DateTime?
+  /// The criteria this team reports, as item keys (`DynReportField.itemKey`, or `fieldKey` where a field has none).
+  /// NULL = every criterion of the report (the default, and every target made before subsets existed).
+  itemKeys   Json?
 
   editors    DynReportTargetEditor[]
 
@@ -4343,6 +4372,9 @@ model DynReportAssignment {
   exemptBy             User?                 @relation(fields: [exemptById], references: [id], onDelete: SetNull)
   exemptAt             DateTime?
   addedMidPeriodReason String?
+  /// The field keys this team reports IN THIS PERIOD, frozen from the target's `itemKeys` when the period was made
+  /// (D09: a later change of the configuration never rewrites a period that exists). NULL = every field.
+  ownedFieldKeys       Json?
   createdAt            DateTime              @default(now())
 
   editors      DynReportAssignmentEditor[]

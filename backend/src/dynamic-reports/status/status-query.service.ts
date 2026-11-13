@@ -15,6 +15,7 @@ import type {
   TimelinessState,
 } from '../engine/status';
 import type { SubmissionState } from '../engine/access';
+import { ownedFieldsOf } from '../aggregate/contributors';
 
 export interface AssignmentStatusRow {
   assignmentId: string;
@@ -302,7 +303,8 @@ export class StatusQueryService {
           string,
           { v: string | null } | undefined
         >) ?? {};
-      const fields = fieldsByVersionId.get(a.period.versionId) ?? [];
+      // Coverage is measured against what THIS team reports: a field it does not own is neither owed nor counted.
+      const fields = ownedFieldsOf(a, fieldsByVersionId.get(a.period.versionId) ?? []);
       const countTotal = fields.length;
       const countNonBlank = fields.filter((f) => {
         const v = values[f.fieldKey]?.v;

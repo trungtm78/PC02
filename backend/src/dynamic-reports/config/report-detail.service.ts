@@ -21,6 +21,11 @@ export interface ReportDetailField {
   maxLength: number | null;
   helpText: string | null;
   source: string;
+  /** Criteria reports: the criterion's stable code, unit, parent and origin; null for an ordinary template cell. */
+  itemKey: string | null;
+  unit: string | null;
+  parentItemKey: string | null;
+  origin: string | null;
 }
 
 export interface ReportDetailRule {
@@ -41,6 +46,8 @@ export interface ReportDetailVersion {
   fileName: string;
   selectedSheets: string[];
   dateSystem: string;
+  /** What the workbook was made from: an authored TEMPLATE, or a list of CRITERIA the system turned into one. */
+  sourceKind: string;
   publishedAt: string | null;
   createdAt: string;
   fields: ReportDetailField[];
@@ -87,6 +94,8 @@ export interface ReportDetailView {
     teamCode: string;
     teamName: string;
     editors: Array<{ userId: string; name: string }>;
+    /** The criteria this team reports, by item key; null = every criterion. */
+    itemKeys: string[] | null;
   }>;
   /** The version that applies going forward: the newest PUBLISHED one, else the newest of any kind (a draft). */
   currentVersion: ReportDetailVersion | null;
@@ -151,6 +160,7 @@ export class ReportDetailService {
         fileName: true,
         selectedSheets: true,
         dateSystem: true,
+        sourceKind: true,
         publishedAt: true,
         createdAt: true,
         fields: { orderBy: [{ sheetKey: 'asc' }, { id: 'asc' }] },
@@ -214,6 +224,7 @@ export class ReportDetailService {
         teamCode: t.team.code,
         teamName: t.team.name,
         editors: t.editors.map((e) => ({ userId: e.userId, name: hoTenCanBo(e.user) })),
+        itemKeys: Array.isArray(t.itemKeys) ? (t.itemKeys as string[]) : null,
       })),
       currentVersion: current
         ? {
@@ -223,6 +234,7 @@ export class ReportDetailService {
             fileName: current.fileName,
             selectedSheets: current.selectedSheets as string[],
             dateSystem: current.dateSystem,
+            sourceKind: current.sourceKind,
             publishedAt: current.publishedAt?.toISOString() ?? null,
             createdAt: current.createdAt.toISOString(),
             fields: current.fields.map((f) => ({
@@ -241,6 +253,10 @@ export class ReportDetailService {
               maxLength: f.maxLength,
               helpText: f.helpText,
               source: f.source,
+              itemKey: f.itemKey,
+              unit: f.unit,
+              parentItemKey: f.parentItemKey,
+              origin: f.origin,
             })),
             rules: current.rules.map((r) => ({
               name: r.name,

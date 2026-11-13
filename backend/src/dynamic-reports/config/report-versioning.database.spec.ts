@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ReportVersioningService } from './report-versioning.service';
 import { ReportConfigService } from './report-config.service';
 import type { SaveReportVersionDto } from './dto/save-report-version.dto';
@@ -446,6 +446,87 @@ run('ReportVersioningService on PostgreSQL', () => {
       const lost = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
       expect(['INVALID_STATE', 'REVISION_CONFLICT']).toContain(lost.reason.code);
       expect((await reportOf(reportId)).status).toBe('PUBLISHED');
+    });
+  });
+
+  describe('criteria and the subsets written in them survive a new version', () => {
+    const crit = (address: string, itemKey: string) => ({
+      sheetKey: 'S', address, fieldKey: `S!${address}`, label: itemKey, type: 'NUM' as const, aggregate: 'SUM' as const,
+      source: 'TOKEN' as const, itemKey, origin: 'FILE' as const,
+    });
+    async function seedV1Fields(v1: string, rows: Array<[string, string]>) {
+      await db.dynReportVersion.update({ where: { id: v1 }, data: { sourceKind: 'CRITERIA' } });
+      await db.dynReportField.createMany({
+        data: rows.map(([address, itemKey]) => ({ versionId: v1, sheetKey: 'S', address, fieldKey: `S!${address}`, label: itemKey, type: 'NUM' as const, itemKey })),
+      });
+    }
+    const assignmentOf = (periodId: string) => db.dynReportAssignment.findFirstOrThrow({ where: { periodId } });
+
+    it('an open period moved to the new version keeps the team on its CRITERION, wherever that now sits', async () => {
+      const r = await buildReport('remap', [{ key: 'p1' }]);
+      await seedV1Fields(r.v1, [['C2', 'alpha'], ['C3', 'beta']]);
+      const a = await assignmentOf(r.periodIds.p1);
+      await db.dynReportAssignment.update({ where: { id: a.id }, data: { ownedFieldKeys: ['S!C2'] } }); // alpha
+
+      // The new version reorders the rows: beta is now at C2, alpha at C3.
+      const out = await svc.createVersion(r.reportId, input({ fields: [crit('C2', 'beta'), crit('C3', 'alpha')], sourceKind: 'CRITERIA' }), FILE, 'v2.xlsx', userId);
+
+      expect(out.appliedToPeriods).toHaveLength(1);
+      expect((await assignmentOf(r.periodIds.p1)).ownedFieldKeys).toEqual(['S!C3']);
+    });
+
+    it('a period whose team would be left with nothing stays on the version it has', async () => {
+      const r = await buildReport('remap-none', [{ key: 'p1' }]);
+      await seedV1Fields(r.v1, [['C2', 'alpha'], ['C3', 'beta']]);
+      const a = await assignmentOf(r.periodIds.p1);
+      await db.dynReportAssignment.update({ where: { id: a.id }, data: { ownedFieldKeys: ['S!C2'] } });
+
+      const out = await svc.createVersion(r.reportId, input({ fields: [crit('C2', 'beta')], sourceKind: 'CRITERIA' }), FILE, 'v2.xlsx', userId);
+
+      expect(out.appliedToPeriods).toEqual([]);
+      expect(out.keptOnOldVersionPeriods).toHaveLength(1);
+      expect((await db.dynReportPeriod.findUniqueOrThrow({ where: { id: r.periodIds.p1 } })).versionId).toBe(r.v1);
+      expect((await assignmentOf(r.periodIds.p1)).ownedFieldKeys).toEqual(['S!C2']);
+    });
+
+    it('re-publishing the very same workbook without codes takes them from the version that has them', async () => {
+      const r = await buildReport('same-file', []);
+      await seedV1Fields(r.v1, [['C2', 'alpha'], ['C3', 'beta']]);
+      const sameBytes = Buffer.from('identical workbook');
+      await db.dynReportVersion.update({ where: { id: r.v1 }, data: { sha256: createHash('sha256').update(sameBytes).digest('hex') } });
+      const bare = (address: string) => ({ sheetKey: 'S', address, fieldKey: `S!${address}`, label: address, type: 'NUM' as const, aggregate: 'SUM' as const, source: 'TOKEN' as const });
+
+      const out = await svc.createVersion(r.reportId, input({ fields: [bare('C2'), bare('C3')] }), sameBytes, 'same.xlsx', userId);
+
+      const v2 = await db.dynReportVersion.findUniqueOrThrow({ where: { id: out.versionId }, include: { fields: { orderBy: { address: 'asc' } } } });
+      expect(v2.sourceKind).toBe('CRITERIA');
+      expect(v2.fields.map((f) => f.itemKey)).toEqual(['alpha', 'beta']);
+    });
+
+    it('two input cells may not carry the same criterion code', async () => {
+      const r = await buildReport('dup', []);
+      await expect(
+        svc.createVersion(r.reportId, input({ fields: [crit('C2', 'alpha'), crit('C3', 'alpha')], sourceKind: 'CRITERIA' }), FILE, 'v2.xlsx', userId),
+      ).rejects.toMatchObject({ code: 'CRITERIA_KEY_DUPLICATE' });
+    });
+
+    it('publishing a saved draft keeps what each field stands for', async () => {
+      const r = await buildReport('criteria-draft', [], 'DRAFT');
+      await db.dynReportField.create({
+        data: { versionId: r.v1, sheetKey: 'S', address: 'C2', fieldKey: 'S!C2', label: 'a', type: 'NUM', itemKey: 'alpha', unit: 'vụ', parentItemKey: 'nhom', origin: 'MANUAL' },
+      });
+
+      // The fixture's schedule has empty rules; publishing checks that the schedule can be computed.
+      await db.dynReportSchedule.updateMany({
+        where: { reportId: r.reportId },
+        data: { dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' }, openRule: { kind: 'AT_PERIOD_START' } },
+      });
+
+      await svc.publishDraft(r.reportId);
+
+      const fields = await db.dynReportField.findMany({ where: { versionId: r.v1 } });
+      expect(fields).toHaveLength(1);
+      expect(fields[0]).toMatchObject({ itemKey: 'alpha', unit: 'vụ', parentItemKey: 'nhom', origin: 'MANUAL' });
     });
   });
 });

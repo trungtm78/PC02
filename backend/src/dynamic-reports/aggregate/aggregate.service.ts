@@ -13,6 +13,8 @@ import type { PeriodExportScope } from '../export/period-export';
 import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
 import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
+import { contributionsFor, contributorSetIdentity, contributorsFor, countsUnder, ownedKeys, owns } from './contributors';
+import type { SummaryMode } from './contributors';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
 import type { SubmissionState } from '../engine/access';
@@ -23,6 +25,7 @@ import { closingBasis, describeExcluded, excludedMessage, totalsNote } from './c
 import {
   applyAssignmentEditors,
   configuredEditorsOf,
+  configuredSubsetOf,
   findUnqualifiedEditors,
 } from './assignment-editors';
 import { hoTenCanBo } from '../../common/xuat-danh-sach/dinh-dang';
@@ -33,7 +36,7 @@ import {
 
 const EXPORT_TTL_MS = 24 * 60 * 60 * 1000;
 
-export type SummaryMode = 'SUBMITTED' | 'APPROVED' | 'ALL_SAVED';
+export type { SummaryMode };
 
 export interface FieldAggregateView {
   fieldKey: string;
@@ -242,13 +245,6 @@ interface FrozenFormulaPlan {
 /** Thrown inside the close transaction (rolling it back) when someone saved after the figures were worked out. */
 class StaleFormulaPlanError extends Error {}
 
-/** Which submission states count as a "live" contribution under each S15 mode (D03). */
-const CONTRIBUTING_STATES: Record<SummaryMode, readonly SubmissionState[]> = {
-  SUBMITTED: ['SUBMITTED', 'APPROVED'],
-  APPROVED: ['APPROVED'],
-  ALL_SAVED: ['NOT_STARTED', 'DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED'],
-};
-
 /**
  * S15 thu nhỏ (spec §6.1 PR7 slice 2) — tổng hợp một kỳ qua mọi tổ. Pure
  * orchestration: every real decision (KPI math, per-field SUM/AVG/MIN/MAX,
@@ -368,6 +364,7 @@ export class AggregateService {
       id: string;
       teamId: string;
       obligation: string;
+      ownedFieldKeys?: unknown;
       submission: {
         state: string;
         values: unknown;
@@ -386,13 +383,9 @@ export class AggregateService {
     // mode=APPROVED — a team not yet APPROVED simply isn't counted, same
     // rule as getPeriodSummary's own mode=APPROVED path.
     // The default, and the only one a closed period uses; the export of an open period may ask for the mode on screen.
-    const contributingStates = CONTRIBUTING_STATES[mode];
-    const contributingAssignments = period.assignments.filter(
-      (a) =>
-        a.obligation !== 'EXEMPT' &&
-        contributingStates.includes(
-          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
-        ),
+    // Who counts is decided per FIELD (a team may own only some of them), in the one place every reader shares.
+    const contributingAssignments = period.assignments.filter((a) =>
+      countsUnder(a, mode),
     );
 
     const snapshotValues: Record<
@@ -400,14 +393,7 @@ export class AggregateService {
       { value: string | null; countTotal: number; countNonBlank: number }
     > = {};
     for (const f of period.version.fields) {
-      const contributions: Contribution[] = contributingAssignments.map((a) => {
-        const values = (a.submission?.values ?? {}) as Record<
-          string,
-          { v: string | null } | undefined
-        >;
-        const raw = values[f.fieldKey]?.v ?? null;
-        return { sourceId: a.id, value: raw };
-      });
+      const contributions = contributionsFor(period.assignments, f.fieldKey, mode);
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
       snapshotValues[f.fieldKey] = {
         value: result.value,
@@ -420,9 +406,7 @@ export class AggregateService {
     for (const a of period.assignments) {
       sourceRevisions[a.id] = a.submission?.currentRevision.toString() ?? '0';
     }
-    const contributorTeamIds = contributingAssignments
-      .map((a) => a.teamId)
-      .sort();
+    const contributorTeamIds = contributorSetIdentity(contributingAssignments);
 
     const sourceHash = createHash('sha256')
       .update(
@@ -481,7 +465,6 @@ export class AggregateService {
       : period.assignments;
 
     const now = new Date();
-    const contributingStates = CONTRIBUTING_STATES[mode];
 
     const facts: AssignmentFact[] = assignments.map((a) => {
       const state = (a.submission?.state ?? 'NOT_STARTED') as SubmissionState;
@@ -501,40 +484,26 @@ export class AggregateService {
     });
     const kpi = computeKpiSummary(facts);
 
-    const contributingAssignments = assignments.filter(
-      (a) =>
-        a.obligation !== 'EXEMPT' &&
-        contributingStates.includes(
-          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
-        ),
-    );
-
     const fields: FieldAggregateView[] = period.version.fields.map((f) => {
-      const contributions: Contribution[] = contributingAssignments.map((a) => {
-        const values = (a.submission?.values ?? {}) as Record<
-          string,
-          { v: string | null } | undefined
-        >;
-        const raw = values[f.fieldKey]?.v ?? null;
-        return { sourceId: a.id, value: raw };
-      });
+      // S18 — the drill-down and the total are built from the SAME per-field list, so the list always sums to
+      // exactly the aggregate shown (a team that does not own this field is in neither).
+      const counted = contributorsFor(assignments, f.fieldKey, mode);
+      const contributions: Contribution[] = counted.map(({ assignment, value }) => ({
+        sourceId: assignment.id,
+        value,
+      }));
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
 
-      // S18 — same population as `contributions` above, by construction
-      // (both map `contributingAssignments` in the same order), so the
-      // drill-down list always sums to exactly the aggregate shown.
-      const contributors: FieldContributorView[] = contributingAssignments.map(
-        (a, i) => {
-          const teamSnapshot = a.teamSnapshot as { name?: string } | null;
-          return {
-            teamName: teamSnapshot?.name ?? '',
-            value: contributions[i].value,
-            state: a.submission?.state ?? 'NOT_STARTED',
-            revision: a.submission?.currentRevision.toString() ?? '0',
-            updatedAt: a.submission?.updatedAt.toISOString() ?? null,
-          };
-        },
-      );
+      const contributors: FieldContributorView[] = counted.map(({ assignment: a, value }) => {
+        const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+        return {
+          teamName: teamSnapshot?.name ?? '',
+          value,
+          state: a.submission?.state ?? 'NOT_STARTED',
+          revision: a.submission?.currentRevision.toString() ?? '0',
+          updatedAt: a.submission?.updatedAt.toISOString() ?? null,
+        };
+      });
 
       return {
         fieldKey: f.fieldKey,
@@ -948,29 +917,14 @@ export class AggregateService {
     }>,
     assignments: Array<{
       obligation: string;
+      ownedFieldKeys?: unknown;
       submission: { state: string; values: unknown } | null;
     }>,
   ): Record<string, { countTotal: number; value: string | null }> {
-    const contributingAssignments = assignments.filter(
-      (a) =>
-        a.obligation !== 'EXEMPT' &&
-        CONTRIBUTING_STATES.SUBMITTED.includes(
-          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
-        ),
-    );
     const out: Record<string, { countTotal: number; value: string | null }> =
       {};
     for (const f of fields) {
-      const contributions: Contribution[] = contributingAssignments.map(
-        (a, i) => {
-          const values = (a.submission?.values ?? {}) as Record<
-            string,
-            { v: string | null } | undefined
-          >;
-          const raw = values[f.fieldKey]?.v ?? null;
-          return { sourceId: String(i), value: raw };
-        },
-      );
+      const contributions = contributionsFor(assignments, f.fieldKey, 'SUBMITTED');
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
       out[f.fieldKey] = {
         countTotal: result.countTotal,
@@ -990,13 +944,7 @@ export class AggregateService {
       submission: { state: string } | null;
     }>,
   ): number {
-    return assignments.filter(
-      (a) =>
-        a.obligation !== 'EXEMPT' &&
-        CONTRIBUTING_STATES.SUBMITTED.includes(
-          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
-        ),
-    ).length;
+    return assignments.filter((a) => countsUnder(a, 'SUBMITTED')).length;
   }
 
   /**
@@ -1283,6 +1231,14 @@ export class AggregateService {
       }
       await this.assertEditorsQualify(tx, [...editors]);
 
+      // The same freeze the scheduler does when it makes a period: the team joins with the criteria it is configured for.
+      const ownedFieldKeys = await configuredSubsetOf(tx, period.reportId, period.versionId, teamId, now);
+      if (ownedFieldKeys?.length === 0) {
+        throw new SubmissionError(
+          'Phiên bản mẫu của kỳ này không có tiêu chí nào của tổ. Hãy chọn tiêu chí cho tổ trong Thiết lập báo cáo trước.',
+          'TEAM_HAS_NO_CRITERIA',
+        );
+      }
       const assignment = await tx.dynReportAssignment.create({
         data: {
           periodId,
@@ -1290,6 +1246,7 @@ export class AggregateService {
           teamSnapshot: { id: team.id, name: team.name, code: team.code },
           obligation: 'REQUIRED',
           addedMidPeriodReason: reason,
+          ...(ownedFieldKeys ? { ownedFieldKeys } : {}),
         },
       });
       await tx.dynReportSubmission.create({
@@ -1633,10 +1590,7 @@ export class AggregateService {
     const counted = new Set(
       period.assignments
         .filter(
-          (a) =>
-            a.obligation !== 'EXEMPT' &&
-            CONTRIBUTING_STATES[mode].includes((a.submission?.state ?? 'NOT_STARTED') as SubmissionState),
-        )
+          (a) => countsUnder(a, mode))
         .map((a) => a.teamId),
     );
     const scopes: PeriodExportScope[] = [
@@ -1659,7 +1613,11 @@ export class AggregateService {
           label: teamSnapshot?.name || a.teamId,
           kind: 'TEAM' as const,
           counted: counted.has(a.teamId),
-          values: Object.fromEntries(period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null])),
+          ownedFieldKeys: ownedKeys(a),
+          // A value saved for a field the team does not report is not its figure: it is left out of its sheet.
+          values: Object.fromEntries(
+            period.version.fields.map((f) => [f.fieldKey, owns(a, f.fieldKey) ? (values[f.fieldKey]?.v ?? null) : null]),
+          ),
         };
       }),
     ];

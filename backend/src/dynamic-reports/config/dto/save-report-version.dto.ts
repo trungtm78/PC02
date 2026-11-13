@@ -20,6 +20,8 @@ import { ReportFieldConfigDto, ReportRuleConfigDto } from './save-report-config.
 export class SaveReportVersionDto {
   @IsArray() @IsString({ each: true }) selectedSheets!: string[];
   @IsIn(['1900', '1904']) dateSystem!: '1900' | '1904';
+  /** What the workbook was made from; CRITERIA when the system generated it from a picked list. */
+  @IsOptional() @IsIn(['TEMPLATE', 'CRITERIA']) sourceKind?: 'TEMPLATE' | 'CRITERIA';
 
   @IsArray()
   @ValidateNested({ each: true })

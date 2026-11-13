@@ -44,11 +44,18 @@ import ReportRulesStep from './ReportRulesStep';
 import ReportSummaryStep from './ReportSummaryStep';
 import ReportVersionSummaryStep from './ReportVersionSummaryStep';
 import type { ReportRoleConfig, ReportRuleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
+import CriteriaSetup from '@/features/dynamic-reports/criteria/CriteriaSetup';
+import type { CriteriaBuilt } from '@/features/dynamic-reports/criteria/CriteriaSetup';
+import { withCriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
+import type { CriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
+import { reportCriteria } from '@/locales/reportCriteria.vi';
 
 const MAX_SELECTED_SHEETS = 5;
 const FIELD_TYPES: ParsedFieldType[] = ['NUM', 'TEXT', 'DATE', 'TIME'];
 
 type Step = 'upload' | 'sheets' | 'preview' | 'schedule' | 'teams' | 'rules' | 'summary';
+/** How the workbook of the report comes to be: an uploaded template, or criteria picked from any Excel file. */
+type StartMode = 'template' | 'criteria';
 
 /** The schedule of an existing report, in the shape the schedule step edits. */
 function scheduleOf(s: NonNullable<ReportDetailView['schedule']>): ScheduleRule {
@@ -105,6 +112,49 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
   // Stepping back and forward again must not throw away what the person already set on a step.
   const [rulesSet, setRulesSet] = useState(false);
 
+  const [startMode, setStartMode] = useState<StartMode>('template');
+  // Once opened, the criteria picker stays mounted (hidden when not in use) so its pick and its list survive.
+  const [criteriaOpened, setCriteriaOpened] = useState(false);
+  // Present: the file in hand was generated from a list of criteria, and this says what each of its cells stands for.
+  const [criteriaMeta, setCriteriaMeta] = useState<CriteriaMeta | null>(null);
+  const [targetTeamNames, setTargetTeamNames] = useState<Record<string, string>>({});
+
+  function chooseStartMode(mode: StartMode) {
+    if (mode === startMode) return;
+    setStartMode(mode);
+    if (mode === 'criteria') setCriteriaOpened(true);
+    // The file in hand belongs to the other way of starting: begin again from the top of this one.
+    setFile(null);
+    setSheets([]);
+    setSelectedSheets([]);
+    setPreview(null);
+    setCriteriaMeta(null);
+    setCarryNote(null);
+    setError(null);
+    setStep('upload');
+  }
+
+  /**
+   * "Dùng danh sách này": the generated workbook is read exactly as an uploaded template with its one sheet chosen.
+   * Throws when the server refuses it; the criteria screen shows that and the author stays on the list.
+   */
+  async function adoptCriteria(built: CriteriaBuilt) {
+    const fresh = await dynamicReportsApi.previewTemplate(built.file, [built.sheetName]);
+    setError(null);
+    setFile(built.file);
+    setSheets([{ name: built.sheetName, state: 'visible' }]);
+    setSelectedSheets([built.sheetName]);
+    // Nothing is carried over from the previous version's cells: the generated workbook has its own, one per criterion.
+    setCarryNote(null);
+    setPreview(fresh);
+    setCandidateLabels(
+      Object.fromEntries(fresh.markableCells.map((c) => [`${c.sheetKey}!${c.address}`, c.suggestedLabel ?? ''])),
+    );
+    setSelectedCandidates(new Set());
+    setCriteriaMeta(built.meta);
+    setStep('preview');
+  }
+
   async function handleFileChange(f: File | null) {
     setError(null);
     setPreview(null);
@@ -134,6 +184,9 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
   async function useCurrentFile() {
     const current = source?.currentVersion;
     if (!source || !current) return;
+    // The report's own file is a template: this is the template way of starting, whatever was chosen before.
+    setStartMode('template');
+    setCriteriaMeta(null);
     setError(null);
     setLoading(true);
     try {
@@ -195,6 +248,8 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
       })),
     [preview?.fields],
   );
+  // What is saved: each field of a criteria report says which criterion it stands for.
+  const savedFields = useMemo(() => withCriteriaMeta(preview?.fields ?? [], criteriaMeta), [preview?.fields, criteriaMeta]);
   const candidateKeys = useMemo(
     () => new Set((preview?.markableCells ?? []).map((c) => `${c.sheetKey}!${c.address}`)),
     [preview?.markableCells],
@@ -251,7 +306,9 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
 
   return (
     <div
-      className={`${step === 'preview' && preview?.grid ? 'max-w-6xl' : 'max-w-3xl'} mx-auto p-6`}
+      className={`${
+        (step === 'preview' && preview?.grid) || (startMode === 'criteria' && step === 'upload') ? 'max-w-6xl' : 'max-w-3xl'
+      } mx-auto p-6`}
       data-testid="report-template-upload-page"
     >
       <Link
@@ -364,15 +421,59 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
         </label>
         )}
 
-        <label className="block text-sm font-medium text-slate-700 mb-2">File Excel mẫu (.xlsx)</label>
-        <input
-          type="file"
-          accept=".xlsx"
-          data-testid="file-input"
-          disabled={loading}
-          onChange={(e) => void handleFileChange(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium hover:file:bg-blue-100"
-        />
+        <fieldset className="mb-4" data-testid="start-mode">
+          <legend className="text-sm font-medium text-slate-700 mb-2">{reportCriteria.start.legend}</legend>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="start-mode"
+                data-testid="start-mode-template"
+                checked={startMode === 'template'}
+                disabled={loading}
+                onChange={() => chooseStartMode('template')}
+              />
+              {reportCriteria.start.template}
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="start-mode"
+                data-testid="start-mode-criteria"
+                checked={startMode === 'criteria'}
+                disabled={loading}
+                onChange={() => chooseStartMode('criteria')}
+              />
+              {reportCriteria.start.criteria}
+            </label>
+          </div>
+          {startMode === 'criteria' && <p className="text-xs text-slate-500 mt-1">{reportCriteria.start.criteriaHint}</p>}
+        </fieldset>
+
+        {criteriaOpened && (
+          <div hidden={startMode !== 'criteria'} data-testid="criteria-start">
+            <CriteriaSetup
+              canUse={isVersion || (!!code.trim() && !!name.trim())}
+              collapsed={criteriaMeta !== null && step !== 'upload'}
+              onUse={adoptCriteria}
+              onEdit={() => setStep('upload')}
+            />
+          </div>
+        )}
+
+        {startMode === 'template' && (
+          <>
+            <label className="block text-sm font-medium text-slate-700 mb-2">File Excel mẫu (.xlsx)</label>
+            <input
+              type="file"
+              accept=".xlsx"
+              data-testid="file-input"
+              disabled={loading}
+              onChange={(e) => void handleFileChange(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium hover:file:bg-blue-100"
+            />
+          </>
+        )}
 
         {loading && (
           <p className="text-sm text-slate-500 mt-3" data-testid="loading-indicator">
@@ -380,7 +481,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
           </p>
         )}
 
-        {step !== 'upload' && sheets.length > 0 && (
+        {startMode === 'template' && step !== 'upload' && sheets.length > 0 && (
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-semibold text-slate-700">
@@ -673,6 +774,9 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
                   : copyFrom?.targets.map((t) => ({ teamId: t.teamId, editorUserIds: t.editors.map((e) => e.userId) }))
               }
               teamNames={copyFrom ? Object.fromEntries(copyFrom.targets.map((t) => [t.teamId, t.teamName])) : undefined}
+              fields={savedFields}
+              criteria={criteriaMeta?.criteria}
+              onTeamNames={setTargetTeamNames}
               onBack={() => setStep('schedule')}
               onNext={(r, t) => {
                 setRoles(r);
@@ -722,11 +826,13 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               file={file}
               selectedSheets={selectedSheets}
               dateSystem={preview.dateSystem}
-              fields={preview.fields}
-              previousFields={previousFields}
+              fields={savedFields}
+              // A generated workbook has its own cells: the previous version's per-cell settings do not belong to them.
+              previousFields={criteriaMeta ? [] : previousFields}
               layout={preview.layout}
               formulas={preview.formulas}
               rules={rules}
+              sourceKind={criteriaMeta ? 'CRITERIA' : undefined}
               onBack={() => setStep('rules')}
             />
           </div>
@@ -741,13 +847,15 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               description={description}
               selectedSheets={selectedSheets}
               dateSystem={preview.dateSystem}
-              fields={copyFrom ? withPreviousExtras(preview.fields, previousFields) : preview.fields}
+              fields={copyFrom && !criteriaMeta ? withPreviousExtras(savedFields, previousFields) : savedFields}
               layout={preview.layout}
               formulas={preview.formulas}
               schedule={schedule}
               roles={roles}
               targets={targets}
               rules={rules}
+              sourceKind={criteriaMeta ? 'CRITERIA' : undefined}
+              teamNames={targetTeamNames}
               onBack={() => setStep('rules')}
             />
           </div>

@@ -87,6 +87,56 @@ run('ReportConfigUpdateService on PostgreSQL', () => {
     expect((await db.dynReport.findUnique({ where: { id } }))?.description).toBeNull();
   });
 
+  describe('the criteria a team reports', () => {
+    async function withFields(name: string) {
+      const id = await buildReport(name);
+      const version = await db.dynReportVersion.findFirstOrThrow({ where: { reportId: id } });
+      await db.dynReportField.createMany({
+        data: [
+          { versionId: version.id, sheetKey: 'S', address: 'C2', fieldKey: 'S!C2', label: 'a', type: 'NUM', itemKey: 'k1' },
+          { versionId: version.id, sheetKey: 'S', address: 'C3', fieldKey: 'S!C3', label: 'b', type: 'NUM', itemKey: 'k2' },
+        ],
+      });
+      return id;
+    }
+    const subsetOf = async (reportId: string, teamId: string) =>
+      (await db.dynReportTarget.findFirstOrThrow({ where: { reportId, teamId, validTo: null } })).itemKeys;
+    const both = (t1: Record<string, unknown>) => [
+      { teamId: team.t1, editorUserIds: [user.u1], ...t1 },
+      { teamId: team.t2, editorUserIds: [user.u2, user.u1] },
+    ];
+
+    it('gives a team a subset, changes it, and gives everything back with null; each is a change of the configuration', async () => {
+      const id = await withFields('subset');
+
+      await expect(svc.updateConfig(id, baseline({ targets: both({ itemKeys: ['k2'] }) }))).resolves.toMatchObject({ changed: ['targets'] });
+      expect(await subsetOf(id, team.t1)).toEqual(['k2']);
+      expect(await subsetOf(id, team.t2)).toBeNull();
+
+      const rev = (await db.dynReport.findUniqueOrThrow({ where: { id } })).configVersion;
+      await svc.updateConfig(id, { expectedConfigVersion: rev, targets: both({ itemKeys: null }) });
+      expect(await subsetOf(id, team.t1)).toBeNull();
+    });
+
+    it('a request that does not mention the subset leaves it alone', async () => {
+      const id = await withFields('keep');
+      await svc.updateConfig(id, baseline({ targets: both({ itemKeys: ['k1'] }) }));
+      const rev = (await db.dynReport.findUniqueOrThrow({ where: { id } })).configVersion;
+
+      await expect(svc.updateConfig(id, { expectedConfigVersion: rev, targets: both({}) })).resolves.toMatchObject({ changed: [] });
+
+      expect(await subsetOf(id, team.t1)).toEqual(['k1']);
+    });
+
+    it('refuses a criterion the report does not have, and writes nothing', async () => {
+      const id = await withFields('unknown');
+      await expect(svc.updateConfig(id, baseline({ targets: both({ itemKeys: ['nope'] }) }))).rejects.toMatchObject({
+        code: 'TARGET_ITEM_KEY_UNKNOWN',
+      });
+      expect(await subsetOf(id, team.t1)).toBeNull();
+    });
+  });
+
   it('a request that changes nothing leaves the revision alone', async () => {
     const id = await buildReport('noop');
     const out = await svc.updateConfig(id, baseline({

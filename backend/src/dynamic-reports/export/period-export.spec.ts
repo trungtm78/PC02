@@ -279,6 +279,30 @@ describe('buildPeriodWorkbook', () => {
       ).toBeNull();
     });
 
+    it('a counted team that does not report a field is left out of THAT field: the formula names only the sheets of the teams that own it', async () => {
+      const scopes = teamsScopes([true, true]);
+      // Đội 4 is approved and counted, but B2 is not one of its criteria.
+      scopes[2] = { ...scopes[2], ownedFieldKeys: ['Nhập!B3'] };
+      const { template, req } = await request({ fields: SUM_FIELDS, scopes });
+
+      const { buffer } = await buildPeriodWorkbook(template, req);
+
+      const wb = await reload(buffer);
+      const total = (wb.getWorksheet('TỔNG - Nhập') as ExcelJS.Worksheet).getCell('B2').value;
+      expect(total).toEqual({ formula: "SUM('Đội 3 - Nhập'!B2)", result: 10 });
+    });
+
+    it('a field no counted team owns keeps the plain figure and says why', async () => {
+      const scopes = teamsScopes([true, true]).map((s) =>
+        s.kind === 'TEAM' ? { ...s, ownedFieldKeys: ['Nhập!B3'] } : s,
+      );
+      const { template, req } = await request({ fields: SUM_FIELDS, scopes });
+
+      const { outcome } = await buildPeriodWorkbook(template, req);
+
+      expect(outcome.constantTotals).toEqual(['Nhập!B2: no team is approved']);
+    });
+
     it('the formula really recalculates: worked out again from the sheets it names it gives the systems figure, and follows an edit of a teams number', async () => {
       const { template, req } = await request({
         fields: SUM_FIELDS,

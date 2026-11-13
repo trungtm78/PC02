@@ -7,14 +7,23 @@
  * identical problem (assigning people to something, not a native HTML
  * multi-select).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { gomCanBoTheoTo } from '@/hooks/gomCanBoTheoTo';
 import { FKSelect } from '@/components/FKSelect';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
-import type { ReportRoleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
+import type { Criterion, ParsedField, ReportRoleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
+import TeamCriteriaChecklist from '@/features/dynamic-reports/criteria/TeamCriteriaChecklist';
+import TeamCriteriaMatrix from '@/features/dynamic-reports/criteria/TeamCriteriaMatrix';
+import {
+  groupItems,
+  itemKeysForPayload,
+  reportableItems,
+  ticksFromTarget,
+} from '@/features/dynamic-reports/criteria/criteria';
+import { reportCriteria } from '@/locales/reportCriteria.vi';
 
 interface TeamOption {
   id: string;
@@ -35,9 +44,29 @@ interface Props {
   nextLabel?: string;
   /** True while the edit screen is saving. */
   busy?: boolean;
+  /**
+   * The report's input cells. Present: each team gets a checklist of what it reports ("Tiêu chí tổ này phải báo").
+   * Absent (the edit screen): no checklist, and no team's subset is sent, so the server leaves them as they are.
+   */
+  fields?: readonly ParsedField[];
+  /** Criteria reports: the whole list, parents included, to group a checklist under each parent. */
+  criteria?: readonly Criterion[] | null;
+  /** Told the names of the chosen teams on "next", for screens that list teams after this step. */
+  onTeamNames?: (names: Record<string, string>) => void;
 }
 
-export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialTargets, teamNames, nextLabel, busy }: Props) {
+export default function ReportTeamsStep({
+  onBack,
+  onNext,
+  initialRoles,
+  initialTargets,
+  teamNames,
+  nextLabel,
+  busy,
+  fields,
+  criteria,
+  onTeamNames,
+}: Props) {
   const { data: officers = [], isLoading: loadingOfficers } = useOfficerOptions();
   const nhomCanBo = gomCanBoTheoTo(officers);
   const labelFor = (userId: string) => officers.find((o) => o.value === userId)?.label ?? userId;
@@ -84,6 +113,18 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
     () => initialTargets?.map((t) => ({ teamId: t.teamId, editorUserIds: [...t.editorUserIds] })) ?? [],
   );
   const [addTeamId, setAddTeamId] = useState('');
+
+  // What each team reports. A team with no entry reports everything (the default for a team just added).
+  const items = useMemo(() => (fields ? reportableItems(fields, criteria) : []), [fields, criteria]);
+  const itemGroups = useMemo(() => groupItems(items, criteria), [items, criteria]);
+  const allItemKeys = useMemo(() => items.map((i) => i.key), [items]);
+  const hasChecklist = items.length > 0;
+  const [ticksByTeam, setTicksByTeam] = useState<Record<string, Set<string>>>(() =>
+    Object.fromEntries((initialTargets ?? []).map((t) => [t.teamId, ticksFromTarget(t.itemKeys, allItemKeys)])),
+  );
+  const [criteriaNote, setCriteriaNote] = useState<string | null>(null);
+  const [showMatrix, setShowMatrix] = useState(false);
+  const ticksOf = (teamId: string): Set<string> => ticksByTeam[teamId] ?? new Set(allItemKeys);
   const [addEditorByTeam, setAddEditorByTeam] = useState<Record<string, string>>({});
 
   function addManager() {
@@ -103,6 +144,21 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
   }
   function removeTeam(teamId: string) {
     setTargets((prev) => prev.filter((t) => t.teamId !== teamId));
+    setTicksByTeam((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => id !== teamId)));
+  }
+  const teamNameOf = (teamId: string) => teams.find((x) => x.id === teamId)?.name ?? teamNames?.[teamId] ?? teamId;
+  function setTicks(teamId: string, next: Set<string>) {
+    setCriteriaNote(null);
+    setTicksByTeam((prev) => ({ ...prev, [teamId]: next }));
+  }
+  function copyTicks(toTeamId: string, fromTeamId: string) {
+    setTicksByTeam((prev) => ({ ...prev, [toTeamId]: new Set(ticksOf(fromTeamId)) }));
+    setCriteriaNote(reportCriteria.teams.copied(teamNameOf(fromTeamId)));
+  }
+  function applyTicksToAll(fromTeamId: string) {
+    const source = ticksOf(fromTeamId);
+    setTicksByTeam(Object.fromEntries(targets.map((t) => [t.teamId, new Set(source)])));
+    setCriteriaNote(reportCriteria.teams.applied(teamNameOf(fromTeamId), targets.length - 1));
   }
   function addEditor(teamId: string) {
     const userId = addEditorByTeam[teamId];
@@ -126,7 +182,13 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
     );
   }
 
-  const canSubmit = managerIds.length > 0 && targets.length > 0 && targets.every((t) => t.editorUserIds.length > 0);
+  // A team that must report but owes nothing is a contradiction the server refuses: say which team, here.
+  const teamsWithNothing = hasChecklist ? targets.filter((t) => ticksOf(t.teamId).size === 0) : [];
+  const canSubmit =
+    managerIds.length > 0 &&
+    targets.length > 0 &&
+    targets.every((t) => t.editorUserIds.length > 0) &&
+    teamsWithNothing.length === 0;
 
   function handleNext() {
     const roles: ReportRoleConfig[] = [
@@ -137,10 +199,15 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
         ...(viewerScope.has(userId) ? { teamScopeId: viewerScope.get(userId) } : {}),
       })),
     ];
-    const targetConfigs: ReportTargetConfig[] = targets.map((t) => ({
-      teamId: t.teamId,
-      editorUserIds: t.editorUserIds,
-    }));
+    const targetConfigs: ReportTargetConfig[] = targets.map((t) => {
+      const itemKeys = hasChecklist ? itemKeysForPayload(ticksOf(t.teamId), allItemKeys) : undefined;
+      return {
+        teamId: t.teamId,
+        editorUserIds: t.editorUserIds,
+        ...(itemKeys ? { itemKeys } : {}),
+      };
+    });
+    onTeamNames?.(Object.fromEntries(targets.map((t) => [t.teamId, teamNameOf(t.teamId)])));
     onNext(roles, targetConfigs);
   }
 
@@ -239,6 +306,9 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
         <div className="space-y-3 mb-3" data-testid="target-list">
           {targets.map((t) => {
             const team = teams.find((x) => x.id === t.teamId);
+            const otherTeams = targets
+              .filter((o) => o.teamId !== t.teamId)
+              .map((o) => ({ id: o.teamId, name: teamNameOf(o.teamId) }));
             return (
               <div key={t.teamId} className="border border-slate-200 rounded-lg p-3" data-testid={`target-${t.teamId}`}>
                 <div className="flex items-center justify-between mb-2">
@@ -293,10 +363,49 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
                     Thêm
                   </button>
                 </div>
+                {hasChecklist && (
+                  <TeamCriteriaChecklist
+                    teamId={t.teamId}
+                    teamName={teamNameOf(t.teamId)}
+                    groups={itemGroups}
+                    total={items.length}
+                    ticked={ticksOf(t.teamId)}
+                    onChange={(next) => setTicks(t.teamId, next)}
+                    otherTeams={otherTeams}
+                    onCopyFrom={(fromTeamId) => copyTicks(t.teamId, fromTeamId)}
+                    onApplyToAll={() => applyTicksToAll(t.teamId)}
+                  />
+                )}
               </div>
             );
           })}
         </div>
+        {hasChecklist && targets.length > 0 && (
+          <div className="mb-3">
+            {criteriaNote && (
+              <p className="text-xs text-green-700 mb-2" data-testid="team-criteria-note" role="status">
+                {criteriaNote}
+              </p>
+            )}
+            <button
+              type="button"
+              data-testid="btn-toggle-criteria-matrix"
+              aria-expanded={showMatrix}
+              onClick={() => setShowMatrix((v) => !v)}
+              className={`px-3 py-1.5 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 ${A11Y_FOCUS_RING}`}
+            >
+              {showMatrix ? reportCriteria.teams.matrixHide : reportCriteria.teams.matrixShow}
+            </button>
+            {showMatrix && (
+              <div className="mt-2">
+                <TeamCriteriaMatrix
+                  items={items}
+                  teams={targets.map((t) => ({ id: t.teamId, name: teamNameOf(t.teamId), ticked: ticksOf(t.teamId) }))}
+                />
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <FKSelect
@@ -321,6 +430,12 @@ export default function ReportTeamsStep({ onBack, onNext, initialRoles, initialT
           </button>
         </div>
       </div>
+
+      {teamsWithNothing.length > 0 && (
+        <p className="text-sm text-red-700 mt-4" data-testid="team-criteria-empty-error" role="alert">
+          {reportCriteria.teams.emptyTeams(teamsWithNothing.map((t) => teamNameOf(t.teamId)).join(', '))}
+        </p>
+      )}
 
       <div className={`flex items-center mt-6 ${onBack ? 'justify-between' : 'justify-end'}`}>
         {onBack && (

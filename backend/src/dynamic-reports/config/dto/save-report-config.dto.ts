@@ -8,11 +8,18 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { IsNgayThat } from '../../../common/validators/is-ngay-that.validator';
+
+/** A criterion's stable code (`DynReportField.itemKey`). */
+const ITEM_KEY = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+const CRITERION_ORIGINS = ['FILE', 'MANUAL'] as const;
+const VERSION_SOURCES = ['TEMPLATE', 'CRITERIA'] as const;
 
 const FIELD_TYPES = ['NUM', 'TEXT', 'DATE', 'TIME'] as const;
 const AGGREGATE_TYPES = ['SUM', 'AVG', 'MIN', 'MAX', 'COUNT', 'NONE'] as const;
@@ -46,6 +53,11 @@ export class ReportFieldConfigDto {
   @IsOptional() @IsInt() maxLength?: number;
   @IsOptional() @IsString() helpText?: string;
   @IsIn(FIELD_SOURCES) source!: (typeof FIELD_SOURCES)[number];
+  /** Criteria reports: the criterion this cell stands for, its unit, its parent, and where it came from. */
+  @IsOptional() @Matches(ITEM_KEY) itemKey?: string;
+  @IsOptional() @IsString() @MaxLength(60) unit?: string;
+  @IsOptional() @Matches(ITEM_KEY) parentItemKey?: string;
+  @IsOptional() @IsIn(CRITERION_ORIGINS) origin?: (typeof CRITERION_ORIGINS)[number];
 }
 
 export class ReportScheduleConfigDto {
@@ -67,6 +79,11 @@ export class ReportRoleConfigDto {
 export class ReportTargetConfigDto {
   @IsString() @IsNotEmpty() teamId!: string;
   @IsArray() @IsString({ each: true }) editorUserIds!: string[];
+  /**
+   * The criteria this team reports, by item key (a field's `itemKey`, or its `fieldKey` when it has none).
+   * Absent or null = every criterion of the report.
+   */
+  @IsOptional() @IsArray() @IsString({ each: true }) itemKeys?: string[] | null;
 }
 
 const RULE_OPERATORS = [
@@ -108,6 +125,8 @@ export class SaveReportConfigDto {
   reportingUnit?: (typeof REPORTING_UNITS)[number];
 
   @IsArray() @IsString({ each: true }) selectedSheets!: string[];
+  /** What the workbook was made from; CRITERIA when the system generated it from a picked list. */
+  @IsOptional() @IsIn(VERSION_SOURCES) sourceKind?: (typeof VERSION_SOURCES)[number];
   @IsIn(['1900', '1904']) dateSystem!: '1900' | '1904';
 
   @IsArray()
