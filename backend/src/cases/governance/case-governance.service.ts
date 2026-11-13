@@ -4,9 +4,11 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Case, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthzScopeService } from '../../authz/authz-scope.service';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 import {
   assertParentInScope,
@@ -57,7 +59,10 @@ export interface ResolveHandoffInput extends ReceiptInput {
 }
 @Injectable()
 export class CaseGovernanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly authzScope?: AuthzScopeService,
+  ) {}
   private async receiptFacts(
     tx: Tx,
     caseId: string,
@@ -943,6 +948,9 @@ export class CaseGovernanceService {
     }
   }
   async currentScope(tx: Tx, actor: DbActor): Promise<DataScope | null> {
+    // The same source as the request scope once permissions by team are enforced: one person, one scope.
+    const enforced = await this.authzScope?.forUser(actor.id);
+    if (enforced !== undefined) return enforced;
     if (actor.role.name === 'ADMIN') return null;
     const [memberships, teams, grants] = await Promise.all([
       tx.userTeam.findMany({

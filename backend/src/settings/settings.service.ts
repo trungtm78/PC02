@@ -150,6 +150,12 @@ export class SettingsService {
       return { success: false, message: `Cấu hình '${key}' không tồn tại` };
     }
 
+    // Enforcing permissions by team changes what every officer may do. It is switched on from the permission
+    // screen, after the comparison of who gains and loses what has been read: never from this generic form.
+    if (key === SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO && value !== 'OFF' && value !== 'SHADOW') {
+      return { success: false, message: 'Chế độ này chỉ bật được từ màn Phân quyền theo tổ, sau khi đã xem báo cáo so sánh.' };
+    }
+
     let normalizedValue = value;
     if (existing.unit === 'ngày' || existing.unit === 'lần') {
       const num = parseInt(value, 10);

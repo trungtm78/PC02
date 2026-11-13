@@ -33,8 +33,8 @@ export class AuthzScopeService {
    * read `precise`).
    */
   async forUser(userId: string, now: Date = new Date()): Promise<DataScope | null | undefined> {
+    if ((await this.authz.currentMode()) !== 'ENFORCE') return undefined;
     const snapshot = await this.authz.snapshot();
-    if (snapshot.mode !== 'ENFORCE') return undefined;
     const effective = this.authz.effectiveIn(snapshot, userId, now);
     if (effective.admin) return null;
 
@@ -63,8 +63,7 @@ export class AuthzScopeService {
    * the role as before).
    */
   async keysFor(userId: string, now: Date = new Date()): Promise<readonly string[] | undefined> {
-    const snapshot = await this.authz.snapshot();
-    if (snapshot.mode !== 'ENFORCE') return undefined;
-    return this.authz.effectiveIn(snapshot, userId, now).keys;
+    if ((await this.authz.currentMode()) !== 'ENFORCE') return undefined;
+    return this.authz.effectiveIn(await this.authz.snapshot(), userId, now).keys;
   }
 }

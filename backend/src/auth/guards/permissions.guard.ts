@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
@@ -11,12 +12,14 @@ import {
   PermissionRule,
 } from '../decorators/permissions.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthzScopeService } from '../../authz/authz-scope.service';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
+    @Optional() private readonly authzScope?: AuthzScopeService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,17 +47,18 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('No authenticated user');
     }
 
-    // Fetch role permissions from DB
-    const rolePerms = await this.prisma.rolePermission.findMany({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      where: { roleId: user.roleId },
-      include: { permission: true },
-    });
-
-    const userPermissions = rolePerms.map((rp) => ({
-      action: rp.permission.action,
-      subject: rp.permission.subject,
-    }));
+    // Permissions by team, when enforced, are what the person holds; otherwise the role's, read as before.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    const enforced = await this.authzScope?.keysFor(user.id);
+    const userPermissions = enforced
+      ? enforced.map((key) => {
+          const at = key.indexOf(':');
+          return { action: key.slice(0, at), subject: key.slice(at + 1) };
+        })
+      : await this.rolePermissions(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+          user.roleId,
+        );
 
     const hasAll = (requiredPermissions ?? []).every((required) =>
       userPermissions.some(
@@ -76,5 +80,13 @@ export class PermissionsGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private async rolePermissions(roleId: string): Promise<{ action: string; subject: string }[]> {
+    const rolePerms = await this.prisma.rolePermission.findMany({
+      where: { roleId },
+      include: { permission: true },
+    });
+    return rolePerms.map((rp) => ({ action: rp.permission.action, subject: rp.permission.subject }));
   }
 }

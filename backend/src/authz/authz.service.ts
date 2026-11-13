@@ -16,6 +16,8 @@ import type {
 
 export const AUTHZ_MODES = ['OFF', 'SHADOW', 'ENFORCE'] as const;
 export type AuthzMode = (typeof AUTHZ_MODES)[number];
+/** How long the request path trusts the mode it last read. */
+export const MODE_TTL_MS = 10_000;
 
 /** Everything effective permissions are computed from, as it was at one revision of the counter. */
 export interface AuthzSnapshot {
@@ -47,6 +49,7 @@ export class AuthzService {
   private snapshotCache: AuthzSnapshot | null = null;
   private loading: Promise<AuthzSnapshot> | null = null;
   private readonly effectiveCache = new Map<string, EffectivePermissions>();
+  private modeCache: { mode: AuthzMode; readAt: number } | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -78,6 +81,28 @@ export class AuthzService {
 
   async mode(): Promise<AuthzMode> {
     return (await this.snapshot()).mode;
+  }
+
+  /**
+   * The mode, for the request path: one indexed row, remembered for a few seconds, and NOTHING else. While the
+   * mode is OFF a request must not depend on the permission configuration being readable at all.
+   *
+   * If the setting cannot be read, the last mode known is kept; with none known the mode is OFF (the process
+   * has just started and cannot read its settings: nothing was being enforced by it).
+   */
+  async currentMode(now: number = Date.now()): Promise<AuthzMode> {
+    if (this.modeCache && now - this.modeCache.readAt < MODE_TTL_MS) return this.modeCache.mode;
+    try {
+      const row = await this.prisma.systemSetting.findUnique({
+        where: { key: SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO },
+        select: { value: true },
+      });
+      const value = row?.value as AuthzMode | undefined;
+      this.modeCache = { mode: value && AUTHZ_MODES.includes(value) ? value : 'OFF', readAt: now };
+    } catch {
+      this.modeCache = { mode: this.modeCache?.mode ?? 'OFF', readAt: now };
+    }
+    return this.modeCache.mode;
   }
 
   /** What the person may do at `now`. Unknown or switched-off people are not found. */

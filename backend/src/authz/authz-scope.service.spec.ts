@@ -34,6 +34,7 @@ const person = (over: Partial<UserInput> = {}): UserInput => ({
 function service(snap: AuthzSnapshot): AuthzScopeService {
   const authz = new AuthzService({} as never);
   jest.spyOn(authz, 'snapshot').mockResolvedValue(snap);
+  jest.spyOn(authz, 'currentMode').mockResolvedValue(snap.mode);
   return new AuthzScopeService(authz);
 }
 const explicit = (teamId: string, memberTemplateId: string): TeamConfigInput => ({ teamId, mode: 'EXPLICIT', memberTemplateId, leaderTemplateId: null, overrides: [] });
@@ -103,6 +104,16 @@ describe('AuthzScopeService', () => {
     const scope = (await service(snap).forUser('wardy'))!;
     expect(scope).toMatchObject({ canDispatch: true, isWardOfficer: true, wardTeamId: 'W' });
     expect(scope.precise!.subjects.Case.read.tree).toEqual({ teamIds: ['W'], userIds: ['wardy'], includeUnassigned: false });
+  });
+
+  it('while not enforced the permission configuration is not read at all (a request must not depend on it)', async () => {
+    const authz = new AuthzService({} as never);
+    jest.spyOn(authz, 'currentMode').mockResolvedValue('OFF');
+    const read = jest.spyOn(authz, 'snapshot');
+    const s = new AuthzScopeService(authz);
+    expect(await s.forUser('me')).toBeUndefined();
+    expect(await s.keysFor('me')).toBeUndefined();
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('enforced: somebody the configuration does not know is not found, rather than unrestricted', async () => {
