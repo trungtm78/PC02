@@ -13,7 +13,7 @@ import {
 } from '../common/utils/scope-filter.util';
 import { randomBytes } from 'node:crypto';
 import { hashPassword } from '../auth/utils/password-hash.util';
-import { holdsPermission } from '../authz/enforcement';
+import { enforcement, holdsPermission } from '../authz/enforcement';
 
 type Tx = Prisma.TransactionClient;
 type Permission = { action: string; subject: string; conditions?: unknown };
@@ -128,11 +128,17 @@ export async function guardCaseAuthority(
   const current = rolePermissions.get(actor.roleId) ?? [];
   // What the ACTOR may do: what the person holds when permissions by team are enforced, the role otherwise.
   const has = (subject: string, action: string) =>
-    holdsPermission(actorId, `${action}:${subject}`, () =>
-      current.some(
-        (p) =>
-          p.subject === subject && p.action === action && p.conditions === null,
-      ),
+    holdsPermission(
+      actorId,
+      `${action}:${subject}`,
+      () =>
+        current.some(
+          (p) =>
+            p.subject === subject &&
+            p.action === action &&
+            p.conditions === null,
+        ),
+      { unconditional: true },
     );
   const affected = [target?.roleId, input.nextRoleId, input.roleId].flatMap(
     (roleId) => (roleId ? (rolePermissions.get(roleId) ?? []) : []),
@@ -167,10 +173,18 @@ export async function guardCaseAuthority(
       break;
     }
   }
+  // Under permissions by team a person's business authority can come from a TEAM while their role has none:
+  // such an account is as sensitive as one whose role carries it.
+  const heldByTeam = affectedUsers.some((user) =>
+    (enforcement()?.keysOrNone(user.id) ?? []).some((key) =>
+      key.endsWith(':CaseGovernance'),
+    ),
+  );
   const sensitive =
     affected.some(governance) ||
     (input.nextPermissions ?? []).some(governance) ||
-    protectedPrincipal;
+    protectedPrincipal ||
+    heldByTeam;
   // Preserve the normal account-management permission protocol. Business authority
   // changes additionally require an explicit current User.write and manage_access.
   if (
@@ -190,8 +204,11 @@ export async function guardCaseAuthority(
   if (
     acquired.some(
       (p) =>
-        !holdsPermission(actorId, `${p.action}:CaseGovernance`, () =>
-          actorGovernance.has(p.action),
+        !holdsPermission(
+          actorId,
+          `${p.action}:CaseGovernance`,
+          () => actorGovernance.has(p.action),
+          { unconditional: true },
         ),
     )
   )

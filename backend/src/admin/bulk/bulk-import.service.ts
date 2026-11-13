@@ -327,13 +327,17 @@ export class BulkImportService {
       });
       if (
         !actor?.isActive ||
-        !holdsPermission(actorId, 'read:User', () =>
-          actor.role.permissions.some(
-            ({ permission }) =>
-              permission.subject === 'User' &&
-              permission.action === 'read' &&
-              permission.conditions === null,
-          ),
+        !holdsPermission(
+          actorId,
+          'read:User',
+          () =>
+            actor.role.permissions.some(
+              ({ permission }) =>
+                permission.subject === 'User' &&
+                permission.action === 'read' &&
+                permission.conditions === null,
+            ),
+          { unconditional: true },
         )
       )
         throw new ForbiddenException(

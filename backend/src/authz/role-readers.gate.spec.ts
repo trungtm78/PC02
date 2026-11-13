@@ -64,7 +64,7 @@ const NOT_A_DECISION_ABOUT_A_PERSON = [
   'admin/admin.service.ts::await tx.rolePermission.createMany({',
   // The snapshot loader of permissions by team: role permissions are an INPUT of the engine that computes what
   // each person holds (the very thing `keysOf` answers from).
-  'authz/authz.service.ts::select: { id: true, name: true, permissions: { select: { permission: { select: { action: true, subject: true } } } } },',
+  'authz/authz.service.ts::select: { id: true, name: true, permissions: { select: { permission: { select: { action: true, subject: true, conditions: true } } } } },',
   'authz/authz.service.ts::rolePermissions: role?.permissions ?? [],',
   // Test support compiled with the source: fills in a `rolePermission` delegate on a fake transaction.
   'admin/test-authority-fixture.ts::rolePermission: db.rolePermission?.findMany ? db.rolePermission : { ...db.rolePermission, findMany: jest.fn().mockResolvedValue([]) },',
@@ -108,7 +108,9 @@ function property(object: ts.Expression | undefined, key: string): ts.PropertyAs
 
 /** `enforcement()?.keysOf(...)`. */
 function isKeysOfCall(node: ts.Node): boolean {
-  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression) || node.expression.name.text !== 'keysOf') return false;
+  // Any of the questions that say what a person holds.
+  const HELD = ['keysOf', 'unconditionalKeysOf'];
+  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression) || !HELD.includes(node.expression.name.text)) return false;
   const owner = unwrap(node.expression.expression);
   return ts.isCallExpression(owner) && ts.isIdentifier(owner.expression) && owner.expression.text === 'enforcement';
 }
@@ -125,19 +127,34 @@ export function readsOf(fileName: string, text: string): Read[] {
   const lines = text.split(/\r?\n/);
   const reads: Read[] = [];
 
-  /** Names declared as `const held = enforcement()?.keysOf(...)` anywhere in the file. */
-  const heldNames = new Set<string>();
+  /**
+   * `const held = enforcement()?.keysOf(...)`: the name, and the function it was declared in. A variable of the same
+   * name in ANOTHER function (a parameter, an unrelated flag) says nothing about what the person holds.
+   */
+  const heldDeclarations: { name: string; scope: ts.Node }[] = [];
+  const functionOf = (node: ts.Node): ts.Node => {
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      if (ts.isFunctionLike(parent) || ts.isSourceFile(parent)) return parent;
+    }
+    return source;
+  };
   const collect = (node: ts.Node): void => {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isKeysOfCall(unwrap(node.initializer))) {
-      heldNames.add(node.name.text);
+      heldDeclarations.push({ name: node.name.text, scope: functionOf(node) });
     }
     ts.forEachChild(node, collect);
   };
   collect(source);
-  /** `held`, or the call itself: the value that says what the person holds. */
+  /** `held` (declared in this function or one enclosing it), or the call itself: what the person holds. */
   const isHeld = (node: ts.Expression): boolean => {
     const inner = unwrap(node);
-    return isKeysOfCall(inner) || (ts.isIdentifier(inner) && heldNames.has(inner.text));
+    if (isKeysOfCall(inner)) return true;
+    if (!ts.isIdentifier(inner)) return false;
+    const enclosing = new Set<ts.Node>();
+    for (let parent: ts.Node | undefined = inner; parent; parent = parent.parent) {
+      if (ts.isFunctionLike(parent) || ts.isSourceFile(parent)) enclosing.add(parent);
+    }
+    return heldDeclarations.some((d) => d.name === inner.text && enclosing.has(d.scope));
   };
   const within = (node: ts.Node, container: ts.Node | undefined): boolean =>
     !!container && node.getStart(source) >= container.getStart(source) && node.getEnd() <= container.getEnd();
@@ -387,6 +404,42 @@ describe('GATE: nothing decides about a person from the permissions of their rol
         'a/service.ts::gone();',
         'a/service.ts::held ? 1 : tx.rolePermission.count();',
       ]);
+    });
+  });
+
+  describe('a variable is "what the person holds" only where it was declared so', () => {
+    const guardedFlags = (body: string) => readsOf('sample.ts', body).map((r) => r.guarded);
+
+    it('the same name in ANOTHER function (a parameter, an unrelated flag) guards nothing', () => {
+      expect(
+        guardedFlags(`
+          function a(id: string) {
+            const held = enforcement()?.keysOf(id);
+            return held;
+          }
+          function b(user: any, held = false) {
+            if (held) return false;
+            return user.role.permissions.some(match);
+          }
+        `),
+      ).toEqual([false]);
+    });
+
+    it('declared in the same function, or in one that encloses the read, it does', () => {
+      expect(
+        guardedFlags(`
+          function a(user: any) {
+            const held = enforcement()?.unconditionalKeysOf(user.id);
+            if (held) return held.includes('x');
+            return user.role.permissions.some(match);
+          }
+          function b(user: any) {
+            const held = enforcement()?.keysOf(user.id);
+            const check = () => (held ? held.includes('x') : user.role.permissions.some(match));
+            return check();
+          }
+        `),
+      ).toEqual([true, true]);
     });
   });
 });

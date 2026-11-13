@@ -29,7 +29,13 @@ import { enforcement, setEnforcement, type Enforcement } from './enforcement';
  */
 const ENFORCED_SCOPE = { teamIds: [], userIds: ['u1'], writableTeamIds: [], writableUserIds: ['u1'], precise: { userId: 'u1' } } as unknown as DataScope;
 function enforce(scope: DataScope | null | undefined, keys?: readonly string[]) {
-  const e = { scopeOf: jest.fn().mockReturnValue(scope), keysOf: jest.fn().mockReturnValue(keys), holdersOf: jest.fn().mockReturnValue(undefined) };
+  const e = {
+    scopeOf: jest.fn().mockReturnValue(scope),
+    keysOf: jest.fn().mockReturnValue(keys),
+    unconditionalKeysOf: jest.fn().mockReturnValue(keys),
+    keysOrNone: jest.fn().mockReturnValue(keys),
+    holdersOf: jest.fn().mockReturnValue(undefined),
+  };
   setEnforcement(e as Enforcement);
   return e;
 }

@@ -1451,13 +1451,17 @@ export class LegalWorkflowService {
     if (
       !user.isActive ||
       !['read', 'edit'].every((action) =>
-        holdsPermission(actor.actorId, `${action}:${subject}`, () =>
-          user.role.permissions.some(
-            (p) =>
-              p.permission.subject === subject &&
-              p.permission.action === action &&
-              p.permission.conditions === null,
-          ),
+        holdsPermission(
+          actor.actorId,
+          `${action}:${subject}`,
+          () =>
+            user.role.permissions.some(
+              (p) =>
+                p.permission.subject === subject &&
+                p.permission.action === action &&
+                p.permission.conditions === null,
+            ),
+          { unconditional: true },
         ),
       )
     )

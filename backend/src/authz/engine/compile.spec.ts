@@ -240,6 +240,31 @@ describe('compile: overrides', () => {
   });
 });
 
+describe('conditional grants of a role', () => {
+  const o = org([{ id: 'A' }], { A: ['u1'] });
+  const u = (over: Partial<UserInput> = {}) =>
+    user({ rolePermissions: ['read:User', 'read:Case'], conditionalRolePermissions: ['read:User'], memberships: [{ teamId: 'A', isLeader: false }], ...over });
+
+  it('are held (the route guard never looked at conditions) and remembered as conditional', () => {
+    const e = compile(o, config(), u(), NOW);
+    expect(e.keys).toEqual(['read:Case', 'read:User']);
+    expect(e.conditional).toEqual(['read:User']);
+  });
+
+  it('given outright by a template or an override they are not conditional any more', () => {
+    const viaTemplate = compile(o, config([{ teamId: 'A', memberTemplateId: 't' }], [template('t', { 'read:User': 'ALL' })]), u(), NOW);
+    expect(viaTemplate.conditional).toEqual([]);
+    const viaOverride = compile(o, config(), u({ overrides: [{ permission: 'read:User', effect: 'GRANT', reach: 'ALL', expiresAt: null }] }), NOW);
+    expect(viaOverride.keys).toContain('read:User');
+    expect(viaOverride.conditional).toEqual([]);
+  });
+
+  it('nobody has conditional keys unless the role says so; ADMIN carries them like anybody', () => {
+    expect(compile(o, config(), user({ memberships: [{ teamId: 'A', isLeader: false }] }), NOW).conditional).toEqual([]);
+    expect(compile(o, config(), u({ roleName: 'ADMIN' }), NOW).conditional).toEqual(['read:User']);
+  });
+});
+
 describe('data access grants', () => {
   const o = org([{ id: 'A' }, { id: 'G' }, { id: 'W' }, { id: 'Off', active: false }], { A: ['u1'], G: ['g1'], W: ['w1'], Off: ['x'] });
   const u = user({

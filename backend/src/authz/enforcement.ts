@@ -12,6 +12,10 @@ export interface Enforcement {
   scopeOf(userId: string): DataScope | null | undefined;
   /** The permissions a person holds, as `action:subject`, when enforced. */
   keysOf(userId: string): readonly string[] | undefined;
+  /** The same without those held only through a conditional grant of the role: unconditional authority. */
+  unconditionalKeysOf(userId: string): readonly string[] | undefined;
+  /** What a person holds when enforced, or nothing if the configuration does not know them (never throws for that). */
+  keysOrNone(userId: string): readonly string[] | undefined;
   /** Everybody who holds a permission, when enforced: for filters over many people at once. */
   holdersOf(permission: string): readonly string[] | undefined;
 }
@@ -38,8 +42,14 @@ export function enforcement(): Enforcement | null {
  * exactly as the caller decided before. Every such check goes through here, so the guard, `/auth/me` and the
  * services can never disagree about one person.
  */
-export function holdsPermission<T extends boolean | Promise<boolean>>(userId: string, permission: string, fromRole: () => T): T | boolean {
-  const held = current?.keysOf(userId);
+export function holdsPermission<T extends boolean | Promise<boolean>>(
+  userId: string,
+  permission: string,
+  fromRole: () => T,
+  /** `unconditional`: for the checks whose role fallback requires `conditions === null`. */
+  options: { unconditional?: boolean } = {},
+): T | boolean {
+  const held = options.unconditional ? current?.unconditionalKeysOf(userId) : current?.keysOf(userId);
   return held ? held.includes(permission) : fromRole();
 }
 

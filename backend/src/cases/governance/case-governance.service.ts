@@ -924,7 +924,8 @@ export class CaseGovernanceService {
   private permission(user: DbActor, subject: string, action: string): boolean {
     // Under permissions by team (enforced) the person holds what their teams give, not what the role holds: the
     // same set the route guard and /auth/me use, or the three would disagree about one person.
-    const held = enforcement()?.keysOf(user.id);
+    // The role check below wants an unconditional grant; so does this.
+    const held = enforcement()?.unconditionalKeysOf(user.id);
     if (held) return held.includes(`${action}:${subject}`);
     return user.role.permissions.some(
       ({ permission: p }) =>

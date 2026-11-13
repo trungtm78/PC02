@@ -157,6 +157,17 @@ describe('AuthzScopeService', () => {
     expect(service(snapshot('OFF', { users: [person()] })).holdersOf('read:Case')).toBeUndefined();
   });
 
+  it('enforced: unconditional keys leave out what the role holds only under a condition; "or none" never throws for a stranger', () => {
+    const s = service(snapshot('ENFORCE', { users: [person({ rolePermissions: ['read:Case', 'read:User'], conditionalRolePermissions: ['read:User'] })] }));
+    expect(s.keysOf('me')).toEqual(['read:Case', 'read:User']);
+    expect(s.unconditionalKeysOf('me')).toEqual(['read:Case']);
+    expect(s.keysOrNone('me')).toEqual(['read:Case', 'read:User']);
+    expect(s.keysOrNone('ghost')).toEqual([]);
+    const off = service(snapshot('OFF', { users: [person()] }));
+    expect(off.unconditionalKeysOf('me')).toBeUndefined();
+    expect(off.keysOrNone('ghost')).toBeUndefined();
+  });
+
   describe('the registry', () => {
     it('constructing or compiling is not enough: it becomes the enforcement only when its application starts', () => {
       const s = new AuthzScopeService(new AuthzService({} as never));

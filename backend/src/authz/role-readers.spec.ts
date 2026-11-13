@@ -40,7 +40,7 @@ const ROLE = 'role-1';
 const ACTOR = { id: USER, roleId: ROLE };
 
 function enforce(keys: readonly string[] | undefined) {
-  setEnforcement({ scopeOf: () => undefined, keysOf: () => keys, holdersOf: () => undefined });
+  setEnforcement({ scopeOf: () => undefined, keysOf: () => keys, unconditionalKeysOf: () => keys, keysOrNone: () => keys, holdersOf: () => undefined });
 }
 /** An instance with only the fields a method under test touches. */
 function bare<T extends object>(type: { prototype: T }, fields: Record<string, unknown>): T {
@@ -443,3 +443,49 @@ describe('guardCaseAuthority — nobody gives themselves business authority they
     await expect(addReviewToOwnRole(MANAGES)).resolves.toBeDefined();
   });
 });
+
+describe('guardCaseAuthority — an account whose business authority comes from a TEAM is as protected as one whose role carries it', () => {
+  /** The target's role carries no governance permission at all. */
+  function plainTarget(managerHolds: [string, string][]) {
+    const fixture = authorityFixture(managerHolds);
+    const original = fixture.tx.rolePermission.findMany;
+    fixture.tx.rolePermission.findMany = jest.fn(async (args: { where: { roleId: string } }) =>
+      args.where.roleId === 'business' ? [] : original(args),
+    ) as never;
+    return fixture.tx;
+  }
+  const reset = (tx: unknown) => guardCaseAuthority(tx as never, USER, { targetUserId: 'target' });
+  const ONLY_ACCOUNTS: [string, string][] = [['User', 'write']];
+
+  it('not enforced: a target with no governance in its role and no grants is an ordinary account', async () => {
+    for (const setup of [() => undefined, () => enforce(undefined)]) {
+      setup();
+      await expect(reset(plainTarget(ONLY_ACCOUNTS))).resolves.toBeDefined();
+    }
+  });
+
+  it('enforced: the target holds `review` through a team: an account administrator without manage_access is refused', async () => {
+    const keysOrNone = jest.fn((userId: string) => (userId === 'target' ? ['review:CaseGovernance'] : ['write:User']));
+    setEnforcement({
+      scopeOf: () => undefined,
+      keysOf: () => ['write:User'],
+      unconditionalKeysOf: () => ['write:User'],
+      keysOrNone,
+      holdersOf: () => undefined,
+    });
+    await expect(reset(plainTarget(ONLY_ACCOUNTS))).rejects.toThrow('Current User.write and CaseGovernance.manage_access required');
+    expect(keysOrNone).toHaveBeenCalledWith('target');
+  });
+
+  it('enforced: a target who holds nothing of the kind stays an ordinary account', async () => {
+    setEnforcement({
+      scopeOf: () => undefined,
+      keysOf: () => ['write:User'],
+      unconditionalKeysOf: () => ['write:User'],
+      keysOrNone: () => ['read:Case'],
+      holdersOf: () => undefined,
+    });
+    await expect(reset(plainTarget(ONLY_ACCOUNTS))).resolves.toBeDefined();
+  });
+});
+

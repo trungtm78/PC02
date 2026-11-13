@@ -1,8 +1,14 @@
 import { enforcement, holdsPermission, setEnforcement, userHoldingPermission, type Enforcement } from './enforcement';
 
-const fake = (keys: readonly string[] | undefined, holders: readonly string[] | undefined = undefined): Enforcement => ({
+const fake = (
+  keys: readonly string[] | undefined,
+  holders: readonly string[] | undefined = undefined,
+  unconditional: readonly string[] | undefined = keys,
+): Enforcement => ({
   scopeOf: () => undefined,
   keysOf: () => keys,
+  unconditionalKeysOf: () => unconditional,
+  keysOrNone: () => keys,
   holdersOf: () => holders,
 });
 
@@ -28,6 +34,23 @@ describe('the questions services ask about permissions', () => {
       setEnforcement(fake([]));
       expect(holdsPermission('u1', 'read:Case', fromRole)).toBe(false);
       expect(fromRole).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('holdsPermission, unconditional: for checks whose role fallback requires `conditions === null`', () => {
+    it('enforced: a permission held only through a conditional grant of the role is held, but is not unconditional authority', () => {
+      setEnforcement(fake(['read:User', 'read:Case'], undefined, ['read:Case']));
+      const fromRole = jest.fn();
+      expect(holdsPermission('u1', 'read:User', fromRole)).toBe(true);
+      expect(holdsPermission('u1', 'read:User', fromRole, { unconditional: true })).toBe(false);
+      expect(holdsPermission('u1', 'read:Case', fromRole, { unconditional: true })).toBe(true);
+      expect(fromRole).not.toHaveBeenCalled();
+    });
+
+    it('not enforced: the caller\'s role check decides, whatever the option', () => {
+      expect(holdsPermission('u1', 'read:User', () => true, { unconditional: true })).toBe(true);
+      setEnforcement(fake(undefined, undefined, undefined));
+      expect(holdsPermission('u1', 'read:User', () => false, { unconditional: true })).toBe(false);
     });
   });
 

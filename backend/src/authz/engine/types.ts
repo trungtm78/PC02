@@ -51,6 +51,12 @@ export interface UserInput {
   roleName: string;
   /** What the person's role holds: what they have wherever no team says otherwise. */
   rolePermissions: readonly string[];
+  /**
+   * Those of `rolePermissions` the role holds only under a condition (`Permission.conditions`). The route guard has
+   * never looked at conditions, so they still count as held; a few checks ask for UNCONDITIONAL authority and must
+   * be able to tell.
+   */
+  conditionalRolePermissions?: readonly string[];
   canDispatch: boolean;
   memberships: readonly { teamId: string; isLeader: boolean }[];
   overrides: readonly OverrideInput[];
@@ -81,6 +87,8 @@ export interface EffectivePermissions {
   /** Every permission the person has at any reach, as `action:subject`, sorted. What the guards and menus read. */
   keys: readonly string[];
   grants: ReadonlyMap<string, readonly Grant[]>;
+  /** Keys held ONLY through a conditional grant of the role: held, but not unconditional authority. */
+  conditional: readonly string[];
   /** Permissions something would have given but an override took away, and what took them. */
   muted: ReadonlyMap<string, readonly MuteSource[]>;
   /** Teams of the person that count (active), in membership order. */
