@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import TeamsPage from '../TeamsPage';
 import { api } from '@/lib/api';
 import { teams as t } from '@/locales/vi';
@@ -28,7 +29,9 @@ function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <TeamsPage />
+      <MemoryRouter>
+        <TeamsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -54,6 +57,12 @@ describe('TeamsPage lifecycle', () => {
     expect(screen.getByTestId('team-tab-ACTIVE')).toHaveTextContent('(1)');
     expect(screen.getByTestId('team-tab-INACTIVE')).toHaveTextContent('(1)');
     expect(screen.getByTestId('team-tab-ARCHIVED')).toHaveTextContent('(1)');
+  });
+
+  it('each team links to its permissions on the "permissions by team" screen', async () => {
+    renderPage();
+    await screen.findByText('Tổ công tác số 2');
+    expect(screen.getByTestId('team-action-permissions-a1')).toHaveAttribute('href', '/admin/phan-quyen?tab=teams&team=a1');
   });
 
   it('the paused tab lists a paused team even though its parent is active (a flat list, not a tree)', async () => {

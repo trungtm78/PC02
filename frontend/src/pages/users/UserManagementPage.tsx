@@ -25,6 +25,9 @@ import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '../../lib/dates';
 import { downloadCsv } from '@/lib/csv';
 import { usePermission } from '@/hooks/usePermission';
+import { Link } from 'react-router-dom';
+import { permissions as PL } from '@/locales/permissions.vi';
+import { PAGE_PATH, PAGE_TAB, SCREEN_PERMISSION } from '@/features/permissions/types';
 import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModal';
 import { EnrollmentLinkModal, type EnrollmentHandover } from '@/components/EnrollmentLinkModal';
 import { BulkImportWizard } from '@/components/BulkImportWizard';
@@ -158,7 +161,9 @@ const EMPTY_FORM: FormData = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
-  const { canEdit } = usePermission();
+  const { canEdit, permissions: heldPermissions } = usePermission();
+  // The link to a person's effective permissions is for those who may open that screen; unknown yet = shown.
+  const canOpenPermissions = heldPermissions == null || heldPermissions.includes(SCREEN_PERMISSION.READ);
   const canEditRow = canEdit('users');
   const [activeTab, setActiveTab] = useState<'users-list' | 'roles-permissions'>('users-list');
 
@@ -718,6 +723,17 @@ export default function UserManagementPage() {
                           >
                             <Edit2 className="w-4 h-4 text-slate-600" />
                           </button>
+                          {canOpenPermissions && (
+                            <Link
+                              to={`${PAGE_PATH}?tab=${PAGE_TAB.LOOKUP}&user=${encodeURIComponent(user.id)}`}
+                              data-testid={`btn-effective-permissions-${user.id}`}
+                              className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+                              title={PL.links.effectivePermissions}
+                              aria-label={PL.links.effectivePermissions}
+                            >
+                              <Shield className="w-4 h-4 text-slate-600" />
+                            </Link>
+                          )}
                           {dangBiKhoa(user) && (
                             <button
                               onClick={() => void handleMoKhoa(user)}
