@@ -13,7 +13,7 @@ import type { PeriodExportScope } from '../export/period-export';
 import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
 import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
-import { contributionsFor, contributorSetIdentity, contributorsFor, countsUnder } from './contributors';
+import { contributionsFor, contributorSetIdentity, contributorsFor, countsUnder, ownedKeys, owns } from './contributors';
 import type { SummaryMode } from './contributors';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -1607,7 +1607,11 @@ export class AggregateService {
           label: teamSnapshot?.name || a.teamId,
           kind: 'TEAM' as const,
           counted: counted.has(a.teamId),
-          values: Object.fromEntries(period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null])),
+          ownedFieldKeys: ownedKeys(a),
+          // A value saved for a field the team does not report is not its figure: it is left out of its sheet.
+          values: Object.fromEntries(
+            period.version.fields.map((f) => [f.fieldKey, owns(a, f.fieldKey) ? (values[f.fieldKey]?.v ?? null) : null]),
+          ),
         };
       }),
     ];

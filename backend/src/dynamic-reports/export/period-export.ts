@@ -52,6 +52,11 @@ export interface PeriodExportScope extends SheetScope {
   kind: PeriodScopeKind;
   /** TEAM only: the team's figures are in the totals (it is approved and not exempt). The totals' formulas add up these sheets. */
   counted?: boolean;
+  /**
+   * TEAM only: the fields this team reports. Absent or null = every field. A counted team is in the total of a field
+   * only when it owns that field, exactly as the system's own aggregate decides.
+   */
+  ownedFieldKeys?: readonly string[] | null;
   /** Field key → stored text (the aggregate for the totals, the team's own numbers otherwise); null/'' blank. */
   values: Record<string, string | null>;
 }
@@ -408,12 +413,15 @@ function writeTotalsFormulas(
   textNumbers: ReadonlySet<string>,
   out: PeriodExportOutcome,
 ): void {
-  const counted = request.scopes.filter((s) => s.kind === 'TEAM' && s.counted);
+  const countedTeams = request.scopes.filter((s) => s.kind === 'TEAM' && s.counted);
   for (const field of request.fields) {
     const aggregate = field.aggregate;
     if (field.type !== 'NUM' || !aggregate || aggregate === 'NONE') continue;
     const key = field.fieldKey;
     const keep = (reason: string) => out.constantTotals.push(`${key}: ${reason}`);
+    // Per field: a team that does not report this field is not in its total, not even as a blank (an AVG would
+    // otherwise divide by a team that owes nothing).
+    const counted = countedTeams.filter((s) => !s.ownedFieldKeys || s.ownedFieldKeys.includes(key));
     if (counted.length === 0) {
       keep('no team is approved');
       continue;
