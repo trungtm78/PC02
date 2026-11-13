@@ -62,6 +62,23 @@ function blockersFromError(messages: string[]): Blocker[] {
   });
 }
 
+interface MergeSummary {
+  moved: { table: string; column: string; count: number }[];
+  duplicatesRemoved: { table: string; count: number }[];
+  leadersRaised: number;
+  skipped: { table: string; column: string; count: number; reason: string }[];
+}
+
+interface MergeOperation {
+  id: string;
+  sourceName: string;
+  targetName: string;
+  status: 'APPLIED' | 'UNDONE';
+  mergedAt: string;
+}
+
+const sourceLabel = (table: string) => L.delete.sources[table] ?? table;
+
 interface TeamFormData {
   name: string;
   code: string;
@@ -115,6 +132,12 @@ export default function TeamsPage() {
   const [tab, setTab] = useState<TeamStatus>('ACTIVE');
   const [statusError, setStatusError] = useState('');
   const [deleteBlocked, setDeleteBlocked] = useState<{ team: Team; blockers: Blocker[] } | null>(null);
+  const [mergeSource, setMergeSource] = useState<Team | null>(null);
+  const [mergeTarget, setMergeTarget] = useState('');
+  const [mergeSummary, setMergeSummary] = useState<MergeSummary | null>(null);
+  const [mergeError, setMergeError] = useState('');
+  const [mergeDone, setMergeDone] = useState('');
+  const [undoResult, setUndoResult] = useState('');
   const [formData, setFormData] = useState<TeamFormData>({
     name: '',
     code: '',
@@ -334,6 +357,60 @@ export default function TeamsPage() {
       return;
     }
     if (confirm(L.delete.confirm(team.name))) deleteMutation.mutate(team.id);
+  };
+
+  const { data: merges = [] } = useQuery<MergeOperation[]>({
+    queryKey: ['teams', 'merges'],
+    queryFn: () => api.get('/teams/merges').then((r) => r.data),
+  });
+
+  const closeMerge = () => {
+    setMergeSource(null);
+    setMergeTarget('');
+    setMergeSummary(null);
+    setMergeError('');
+  };
+  const mergeFailure = (err: unknown, fallback: string) => {
+    const { code } = extractApiError(err, fallback);
+    return (code && L.errors[code]) || fallback;
+  };
+
+  const previewMutation = useMutation({
+    mutationFn: () => api.post(`/teams/${mergeSource!.id}/merge-preview`, { targetTeamId: mergeTarget }),
+    onSuccess: (r) => {
+      setMergeError('');
+      setMergeSummary(r.data.summary);
+    },
+    onError: (err) => {
+      setMergeSummary(null);
+      setMergeError(mergeFailure(err, L.merge.failed));
+    },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: () => api.post(`/teams/${mergeSource!.id}/merge`, { targetTeamId: mergeTarget }),
+    onSuccess: () => {
+      const target = allTeams.find((t) => t.id === mergeTarget);
+      setMergeDone(L.merge.done(mergeSource!.name, target?.name ?? ''));
+      setUndoResult('');
+      closeMerge();
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => setMergeError(mergeFailure(err, L.merge.failed)),
+  });
+
+  const undoMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/teams/merges/${id}/undo`),
+    onSuccess: (r) => {
+      setMergeDone('');
+      setUndoResult(L.merge.undoResult(r.data.restored, r.data.skipped));
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => setStatusError(mergeFailure(err, L.merge.undoFailed)),
+  });
+
+  const startUndo = (op: MergeOperation) => {
+    if (confirm(L.merge.undoConfirm(op.sourceName, op.targetName))) undoMutation.mutate(op.id);
   };
 
   /** What can be done from each state; every action has its way back. */
@@ -651,6 +728,20 @@ export default function TeamsPage() {
             >
               {L.delete.action}
             </button>
+            {team.status !== 'ARCHIVED' && (
+              <button
+                data-testid={`team-action-merge-${team.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMergeDone('');
+                  setUndoResult('');
+                  setMergeSource(team);
+                }}
+                className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50"
+              >
+                {L.merge.action}
+              </button>
+            )}
             {ACTIONS[team.status].map((a) => (
               <button
                 key={a.key}
@@ -712,6 +803,113 @@ export default function TeamsPage() {
       {statusError && (
         <div role="alert" data-testid="team-status-error" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {statusError}
+        </div>
+      )}
+
+      {mergeDone && (
+        <div role="status" data-testid="team-merge-done" className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {mergeDone} {L.merge.after}
+        </div>
+      )}
+      {undoResult && (
+        <div role="status" data-testid="team-merge-undo-result" className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {undoResult}
+        </div>
+      )}
+
+      {mergeSource && (
+        <div data-testid="team-merge-dialog" className="mb-4 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-700 mb-3">{L.merge.title(mergeSource.name)}</h2>
+          <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="team-merge-target">
+            {L.merge.pick}
+          </label>
+          <select
+            id="team-merge-target"
+            data-testid="team-merge-target"
+            value={mergeTarget}
+            onChange={(e) => {
+              setMergeTarget(e.target.value);
+              setMergeSummary(null);
+              setMergeError('');
+            }}
+            className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-md text-sm"
+          >
+            <option value="">{L.merge.pickPlaceholder}</option>
+            {activeTeams
+              .filter((t) => t.id !== mergeSource.id)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.code} - {t.name}
+                </option>
+              ))}
+          </select>
+
+          {mergeError && (
+            <p role="alert" data-testid="team-merge-error" className="mt-3 text-sm text-red-700">
+              {mergeError}
+            </p>
+          )}
+
+          {previewMutation.isPending && <p className="mt-3 text-sm text-slate-500">{L.merge.previewing}</p>}
+
+          {mergeSummary && (
+            <div data-testid="team-merge-summary" className="mt-3 text-sm text-slate-700">
+              {mergeSummary.moved.length === 0 && mergeSummary.duplicatesRemoved.length === 0 ? (
+                <p>{L.merge.nothing}</p>
+              ) : (
+                <>
+                  <p className="font-semibold">{L.merge.previewTitle}</p>
+                  <ul className="list-disc pl-5">
+                    {mergeSummary.moved.map((m) => (
+                      <li key={`${m.table}.${m.column}`}>{L.merge.moved(m.count, sourceLabel(m.table))}</li>
+                    ))}
+                    {mergeSummary.duplicatesRemoved.map((d) => (
+                      <li key={`dup-${d.table}`}>{L.merge.duplicates(d.count, sourceLabel(d.table))}</li>
+                    ))}
+                    {mergeSummary.leadersRaised > 0 && <li>{L.merge.leaders(mergeSummary.leadersRaised)}</li>}
+                  </ul>
+                </>
+              )}
+              {mergeSummary.skipped.length > 0 && (
+                <>
+                  <p className="mt-2 font-semibold">{L.merge.skippedTitle}</p>
+                  <ul className="list-disc pl-5">
+                    {mergeSummary.skipped.map((s) => (
+                      <li key={`${s.table}.${s.reason}`}>
+                        {(L.merge.skipped[s.reason] ?? ((c: number, w: string) => `${c} ${w}`))(s.count, sourceLabel(s.table))}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="mt-2 text-slate-500">{L.merge.after}</p>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              data-testid="team-merge-preview"
+              onClick={() => previewMutation.mutate()}
+              disabled={!mergeTarget || previewMutation.isPending}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
+            >
+              {L.merge.preview}
+            </button>
+            <button
+              data-testid="team-merge-confirm"
+              onClick={() => mergeMutation.mutate()}
+              disabled={!mergeSummary || mergeMutation.isPending}
+              className="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50"
+            >
+              {L.merge.confirm}
+            </button>
+            <button
+              onClick={closeMerge}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+            >
+              {L.merge.cancel}
+            </button>
+          </div>
         </div>
       )}
 
@@ -891,6 +1089,36 @@ export default function TeamsPage() {
             .map((team) => renderTeamRow(team, 0))
         )}
       </div>
+
+      {merges.length > 0 && (
+        <div className="mt-6 bg-white border border-slate-200 rounded-lg shadow-sm">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-t-lg">
+            {L.merge.historyTitle}
+          </div>
+          <ul>
+            {merges.map((op) => (
+              <li key={op.id} className="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-100 text-sm">
+                <span>
+                  {op.sourceName} → {op.targetName}
+                  <span className="ml-2 text-xs text-slate-400">{new Date(op.mergedAt).toLocaleString('vi-VN')}</span>
+                </span>
+                {op.status === 'APPLIED' ? (
+                  <button
+                    data-testid={`team-merge-undo-${op.id}`}
+                    onClick={() => startUndo(op)}
+                    disabled={undoMutation.isPending}
+                    className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {L.merge.undo}
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400">{L.merge.undone}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

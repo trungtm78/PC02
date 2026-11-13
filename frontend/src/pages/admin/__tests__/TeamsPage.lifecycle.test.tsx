@@ -36,7 +36,9 @@ function renderPage() {
 describe('TeamsPage lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.get).mockResolvedValue({ data: TEAMS });
+    vi.mocked(api.get).mockImplementation(async (url: string) =>
+      url === '/teams/merges' ? { data: [] } : { data: TEAMS },
+    );
     vi.mocked(api.patch).mockResolvedValue({ data: {} });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
@@ -234,6 +236,123 @@ describe('TeamsPage lifecycle', () => {
       fireEvent.click(screen.getByTestId('team-tab-ARCHIVED'));
       await screen.findByText('Tổ cũ Phường 3');
       expect(screen.getByTestId('team-action-delete-z1')).toBeInTheDocument();
+    });
+  });
+
+  describe('merge', () => {
+    const SUMMARY = {
+      moved: [
+        { table: 'petitions', column: 'assignedTeamId', count: 763 },
+        { table: 'user_teams', column: 'teamId', count: 12 },
+      ],
+      duplicatesRemoved: [{ table: 'user_teams', count: 1 }],
+      leadersRaised: 1,
+      skipped: [{ table: 'dyn_report_assignments', column: 'teamId', count: 4, reason: 'HISTORY' }],
+    };
+    const TEAMS_WITH_TARGET = [
+      ...TEAMS,
+      { ...base, id: 'a2', name: 'Tổ công tác số 5', code: 'T5', parentId: null, isActive: true, status: 'ACTIVE' },
+    ];
+
+    beforeEach(() => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/merges' ? { data: [] } : { data: TEAMS_WITH_TARGET },
+      );
+      vi.mocked(api.post).mockImplementation(async (url: string) =>
+        url.endsWith('/merge-preview')
+          ? { data: { source: { id: 'a1', name: 'x' }, target: { id: 'a2', name: 'y' }, summary: SUMMARY } }
+          : { data: { operationId: 'op1', summary: SUMMARY } },
+      );
+    });
+
+    function openMerge() {
+      fireEvent.click(screen.getByTestId('team-action-merge-a1'));
+    }
+
+    it('only active teams other than the source can receive the merge', async () => {
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+
+      openMerge();
+
+      const select = await screen.findByTestId('team-merge-target');
+      const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent);
+      expect(options.some((o) => o?.includes('Tổ công tác số 5'))).toBe(true);
+      expect(options.some((o) => o?.includes('Tổ công tác số 2'))).toBe(false);
+      expect(options.some((o) => o?.includes('Tổ thử nghiệm'))).toBe(false);
+    });
+
+    it('previews what will move, what is dropped as a duplicate and what stays, before anything is changed', async () => {
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+      openMerge();
+      fireEvent.change(await screen.findByTestId('team-merge-target'), { target: { value: 'a2' } });
+
+      fireEvent.click(screen.getByTestId('team-merge-preview'));
+
+      const box = await screen.findByTestId('team-merge-summary');
+      expect(api.post).toHaveBeenCalledWith('/teams/a1/merge-preview', { targetTeamId: 'a2' });
+      expect(box).toHaveTextContent(t.merge.moved(763, t.delete.sources.petitions));
+      expect(box).toHaveTextContent(t.merge.moved(12, t.delete.sources.user_teams));
+      expect(box).toHaveTextContent(t.merge.duplicates(1, t.delete.sources.user_teams));
+      expect(box).toHaveTextContent(t.merge.leaders(1));
+      expect(box).toHaveTextContent(t.merge.skipped.HISTORY(4, t.delete.sources.dyn_report_assignments));
+      expect(api.post).not.toHaveBeenCalledWith('/teams/a1/merge', expect.anything());
+    });
+
+    it('merges only after the preview, then announces it', async () => {
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+      openMerge();
+      fireEvent.change(await screen.findByTestId('team-merge-target'), { target: { value: 'a2' } });
+      expect(screen.getByTestId('team-merge-confirm')).toBeDisabled();
+      fireEvent.click(screen.getByTestId('team-merge-preview'));
+      await screen.findByTestId('team-merge-summary');
+
+      fireEvent.click(screen.getByTestId('team-merge-confirm'));
+
+      await waitFor(() => expect(api.post).toHaveBeenCalledWith('/teams/a1/merge', { targetTeamId: 'a2' }));
+      expect(await screen.findByTestId('team-merge-done')).toHaveTextContent(
+        t.merge.done('Tổ công tác số 2', 'Tổ công tác số 5'),
+      );
+    });
+
+    it('a server refusal is shown in the dialog as its translated message', async () => {
+      vi.mocked(api.post).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: { error: { code: 'TEAM_MERGE_CYCLE', message: 'x' } } },
+      });
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+      openMerge();
+      fireEvent.change(await screen.findByTestId('team-merge-target'), { target: { value: 'a2' } });
+
+      fireEvent.click(screen.getByTestId('team-merge-preview'));
+
+      expect(await screen.findByTestId('team-merge-error')).toHaveTextContent(t.errors.TEAM_MERGE_CYCLE);
+    });
+
+    it('lists recent merges and undoes one after asking, reporting what was left alone', async () => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/merges'
+          ? {
+              data: [
+                { id: 'op1', sourceName: 'Tổ cũ A', targetName: 'Tổ mới B', status: 'APPLIED', mergedAt: '2026-11-13T01:00:00Z' },
+                { id: 'op0', sourceName: 'Tổ cũ X', targetName: 'Tổ mới Y', status: 'UNDONE', mergedAt: '2026-11-12T01:00:00Z' },
+              ],
+            }
+          : { data: TEAMS_WITH_TARGET },
+      );
+      vi.mocked(api.post).mockResolvedValue({ data: { restored: 10, skipped: 2 } });
+      renderPage();
+
+      await screen.findByText('Tổ cũ A', { exact: false });
+      expect(screen.queryByTestId('team-merge-undo-op0')).toBeNull();
+      fireEvent.click(screen.getByTestId('team-merge-undo-op1'));
+
+      expect(window.confirm).toHaveBeenCalledWith(t.merge.undoConfirm('Tổ cũ A', 'Tổ mới B'));
+      await waitFor(() => expect(api.post).toHaveBeenCalledWith('/teams/merges/op1/undo'));
+      expect(await screen.findByTestId('team-merge-undo-result')).toHaveTextContent(t.merge.undoResult(10, 2));
     });
   });
 

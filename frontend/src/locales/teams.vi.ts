@@ -51,10 +51,49 @@ export const teams = {
     } as Record<string, string>,
     line: (count: number, what: string) => `${count} ${what}`,
   },
+  merge: {
+    action: 'Gộp…',
+    title: (name: string) => `Gộp "${name}" vào tổ khác`,
+    pick: 'Gộp vào tổ',
+    pickPlaceholder: '— Chọn tổ nhận —',
+    preview: 'Xem trước',
+    confirm: 'Gộp',
+    cancel: 'Huỷ',
+    previewing: 'Đang đếm…',
+    previewTitle: 'Khi gộp sẽ:',
+    moved: (count: number, what: string) => `chuyển ${count} ${what} sang tổ nhận`,
+    duplicates: (count: number, what: string) => `bỏ ${count} ${what} bị trùng (tổ nhận đã có)`,
+    leaders: (count: number) => `giữ quyền trưởng nhóm cho ${count} người đã là thành viên ở cả hai tổ`,
+    skippedTitle: 'Không chuyển (giữ nguyên ở tổ cũ):',
+    skipped: {
+      HISTORY: (count: number, what: string) => `${count} ${what}: lịch sử các kỳ đã sinh, không sửa lại`,
+      TARGET_HAS_ONE: (count: number, what: string) => `${count} ${what}: tổ nhận đã có báo cáo này`,
+      CLOSED: (count: number, what: string) => `${count} ${what}: đã kết thúc trước đây`,
+    } as Record<string, (count: number, what: string) => string>,
+    after: 'Tổ cũ sẽ được lưu trữ. Có thể Hoàn tác sau khi gộp.',
+    nothing: 'Tổ cũ không có dữ liệu nào để chuyển.',
+    done: (source: string, target: string) => `Đã gộp "${source}" vào "${target}".`,
+    historyTitle: 'Các lần gộp gần đây',
+    undo: 'Hoàn tác',
+    undone: 'Đã hoàn tác',
+    undoConfirm: (source: string, target: string) =>
+      `Hoàn tác việc gộp "${source}" vào "${target}"? Những bản ghi đã bị sửa sau khi gộp sẽ được giữ nguyên.`,
+    undoResult: (restored: number, skipped: number) =>
+      skipped > 0
+        ? `Đã khôi phục ${restored} bản ghi; ${skipped} bản ghi đã bị sửa sau khi gộp nên được giữ nguyên.`
+        : `Đã khôi phục ${restored} bản ghi.`,
+    failed: 'Không gộp được. Hãy thử lại.',
+    undoFailed: 'Không hoàn tác được. Hãy thử lại.',
+  },
   /** Server error codes the screen translates. */
   errors: {
     TEAM_INVALID_TRANSITION: 'Tổ đang ở trạng thái không cho phép thao tác này. Hãy tải lại danh sách.',
     TEAM_STATUS_UNKNOWN: 'Trạng thái yêu cầu không tồn tại.',
     TEAM_HAS_DATA: 'Tổ vẫn còn dữ liệu nên chưa xoá được.',
+    TEAM_MERGE_SAME_TEAM: 'Không thể gộp một tổ vào chính nó.',
+    TEAM_MERGE_TARGET_NOT_ACTIVE: 'Tổ nhận phải đang hoạt động.',
+    TEAM_MERGE_CYCLE: 'Không thể gộp một tổ vào tổ con của nó.',
+    TEAM_MERGE_NOT_UNDOABLE: 'Lần gộp này đã được hoàn tác hoặc không còn hoàn tác được.',
+    TEAM_MERGE_UNSUPPORTED_REFERENCE: 'Hệ thống có dữ liệu mới liên quan tới tổ mà việc gộp chưa xử lý. Hãy báo quản trị kỹ thuật.',
   } as Record<string, string>,
 };
