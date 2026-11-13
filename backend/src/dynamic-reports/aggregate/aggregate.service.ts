@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import * as ExcelJS from 'exceljs';
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DynReportPeriodFinalizedEvent } from '../../notifications/events/notification.events';
 import { aggregateValues } from '../engine/aggregate';
@@ -13,7 +13,16 @@ import type { PeriodExportScope } from '../export/period-export';
 import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
 import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
-import { contributionsFor, contributorSetIdentity, contributorsFor, countsUnder, ownedKeys, owns } from './contributors';
+import {
+  contributionsFor,
+  contributorSetIdentity,
+  contributorsFor,
+  countsUnder,
+  freezeOwnedFieldKeys,
+  ownedKeys,
+  owns,
+} from './contributors';
+import { normaliseTargetSubset, TargetSubsetError } from '../config/target-subsets';
 import type { SummaryMode } from './contributors';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -1350,6 +1359,88 @@ export class AggregateService {
         obligation: assignment.obligation as 'REQUIRED' | 'EXEMPT',
         editorUserIds: [...wanted],
       };
+    });
+  }
+
+  /**
+   * Changes the criteria a team reports in a period that is already running (D09: the configuration never reaches a
+   * running period by itself; this does, with a reason, and leaves a line of history). Figures already typed for a
+   * criterion that is taken away are kept but no longer counted; giving it back counts them again. An approved
+   * submission must be returned first: its approval covered the criteria it had.
+   */
+  async setAssignmentCriteria(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    assignmentId: string,
+    itemKeys: string[] | null | undefined,
+    reason: string,
+  ): Promise<{ assignmentId: string; ownedFieldKeys: string[] | null; changed: boolean }> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+      const period = await tx.dynReportPeriod.findUnique({ where: { id: periodId } });
+      const actorRole = period ? await this.resolveManagerRole(tx, period.reportId, userId, roleId) : null;
+      if (!period || !actorRole) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      if (period.status !== 'OPEN') {
+        throw new SubmissionError('Kỳ đã khoá, không thể đổi tiêu chí của tổ.', 'INVALID_STATE_TRANSITION');
+      }
+      const assignment = await tx.dynReportAssignment.findUnique({
+        where: { id: assignmentId },
+        include: { submission: { select: { state: true } } },
+      });
+      if (!assignment || assignment.periodId !== periodId) {
+        throw new NotFoundException('Không tìm thấy lượt giao này.');
+      }
+      if (assignment.submission?.state === 'APPROVED') {
+        throw new SubmissionError(
+          'Bản nộp của tổ đã được duyệt. Hãy trả lại bản nộp trước khi đổi tiêu chí.',
+          'SUBMISSION_APPROVED',
+        );
+      }
+      const fields = await tx.dynReportField.findMany({
+        where: { versionId: period.versionId },
+        select: { fieldKey: true, itemKey: true },
+        orderBy: [{ sheetKey: 'asc' }, { address: 'asc' }],
+      });
+      let wantedItemKeys: string[] | null;
+      try {
+        wantedItemKeys = normaliseTargetSubset(assignment.teamId, itemKeys, fields);
+      } catch (err) {
+        if (err instanceof TargetSubsetError) {
+          throw new SubmissionError(
+            err.code === 'TARGET_SUBSET_EMPTY'
+              ? 'Mỗi tổ phải báo ít nhất một tiêu chí. Muốn tổ không báo gì thì dùng "Miễn nộp".'
+              : `Tiêu chí không có trong kỳ này: ${err.unknown.join(', ')}`,
+            err.code,
+          );
+        }
+        throw err;
+      }
+      const after = freezeOwnedFieldKeys(wantedItemKeys, fields);
+      const before = ownedKeys(assignment);
+      if (JSON.stringify(before) === JSON.stringify(after)) {
+        return { assignmentId, ownedFieldKeys: after, changed: false };
+      }
+      await tx.dynReportAssignment.update({
+        where: { id: assignmentId },
+        data: { ownedFieldKeys: after ?? Prisma.DbNull },
+      });
+      await tx.dynReportAssignmentScopeChange.create({
+        data: {
+          assignmentId,
+          before: before ? [...before] : Prisma.DbNull,
+          after: after ?? Prisma.DbNull,
+          reason,
+          changedById: userId,
+        },
+      });
+      // What was summed, and the files made, with the old set no longer describe the period.
+      await tx.dynReportSnapshot.updateMany({
+        where: { periodId, invalidatedAt: null },
+        data: { invalidatedAt: new Date(), invalidatedReason: 'TEAM_CRITERIA_CHANGED' },
+      });
+      await tx.dynReportExport.deleteMany({ where: { scope: { path: ['periodId'], equals: periodId } } });
+      return { assignmentId, ownedFieldKeys: after, changed: true };
     });
   }
 

@@ -4379,6 +4379,7 @@ model DynReportAssignment {
   createdAt            DateTime              @default(now())
 
   editors      DynReportAssignmentEditor[]
+  scopeChanges DynReportAssignmentScopeChange[]
   submission   DynReportSubmission?
   unlocks      DynReportUnlock[]
   comments     DynReportComment[]
@@ -4386,6 +4387,23 @@ model DynReportAssignment {
 
   @@unique([periodId, teamId])
   @@map("dyn_report_assignments")
+}
+
+/// One change of the criteria a team reports in a period that is already running (D09): what it was, what it became,
+/// why, and who did it. Nothing is overwritten without a line here.
+model DynReportAssignmentScopeChange {
+  id           String              @id @default(cuid())
+  assignmentId String
+  assignment   DynReportAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  /// Field keys before / after; NULL = every field.
+  before       Json?
+  after        Json?
+  reason       String
+  changedById  String
+  createdAt    DateTime            @default(now())
+
+  @@index([assignmentId, createdAt])
+  @@map("dyn_report_assignment_scope_changes")
 }
 
 model DynReportAssignmentEditor {

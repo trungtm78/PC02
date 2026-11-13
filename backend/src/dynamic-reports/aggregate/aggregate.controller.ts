@@ -24,6 +24,7 @@ import { ReportConfigError } from '../config/report-config.service';
 import { SubmissionError } from '../submission/submission.service';
 import { ReopenPeriodDto } from './dto/reopen-period.dto';
 import { FinalizePeriodDto } from './dto/finalize-period.dto';
+import { SetAssignmentCriteriaDto } from './dto/set-assignment-criteria.dto';
 import { ExportPeriodDto } from './dto/export-period.dto';
 import { PreviewAddTeamDto } from './dto/preview-add-team.dto';
 import { AddTeamMidPeriodDto } from './dto/add-team-mid-period.dto';
@@ -193,6 +194,27 @@ export class AggregateController {
         user.roleId,
         assignmentId,
         body.editorUserIds,
+        body.reason,
+      ),
+    );
+  }
+
+  /** Đổi tiêu chí một tổ phải báo trong kỳ đang chạy (D09, bắt buộc lý do). */
+  @Post(':periodId/assignments/:assignmentId/criteria')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async setAssignmentCriteria(
+    @Param('periodId') periodId: string,
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: SetAssignmentCriteriaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.setAssignmentCriteria(
+        periodId,
+        user.id,
+        user.roleId,
+        assignmentId,
+        body.itemKeys,
         body.reason,
       ),
     );
