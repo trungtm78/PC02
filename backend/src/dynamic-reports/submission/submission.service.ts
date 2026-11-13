@@ -296,11 +296,12 @@ export class SubmissionService {
     assignment: { ownedFieldKeys?: unknown; period: { version: { selectedSheets: unknown } } },
     fields: F[],
     rules: R[],
-  ): { fields: F[]; rules: R[]; foreignFieldKeys: ReadonlySet<string> } {
+  ): { fields: F[]; rules: R[]; foreignFields: F[]; foreignFieldKeys: ReadonlySet<string> } {
     const part = ownedView(assignment, fields, rules, this.defaultSheetFor(assignment.period.version.selectedSheets));
-    if (part.fields === fields) return { ...part, foreignFieldKeys: NO_FOREIGN_FIELDS };
+    if (part.fields === fields) return { ...part, foreignFields: [], foreignFieldKeys: NO_FOREIGN_FIELDS };
     const mine = new Set(part.fields.map((f) => f.fieldKey));
-    return { ...part, foreignFieldKeys: new Set(fields.map((f) => f.fieldKey).filter((k) => !mine.has(k))) };
+    const foreignFields = fields.filter((f) => !mine.has(f.fieldKey));
+    return { ...part, foreignFields, foreignFieldKeys: new Set(foreignFields.map((f) => f.fieldKey)) };
   }
 
   /**
@@ -1532,15 +1533,18 @@ export class SubmissionService {
     try {
       fileBuffer = await this.templateExport.buildTeamFile({
         versionId: period.versionId,
-        fields: period.version.fields.map((f) => ({
+        // The input cells of other teams are written too, as blanks: left alone they would keep whatever the template
+        // has in them (a sample figure, the token text) and a formula of the sheet would add that to this team's total.
+        fields: [...period.version.fields, ...period.version.foreignFields].map((f) => ({
           sheetKey: f.sheetKey,
           address: f.address,
           fieldKey: f.fieldKey,
           type: f.type as ImportCellType,
         })),
-        values: Object.fromEntries(
-          period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null]),
-        ),
+        values: Object.fromEntries([
+          ...period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null] as const),
+          ...period.version.foreignFields.map((f) => [f.fieldKey, null] as const),
+        ]),
         meta: {
           kind: 'TEAM',
           reportId: period.report.id,

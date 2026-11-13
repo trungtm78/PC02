@@ -1247,6 +1247,28 @@ describe('SubmissionService', () => {
       });
     });
 
+    it('its own Excel file blanks the input cells of other teams, even where a stray value was once saved', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue({
+        ...subsetAssignment(),
+        teamSnapshot: { name: 'Đội 3' },
+        submission: draft({ 'Đội 3!C6': { t: 'NUM', v: '5' }, 'Đội 3!C7': { t: 'NUM', v: '999' } }),
+      });
+      const { service, templateExport } = buildService(tx);
+      templateExport.buildTeamFile.mockResolvedValue(Buffer.from('PK'));
+
+      await service.exportOwnSubmission('assign1', 'u1');
+
+      const call = templateExport.buildTeamFile.mock.calls[0][0] as {
+        fields: Array<{ fieldKey: string }>;
+        values: Record<string, string | null>;
+      };
+      // Both cells are written: the team's with its figure, the other team's as a blank (never left as the template has it).
+      expect(call.fields.map((f) => f.fieldKey).sort()).toEqual(['Đội 3!C6', 'Đội 3!C7']);
+      expect(call.values).toEqual({ 'Đội 3!C6': '5', 'Đội 3!C7': null });
+    });
+
     it('submits with its own fields filled: a required field and a blocking rule of another team do not stop it', async () => {
       const tx = buildTx();
       tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
