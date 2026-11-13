@@ -11,6 +11,7 @@ import type { DataScope } from '../../auth/services/unit-scope.service';
 import {
   assertParentInScope,
   buildScopeFilter,
+  teamInScope,
 } from '../../common/utils/scope-filter.util';
 import {
   ActorContext,
@@ -1171,8 +1172,7 @@ export class CaseGovernanceService {
     const scope = await this.currentScope(tx, user);
     if (
       parent.assignedTeamId &&
-      scope &&
-      !scope.writableTeamIds.includes(parent.assignedTeamId)
+      !teamInScope(parent.assignedTeamId, scope, 'write', 'Case')
     )
       throw new ForbiddenException('Creation destination must be writable');
     if (parent.assignedTeamId || parent.investigatorId || !user.canDispatch)

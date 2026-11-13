@@ -11,7 +11,10 @@ import {
 } from './dto/create-exchange.dto';
 import { ExchangeStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertCreatorInScope } from '../common/utils/scope-filter.util';
+import {
+  assertCreatorInScope,
+  creatorFilter,
+} from '../common/utils/scope-filter.util';
 import {
   ArrayMaxSize,
   IsArray,
@@ -155,16 +158,13 @@ export class ExchangesService {
         ...(den && { lt: den.lt }),
       };
 
-    if (dataScope && !dataScope.canDispatch) {
-      const { userIds, teamIds } = dataScope;
-      if (userIds.length === 0 && teamIds.length === 0) {
-        dieuKien.push({ id: '__no_access__' });
-      } else if (userIds.length > 0) {
-        dieuKien.push({ createdById: { in: userIds } });
-      } else {
-        dieuKien.push({ createdById: { not: null } });
-      }
-    }
+    // A dispatcher reads everything; people in scope filter by creator; a team with no people sees every record
+    // that HAS a creator; nobody and no team sees nothing.
+    const phamVi = creatorFilter(dataScope, 'read', {
+      dispatcherSeesAll: true,
+      whenTeamOnly: 'has-creator',
+    });
+    if (phamVi !== null) dieuKien.push(phamVi as Prisma.ExchangeWhereInput);
     if (dieuKien.length) where.AND = dieuKien;
     return where;
   }

@@ -12,6 +12,7 @@ import { DocumentNumbersService } from '../../document-numbers/document-numbers.
 import { CaseEvidenceGovernanceService } from '../evidence-governance/evidence-governance.service';
 import { machMocGiaiQuyet } from '../../common/trang-thai/trang-thai-ket-thuc';
 import { CaseGovernanceService } from './case-governance.service';
+import { teamInScope, userInScope } from '../../common/utils/scope-filter.util';
 import {
   ActorContext,
   MutationInput,
@@ -1307,7 +1308,7 @@ export class LegalWorkflowService {
         },
       }),
     );
-    if (scope && !scope.writableTeamIds.includes(teamId))
+    if (!teamInScope(teamId, scope, 'write', 'Case'))
       throw new ForbiddenException('Split destination outside writable scope');
     const allocated = await this.numbers.commitWithTx(
       'CASE',
@@ -1465,10 +1466,10 @@ export class LegalWorkflowService {
       scope &&
       !(
         source.assignedTeamId &&
-        scope.writableTeamIds.includes(source.assignedTeamId)
+        teamInScope(source.assignedTeamId, scope, 'write', subject)
       ) &&
       !(
-        source.createdById && scope.writableUserIds.includes(source.createdById)
+        source.createdById && userInScope(source.createdById, scope, 'write')
       ) &&
       source.investigatorId !== actor.actorId
     )

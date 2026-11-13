@@ -481,6 +481,11 @@ export function creatorFilter(
   return options.whenTeamOnly === 'has-creator' ? { createdById: { not: null } } : null;
 }
 
+/** True for the filter the helpers return to say "nothing at all" (so callers need not know how it is spelled). */
+export function isNoAccessFilter(filter: Record<string, unknown> | null | undefined): boolean {
+  return !!filter && filter.id === NO_ACCESS_SENTINEL;
+}
+
 /** True when the scope reaches nothing at all: no record of any subject, for reading. */
 export function scopeIsEmpty(scope: DataScope | null | undefined): boolean {
   if (!scope) return false;

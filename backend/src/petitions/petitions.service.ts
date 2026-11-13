@@ -48,7 +48,11 @@ import { AssignPetitionDto } from './dto/assign-petition.dto';
 import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  buildPetitionScopeFilter,
+  recordInScope,
+  scopeConditions,
+} from '../common/utils/scope-filter.util';
 import { boDauTimKiem } from '../common/tim-kiem/bo-dau';
 import {
   KHAI_COT_XUAT_DON_THU_DAY_DU,
@@ -546,18 +550,14 @@ export class PetitionsService {
     record: { enteredById?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,
   ) {
-    if (!dataScope) return;
-    if (dataScope.canDispatch) return; // dispatcher: full read access
-    const { userIds, teamIds, isWardOfficer } = dataScope;
-    const ownerMatch =
-      record.enteredById && userIds.includes(record.enteredById);
-    const teamMatch =
-      record.assignedTeamId && teamIds.includes(record.assignedTeamId);
-    // Cán bộ phường KHÔNG thấy hồ sơ chưa giao tổ (luật v0.33 "Crit 1") — danh sách đã ẩn; trang chi tiết cũng
-    // phải chặn, nếu không biết id là mở được (rà độc lập 19/09/2026).
-    const unassignedMatch =
-      !record.assignedTeamId && teamIds.length > 0 && !isWardOfficer;
-    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+    // Admin and a dispatcher read everything; a ward officer does not see petitions no team holds yet.
+    const inScope = recordInScope(
+      { assignedTeamId: record.assignedTeamId, ownerId: record.enteredById },
+      dataScope,
+      'read',
+      'Petition',
+    );
+    if (!inScope) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
     }
   }
@@ -579,19 +579,8 @@ export class PetitionsService {
 
     // Scope filter: same OR pattern as cases.service.create (FROM_PETITION branch)
     // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
-    if (dataScope) {
-      const orConditions: Prisma.PetitionWhereInput[] = [];
-      if (dataScope.writableUserIds.length > 0) {
-        orConditions.push({ enteredById: { in: dataScope.writableUserIds } });
-      }
-      if (dataScope.writableTeamIds.length > 0) {
-        orConditions.push({
-          assignedTeamId: { in: dataScope.writableTeamIds },
-        });
-        if (!dataScope.isWardOfficer) {
-          orConditions.push({ assignedTeamId: null });
-        }
-      }
+    const orConditions = scopeConditions(dataScope, 'write', 'Petition');
+    if (orConditions !== null) {
       if (orConditions.length === 0) {
         return { data: [] };
       }
@@ -654,22 +643,14 @@ export class PetitionsService {
     record: { enteredById?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,
   ): boolean {
-    if (!dataScope) return true;
-    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
-    const {
-      writableUserIds: userIds,
-      writableTeamIds,
-      isWardOfficer,
-    } = dataScope;
-    const ownerMatch =
-      record.enteredById && userIds.includes(record.enteredById);
-    const teamMatch =
-      record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.
-    // Without this, WO could convert unassigned petition if they obtain ID (even though list filter hides it).
-    const unassignedMatch =
-      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
-    return Boolean(ownerMatch || teamMatch || unassignedMatch);
+    // The write scope: people and teams the viewer may change (not the read-only grants). P2-001: a ward officer
+    // is EXCLUDED from intake (unassigned petitions), or one could convert such a petition by knowing its id.
+    return recordInScope(
+      { assignedTeamId: record.assignedTeamId, ownerId: record.enteredById },
+      dataScope,
+      'write',
+      'Petition',
+    );
   }
 
   private checkWriteScope(

@@ -4,6 +4,7 @@ import {
   buildPetitionScopeFilter,
   buildScopeFilter,
   creatorFilter,
+  isNoAccessFilter,
   recordInScope,
   scopeConditions,
   scopeIsEmpty,
@@ -153,6 +154,16 @@ describe('creatorFilter: lists of records known only by who created them', () =>
     expect(creatorFilter(precise({ Case: both(TREE_A, OWN) }), 'write', all)).toEqual({ createdById: { in: [ME] } });
     expect(creatorFilter(precise({ Case: both(ALL) }), 'read', all)).toBeNull();
     expect(creatorFilter(precise(), 'read', all)).toEqual({ id: '__no_access__' });
+  });
+});
+
+describe('isNoAccessFilter', () => {
+  it('recognises "nothing at all" from any helper, and nothing else', () => {
+    expect(isNoAccessFilter(creatorFilter(legacy({ teamIds: [], userIds: [] }), 'read', { dispatcherSeesAll: true, whenTeamOnly: 'all' }))).toBe(true);
+    expect(isNoAccessFilter(buildScopeFilter(legacy({ teamIds: [], userIds: [] }), 'read', 'Case'))).toBe(true);
+    expect(isNoAccessFilter(buildScopeFilter(legacy(), 'read', 'Case'))).toBe(false);
+    expect(isNoAccessFilter({ id: 'a-real-id' })).toBe(false);
+    expect(isNoAccessFilter(null)).toBe(false);
   });
 });
 
