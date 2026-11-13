@@ -21,6 +21,12 @@ import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import { TeamsService } from '../../teams/teams.service';
 import { closingBasis, describeExcluded, excludedMessage, totalsNote } from './closing-basis';
 import {
+  applyAssignmentEditors,
+  configuredEditorsOf,
+  findUnqualifiedEditors,
+} from './assignment-editors';
+import { hoTenCanBo } from '../../common/xuat-danh-sach/dinh-dang';
+import {
   sanitizeSheetName,
   sanitizeFileNamePart,
 } from '../export-filename.util';
@@ -139,6 +145,11 @@ export interface MidPeriodAssignmentView {
   obligation: 'REQUIRED' | 'EXEMPT';
 }
 
+/** The result of an editor change: who may type for the assignment now. */
+export interface AssignmentEditorsView extends MidPeriodAssignmentView {
+  editorUserIds: string[];
+}
+
 /** S30 — 1 dòng trong danh sách tổ của kỳ, cho màn thêm tổ/miễn nộp chọn tổ. */
 export interface AssignmentListItemView {
   assignmentId: string;
@@ -146,6 +157,8 @@ export interface AssignmentListItemView {
   teamName: string;
   obligation: 'REQUIRED' | 'EXEMPT';
   state: string;
+  /** Who may type for this team in this period (active editors), so the manager can see and change it. */
+  editors: Array<{ userId: string; name: string }>;
   /** The team was added in the middle of the period (not generated with it). */
   addedMidPeriod: boolean;
   /** It can be taken back: added mid-period, the period is open and nobody has entered, commented or asked for anything. */
@@ -999,7 +1012,18 @@ export class AggregateService {
   ): Promise<AssignmentListItemView[]> {
     const period = await this.prisma.dynReportPeriod.findUnique({
       where: { id: periodId },
-      include: { assignments: { include: { submission: true } } },
+      include: {
+        assignments: {
+          include: {
+            submission: true,
+            editors: {
+              where: { isActive: true },
+              include: { user: { select: { firstName: true, lastName: true, username: true } } },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
+      },
     });
     if (!period) {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
@@ -1031,6 +1055,7 @@ export class AggregateService {
         teamName: teamSnapshot?.name ?? '',
         obligation: a.obligation as 'REQUIRED' | 'EXEMPT',
         state: a.submission?.state ?? 'NOT_STARTED',
+        editors: a.editors.map((e) => ({ userId: e.userId, name: hoTenCanBo(e.user) })),
         addedMidPeriod: !!a.addedMidPeriodReason,
         // The same test the removal itself makes: added in the middle of the period, and nobody has touched it.
         removable: period.status === 'OPEN' && !!a.addedMidPeriodReason && untouched,
@@ -1204,6 +1229,7 @@ export class AggregateService {
     roleId: string,
     teamId: string,
     reason: string,
+    editorUserIds?: string[],
   ): Promise<MidPeriodAssignmentView> {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
@@ -1241,6 +1267,22 @@ export class AggregateService {
         );
       }
 
+      // Without an editor row nobody can open the team's assignment (every read and write looks for one), so a team is
+      // never added without people to type: the manager's choice, or else what the report's configuration names for it.
+      const now = new Date();
+      const chosen = [...new Set(editorUserIds ?? [])];
+      const editors =
+        chosen.length > 0
+          ? new Set(chosen)
+          : await configuredEditorsOf(tx, period.reportId, teamId, now);
+      if (editors.size === 0) {
+        throw new SubmissionError(
+          'Tổ này chưa có người nhập. Hãy chọn người nhập cho tổ khi thêm vào kỳ.',
+          'EDITORS_REQUIRED',
+        );
+      }
+      await this.assertEditorsQualify(tx, [...editors]);
+
       const assignment = await tx.dynReportAssignment.create({
         data: {
           periodId,
@@ -1253,12 +1295,84 @@ export class AggregateService {
       await tx.dynReportSubmission.create({
         data: { assignmentId: assignment.id, state: 'NOT_STARTED' },
       });
+      await applyAssignmentEditors(tx, assignment.id, editors, {
+        now,
+        reason: `ADDED_MID_PERIOD: ${reason}`,
+        actorId: userId,
+      });
 
       return {
         assignmentId: assignment.id,
         teamId: team.id,
         teamName: team.name,
         obligation: 'REQUIRED' as const,
+      };
+    });
+  }
+
+  /** An editor must exist, be active and be able to open the module; the message says which rule was broken. */
+  private async assertEditorsQualify(
+    tx: Prisma.TransactionClient,
+    userIds: readonly string[],
+  ): Promise<void> {
+    const bad = await findUnqualifiedEditors(tx, userIds);
+    if (bad.length > 0) {
+      throw new SubmissionError(
+        'Có người được chọn không tồn tại, đã bị khoá hoặc chưa có quyền vào mục Báo cáo động.',
+        'EDITOR_INVALID',
+      );
+    }
+  }
+
+  /**
+   * S30 — đổi người nhập của MỘT tổ trong kỳ đang chạy (D09: kỳ đã mở giữ người nhập của nó; đổi ở đây, có lý do).
+   * Người rời đi không bị xoá: dòng của họ ngừng hoạt động và ghi ngày, lý do, người thực hiện.
+   */
+  async setAssignmentEditors(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    assignmentId: string,
+    editorUserIds: string[],
+    reason: string,
+  ): Promise<AssignmentEditorsView> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+
+      const period = await tx.dynReportPeriod.findUnique({ where: { id: periodId } });
+      if (!period) {
+        throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      }
+      const actorRole = await this.resolveManagerRole(tx, period.reportId, userId, roleId);
+      if (!actorRole) {
+        throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      }
+      if (period.status !== 'OPEN') {
+        throw new SubmissionError('Kỳ đã khoá, không thể đổi người nhập.', 'INVALID_STATE_TRANSITION');
+      }
+      const assignment = await tx.dynReportAssignment.findUnique({ where: { id: assignmentId } });
+      if (!assignment || assignment.periodId !== periodId) {
+        throw new NotFoundException('Không tìm thấy lượt giao này.');
+      }
+      const wanted = new Set(editorUserIds);
+      if (wanted.size === 0) {
+        throw new SubmissionError('Phải có ít nhất một người nhập cho tổ.', 'EDITORS_REQUIRED');
+      }
+      await this.assertEditorsQualify(tx, [...wanted]);
+
+      await applyAssignmentEditors(tx, assignmentId, wanted, {
+        now: new Date(),
+        reason,
+        actorId: userId,
+      });
+
+      const teamSnapshot = assignment.teamSnapshot as { name?: string } | null;
+      return {
+        assignmentId,
+        teamId: assignment.teamId,
+        teamName: teamSnapshot?.name ?? '',
+        obligation: assignment.obligation as 'REQUIRED' | 'EXEMPT',
+        editorUserIds: [...wanted],
       };
     });
   }

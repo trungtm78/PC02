@@ -522,6 +522,8 @@ export interface AssignmentListItemView {
   teamName: string;
   obligation: 'REQUIRED' | 'EXEMPT';
   state: DynReportSubmissionState;
+  /** Who may type for this team in this period (the active editors). */
+  editors: Array<{ userId: string; name: string }>;
   /** The team was added in the middle of the period (not generated with it). */
   addedMidPeriod: boolean;
   /** It can be taken back: added mid-period and nobody has entered, commented or asked for anything. */
@@ -576,6 +578,11 @@ export interface MidPeriodAssignmentView {
   teamId: string;
   teamName: string;
   obligation: 'REQUIRED' | 'EXEMPT';
+}
+
+/** The result of changing who types for a team: who may type now. */
+export interface AssignmentEditorsView extends MidPeriodAssignmentView {
+  editorUserIds: string[];
 }
 
 /** S25 (PR7 slice 7) — created by POST .../export, then downloaded via GET .../exports/:exportId/download. */

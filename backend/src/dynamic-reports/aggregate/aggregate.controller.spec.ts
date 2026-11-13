@@ -20,6 +20,7 @@ describe('AggregateController', () => {
     previewAddTeam: jest.fn(),
     previewExemptTeam: jest.fn(),
     addTeamMidPeriod: jest.fn(),
+    setAssignmentEditors: jest.fn(),
     exemptTeamMidPeriod: jest.fn(),
     listAssignmentsForPeriod: jest.fn(),
     unexemptTeamMidPeriod: jest.fn(),
@@ -162,6 +163,21 @@ describe('AggregateController', () => {
       expect(result).toBe(preview);
     });
 
+    it('POST assignments/:assignmentId/editors delegates with the editors and the reason', async () => {
+      const changed = { assignmentId: 'a1', editorUserIds: ['e2'] };
+      service.setAssignmentEditors.mockResolvedValue(changed);
+
+      const result = await controller.setAssignmentEditors(
+        'period1',
+        'a1',
+        { editorUserIds: ['e2'], reason: 'Cán bộ đi công tác' },
+        user,
+      );
+
+      expect(service.setAssignmentEditors).toHaveBeenCalledWith('period1', 'u1', 'r1', 'a1', ['e2'], 'Cán bộ đi công tác');
+      expect(result).toBe(changed);
+    });
+
     it('POST assignments/add-team delegates with teamId + reason', async () => {
       const created = { assignmentId: 'new1', obligation: 'REQUIRED' };
       service.addTeamMidPeriod.mockResolvedValue(created);
@@ -178,6 +194,7 @@ describe('AggregateController', () => {
         'r1',
         'team-new',
         'Bổ sung tổ',
+        undefined,
       );
       expect(result).toBe(created);
     });

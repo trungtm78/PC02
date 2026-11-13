@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportPeriodTeamsPage from '../ReportPeriodTeamsPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import { api } from '@/lib/api';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import type {
   AssignmentListItemView,
   MidPeriodImpactPreview,
@@ -19,9 +20,17 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     exemptTeamMidPeriod: vi.fn(),
     unexemptTeamMidPeriod: vi.fn(),
     removeAddedTeamMidPeriod: vi.fn(),
+    setAssignmentEditors: vi.fn(),
   },
 }));
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
+vi.mock('@/hooks/useOfficerOptions', () => ({ useOfficerOptions: vi.fn() }));
+
+const OFFICERS = [
+  { value: 'u1', label: 'Nguyễn Văn A', teams: [{ teamId: 'team-a1', teamName: 'Đội 3', isLeader: true, laDiaBan: false }] },
+  { value: 'u2', label: 'Trần Thị B', teams: [{ teamId: 'team-a1', teamName: 'Đội 3', isLeader: false, laDiaBan: false }] },
+  { value: 'u3', label: 'Lê Văn C', teams: [] },
+];
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -45,8 +54,8 @@ function openAndSelect(testId: string, optionValue: string) {
 }
 
 const ASSIGNMENTS: AssignmentListItemView[] = [
-  { assignmentId: 'a1', teamId: 'team-a1', teamName: 'Đội 3', obligation: 'REQUIRED', state: 'SUBMITTED', addedMidPeriod: false, removable: false },
-  { assignmentId: 'a2', teamId: 'team-a2', teamName: 'Đội 4', obligation: 'EXEMPT', state: 'NOT_STARTED', addedMidPeriod: false, removable: false },
+  { assignmentId: 'a1', teamId: 'team-a1', teamName: 'Đội 3', obligation: 'REQUIRED', state: 'SUBMITTED', editors: [{ userId: 'u1', name: 'Nguyễn Văn A' }], addedMidPeriod: false, removable: false },
+  { assignmentId: 'a2', teamId: 'team-a2', teamName: 'Đội 4', obligation: 'EXEMPT', state: 'NOT_STARTED', editors: [], addedMidPeriod: false, removable: false },
 ];
 
 const TEAMS = [
@@ -99,6 +108,7 @@ describe('ReportPeriodTeamsPage (S30)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.get).mockResolvedValue({ data: TEAMS });
+    vi.mocked(useOfficerOptions).mockReturnValue({ data: OFFICERS, isLoading: false } as never);
     vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue(ASSIGNMENTS);
   });
 
@@ -162,6 +172,7 @@ describe('ReportPeriodTeamsPage (S30)', () => {
         'period1',
         'team-new',
         'Chia tách địa bàn, bổ sung Tổ 5',
+        undefined,
       );
     });
     // Refetches the assignment list after success (same queryKey).
@@ -229,11 +240,91 @@ describe('ReportPeriodTeamsPage (S30)', () => {
     expect(dynamicReportsApi.previewExemptTeam).not.toHaveBeenCalled();
   });
 
+  describe('who types for a team in this period', () => {
+    it('shows the editors of each team, and says when a team has none', async () => {
+      renderPage();
+      await waitFor(() => screen.getByTestId('assignment-row-a1'));
+
+      expect(screen.getByTestId('editors-a1')).toHaveTextContent('Nguyễn Văn A');
+      expect(screen.getByTestId('editors-a2')).toHaveTextContent('Chưa có người nhập');
+    });
+
+    it('"Đổi người nhập" starts from the current editors, needs at least one editor and a reason, then saves', async () => {
+      vi.mocked(dynamicReportsApi.setAssignmentEditors).mockResolvedValue({
+        assignmentId: 'a1', teamId: 'team-a1', teamName: 'Đội 3', obligation: 'REQUIRED', editorUserIds: ['u1', 'u2'],
+      });
+      renderPage();
+      await waitFor(() => screen.getByTestId('btn-editors-a1'));
+
+      fireEvent.click(screen.getByTestId('btn-editors-a1'));
+      const panel = await screen.findByTestId('editors-panel');
+      expect(panel).toHaveTextContent('Nguyễn Văn A');
+      expect(screen.getByTestId('btn-confirm-editors')).toBeDisabled(); // no reason yet
+
+      openAndSelect('editors-picker', 'u2');
+      fireEvent.change(screen.getByTestId('editors-reason-input'), { target: { value: 'Cán bộ đi công tác' } });
+      fireEvent.click(screen.getByTestId('btn-confirm-editors'));
+
+      await waitFor(() =>
+        expect(dynamicReportsApi.setAssignmentEditors).toHaveBeenCalledWith('period1', 'a1', ['u1', 'u2'], 'Cán bộ đi công tác'),
+      );
+      await waitFor(() => expect(dynamicReportsApi.listAssignments).toHaveBeenCalledTimes(2));
+    });
+
+    it('cannot confirm with every editor removed', async () => {
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-editors-a1'));
+      await screen.findByTestId('editors-panel');
+      fireEvent.change(screen.getByTestId('editors-reason-input'), { target: { value: 'Lý do' } });
+      expect(screen.getByTestId('btn-confirm-editors')).not.toBeDisabled();
+
+      fireEvent.click(screen.getByTestId('btn-remove-editor-u1'));
+
+      expect(screen.getByTestId('btn-confirm-editors')).toBeDisabled();
+    });
+
+    it('shows the reason the server gives when the change is refused', async () => {
+      vi.mocked(dynamicReportsApi.setAssignmentEditors).mockRejectedValue(
+        Object.assign(new Error('x'), {
+          isAxiosError: true,
+          response: { status: 400, data: { error: { code: 'EDITOR_INVALID', message: 'Có người được chọn đã bị khoá' } } },
+        }),
+      );
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-editors-a1'));
+      await screen.findByTestId('editors-panel');
+      fireEvent.change(screen.getByTestId('editors-reason-input'), { target: { value: 'Lý do' } });
+      fireEvent.click(screen.getByTestId('btn-confirm-editors'));
+
+      expect(await screen.findByTestId('editors-error')).toHaveTextContent('đã bị khoá');
+    });
+
+    it('add-team sends the editors the manager chose', async () => {
+      vi.mocked(dynamicReportsApi.previewAddTeam).mockResolvedValue(ADD_PREVIEW);
+      vi.mocked(dynamicReportsApi.addTeamMidPeriod).mockResolvedValue({
+        assignmentId: 'new1', teamId: 'team-new', teamName: 'Đội 5', obligation: 'REQUIRED',
+      });
+      renderPage();
+      await waitFor(() => screen.getByTestId('select-add-team-trigger'));
+      openAndSelect('select-add-team', 'team-new');
+      fireEvent.click(screen.getByTestId('btn-preview-add'));
+      await waitFor(() => screen.getByTestId('impact-preview'));
+
+      openAndSelect('add-editors-picker', 'u3');
+      fireEvent.change(screen.getByTestId('add-reason-input'), { target: { value: 'Bổ sung Tổ 5' } });
+      fireEvent.click(screen.getByTestId('btn-confirm-add'));
+
+      await waitFor(() =>
+        expect(dynamicReportsApi.addTeamMidPeriod).toHaveBeenCalledWith('period1', 'team-new', 'Bổ sung Tổ 5', ['u3']),
+      );
+    });
+  });
+
   describe('the way back (created => editable and deletable)', () => {
     const WITH_ADDED: AssignmentListItemView[] = [
       ...ASSIGNMENTS,
-      { assignmentId: 'a3', teamId: 'team-new', teamName: 'Đội 5', obligation: 'REQUIRED', state: 'NOT_STARTED', addedMidPeriod: true, removable: true },
-      { assignmentId: 'a4', teamId: 'team-b', teamName: 'Đội 6', obligation: 'REQUIRED', state: 'DRAFT', addedMidPeriod: true, removable: false },
+      { assignmentId: 'a3', teamId: 'team-new', teamName: 'Đội 5', obligation: 'REQUIRED', state: 'NOT_STARTED', editors: [], addedMidPeriod: true, removable: true },
+      { assignmentId: 'a4', teamId: 'team-b', teamName: 'Đội 6', obligation: 'REQUIRED', state: 'DRAFT', editors: [], addedMidPeriod: true, removable: false },
     ];
 
     beforeEach(() => {

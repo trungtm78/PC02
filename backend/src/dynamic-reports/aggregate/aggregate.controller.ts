@@ -28,6 +28,7 @@ import { ExportPeriodDto } from './dto/export-period.dto';
 import { PreviewAddTeamDto } from './dto/preview-add-team.dto';
 import { AddTeamMidPeriodDto } from './dto/add-team-mid-period.dto';
 import { ExemptTeamMidPeriodDto } from './dto/exempt-team-mid-period.dto';
+import { SetAssignmentEditorsDto } from './dto/set-assignment-editors.dto';
 
 const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION', 'HAS_DATA', 'UNAPPROVED_TEAMS']);
 
@@ -170,6 +171,28 @@ export class AggregateController {
         user.id,
         user.roleId,
         body.teamId,
+        body.reason,
+        body.editorUserIds,
+      ),
+    );
+  }
+
+  /** S30 — đổi người nhập của một tổ trong kỳ đang chạy (D09, bắt buộc lý do). */
+  @Post(':periodId/assignments/:assignmentId/editors')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async setAssignmentEditors(
+    @Param('periodId') periodId: string,
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: SetAssignmentEditorsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.setAssignmentEditors(
+        periodId,
+        user.id,
+        user.roleId,
+        assignmentId,
+        body.editorUserIds,
         body.reason,
       ),
     );

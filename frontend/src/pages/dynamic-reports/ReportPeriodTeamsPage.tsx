@@ -7,11 +7,14 @@
  *
  * Mỗi thao tác có chiều ngược (tiêu chuẩn "tạo thì phải sửa và xoá"): "Bỏ miễn nộp" cho tổ đang miễn nộp, "Gỡ tổ" cho
  * tổ đã thêm giữa kỳ mà chưa ai nhập gì (đã có số liệu thì chỉ còn "Miễn nộp").
+ *
+ * "Đổi người nhập" là thao tác giữa kỳ thứ ba của D09: kỳ đã mở giữ người nhập lúc nó được sinh ra, đổi ở đây (có lý do,
+ * người rời đi vẫn còn trong lịch sử). Tổ thêm giữa kỳ phải có người nhập, nếu không không ai mở được lượt giao của nó.
  */
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowLeft, UserMinus, UserPlus, Users, Undo2, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, UserCog, UserMinus, UserPlus, Users, Undo2, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { MidPeriodImpactPreview } from '@/features/dynamic-reports/types';
@@ -22,6 +25,7 @@ import {
 import { extractApiError } from '@/lib/api-errors';
 import { FKSelect } from '@/components/FKSelect';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import EditorPicker from './EditorPicker';
 
 interface TeamOption {
   id: string;
@@ -131,6 +135,7 @@ export default function ReportPeriodTeamsPage() {
   const [addReason, setAddReason] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
+  const [addEditors, setAddEditors] = useState<string[]>([]);
 
   async function handlePreviewAdd() {
     if (!periodId || !addTeamId) return;
@@ -151,11 +156,17 @@ export default function ReportPeriodTeamsPage() {
     setAddBusy(true);
     setAddError(null);
     try {
-      await dynamicReportsApi.addTeamMidPeriod(periodId, addTeamId, addReason.trim());
+      await dynamicReportsApi.addTeamMidPeriod(
+        periodId,
+        addTeamId,
+        addReason.trim(),
+        addEditors.length > 0 ? addEditors : undefined,
+      );
       await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY(periodId) });
       setAddTeamId('');
       setAddPreview(null);
       setAddReason('');
+      setAddEditors([]);
     } catch (err) {
       setAddError(extractApiError(err).message);
     } finally {
@@ -184,6 +195,36 @@ export default function ReportPeriodTeamsPage() {
       setReverseError(extractApiError(err).message);
     } finally {
       setReverseBusy(null);
+    }
+  }
+
+  // --- "Đổi người nhập" flow ---
+  const [editorsAssignmentId, setEditorsAssignmentId] = useState<string | null>(null);
+  const [editorsValue, setEditorsValue] = useState<string[]>([]);
+  const [editorsReason, setEditorsReason] = useState('');
+  const [editorsError, setEditorsError] = useState<string | null>(null);
+  const [editorsBusy, setEditorsBusy] = useState(false);
+
+  function startEditors(assignmentId: string) {
+    const current = assignments.find((a) => a.assignmentId === assignmentId)?.editors ?? [];
+    setEditorsAssignmentId(assignmentId);
+    setEditorsValue(current.map((e) => e.userId));
+    setEditorsReason('');
+    setEditorsError(null);
+  }
+
+  async function handleConfirmEditors() {
+    if (!periodId || !editorsAssignmentId || !editorsReason.trim() || editorsValue.length === 0) return;
+    setEditorsBusy(true);
+    setEditorsError(null);
+    try {
+      await dynamicReportsApi.setAssignmentEditors(periodId, editorsAssignmentId, editorsValue, editorsReason.trim());
+      await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY(periodId) });
+      setEditorsAssignmentId(null);
+    } catch (err) {
+      setEditorsError(extractApiError(err).message);
+    } finally {
+      setEditorsBusy(false);
     }
   }
 
@@ -268,6 +309,7 @@ export default function ReportPeriodTeamsPage() {
             <thead className="bg-slate-50 text-slate-600 text-xs">
               <tr>
                 <th className="text-left px-3 py-2">Tổ</th>
+                <th className="text-left px-3 py-2">Người nhập</th>
                 <th className="text-left px-3 py-2">Trạng thái</th>
                 <th className="text-left px-3 py-2">Nghĩa vụ</th>
                 <th className="text-left px-3 py-2">Thao tác</th>
@@ -283,6 +325,13 @@ export default function ReportPeriodTeamsPage() {
                         <UserPlus className="w-3 h-3" />
                         thêm giữa kỳ
                       </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700" data-testid={`editors-${a.assignmentId}`}>
+                    {a.editors.length > 0 ? (
+                      a.editors.map((e) => e.name).join(', ')
+                    ) : (
+                      <span className="text-amber-700">Chưa có người nhập</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -304,6 +353,15 @@ export default function ReportPeriodTeamsPage() {
                     )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
+                    <button
+                      type="button"
+                      data-testid={`btn-editors-${a.assignmentId}`}
+                      className={`inline-flex items-center gap-1 text-xs text-blue-700 hover:bg-blue-50 px-2 py-1 rounded ${A11Y_FOCUS_RING}`}
+                      onClick={() => startEditors(a.assignmentId)}
+                    >
+                      <UserCog className="w-3.5 h-3.5" />
+                      Đổi người nhập
+                    </button>
                     {a.obligation !== 'EXEMPT' && (
                       <button
                         type="button"
@@ -344,13 +402,67 @@ export default function ReportPeriodTeamsPage() {
               ))}
               {assignments.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-slate-500" data-testid="assignments-empty">
+                  <td colSpan={5} className="px-3 py-4 text-center text-sm text-slate-500" data-testid="assignments-empty">
                     Kỳ này chưa có tổ nào được giao.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {editorsAssignmentId && (
+        <div className="bg-white border border-blue-300 rounded-lg p-4 mb-6" data-testid="editors-panel">
+          <p className="text-sm font-medium text-slate-800 mb-1">
+            Đổi người nhập — {assignments.find((a) => a.assignmentId === editorsAssignmentId)?.teamName}
+          </p>
+          <p className="text-xs text-slate-500 mb-3">
+            Chỉ áp dụng cho kỳ này. Người bị bỏ không còn nhập được nhưng vẫn còn trong lịch sử cùng lý do bên dưới.
+          </p>
+          {editorsError && (
+            <p className="text-sm text-red-700 mb-2" data-testid="editors-error">
+              {editorsError}
+            </p>
+          )}
+          <EditorPicker
+            value={editorsValue}
+            onChange={setEditorsValue}
+            testId="editors-picker"
+            knownNames={Object.fromEntries(
+              (assignments.find((a) => a.assignmentId === editorsAssignmentId)?.editors ?? []).map((e) => [e.userId, e.name]),
+            )}
+          />
+          <label className="block text-sm text-slate-600 mt-3 mb-1" htmlFor="editors-reason">
+            Lý do (bắt buộc)
+          </label>
+          <textarea
+            id="editors-reason"
+            data-testid="editors-reason-input"
+            value={editorsReason}
+            onChange={(e) => setEditorsReason(e.target.value)}
+            rows={2}
+            className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+            placeholder="Ví dụ: Cán bộ đi công tác, giao cho đồng chí khác"
+          />
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              type="button"
+              data-testid="btn-confirm-editors"
+              disabled={editorsBusy || !editorsReason.trim() || editorsValue.length === 0}
+              onClick={() => void handleConfirmEditors()}
+              className={`px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              Lưu người nhập
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-lg ${A11Y_FOCUS_RING}`}
+              onClick={() => setEditorsAssignmentId(null)}
+            >
+              Huỷ
+            </button>
+          </div>
         </div>
       )}
 
@@ -446,6 +558,11 @@ export default function ReportPeriodTeamsPage() {
         {addPreview && (
           <>
             <ImpactPreviewPanel preview={addPreview} />
+            <p className="text-sm text-slate-600 mt-3 mb-1">Người nhập của tổ</p>
+            <p className="text-xs text-slate-500 mb-2">
+              Để trống nếu báo cáo đã có sẵn người nhập cho tổ này; tổ chưa có trong cấu hình báo cáo thì phải chọn ít nhất một người.
+            </p>
+            <EditorPicker value={addEditors} onChange={setAddEditors} testId="add-editors-picker" />
             <label className="block text-sm text-slate-600 mt-3 mb-1" htmlFor="add-reason">
               Lý do (bắt buộc)
             </label>
@@ -474,6 +591,7 @@ export default function ReportPeriodTeamsPage() {
                 onClick={() => {
                   setAddTeamId('');
                   setAddPreview(null);
+                  setAddEditors([]);
                 }}
               >
                 Huỷ
