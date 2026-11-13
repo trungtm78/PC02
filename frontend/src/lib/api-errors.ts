@@ -23,6 +23,21 @@ function toStringArray(v: unknown): string[] {
   return v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).filter(Boolean);
 }
 
+/** The words the server uses when it only knows that validation failed; the reasons are in `details`. */
+const GENERIC_VALIDATION_MESSAGE = 'Validation failed';
+
+/**
+ * The one line a screen shows. The server's own message wins, except when it is just "Validation failed": that says
+ * nothing, so show the first real reason (and how many more there are) instead of hiding every cause behind it.
+ */
+function primaryMessage(wrapped: string, details: string[], firstMessage: string, fallback: string): string {
+  if (wrapped === GENERIC_VALIDATION_MESSAGE && details.length > 0) {
+    const more = details.length > 1 ? ` (và ${details.length - 1} lỗi khác)` : '';
+    return `Dữ liệu chưa hợp lệ: ${details[0]}${more}`;
+  }
+  return wrapped || firstMessage || fallback;
+}
+
 export function extractApiError(err: unknown, fallback = DEFAULT_FALLBACK): NormalizedApiError {
   if (axios.isAxiosError(err)) {
     const status = err.response?.status;
@@ -40,7 +55,7 @@ export function extractApiError(err: unknown, fallback = DEFAULT_FALLBACK): Norm
             ? detailMessages
             : [wrappedMessage || fallback];
         return {
-          message: wrappedMessage || messages[0] || fallback,
+          message: primaryMessage(wrappedMessage, detailMessages, messages[0] || fallback, fallback),
           messages,
           code: typeof w.code === 'string' ? w.code : undefined,
           status,
