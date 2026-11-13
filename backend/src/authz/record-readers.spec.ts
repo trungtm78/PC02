@@ -2,7 +2,7 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import type { PreciseScope } from '../common/utils/precise-scope';
 import { setEnforcement, type Enforcement } from './enforcement';
-import { readersOf } from './record-readers';
+import { mayBeToldAbout, readersOf } from './record-readers';
 
 const NONE: PreciseScope = { all: false, own: false, exactTeamIds: [], tree: null };
 /** A scope that reaches petitions as given, and nothing else. */
@@ -71,5 +71,30 @@ describe('readersOf: who may be told about a record', () => {
   it('when it cannot be told whether anything is enforced, nobody is told (the next run tells them)', () => {
     enforce({ lead: { keys: ['read:Petition'], scope: scopeFor('lead', { ...NONE, exactTeamIds: ['T'] }) } }, ['lead']);
     expect(readersOf(['lead'], 'Petition', RECORD)).toEqual([]);
+  });
+});
+
+describe('mayBeToldAbout: a notice that a record of some kind was assigned to somebody', () => {
+  afterEach(() => setEnforcement(null));
+
+  it('nothing registered, or not enforcing: as before, everybody is told', () => {
+    expect(mayBeToldAbout('anybody', 'Petition')).toBe(true);
+    setEnforcement({ scopeOf: () => undefined, keysOf: () => undefined, unconditionalKeysOf: () => undefined, keysOrNone: () => undefined, holdersOf: () => undefined });
+    expect(mayBeToldAbout('anybody', 'Petition')).toBe(true);
+  });
+
+  it('enforced: only somebody who may read that kind of record at all', () => {
+    enforce({
+      reader: { keys: ['read:Petition'], scope: null },
+      other: { keys: ['read:Case'], scope: null },
+    });
+    expect(mayBeToldAbout('reader', 'Petition')).toBe(true);
+    expect(mayBeToldAbout('other', 'Petition')).toBe(false);
+    expect(mayBeToldAbout('other', 'Case')).toBe(true);
+  });
+
+  it('when it cannot be told, nobody is', () => {
+    enforce({ reader: { keys: ['read:Petition'], scope: null } }, ['reader']);
+    expect(mayBeToldAbout('reader', 'Petition')).toBe(false);
   });
 });

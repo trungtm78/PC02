@@ -87,7 +87,7 @@ describe('AuthzAdminService.createStarterTemplates', () => {
     const [actorId, kind, wanted, options] = commit.mock.calls[0];
     expect(actorId).toBe('admin-1');
     expect(kind).toBe('STARTER_TEMPLATES_CREATED');
-    expect(options).toMatchObject({ reason: expect.any(String), meta: { ipAddress: '10.0.0.1' } });
+    expect(options).toMatchObject({ reason: expect.any(String) as unknown, meta: { ipAddress: '10.0.0.1' } });
     expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY']);
     expect((wanted[1].after as { entries: Record<string, string> }).entries).toEqual({ 'edit:Petition': 'OWN', 'read:Petition': 'OWN' });
     expect((wanted[2].after as { entries: Record<string, string> }).entries).toEqual({ 'read:Petition': 'TEAM_TREE' });

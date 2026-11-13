@@ -1,3 +1,4 @@
+import { mayBeToldAbout } from '../authz/record-readers';
 import { Optional } from '@nestjs/common';
 import { CaseNotificationPolicyService } from './case-notification-policy.service';
 import { Injectable, Logger } from '@nestjs/common';
@@ -54,6 +55,7 @@ export class NotificationEventService {
   @OnEvent('incident.assigned', { async: true })
   async onIncidentAssigned(event: IncidentAssignedEvent): Promise<void> {
     try {
+      if (!mayBeToldAbout(event.toUserId, 'Incident')) return;
       await this.sendInApp({
         toUserId: event.toUserId,
         type: NotificationType.INCIDENT_ASSIGNED,
@@ -70,6 +72,7 @@ export class NotificationEventService {
   @OnEvent('petition.assigned', { async: true })
   async onPetitionAssigned(event: PetitionAssignedEvent): Promise<void> {
     try {
+      if (!mayBeToldAbout(event.toUserId, 'Petition')) return;
       await this.sendInApp({
         toUserId: event.toUserId,
         type: NotificationType.PETITION_ASSIGNED,

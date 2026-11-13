@@ -61,4 +61,10 @@ Máy chủ tự nhận thay đổi trong vài giây, không cần khởi động
 - Chưa có lần chạy Áp dụng nào trên production. Phần đã kiểm là ca kiểm tự động trên PostgreSQL (từ cấu hình đến danh sách hồ sơ một người nhận được, gồm cả đường lùi) và máy chủ dựng cục bộ.
 - Màn Phân quyền chưa được bấm thử bằng trình duyệt thật với tài khoản cán bộ.
 
+## 7. Giới hạn đã biết khi Áp dụng
+
+- **Thông báo đã gửi trước đó không bị thu hồi.** Từ lúc Áp dụng, thông báo hạn và thông báo phân công chỉ gửi cho người mở được hồ sơ. Những thông báo đã nằm trong hộp thông báo của một người từ trước (có tên hồ sơ, tên người gửi đơn) vẫn ở đó dù người ấy không còn mở được hồ sơ.
+- **Số liệu tổng và biểu đồ ở Trang chủ đếm theo phạm vi của từng người** khi Áp dụng (người chỉ xem hồ sơ của mình sẽ thấy số của riêng mình). Khi Tắt, các số này đếm toàn đơn vị như trước nay.
+- **Tài khoản quản trị cuối cùng vẫn có thể bị khoá hoặc đổi vai trò** từ màn Quản lý người dùng. Giữ ít nhất hai tài khoản quản trị đang hoạt động trong suốt thời gian Áp dụng.
+
 Vì vậy lần bật đầu tiên nên làm với một tổ, có người trực, và có sẵn một quản trị viên để tắt.

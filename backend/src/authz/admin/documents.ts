@@ -341,7 +341,7 @@ export function impactOf(
 }
 
 /** What a record permission reaches, as facts that can be compared one by one. */
-interface Reached {
+export interface Reached {
   all: boolean;
   own: boolean;
   unassigned: boolean;
@@ -378,6 +378,30 @@ function reachesBeyond(a: Reached, b: Reached, userId: string): boolean {
   const bTeams = teamsOf(b);
   if (teamsOf(a).some((t) => !bTeams.includes(t))) return true;
   return a.treeUsers.some((u) => !b.treeUsers.includes(u));
+}
+
+/**
+ * What each of these people reaches with each record permission they hold, in full: which teams exactly, which
+ * teams as a whole, WHOSE records. Two states that give the same answer here let the same people open the same
+ * records. (The impact list says "narrower" without saying narrower by whom; an acknowledgement must be tied to
+ * the people and teams themselves.)
+ */
+export function reachFactsOf(
+  org: OrgSnapshot,
+  state: { config: AuthzConfig; users: ReadonlyMap<string, UserInput> },
+  userIds: readonly string[],
+  now: Date,
+): Record<string, Record<string, Reached>> {
+  const facts: Record<string, Record<string, Reached>> = {};
+  for (const userId of [...userIds].sort()) {
+    const person = state.users.get(userId);
+    if (!person) continue;
+    const effective = compile(org, state.config, person, now);
+    facts[userId] = Object.fromEntries(
+      effective.keys.filter(isRecordScoped).sort().map((permission) => [permission, reachedBy(org, effective, permission)]),
+    );
+  }
+  return facts;
 }
 
 /**

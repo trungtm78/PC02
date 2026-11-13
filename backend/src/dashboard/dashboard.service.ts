@@ -28,9 +28,26 @@ export class DashboardService {
     return { [cot]: { gte: new Date(ky.tuNgay), lte: new Date(ky.denNgay) } };
   }
 
+  /**
+   * The totals and charts of the dashboard have always counted the whole organisation, whoever asks (a person with
+   * a role's reach was shown the unit's figures). Under permissions by team a person may be limited to their own
+   * records, or hold no permission on a subject at all: the figures then count only what that person can open, or
+   * a count would tell them what the lists will not show. Nothing enforced (no precise scope): as before.
+   */
+  private withinEnforcedReach(scope: DataScope | null): Record<'cases' | 'incidents' | 'petitions', Record<string, unknown>> {
+    if (!scope?.precise) return { cases: {}, incidents: {}, petitions: {} };
+    const and = (filter: Record<string, unknown> | null) => (filter ? { AND: [filter] } : {});
+    return {
+      cases: and(buildScopeFilter(scope, 'read', 'Case')),
+      incidents: and(buildScopeFilter(scope, 'read', 'Incident')),
+      petitions: and(buildPetitionScopeFilter(scope)),
+    };
+  }
+
   // GET /api/v1/dashboard/stats
-  async getStats() {
+  async getStats(scope: DataScope | null = null) {
     const now = new Date();
+    const within = this.withinEnforcedReach(scope);
 
     const [
       totalCases,
@@ -41,11 +58,11 @@ export class DashboardService {
       totalPetitions,
     ] = await Promise.all([
       // Tổng vụ án active (REGULAR only — v0.44: exclude UTDT)
-      this.prisma.case.count({ where: { deletedAt: null, caseType: CaseType.REGULAR } }),
+      this.prisma.case.count({ where: { deletedAt: null, ...within.cases, caseType: CaseType.REGULAR } }),
       // Vụ án mới trong tháng này
       this.prisma.case.count({
         where: {
-          deletedAt: null,
+          deletedAt: null, ...within.cases,
           caseType: CaseType.REGULAR,
           createdAt: {
             gte: new Date(now.getFullYear(), now.getMonth(), 1),
@@ -55,7 +72,7 @@ export class DashboardService {
       // Vụ án quá hạn (deadline < now và chưa kết thúc)
       this.prisma.case.count({
         where: {
-          deletedAt: null,
+          deletedAt: null, ...within.cases,
           caseType: CaseType.REGULAR,
           deadline: { lt: now },
           status: {
@@ -71,7 +88,7 @@ export class DashboardService {
       // Vụ án đã xử lý (kết luận, lưu trữ, hoặc đình chỉ)
       this.prisma.case.count({
         where: {
-          deletedAt: null,
+          deletedAt: null, ...within.cases,
           caseType: CaseType.REGULAR,
           status: {
             in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
@@ -79,9 +96,9 @@ export class DashboardService {
         },
       }),
       // Tổng vụ việc
-      this.prisma.incident.count({ where: { deletedAt: null } }),
+      this.prisma.incident.count({ where: { deletedAt: null, ...within.incidents } }),
       // Tổng đơn thư
-      this.prisma.petition.count({ where: { deletedAt: null } }),
+      this.prisma.petition.count({ where: { deletedAt: null, ...within.petitions } }),
     ]);
 
     return {
@@ -98,8 +115,9 @@ export class DashboardService {
   }
 
   // GET /api/v1/dashboard/charts
-  async getCharts() {
+  async getCharts(scope: DataScope | null = null) {
     const now = new Date();
+    const within = this.withinEnforcedReach(scope);
     const year = now.getFullYear();
 
     // Monthly trend: 12 months of the current year
@@ -110,19 +128,19 @@ export class DashboardService {
         const [cases, incidents, petitions] = await Promise.all([
           this.prisma.case.count({
             where: {
-              deletedAt: null,
+              deletedAt: null, ...within.cases,
               createdAt: { gte: monthStart, lte: monthEnd },
             },
           }),
           this.prisma.incident.count({
             where: {
-              deletedAt: null,
+              deletedAt: null, ...within.incidents,
               createdAt: { gte: monthStart, lte: monthEnd },
             },
           }),
           this.prisma.petition.count({
             where: {
-              deletedAt: null,
+              deletedAt: null, ...within.petitions,
               createdAt: { gte: monthStart, lte: monthEnd },
             },
           }),
@@ -139,7 +157,7 @@ export class DashboardService {
     // Case status breakdown
     const caseStatusCounts = await this.prisma.case.groupBy({
       by: ['status'],
-      where: { deletedAt: null },
+      where: { deletedAt: null, ...within.cases },
       _count: { id: true },
     });
 

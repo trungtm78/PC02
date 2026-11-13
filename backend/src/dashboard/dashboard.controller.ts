@@ -13,15 +13,15 @@ export class DashboardController {
   // GET /api/v1/dashboard/stats
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getStats() {
-    return this.dashboardService.getStats();
+  getStats(@Req() req: ScopedRequest) {
+    return this.dashboardService.getStats(req.dataScope ?? null);
   }
 
   // GET /api/v1/dashboard/charts
   @Get('charts')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getCharts() {
-    return this.dashboardService.getCharts();
+  getCharts(@Req() req: ScopedRequest) {
+    return this.dashboardService.getCharts(req.dataScope ?? null);
   }
 
   // GET /api/v1/dashboard/badge-counts

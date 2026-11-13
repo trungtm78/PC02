@@ -1,6 +1,6 @@
 import { recordInScope } from '../common/utils/scope-filter.util';
 import type { RecordSubject } from '../common/utils/precise-scope';
-import { enforcement } from './enforcement';
+import { enforcement, holdsPermission } from './enforcement';
 
 /**
  * Of these people, those who may be TOLD about a record (a deadline notice names the record and who it is about).
@@ -29,4 +29,17 @@ export function readersOf(
       return false;
     }
   });
+}
+
+/**
+ * Whether a person may be told that a record of this kind concerns them (it was assigned to them). Enforced: only
+ * when they hold the permission to read that kind of record at all; a notice naming a petition must not reach
+ * somebody whose teams let them read no petition. Nothing enforced, or it cannot be told: as before / nobody.
+ */
+export function mayBeToldAbout(userId: string, subject: RecordSubject): boolean {
+  try {
+    return holdsPermission(userId, `read:${subject}`, () => true);
+  } catch {
+    return false;
+  }
 }

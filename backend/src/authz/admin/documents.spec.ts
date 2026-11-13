@@ -1,5 +1,5 @@
 import type { AuthzConfig, OrgSnapshot, UserInput } from '../engine/types';
-import { additionsOf, canonical, impactBetween, impactOf, normalise, problemsOf, sameDoc, tokenOf, viewProblemsOfTeam, withChanges, type ChangeItem, type OverrideDoc, type TeamDoc, type TemplateDoc, type ValidationContext } from './documents';
+import { additionsOf, canonical, impactBetween, impactOf, normalise, reachFactsOf, problemsOf, sameDoc, tokenOf, viewProblemsOfTeam, withChanges, type ChangeItem, type OverrideDoc, type TeamDoc, type TemplateDoc, type ValidationContext } from './documents';
 
 const NOW = new Date('2026-11-14T00:00:00Z');
 const tpl = (over: Partial<TemplateDoc> = {}): TemplateDoc => ({ code: 'T', name: 'Mẫu', description: null, status: 'ACTIVE', entries: {}, ...over });
@@ -303,6 +303,31 @@ describe('impactOf: who would gain or lose what', () => {
         { userId: 'u1', gained: [], lost: [], changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'TEAM_TREE', narrower: true }] },
       ]);
     });
+  });
+
+  it('reachFactsOf names the people and the teams: two states with the same impact list can still differ here', () => {
+    // u1 goes from "team A as a whole" to "own records only". Whether the colleague in A is X or Y, the impact list
+    // reads the same ("narrower"); what u1 actually stops seeing is X's records in one case and Y's in the other.
+    const orgWith = (colleague: string): OrgSnapshot => ({
+      teams: new Map([['A', { id: 'A', parentId: null, active: true, wardId: null }]]),
+      children: new Map(),
+      members: new Map([['A', ['u1', colleague]]]),
+    });
+    const own: AuthzConfig = {
+      templates: new Map([['t', { id: 't', name: 't', entries: new Map([['read:Case', 'OWN' as const]]) }]]),
+      teamConfigs: new Map([['A', { teamId: 'A', mode: 'EXPLICIT', memberTemplateId: 't', leaderTemplateId: null, overrides: [] }]]),
+    };
+    const people = new Map([['u1', person('u1', ['A'])]]);
+    const impactsWith = (colleague: string) => impactBetween(orgWith(colleague), { config, users: people }, { config: own, users: people }, NOW);
+    expect(impactsWith('x')).toEqual(impactsWith('y'));
+
+    const todayWith = (colleague: string) => reachFactsOf(orgWith(colleague), { config, users: people }, ['u1'], NOW);
+    expect(todayWith('x').u1['read:Case'].treeUsers).toEqual(['u1', 'x']);
+    expect(todayWith('y').u1['read:Case'].treeUsers).toEqual(['u1', 'y']);
+    expect(tokenOf(todayWith('x'))).not.toBe(tokenOf(todayWith('y')));
+    // Only record permissions are listed, and somebody unknown is simply absent.
+    expect(Object.keys(todayWith('x').u1).sort()).toEqual(['delete:Case', 'edit:Case', 'read:Case']);
+    expect(reachFactsOf(orgWith('x'), { config, users: people }, ['ghost'], NOW)).toEqual({});
   });
 
   it('each side can be judged on its own picture of the organisation: a team that no longer counts is a loss', () => {

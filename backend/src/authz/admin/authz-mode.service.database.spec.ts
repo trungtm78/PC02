@@ -33,7 +33,8 @@ run('AuthzModeService on PostgreSQL', () => {
   const grantedToAdminHere: string[] = [];
 
   const stored = async () => (await db.systemSetting.findUnique({ where: { key: SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO } }))?.value ?? null;
-  const code = (expected: string) => expect.objectContaining({ response: expect.objectContaining({ code: expected }) });
+  const code = (expected: string): unknown =>
+    expect.objectContaining({ response: expect.objectContaining({ code: expected }) as unknown });
   const mine = () => db.authzModeChange.findMany({ where: { requestedById: { in: [id.adminA, id.adminB] } }, orderBy: { createdAt: 'asc' } });
   /**
    * Other suites write to the same scratch database while the whole suite runs in parallel: the comparison can move
@@ -271,27 +272,58 @@ run('AuthzModeService on PostgreSQL', () => {
       }
     });
 
-    it('something changed while the approval was being judged: refused, though the fingerprint sent is the right one', async () => {
+    it('while an approval is being judged nothing permissions are computed from can change: a change made then waits, and lands after', async () => {
       const asked = await onFreshComparison((fingerprint) => service.requestEnforce(id.adminA, 'pilot', fingerprint));
-      const { fingerprint } = await service.comparison();
-      // Every time the configuration is read, something is logged right after: the snapshot judged from is always
-      // one step behind the database. (A team created and removed changes nobody's permissions: the fingerprint
-      // stays right, so only the check against the change log can refuse.)
-      const read = authz.snapshot.bind(authz);
-      const behind = jest.spyOn(authz, 'snapshot').mockImplementation(async () => {
+      // When the approval reads the configuration (it holds its locks by then), somebody else creates a team. That
+      // write logs a change, and the log is frozen: it must be seen WAITING before the approval goes on.
+      const read: AuthzService['snapshot'] = authz.snapshot.bind(authz) as AuthzService['snapshot'];
+      let armed = false;
+      let change: Promise<{ id: string }> | null = null;
+      let seenWaiting = false;
+      const during = jest.spyOn(authz, 'snapshot').mockImplementation(async () => {
         const snapshot = await read();
-        const bump = await db.team.create({ data: { code: `${tag}-bump-${randomUUID().slice(0, 6)}`, name: `${tag} bump` } });
-        await db.team.delete({ where: { id: bump.id } });
+        if (armed && !change) {
+          // A Prisma query starts only when somebody waits for it: `.then` sends it now.
+          change = db.team.create({ data: { code: `${tag}-late-${randomUUID().slice(0, 6)}`, name: `${tag} late` }, select: { id: true } }).then((row) => row);
+          for (let attempt = 0; attempt < 400 && !seenWaiting; attempt += 1) {
+            const waiting = await pg.query<{ n: number }>(
+              `SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted AND relation = 'authz_changes'::regclass`,
+            );
+            seenWaiting = waiting.rows[0].n > 0;
+            if (!seenWaiting) await new Promise((resolve) => setImmediate(resolve));
+          }
+        }
         return snapshot;
       });
+      const settle = async () => {
+        armed = false;
+        if (change) await db.team.delete({ where: { id: (await change).id } });
+        change = null;
+      };
       try {
-        await expect(service.approve(asked.id, id.adminB, fingerprint)).rejects.toEqual(code(AUTHZ_MODE_ERROR.COMPARISON_CHANGED));
-        expect((await stored()) ?? 'OFF').toBe('OFF');
+        let approved: { id: string; mode: string } | null = null;
+        // Other suites share this database: when the comparison moved under us, read it again and try again.
+        for (let attempt = 0; !approved; attempt += 1) {
+          const { fingerprint } = await service.comparison();
+          seenWaiting = false;
+          armed = true;
+          try {
+            approved = await service.approve(asked.id, id.adminB, fingerprint);
+          } catch (err) {
+            const changed = (err as { response?: { code?: string } }).response?.code === AUTHZ_MODE_ERROR.COMPARISON_CHANGED;
+            if (!changed || attempt >= 60) throw err;
+            await settle();
+          }
+        }
+        expect(approved).toEqual({ id: asked.id, mode: 'ENFORCE' });
+        expect(seenWaiting).toBe(true);
+        expect(await stored()).toBe('ENFORCE');
+        // The approval is in: the change that waited goes through now.
+        await expect(change).resolves.toEqual({ id: expect.any(String) as unknown });
       } finally {
-        behind.mockRestore();
+        during.mockRestore();
+        await settle();
       }
-      // With the database standing still, the very same request is approved.
-      await expect(onFreshComparison((again) => service.approve(asked.id, id.adminB, again))).resolves.toEqual({ id: asked.id, mode: 'ENFORCE' });
     });
 
     it('an administrator switched off or demoted is refused at once, whatever their token still says', async () => {

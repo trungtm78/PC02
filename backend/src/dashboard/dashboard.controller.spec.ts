@@ -19,14 +19,17 @@ describe('DashboardController — delegation', () => {
 
   it('getStats() delegates to service.getStats', async () => {
     mockService.getStats.mockResolvedValue({ data: {} });
-    await controller.getStats();
-    expect(mockService.getStats).toHaveBeenCalled();
+    const scope = { teamIds: ['t1'], userIds: ['u1'] };
+    await controller.getStats({ dataScope: scope } as never);
+    // The totals count within the person's reach once permissions by team are enforced: the scope must arrive.
+    expect(mockService.getStats).toHaveBeenCalledWith(scope);
   });
 
   it('getCharts() delegates to service.getCharts', async () => {
     mockService.getCharts.mockResolvedValue({ data: {} });
-    await controller.getCharts();
-    expect(mockService.getCharts).toHaveBeenCalled();
+    const scope = { teamIds: ['t1'], userIds: ['u1'] };
+    await controller.getCharts({ dataScope: scope } as never);
+    expect(mockService.getCharts).toHaveBeenCalledWith(scope);
   });
 
   /**

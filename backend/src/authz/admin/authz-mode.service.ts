@@ -7,7 +7,7 @@ import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
 import { AUTHZ_MODES, AuthzService, type AuthzMode, type AuthzSnapshot } from '../authz.service';
 import { compile } from '../engine/compile';
 import type { AuthzConfig, OrgSnapshot, UserInput } from '../engine/types';
-import { impactBetween, tokenOf, type PersonImpact } from './documents';
+import { impactBetween, reachFactsOf, tokenOf, type PersonImpact } from './documents';
 import { CONFIG_WRITE_LOCK } from './authz-admin.service';
 
 type Tx = Prisma.TransactionClient;
@@ -89,7 +89,7 @@ export class AuthzModeService {
     return value && AUTHZ_MODES.includes(value) ? value : 'OFF';
   }
 
-  private static compare(snapshot: AuthzSnapshot, now: Date): PersonImpact[] {
+  private static compare(snapshot: AuthzSnapshot, now: Date): { impacts: PersonImpact[]; fingerprint: string } {
     // Today: the role alone decides, nobody has a personal override, and a membership counts whatever the state of
     // its team (the role path never looked at it). Enforced: the configuration as stored, on teams that count.
     // Where the two models could differ in a detail, "today" is the wider one: this is a report of LOSSES, and a
@@ -100,16 +100,18 @@ export class AuthzModeService {
       ...snapshot.org,
       teams: new Map([...snapshot.org.teams].map(([id, team]) => [id, { ...team, active: true }])),
     };
-    return impactBetween(
-      snapshot.org,
-      { config: EMPTY_CONFIG, users: today, org: everyTeamCounts },
-      { config: snapshot.config, users: snapshot.users },
-      now,
-    );
-  }
-
-  private static fingerprintOf(impacts: readonly PersonImpact[]): string {
-    return tokenOf([...impacts].sort((a, b) => a.userId.localeCompare(b.userId)));
+    const before = { config: EMPTY_CONFIG, users: today, org: everyTeamCounts };
+    const after = { config: snapshot.config, users: snapshot.users };
+    const impacts = impactBetween(snapshot.org, before, after, now).sort((a, b) => a.userId.localeCompare(b.userId));
+    // The acknowledgement is tied to WHO and WHICH TEAMS, not only to "narrower": for everybody affected, all that
+    // they reach today and all that they would reach.
+    const affected = impacts.map((i) => i.userId);
+    const fingerprint = tokenOf({
+      impacts,
+      today: reachFactsOf(everyTeamCounts, before, affected, now),
+      enforced: reachFactsOf(snapshot.org, after, affected, now),
+    });
+    return { impacts, fingerprint };
   }
 
   /**
@@ -118,7 +120,7 @@ export class AuthzModeService {
    */
   async comparison(now: Date = new Date()): Promise<Comparison> {
     const snapshot = await this.authz.snapshot();
-    const impacts = AuthzModeService.compare(snapshot, now);
+    const { impacts, fingerprint } = AuthzModeService.compare(snapshot, now);
     const names = await this.namesOf(impacts.map((i) => i.userId));
     const teamIds = new Set(impacts.flatMap((i) => [...i.gained, ...i.lost, ...i.changed].flatMap((d) => [...(d.teamsGained ?? []), ...(d.teamsLost ?? [])])));
     return {
@@ -131,7 +133,7 @@ export class AuthzModeService {
       },
       impacts: impacts.map((i) => ({ ...i, name: names.get(i.userId) ?? i.userId })),
       teamNames: Object.fromEntries([...teamIds].map((id) => [id, snapshot.teamNames.get(id) ?? id])),
-      fingerprint: AuthzModeService.fingerprintOf(impacts),
+      fingerprint,
     };
   }
 
@@ -189,12 +191,14 @@ export class AuthzModeService {
    * Administrators only: active accounts whose role is the administrator role, read from the ROWS inside the write
    * transaction and locked there. Somebody demoted or switched off a moment ago is refused, and nobody can be
    * demoted or switched off between this check and the change being in (the update waits for this transaction).
+   * Everybody concerned is locked by ONE statement, in id order: the order role administration locks accounts in.
    */
   private static async assertAdministrators(tx: Tx, userIds: readonly string[]): Promise<void> {
     const ids = [...new Set(userIds)];
     const rows = await tx.$queryRaw<{ id: string }[]>`
       SELECT u."id" FROM "users" u JOIN "roles" r ON r."id" = u."roleId"
       WHERE u."id" IN (${Prisma.join(ids)}) AND u."isActive" = true AND r."name" = ${ROLE_NAMES.ADMIN}
+      ORDER BY u."id"
       FOR SHARE OF u, r`;
     if (rows.length !== ids.length) throw new ForbiddenException({ code: AUTHZ_MODE_ERROR.ADMIN_ONLY });
   }
@@ -214,6 +218,15 @@ export class AuthzModeService {
   private async judged(): Promise<AuthzSnapshot> {
     await this.authz.refresh();
     return this.authz.snapshot();
+  }
+
+  /**
+   * From here to the end of the transaction nothing a person's permissions are computed from can change: every
+   * such change is logged by a trigger, and the log takes no new row while this lock is held (a change already
+   * under way is waited for, and then seen). The comparison judged below is the one that is switched on.
+   */
+  private async freeze(tx: Tx): Promise<void> {
+    await tx.$executeRaw`LOCK TABLE "authz_changes" IN SHARE MODE`;
   }
 
   private async assertStill(tx: Tx, snapshot: AuthzSnapshot): Promise<void> {
@@ -283,9 +296,10 @@ export class AuthzModeService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CONFIG_WRITE_LOCK})`;
       const now = at ?? new Date();
       await AuthzModeService.assertAdministrators(tx, [actorId]);
+      await this.freeze(tx);
       const snapshot = await this.judged();
       await this.assertStill(tx, snapshot);
-      const fingerprint = AuthzModeService.fingerprintOf(AuthzModeService.compare(snapshot, now));
+      const { fingerprint } = AuthzModeService.compare(snapshot, now);
       if (acknowledge !== fingerprint) throw new ConflictException({ code: AUTHZ_MODE_ERROR.COMPARISON_CHANGED });
       AuthzModeService.assertNoLockOut(snapshot, [actorId], now);
       const from = await this.storedMode(tx);
@@ -305,17 +319,18 @@ export class AuthzModeService {
     await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CONFIG_WRITE_LOCK})`;
       const now = at ?? new Date();
-      await AuthzModeService.assertAdministrators(tx, [actorId]);
       const row = await tx.authzModeChange.findUnique({ where: { id: requestId } });
+      // The approver, and the asker too: a request left behind by somebody who is no longer an administrator is
+      // void. Both accounts are locked together (before anything about the request is told to the caller).
+      await AuthzModeService.assertAdministrators(tx, row ? [actorId, row.requestedById] : [actorId]);
       if (!row) throw new NotFoundException({ code: AUTHZ_MODE_ERROR.REQUEST_NOT_FOUND });
       if (row.status !== 'PENDING') throw new ConflictException({ code: AUTHZ_MODE_ERROR.REQUEST_NOT_PENDING });
       if (row.createdAt.getTime() + MODE_REQUEST_TTL_MS <= now.getTime()) throw new ConflictException({ code: AUTHZ_MODE_ERROR.REQUEST_EXPIRED });
       if (row.requestedById === actorId) throw new ForbiddenException({ code: AUTHZ_MODE_ERROR.SECOND_ADMIN_REQUIRED });
-      // The asker must still be an administrator: a request left behind by somebody who no longer is one is void.
-      await AuthzModeService.assertAdministrators(tx, [row.requestedById]);
+      await this.freeze(tx);
       const snapshot = await this.judged();
       await this.assertStill(tx, snapshot);
-      const fingerprint = AuthzModeService.fingerprintOf(AuthzModeService.compare(snapshot, now));
+      const { fingerprint } = AuthzModeService.compare(snapshot, now);
       // Both read THIS comparison: the one asked on, the one acknowledged now, and the one the database gives now.
       if (row.fingerprint !== fingerprint || acknowledge !== fingerprint) {
         throw new ConflictException({ code: AUTHZ_MODE_ERROR.COMPARISON_CHANGED });
@@ -323,9 +338,6 @@ export class AuthzModeService {
       AuthzModeService.assertNoLockOut(snapshot, [actorId, row.requestedById], now);
       const from = await this.storedMode(tx);
       if (from === 'ENFORCE') throw new ConflictException({ code: AUTHZ_MODE_ERROR.ALREADY });
-      // Teams and memberships are not written under the lock above. One that changed while this transaction ran
-      // would make the comparison another one: looked at once more, as the last thing before the switch.
-      await this.assertStill(tx, snapshot);
       await this.write(tx, 'ENFORCE');
       await tx.authzModeChange.update({ where: { id: row.id }, data: { status: 'APPLIED', fromMode: from, decidedById: actorId, decidedAt: now } });
       await this.log(tx, actorId, 'AUTHZ_MODE_CHANGED', row.id, { from, to: 'ENFORCE', fingerprint, requestedById: row.requestedById }, meta);
