@@ -193,6 +193,10 @@ export const reportCriteria = {
     reload: 'Tải lại cấu hình mới nhất',
     errors: {
       MATRIX_NOT_RECOGNISED: 'Không nhận ra đây là file ma trận tiêu chí. Hãy tải ma trận về rồi sửa trên chính file đó.',
+      MATRIX_TOO_LARGE: 'File quá lớn so với một ma trận tiêu chí. Hãy tải ma trận về rồi sửa trên chính file đó.',
+      MATRIX_CRITERION_DUPLICATE: (row: number) => `Dòng ${row}: tiêu chí này đã có ở một dòng phía trên. Đừng chép thêm dòng tiêu chí.`,
+      MATRIX_TEAM_DUPLICATE: (column: string) => `Cột ${column}: tổ này đã có ở một cột phía trước. Đừng chép thêm cột tổ.`,
+      MATRIX_CELL_NOT_PLAIN: (cell: string) => `Ô ${cell}: chỉ gõ dấu "x" hoặc để trống, không dùng công thức và không gộp ô.`,
       MATRIX_CRITERION_UNKNOWN: (row: number) => `Dòng ${row}: tiêu chí này không có trong báo cáo. Đừng thêm hay sửa dòng tiêu chí.`,
       MATRIX_CRITERION_MISSING: (name: string) => `Thiếu dòng của tiêu chí "${name}". Đừng xoá dòng tiêu chí.`,
       MATRIX_TEAM_UNKNOWN: (column: string) => `Cột ${column}: tổ này không thuộc báo cáo. Đừng thêm hay sửa cột tổ.`,
@@ -229,6 +233,14 @@ export function matrixErrorText(error: CriteriaMatrixError, criterionName: (item
   switch (error.code) {
     case 'MATRIX_NOT_RECOGNISED':
       return t.MATRIX_NOT_RECOGNISED;
+    case 'MATRIX_TOO_LARGE':
+      return t.MATRIX_TOO_LARGE;
+    case 'MATRIX_CRITERION_DUPLICATE':
+      return t.MATRIX_CRITERION_DUPLICATE(error.row);
+    case 'MATRIX_TEAM_DUPLICATE':
+      return t.MATRIX_TEAM_DUPLICATE(error.column);
+    case 'MATRIX_CELL_NOT_PLAIN':
+      return t.MATRIX_CELL_NOT_PLAIN(error.cell);
     case 'MATRIX_CRITERION_UNKNOWN':
       return t.MATRIX_CRITERION_UNKNOWN(error.row);
     case 'MATRIX_CRITERION_MISSING':

@@ -46,11 +46,14 @@ export class CriteriaMatrixService {
     };
   }
 
-  /** `apply: false` only says what the file would change; `apply: true` changes it (and needs the revision it was read at). */
+  /**
+   * `apply: false` only says what the file would change. `apply: true` changes it, and only against the revision the
+   * preview was shown at: there is no "whatever it is now", or an old file would overwrite newer choices.
+   */
   async import(
     reportId: string,
     file: Buffer,
-    options: { apply: boolean; expectedConfigVersion?: number },
+    options: { apply: false } | { apply: true; expectedConfigVersion: number },
   ): Promise<MatrixImportResult> {
     const state = await this.load(reportId);
     const parsed = await parseCriteriaMatrix(file, state.criteria, state.teams);
@@ -59,7 +62,7 @@ export class CriteriaMatrixService {
 
     const wanted = new Map(parsed.teams.map((t) => [t.teamId, t.itemKeys]));
     const updated = await this.updates.updateConfig(reportId, {
-      expectedConfigVersion: options.expectedConfigVersion ?? state.configVersion,
+      expectedConfigVersion: options.expectedConfigVersion,
       targets: state.targets.map((t) => ({
         teamId: t.teamId,
         editorUserIds: t.editorUserIds,

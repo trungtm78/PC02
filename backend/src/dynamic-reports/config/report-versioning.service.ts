@@ -139,7 +139,7 @@ export class ReportVersioningService {
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
           sourceKind: input.sourceKind ?? 'TEMPLATE',
-          ...criteriaGroupsColumn(input.criteriaGroups),
+          ...criteriaGroupsColumn(input.criteriaGroups, input.fields),
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,

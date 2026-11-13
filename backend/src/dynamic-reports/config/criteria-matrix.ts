@@ -1,5 +1,6 @@
 import * as ExcelJS from 'exceljs';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
+import { assertMagicBytes, assertNoZipBomb, HostileXlsxError } from '../../xlsx-imports/hostile-xlsx-guard';
 
 /**
  * The criteria each team reports, as an Excel sheet the author can edit and send back: one row per criterion, one
@@ -16,6 +17,12 @@ const KEY_ROW = 1;
 const HEADER_ROW = 3;
 const FIRST_DATA_ROW = 4;
 const FIRST_TEAM_COLUMN = 4;
+/** A matrix is a small sheet: what it may unpack to, and how far it is scanned. */
+export const MATRIX_LIMITS = {
+  MAX_UNCOMPRESSED_BYTES: 30 * 1024 * 1024,
+  MAX_ROWS: 6000,
+  MAX_COLUMNS: 2000,
+} as const;
 
 export interface MatrixCriterion {
   itemKey: string;
@@ -30,6 +37,10 @@ export interface MatrixTeam {
 }
 export type MatrixError =
   | { code: 'MATRIX_NOT_RECOGNISED' }
+  | { code: 'MATRIX_TOO_LARGE' }
+  | { code: 'MATRIX_CRITERION_DUPLICATE'; row: number }
+  | { code: 'MATRIX_TEAM_DUPLICATE'; column: string }
+  | { code: 'MATRIX_CELL_NOT_PLAIN'; cell: string }
   | { code: 'MATRIX_CRITERION_UNKNOWN'; row: number }
   | { code: 'MATRIX_CRITERION_MISSING'; itemKey: string }
   | { code: 'MATRIX_TEAM_UNKNOWN'; column: string }
@@ -45,7 +56,19 @@ export interface MatrixTeamResult {
   removed: string[];
 }
 
-const text = (value: ExcelJS.CellValue): string => (value === null || value === undefined ? '' : String(value).trim());
+/**
+ * What a cell says, as plain text. Rich text is its runs joined; a formula, an error or any other object has no
+ * plain text here (`null`): the caller decides whether that is an error (a mark) or simply not a key.
+ */
+function plain(value: ExcelJS.CellValue): string | null {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value).trim();
+  if (typeof value === 'object' && 'richText' in value && Array.isArray(value.richText)) {
+    return value.richText.map((run) => run.text ?? '').join('').trim();
+  }
+  return null;
+}
+const text = (value: ExcelJS.CellValue): string => plain(value) ?? '';
 
 export async function buildCriteriaMatrix(
   criteria: readonly MatrixCriterion[],
@@ -95,11 +118,27 @@ export async function parseCriteriaMatrix(
   criteria: readonly MatrixCriterion[],
   teams: readonly MatrixTeam[],
 ): Promise<{ teams: MatrixTeamResult[]; errors: MatrixError[] }> {
+  // Refused before it is unpacked: the upload cap only bounds the COMPRESSED bytes.
+  try {
+    await assertMagicBytes(buffer);
+    assertNoZipBomb(buffer, MATRIX_LIMITS.MAX_UNCOMPRESSED_BYTES);
+  } catch (err) {
+    if (!(err instanceof HostileXlsxError)) throw err;
+    const tooLarge = err.code.startsWith('ZIP_BOMB');
+    return { teams: [], errors: [{ code: tooLarge ? 'MATRIX_TOO_LARGE' : 'MATRIX_NOT_RECOGNISED' }] };
+  }
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as never);
+  try {
+    await workbook.xlsx.load(buffer as never);
+  } catch {
+    return { teams: [], errors: [{ code: 'MATRIX_NOT_RECOGNISED' }] };
+  }
   const sheet = workbook.getWorksheet(MATRIX_SHEET) ?? workbook.worksheets[0];
   if (!sheet || text(sheet.getCell(KEY_ROW, 1).value) !== SIGNATURE) {
     return { teams: [], errors: [{ code: 'MATRIX_NOT_RECOGNISED' }] };
+  }
+  if (sheet.rowCount > MATRIX_LIMITS.MAX_ROWS || sheet.columnCount > MATRIX_LIMITS.MAX_COLUMNS) {
+    return { teams: [], errors: [{ code: 'MATRIX_TOO_LARGE' }] };
   }
 
   const errors: MatrixError[] = [];
@@ -111,6 +150,8 @@ export async function parseCriteriaMatrix(
     const teamId = text(sheet.getCell(KEY_ROW, column).value);
     if (!teamId) continue;
     if (!teamById.has(teamId)) errors.push({ code: 'MATRIX_TEAM_UNKNOWN', column: sheet.getColumn(column).letter });
+    // The same team twice: which column is meant cannot be known, so neither is taken.
+    else if (columnOf.has(teamId)) errors.push({ code: 'MATRIX_TEAM_DUPLICATE', column: sheet.getColumn(column).letter });
     else columnOf.set(teamId, column);
   }
   for (const team of teams) {
@@ -122,6 +163,7 @@ export async function parseCriteriaMatrix(
     const itemKey = text(sheet.getCell(row, 1).value);
     if (!itemKey) continue;
     if (!knownCriteria.has(itemKey)) errors.push({ code: 'MATRIX_CRITERION_UNKNOWN', row });
+    else if (rowOf.has(itemKey)) errors.push({ code: 'MATRIX_CRITERION_DUPLICATE', row });
     else rowOf.set(itemKey, row);
   }
   for (const criterion of criteria) {
@@ -129,11 +171,20 @@ export async function parseCriteriaMatrix(
   }
   if (errors.length > 0) return { teams: [], errors };
 
+  // A mark is plain text in a cell of its own. A formula may show nothing and still be "something"; a merged cell
+  // answers for its neighbours. Neither can be read as a yes or a no, so the file is refused, naming the cell.
+  const isMarked = (row: number, column: number): boolean => {
+    const cell = sheet.getCell(row, column);
+    const value = plain(cell.value);
+    if (cell.isMerged || value === null) {
+      errors.push({ code: 'MATRIX_CELL_NOT_PLAIN', cell: cell.address });
+      return false;
+    }
+    return value !== '';
+  };
   const results = teams.map((team): MatrixTeamResult => {
     const column = columnOf.get(team.teamId) as number;
-    const marked = criteria
-      .filter((c) => text(sheet.getCell(rowOf.get(c.itemKey) as number, column).value) !== '')
-      .map((c) => c.itemKey);
+    const marked = criteria.filter((c) => isMarked(rowOf.get(c.itemKey) as number, column)).map((c) => c.itemKey);
     const before = team.itemKeys === null ? criteria.map((c) => c.itemKey) : team.itemKeys;
     if (marked.length === 0) errors.push({ code: 'MATRIX_TEAM_EMPTY', teamId: team.teamId, name: team.name });
     return {
@@ -144,5 +195,8 @@ export async function parseCriteriaMatrix(
       removed: before.filter((k) => !marked.includes(k)),
     };
   });
+  if (errors.some((e) => e.code === 'MATRIX_CELL_NOT_PLAIN')) {
+    return { teams: [], errors: errors.filter((e) => e.code === 'MATRIX_CELL_NOT_PLAIN') };
+  }
   return errors.length > 0 ? { teams: [], errors } : { teams: results, errors };
 }

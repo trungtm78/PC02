@@ -26,11 +26,43 @@ export class ReportConfigError extends Error {
   }
 }
 
+/**
+ * The group headings must be a tree of their own: each key once, never the key of an input cell (the screens would
+ * show the heading's name for that cell), each parent another heading, and no heading its own ancestor.
+ */
+export function assertCriteriaGroups(
+  groups: readonly { itemKey: string; parentItemKey?: string }[],
+  fields: readonly { itemKey?: string | null }[],
+): void {
+  const refuse = (why: string): never => {
+    throw new ReportConfigError(`Nhóm tiêu chí không hợp lệ: ${why}`, 'CRITERIA_GROUPS_INVALID');
+  };
+  const fieldKeys = new Set(fields.map((f) => f.itemKey).filter((k): k is string => !!k));
+  const parentOf = new Map<string, string | undefined>();
+  for (const g of groups) {
+    if (parentOf.has(g.itemKey)) refuse(`mã "${g.itemKey}" bị lặp.`);
+    if (fieldKeys.has(g.itemKey)) refuse(`mã "${g.itemKey}" trùng với một tiêu chí nhập số.`);
+    parentOf.set(g.itemKey, g.parentItemKey);
+  }
+  for (const g of groups) {
+    if (g.parentItemKey !== undefined && !parentOf.has(g.parentItemKey)) {
+      refuse(`nhóm cha "${g.parentItemKey}" của "${g.itemKey}" không có trong danh sách nhóm.`);
+    }
+    const seen = new Set<string>([g.itemKey]);
+    for (let up = g.parentItemKey; up !== undefined; up = parentOf.get(up)) {
+      if (seen.has(up)) refuse(`nhóm "${g.itemKey}" là cha của chính nó.`);
+      seen.add(up);
+    }
+  }
+}
+
 /** How the group headings of a criteria report are kept on its version (nothing is written when there are none). */
 export function criteriaGroupsColumn(
   groups: readonly { itemKey: string; code?: string; name: string; parentItemKey?: string }[] | undefined,
+  fields: readonly { itemKey?: string | null }[],
 ): { sourceSelection?: Prisma.InputJsonValue } {
   if (!groups || groups.length === 0) return {};
+  assertCriteriaGroups(groups, fields);
   return {
     sourceSelection: {
       groups: groups.map((g) => ({
@@ -431,7 +463,7 @@ export class ReportConfigService {
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
           sourceKind: input.sourceKind ?? 'TEMPLATE',
-          ...criteriaGroupsColumn(input.criteriaGroups),
+          ...criteriaGroupsColumn(input.criteriaGroups, input.fields),
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,

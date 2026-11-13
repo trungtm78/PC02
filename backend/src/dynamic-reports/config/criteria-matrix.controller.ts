@@ -64,12 +64,11 @@ export class CriteriaMatrixController {
     @Body() body: { apply?: string; expectedConfigVersion?: string },
   ) {
     if (!file) throw new BadRequestException({ code: 'MATRIX_FILE_MISSING' });
-    const revision = Number(body.expectedConfigVersion);
+    if (body.apply !== 'true') return this.guard(() => this.matrix.import(reportId, file.buffer, { apply: false }));
+    const sent = (body.expectedConfigVersion ?? '').trim();
+    if (!/^\d{1,9}$/.test(sent)) throw new BadRequestException({ code: 'MATRIX_REVISION_REQUIRED' });
     return this.guard(() =>
-      this.matrix.import(reportId, file.buffer, {
-        apply: body.apply === 'true',
-        expectedConfigVersion: Number.isInteger(revision) ? revision : undefined,
-      }),
+      this.matrix.import(reportId, file.buffer, { apply: true, expectedConfigVersion: Number(sent) }),
     );
   }
 

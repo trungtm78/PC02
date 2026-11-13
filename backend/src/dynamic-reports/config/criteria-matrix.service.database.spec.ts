@@ -128,7 +128,7 @@ run('CriteriaMatrixService on PostgreSQL', () => {
       ws.getCell('E4').value = null;
     });
 
-    const error = await svc.import(id, file, { apply: true }).catch((e: unknown) => e);
+    const error = await svc.import(id, file, { apply: true, expectedConfigVersion: 0 }).catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(CriteriaMatrixError);
     expect((error as CriteriaMatrixError).errors).toEqual([{ code: 'MATRIX_TEAM_EMPTY', teamId: team.b, name: `${tag} B` }]);

@@ -11,6 +11,10 @@ describe('parseMatrixErrors', () => {
       { code: 'MATRIX_TEAM_UNKNOWN', column: 'F' },
       { code: 'MATRIX_TEAM_MISSING', teamId: 't1', name: 'Tổ 1' },
       { code: 'MATRIX_TEAM_EMPTY', teamId: 't2', name: 'Tổ 2' },
+      { code: 'MATRIX_TOO_LARGE' },
+      { code: 'MATRIX_CRITERION_DUPLICATE', row: 7 },
+      { code: 'MATRIX_TEAM_DUPLICATE', column: 'G' },
+      { code: 'MATRIX_CELL_NOT_PLAIN', cell: 'E5' },
     ];
     expect(parseMatrixErrors(reasons.map((r) => JSON.stringify(r)))).toEqual(reasons);
   });
@@ -25,6 +29,8 @@ describe('parseMatrixErrors', () => {
         JSON.stringify({ code: 'MATRIX_CRITERION_MISSING' }),
         JSON.stringify({ code: 'MATRIX_TEAM_UNKNOWN', column: '' }),
         JSON.stringify({ code: 'MATRIX_TEAM_EMPTY' }),
+        JSON.stringify({ code: 'MATRIX_CELL_NOT_PLAIN' }),
+        JSON.stringify({ code: 'MATRIX_TEAM_DUPLICATE', column: 5 }),
       ]),
     ).toEqual([]);
   });
@@ -68,6 +74,10 @@ describe('the words of a refusal', () => {
     expect(matrixErrorText({ code: 'MATRIX_TEAM_UNKNOWN', column: 'F' }, name)).toBe(t.MATRIX_TEAM_UNKNOWN('F'));
     expect(matrixErrorText({ code: 'MATRIX_TEAM_MISSING', teamId: 't1', name: 'Tổ 1' }, name)).toBe(t.MATRIX_TEAM_MISSING('Tổ 1'));
     expect(matrixErrorText({ code: 'MATRIX_TEAM_EMPTY', teamId: 't2', name: 'Tổ 2' }, name)).toBe(t.MATRIX_TEAM_EMPTY('Tổ 2'));
+    expect(matrixErrorText({ code: 'MATRIX_TOO_LARGE' }, name)).toBe(t.MATRIX_TOO_LARGE);
+    expect(matrixErrorText({ code: 'MATRIX_CRITERION_DUPLICATE', row: 7 }, name)).toBe(t.MATRIX_CRITERION_DUPLICATE(7));
+    expect(matrixErrorText({ code: 'MATRIX_TEAM_DUPLICATE', column: 'G' }, name)).toBe(t.MATRIX_TEAM_DUPLICATE('G'));
+    expect(matrixErrorText({ code: 'MATRIX_CELL_NOT_PLAIN', cell: 'E5' }, name)).toContain('Ô E5');
   });
 
   it('a refused mid-period change is said by its code, else by what the server said, else by the fallback', () => {

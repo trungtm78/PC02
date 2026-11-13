@@ -741,6 +741,10 @@ export interface AssignmentCriteriaResult {
 /** One reason an uploaded criteria matrix cannot be used (`CRITERIA_MATRIX_INVALID`, in `error.details`). */
 export type CriteriaMatrixError =
   | { code: 'MATRIX_NOT_RECOGNISED' }
+  | { code: 'MATRIX_TOO_LARGE' }
+  | { code: 'MATRIX_CRITERION_DUPLICATE'; row: number }
+  | { code: 'MATRIX_TEAM_DUPLICATE'; column: string }
+  | { code: 'MATRIX_CELL_NOT_PLAIN'; cell: string }
   | { code: 'MATRIX_CRITERION_UNKNOWN'; row: number }
   | { code: 'MATRIX_CRITERION_MISSING'; itemKey: string }
   | { code: 'MATRIX_TEAM_UNKNOWN'; column: string }

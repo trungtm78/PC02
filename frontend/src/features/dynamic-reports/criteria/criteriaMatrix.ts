@@ -12,11 +12,16 @@ function toMatrixError(value: unknown): CriteriaMatrixError | null {
   const v = value as Record<string, unknown>;
   switch (v.code) {
     case 'MATRIX_NOT_RECOGNISED':
+    case 'MATRIX_TOO_LARGE':
       return { code: v.code };
+    case 'MATRIX_CELL_NOT_PLAIN':
+      return isText(v.cell) ? { code: v.code, cell: v.cell } : null;
+    case 'MATRIX_CRITERION_DUPLICATE':
     case 'MATRIX_CRITERION_UNKNOWN':
       return isRow(v.row) ? { code: v.code, row: v.row } : null;
     case 'MATRIX_CRITERION_MISSING':
       return isText(v.itemKey) ? { code: v.code, itemKey: v.itemKey } : null;
+    case 'MATRIX_TEAM_DUPLICATE':
     case 'MATRIX_TEAM_UNKNOWN':
       return isText(v.column) ? { code: v.code, column: v.column } : null;
     case 'MATRIX_TEAM_MISSING':
