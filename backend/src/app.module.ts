@@ -33,6 +33,7 @@ import { InvestigationSupplementsModule } from './investigation-supplements/inve
 import { MasterClassModule } from './master-class/master-class.module';
 import { TeamsModule } from './teams/teams.module';
 import { SettingsModule } from './settings/settings.module';
+import { AuthzModule } from './authz/authz.module';
 import { DeadlineRulesModule } from './deadline-rules/deadline-rules.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { KpiModule } from './kpi/kpi.module';
@@ -109,6 +110,7 @@ import { CatalogModule } from './catalog/catalog.module';
     MasterClassModule,
     TeamsModule,
     SettingsModule,
+    AuthzModule,
     DeadlineRulesModule,
     FeatureFlagsModule,
     KpiModule,
