@@ -12,6 +12,7 @@ import {
 } from './report-config.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
 import type { SaveReportConfigRequestDto } from './dto/save-report-config.dto';
 
 /**
@@ -26,6 +27,7 @@ describe('ReportConfigController', () => {
     suspendGeneration: jest.fn(),
     listVersions: jest.fn(),
   };
+  const scheduler = { generateForReport: jest.fn() };
   const user = { id: 'actor1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -34,6 +36,7 @@ describe('ReportConfigController', () => {
       controllers: [ReportConfigController],
       providers: [
         { provide: ReportConfigService, useValue: service },
+        { provide: PeriodSchedulerService, useValue: scheduler },
         { provide: FeatureFlagsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
       ],
@@ -69,6 +72,46 @@ describe('ReportConfigController', () => {
       'actor1',
     );
     expect(result).toBe(saved);
+  });
+
+  it('a report saved as PUBLISHED gets its periods made at once, not at the next hourly tick', async () => {
+    service.save.mockResolvedValue({ reportId: 'rep1', versionId: 'ver1', status: 'PUBLISHED' });
+
+    await controller.save(file, body, user);
+
+    expect(scheduler.generateForReport).toHaveBeenCalledWith('rep1');
+  });
+
+  it('a draft makes no periods', async () => {
+    service.save.mockResolvedValue({ reportId: 'rep1', versionId: 'ver1', status: 'DRAFT' });
+
+    await controller.save(file, body, user);
+
+    expect(scheduler.generateForReport).not.toHaveBeenCalled();
+  });
+
+  it('a failure while making the periods never fails the publish: the hourly tick will make them', async () => {
+    const saved = { reportId: 'rep1', versionId: 'ver1', status: 'PUBLISHED' };
+    service.save.mockResolvedValue(saved);
+    scheduler.generateForReport.mockRejectedValue(new Error('boom'));
+
+    await expect(controller.save(file, body, user)).resolves.toBe(saved);
+  });
+
+  it('does not hold the answer back for a slow scheduler: the proxy gives up after 90 s (found by Codex)', async () => {
+    jest.useFakeTimers();
+    try {
+      const saved = { reportId: 'rep1', versionId: 'ver1', status: 'PUBLISHED' };
+      service.save.mockResolvedValue(saved);
+      scheduler.generateForReport.mockReturnValue(new Promise(() => undefined)); // never finishes
+
+      const answered = controller.save(file, body, user);
+      await jest.advanceTimersByTimeAsync(15_000);
+
+      await expect(answered).resolves.toBe(saved);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('translates a REPORT_CODE_TAKEN ReportConfigError into a 409', async () => {

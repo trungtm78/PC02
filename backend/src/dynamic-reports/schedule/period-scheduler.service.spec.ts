@@ -14,6 +14,7 @@ describe('PeriodSchedulerService', () => {
   function buildTx() {
     return {
       $queryRaw: jest.fn(),
+      $executeRawUnsafe: jest.fn().mockResolvedValue(0),
       dynReport: { findMany: jest.fn() },
       dynReportVersion: { findFirst: jest.fn() },
       dynReportTarget: { findMany: jest.fn() },

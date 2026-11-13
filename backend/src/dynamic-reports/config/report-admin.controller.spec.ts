@@ -8,12 +8,14 @@ import { ReportVersioningService } from './report-versioning.service';
 import { ReportConfigUpdateService } from './report-config-update.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
 
 describe('ReportAdminController', () => {
   const config = { resumeGeneration: jest.fn() };
   const detail = { getDetail: jest.fn(), getVersionFile: jest.fn() };
   const lifecycle = { getDeletionImpact: jest.fn(), archive: jest.fn(), unarchive: jest.fn(), deleteReport: jest.fn() };
-  const versioning = { createVersion: jest.fn(), deleteVersion: jest.fn() };
+  const versioning = { createVersion: jest.fn(), deleteVersion: jest.fn(), publishDraft: jest.fn() };
+  const scheduler = { generateForReport: jest.fn() };
   const updater = { updateConfig: jest.fn() };
   const user = { id: 'actor1' };
   let controller: ReportAdminController;
@@ -28,6 +30,7 @@ describe('ReportAdminController', () => {
         { provide: ReportLifecycleService, useValue: lifecycle },
         { provide: ReportVersioningService, useValue: versioning },
         { provide: ReportConfigUpdateService, useValue: updater },
+        { provide: PeriodSchedulerService, useValue: scheduler },
         { provide: FeatureFlagsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
       ],
@@ -39,6 +42,49 @@ describe('ReportAdminController', () => {
     detail.getDetail.mockResolvedValue({ id: 'r1' });
     await expect(controller.detail('r1')).resolves.toEqual({ id: 'r1' });
     expect(detail.getDetail).toHaveBeenCalledWith('r1');
+  });
+
+  describe('publishing a draft', () => {
+    it('makes the report\'s periods at once', async () => {
+      const published = { reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' };
+      versioning.publishDraft.mockResolvedValue(published);
+
+      await expect(controller.publish('r1')).resolves.toBe(published);
+
+      expect(scheduler.generateForReport).toHaveBeenCalledWith('r1');
+    });
+
+    it('does not make periods for a draft that could not be published', async () => {
+      versioning.publishDraft.mockRejectedValue(new ReportConfigError('x', 'TEMPLATE_INVALID'));
+
+      await expect(controller.publish('r1')).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(scheduler.generateForReport).not.toHaveBeenCalled();
+    });
+
+    it('does not hold the answer back for a slow scheduler (found by Codex)', async () => {
+      jest.useFakeTimers();
+      try {
+        const published = { reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' };
+        versioning.publishDraft.mockResolvedValue(published);
+        scheduler.generateForReport.mockReturnValue(new Promise(() => undefined));
+
+        const answered = controller.publish('r1');
+        await jest.advanceTimersByTimeAsync(15_000);
+
+        await expect(answered).resolves.toBe(published);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('a failure while making the periods never fails the publish', async () => {
+      const published = { reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' };
+      versioning.publishDraft.mockResolvedValue(published);
+      scheduler.generateForReport.mockRejectedValue(new Error('boom'));
+
+      await expect(controller.publish('r1')).resolves.toBe(published);
+    });
   });
 
   it('detail turns a missing report into 404', async () => {

@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   NotFoundException,
   Param,
   Patch,
@@ -28,6 +29,8 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { attachmentDisposition } from '../attachment-disposition.util';
 import { ReportConfigService, ReportConfigError } from './report-config.service';
 import { ReportDetailService } from './report-detail.service';
+import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
+import { bestEffortWithin } from '../schedule/best-effort-within';
 import { ReportLifecycleService } from './report-lifecycle.service';
 import { ReportVersioningService } from './report-versioning.service';
 import { ReportConfigUpdateService } from './report-config-update.service';
@@ -41,6 +44,9 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
  * `ReportConfigController` (which creates reports and suspends them) on the same path prefix so the REST
  * shape stays `bao-cao-dong/reports/:reportId/...`; manage:DynamicReport only, like every authoring route.
  */
+/** How long a publish waits for its periods to be made; the proxy gives up after 90 s, the work carries on past this. */
+const PERIODS_WAIT_MS = 15_000;
+
 @Controller('bao-cao-dong/reports')
 @UseGuards(JwtAuthGuard, FeatureFlagGuard, PermissionsGuard)
 @FeatureFlag('dynamic_reports')
@@ -51,7 +57,10 @@ export class ReportAdminController {
     private readonly lifecycleService: ReportLifecycleService,
     private readonly versioningService: ReportVersioningService,
     private readonly updateService: ReportConfigUpdateService,
+    private readonly scheduler: PeriodSchedulerService,
   ) {}
+
+  private readonly logger = new Logger(ReportAdminController.name);
 
   /** Maps the service's error codes onto HTTP: a missing report is 404, "has data" is a 409 the screen can explain. */
   private async guard<T>(run: () => Promise<T>): Promise<T> {
@@ -113,8 +122,15 @@ export class ReportAdminController {
   @Post(':reportId/publish')
   @RequirePermissions({ action: 'manage', subject: 'DynamicReport' })
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  publish(@Param('reportId') reportId: string) {
-    return this.guard(() => this.versioningService.publishDraft(reportId));
+  async publish(@Param('reportId') reportId: string) {
+    const published = await this.guard(() => this.versioningService.publishDraft(reportId));
+    // Make its periods now instead of at the next hourly tick. Best effort: it is published either way.
+    await bestEffortWithin(this.scheduler.generateForReport(reportId), PERIODS_WAIT_MS, (err) =>
+      this.logger.error(
+        `Could not make the periods of the report ${reportId} right after publishing: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
+    return published;
   }
 
   /** One version's template file — the source for copying a report or starting a new version from the same file. */
