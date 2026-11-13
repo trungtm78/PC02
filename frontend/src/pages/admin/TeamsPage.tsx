@@ -134,7 +134,9 @@ export default function TeamsPage() {
   const [deleteBlocked, setDeleteBlocked] = useState<{ team: Team; blockers: Blocker[] } | null>(null);
   const [mergeSource, setMergeSource] = useState<Team | null>(null);
   const [mergeTarget, setMergeTarget] = useState('');
-  const [mergeSummary, setMergeSummary] = useState<MergeSummary | null>(null);
+  // A preview counts for ONE target; it is shown, and unlocks the merge, only while that target is still selected.
+  const [mergePreview, setMergePreview] = useState<{ target: string; summary: MergeSummary } | null>(null);
+  const mergeSummary = mergePreview && mergePreview.target === mergeTarget ? mergePreview.summary : null;
   const [mergeError, setMergeError] = useState('');
   const [mergeDone, setMergeDone] = useState('');
   const [undoResult, setUndoResult] = useState('');
@@ -367,7 +369,7 @@ export default function TeamsPage() {
   const closeMerge = () => {
     setMergeSource(null);
     setMergeTarget('');
-    setMergeSummary(null);
+    setMergePreview(null);
     setMergeError('');
   };
   const mergeFailure = (err: unknown, fallback: string) => {
@@ -376,13 +378,13 @@ export default function TeamsPage() {
   };
 
   const previewMutation = useMutation({
-    mutationFn: () => api.post(`/teams/${mergeSource!.id}/merge-preview`, { targetTeamId: mergeTarget }),
-    onSuccess: (r) => {
+    mutationFn: (target: string) => api.post(`/teams/${mergeSource!.id}/merge-preview`, { targetTeamId: target }),
+    onSuccess: (r, target) => {
       setMergeError('');
-      setMergeSummary(r.data.summary);
+      setMergePreview({ target, summary: r.data.summary });
     },
     onError: (err) => {
-      setMergeSummary(null);
+      setMergePreview(null);
       setMergeError(mergeFailure(err, L.merge.failed));
     },
   });
@@ -829,7 +831,6 @@ export default function TeamsPage() {
             value={mergeTarget}
             onChange={(e) => {
               setMergeTarget(e.target.value);
-              setMergeSummary(null);
               setMergeError('');
             }}
             className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-md text-sm"
@@ -889,7 +890,7 @@ export default function TeamsPage() {
           <div className="mt-4 flex gap-2">
             <button
               data-testid="team-merge-preview"
-              onClick={() => previewMutation.mutate()}
+              onClick={() => previewMutation.mutate(mergeTarget)}
               disabled={!mergeTarget || previewMutation.isPending}
               className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
             >

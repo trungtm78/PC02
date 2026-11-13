@@ -3,8 +3,16 @@ import { TeamLifecycleService } from './team-lifecycle.service';
 
 type Status = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 
+interface MockPrisma {
+  $queryRaw: jest.Mock;
+  $transaction: jest.Mock;
+  team: { findUnique: jest.Mock; update: jest.Mock };
+}
+
 function build(current: Status | null) {
-  const prisma = {
+  const prisma: MockPrisma = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     team: {
       findUnique: jest.fn().mockResolvedValue(
         current === null ? null : { id: 't1', name: 'Team 1', status: current },
@@ -57,6 +65,22 @@ describe('TeamLifecycleService', () => {
       const restored = restore.prisma.team.update.mock.calls[0][0].data;
       expect(restored.archivedById).toBeNull();
       expect(restored.archivedAt).toBeNull();
+    });
+
+    it('reads and writes the state under a row lock, so a concurrent merge cannot be overwritten by a stale read', async () => {
+      const { service, prisma } = build('ACTIVE');
+
+      await service.setStatus('t1', 'INACTIVE', 'actor1');
+
+      const locks = (prisma.$queryRaw as jest.Mock).mock.calls.filter(([strings]) =>
+        (strings as TemplateStringsArray).join('').includes('FOR UPDATE'),
+      );
+      expect(locks).toHaveLength(1);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      // the lock is taken before the state is read
+      const lockOrder = (prisma.$queryRaw as jest.Mock).mock.invocationCallOrder[0];
+      const readOrder = (prisma.team as { findUnique: jest.Mock }).findUnique.mock.invocationCallOrder[0];
+      expect(lockOrder).toBeLessThan(readOrder);
     });
 
     it('never writes isActive itself: the database keeps it in step with the status', async () => {

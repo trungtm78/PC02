@@ -300,6 +300,44 @@ run('Team merge on PostgreSQL', () => {
       expect(await db.teamMergeOperation.findUniqueOrThrow({ where: { id: operationId } })).toMatchObject({ status: 'UNDONE' });
     });
 
+    it('a membership re-created on the target since the merge is a different membership: undo leaves it there', async () => {
+      const s = await scenario();
+      const { operationId } = await service.merge(s.S.id, s.T.id, 'actor');
+      // u2 came over from S. Someone removes u2 from T and, separately, adds u2 to T again (a new row, a new joinedAt).
+      await db.userTeam.delete({ where: { userId_teamId: { userId: u2, teamId: s.T.id } } });
+      await db.userTeam.create({ data: { userId: u2, teamId: s.T.id, joinedAt: new Date('2030-01-01T00:00:00Z') } });
+
+      const undone = await service.undo(operationId, 'actor');
+
+      expect((await memberships(s.T.id)).some((m) => m.userId === u2)).toBe(true);
+      expect((await memberships(s.S.id)).some((m) => m.userId === u2)).toBe(false);
+      expect(undone.skipped).toBeGreaterThanOrEqual(1);
+    });
+
+    it('a leader flag on a membership that was re-created since is not reverted', async () => {
+      const s = await scenario();
+      const { operationId } = await service.merge(s.S.id, s.T.id, 'actor');
+      // u1's membership of T was raised to leader by the merge; it is removed and added again as a leader on purpose.
+      await db.userTeam.delete({ where: { userId_teamId: { userId: u1, teamId: s.T.id } } });
+      await db.userTeam.create({ data: { userId: u1, teamId: s.T.id, isLeader: true, joinedAt: new Date('2030-01-01T00:00:00Z') } });
+
+      await service.undo(operationId, 'actor');
+
+      expect((await memberships(s.T.id)).find((m) => m.userId === u1)?.isLeader).toBe(true);
+    });
+
+    it('undo never recreates a cycle: a child whose old parent has since been placed under it stays put', async () => {
+      const s = await scenario();
+      const { operationId } = await service.merge(s.S.id, s.T.id, 'actor');
+      // The child was moved from S to T. Afterwards S (archived) is hung under that child: still a tree.
+      await db.team.update({ where: { id: s.S.id }, data: { parentId: s.child.id } });
+
+      const undone = await service.undo(operationId, 'actor');
+
+      expect((await db.team.findUniqueOrThrow({ where: { id: s.child.id } })).parentId).toBe(s.T.id);
+      expect(undone.skipped).toBeGreaterThanOrEqual(1);
+    });
+
     it('an operation can be undone once; an unknown one is a 404', async () => {
       const s = await scenario();
       const { operationId } = await service.merge(s.S.id, s.T.id, 'actor');

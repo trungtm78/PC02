@@ -150,7 +150,12 @@ export class TeamLifecycleService {
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    const applied = await this.applyStatus(this.prisma, id, to, actorId);
+    // Lock the row, then read and write under that lock: a stale read could otherwise overwrite what a merge (which
+    // archives the source) has just committed, skipping the transition rules.
+    const applied = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM teams WHERE id = ${id} FOR UPDATE`;
+      return this.applyStatus(tx, id, to, actorId);
+    });
     if (!applied) {
       // Already in the asked state: nothing changes and nothing is audited.
       const current = await this.prisma.team.findUnique({ where: { id } });

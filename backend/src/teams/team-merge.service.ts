@@ -212,8 +212,8 @@ export class TeamMergeService {
         `WITH raised AS (
            UPDATE user_teams t SET "isLeader" = true FROM user_teams s
             WHERE s."teamId" = $1 AND t."teamId" = $2 AND s."userId" = t."userId" AND s."isLeader" AND NOT t."isLeader"
-            RETURNING t."userId"),
-         ins AS (${MANIFEST_INSERT(`'FIELD'`, `'user_teams'`, `jsonb_build_object('userId', "userId", 'teamId', $2::text)`, `jsonb_build_object('isLeader', false)`, `jsonb_build_object('isLeader', true)`, 'raised')} RETURNING 1)
+            RETURNING t."userId", t."joinedAt"),
+         ins AS (${MANIFEST_INSERT(`'FIELD'`, `'user_teams'`, `jsonb_build_object('userId', "userId", 'teamId', $2::text, 'joinedAt', "joinedAt")`, `jsonb_build_object('isLeader', false)`, `jsonb_build_object('isLeader', true)`, 'raised')} RETURNING 1)
          SELECT count(*)::int AS n FROM ins`,
         S, T, op,
       );
@@ -230,8 +230,8 @@ export class TeamMergeService {
       if (removed) summary.duplicatesRemoved.push({ table: ref.table, count: removed });
       const moved = await int(
         tx,
-        `WITH moved AS (UPDATE user_teams SET "teamId" = $2 WHERE "teamId" = $1 RETURNING "userId"),
-         ins AS (${MANIFEST_INSERT(`'REPOINT'`, `'user_teams'`, `jsonb_build_object('userId', "userId", 'teamId', $2::text)`, `jsonb_build_object('teamId', $1::text)`, `jsonb_build_object('teamId', $2::text)`, 'moved')} RETURNING 1)
+        `WITH moved AS (UPDATE user_teams SET "teamId" = $2 WHERE "teamId" = $1 RETURNING "userId", "joinedAt"),
+         ins AS (${MANIFEST_INSERT(`'REPOINT'`, `'user_teams'`, `jsonb_build_object('userId', "userId", 'teamId', $2::text, 'joinedAt', "joinedAt")`, `jsonb_build_object('teamId', $1::text)`, `jsonb_build_object('teamId', $2::text)`, 'moved')} RETURNING 1)
          SELECT count(*)::int AS n FROM ins`,
         S, T, op,
       );
@@ -318,6 +318,7 @@ export class TeamMergeService {
                    FROM team_merge_items i
                   WHERE i."operationId" = $1 AND i."tableName" = 'user_teams' AND i.kind = 'REPOINT'
                     AND x."userId" = i."recordKey"->>'userId' AND x."teamId" = $2
+                    AND x."joinedAt" = (i."recordKey"->>'joinedAt')::timestamp
                     AND NOT EXISTS (SELECT 1 FROM user_teams y WHERE y."userId" = x."userId" AND y."teamId" = $3)
                   RETURNING 1) SELECT count(*)::int AS n FROM r`,
                 operationId, T, S,
@@ -327,7 +328,7 @@ export class TeamMergeService {
                 `WITH r AS (UPDATE ${t} x SET ${c} = $3
                    FROM team_merge_items i
                   WHERE i."operationId" = $1 AND i."tableName" = $4 AND i.kind = 'REPOINT' AND jsonb_exists(i.before, $5)
-                    AND x.id = i."recordKey"->>'id' AND x.${c} = $2${noTwinOnSource(g.table_name)}
+                    AND x.id = i."recordKey"->>'id' AND x.${c} = $2${undoGuard(g.table_name)}
                   RETURNING 1) SELECT count(*)::int AS n FROM r`,
                 operationId, T, S, g.table_name, g.col,
               );
@@ -342,6 +343,7 @@ export class TeamMergeService {
            FROM team_merge_items i
           WHERE i."operationId" = $1 AND i.kind = 'FIELD' AND i."tableName" = 'user_teams'
             AND x."userId" = i."recordKey"->>'userId' AND x."teamId" = i."recordKey"->>'teamId'
+            AND x."joinedAt" = (i."recordKey"->>'joinedAt')::timestamp
             AND x."isLeader" = (i.after->>'isLeader')::boolean
           RETURNING 1) SELECT count(*)::int AS n FROM r`,
         operationId,
@@ -406,14 +408,22 @@ export class TeamMergeService {
 }
 
 /**
- * Putting a row back on the source must not collide with a row that now exists there: grants are unique per
- * (grantee, level, team), so a grant created on the source after the merge would make the whole undo fail.
- * Such a row is left where it is and counted as skipped.
+ * Putting a row back on the source must not break an invariant that only holds NOW. A row that cannot go back is left
+ * where it is and counted as skipped, never forced:
+ * - grants are unique per (grantee, level, team): one created on the source after the merge would make the undo fail;
+ * - a child team goes back under the source only if the source is not now inside that child's own subtree, or the
+ *   hierarchy would loop (and both teams would vanish from the tree).
  */
-function noTwinOnSource(table: string): string {
-  return table === 'data_access_grants'
-    ? ` AND NOT EXISTS (SELECT 1 FROM data_access_grants y WHERE y."granteeId" = x."granteeId" AND y."accessLevel" = x."accessLevel" AND y."teamId" = $3)`
-    : '';
+function undoGuard(table: string): string {
+  if (table === 'data_access_grants') {
+    return ` AND NOT EXISTS (SELECT 1 FROM data_access_grants y WHERE y."granteeId" = x."granteeId" AND y."accessLevel" = x."accessLevel" AND y."teamId" = $3)`;
+  }
+  if (table === 'teams') {
+    return ` AND NOT EXISTS (
+      WITH RECURSIVE sub AS (SELECT x.id AS id UNION SELECT c.id FROM teams c JOIN sub ON c."parentId" = sub.id)
+      SELECT 1 FROM sub WHERE sub.id = $3)`;
+  }
+  return '';
 }
 
 /** A source open target moves only when the target team has no open target of its own for the same report. */

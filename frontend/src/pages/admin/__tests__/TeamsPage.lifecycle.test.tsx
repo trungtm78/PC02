@@ -300,6 +300,32 @@ describe('TeamsPage lifecycle', () => {
       expect(api.post).not.toHaveBeenCalledWith('/teams/a1/merge', expect.anything());
     });
 
+    it('a preview that comes back for a target no longer selected cannot enable the merge', async () => {
+      let answerFirst: (v: unknown) => void = () => {};
+      vi.mocked(api.post).mockImplementation(
+        (url: string, body?: unknown) =>
+          new Promise((resolve) => {
+            if (url.endsWith('/merge-preview') && (body as { targetTeamId: string }).targetTeamId === 'a2') {
+              answerFirst = resolve;
+            } else {
+              resolve({ data: {} });
+            }
+          }),
+      );
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+      openMerge();
+      fireEvent.change(await screen.findByTestId('team-merge-target'), { target: { value: 'a2' } });
+      fireEvent.click(screen.getByTestId('team-merge-preview'));
+      // the person changes their mind while the preview for the first target is still being counted
+      fireEvent.change(screen.getByTestId('team-merge-target'), { target: { value: '' } });
+
+      answerFirst({ data: { source: { id: 'a1', name: 'x' }, target: { id: 'a2', name: 'y' }, summary: SUMMARY } });
+
+      await waitFor(() => expect(screen.queryByTestId('team-merge-summary')).toBeNull());
+      expect(screen.getByTestId('team-merge-confirm')).toBeDisabled();
+    });
+
     it('merges only after the preview, then announces it', async () => {
       renderPage();
       await screen.findByText('Tổ công tác số 2');
