@@ -274,6 +274,8 @@ run('Team merge on PostgreSQL', () => {
       expect((await db.petition.findUniqueOrThrow({ where: { id: s.p1.id } })).assignedTeamId).toBe(other.id);
       expect((await db.petition.findUniqueOrThrow({ where: { id: s.p2.id } })).assignedTeamId).toBe(s.S.id);
       expect(undone.skipped).toBe(1);
+      // Not only how many: which kind of record was left where it is.
+      expect(undone.skippedItems).toEqual([{ table: 'petitions', count: 1 }]);
     });
 
     it('a person re-added to the source since the merge is not duplicated or lost', async () => {

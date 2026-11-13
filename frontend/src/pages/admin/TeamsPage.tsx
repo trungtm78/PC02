@@ -411,7 +411,8 @@ export default function TeamsPage() {
     mutationFn: (id: string) => api.post(`/teams/merges/${id}/undo`),
     onSuccess: (r) => {
       setMergeDone('');
-      setUndoResult(L.merge.undoResult(r.data.restored, r.data.skipped));
+      const kept = ((r.data.skippedItems ?? []) as { table: string; count: number }[]).map((i) => `${i.count} ${sourceLabel(i.table)}`);
+      setUndoResult(L.merge.undoResult(r.data.restored, r.data.skipped, kept));
       queryClient.invalidateQueries({ queryKey: ['teams'] });
     },
     onError: (err) => setStatusError(mergeFailure(err, L.merge.undoFailed)),
