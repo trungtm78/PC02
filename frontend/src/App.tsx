@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createAppQueryClient } from '@/lib/queryClient';
 import LoginPage from '@/pages/auth/LoginPage';
 import TwoFaPage from '@/pages/auth/TwoFaPage';
 import TwoFaSetupPage from '@/pages/auth/TwoFaSetupPage';
@@ -13,11 +14,7 @@ import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModal
 import { useAuthHydration } from '@/hooks/useAuthHydration';
 import { useXoaKhoDemKhiDoiTaiKhoan } from '@/hooks/useXoaKhoDemKhiDoiTaiKhoan';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 5 * 60 * 1000 },
-  },
-});
+const queryClient = createAppQueryClient();
 
 // Compute route elements ONCE at module scope so React Router never sees
 // new element identities on re-render. Without this, every App re-render
