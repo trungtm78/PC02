@@ -975,13 +975,23 @@ export class SubmissionService {
       });
       if (madeReturn?.reopenedRevision != null) {
         const expiry = new Date(activeGrant.expiresAt);
+        // A DRAFT carries the deadline of the LAST return. It is this grant's only when no later return has been made:
+        // a manager's own return with the same deadline, made after the editor submitted again, is theirs to keep.
+        const lastReturn = await tx.dynReportRevision.findFirst({
+          where: { submission: { assignmentId }, kind: 'RETURN' },
+          orderBy: { revision: 'desc' },
+          select: { revision: true },
+        });
+        const draftIsThisGrants = lastReturn?.revision === madeReturn.reopenedRevision;
         await tx.dynReportSubmission.updateMany({
           where: {
             assignmentId,
             returnDueAt: expiry,
             OR: [
               { state: 'RETURNED', currentRevision: madeReturn.reopenedRevision },
-              { state: 'DRAFT', currentRevision: { gt: madeReturn.reopenedRevision } },
+              ...(draftIsThisGrants
+                ? [{ state: 'DRAFT' as const, currentRevision: { gt: madeReturn.reopenedRevision } }]
+                : []),
             ],
           },
           data: { returnDueAt: now },

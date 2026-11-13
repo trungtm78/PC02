@@ -81,6 +81,7 @@ describe('SubmissionService', () => {
       },
       dynReportRevision: {
         create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+        findFirst: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue(null),
       },
       dynReportUnlock: {
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
@@ -2218,6 +2219,8 @@ describe('SubmissionService', () => {
         reason: 'Cho thêm giờ',
       });
       tx.dynReportUnlock.findUnique.mockResolvedValue({ reopenedRevision: BigInt(2) });
+      // The last return in the history is the one this grant made, so a saved DRAFT with its deadline is its own.
+      tx.dynReportRevision.findFirst.mockResolvedValue({ revision: BigInt(2) });
       const { service } = buildService(tx);
 
       await service.revokeActiveGrant(
