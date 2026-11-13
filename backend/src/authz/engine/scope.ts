@@ -1,4 +1,4 @@
-import { TEAM_TREE_MAX_DEPTH } from '../../teams/teams.service';
+import { TEAM_TREE_MAX_DEPTH } from '../../teams/team-tree.constants';
 import type { EffectivePermissions, OrgSnapshot, RecordScope } from './types';
 
 /**

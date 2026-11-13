@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { TEAM_TREE_MAX_DEPTH } from './team-tree.constants';
 import { TeamStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -6,8 +7,6 @@ import { TeamLifecycleService } from './team-lifecycle.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 
-/** How deep "the teams under a team" goes. The permission engine uses the same number (authz/engine/scope.ts). */
-export const TEAM_TREE_MAX_DEPTH = 3;
 const MAX_DEPTH = TEAM_TREE_MAX_DEPTH;
 
 @Injectable()
