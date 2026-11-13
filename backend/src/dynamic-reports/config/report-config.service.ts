@@ -14,6 +14,7 @@ import { reconcileFieldsWithWorkbook } from './publish-reconcile';
 import type { ParseTemplateResult } from '../template/types';
 import { deriveFromValidations } from '../template/validation-constraints';
 import type { DerivedConstraints } from '../template/validation-constraints';
+import { normaliseTargetSubset, TargetSubsetError } from './target-subsets';
 
 export class ReportConfigError extends Error {
   constructor(
@@ -22,6 +23,27 @@ export class ReportConfigError extends Error {
   ) {
     super(message);
     this.name = 'ReportConfigError';
+  }
+}
+
+/** A team's subset of criteria, validated against the report's fields; a refusal becomes a ReportConfigError. */
+export function subsetOrConfigError(
+  teamId: string,
+  itemKeys: readonly string[] | null | undefined,
+  fields: readonly { fieldKey: string; itemKey?: string | null }[],
+): string[] | null {
+  try {
+    return normaliseTargetSubset(teamId, itemKeys, fields);
+  } catch (err) {
+    if (err instanceof TargetSubsetError) {
+      throw new ReportConfigError(
+        err.code === 'TARGET_SUBSET_EMPTY'
+          ? 'Mỗi tổ phải báo ít nhất một tiêu chí.'
+          : `Tiêu chí không có trong báo cáo: ${err.unknown.join(', ')}`,
+        err.code,
+      );
+    }
+    throw err;
   }
 }
 
@@ -183,6 +205,10 @@ export class ReportConfigService {
           maxLength: f.maxLength ?? t?.maxLength,
           helpText: f.helpText ?? t?.helpText,
           source: f.source,
+          itemKey: f.itemKey,
+          unit: f.unit,
+          parentItemKey: f.parentItemKey,
+          origin: f.origin,
         };
       }),
     });
@@ -370,6 +396,7 @@ export class ReportConfigService {
           } as Prisma.InputJsonValue,
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
+          sourceKind: input.sourceKind ?? 'TEMPLATE',
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,
@@ -404,8 +431,9 @@ export class ReportConfigService {
       }
 
       for (const target of input.targets) {
+        const itemKeys = subsetOrConfigError(target.teamId, target.itemKeys, input.fields);
         const createdTarget = await tx.dynReportTarget.create({
-          data: { reportId: report.id, teamId: target.teamId },
+          data: { reportId: report.id, teamId: target.teamId, ...(itemKeys ? { itemKeys } : {}) },
         });
         if (target.editorUserIds.length > 0) {
           await tx.dynReportTargetEditor.createMany({

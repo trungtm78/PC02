@@ -132,6 +132,7 @@ export class ReportVersioningService {
           } as Prisma.InputJsonValue,
           dateSystem: input.dateSystem,
           parserVersion: PARSER_VERSION,
+          sourceKind: input.sourceKind ?? 'TEMPLATE',
           engineVersion: ENGINE_VERSION,
           publishedAt: input.publish ? now : null,
           createdById: actorId,

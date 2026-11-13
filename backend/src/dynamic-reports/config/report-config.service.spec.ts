@@ -431,6 +431,81 @@ describe('ReportConfigService', () => {
     expect(tx.dynReportValidationRule.createMany).not.toHaveBeenCalled();
   });
 
+  describe('criteria per team', () => {
+    const twoCriteria = [
+      { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Số vụ mới', type: 'NUM', aggregate: 'SUM', source: 'TOKEN', itemKey: 'vu-moi', unit: 'vụ', origin: 'FILE' },
+      { sheetKey: 'Đội 3', address: 'C7', fieldKey: 'Đội 3!C7', label: 'Số bị can', type: 'NUM', aggregate: 'SUM', source: 'TOKEN', itemKey: 'bi-can', parentItemKey: 'vu-moi', origin: 'MANUAL' },
+    ] as SaveReportConfigDto['fields'];
+
+    function ready() {
+      const tx = buildTx();
+      tx.dynReport.create.mockResolvedValue({ id: 'rep1' });
+      tx.dynReportVersion.create.mockResolvedValue({ id: 'ver1' });
+      tx.dynReportTarget.create.mockResolvedValue({ id: 'target1' });
+      return { tx, ...buildService(tx) };
+    }
+
+    it('stores what each field stands for (item key, unit, parent, origin) and what the workbook was made from', async () => {
+      const { tx, service } = ready();
+
+      await service.save(baseDraftInput({ fields: twoCriteria, sourceKind: 'CRITERIA' }), BUF, 'chi-tieu.xlsx', 'actor1');
+
+      const stored = (tx.dynReportField.createMany.mock.calls[0][0] as { data: Record<string, unknown>[] }).data;
+      expect(stored.map((f) => [f.itemKey, f.unit, f.parentItemKey, f.origin])).toEqual([
+        ['vu-moi', 'vụ', undefined, 'FILE'],
+        ['bi-can', undefined, 'vu-moi', 'MANUAL'],
+      ]);
+      const version = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { sourceKind: string } }).data;
+      expect(version.sourceKind).toBe('CRITERIA');
+    });
+
+    it('an ordinary template report is stored as TEMPLATE, with no item keys', async () => {
+      const { tx, service } = ready();
+
+      await service.save(baseDraftInput({ fields: fullPublishableInput().fields }), BUF, 'mau.xlsx', 'actor1');
+
+      const version = (tx.dynReportVersion.create.mock.calls[0][0] as { data: { sourceKind: string } }).data;
+      expect(version.sourceKind).toBe('TEMPLATE');
+    });
+
+    it('a team given some of the criteria has that subset stored; a team given none specified reports everything', async () => {
+      const { tx, service } = ready();
+
+      await service.save(
+        baseDraftInput({
+          fields: twoCriteria,
+          targets: [
+            { teamId: 't1', editorUserIds: ['u2'], itemKeys: ['bi-can'] },
+            { teamId: 't2', editorUserIds: ['u2'] },
+          ],
+        }),
+        BUF,
+        'chi-tieu.xlsx',
+        'actor1',
+      );
+
+      const targets = tx.dynReportTarget.create.mock.calls.map((c) => (c[0] as { data: Record<string, unknown> }).data);
+      expect(targets[0]).toEqual({ reportId: 'rep1', teamId: 't1', itemKeys: ['bi-can'] });
+      expect(targets[1]).toEqual({ reportId: 'rep1', teamId: 't2' });
+    });
+
+    it.each([
+      [['khong-co'], 'TARGET_ITEM_KEY_UNKNOWN'],
+      [[], 'TARGET_SUBSET_EMPTY'],
+    ])('refuses the subset %j with %s', async (itemKeys, code) => {
+      const { service } = ready();
+
+      await expect(
+        service.save(
+          baseDraftInput({ fields: twoCriteria, targets: [{ teamId: 't1', editorUserIds: ['u2'], itemKeys }] }),
+          BUF,
+          'chi-tieu.xlsx',
+          'actor1',
+        ),
+      ).rejects.toMatchObject({ code });
+    });
+  });
+
   it('BUG-003 fix: rejects publish when the file contains an external link (ERROR severity), even though every other field/role/target check passes', async () => {
     const tx = buildTx();
     const { service } = buildService(tx);
