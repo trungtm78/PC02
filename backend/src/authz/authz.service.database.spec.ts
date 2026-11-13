@@ -1,8 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { installTriggerSection } from '../common/testing/install-trigger-section';
 import { randomUUID } from 'node:crypto';
 import { AuthzController } from './authz.controller';
 import { AuthzLookupService } from './authz-lookup.service';
@@ -16,6 +15,7 @@ const url = process.env.DYN_REPORTS_DATABASE_URL;
 const run = url ? describe : describe.skip;
 
 run('AuthzService on PostgreSQL', () => {
+  jest.setTimeout(30_000);
   let db: PrismaClient;
   let pg: Client;
   let service: AuthzService;
@@ -32,8 +32,7 @@ run('AuthzService on PostgreSQL', () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url! }) });
     pg = new Client({ connectionString: url! });
     await pg.connect();
-    const sql = readFileSync(join(__dirname, '../../prisma/migrations/20261114100000_authz_foundation/migration.sql'), 'utf8');
-    await pg.query(sql.slice(sql.indexOf('-- TRIGGER-SECTION')));
+    await installTriggerSection(pg, '20261114100000_authz_foundation', 'authz_bump');
 
     for (const [action, subject] of [['read', 'Case'], ['edit', 'Case'], ['delete', 'Case'], ['read', 'Directory']]) {
       const row = await db.permission.upsert({ where: { action_subject: { action, subject } }, update: {}, create: { action, subject } });
@@ -93,10 +92,16 @@ run('AuthzService on PostgreSQL', () => {
   });
 
   it('the same answer is kept while nothing changes (no second read of the configuration)', async () => {
-    const first = await service.snapshot();
-    const again = await service.snapshot();
-    expect(again).toBe(first);
-    expect(await service.effective(id.member)).toBe(await service.effective(id.member));
+    // The revision is pinned: other suites writing to the same scratch database must not look like a change.
+    const revision = jest.spyOn(service, 'revision').mockResolvedValue('pinned');
+    try {
+      const first = await service.snapshot();
+      const again = await service.snapshot();
+      expect(again).toBe(first);
+      expect(await service.effective(id.member)).toBe(await service.effective(id.member));
+    } finally {
+      revision.mockRestore();
+    }
   });
 
   it('a configuration saved for the parent team is noticed by itself and reaches the child team that has none', async () => {
@@ -147,7 +152,13 @@ run('AuthzService on PostgreSQL', () => {
     expect(current).not.toBe(old);
     expect(service.effectiveIn(old, id.loner).activeTeamIds).toEqual([]);
     expect(service.effectiveIn(current, id.loner).activeTeamIds).toEqual([id.A1]);
-    expect(service.effectiveIn(current, id.loner)).toBe(await service.effective(id.loner));
+    // Kept for the current snapshot (the revision is pinned so that other suites cannot move it meanwhile).
+    const revision = jest.spyOn(service, 'revision').mockResolvedValue(current.revision);
+    try {
+      expect(service.effectiveIn(current, id.loner)).toBe(await service.effective(id.loner));
+    } finally {
+      revision.mockRestore();
+    }
     await db.userTeam.delete({ where: { userId_teamId: { userId: id.loner, teamId: id.A1 } } });
   });
 

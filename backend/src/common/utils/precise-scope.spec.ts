@@ -11,6 +11,7 @@ import {
   assertCreatorInScope,
   assertParentInScope,
   assertPetitionParentInScope,
+  assertSourceInScope,
   buildPetitionScopeFilter,
   buildScopeFilter,
 } from './scope-filter.util';
@@ -162,6 +163,29 @@ describe('the record helpers use the precise scope when there is one, and only t
     expect(() => assertCreatorInScope(ME, scope, 'write')).not.toThrow();
     expect(() => assertCreatorInScope('stranger', scope)).toThrow();
     expect(() => assertCreatorInScope(null, scope)).toThrow();
+  });
+
+  describe('the source a case is made from (an Incident or a Petition)', () => {
+    const petition = { kind: 'Petition' as const, assignedTeamId: 'B', assignedToId: ME, enteredById: 'someone-else' };
+
+    it('today: the lists decide, and the person a petition is assigned to counts as its owner (unchanged)', () => {
+      const legacy: DataScope = { teamIds: [], userIds: [ME], writableTeamIds: [], writableUserIds: [ME] };
+      expect(() => assertSourceInScope(petition, legacy, 'write')).not.toThrow();
+      expect(() => assertSourceInScope({ ...petition, assignedToId: 'other' }, legacy, 'write')).toThrow();
+      expect(() => assertSourceInScope({ kind: 'Incident', assignedTeamId: 'B', investigatorId: ME }, legacy, 'write')).not.toThrow();
+      expect(() => assertSourceInScope(petition, null, 'write')).not.toThrow();
+    });
+
+    it('enforced: a petition is measured like every other petition check, by who ENTERED it, against the Petition scope', () => {
+      const scope = scopeWith(precise({ Petition: both(OWN), Incident: both(OWN) }));
+      // Assigned to me but entered by somebody else: not mine, exactly as assertPetitionParentInScope says.
+      expect(() => assertSourceInScope(petition, scope, 'write')).toThrow('Bạn không có quyền chỉnh sửa bản ghi này');
+      expect(() => assertPetitionParentInScope({ assignedTeamId: 'B', enteredById: 'someone-else' }, scope, 'write')).toThrow();
+      expect(() => assertSourceInScope({ ...petition, enteredById: ME }, scope, 'write')).not.toThrow();
+      // An incident source follows the Incident scope.
+      expect(() => assertSourceInScope({ kind: 'Incident', assignedTeamId: 'B', investigatorId: ME }, scope, 'write')).not.toThrow();
+      expect(() => assertSourceInScope({ kind: 'Incident', assignedTeamId: 'B', investigatorId: 'mate' }, scope, 'write')).toThrow();
+    });
   });
 
   it('admin (no scope at all) is unrestricted as before', () => {

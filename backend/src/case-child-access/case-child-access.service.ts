@@ -14,7 +14,7 @@ import {
   NativeFieldPolicy,
   redactCaseFieldPolicies,
 } from '../cases/governance/case-native-field-policy';
-import { assertParentInScope } from '../common/utils/scope-filter.util';
+import { assertSourceInScope } from '../common/utils/scope-filter.util';
 
 type Tx = Prisma.TransactionClient;
 @Injectable()
@@ -208,6 +208,7 @@ export class CaseChildAccessService {
                 linkedCaseId: true,
                 assignedTeamId: true,
                 assignedToId: true,
+                enteredById: true,
               },
             });
       const cases = await current.case.findMany({
@@ -230,17 +231,17 @@ export class CaseChildAccessService {
         async (scoped, parents) => {
           if (!source)
             throw new NotFoundException('Current source record not found');
-          assertParentInScope(
-            {
-              assignedTeamId: source.assignedTeamId,
-              investigatorId:
-                'investigatorId' in source
-                  ? source.investigatorId
-                  : source.assignedToId,
-            },
+          assertSourceInScope(
+            'investigatorId' in source
+              ? { kind: 'Incident', assignedTeamId: source.assignedTeamId, investigatorId: source.investigatorId }
+              : {
+                  kind: 'Petition',
+                  assignedTeamId: source.assignedTeamId,
+                  assignedToId: source.assignedToId,
+                  enteredById: source.enteredById,
+                },
             await this.scope(actorId, scoped),
             'write',
-            'investigatorId' in source ? 'Incident' : 'Petition',
           );
           for (const parent of parents) {
             if (

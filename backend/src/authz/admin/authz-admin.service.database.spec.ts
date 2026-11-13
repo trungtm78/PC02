@@ -1,8 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { installTriggerSection } from '../../common/testing/install-trigger-section';
 import { randomUUID } from 'node:crypto';
 import { AuthzService } from '../authz.service';
 import { AuthzAdminController } from './authz-admin.controller';
@@ -17,6 +16,8 @@ const url = process.env.DYN_REPORTS_DATABASE_URL;
 const run = url ? describe : describe.skip;
 
 run('AuthzAdminService on PostgreSQL', () => {
+  // One lock serialises every save, and the scratch database is shared when the whole suite runs in parallel.
+  jest.setTimeout(30_000);
   let db: PrismaClient;
   let pg: Client;
   let authz: AuthzService;
@@ -65,8 +66,7 @@ run('AuthzAdminService on PostgreSQL', () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url! }) });
     pg = new Client({ connectionString: url! });
     await pg.connect();
-    const sql = readFileSync(join(__dirname, '../../../prisma/migrations/20261114100000_authz_foundation/migration.sql'), 'utf8');
-    await pg.query(sql.slice(sql.indexOf('-- TRIGGER-SECTION')));
+    await installTriggerSection(pg, '20261114100000_authz_foundation', 'authz_bump');
 
     const perms: Record<string, string> = {};
     for (const key of ['read:Case', 'edit:Case', 'delete:Case', 'read:Petition', 'export_full:Petition', 'read:Directory', 'read:Lawyer']) {

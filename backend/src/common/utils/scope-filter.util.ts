@@ -165,9 +165,9 @@ export function buildPetitionScopeFilter(
  * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
  * If parent is null/undefined (orphan record), check passes silently.
  * Pass operation='write' on mutation paths — uses writableTeamIds instead of teamIds.
- * Pass `subject` so that, when permissions by team are enforced, the parent is measured against the right
- * subject's scope; without it the parent must be within both the Case and the Incident scope. 'Petition' is for
- * the few callers that hand a petition over in this shape (its owner in `investigatorId`).
+ * Pass `subject` ('Case' or 'Incident') so that, when permissions by team are enforced, the parent is measured
+ * against the right subject's scope; without it the parent must be within both. A petition is never checked here:
+ * see `assertSourceInScope`.
  */
 export function assertParentInScope(
   parent:
@@ -180,7 +180,7 @@ export function assertParentInScope(
     | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
-  subject?: RecordSubject,
+  subject?: 'Case' | 'Incident',
 ): void {
   if (operation === 'write' && parent?.intakeStage === 'CHO_NHAN')
     throw new ConflictException('Pending handoff protects this case');
@@ -336,4 +336,30 @@ export function assertCreatorInScope(
         : FORBIDDEN_MSG,
     );
   }
+}
+
+/**
+ * Checks the record a case is created from, or that is being removed as a case's source: an Incident or a Petition.
+ *
+ * Today both are measured the same way (the person the record is assigned to counts as its owner). When permissions
+ * by team are enforced a petition is measured like every other petition check: by WHO ENTERED IT, against the
+ * Petition scope; the two rules must not disagree about the same petition.
+ */
+export function assertSourceInScope(
+  source:
+    | { kind: 'Incident'; assignedTeamId?: string | null; investigatorId?: string | null }
+    | { kind: 'Petition'; assignedTeamId?: string | null; assignedToId?: string | null; enteredById?: string | null },
+  scope: DataScope | null | undefined,
+  operation: 'read' | 'write' = 'read',
+): void {
+  if (source.kind === 'Petition') {
+    if (scope?.precise) {
+      assertPetitionParentInScope({ assignedTeamId: source.assignedTeamId, enteredById: source.enteredById }, scope, operation);
+      return;
+    }
+    // Legacy rule, unchanged: the lists decide, and they are the same for every subject.
+    assertParentInScope({ assignedTeamId: source.assignedTeamId, investigatorId: source.assignedToId }, scope, operation, 'Incident');
+    return;
+  }
+  assertParentInScope({ assignedTeamId: source.assignedTeamId, investigatorId: source.investigatorId }, scope, operation, 'Incident');
 }

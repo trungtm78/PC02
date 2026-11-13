@@ -1,308 +1,164 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as ts from 'typescript';
 
 /**
- * Gate: every call of `buildScopeFilter(` and `assertParentInScope(` outside spec files must say which subject
- * ('Case' or 'Incident') its records are, as the last argument.
+ * GATE: every record-scope check says which subject its records are.
  *
- * Why: when permissions by team are enforced, a call WITHOUT a subject is held to both the Case scope and the
- * Incident scope. That is safe, but too strict, and nothing at the call site shows it. The check is structural
- * (it counts arguments), so it does not prove the subject is the RIGHT one: that stays a review matter.
+ * `buildScopeFilter` and `assertParentInScope` serve cases AND incidents with one predicate. Once permissions by team
+ * are enforced, a call that does not name its subject is held to both scopes at once: safe, but it would hide records
+ * a person is entitled to. This gate keeps a new call from forgetting, and it reads the code the way the compiler
+ * does (an alias of the import, a generic argument, an explicit `undefined`, the helper handed to another name: none
+ * of these gets past it).
  */
-
-const SRC_ROOT = path.resolve(__dirname, '..', '..');
-const SELF = 'common/utils/scope-filter.util.ts';
-
-/** Number of arguments a call must pass for the subject (the last parameter) to be present. */
-const REQUIRED_ARGS: Record<string, number> = {
-  buildScopeFilter: 3,
-  assertParentInScope: 4,
+const HELPERS: Record<string, number> = {
+  // name -> index of the subject argument
+  buildScopeFilter: 2,
+  assertParentInScope: 3,
 };
+const SRC = path.resolve(__dirname, '../..');
+const SELF = path.resolve(__dirname, 'scope-filter.util.ts');
 
-/**
- * Calls allowed to omit the subject, keyed by `relative/path.ts` + the trimmed text of the call's first line.
- * Empty: every call names its subject today. An entry needs a written reason why the subject cannot be told.
- */
-const ALLOWED_WITHOUT_SUBJECT: ReadonlySet<string> = new Set<string>([]);
-
-interface ScopeCall {
-  name: string;
-  /** 1-based line of the call's name. */
+interface Offence {
   line: number;
-  /** Trimmed source text of that line. */
-  firstLine: string;
-  args: string[];
+  why: string;
 }
 
-const OPEN = '([{';
-const CLOSE = ')]}';
+/** Offences of one source file; `calls` counts the well-formed calls found (so an empty scan cannot be green). */
+export function checkSource(fileName: string, text: string): { offences: Offence[]; calls: number } {
+  const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
+  const offences: Offence[] = [];
+  let calls = 0;
+  /** Local name -> helper it is bound to (an import may rename it). */
+  const bound = new Map<string, string>();
+  const lineOf = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
 
-/**
- * Blank out comments (and keep string contents) so that a call mentioned in a comment is not counted and a bracket
- * or comma inside a comment cannot disturb the count. Newlines are kept: line numbers stay true.
- */
-function stripComments(source: string): string {
-  let out = '';
-  let i = 0;
-  let quote: string | null = null;
-  while (i < source.length) {
-    const ch = source[i];
-    const next = source[i + 1];
-    if (quote) {
-      out += ch;
-      if (ch === '\\') {
-        out += next ?? '';
-        i += 2;
-        continue;
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !statement.importClause?.namedBindings) continue;
+    const bindings = statement.importClause.namedBindings;
+    if (!ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements) {
+      const original = (element.propertyName ?? element.name).text;
+      if (original in HELPERS) bound.set(element.name.text, original);
+    }
+  }
+  if (bound.size === 0) return { offences, calls };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) return;
+    if (ts.isIdentifier(node) && bound.has(node.text)) {
+      const helper = bound.get(node.text) as string;
+      const parent = node.parent;
+      // A property that merely has the same name (`x.buildScopeFilter`, `{ buildScopeFilter: 1 }`) is not the helper.
+      const isOtherName =
+        (ts.isPropertyAccessExpression(parent) && parent.name === node) ||
+        (ts.isPropertyAssignment(parent) && parent.name === node) ||
+        (ts.isMethodDeclaration(parent) && parent.name === node);
+      if (!isOtherName) {
+        if (ts.isCallExpression(parent) && parent.expression === node) {
+          const subject = parent.arguments[HELPERS[helper]];
+          if (!subject) {
+            offences.push({ line: lineOf(parent), why: `${helper} is called without a subject (${parent.arguments.length} argument(s))` });
+          } else if (ts.isIdentifier(subject) && subject.text === 'undefined') {
+            offences.push({ line: lineOf(parent), why: `${helper} is called with \`undefined\` as its subject` });
+          } else if (parent.arguments.some((a) => ts.isSpreadElement(a))) {
+            offences.push({ line: lineOf(parent), why: `${helper} is called with spread arguments: the subject cannot be seen` });
+          } else calls += 1;
+        } else {
+          // Handed on under another name, stored, re-exported: every later call would escape this gate.
+          offences.push({ line: lineOf(node), why: `${helper} is used other than by calling it directly` });
+        }
       }
-      if (ch === quote) quote = null;
-      i += 1;
-      continue;
     }
-    if (ch === "'" || ch === '"' || ch === '`') {
-      quote = ch;
-      out += ch;
-      i += 1;
-      continue;
-    }
-    if (ch === '/' && next === '/') {
-      while (i < source.length && source[i] !== '\n') i += 1;
-      continue;
-    }
-    if (ch === '/' && next === '*') {
-      i += 2;
-      while (
-        i < source.length &&
-        !(source[i] === '*' && source[i + 1] === '/')
-      ) {
-        if (source[i] === '\n') out += '\n';
-        i += 1;
-      }
-      i += 2;
-      continue;
-    }
-    out += ch;
-    i += 1;
-  }
-  return out;
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return { offences, calls };
 }
 
-/** Read the argument list that starts just after an opening parenthesis: top-level commas split it. */
-function readArgs(code: string, start: number): string[] {
-  const args: string[] = [];
-  let depth = 1;
-  let current = '';
-  let quote: string | null = null;
-  for (let i = start; i < code.length; i += 1) {
-    const ch = code[i];
-    if (quote) {
-      current += ch;
-      if (ch === '\\') {
-        current += code[i + 1] ?? '';
-        i += 1;
-      } else if (ch === quote) quote = null;
-      continue;
+function sourceFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return sourceFiles(p);
+    return e.name.endsWith('.ts') && !e.name.endsWith('.spec.ts') && !e.name.endsWith('.d.ts') && p !== SELF ? [p] : [];
+  });
+}
+
+describe('GATE: every record-scope check names its subject', () => {
+  it('no call in the source forgets it', () => {
+    let calls = 0;
+    const offences: string[] = [];
+    for (const file of sourceFiles(SRC)) {
+      const text = fs.readFileSync(file, 'utf8');
+      if (!/buildScopeFilter|assertParentInScope/.test(text)) continue;
+      const result = checkSource(file, text);
+      calls += result.calls;
+      for (const o of result.offences) offences.push(`${path.relative(SRC, file).replace(/\\/g, '/')}:${o.line}  ${o.why}`);
     }
-    if (ch === "'" || ch === '"' || ch === '`') {
-      quote = ch;
-      current += ch;
-      continue;
-    }
-    if (OPEN.includes(ch)) depth += 1;
-    else if (CLOSE.includes(ch)) {
-      depth -= 1;
-      if (depth === 0) break;
-    } else if (ch === ',' && depth === 1) {
-      args.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += ch;
-  }
-  // A trailing comma leaves an empty last piece: it is not an argument.
-  if (current.trim()) args.push(current.trim());
-  return args;
-}
-
-/** Every call of the two helpers in a source text (declarations `function name(` are not calls). */
-export function findScopeCalls(source: string): ScopeCall[] {
-  const code = stripComments(source);
-  const lines = source.split('\n');
-  const calls: ScopeCall[] = [];
-  const pattern =
-    /(function\s+)?\b(buildScopeFilter|assertParentInScope)\s*\(/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(code)) !== null) {
-    if (match[1]) continue;
-    const line = code.slice(0, match.index).split('\n').length;
-    calls.push({
-      name: match[2],
-      line,
-      firstLine: (lines[line - 1] ?? '').trim(),
-      args: readArgs(code, match.index + match[0].length),
-    });
-  }
-  return calls;
-}
-
-/** The calls that do not pass a subject. */
-export function callsWithoutSubject(source: string): ScopeCall[] {
-  return findScopeCalls(source).filter(
-    (call) => call.args.length < REQUIRED_ARGS[call.name],
-  );
-}
-
-function listSourceFiles(dir: string): string[] {
-  const found: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...listSourceFiles(full));
-    else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.spec.ts'))
-      found.push(full);
-  }
-  return found;
-}
-
-describe('scope subject gate', () => {
-  describe('the checker itself', () => {
-    it('reports a buildScopeFilter call with two arguments', () => {
-      const offenders = callsWithoutSubject(
-        "const where = buildScopeFilter(scope, 'read');\n",
-      );
-      expect(offenders).toHaveLength(1);
-      expect(offenders[0]).toMatchObject({ name: 'buildScopeFilter', line: 1 });
-    });
-
-    it('reports a call that relies on both defaults', () => {
-      expect(callsWithoutSubject('x = buildScopeFilter(scope);')).toHaveLength(
-        1,
-      );
-    });
-
-    it('reports an assertParentInScope call with three arguments, on its own line', () => {
-      const offenders = callsWithoutSubject(
-        "const a = 1;\nassertParentInScope(record.case, scope, 'write');\n",
-      );
-      expect(offenders).toHaveLength(1);
-      expect(offenders[0].line).toBe(2);
-      expect(offenders[0].firstLine).toBe(
-        "assertParentInScope(record.case, scope, 'write');",
-      );
-    });
-
-    it('accepts a multi-line call with a nested object and the subject last', () => {
-      const source = [
-        'assertParentInScope(',
-        '  { ...record, intakeStage: null, extra: [1, 2, fn(a, b)] },',
-        '  await this.currentScope(tx, user),',
-        "  'write',",
-        "  'Case',",
-        ');',
-      ].join('\n');
-      expect(findScopeCalls(source)[0].args).toHaveLength(4);
-      expect(callsWithoutSubject(source)).toHaveLength(0);
-    });
-
-    it('does not let the commas of a nested object stand in for missing arguments', () => {
-      const source = [
-        'assertParentInScope(',
-        '  { assignedTeamId: a, investigatorId: b, intakeStage: c },',
-        '  scope,',
-        "  'write',",
-        ');',
-      ].join('\n');
-      expect(findScopeCalls(source)[0].args).toHaveLength(3);
-      expect(callsWithoutSubject(source)).toHaveLength(1);
-    });
-
-    it('accepts a subject chosen at runtime', () => {
-      expect(
-        callsWithoutSubject(
-          "assertParentInScope(r.case ?? r.incident, scope, 'read', r.case ? 'Case' : 'Incident');",
-        ),
-      ).toHaveLength(0);
-    });
-
-    it('ignores calls inside comments, and comment text inside a real call', () => {
-      const source = [
-        '// buildScopeFilter(scope) is how it used to be',
-        '/* assertParentInScope(a, b)',
-        '   buildScopeFilter(scope) */',
-        'const w = buildScopeFilter(',
-        '  scope, // the read scope, as before',
-        "  'read',",
-        "  'Incident',",
-        ');',
-      ].join('\n');
-      const calls = findScopeCalls(source);
-      expect(calls).toHaveLength(1);
-      expect(calls[0].line).toBe(4);
-      expect(callsWithoutSubject(source)).toHaveLength(0);
-    });
-
-    it('does not take the declaration of a helper for a call', () => {
-      expect(
-        findScopeCalls('export function buildScopeFilter(scope, op) {}'),
-      ).toHaveLength(0);
-    });
+    expect(offences).toEqual([]);
+    // A scan that found nothing would be green for the wrong reason.
+    expect(calls).toBeGreaterThanOrEqual(60);
   });
 
-  describe('backend/src', () => {
-    const scanned = listSourceFiles(SRC_ROOT)
-      .map((file) => ({
-        file,
-        relative: path.relative(SRC_ROOT, file).split(path.sep).join('/'),
-      }))
-      .filter(({ relative }) => relative !== SELF)
-      .map(({ file, relative }) => ({
-        relative,
-        calls: findScopeCalls(fs.readFileSync(file, 'utf8')),
-      }));
-    const allCalls = scanned.flatMap(({ relative, calls }) =>
-      calls.map((call) => ({ relative, call })),
-    );
-    const withoutSubject = allCalls.filter(
-      ({ call }) => call.args.length < REQUIRED_ARGS[call.name],
-    );
-    const key = (relative: string, call: ScopeCall) =>
-      `${relative}::${call.firstLine}`;
+  const check = (body: string, imports = `import { buildScopeFilter, assertParentInScope } from './scope-filter.util';`) =>
+    checkSource('sample.ts', `${imports}\n${body}`);
 
-    it('finds the calls it is meant to guard (an empty scan cannot be green)', () => {
-      expect(allCalls.length).toBeGreaterThanOrEqual(60);
-      expect(
-        allCalls.some(({ call }) => call.name === 'buildScopeFilter'),
-      ).toBe(true);
-      expect(
-        allCalls.some(({ call }) => call.name === 'assertParentInScope'),
-      ).toBe(true);
-    });
-
-    it('every call passes a subject (nothing is excused today)', () => {
-      const offenders = withoutSubject
-        .filter(
-          ({ relative, call }) =>
-            !ALLOWED_WITHOUT_SUBJECT.has(key(relative, call)),
-        )
-        .map(
-          ({ relative, call }) =>
-            `${relative}:${call.line}  ${call.name} has ${call.args.length} argument(s), needs ${REQUIRED_ARGS[call.name]}`,
-        );
-      expect(offenders).toEqual([]);
-    });
-
-    it('the allowlist holds no stale entry, and each entry excuses exactly one call', () => {
-      const used = withoutSubject.map(({ relative, call }) =>
-        key(relative, call),
+  it('accepts calls that name their subject, whatever their layout', () => {
+    const { offences, calls } = check(`
+      buildScopeFilter(scope, 'read', 'Case');
+      assertParentInScope(parent, scope, 'write', record.case ? 'Case' : 'Incident');
+      buildScopeFilter(
+        getScope<string, number>({ a: 1, b: [1, 2] }),
+        'assign',
+        subject,
       );
-      for (const entry of ALLOWED_WITHOUT_SUBJECT) {
-        expect({
-          entry,
-          calls: used.filter((k) => k === entry).length,
-        }).toEqual({
-          entry,
-          calls: 1,
-        });
-      }
-    });
+    `);
+    expect(offences).toEqual([]);
+    expect(calls).toBe(3);
+  });
+
+  it.each([
+    [`buildScopeFilter(scope);`, 'without a subject (1 argument(s))'],
+    [`buildScopeFilter(scope, 'read');`, 'without a subject (2 argument(s))'],
+    [`assertParentInScope(parent, scope, 'write');`, 'without a subject (3 argument(s))'],
+    // A comma inside a generic or an object is not an argument.
+    [`buildScopeFilter(getScope<string, number>(), 'read');`, 'without a subject (2 argument(s))'],
+    [`buildScopeFilter({ a: 1, b: 2 }, 'read');`, 'without a subject (2 argument(s))'],
+    [`buildScopeFilter(scope, 'read', undefined);`, '`undefined` as its subject'],
+    [`buildScopeFilter(...args);`, 'without a subject'],
+    [`buildScopeFilter(scope, 'read', ...rest);`, 'spread arguments'],
+    [`const f = buildScopeFilter; f(scope);`, 'used other than by calling it directly'],
+    [`export { assertParentInScope };`, 'used other than by calling it directly'],
+    [`run(buildScopeFilter);`, 'used other than by calling it directly'],
+  ])('refuses: %s', (body, why) => {
+    const { offences } = check(body);
+    expect(offences).toHaveLength(1);
+    expect(offences[0].why).toContain(why);
+  });
+
+  it('follows an import under another name', () => {
+    const renamed = `import { buildScopeFilter as filter } from './scope-filter.util';`;
+    expect(check(`filter(scope);`, renamed).offences[0].why).toContain('buildScopeFilter is called without a subject');
+    expect(check(`filter(scope, 'read', 'Incident');`, renamed)).toEqual({ offences: [], calls: 1 });
+  });
+
+  it('is not fooled by comments, strings, or another thing with the same name', () => {
+    const { offences, calls } = check(`
+      // buildScopeFilter(scope)
+      /* assertParentInScope(parent, scope) */
+      const text = "buildScopeFilter(scope)";
+      service.buildScopeFilter(scope);
+      const o = { assertParentInScope: 1 };
+    `);
+    expect(offences).toEqual([]);
+    expect(calls).toBe(0);
+  });
+
+  it('a file that does not import the helpers is not its business', () => {
+    expect(checkSource('x.ts', `function buildScopeFilter(a: number) { return a; }\nbuildScopeFilter(1);`)).toEqual({ offences: [], calls: 0 });
+  });
+
+  it('reports the line of the call', () => {
+    expect(check(`\n\nbuildScopeFilter(scope);`).offences[0].line).toBe(4);
   });
 });

@@ -2,8 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { installTriggerSection } from '../common/testing/install-trigger-section';
 import { TeamLifecycleService } from './team-lifecycle.service';
 import { TEAM_OWN_SETTINGS } from './team-references';
 
@@ -19,11 +18,6 @@ import { TEAM_OWN_SETTINGS } from './team-references';
 const url = process.env.DYN_REPORTS_DATABASE_URL;
 const run = url ? describe : describe.skip;
 
-const MIGRATION = join(
-  __dirname,
-  '../../prisma/migrations/20261113100000_team_status/migration.sql',
-);
-const MARKER = '-- TRIGGER-SECTION';
 
 run('Team status on PostgreSQL', () => {
   let db: PrismaClient;
@@ -54,10 +48,7 @@ run('Team status on PostgreSQL', () => {
     pg = new Client({ connectionString: url! });
     await pg.connect();
     // `prisma db push` (how the CI scratch schema is built) creates the columns but no triggers: apply the migration's.
-    const sql = readFileSync(MIGRATION, 'utf8');
-    const at = sql.indexOf(MARKER);
-    if (at < 0) throw new Error('The migration lost its TRIGGER-SECTION marker');
-    await pg.query(sql.slice(at));
+    await installTriggerSection(pg, '20261113100000_team_status', 'teams_status_sync');
     service = new TeamLifecycleService(db as never, audit as never);
   });
 

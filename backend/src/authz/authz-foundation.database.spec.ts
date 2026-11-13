@@ -1,8 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { installTriggerSection } from '../common/testing/install-trigger-section';
 import { randomUUID } from 'node:crypto';
 import { TeamLifecycleService } from '../teams/team-lifecycle.service';
 import { TeamMergeService } from '../teams/team-merge.service';
@@ -16,13 +15,6 @@ import { TeamMergeService } from '../teams/team-merge.service';
  */
 const url = process.env.DYN_REPORTS_DATABASE_URL;
 const run = url ? describe : describe.skip;
-const MARKER = '-- TRIGGER-SECTION';
-const triggersOf = (migration: string): string => {
-  const sql = readFileSync(join(__dirname, '../../prisma/migrations', migration, 'migration.sql'), 'utf8');
-  const at = sql.indexOf(MARKER);
-  if (at < 0) throw new Error(`${migration} lost its TRIGGER-SECTION marker`);
-  return sql.slice(at);
-};
 
 if (process.env.DYN_REPORTS_DATABASE_REQUIRED === '1') {
   it('the database gate has a database to run against', () => {
@@ -31,6 +23,8 @@ if (process.env.DYN_REPORTS_DATABASE_REQUIRED === '1') {
 }
 
 run('authz foundation on PostgreSQL', () => {
+  // Shares a scratch database with other suites when the whole suite runs in parallel workers.
+  jest.setTimeout(30_000);
   let db: PrismaClient;
   let pg: Client;
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
@@ -71,8 +65,8 @@ run('authz foundation on PostgreSQL', () => {
     pg = new Client({ connectionString: url! });
     await pg.connect();
     // `prisma db push` (how the CI scratch schema is built) creates tables but no triggers and no rows.
-    await pg.query(triggersOf('20261113100000_team_status'));
-    await pg.query(triggersOf('20261114100000_authz_foundation'));
+    await installTriggerSection(pg, '20261113100000_team_status', 'teams_status_sync');
+    await installTriggerSection(pg, '20261114100000_authz_foundation', 'authz_bump');
 
     roleId = (await db.role.create({ data: { name: `${tag}-role` } })).id;
     otherRoleId = (await db.role.create({ data: { name: `${tag}-role2` } })).id;
@@ -215,14 +209,17 @@ run('authz foundation on PostgreSQL', () => {
       const t = await team();
       const reader = new Client({ connectionString: url! });
       await reader.connect();
-      const seen = async () => Number((await reader.query('SELECT count(*)::int AS n FROM "authz_changes"')).rows[0].n);
+      // The row this very transaction leaves, looked for by its id: other suites writing to the same scratch
+      // database at the same time cannot be mistaken for it.
+      const seen = async (rowId: string) =>
+        Number((await reader.query('SELECT count(*)::int AS n FROM "authz_changes" WHERE "id" = $1', [rowId])).rows[0].n);
       try {
         await pg.query('BEGIN');
-        const before = await seen();
         await pg.query('INSERT INTO "user_teams" ("userId", "teamId") VALUES ($1, $2)', [userId, t.id]);
-        expect(await seen()).toBe(before);
+        const mine = String((await pg.query(`SELECT currval(pg_get_serial_sequence('authz_changes', 'id')) AS id`)).rows[0].id);
+        expect(await seen(mine)).toBe(0);
         await pg.query('COMMIT');
-        expect(await seen()).toBeGreaterThan(before);
+        expect(await seen(mine)).toBe(1);
       } finally {
         await pg.query('ROLLBACK').catch(() => undefined);
         await reader.end();

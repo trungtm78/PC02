@@ -169,15 +169,17 @@ export class DocumentsService {
     const incidentScope = buildScopeFilter(currentScope, 'read', 'Incident');
     const petitionScope = buildPetitionScopeFilter(currentScope);
     if (caseScope || incidentScope || petitionScope) {
+      // A subject the person reaches without limit has no filter of its own (`null`). Left out of this OR next to a
+      // limited subject, its documents would disappear; it is said as "has such a parent" instead.
       dieuKien.push({
         OR: [
-          ...(caseScope ? [{ case: caseScope }] : []),
-          ...(incidentScope ? [{ incident: incidentScope }] : []),
+          caseScope ? { case: caseScope } : { caseId: { not: null } },
+          incidentScope ? { incident: incidentScope } : { incidentId: { not: null } },
           // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
           // from scope queries — chain-of-custody bleeding prevention.
-          ...(petitionScope
-            ? [{ petition: { AND: [petitionScope, { deletedAt: null }] } }]
-            : []),
+          petitionScope
+            ? { petition: { AND: [petitionScope, { deletedAt: null }] } }
+            : { petition: { deletedAt: null } },
         ],
       });
     }
