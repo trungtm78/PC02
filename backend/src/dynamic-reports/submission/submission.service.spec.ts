@@ -1176,6 +1176,101 @@ describe('SubmissionService', () => {
     });
   });
 
+  describe('a team that reports only some of the criteria', () => {
+    const OTHER = { ...FIELD, fieldKey: 'Đội 3!C7', address: 'C7', label: 'Số bị can', required: true };
+    const foreignRule = {
+      id: 'rule-foreign',
+      name: 'C7 phải lớn hơn 0',
+      leftExpr: 'C7',
+      operator: 'GT',
+      rightExpr: '0',
+      severity: 'ERROR',
+      message: 'C7 phải lớn hơn 0',
+      missingStrategy: 'BLOCK',
+    };
+    /** The report has C6 and C7 (required, with a blocking rule); this team owns C6 only. */
+    function subsetAssignment(periodOverrides: Record<string, unknown> = {}) {
+      return baseAssignment({
+        ownedFieldKeys: ['Đội 3!C6'],
+        period: basePeriod({
+          version: { fields: [FIELD, OTHER], rules: [foreignRule], selectedSheets: ['Đội 3'] },
+          ...periodOverrides,
+        }),
+      });
+    }
+    const draft = (values: Record<string, unknown>) => ({
+      id: 'sub1',
+      state: 'DRAFT',
+      currentRevision: 1n,
+      values,
+      approvalLevel: 0,
+      returnDueAt: null,
+      firstSavedAt: now,
+    });
+
+    it('the editor is given only the fields of the team', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        subsetAssignment({ dueAt: new Date(Date.now() + 30 * 86_400_000) }),
+      );
+      tx.user.findUnique.mockResolvedValue({ isActive: true });
+      const { service } = buildService(tx);
+
+      const view = await service.getSubmission('assign1', 'u1');
+
+      expect(view.fields.map((f) => f.fieldKey)).toEqual(['Đội 3!C6']);
+    });
+
+    it('saving a cell that belongs to another team is refused for what it is, and nothing is written', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(subsetAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue(draft({}));
+      const { service } = buildService(tx);
+
+      await expect(service.save('assign1', 'u1', { 'Đội 3!C7': '5' }, '1')).rejects.toMatchObject({
+        code: 'FIELD_NOT_ASSIGNED',
+      });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('a cell that is not in the report at all is still the old refusal', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(subsetAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue(draft({}));
+      const { service } = buildService(tx);
+
+      await expect(service.save('assign1', 'u1', { 'Đội 3!Z99': '5' }, '1')).rejects.toMatchObject({
+        code: 'CELL_VALIDATION',
+      });
+    });
+
+    it('submits with its own fields filled: a required field and a blocking rule of another team do not stop it', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(subsetAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue(draft({ 'Đội 3!C6': { t: 'NUM', v: '5' } }));
+      const { service } = buildService(tx);
+
+      const result = await service.submit('assign1', 'u1', '1');
+
+      expect(result.state).toBe('SUBMITTED');
+    });
+
+    it('the same report without a subset still requires C7 (the subset is what lifts it, nothing else)', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      const whole = subsetAssignment();
+      tx.dynReportAssignment.findUnique.mockResolvedValue({ ...whole, ownedFieldKeys: null });
+      tx.dynReportSubmission.findUnique.mockResolvedValue(draft({ 'Đội 3!C6': { t: 'NUM', v: '5' } }));
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '1')).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
+  });
+
   describe('validateForSubmit (S36, PR9 slice 1)', () => {
     const RULE_ERROR = {
       id: 'rule-err',
