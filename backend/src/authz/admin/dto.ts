@@ -69,6 +69,13 @@ export class UpdateTemplateDto {
 
 export class CopyTemplateDto {
   @IsString() @IsNotEmpty() @MaxLength(120) name!: string;
+  /** Needed when the template holds a sensitive permission: a copy gives it anew. */
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+
+export class UndoDto {
+  /** The undoer's own reason: needed when the undo gives a sensitive permission back. */
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
 
 export class TemplateStateDto {
@@ -77,6 +84,8 @@ export class TemplateStateDto {
 
 export class SaveUserOverridesDto {
   @IsArray() @ArrayMaxSize(200) @ValidateNested({ each: true }) @Type(() => OverrideDto) overrides!: OverrideDto[];
+  /** The token `GET users/:userId/overrides` gave: proves the list being replaced is the list that was read. */
+  @IsString() @IsNotEmpty() @MaxLength(64) expectedToken!: string;
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
 

@@ -34,6 +34,7 @@ import {
   SaveUserOverridesDto,
   TeamConfigDto,
   TemplateStateDto,
+  UndoDto,
   UpdateTemplateDto,
 } from './dto';
 
@@ -148,7 +149,7 @@ export class AuthzAdminController {
       user.id,
       'TEMPLATE_COPIED',
       [{ type: 'template', id: newId, after: { ...doc, code: `MAU-${randomUUID().slice(0, 8).toUpperCase()}`, name: body.name, status: 'ACTIVE' } }],
-      { meta: meta(req) },
+      { reason: body.reason, meta: meta(req) },
     );
     return { ...result, id: newId };
   }
@@ -214,16 +215,19 @@ export class AuthzAdminController {
   @Post('teams/apply')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Role' })
-  applyTeams(@Body() body: ApplyTeamsDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
+  async applyTeams(@Body() body: ApplyTeamsDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
     const after = body.config ? teamDoc(body.config) : null;
     const teamIds = [...new Set(body.teamIds)];
+    // Every team, not "those the caller remembered": one left out would be overwritten whatever happened to it.
+    const missing = teamIds.filter((id) => !Number.isInteger(body.expected[id]) || body.expected[id] < 0);
+    if (missing.length) throw new BadRequestException({ code: 'EXPECTED_REVISION_REQUIRED', details: missing.map((teamId) => ({ teamId })) });
     return this.admin.commit(
       user.id,
       'TEAM_CONFIG_APPLIED',
       teamIds.map((id) => ({ type: 'team', id, after }) as WantedItem),
       {
         reason: body.reason,
-        expected: Object.fromEntries(teamIds.filter((id) => body.expected[id] !== undefined).map((id) => [`team:${id}`, Number(body.expected[id])])),
+        expected: Object.fromEntries(teamIds.map((id) => [`team:${id}`, body.expected[id]])),
         meta: meta(req),
       },
     );
@@ -242,6 +246,7 @@ export class AuthzAdminController {
   saveUserOverrides(@Param('userId') userId: string, @Body() body: SaveUserOverridesDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
     return this.admin.commit(user.id, 'USER_OVERRIDES_SAVED', [{ type: 'user', id: userId, after: body.overrides.map(overrideDoc) }], {
       reason: body.reason,
+      expectedTokens: { [`user:${userId}`]: body.expectedToken },
       meta: meta(req),
     });
   }
@@ -272,14 +277,14 @@ export class AuthzAdminController {
   @Get('changes')
   @RequirePermissions({ action: 'read', subject: 'Role' })
   history(@Query('limit') limit?: string, @Query('before') before?: string) {
-    return this.admin.history(limit ? Number(limit) || 50 : 50, before || undefined);
+    return this.admin.history(Number.isFinite(Number(limit)) && Number(limit) > 0 ? Math.floor(Number(limit)) : 50, before || undefined);
   }
 
   /** Puts back what the change replaced, as a new change (which can itself be undone). */
   @Post('changes/:id/undo')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Role' })
-  undo(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.admin.undo(id, user.id, meta(req));
+  undo(@Param('id') id: string, @Body() body: UndoDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
+    return this.admin.undo(id, user.id, { reason: body?.reason, meta: meta(req) });
   }
 }

@@ -39,6 +39,10 @@ run('AuthzAdminService on PostgreSQL', () => {
     await admin.commit(id.admin, 'TEMPLATE_CREATED', [{ type: 'template', id: templateId, after: tpl(over) }]);
     return templateId;
   }
+  async function saveOverrides(userId: string, overrides: Parameters<AuthzAdminController['saveUserOverrides']>[1]['overrides'], who = actor()) {
+    const { token } = await controller.userOverrides(userId);
+    return controller.saveUserOverrides(userId, { overrides, expectedToken: token }, who, req);
+  }
   async function newTeam() {
     n += 1;
     return (await db.team.create({ data: { code: `${tag}-${n}`, name: `${tag} Tổ ${n}` } })).id;
@@ -103,7 +107,9 @@ run('AuthzAdminService on PostgreSQL', () => {
       const set = await db.permissionChangeSet.findUniqueOrThrow({ where: { id: created.changeSetId! } });
       expect(set).toMatchObject({ kind: 'TEMPLATE_CREATED', actorId: id.admin });
       expect((set.changes as never as { before: unknown }[])[0].before).toBeNull();
-      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'AUTHZ_CONFIG_CHANGED', metadata: { kind: 'TEMPLATE_CREATED', items: [{ type: 'template', id: created.id }] } }));
+      expect(audit.log.mock.calls[0][0]).toMatchObject({ action: 'AUTHZ_CONFIG_CHANGED', metadata: { kind: 'TEMPLATE_CREATED', items: [{ type: 'template', id: created.id }] } });
+      // Written with the transaction of the change itself.
+      expect(audit.log.mock.calls[0][1]).toBeDefined();
     });
 
     it('is edited at the revision it was read at; a second editor with the old revision is told, and nothing of theirs is written', async () => {
@@ -222,7 +228,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       const [x, y] = [await newTeam(), await newTeam()];
       // One of the three does not exist: nothing is applied to the other two.
       await expect(
-        controller.applyTeams({ teamIds: [x, y, 'ghost'], config: team({ memberTemplateId: member }), expected: {} }, actor(), req),
+        controller.applyTeams({ teamIds: [x, y, 'ghost'], config: team({ memberTemplateId: member }), expected: { [x]: 0, [y]: 0, ghost: 0 } }, actor(), req),
       ).rejects.toMatchObject({ status: 404 });
       expect(await db.teamPermissionConfig.count({ where: { teamId: { in: [x, y] } } })).toBe(0);
 
@@ -231,7 +237,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       expect(await db.teamPermissionConfig.count({ where: { teamId: { in: [x, y] }, memberTemplateId: member } })).toBe(2);
 
       // The way back for many at once: no configuration.
-      await controller.applyTeams({ teamIds: [x, y], config: null, expected: { [x]: 1 } }, actor(), req);
+      await controller.applyTeams({ teamIds: [x, y], config: null, expected: { [x]: 1, [y]: 1 } }, actor(), req);
       expect(await db.teamPermissionConfig.count({ where: { teamId: { in: [x, y] } } })).toBe(0);
     });
   });
@@ -239,27 +245,128 @@ run('AuthzAdminService on PostgreSQL', () => {
   describe('a person\'s own overrides', () => {
     it('are saved as the whole list, read back, and removed with an empty list', async () => {
       const end = new Date(Date.now() + 86_400_000).toISOString();
-      await controller.saveUserOverrides(
-        id.officer,
-        { overrides: [{ permission: 'read:Petition', effect: 'GRANT', reach: 'OWN', reason: 'hỗ trợ tổ khác', expiresAt: end }, { permission: 'delete:Case', effect: 'MUTE', reason: 'đang tập sự' }] },
-        actor(), req,
-      );
-      expect(await controller.userOverrides(id.officer)).toEqual([
+      await saveOverrides(id.officer, [
+        { permission: 'read:Petition', effect: 'GRANT', reach: 'OWN', reason: 'hỗ trợ tổ khác', expiresAt: end },
+        { permission: 'delete:Case', effect: 'MUTE', reason: 'đang tập sự' },
+      ]);
+      expect((await controller.userOverrides(id.officer)).overrides).toEqual([
         { permission: 'read:Petition', effect: 'GRANT', reach: 'OWN', reason: 'hỗ trợ tổ khác', expiresAt: end },
         { permission: 'delete:Case', effect: 'MUTE', reach: null, reason: 'đang tập sự', expiresAt: null },
       ]);
       expect((await authz.effective(id.officer)).keys).toEqual(['edit:Case', 'read:Case', 'read:Petition']);
 
-      await controller.saveUserOverrides(id.officer, { overrides: [] }, actor(), req);
-      expect(await controller.userOverrides(id.officer)).toEqual([]);
+      await saveOverrides(id.officer, []);
+      expect((await controller.userOverrides(id.officer)).overrides).toEqual([]);
       await expect(controller.userOverrides('nobody')).rejects.toMatchObject({ status: 404 });
-      await expect(controller.saveUserOverrides('nobody', { overrides: [] }, actor(), req)).rejects.toMatchObject({ status: 404 });
+      await expect(controller.saveUserOverrides('nobody', { overrides: [], expectedToken: 'x' }, actor(), req)).rejects.toMatchObject({ status: 404 });
     });
 
     it('an override without a reason is refused', async () => {
       await expect(
-        controller.saveUserOverrides(id.officer, { overrides: [{ permission: 'read:Petition', effect: 'GRANT', reach: 'OWN', reason: '  ' }] }, actor(), req),
+        saveOverrides(id.officer, [{ permission: 'read:Petition', effect: 'GRANT', reach: 'OWN', reason: '  ' }]),
       ).rejects.toMatchObject({ response: { details: [expect.objectContaining({ code: 'OVERRIDE_REASON_REQUIRED' })] } });
+    });
+  });
+
+  describe('two people editing', () => {
+    it('a person\'s list saved from a stale reading is refused: the other editor\'s mute is not silently removed', async () => {
+      const stale = (await controller.userOverrides(id.officer)).token;
+      await saveOverrides(id.officer, [{ permission: 'delete:Case', effect: 'MUTE', reason: 'tạm khoá xoá' }]);
+      await expect(
+        controller.saveUserOverrides(id.officer, { overrides: [{ permission: 'read:Petition', effect: 'GRANT', reach: 'OWN', reason: 'r' }], expectedToken: stale }, actor(), req),
+      ).rejects.toMatchObject({ status: 409, response: { code: 'REVISION_CONFLICT', details: [{ type: 'user', id: id.officer }] } });
+      expect((await controller.userOverrides(id.officer)).overrides).toMatchObject([{ permission: 'delete:Case', effect: 'MUTE' }]);
+      await saveOverrides(id.officer, []);
+    });
+
+    it('applying to many teams needs the revision of every one of them', async () => {
+      const [x, y] = [await newTeam(), await newTeam()];
+      for (const expected of [{}, { [x]: 0 }, { [x]: 0, [y]: -1 }, { [x]: 0, [y]: 1.5 }] as Record<string, number>[]) {
+        await expect(controller.applyTeams({ teamIds: [x, y], config: team(), expected }, actor(), req)).rejects.toMatchObject({
+          status: 400, response: { code: 'EXPECTED_REVISION_REQUIRED' },
+        });
+      }
+      expect(await db.teamPermissionConfig.count({ where: { teamId: { in: [x, y] } } })).toBe(0);
+    });
+  });
+
+  describe('a change is judged as a whole', () => {
+    it('a template edited so that a team using it could change what it no longer sees is refused, naming the team', async () => {
+      const t = await newTemplate({ entries: { 'read:Case': 'TEAM' } });
+      const used = await newTeam();
+      await controller.saveTeam(
+        used,
+        { ...team({ memberTemplateId: t, overrides: [{ permission: 'edit:Case', effect: 'GRANT', reach: 'TEAM', reason: 'tổ được sửa', expiresAt: null, audience: 'ALL' }] }), expectedRevision: 0 },
+        actor(), req,
+      );
+      await expect(controller.updateTemplate(t, { entries: { 'read:Case': 'OWN' }, expectedRevision: 1 }, actor(), req)).rejects.toMatchObject({
+        status: 400,
+        response: { code: 'AUTHZ_CHANGE_INVALID', details: [expect.objectContaining({ code: 'WIDER_THAN_VIEW', permission: 'edit:Case', type: 'team', id: used })] },
+      });
+      expect((await controller.getTemplate(t)).entries).toEqual({ 'read:Case': 'TEAM' });
+    });
+
+    it('a template that holds a sensitive permission is copied only with a reason', async () => {
+      const created = await controller.createTemplate({ name: `${tag} nhạy cảm`, entries: { 'read:Petition': 'ALL', 'export_full:Petition': 'ALL' }, reason: 'gốc' }, actor(), req);
+      await expect(controller.copyTemplate(created.id, { name: `${tag} sao nhạy cảm` }, actor(), req)).rejects.toMatchObject({
+        response: { details: [expect.objectContaining({ code: 'SENSITIVE_REASON_REQUIRED' })] },
+      });
+      const copy = await controller.copyTemplate(created.id, { name: `${tag} sao nhạy cảm`, reason: 'cho phòng khác' }, actor(), req);
+      expect((await controller.getTemplate(copy.id)).entries).toEqual({ 'read:Petition': 'ALL', 'export_full:Petition': 'ALL' });
+    });
+
+    it('what the history records is what was stored: a name typed with spaces is undone without "changed since"', async () => {
+      const created = await controller.createTemplate({ name: `  ${tag} có khoảng trắng  `, entries: {} }, actor(), req);
+      expect((await controller.getTemplate(created.id)).name).toBe(`${tag} có khoảng trắng`);
+      await expect(controller.undo(created.changeSetId!, {}, actor(), req)).resolves.toMatchObject({ changed: true });
+    });
+
+    it('a change that cannot be audited is not saved', async () => {
+      audit.log.mockRejectedValueOnce(new Error('audit down'));
+      await expect(controller.createTemplate({ name: `${tag} không ghi được`, entries: {} }, actor(), req)).rejects.toThrow('audit down');
+      expect(await db.permissionTemplate.count({ where: { name: `${tag} không ghi được` } })).toBe(0);
+    });
+  });
+
+  describe('an undo is a save like any other', () => {
+    it('putting a grant back needs the undoer to hold it', async () => {
+      const junior = () => ({ id: id.officer }) as never; // holds read/edit/delete:Case only
+      const target = await newTeam();
+      const t = await newTemplate({ entries: { 'read:Case': 'OWN' } });
+      await controller.saveTeam(
+        target,
+        { ...team({ memberTemplateId: t, overrides: [{ permission: 'read:Directory', effect: 'GRANT', reach: 'ALL', reason: 'tra cứu', expiresAt: null, audience: 'ALL' }] }), expectedRevision: 0 },
+        actor(), req,
+      );
+      const removal = await controller.saveTeam(target, { ...team({ memberTemplateId: t }), expectedRevision: 1 }, actor(), req);
+
+      await expect(controller.undo(removal.changeSetId!, {}, junior(), req)).rejects.toMatchObject({
+        status: 400, response: { code: 'AUTHZ_CHANGE_INVALID', details: [expect.objectContaining({ code: 'ABOVE_OWN', permission: 'read:Directory' })] },
+      });
+      expect(await db.teamPermissionOverride.count({ where: { teamId: target } })).toBe(0);
+      // Somebody who holds it can.
+      await expect(controller.undo(removal.changeSetId!, {}, actor(), req)).resolves.toMatchObject({ changed: true });
+    });
+
+    it('putting a sensitive grant back needs the undoer\'s own reason', async () => {
+      const created = await controller.createTemplate({ name: `${tag} xuất 2`, entries: { 'read:Petition': 'ALL', 'export_full:Petition': 'ALL' }, reason: 'ban đầu' }, actor(), req);
+      const removed = await controller.updateTemplate(created.id, { entries: { 'read:Petition': 'ALL' }, expectedRevision: 1 }, actor(), req);
+      await expect(controller.undo(removed.changeSetId!, {}, actor(), req)).rejects.toMatchObject({
+        response: { details: [expect.objectContaining({ code: 'SENSITIVE_REASON_REQUIRED' })] },
+      });
+      const undone = await controller.undo(removed.changeSetId!, { reason: 'gỡ nhầm' }, actor(), req);
+      expect((await db.permissionChangeSet.findUniqueOrThrow({ where: { id: undone.changeSetId! } })).reason).toBe('gỡ nhầm');
+    });
+
+    it('an undo that would put a team back on a template deleted since is refused with the reason, not an error', async () => {
+      const target = await newTeam();
+      const t = await newTemplate();
+      await controller.saveTeam(target, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
+      const cleared = await controller.clearTeam(target, actor(), req);
+      await controller.deleteTemplate(t, actor(), req);
+      await expect(controller.undo(cleared.changeSetId!, {}, actor(), req)).rejects.toMatchObject({
+        status: 400, response: { code: 'AUTHZ_CHANGE_INVALID', details: [expect.objectContaining({ code: 'TEMPLATE_NOT_FOUND', templateId: t })] },
+      });
     });
   });
 
@@ -272,10 +379,12 @@ run('AuthzAdminService on PostgreSQL', () => {
       expect(mine).toMatchObject({
         name: 'Nguyễn An',
         lost: expect.arrayContaining([{ permission: 'edit:Case', before: 'TEAM_TREE', after: null }, { permission: 'delete:Case', before: 'TEAM_TREE', after: null }]),
-        changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'OWN' }],
+        changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'OWN', teamsLost: [id.A] }],
         gained: [],
       });
       expect(preview.people).toBeGreaterThan(0);
+      // Narrowed from "the team as today" to "own": the team is no longer reached, and is named.
+      expect(preview.teamNames).toEqual({ [id.A]: `${tag} Tổ A` });
       expect(await db.teamPermissionConfig.count({ where: { teamId: id.A } })).toBe(0);
       expect(await db.permissionChangeSet.count({ where: { actorId: id.admin } })).toBe(before);
     });
@@ -284,7 +393,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       const t = await newTemplate({ entries: { 'read:Case': 'OWN' } });
       await controller.saveTeam(id.A, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
       const widened = await controller.preview({ templates: [{ id: t, entries: { 'read:Case': 'TEAM' } }] });
-      expect(widened.impacts.find((i) => i.userId === id.officer)!.changed).toEqual([{ permission: 'read:Case', before: 'OWN', after: 'TEAM' }]);
+      expect(widened.impacts.find((i) => i.userId === id.officer)!.changed).toEqual([{ permission: 'read:Case', before: 'OWN', after: 'TEAM', teamsGained: [id.A] }]);
       const gone = await controller.preview({ templates: [{ id: t, entries: null }] });
       expect(gone.impacts.find((i) => i.userId === id.officer)!.lost).toEqual([{ permission: 'read:Case', before: 'OWN', after: null }]);
       const personal = await controller.preview({ users: [{ userId: id.officer, overrides: [{ permission: 'read:Directory', effect: 'GRANT', reach: 'ALL', reason: 'r' }] }] });
@@ -297,20 +406,21 @@ run('AuthzAdminService on PostgreSQL', () => {
     it('lists changes newest first with who made them, and undo puts back what a change replaced, as a new change', async () => {
       const t = await newTemplate({ entries: { 'read:Case': 'OWN' } });
       const saved = await controller.saveTeam(id.A, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
-      const history = await controller.history('5');
-      expect(history[0]).toMatchObject({ id: saved.changeSetId, kind: 'TEAM_CONFIG_SAVED', actorId: id.admin, undoneById: null });
-      expect(history[0].changes[0]).toMatchObject({ type: 'team', id: id.A, before: null });
+      // Looked up by id: two changes saved within the same millisecond have no order between them.
+      const entry = (await controller.history('5')).find((h) => h.id === saved.changeSetId)!;
+      expect(entry).toMatchObject({ kind: 'TEAM_CONFIG_SAVED', actorId: id.admin, undoneById: null });
+      expect(entry.changes[0]).toMatchObject({ type: 'team', id: id.A, before: null });
 
-      const undone = await controller.undo(saved.changeSetId!, actor(), req);
+      const undone = await controller.undo(saved.changeSetId!, {}, actor(), req);
       expect(undone.changed).toBe(true);
       expect(await db.teamPermissionConfig.count({ where: { teamId: id.A } })).toBe(0);
       const after = await controller.history('5');
-      expect(after[0]).toMatchObject({ kind: 'UNDO', revertsId: saved.changeSetId });
+      expect(after.find((h) => h.id === undone.changeSetId)).toMatchObject({ kind: 'UNDO', revertsId: saved.changeSetId });
       expect(after.find((h) => h.id === saved.changeSetId)!.undoneById).toBe(undone.changeSetId);
 
       // Once only; and the undo itself can be undone (the configuration is back).
-      await expect(controller.undo(saved.changeSetId!, actor(), req)).rejects.toMatchObject({ status: 409, response: { code: 'AUTHZ_ALREADY_UNDONE' } });
-      await controller.undo(undone.changeSetId!, actor(), req);
+      await expect(controller.undo(saved.changeSetId!, {}, actor(), req)).rejects.toMatchObject({ status: 409, response: { code: 'AUTHZ_ALREADY_UNDONE' } });
+      await controller.undo(undone.changeSetId!, {}, actor(), req);
       expect(await db.teamPermissionConfig.count({ where: { teamId: id.A, memberTemplateId: t } })).toBe(1);
       await controller.clearTeam(id.A, actor(), req);
     });
@@ -319,7 +429,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       const t = await newTemplate({ entries: { 'read:Case': 'OWN' } });
       const first = await controller.updateTemplate(t, { entries: { 'read:Case': 'TEAM' }, expectedRevision: 1 }, actor(), req);
       await controller.updateTemplate(t, { entries: { 'read:Case': 'ALL' }, expectedRevision: 2 }, actor(), req);
-      await expect(controller.undo(first.changeSetId!, actor(), req)).rejects.toMatchObject({
+      await expect(controller.undo(first.changeSetId!, {}, actor(), req)).rejects.toMatchObject({
         status: 409, response: { code: 'AUTHZ_CHANGED_SINCE', details: [{ type: 'template', id: t }] },
       });
       expect((await controller.getTemplate(t)).entries).toEqual({ 'read:Case': 'ALL' });
@@ -327,9 +437,9 @@ run('AuthzAdminService on PostgreSQL', () => {
 
     it('undoing the creation of a template deletes it; an unknown change is a 404; the list pages', async () => {
       const created = await controller.createTemplate({ name: `${tag} tạm`, entries: {} }, actor(), req);
-      await controller.undo(created.changeSetId!, actor(), req);
+      await controller.undo(created.changeSetId!, {}, actor(), req);
       await expect(controller.getTemplate(created.id)).rejects.toMatchObject({ status: 404 });
-      await expect(controller.undo('missing', actor(), req)).rejects.toMatchObject({ status: 404 });
+      await expect(controller.undo('missing', {}, actor(), req)).rejects.toMatchObject({ status: 404 });
       const page = await controller.history('2');
       const next = await controller.history('2', page[1].id);
       expect(page).toHaveLength(2);

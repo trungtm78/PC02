@@ -1,5 +1,5 @@
 import type { AuthzConfig, OrgSnapshot, UserInput } from '../engine/types';
-import { canonical, impactOf, problemsOf, sameDoc, withChanges, type ChangeItem, type OverrideDoc, type TeamDoc, type TemplateDoc, type ValidationContext } from './documents';
+import { additionsOf, canonical, impactOf, normalise, problemsOf, sameDoc, tokenOf, viewProblemsOfTeam, withChanges, type ChangeItem, type OverrideDoc, type TeamDoc, type TemplateDoc, type ValidationContext } from './documents';
 
 const NOW = new Date('2026-11-14T00:00:00Z');
 const tpl = (over: Partial<TemplateDoc> = {}): TemplateDoc => ({ code: 'T', name: 'Mẫu', description: null, status: 'ACTIVE', entries: {}, ...over });
@@ -112,6 +112,82 @@ describe('problemsOf a person\'s overrides', () => {
   });
 });
 
+describe('additionsOf: what a change gives that the document did not give before', () => {
+  const templates = new Map([
+    ['audit', tpl({ entries: { 'read:AuditLog': 'ALL' } })],
+    ['plain', tpl({ entries: { 'read:Case': 'OWN' } })],
+  ]);
+  const grant = (over: Partial<TeamDoc['overrides'][number]> = {}): TeamDoc['overrides'][number] => ({ ...override({ permission: 'read:AuditLog', reach: 'ALL' }), audience: 'LEADER', ...over });
+  const of = (before: TeamDoc | null, after: TeamDoc | null) => additionsOf({ type: 'team', id: 'A', before, after }, templates).sort();
+
+  it('putting an existing template on a team gives what the template holds', () => {
+    expect(of(null, team({ memberTemplateId: 'audit' }))).toEqual(['read:AuditLog']);
+    expect(of(team({ memberTemplateId: 'plain' }), team({ memberTemplateId: 'plain', leaderTemplateId: 'audit' }))).toEqual(['read:AuditLog']);
+    // An INHERIT configuration gives nothing by itself, whatever it names.
+    expect(of(null, team({ mode: 'INHERIT', memberTemplateId: 'audit' }))).toEqual([]);
+  });
+
+  it('a grant moved to a wider audience, a wider reach or a later end is an addition; narrowing is not', () => {
+    expect(of(team({ overrides: [grant()] }), team({ overrides: [grant({ audience: 'ALL' })] }))).toEqual(['read:AuditLog']);
+    const soon = '2026-12-01T00:00:00.000Z';
+    const later = '2027-01-01T00:00:00.000Z';
+    expect(of(team({ overrides: [grant({ expiresAt: soon })] }), team({ overrides: [grant({ expiresAt: later })] }))).toEqual(['read:AuditLog']);
+    expect(of(team({ overrides: [grant({ expiresAt: soon })] }), team({ overrides: [grant({ expiresAt: null })] }))).toEqual(['read:AuditLog']);
+    expect(of(team({ overrides: [grant({ expiresAt: later })] }), team({ overrides: [grant({ expiresAt: soon })] }))).toEqual([]);
+    const reach = (r: 'OWN' | 'TEAM') => team({ overrides: [{ ...override({ permission: 'read:Case', reach: r }), audience: 'ALL' }] });
+    expect(of(reach('OWN'), reach('TEAM'))).toEqual(['read:Case']);
+    expect(of(reach('TEAM'), reach('OWN'))).toEqual([]);
+    expect(of(team({ overrides: [grant()] }), team())).toEqual([]);
+  });
+
+  it('lifting a mute, or letting it end sooner, gives the permission back', () => {
+    const muted = (expiresAt: string | null = null) =>
+      team({ memberTemplateId: 'audit', overrides: [{ ...override({ permission: 'read:AuditLog', effect: 'MUTE', reach: null, expiresAt }), audience: 'ALL' }] });
+    expect(of(muted(), team({ memberTemplateId: 'audit' }))).toEqual(['read:AuditLog']);
+    expect(of(muted(), muted('2026-12-01T00:00:00.000Z'))).toEqual(['read:AuditLog']);
+    expect(of(team({ memberTemplateId: 'audit' }), muted())).toEqual([]);
+    const personal: ChangeItem = { type: 'user', id: 'u', before: [override({ permission: 'read:AuditLog', effect: 'MUTE', reach: null })], after: [] };
+    expect(additionsOf(personal, templates)).toEqual(['read:AuditLog']);
+  });
+
+  it('all of these are held to "nobody hands out what they do not hold" and to the reason for sensitive grants', () => {
+    const item: ChangeItem = { type: 'team', id: 'A', before: null, after: team({ memberTemplateId: 'audit' }) };
+    expect(problemsOf(item, ctx({ templates }))).toEqual([
+      { code: 'ABOVE_OWN', permission: 'read:AuditLog' },
+      { code: 'SENSITIVE_REASON_REQUIRED', permission: 'read:AuditLog' },
+    ]);
+    expect(problemsOf(item, ctx({ templates, actorKeys: new Set(['read:AuditLog']), reason: 'thanh tra' }))).toEqual([]);
+  });
+});
+
+describe('documents are stored in one form', () => {
+  it('names and reasons are trimmed, a mute has no reach, an end is an ISO instant, an empty template id is none', () => {
+    expect(normalise({ type: 'template', id: 't', after: tpl({ name: '  Mẫu  ', code: ' C ', description: '  ' }) }).after).toMatchObject({ name: 'Mẫu', code: 'C', description: null });
+    expect(normalise({ type: 'template', id: 't', after: null }).after).toBeNull();
+    const t = normalise({
+      type: 'team', id: 'A',
+      after: { mode: 'EXPLICIT', memberTemplateId: '', leaderTemplateId: null, overrides: [{ ...override({ effect: 'MUTE', reach: 'ALL', reason: ' vì ', expiresAt: '2026-12-01T07:00:00+07:00' }), audience: 'ALL' }] },
+    }).after!;
+    expect(t.memberTemplateId).toBeNull();
+    expect(t.overrides[0]).toMatchObject({ reach: null, reason: 'vì', expiresAt: '2026-12-01T00:00:00.000Z' });
+    expect(normalise({ type: 'team', id: 'A', after: null }).after).toBeNull();
+    expect(normalise({ type: 'user', id: 'u', after: [override({ reason: ' r ' })] }).after[0].reason).toBe('r');
+  });
+
+  it('the token of a document is the same for the same value and differs for another', () => {
+    expect(tokenOf([override()])).toBe(tokenOf([{ ...override() }]));
+    expect(tokenOf([override()])).not.toBe(tokenOf([]));
+    expect(tokenOf(null)).toHaveLength(24);
+  });
+
+  it('an override that ended while it sat in the document does not block saving the document again', () => {
+    const old = { ...override({ expiresAt: '2026-11-01T00:00:00.000Z' }), audience: 'ALL' as const };
+    const templates = new Map([['m', tpl({ entries: { 'read:Case': 'OWN' } })]]);
+    expect(codes({ type: 'team', id: 'A', before: team({ overrides: [old] }), after: team({ memberTemplateId: 'm', overrides: [old] }) }, ctx({ templates }))).toEqual([]);
+    expect(viewProblemsOfTeam(team({ memberTemplateId: 'm' }), templates)).toEqual([]);
+  });
+});
+
 describe('impactOf: who would gain or lose what', () => {
   const org: OrgSnapshot = {
     teams: new Map([['A', { id: 'A', parentId: null, active: true, wardId: null }]]),
@@ -139,7 +215,7 @@ describe('impactOf: who would gain or lose what', () => {
       userId: 'u1',
       gained: [{ permission: 'read:Petition', before: null, after: 'OWN' }],
       lost: [{ permission: 'delete:Case', before: 'TEAM_TREE', after: null }],
-      changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'OWN' }],
+      changed: [{ permission: 'read:Case', before: 'TEAM_TREE', after: 'OWN', teamsLost: ['A'] }],
     });
   });
 
@@ -147,6 +223,30 @@ describe('impactOf: who would gain or lose what', () => {
     const impacts = impactOf(org, config, users, [{ type: 'user', id: 'u3', after: [override({ permission: 'read:Petition', reach: 'ALL' })] }], NOW);
     expect(impacts).toEqual([{ userId: 'u3', gained: [{ permission: 'read:Petition', before: null, after: 'ALL' }], lost: [], changed: [] }]);
     expect(impactOf(org, config, users, [], NOW)).toEqual([]);
+  });
+
+  it('a grant moved from one team to another keeps its word but not what it reaches: the preview says which teams', () => {
+    const two: OrgSnapshot = {
+      teams: new Map([['A', { id: 'A', parentId: null, active: true, wardId: null }], ['B', { id: 'B', parentId: null, active: true, wardId: null }]]),
+      children: new Map(),
+      members: new Map([['A', ['u1']], ['B', ['u1']]]),
+    };
+    const t = { id: 't', name: 't', entries: new Map([['read:Case', 'TEAM' as const]]) };
+    const none = { id: 'n', name: 'n', entries: new Map<string, 'TEAM'>() };
+    const base: AuthzConfig = {
+      templates: new Map([['t', t], ['n', none]]),
+      teamConfigs: new Map([
+        ['A', { teamId: 'A', mode: 'EXPLICIT', memberTemplateId: 't', leaderTemplateId: null, overrides: [] }],
+        ['B', { teamId: 'B', mode: 'EXPLICIT', memberTemplateId: 'n', leaderTemplateId: null, overrides: [] }],
+      ]),
+    };
+    const impacts = impactOf(two, base, new Map([['u1', person('u1', ['A', 'B'])]]), [
+      { type: 'team', id: 'A', after: team({ memberTemplateId: 'n' }) },
+      { type: 'team', id: 'B', after: team({ memberTemplateId: 't' }) },
+    ], NOW);
+    expect(impacts).toEqual([
+      { userId: 'u1', gained: [], lost: [], changed: [{ permission: 'read:Case', before: 'TEAM', after: 'TEAM', teamsGained: ['B'], teamsLost: ['A'] }] },
+    ]);
   });
 
   it('withChanges removes what is wanted gone and ignores an override for nobody known', () => {

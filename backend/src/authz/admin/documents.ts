@@ -1,5 +1,7 @@
-import { allowedDepths, isSensitivePermission, resourceOfPermission } from '../../../prisma/permission-resources';
-import { compile, widestReach } from '../engine/compile';
+import { createHash } from 'node:crypto';
+import { allowedDepths, depthRank, isSensitivePermission, resourceOfPermission } from '../../../prisma/permission-resources';
+import { compile, isRecordScoped, widestReach } from '../engine/compile';
+import { operationOf, recordScope } from '../engine/scope';
 import type { AuthzConfig, OrgSnapshot, OverrideInput, Reach, TeamConfigInput, TemplateInput, UserInput } from '../engine/types';
 import { entryProblems, type EntryProblem } from '../engine/validate';
 
@@ -56,6 +58,40 @@ export function canonical(value: unknown): string {
 }
 export const sameDoc = (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
 
+/** A short fingerprint of a document: what an editor sends back to prove what they read is still what is there. */
+export const tokenOf = (doc: unknown): string => createHash('sha256').update(canonical(doc)).digest('hex').slice(0, 24);
+
+const normaliseOverride = <T extends OverrideDoc>(o: T): T => ({
+  ...o,
+  reach: o.effect === 'GRANT' ? (o.reach ?? null) : null,
+  reason: o.reason.trim(),
+  expiresAt: o.expiresAt ? new Date(o.expiresAt).toISOString() : null,
+});
+
+/**
+ * The document exactly as it will be stored. Everything downstream (comparison, validation, writing, history) uses
+ * this one form, so what the history says was saved is what a later undo finds in the database.
+ */
+export function normalise<T extends WantedItem>(item: T): T {
+  if (item.type === 'template') {
+    const doc = item.after;
+    return { ...item, after: doc && { ...doc, code: doc.code.trim(), name: doc.name.trim(), description: doc.description?.trim() || null } };
+  }
+  if (item.type === 'team') {
+    const doc = item.after;
+    return {
+      ...item,
+      after: doc && {
+        mode: doc.mode,
+        memberTemplateId: doc.memberTemplateId || null,
+        leaderTemplateId: doc.leaderTemplateId || null,
+        overrides: doc.overrides.map(normaliseOverride),
+      },
+    };
+  }
+  return { ...item, after: item.after.map(normaliseOverride) };
+}
+
 export type DocProblem =
   | EntryProblem
   | { code: 'TEMPLATE_NAME_REQUIRED' }
@@ -80,21 +116,84 @@ export interface ValidationContext {
   now: Date;
 }
 
-const grantsOf = (item: ChangeItem): Map<string, Reach> => {
-  const out = new Map<string, Reach>();
-  if (item.type === 'template') for (const [p, r] of Object.entries(item.after?.entries ?? {})) out.set(p, r);
-  else {
-    const overrides = item.type === 'team' ? (item.after?.overrides ?? []) : item.after;
-    for (const o of overrides) if (o.effect === 'GRANT' && o.reach) out.set(o.permission, o.reach);
-  }
-  return out;
-};
-const grantsBefore = (item: ChangeItem): Map<string, Reach> =>
-  grantsOf({ ...item, after: item.before } as ChangeItem);
+const AUDIENCES = ['MEMBER', 'LEADER'] as const;
+const forAudience = (doc: TeamDoc, audience: (typeof AUDIENCES)[number]) =>
+  doc.overrides.filter((o) => o.audience === 'ALL' || o.audience === audience);
 
-function overrideProblems(overrides: readonly OverrideDoc[], keyOf: (o: OverrideDoc) => string, now: Date): DocProblem[] {
+/** What a team's configuration ends up giving one audience: its template, plus grants, minus mutes. */
+function resolvedFor(doc: TeamDoc, audience: (typeof AUDIENCES)[number], templates: ReadonlyMap<string, TemplateDoc>): Map<string, Reach> {
+  const templateId = audience === 'LEADER' ? (doc.leaderTemplateId ?? doc.memberTemplateId) : doc.memberTemplateId;
+  const entries = new Map<string, Reach>(doc.mode === 'EXPLICIT' ? Object.entries(templates.get(templateId ?? '')?.entries ?? {}) : []);
+  if (doc.mode !== 'EXPLICIT') return entries;
+  const mine = forAudience(doc, audience);
+  for (const o of mine) if (o.effect === 'GRANT' && o.reach) entries.set(o.permission, o.reach);
+  for (const o of mine) if (o.effect === 'MUTE') entries.delete(o.permission);
+  return entries;
+}
+
+/** "No end" is later than any date. */
+const endOf = (expiresAt: string | null): number => (expiresAt ? new Date(expiresAt).getTime() : Number.POSITIVE_INFINITY);
+
+/**
+ * Everything a document can give, as `slot -> how much`. A slot is a place a permission is given from: a template
+ * entry, what one audience of a team ends up with, one grant override (with its end), one mute (with its end: a mute
+ * that ends sooner gives the permission back sooner).
+ */
+function capacity(item: ChangeItem, doc: TemplateDoc | TeamDoc | OverrideDoc[] | null, templates: ReadonlyMap<string, TemplateDoc>) {
+  const slots = new Map<string, { permission: string; rank: number; end: number; mute?: boolean }>();
+  if (!doc) return slots;
+  const grant = (slot: string, permission: string, reach: Reach, expiresAt: string | null = null) =>
+    slots.set(slot, { permission, rank: depthRank(reach), end: endOf(expiresAt) });
+  const mute = (slot: string, permission: string, expiresAt: string | null) =>
+    slots.set(slot, { permission, rank: 0, end: endOf(expiresAt), mute: true });
+  if (item.type === 'template') {
+    for (const [permission, reach] of Object.entries((doc as TemplateDoc).entries)) grant(permission, permission, reach);
+  } else if (item.type === 'team') {
+    const team = doc as TeamDoc;
+    for (const audience of AUDIENCES) {
+      for (const [permission, reach] of resolvedFor(team, audience, templates)) grant(`${audience}|${permission}`, permission, reach);
+      for (const o of forAudience(team, audience)) {
+        if (o.effect === 'GRANT' && o.reach) grant(`grant|${audience}|${o.permission}`, o.permission, o.reach, o.expiresAt);
+        else if (o.effect === 'MUTE') mute(`mute|${audience}|${o.permission}`, o.permission, o.expiresAt);
+      }
+    }
+  } else {
+    for (const o of doc as OverrideDoc[]) {
+      if (o.effect === 'GRANT' && o.reach) grant(`grant|${o.permission}`, o.permission, o.reach, o.expiresAt);
+      else if (o.effect === 'MUTE') mute(`mute|${o.permission}`, o.permission, o.expiresAt);
+    }
+  }
+  return slots;
+}
+
+/**
+ * The permissions a change gives to somebody who did not have them from this document before: a new entry or grant,
+ * a wider reach, a later end, another audience, a template put on a team, a mute lifted or ending sooner. Narrowing
+ * and taking away are never additions.
+ */
+export function additionsOf(item: ChangeItem, templates: ReadonlyMap<string, TemplateDoc>): string[] {
+  const before = capacity(item, item.before, templates);
+  const after = capacity(item, item.after, templates);
+  const added = new Set<string>();
+  for (const [slot, now] of after) {
+    const was = before.get(slot);
+    if (now.mute) {
+      if (was && now.end < was.end) added.add(now.permission);
+    } else if (!was || now.rank > was.rank || now.end > was.end) added.add(now.permission);
+  }
+  for (const [slot, was] of before) if (was.mute && !after.has(slot)) added.add(was.permission);
+  return [...added];
+}
+
+function overrideProblems(
+  overrides: readonly OverrideDoc[],
+  before: readonly OverrideDoc[],
+  keyOf: (o: OverrideDoc) => string,
+  now: Date,
+): DocProblem[] {
   const problems: DocProblem[] = [];
   const seen = new Set<string>();
+  const kept = new Set(before.map((o) => canonical(o)));
   for (const o of overrides) {
     if (!resourceOfPermission(o.permission)) problems.push({ code: 'PERMISSION_UNKNOWN', permission: o.permission });
     if (seen.has(keyOf(o))) problems.push({ code: 'OVERRIDE_DUPLICATE', permission: o.permission });
@@ -104,15 +203,29 @@ function overrideProblems(overrides: readonly OverrideDoc[], keyOf: (o: Override
       if (!o.reach) problems.push({ code: 'OVERRIDE_REACH_REQUIRED', permission: o.permission });
       else if (!allowedDepths(o.permission).includes(o.reach)) problems.push({ code: 'REACH_NOT_ALLOWED', permission: o.permission, reach: o.reach });
     }
-    if (o.expiresAt && new Date(o.expiresAt).getTime() <= now.getTime()) problems.push({ code: 'OVERRIDE_EXPIRED', permission: o.permission });
+    // An override that ended while it sat in the document is not a mistake of whoever saves the document next.
+    if (o.expiresAt && new Date(o.expiresAt).getTime() <= now.getTime() && !kept.has(canonical(o))) {
+      problems.push({ code: 'OVERRIDE_EXPIRED', permission: o.permission });
+    }
+  }
+  return problems;
+}
+
+/** A team's configuration must let each audience see whatever it may change, with the templates as they will be. */
+export function viewProblemsOfTeam(doc: TeamDoc, templates: ReadonlyMap<string, TemplateDoc>): DocProblem[] {
+  const problems: DocProblem[] = [];
+  for (const audience of AUDIENCES) {
+    for (const p of entryProblems(resolvedFor(doc, audience, templates))) {
+      if (p.code === 'WIDER_THAN_VIEW' && !problems.some((x) => canonical(x) === canonical(p))) problems.push(p);
+    }
   }
   return problems;
 }
 
 /**
- * Everything wrong with one change, before anything is written. Only what the change ADDS is held to "you cannot hand
- * out what you do not hold" and to "a sensitive grant needs a reason": saving a document that already contained such
- * a grant, untouched, is not refused.
+ * Everything wrong with one change, before anything is written. What the change ADDS (see `additionsOf`) must be
+ * held by whoever saves it, and needs a reason when it is sensitive; a document saved again untouched is not
+ * judged for what it already contained.
  */
 export function problemsOf(item: ChangeItem, ctx: ValidationContext): DocProblem[] {
   const problems: DocProblem[] = [];
@@ -122,7 +235,7 @@ export function problemsOf(item: ChangeItem, ctx: ValidationContext): DocProblem
   }
   if (item.type === 'team' && item.after) {
     const doc = item.after;
-    for (const templateId of [doc.memberTemplateId, doc.leaderTemplateId]) {
+    for (const templateId of new Set([doc.memberTemplateId, doc.leaderTemplateId])) {
       if (!templateId) continue;
       const template = ctx.templates.get(templateId);
       if (!template) problems.push({ code: 'TEMPLATE_NOT_FOUND', templateId });
@@ -131,24 +244,14 @@ export function problemsOf(item: ChangeItem, ctx: ValidationContext): DocProblem
         problems.push({ code: 'TEMPLATE_ARCHIVED', templateId });
       }
     }
-    problems.push(...overrideProblems(doc.overrides, (o) => `${o.permission}|${(o as TeamDoc['overrides'][number]).audience}`, ctx.now));
-    // What each audience ends up with must still let people see what they may change.
-    for (const audience of ['MEMBER', 'LEADER'] as const) {
-      const templateId = audience === 'LEADER' ? (doc.leaderTemplateId ?? doc.memberTemplateId) : doc.memberTemplateId;
-      const entries = new Map<string, Reach>(Object.entries(ctx.templates.get(templateId ?? '')?.entries ?? {}));
-      const mine = doc.overrides.filter((o) => o.audience === 'ALL' || o.audience === audience);
-      for (const o of mine) if (o.effect === 'GRANT' && o.reach) entries.set(o.permission, o.reach);
-      for (const o of mine) if (o.effect === 'MUTE') entries.delete(o.permission);
-      for (const p of entryProblems(entries)) {
-        if (p.code === 'WIDER_THAN_VIEW' && !problems.some((x) => canonical(x) === canonical(p))) problems.push(p);
-      }
-    }
+    problems.push(
+      ...overrideProblems(doc.overrides, item.before?.overrides ?? [], (o) => `${o.permission}|${(o as TeamDoc['overrides'][number]).audience}`, ctx.now),
+    );
+    problems.push(...viewProblemsOfTeam(doc, ctx.templates));
   }
-  if (item.type === 'user') problems.push(...overrideProblems(item.after, (o) => o.permission, ctx.now));
+  if (item.type === 'user') problems.push(...overrideProblems(item.after, item.before, (o) => o.permission, ctx.now));
 
-  const before = grantsBefore(item);
-  for (const [permission, reach] of grantsOf(item)) {
-    if (before.get(permission) === reach) continue;
+  for (const permission of additionsOf(item, ctx.templates)) {
     if (!ctx.actorKeys.has(permission)) problems.push({ code: 'ABOVE_OWN', permission });
     if (isSensitivePermission(permission) && !ctx.reason?.trim()) problems.push({ code: 'SENSITIVE_REASON_REQUIRED', permission });
   }
@@ -161,6 +264,9 @@ export interface PermissionDelta {
   permission: string;
   before: Reach | null;
   after: Reach | null;
+  /** Teams whose records the permission starts or stops reaching (also when the reach word stays the same). */
+  teamsGained?: string[];
+  teamsLost?: string[];
 }
 export interface PersonImpact {
   userId: string;
@@ -222,13 +328,31 @@ export function impactOf(
 ): PersonImpact[] {
   const next = withChanges(config, users, wanted);
   const impacts: PersonImpact[] = [];
+  /** What a record permission reaches, as comparable facts. */
+  const reached = (effective: ReturnType<typeof compile>, permission: string) => {
+    if (!isRecordScoped(permission) || !effective.grants.has(permission)) return { flags: '', teams: [] as string[] };
+    const scope = recordScope(org, effective, permission, operationOf(permission));
+    if (scope.all) return { flags: 'all', teams: [] as string[] };
+    return {
+      flags: `${scope.own}|${scope.tree?.includeUnassigned ?? false}`,
+      teams: [...new Set([...scope.exactTeamIds, ...(scope.tree?.teamIds ?? [])])].sort(),
+    };
+  };
   for (const [userId, person] of users) {
     const before = compile(org, config, person, now);
     const after = compile(org, next.config, next.users.get(userId) ?? person, now);
     const impact: PersonImpact = { userId, gained: [], lost: [], changed: [] };
     for (const permission of new Set([...before.keys, ...after.keys])) {
-      const delta = { permission, before: widestReach(before, permission), after: widestReach(after, permission) };
-      if (delta.before === delta.after) continue;
+      const delta: PermissionDelta = { permission, before: widestReach(before, permission), after: widestReach(after, permission) };
+      const was = reached(before, permission);
+      const is = reached(after, permission);
+      const teamsGained = is.teams.filter((t) => !was.teams.includes(t));
+      const teamsLost = was.teams.filter((t) => !is.teams.includes(t));
+      if (delta.before === delta.after && was.flags === is.flags && !teamsGained.length && !teamsLost.length) continue;
+      if (delta.before && delta.after) {
+        if (teamsGained.length) delta.teamsGained = teamsGained;
+        if (teamsLost.length) delta.teamsLost = teamsLost;
+      }
       if (!delta.before) impact.gained.push(delta);
       else if (!delta.after) impact.lost.push(delta);
       else impact.changed.push(delta);
