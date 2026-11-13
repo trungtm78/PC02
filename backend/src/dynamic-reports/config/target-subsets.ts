@@ -13,6 +13,23 @@ export class TargetSubsetError extends Error {
   }
 }
 
+/** Thrown when two input cells claim to be the same criterion: a subset naming it would then cover both. */
+export class DuplicateItemKeyError extends Error {
+  constructor(public readonly itemKey: string) {
+    super('CRITERIA_KEY_DUPLICATE');
+  }
+}
+
+/** Every item key names exactly one field of the version (a key may equally not collide with another field's key). */
+export function assertUniqueItemKeys(fields: readonly { fieldKey: string; itemKey?: string | null }[]): void {
+  const seen = new Set<string>();
+  for (const field of fields) {
+    const key = itemKeyOf(field);
+    if (seen.has(key)) throw new DuplicateItemKeyError(key);
+    seen.add(key);
+  }
+}
+
 /**
  * The subset as it is stored: undefined / null = the team reports every criterion (stored as SQL NULL); otherwise the
  * de-duplicated keys in the order of the report's fields, so two equal subsets are stored identically.

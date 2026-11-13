@@ -14,7 +14,7 @@ import { reconcileFieldsWithWorkbook } from './publish-reconcile';
 import type { ParseTemplateResult } from '../template/types';
 import { deriveFromValidations } from '../template/validation-constraints';
 import type { DerivedConstraints } from '../template/validation-constraints';
-import { normaliseTargetSubset, TargetSubsetError } from './target-subsets';
+import { assertUniqueItemKeys, DuplicateItemKeyError, normaliseTargetSubset, TargetSubsetError } from './target-subsets';
 
 export class ReportConfigError extends Error {
   constructor(
@@ -174,6 +174,14 @@ export class ReportConfigService {
     derived: ParseTemplateResult | null,
   ): Promise<void> {
     if (fields.length === 0) return;
+    try {
+      assertUniqueItemKeys(fields);
+    } catch (err) {
+      if (err instanceof DuplicateItemKeyError) {
+        throw new ReportConfigError(`Hai ô nhập cùng mang một mã tiêu chí: ${err.itemKey}`, 'CRITERIA_KEY_DUPLICATE');
+      }
+      throw err;
+    }
     const fromTemplate = derived
       ? deriveFromValidations(
           derived.dataValidations,
