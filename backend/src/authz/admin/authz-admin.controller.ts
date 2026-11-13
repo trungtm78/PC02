@@ -41,6 +41,14 @@ import {
 const REACHES: readonly string[] = ['OWN', 'TEAM', 'TEAM_TREE', 'ALL'];
 const meta = (req: Request) => ({ ipAddress: req.ip, userAgent: req.headers['user-agent'] });
 
+/** The revision a delete was decided at, from the query string: removing something is a save like any other. */
+function revisionOf(raw: string | undefined): number {
+  if (!raw || !/^\d{1,9}$/.test(raw)) throw new BadRequestException({ code: 'EXPECTED_REVISION_REQUIRED' });
+  return Number(raw);
+}
+/** A configuration that only says "follow the parent" is no configuration: it is stored as none. */
+const teamAfter = (c: TeamConfigDto | null | undefined): TeamDoc | null => (c && c.mode === 'EXPLICIT' ? teamDoc(c) : null);
+
 /** `action:subject` -> reach, as sent; a value that is not a reach is refused here, the rest by the service. */
 function entriesOf(raw: Record<string, string>): Record<string, Reach> {
   const bad = Object.entries(raw).filter(([, reach]) => !REACHES.includes(reach));
@@ -182,9 +190,13 @@ export class AuthzAdminController {
   /** Real delete, only while no team uses the template (else TEMPLATE_IN_USE with the teams; archive instead). */
   @Delete('templates/:id')
   @RequirePermissions({ action: 'write', subject: 'Role' })
-  async deleteTemplate(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
+  async deleteTemplate(@Param('id') id: string, @Query('expectedRevision') expected: string | undefined, @CurrentUser() user: AuthUser, @Req() req: Request) {
+    const expectedRevision = revisionOf(expected);
     await this.admin.templateDoc(id);
-    return this.admin.commit(user.id, 'TEMPLATE_DELETED', [{ type: 'template', id, after: null }], { meta: meta(req) });
+    return this.admin.commit(user.id, 'TEMPLATE_DELETED', [{ type: 'template', id, after: null }], {
+      expected: { [`template:${id}`]: expectedRevision },
+      meta: meta(req),
+    });
   }
 
   // ── teams ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -197,7 +209,7 @@ export class AuthzAdminController {
   @Put('teams/:teamId')
   @RequirePermissions({ action: 'write', subject: 'Role' })
   saveTeam(@Param('teamId') teamId: string, @Body() body: SaveTeamConfigDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.admin.commit(user.id, 'TEAM_CONFIG_SAVED', [{ type: 'team', id: teamId, after: teamDoc(body) }], {
+    return this.admin.commit(user.id, 'TEAM_CONFIG_SAVED', [{ type: 'team', id: teamId, after: teamAfter(body) }], {
       reason: body.reason,
       expected: { [`team:${teamId}`]: body.expectedRevision },
       meta: meta(req),
@@ -207,8 +219,11 @@ export class AuthzAdminController {
   /** Removes the team's own configuration: it follows its parent again (or the roles, if nobody above has any). */
   @Delete('teams/:teamId')
   @RequirePermissions({ action: 'write', subject: 'Role' })
-  clearTeam(@Param('teamId') teamId: string, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    return this.admin.commit(user.id, 'TEAM_CONFIG_REMOVED', [{ type: 'team', id: teamId, after: null }], { meta: meta(req) });
+  async clearTeam(@Param('teamId') teamId: string, @Query('expectedRevision') expected: string | undefined, @CurrentUser() user: AuthUser, @Req() req: Request) {
+    return this.admin.commit(user.id, 'TEAM_CONFIG_REMOVED', [{ type: 'team', id: teamId, after: null }], {
+      expected: { [`team:${teamId}`]: revisionOf(expected) },
+      meta: meta(req),
+    });
   }
 
   /** The same configuration for many teams at once: all of them, or none. */
@@ -216,7 +231,7 @@ export class AuthzAdminController {
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Role' })
   async applyTeams(@Body() body: ApplyTeamsDto, @CurrentUser() user: AuthUser, @Req() req: Request) {
-    const after = body.config ? teamDoc(body.config) : null;
+    const after = teamAfter(body.config);
     const teamIds = [...new Set(body.teamIds)];
     // Every team, not "those the caller remembered": one left out would be overwritten whatever happened to it.
     const missing = teamIds.filter((id) => !Number.isInteger(body.expected[id]) || body.expected[id] < 0);
@@ -269,7 +284,7 @@ export class AuthzAdminController {
         });
       }
     }
-    for (const t of body.teams ?? []) wanted.push({ type: 'team', id: t.teamId, after: t.config ? teamDoc(t.config) : null });
+    for (const t of body.teams ?? []) wanted.push({ type: 'team', id: t.teamId, after: teamAfter(t.config) });
     for (const u of body.users ?? []) wanted.push({ type: 'user', id: u.userId, after: u.overrides.map(overrideDoc) });
     return this.admin.preview(wanted);
   }

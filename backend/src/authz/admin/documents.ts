@@ -97,6 +97,8 @@ export type DocProblem =
   | { code: 'TEMPLATE_NAME_REQUIRED' }
   | { code: 'TEMPLATE_NOT_FOUND'; templateId: string }
   | { code: 'TEMPLATE_ARCHIVED'; templateId: string }
+  /** A team with its own configuration and no template for its members would leave them with nothing, by accident. */
+  | { code: 'MEMBER_TEMPLATE_REQUIRED' }
   | { code: 'OVERRIDE_REASON_REQUIRED'; permission: string }
   | { code: 'OVERRIDE_REACH_REQUIRED'; permission: string }
   | { code: 'OVERRIDE_EXPIRED'; permission: string }
@@ -235,6 +237,8 @@ export function problemsOf(item: ChangeItem, ctx: ValidationContext): DocProblem
   }
   if (item.type === 'team' && item.after) {
     const doc = item.after;
+    // "Members get nothing" is said with an empty template, on purpose; never by leaving the choice blank.
+    if (doc.mode === 'EXPLICIT' && !doc.memberTemplateId) problems.push({ code: 'MEMBER_TEMPLATE_REQUIRED' });
     for (const templateId of new Set([doc.memberTemplateId, doc.leaderTemplateId])) {
       if (!templateId) continue;
       const template = ctx.templates.get(templateId);

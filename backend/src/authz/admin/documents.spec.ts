@@ -60,7 +60,7 @@ describe('problemsOf a team configuration', () => {
     expect(problemsOf({ type: 'team', id: 'A', before: null, after: team({ memberTemplateId: 'nope' }) }, ctx({ templates }))).toEqual([
       { code: 'TEMPLATE_NOT_FOUND', templateId: 'nope' },
     ]);
-    expect(codes({ type: 'team', id: 'A', before: null, after: team({ leaderTemplateId: 'old' }) }, ctx({ templates }))).toEqual(['TEMPLATE_ARCHIVED']);
+    expect(codes({ type: 'team', id: 'A', before: null, after: team({ memberTemplateId: 'm', leaderTemplateId: 'old' }) }, ctx({ templates }))).toEqual(['TEMPLATE_ARCHIVED']);
     expect(codes({ type: 'team', id: 'A', before: team({ memberTemplateId: 'old' }), after: team({ memberTemplateId: 'old', leaderTemplateId: 'm' }) }, ctx({ templates }))).toEqual([]);
   });
 
@@ -96,6 +96,12 @@ describe('problemsOf a team configuration', () => {
       ],
     });
     expect(codes({ type: 'team', id: 'A', before: null, after: blind }, ctx({ templates }))).toEqual(['WIDER_THAN_VIEW']);
+  });
+
+  it('its own configuration needs a template for its members: "nothing" is said with an empty template, not a blank', () => {
+    expect(codes({ type: 'team', id: 'A', before: null, after: team() }, ctx({ templates }))).toEqual(['MEMBER_TEMPLATE_REQUIRED']);
+    expect(codes({ type: 'team', id: 'A', before: null, after: team({ leaderTemplateId: 'm' }) }, ctx({ templates }))).toContain('MEMBER_TEMPLATE_REQUIRED');
+    expect(codes({ type: 'team', id: 'A', before: null, after: team({ memberTemplateId: 'm' }) }, ctx({ templates }))).toEqual([]);
   });
 
   it('removing a configuration is not judged', () => {

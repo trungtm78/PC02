@@ -43,6 +43,15 @@ run('AuthzAdminService on PostgreSQL', () => {
     const { token } = await controller.userOverrides(userId);
     return controller.saveUserOverrides(userId, { overrides, expectedToken: token }, who, req);
   }
+  /** Like the screen: a removal is sent with the revision that was read. */
+  async function clear(teamId: string) {
+    const revision = (await controller.listTeams()).find((t) => t.teamId === teamId)?.revision ?? 0;
+    return controller.clearTeam(teamId, String(revision), actor(), req);
+  }
+  async function removeTemplate(templateId: string) {
+    const revision = await db.permissionTemplate.findUnique({ where: { id: templateId }, select: { revision: true } });
+    return controller.deleteTemplate(templateId, String(revision?.revision ?? 1), actor(), req);
+  }
   async function newTeam() {
     n += 1;
     return (await db.team.create({ data: { code: `${tag}-${n}`, name: `${tag} Tổ ${n}` } })).id;
@@ -167,16 +176,16 @@ run('AuthzAdminService on PostgreSQL', () => {
 
     it('is really deleted while no team uses it; one in use is refused with the teams that use it', async () => {
       const free = await newTemplate();
-      await controller.deleteTemplate(free, actor(), req);
+      await removeTemplate(free);
       await expect(controller.getTemplate(free)).rejects.toMatchObject({ status: 404 });
 
       const used = await newTemplate();
       await controller.saveTeam(id.A, { ...team({ memberTemplateId: used }), expectedRevision: 0 }, actor(), req);
-      await expect(controller.deleteTemplate(used, actor(), req)).rejects.toMatchObject({
+      await expect(removeTemplate(used)).rejects.toMatchObject({
         status: 409, response: { code: 'TEMPLATE_IN_USE', details: [{ teamId: id.A, name: `${tag} Tổ A` }] },
       });
       expect((await controller.getTemplate(used)).status).toBe('ACTIVE');
-      await controller.clearTeam(id.A, actor(), req);
+      await clear(id.A);
     });
 
     it('two templates cannot take the same code', async () => {
@@ -206,7 +215,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       await controller.saveTeam(id.A, { ...team({ memberTemplateId: member }), expectedRevision: 1 }, actor(), req);
       expect(await db.teamPermissionOverride.count({ where: { teamId: id.A } })).toBe(0);
 
-      await controller.clearTeam(id.A, actor(), req);
+      await clear(id.A);
       expect((await authz.effective(id.officer)).keys).toEqual(['delete:Case', 'edit:Case', 'read:Case']);
       expect((await controller.listTeams()).find((t) => t.teamId === id.A)).toMatchObject({ revision: 0, config: null, governedByTeamId: null });
     });
@@ -216,11 +225,39 @@ run('AuthzAdminService on PostgreSQL', () => {
         response: { code: 'AUTHZ_CHANGE_INVALID', details: [expect.objectContaining({ code: 'TEMPLATE_NOT_FOUND' })] },
       });
       const old = await newTemplate({ status: 'ARCHIVED' });
-      await expect(controller.saveTeam(id.A, { ...team({ leaderTemplateId: old }), expectedRevision: 0 }, actor(), req)).rejects.toMatchObject({
+      const current = await newTemplate();
+      await expect(controller.saveTeam(id.A, { ...team({ memberTemplateId: current, leaderTemplateId: old }), expectedRevision: 0 }, actor(), req)).rejects.toMatchObject({
         response: { details: [expect.objectContaining({ code: 'TEMPLATE_ARCHIVED' })] },
       });
       await expect(controller.saveTeam('no-team', { ...team(), expectedRevision: 0 }, actor(), req)).rejects.toMatchObject({ status: 404 });
       expect(await db.teamPermissionConfig.count({ where: { teamId: id.A } })).toBe(0);
+    });
+
+    it('removing something is sent with the revision that was read: none or a stale one is refused', async () => {
+      const t = await newTemplate();
+      const target = await newTeam();
+      await controller.saveTeam(target, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
+      for (const none of [undefined, '', 'abc', '-1', '1.5']) {
+        await expect(controller.clearTeam(target, none, actor(), req)).rejects.toMatchObject({ status: 400, response: { code: 'EXPECTED_REVISION_REQUIRED' } });
+        await expect(controller.deleteTemplate(t, none, actor(), req)).rejects.toMatchObject({ status: 400, response: { code: 'EXPECTED_REVISION_REQUIRED' } });
+      }
+      await expect(controller.clearTeam(target, '7', actor(), req)).rejects.toMatchObject({ status: 409, response: { code: 'REVISION_CONFLICT' } });
+      expect(await db.teamPermissionConfig.count({ where: { teamId: target } })).toBe(1);
+      await clear(target);
+      await expect(controller.deleteTemplate(t, '9', actor(), req)).rejects.toMatchObject({ status: 409, response: { code: 'REVISION_CONFLICT' } });
+      await removeTemplate(t);
+      expect(await db.permissionTemplate.count({ where: { id: t } })).toBe(0);
+    });
+
+    it('"follow the parent" is stored as no configuration at all, and its own configuration needs a member template', async () => {
+      const t = await newTemplate();
+      const target = await newTeam();
+      await controller.saveTeam(target, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
+      await controller.saveTeam(target, { mode: 'INHERIT', memberTemplateId: t, expectedRevision: 1 }, actor(), req);
+      expect(await db.teamPermissionConfig.count({ where: { teamId: target } })).toBe(0);
+      await expect(controller.saveTeam(target, { ...team(), expectedRevision: 0 }, actor(), req)).rejects.toMatchObject({
+        response: { code: 'AUTHZ_CHANGE_INVALID', details: [expect.objectContaining({ code: 'MEMBER_TEMPLATE_REQUIRED' })] },
+      });
     });
 
     it('many teams at once: all of them or none', async () => {
@@ -362,8 +399,8 @@ run('AuthzAdminService on PostgreSQL', () => {
       const target = await newTeam();
       const t = await newTemplate();
       await controller.saveTeam(target, { ...team({ memberTemplateId: t }), expectedRevision: 0 }, actor(), req);
-      const cleared = await controller.clearTeam(target, actor(), req);
-      await controller.deleteTemplate(t, actor(), req);
+      const cleared = await clear(target);
+      await removeTemplate(t);
       await expect(controller.undo(cleared.changeSetId!, {}, actor(), req)).rejects.toMatchObject({
         status: 400, response: { code: 'AUTHZ_CHANGE_INVALID', details: [expect.objectContaining({ code: 'TEMPLATE_NOT_FOUND', templateId: t })] },
       });
@@ -398,7 +435,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       expect(gone.impacts.find((i) => i.userId === id.officer)!.lost).toEqual([{ permission: 'read:Case', before: 'OWN', after: null }]);
       const personal = await controller.preview({ users: [{ userId: id.officer, overrides: [{ permission: 'read:Directory', effect: 'GRANT', reach: 'ALL', reason: 'r' }] }] });
       expect(personal.impacts.find((i) => i.userId === id.officer)!.gained).toEqual([{ permission: 'read:Directory', before: null, after: 'ALL' }]);
-      await controller.clearTeam(id.A, actor(), req);
+      await clear(id.A);
     });
   });
 
@@ -422,7 +459,7 @@ run('AuthzAdminService on PostgreSQL', () => {
       await expect(controller.undo(saved.changeSetId!, {}, actor(), req)).rejects.toMatchObject({ status: 409, response: { code: 'AUTHZ_ALREADY_UNDONE' } });
       await controller.undo(undone.changeSetId!, {}, actor(), req);
       expect(await db.teamPermissionConfig.count({ where: { teamId: id.A, memberTemplateId: t } })).toBe(1);
-      await controller.clearTeam(id.A, actor(), req);
+      await clear(id.A);
     });
 
     it('refuses to undo a change whose object has been changed again since, naming it', async () => {
