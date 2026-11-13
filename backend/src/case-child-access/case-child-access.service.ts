@@ -240,6 +240,7 @@ export class CaseChildAccessService {
             },
             await this.scope(actorId, scoped),
             'write',
+            'investigatorId' in source ? 'Incident' : 'Petition',
           );
           for (const parent of parents) {
             if (

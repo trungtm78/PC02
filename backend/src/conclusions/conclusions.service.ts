@@ -86,7 +86,7 @@ export class ConclusionsService {
     });
     if (!record)
       throw new NotFoundException(`Kết luận không tồn tại (id: ${id})`);
-    assertParentInScope(record.case, dataScope);
+    assertParentInScope(record.case, dataScope, 'read', 'Case');
     await this.childAccess.read(record.caseId, actorId, db);
     return {
       success: true,
@@ -174,6 +174,7 @@ export class ConclusionsService {
           this.childAccess.parent(parents, existing.caseId),
           dataScope,
           'write',
+          'Case',
         );
 
         const record = await tx.conclusion.update({
@@ -241,6 +242,7 @@ export class ConclusionsService {
           this.childAccess.parent(parents, existing.caseId),
           dataScope,
           'write',
+          'Case',
         );
 
         await tx.conclusion.update({

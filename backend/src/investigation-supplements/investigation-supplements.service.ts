@@ -103,7 +103,7 @@ export class InvestigationSupplementsService {
       throw new NotFoundException(
         `Quyết định điều tra bổ sung không tồn tại (id: ${id})`,
       );
-    assertParentInScope(record.case, dataScope);
+    assertParentInScope(record.case, dataScope, 'read', 'Case');
     await this.childAccess.read(record.caseId, actorId, db);
     return {
       success: true,
@@ -208,6 +208,7 @@ export class InvestigationSupplementsService {
           this.childAccess.parent(parents, existing.caseId),
           dataScope,
           'write',
+          'Case',
         );
 
         await tx.investigationSupplement.delete({

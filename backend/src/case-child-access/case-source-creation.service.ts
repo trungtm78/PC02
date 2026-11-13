@@ -118,7 +118,7 @@ export class CaseSourceCreationService {
                 ? (source as Incident).investigatorId
                 : (source as Petition).assignedToId,
           };
-          assertParentInScope(parent, scope, 'write');
+          assertParentInScope(parent, scope, 'write', input.kind === 'Incident' ? 'Incident' : 'Petition');
           await this.core.assertCaseCreation(tx, actor, parent);
           const enabled = !!(
             await tx.featureFlag.findUnique({

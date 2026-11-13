@@ -548,7 +548,7 @@ export class CasesService {
       caseType,
       nameBd: { contains: thoatLike(normalized) },
     };
-    const scopeFilter = buildScopeFilter(dataScope);
+    const scopeFilter = buildScopeFilter(dataScope, 'read', 'Case');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,
@@ -608,7 +608,7 @@ export class CasesService {
           }
         : { nameBd: { contains: thoatLike(normalized) } }),
     };
-    const scopeFilter = buildScopeFilter(dataScope);
+    const scopeFilter = buildScopeFilter(dataScope, 'read', 'Case');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,
@@ -903,7 +903,7 @@ export class CasesService {
     if (toPhuong) where.assignedTeam = toPhuong;
 
     // Apply data scope filter
-    const scopeFilter = buildScopeFilter(dataScope);
+    const scopeFilter = buildScopeFilter(dataScope, 'read', 'Case');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,
@@ -1322,7 +1322,7 @@ export class CasesService {
     // Find auto-created Incident linked via Incident.linkedCaseId (Branch 3).
     // Case.linkedIncidentId is NULL for Branch 3 due to case_provenance_fk_consistency constraint.
     // Apply DataScope filter so the Incident obeys the same access rules as the Case.
-    const incidentScopeFilter = buildScopeFilter(dataScope);
+    const incidentScopeFilter = buildScopeFilter(dataScope, 'read', 'Incident');
     const autoLinkedIncident = await this.prisma.incident.findFirst({
       where: {
         linkedCaseId: id,
@@ -3975,7 +3975,7 @@ export class CasesService {
       createdAtFilter.lte = new Date(query.toDate + 'T23:59:59.999Z');
     if (query.fromDate || query.toDate) where.createdAt = createdAtFilter;
 
-    const scopeFilter = buildScopeFilter(dataScope);
+    const scopeFilter = buildScopeFilter(dataScope, 'read', 'Case');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,

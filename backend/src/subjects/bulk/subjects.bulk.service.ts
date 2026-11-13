@@ -79,6 +79,7 @@ export class SubjectsBulkService {
         const scopeFilter = buildScopeFilter(
           await this.childAccess.scope(input.actorId),
           'write',
+          'Case',
         );
         const visibility = await this.childAccess.listWhere(input.actorId);
         const inScope = await this.prisma.subject.findMany({
@@ -201,6 +202,8 @@ export class SubjectsBulkService {
     };
     const scopeFilter = buildScopeFilter(
       await this.childAccess.scope(input.actorId),
+      'read',
+      'Case',
     );
     if (scopeFilter) {
       where.case = scopeFilter as Prisma.CaseWhereInput;

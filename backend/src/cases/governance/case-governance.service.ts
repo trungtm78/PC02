@@ -205,7 +205,12 @@ export class CaseGovernanceService {
       where: { id: caseId, deletedAt: null },
     });
     if (!record) throw new NotFoundException('Case not found');
-    assertParentInScope(record, await this.currentScope(tx, user), 'read');
+    assertParentInScope(
+      record,
+      await this.currentScope(tx, user),
+      'read',
+      'Case',
+    );
     await this.sensitive(tx, record, user);
     await this.representation(tx, caseId, user, capability);
     return record;
@@ -222,7 +227,12 @@ export class CaseGovernanceService {
       where: { id: caseId, deletedAt: null },
     });
     if (!record) throw new NotFoundException('Case not found');
-    assertParentInScope(record, await this.currentScope(tx, user), 'read');
+    assertParentInScope(
+      record,
+      await this.currentScope(tx, user),
+      'read',
+      'Case',
+    );
     await this.sensitive(tx, record, user);
     return record;
   }
@@ -255,7 +265,12 @@ export class CaseGovernanceService {
       where: { id: caseId, deletedAt: null },
     });
     if (!record) throw new NotFoundException('Case not found');
-    assertParentInScope(record, await this.currentScope(tx, user), 'write');
+    assertParentInScope(
+      record,
+      await this.currentScope(tx, user),
+      'write',
+      'Case',
+    );
     if (
       record.intakeStage === 'CHO_NHAN' ||
       (await tx.caseHandoff.findFirst({ where: { caseId, state: 'PENDING' } }))
@@ -1027,7 +1042,8 @@ export class CaseGovernanceService {
       AND: [
         ...(options?.includeDeleted ? [] : [{ deletedAt: null }]),
         { id: { notIn: unknown } },
-        (buildScopeFilter(scope) ?? {}) as Prisma.CaseWhereInput,
+        (buildScopeFilter(scope, 'read', 'Case') ??
+          {}) as Prisma.CaseWhereInput,
         sensitivity,
         this.representationWhere(
           user,
@@ -1089,7 +1105,12 @@ export class CaseGovernanceService {
     });
     if (!record) throw new NotFoundException('Case not found');
     await this.representation(tx, caseId, user, 'view');
-    assertParentInScope(record, await this.currentScope(tx, user), 'read');
+    assertParentInScope(
+      record,
+      await this.currentScope(tx, user),
+      'read',
+      'Case',
+    );
     await this.sensitive(tx, record, user);
     return record;
   }
@@ -1105,7 +1126,12 @@ export class CaseGovernanceService {
     await this.representation(tx, caseId, user, 'edit');
     if (!this.permission(user, 'Case', 'edit'))
       throw new ForbiddenException('Case edit permission required');
-    assertParentInScope(record, await this.currentScope(tx, user), 'write');
+    assertParentInScope(
+      record,
+      await this.currentScope(tx, user),
+      'write',
+      'Case',
+    );
     if (
       record.intakeStage === 'CHO_NHAN' ||
       (await tx.caseHandoff.findFirst({ where: { caseId, state: 'PENDING' } }))
@@ -1150,7 +1176,7 @@ export class CaseGovernanceService {
     )
       throw new ForbiddenException('Creation destination must be writable');
     if (parent.assignedTeamId || parent.investigatorId || !user.canDispatch)
-      assertParentInScope(parent, scope, 'write');
+      assertParentInScope(parent, scope, 'write', 'Case');
     await this.validateAssignmentTarget(
       tx,
       parent.assignedTeamId ?? null,
@@ -1200,7 +1226,12 @@ export class CaseGovernanceService {
       where: { id: caseId, deletedAt: { not: null } },
     });
     if (!record) throw new NotFoundException('Deleted Case not found');
-    assertParentInScope(record, await this.currentScope(tx, user), 'write');
+    assertParentInScope(
+      record,
+      await this.currentScope(tx, user),
+      'write',
+      'Case',
+    );
     await this.sensitive(tx, record, user);
     if (
       record.intakeStage === 'CHO_NHAN' ||
@@ -1340,6 +1371,7 @@ export class CaseGovernanceService {
           { ...record, intakeStage: null },
           await this.currentScope(tx, user),
           'write',
+          'Case',
         );
       }
       if (record.updatedAt.getTime() !== expected.getTime())

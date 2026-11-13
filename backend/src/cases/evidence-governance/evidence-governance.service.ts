@@ -3007,7 +3007,7 @@ export class CaseEvidenceGovernanceService {
       )
     )
       otherParents.push({
-        incident: { AND: [{ deletedAt: null }, buildScopeFilter(scope) ?? {}] },
+        incident: { AND: [{ deletedAt: null }, buildScopeFilter(scope, 'read', 'Incident') ?? {}] },
       });
     if (
       await this.governance.hasEntityPermission(

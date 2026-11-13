@@ -165,8 +165,9 @@ export function buildPetitionScopeFilter(
  * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
  * If parent is null/undefined (orphan record), check passes silently.
  * Pass operation='write' on mutation paths — uses writableTeamIds instead of teamIds.
- * Pass `subject` ('Case' or 'Incident') so that, when permissions by team are enforced, the parent is measured
- * against the right subject's scope; without it the parent must be within both.
+ * Pass `subject` so that, when permissions by team are enforced, the parent is measured against the right
+ * subject's scope; without it the parent must be within both the Case and the Incident scope. 'Petition' is for
+ * the few callers that hand a petition over in this shape (its owner in `investigatorId`).
  */
 export function assertParentInScope(
   parent:
@@ -179,7 +180,7 @@ export function assertParentInScope(
     | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
-  subject?: 'Case' | 'Incident',
+  subject?: RecordSubject,
 ): void {
   if (operation === 'write' && parent?.intakeStage === 'CHO_NHAN')
     throw new ConflictException('Pending handoff protects this case');

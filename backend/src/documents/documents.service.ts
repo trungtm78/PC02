@@ -165,12 +165,14 @@ export class DocumentsService {
     const currentScope = actorId
       ? await this.governance.currentActorScope(this.prisma, { actorId })
       : dataScope;
-    const caseScope = buildScopeFilter(currentScope);
+    const caseScope = buildScopeFilter(currentScope, 'read', 'Case');
+    const incidentScope = buildScopeFilter(currentScope, 'read', 'Incident');
     const petitionScope = buildPetitionScopeFilter(currentScope);
-    if (caseScope || petitionScope) {
+    if (caseScope || incidentScope || petitionScope) {
       dieuKien.push({
         OR: [
-          ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
+          ...(caseScope ? [{ case: caseScope }] : []),
+          ...(incidentScope ? [{ incident: incidentScope }] : []),
           // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
           // from scope queries — chain-of-custody bleeding prevention.
           ...(petitionScope
@@ -357,18 +359,31 @@ export class DocumentsService {
     const chaVuAnChoQua =
       (record.caseId !== null &&
         record.case != null &&
-        chaTrongPhamVi(() => assertParentInScope(record.case, currentScope))) ||
+        chaTrongPhamVi(() =>
+          assertParentInScope(record.case, currentScope, 'read', 'Case'),
+        )) ||
       (record.incidentId !== null &&
         record.incident != null &&
         chaTrongPhamVi(() =>
-          assertParentInScope(record.incident, currentScope),
+          assertParentInScope(
+            record.incident,
+            currentScope,
+            'read',
+            'Incident',
+          ),
         ));
 
     if (!chaDonThuChoQua && !chaVuAnChoQua) {
       // Ném đúng lỗi của nhánh cha mà tệp thật sự có, để thông báo không lạc đề.
       if (record.petitionId !== null && !record.caseId && !record.incidentId)
         assertPetitionParentInScope(record.petition, currentScope);
-      else assertParentInScope(record.case ?? record.incident, currentScope);
+      else
+        assertParentInScope(
+          record.case ?? record.incident,
+          currentScope,
+          'read',
+          record.case ? 'Case' : 'Incident',
+        );
     }
 
     return {
@@ -404,7 +419,7 @@ export class DocumentsService {
           `Vụ án không tồn tại (id: ${dto.caseId})`,
         );
       }
-      assertParentInScope(caseRecord, dataScope, 'write');
+      assertParentInScope(caseRecord, dataScope, 'write', 'Case');
     }
 
     // Validate incidentId if provided
@@ -418,7 +433,7 @@ export class DocumentsService {
           `Vụ việc không tồn tại (id: ${dto.incidentId})`,
         );
       }
-      assertParentInScope(incidentRecord, dataScope, 'write');
+      assertParentInScope(incidentRecord, dataScope, 'write', 'Incident');
     }
 
     // Validate petitionId if provided
@@ -680,6 +695,7 @@ export class DocumentsService {
             existing.case ?? existing.incident,
             dataScope,
             'write',
+            existing.case ? 'Case' : 'Incident',
           );
         }
 
@@ -693,7 +709,7 @@ export class DocumentsService {
               `Vụ án không tồn tại (id: ${dto.caseId})`,
             );
           }
-          assertParentInScope(caseRecord, dataScope, 'write');
+          assertParentInScope(caseRecord, dataScope, 'write', 'Case');
         }
 
         // Validate incidentId if provided
@@ -706,7 +722,7 @@ export class DocumentsService {
               `Vụ việc không tồn tại (id: ${dto.incidentId})`,
             );
           }
-          assertParentInScope(incidentRecord, dataScope, 'write');
+          assertParentInScope(incidentRecord, dataScope, 'write', 'Incident');
         }
 
         // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
@@ -845,6 +861,7 @@ export class DocumentsService {
             existing.case ?? existing.incident,
             dataScope,
             'write',
+            existing.case ? 'Case' : 'Incident',
           );
         }
 

@@ -251,7 +251,7 @@ export class IncidentsService {
       deletedAt: null,
       benVuBd: { contains: thoatLike(normalized) },
     };
-    const scope = buildScopeFilter(dataScope);
+    const scope = buildScopeFilter(dataScope, 'read', 'Incident');
     if (scope) noiVaoWhere(where as Record<string, unknown>, [scope]);
     const groups = await this.prisma.incident.groupBy({
       by: ['benVu'],
@@ -324,7 +324,7 @@ export class IncidentsService {
       deletedAt: null,
       ...(excludeId ? { id: { not: excludeId } } : {}),
     };
-    const scope = buildScopeFilter(dataScope);
+    const scope = buildScopeFilter(dataScope, 'read', 'Incident');
     const scopedWhere = (
       signals: Prisma.IncidentWhereInput[],
     ): Prisma.IncidentWhereInput => {
@@ -612,7 +612,7 @@ export class IncidentsService {
     void wardId;
 
     // Apply data scope filter
-    const scopeFilter = buildScopeFilter(dataScope);
+    const scopeFilter = buildScopeFilter(dataScope, 'read', 'Incident');
     if (scopeFilter) {
       noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.IncidentWhereInput,
