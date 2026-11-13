@@ -12,6 +12,10 @@ import { TeamsService } from '../teams/teams.service';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { holdsPermission } from '../authz/enforcement';
+
+/** The permission the review routes require (`edit-window.controller.ts`). */
+const REVIEW_PERMISSION = 'review_reset_request:EditWindowResetRequest';
 
 /**
  * v0.33.0.0 Phase 5-lite: edit window (warning-only, audit flag) + Phase 5b reset workflow.
@@ -118,6 +122,35 @@ export class EditWindowService {
     }
   }
 
+  /**
+   * What a person may review: everything (the administrator), the requests about the units they LEAD, or nothing.
+   * Under permissions by team "their units" is anybody but the administrator who holds the review permission;
+   * otherwise the head-of-unit role, exactly as before.
+   *
+   * Asked ONCE per operation and the answer kept: the permission configuration is refreshed in the background, so
+   * asking again after an `await` could answer differently, and a reviewer whose permission was just withdrawn must
+   * not fall out of the bound of their own units into no bound at all.
+   */
+  private reviewStanding(user: AuthUser): 'ALL' | 'OWN_UNITS' | 'NONE' {
+    if (user.role === ROLE_NAMES.ADMIN) return 'ALL';
+    return holdsPermission(user.id, REVIEW_PERMISSION, () => user.role === ROLE_NAMES.HEAD_UNIT) ? 'OWN_UNITS' : 'NONE';
+  }
+
+  /** The teams a person leads, with everything below them. */
+  private async ledTeamIds(userId: string): Promise<Set<string>> {
+    const leaderTeams = await this.prisma.userTeam.findMany({
+      where: { userId, isLeader: true },
+      select: { teamId: true },
+    });
+    const ids = new Set<string>();
+    for (const lt of leaderTeams) {
+      ids.add(lt.teamId);
+      const descendants = await this.teamsService.getDescendantIds(lt.teamId);
+      descendants.forEach((id) => ids.add(id));
+    }
+    return ids;
+  }
+
   async list(query: {
     status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
     limit?: number;
@@ -131,18 +164,8 @@ export class EditWindowService {
     // List all requests then post-filter where subject.assignedTeam IN descendant teams.
     // Trade-off: 1 extra query per page, but correct scope semantics.
     let postFilterSubjectTeamIds: Set<string> | null = null;
-    if (user.role === ROLE_NAMES.HEAD_UNIT) {
-      const leaderTeams = await this.prisma.userTeam.findMany({
-        where: { userId: user.id, isLeader: true },
-        select: { teamId: true },
-      });
-      const descendantTeamIds = new Set<string>();
-      for (const lt of leaderTeams) {
-        descendantTeamIds.add(lt.teamId);
-        const descendants = await this.teamsService.getDescendantIds(lt.teamId);
-        descendants.forEach((id) => descendantTeamIds.add(id));
-      }
-      postFilterSubjectTeamIds = descendantTeamIds;
+    if (this.reviewStanding(user) === 'OWN_UNITS') {
+      postFilterSubjectTeamIds = await this.ledTeamIds(user.id);
     }
     // ADMIN sees all
 
@@ -203,7 +226,8 @@ export class EditWindowService {
     user: AuthUser,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    if (user.role !== ROLE_NAMES.ADMIN && user.role !== ROLE_NAMES.HEAD_UNIT) {
+    const standing = this.reviewStanding(user);
+    if (standing === 'NONE') {
       throw new ForbiddenException('Chỉ ADMIN hoặc Trưởng đơn vị mới được duyệt yêu cầu reset.');
     }
 
@@ -217,17 +241,8 @@ export class EditWindowService {
     }
 
     // HEAD_UNIT: per-request authorize qua descendant check
-    if (user.role === ROLE_NAMES.HEAD_UNIT) {
-      const leaderTeams = await this.prisma.userTeam.findMany({
-        where: { userId: user.id, isLeader: true },
-        select: { teamId: true },
-      });
-      const descendantTeamIds = new Set<string>();
-      for (const lt of leaderTeams) {
-        descendantTeamIds.add(lt.teamId);
-        const descendants = await this.teamsService.getDescendantIds(lt.teamId);
-        descendants.forEach((id) => descendantTeamIds.add(id));
-      }
+    if (standing === 'OWN_UNITS') {
+      const descendantTeamIds = await this.ledTeamIds(user.id);
       for (const req of requests) {
         const subjectTeamId = await this.getSubjectAssignedTeamId(req.subjectType, req.subjectId);
         if (!subjectTeamId || !descendantTeamIds.has(subjectTeamId)) {
@@ -281,7 +296,8 @@ export class EditWindowService {
     user: AuthUser,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    if (user.role !== ROLE_NAMES.ADMIN && user.role !== ROLE_NAMES.HEAD_UNIT) {
+    const standing = this.reviewStanding(user);
+    if (standing === 'NONE') {
       throw new ForbiddenException('Chỉ ADMIN hoặc Trưởng đơn vị mới được từ chối.');
     }
     const req = await this.prisma.editWindowResetRequest.findFirst({
@@ -289,6 +305,15 @@ export class EditWindowService {
     });
     if (!req) {
       throw new NotFoundException('Yêu cầu không tồn tại hoặc đã được duyệt/từ chối.');
+    }
+    // The same bound as approving: a reviewer of their own units decides only about records of those units.
+    if (standing === 'OWN_UNITS') {
+      const subjectTeamId = await this.getSubjectAssignedTeamId(req.subjectType, req.subjectId);
+      if (!subjectTeamId || !(await this.ledTeamIds(user.id)).has(subjectTeamId)) {
+        throw new ForbiddenException(
+          `Không có quyền từ chối yêu cầu ${req.id} (subject ngoài tổ con của bạn).`,
+        );
+      }
     }
 
     await this.prisma.$transaction(async (tx) => {
