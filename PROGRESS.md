@@ -1,4 +1,33 @@
 # PROGRESS
+
+# ACTIVE EPIC (13/11/2026): team permissions + team lifecycle + report criteria per team
+Spec = plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md` (approved, ENG CLEARED). Protocol = AUTONOMOUS EXECUTION PROTOCOL (no questions; stop only for done / real blocker / irreversible-or-security action). Branch: `feat/team-lifecycle` from `origin/main` `74043fd6`. Commit trailer per session reminder; never `git add -A`, never `git stash -u`; `uat/` is untracked and must stay so.
+
+## Đã hoàn thành
+- Spec + review (Claude + Codex outside voice, 12 findings integrated).
+
+## Đang làm dở
+- M0 mockup (interactive HTML, private artifact) for team lifecycle, permission matrix, criteria checklist.
+- BƯỚC TIẾP THEO: publish mockup, then Phase 0.1: `Team.status`/`archivedAt`/`archivedById` migration + `TeamLifecycleService` (test first), then `GET /teams/options` and migrate the 11 callers of `GET /teams`.
+
+## Hàng queue
+M1 0.1–0.3 → M2 A1–A5 → M3 B1–B8 → M4 A6–A12 → M5 UAT 100% (`UAT-COVERAGE.md`). `/plan-eng-review` at every milestone end.
+
+## Quyết định kiến trúc
+See the plan's Decision ledger (D1, R1–R12) and binding decisions B1–B7.
+
+## Assumption
+- Production writes (migrations) go only through the normal `deploy.sh` pipeline; no ad-hoc production data writes.
+- The petition shadow-column loader (below) stays an owner decision; unrelated to this epic.
+
+## Trạng thái test
+- Baseline not yet re-measured on this branch.
+
+## Nợ kỹ thuật
+- none yet.
+
+---
+# PREVIOUS EPIC (kept for context): scan-image intake with LLM
 Updated: 2026-11-04 | Epic: scan-image intake with LLM (Petition / Incident / Case) | Milestone: M1-M10 built, review fixes applied, real-scan run done (04/11) | Task: browser UAT on the create screens + golden-set scoring by a person
 
 STATUS: BLOCKED

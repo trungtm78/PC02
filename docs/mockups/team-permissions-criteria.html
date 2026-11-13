@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup: Tổ, Phân quyền, Tiêu chí</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --mute:#667085; --line:#e3e7ee; --brand:#1f5fbf; --ok:#117a45; --warn:#b54708; --bad:#b42318; --soft:#eef4ff; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#10151c; --card:#18202a; --ink:#e8edf4; --mute:#97a3b6; --line:#2a3544; --brand:#6ea8ff; --ok:#4cc38a; --warn:#f0a35e; --bad:#ff7b72; --soft:#1b2a44; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,Segoe UI,sans-serif; }
+  header { padding:16px; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; color:var(--mute); font-size:13px; }
+  main { max-width:1040px; margin:0 auto; padding:16px; }
+  nav.tabs, .subtabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:6px 12px; }
+  button.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  button.danger { color:var(--bad); border-color:var(--bad); }
+  button.tab[aria-selected="true"] { background:var(--soft); border-color:var(--brand); color:var(--brand); font-weight:600; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { color:var(--mute); font-weight:600; font-size:13px; }
+  .acts { display:flex; gap:6px; flex-wrap:wrap; }
+  .acts button { padding:3px 9px; font-size:13px; }
+  .pill { display:inline-block; font-size:12px; padding:1px 8px; border-radius:99px; background:var(--soft); color:var(--brand); }
+  .note { color:var(--mute); font-size:13px; }
+  .hint { background:var(--soft); border-radius:8px; padding:8px 12px; font-size:13px; margin:8px 0; }
+  .scroll { overflow-x:auto; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+  select { font:inherit; padding:5px 8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+  dialog { border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); max-width:480px; }
+  dialog::backdrop { background:rgba(0,0,0,.45); }
+  .grp { background:var(--bg); font-weight:600; }
+  .indent { padding-left:20px; }
+  label.rad { margin-right:10px; white-space:nowrap; }
+  .gap { color:var(--bad); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mockup bấm thử: Tổ, Phân quyền, Tiêu chí báo cáo</h1>
+  <p>Dữ liệu giả, chỉ để đánh giá độ dễ dùng. Bấm thử mọi nút; không có gì được lưu.</p>
+</header>
+<main>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="teams" aria-selected="true">1. Tổ và đơn vị</button>
+    <button class="tab" role="tab" data-tab="perm" aria-selected="false">2. Phân quyền theo tổ</button>
+    <button class="tab" role="tab" data-tab="crit" aria-selected="false">3. Tiêu chí báo cáo</button>
+  </nav>
+
+  <!-- 1. TEAMS -->
+  <section id="teams">
+    <div class="subtabs" id="teamTabs"></div>
+    <div class="card scroll">
+      <table>
+        <thead><tr><th>Tên tổ</th><th>Người</th><th>Hồ sơ</th><th>Thao tác</th></tr></thead>
+        <tbody id="teamRows"></tbody>
+      </table>
+      <p class="note">Xoá chỉ hiện khi tổ không có dữ liệu. Tổ có dữ liệu thì dùng "Gộp vào tổ khác" hoặc "Lưu trữ". Tổ tạm ngừng và đã lưu trữ không hiện ở bất kỳ ô chọn nào.</p>
+    </div>
+  </section>
+
+  <!-- 2. PERMISSIONS -->
+  <section id="perm" hidden>
+    <div class="card">
+      <div class="row">
+        <strong>Tổ công tác số 2 · 13 người</strong>
+        <label>Thành viên: <select id="tplMember"><option>Cán bộ nhập liệu</option><option>Chỉ hồ sơ của mình</option><option>Xem toàn bộ</option></select></label>
+        <label>Tổ trưởng: <select id="tplLeader"><option>Lãnh đạo tổ</option><option>Cán bộ nhập liệu</option></select></label>
+        <button id="copyFrom">Chép từ tổ…</button>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Màn hình / chức năng</th><th>Được xem</th><th>Thêm</th><th>Sửa</th><th>Xoá</th></tr></thead>
+          <tbody id="permRows"></tbody>
+        </table>
+      </div>
+      <div class="hint" id="preview">Chưa có thay đổi.</div>
+      <div class="row"><button id="adv">Nâng cao ▸</button><button id="previewBtn">Xem trước thay đổi</button><button class="primary" id="saveBtn">Lưu</button></div>
+      <div id="advBox" class="hint" hidden>Nâng cao: kế thừa từ tổ cha · ngoại lệ thêm/tắt quyền cho cả tổ · ngoại lệ theo từng người · hạn dùng · mức "chỉ đúng tổ (không gồm tổ con)".</div>
+    </div>
+    <div class="card">
+      <strong>Tra cứu quyền</strong>
+      <div class="row"><label>Người: <select id="who"><option>Nguyễn Văn A (tổ trưởng)</option><option>Trần Thị B (thành viên)</option></select></label></div>
+      <div id="why" class="note"></div>
+    </div>
+  </section>
+
+  <!-- 3. CRITERIA -->
+  <section id="crit" hidden>
+    <div class="card">
+      <div class="row"><strong>Báo cáo: Thống kê tháng</strong><span class="pill">Tiêu chí (8)</span><button>Tải file tiêu chí ↑</button><button>Tải file mẫu ↓</button></div>
+      <div class="row">
+        <label>Tổ: <select id="critTeam"><option>Tổ CT số 2</option><option>Tổ Phường Bến Nghé</option></select></label>
+        <span id="critCount" class="pill"></span>
+        <button id="selAll">Chọn hết</button><button id="selNone">Bỏ hết</button><button>Chép từ tổ…</button><button>Áp cho nhiều tổ…</button>
+      </div>
+      <div id="critList"></div>
+      <div class="row"><button>Xem dạng ma trận tổ × tiêu chí</button><button class="primary" id="critSave">Lưu</button></div>
+      <p class="note">Mặc định mọi tiêu chí được chọn. Cán bộ nhập liệu của tổ chỉ thấy các tiêu chí đã chọn.</p>
+    </div>
+    <div class="card scroll">
+      <strong>File chính thức khi khoá sổ (sheet "Tổng hợp")</strong>
+      <table>
+        <thead><tr><th>Mã</th><th>Tiêu chí</th><th>Tổng</th><th>Đã nhận/Phải nộp</th><th>Tổ 1</th><th>Tổ 2</th><th>Tổ 3</th></tr></thead>
+        <tbody>
+          <tr><td>1.1</td><td>Số tin báo mới</td><td>57</td><td>3/3</td><td>20</td><td>25</td><td>12</td></tr>
+          <tr><td>2.2</td><td>Số vụ đình chỉ</td><td>4</td><td>1/2</td><td>4</td><td class="gap">thiếu</td><td>— (không giao)</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Sau sheet này, mỗi tổ có một sheet chỉ gồm tiêu chí của tổ đó.</p>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg"><h3 id="dlgTitle"></h3><div id="dlgBody"></div><div class="row" style="margin-top:12px;justify-content:flex-end"><button id="dlgNo">Huỷ</button><button class="primary" id="dlgYes">Đồng ý</button></div></dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = {
+  tab: 'active',
+  teams: [
+    { n: 'Tổ công tác số 2', people: 13, cases: 763, st: 'active' },
+    { n: 'Tổ thử nghiệm', people: 0, cases: 0, st: 'active' },
+    { n: 'Tổ chuyên án 7', people: 4, cases: 41, st: 'inactive' },
+    { n: 'Tổ cũ Phường 3', people: 2, cases: 118, st: 'archived' },
+  ],
+};
+const labels = { active: 'Đang hoạt động', inactive: 'Tạm ngừng', archived: 'Đã lưu trữ' };
+
+function ask(title, body, onYes) {
+  $('#dlgTitle').textContent = title; $('#dlgBody').innerHTML = body;
+  const d = $('#dlg'); d.showModal();
+  $('#dlgNo').onclick = () => d.close();
+  $('#dlgYes').onclick = () => { d.close(); onYes(); };
+}
+
+function renderTeams() {
+  $('#teamTabs').innerHTML = Object.keys(labels).map((k) =>
+    `<button class="tab" aria-selected="${state.tab === k}" data-k="${k}">${labels[k]} (${state.teams.filter((t) => t.st === k).length})</button>`).join('');
+  document.querySelectorAll('#teamTabs button').forEach((b) => b.onclick = () => { state.tab = b.dataset.k; renderTeams(); });
+  const rows = state.teams.filter((t) => t.st === state.tab);
+  $('#teamRows').innerHTML = rows.length ? rows.map((t, i) => {
+    const empty = t.people === 0 && t.cases === 0;
+    const a = [];
+    if (t.st === 'active') a.push(['Sửa'], ['Phân quyền', 'perm'], ['Tạm ngừng', 'pause'], ['Gộp…', 'merge'], empty ? ['Xoá', 'del'] : ['Lưu trữ', 'arch']);
+    if (t.st === 'inactive') a.push(['Hoạt động lại', 'resume'], ['Lưu trữ', 'arch']);
+    if (t.st === 'archived') a.push(['Khôi phục', 'restore']);
+    return `<tr><td>${t.n}</td><td>${t.people}</td><td>${t.cases}</td><td><div class="acts">${a.map((x) => `<button class="${x[1] === 'del' ? 'danger' : ''}" data-i="${state.teams.indexOf(t)}" data-a="${x[1] || ''}">${x[0]}</button>`).join('')}</div></td></tr>`;
+  }).join('') : '<tr><td colspan="4" class="note">Không có tổ nào ở mục này.</td></tr>';
+  document.querySelectorAll('#teamRows button').forEach((b) => b.onclick = () => act(+b.dataset.i, b.dataset.a));
+}
+function act(i, a) {
+  const t = state.teams[i];
+  if (a === 'perm') return show('perm');
+  if (a === 'pause') return ask('Tạm ngừng ' + t.n + '?', 'Tổ sẽ biến khỏi mọi ô chọn. Hồ sơ cũ vẫn hiện đúng tên tổ. Bấm "Hoạt động lại" bất cứ lúc nào.', () => { t.st = 'inactive'; renderTeams(); });
+  if (a === 'resume') { t.st = 'active'; return renderTeams(); }
+  if (a === 'arch') return ask('Lưu trữ ' + t.n + '?', 'Tổ được ẩn khỏi danh sách; dữ liệu giữ nguyên. Có thể "Khôi phục".', () => { t.st = 'archived'; renderTeams(); });
+  if (a === 'restore') { t.st = 'active'; return renderTeams(); }
+  if (a === 'del') return ask('Xoá thật ' + t.n + '?', 'Tổ chưa có dữ liệu nên xoá được. Hệ thống kiểm lại ngay lúc xoá: nếu vừa có người được thêm vào, việc xoá bị chặn.<br><br>Số bản ghi liên quan: 0 người · 0 hồ sơ · 0 lượt giao báo cáo.', () => { state.teams.splice(i, 1); renderTeams(); });
+  if (a === 'merge') return ask('Gộp ' + t.n + ' vào tổ khác', '<select><option>Tổ công tác số 2</option></select><div class="hint">Xem trước: chuyển 13 người (1 trùng, giữ một dòng), 763 hồ sơ, 4 mục tiêu báo cáo của kỳ chưa sinh. Có nút Hoàn tác sau khi gộp.</div>', () => { t.st = 'archived'; renderTeams(); });
+}
+
+const perms = [
+  { g: 'Nghiệp vụ chính' },
+  { n: 'Đơn thư', v: 'own', a: [1, 1, 0] }, { n: 'Vụ việc', v: 'team', a: [1, 1, 0] }, { n: 'Vụ án', v: 'team', a: [1, 1, 0] },
+  { g: 'Báo cáo và thống kê' },
+  { n: 'Chỉ tiêu KPI', v: 'team', a: [0, 0, 0] }, { n: 'Báo cáo động', v: 'team', a: [1, 1, 0] },
+  { g: 'Quản trị' },
+  { n: 'Người dùng', v: 'none', a: [0, 0, 0] },
+];
+let permBase = JSON.stringify(perms);
+function renderPerms() {
+  $('#permRows').innerHTML = perms.map((p, i) => p.g ? `<tr class="grp"><td colspan="5">▾ ${p.g}</td></tr>` :
+    `<tr><td class="indent">${p.n}</td><td>${[['none', 'Không'], ['own', 'Của mình'], ['team', 'Cả tổ'], ['all', 'Toàn bộ']].map(([k, l]) => `<label class="rad"><input type="radio" name="v${i}" value="${k}" ${p.v === k ? 'checked' : ''} data-i="${i}"> ${l}</label>`).join('')}</td>${[0, 1, 2].map((j) => `<td><input type="checkbox" data-i="${i}" data-j="${j}" ${p.a[j] ? 'checked' : ''}></td>`).join('')}</tr>`).join('');
+  document.querySelectorAll('#permRows input[type=radio]').forEach((e) => e.onchange = () => { perms[+e.dataset.i].v = e.value; });
+  document.querySelectorAll('#permRows input[type=checkbox]').forEach((e) => e.onchange = () => { perms[+e.dataset.i].a[+e.dataset.j] = e.checked ? 1 : 0; });
+}
+function diff() { const base = JSON.parse(permBase); const out = []; perms.forEach((p, i) => { if (p.g) return; const b = base[i]; if (JSON.stringify(b) !== JSON.stringify(p)) out.push(p.n); }); return out; }
+function why() {
+  const lead = $('#who').selectedIndex === 0;
+  $('#why').innerHTML = `Thuộc: Tổ CT số 2 (${lead ? 'tổ trưởng' : 'thành viên'})<br>Đơn thư · Xem: ${lead ? 'Cả tổ ← vì mẫu Tổ trưởng "Lãnh đạo tổ"' : 'Của mình ← vì mẫu Thành viên "Cán bộ nhập liệu"'}<br>Đơn thư · Xoá: Không ← vì mẫu không cấp quyền này, không có ngoại lệ`;
+}
+
+const crit = [
+  { g: 'I. Tiếp nhận tin báo', k: [['1.1', 'Số tin báo mới'], ['1.2', 'Số tin báo đã giải quyết'], ['1.3', 'Số tin báo chuyển cơ quan khác']] },
+  { g: 'II. Điều tra', k: [['2.1', 'Số vụ khởi tố'], ['2.2', 'Số vụ đình chỉ'], ['2.3', 'Số bị can bắt giữ'], ['2.4', 'Số vụ tạm đình chỉ'], ['2.5', 'Số vụ chuyển viện kiểm sát']] },
+];
+const picked = new Set(crit.flatMap((g) => g.k.map((x) => x[0])));
+function renderCrit() {
+  $('#critList').innerHTML = crit.map((g, gi) => {
+    const n = g.k.filter((x) => picked.has(x[0])).length;
+    return `<div style="margin:8px 0"><label><input type="checkbox" data-g="${gi}" ${n === g.k.length ? 'checked' : ''}> <strong>${g.g}</strong> <span class="note">(${n}/${g.k.length})</span></label>` +
+      g.k.map((x) => `<div class="indent"><label><input type="checkbox" data-c="${x[0]}" ${picked.has(x[0]) ? 'checked' : ''}> ${x[0]} ${x[1]}</label></div>`).join('') + '</div>';
+  }).join('');
+  const total = crit.reduce((s, g) => s + g.k.length, 0);
+  $('#critCount').textContent = `Đã chọn ${picked.size}/${total}`;
+  document.querySelectorAll('#critList [data-c]').forEach((e) => e.onchange = () => { e.checked ? picked.add(e.dataset.c) : picked.delete(e.dataset.c); renderCrit(); });
+  document.querySelectorAll('#critList [data-g]').forEach((e) => e.onchange = () => { crit[+e.dataset.g].k.forEach((x) => e.checked ? picked.add(x[0]) : picked.delete(x[0])); renderCrit(); });
+}
+
+function show(id) {
+  ['teams', 'perm', 'crit'].forEach((s) => { $('#' + s).hidden = s !== id; });
+  document.querySelectorAll('nav.tabs .tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+}
+document.querySelectorAll('nav.tabs .tab').forEach((b) => b.onclick = () => show(b.dataset.tab));
+$('#adv').onclick = () => { $('#advBox').hidden = !$('#advBox').hidden; };
+$('#previewBtn').onclick = () => { const d = diff(); $('#preview').textContent = d.length ? `Thay đổi ở: ${d.join(', ')}. Áp cho 13 người; 2 người mất quyền Xoá. Có thể Hoàn tác sau khi lưu.` : 'Chưa có thay đổi.'; };
+$('#saveBtn').onclick = () => { const d = diff(); if (!d.length) return; ask('Lưu phân quyền?', `Thay đổi ở: ${d.join(', ')}.`, () => { permBase = JSON.stringify(perms); $('#preview').textContent = 'Đã lưu. Xem tab Lịch sử để Hoàn tác.'; }); };
+$('#copyFrom').onclick = () => ask('Chép quyền từ tổ khác', '<select><option>Tổ Phường Bến Nghé</option><option>Tổ chuyên án 1</option></select>', () => {});
+$('#who').onchange = why;
+$('#selAll').onclick = () => { crit.forEach((g) => g.k.forEach((x) => picked.add(x[0]))); renderCrit(); };
+$('#selNone').onclick = () => { picked.clear(); renderCrit(); };
+$('#critSave').onclick = () => ask('Lưu tiêu chí cho tổ?', `Tổ sẽ chỉ thấy ${picked.size} tiêu chí. Kỳ đang chạy đổi bằng thao tác "giữa kỳ" có ghi lý do.`, () => {});
+renderTeams(); renderPerms(); why(); renderCrit();
+</script>
+</body>
+</html>
