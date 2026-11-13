@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TemplatesController } from './templates.controller';
 import { TemplateService, TemplateValidationError } from './template.service';
+import { CriteriaError } from './criteria-workbook';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -15,7 +16,12 @@ import { PrismaService } from '../../prisma/prisma.service';
  */
 describe('TemplatesController', () => {
   let controller: TemplatesController;
-  const service = { listSheets: jest.fn(), validateAndParse: jest.fn() };
+  const service = {
+    listSheets: jest.fn(),
+    validateAndParse: jest.fn(),
+    extractCriteria: jest.fn(),
+    buildCriteriaWorkbook: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -31,6 +37,51 @@ describe('TemplatesController', () => {
   });
 
   const file = { buffer: Buffer.from('fake') } as Express.Multer.File;
+
+  describe('POST criteria/extract', () => {
+    const selection = { sheet: 'S', column: 'B', rows: [2, 3] };
+
+    it('reads the picked cells of the uploaded file', async () => {
+      service.extractCriteria.mockResolvedValue({ criteria: [], warnings: [] });
+      await expect(controller.extractCriteria(file, selection)).resolves.toEqual({ criteria: [], warnings: [] });
+      expect(service.extractCriteria).toHaveBeenCalledWith(file.buffer, selection);
+    });
+
+    it('rejects with 400 when no file is attached', async () => {
+      await expect(controller.extractCriteria(undefined, selection)).rejects.toBeInstanceOf(BadRequestException);
+      expect(service.extractCriteria).not.toHaveBeenCalled();
+    });
+
+    it('a refusal of the selection is a 400 carrying its machine code', async () => {
+      service.extractCriteria.mockRejectedValue(new CriteriaError('CRITERIA_SHEET_NOT_FOUND', { sheet: 'S' }));
+      await expect(controller.extractCriteria(file, selection)).rejects.toMatchObject({
+        response: { code: 'CRITERIA_SHEET_NOT_FOUND' },
+      });
+    });
+
+    it('a hostile file is a 400 with the guard code, like any template upload', async () => {
+      service.extractCriteria.mockRejectedValue(new TemplateValidationError('macro', 'MACRO_DETECTED'));
+      await expect(controller.extractCriteria(file, selection)).rejects.toMatchObject({
+        response: { code: 'MACRO_DETECTED' },
+      });
+    });
+  });
+
+  describe('POST criteria/workbook', () => {
+    it('builds the workbook from the list the author ended with', async () => {
+      service.buildCriteriaWorkbook.mockResolvedValue({ fileName: 'chi-tieu.xlsx' });
+      const body = { criteria: [{ name: 'Số vụ' }] };
+      await expect(controller.buildCriteriaWorkbook(body)).resolves.toEqual({ fileName: 'chi-tieu.xlsx' });
+      expect(service.buildCriteriaWorkbook).toHaveBeenCalledWith(body.criteria);
+    });
+
+    it('a refused list is a 400 carrying its machine code and where it is', async () => {
+      service.buildCriteriaWorkbook.mockRejectedValue(new CriteriaError('CRITERIA_PARENT_CYCLE', { index: 2 }));
+      await expect(controller.buildCriteriaWorkbook({ criteria: [{ name: 'x' }] })).rejects.toMatchObject({
+        response: { code: 'CRITERIA_PARENT_CYCLE', details: [{ index: 2 }] },
+      });
+    });
+  });
 
   describe('POST sheets', () => {
     it('rejects with 400 when no file is attached', async () => {

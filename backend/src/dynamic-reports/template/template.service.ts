@@ -17,6 +17,8 @@ import type { DerivedRuleSuggestion } from './validation-constraints';
 import type { ParsedIssue } from './types';
 import type { ParseTemplateResult } from './types';
 import type { SuggestedRule } from './suggest-rules';
+import { buildCriteriaWorkbook, extractCriteria, normaliseCriteria } from './criteria-workbook';
+import type { CriteriaSelection, CriterionDraft } from './criteria-workbook';
 
 export interface SheetInfo {
   name: string;
@@ -94,6 +96,31 @@ export class TemplateService {
       name: sheet.name,
       state: sheet.state as SheetInfo['state'],
     }));
+  }
+
+  /**
+   * The criteria in the cells the author picked. The same pre-checks as any uploaded template run first; the text is
+   * read here from the file, the browser only says where it picked.
+   */
+  async extractCriteria(buffer: Buffer, selection: CriteriaSelection) {
+    await this.runPreChecks(buffer);
+    return extractCriteria(buffer, selection);
+  }
+
+  /**
+   * The workbook for the list the author ended with, plus which cell stands for which criterion. The bytes go back to
+   * the wizard, which sends them through the ordinary save: the file that is stored is the one that was checked.
+   */
+  async buildCriteriaWorkbook(drafts: readonly CriterionDraft[]) {
+    const criteria = normaliseCriteria(drafts);
+    const built = await buildCriteriaWorkbook(criteria);
+    return {
+      fileName: 'chi-tieu.xlsx',
+      fileBase64: built.buffer.toString('base64'),
+      sheetName: built.sheetName,
+      criteria,
+      fields: built.fields,
+    };
   }
 
   async validateAndParse(
