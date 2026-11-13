@@ -34,6 +34,13 @@ import {
   sanitizeFileNamePart,
 } from '../export-filename.util';
 
+/** Emitted after a period is closed and committed. */
+export const PERIOD_CLOSED_EVENT = 'dyn-report.period-closed';
+export interface PeriodClosedEvent {
+  periodId: string;
+  actorId: string;
+}
+
 const EXPORT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type { SummaryMode };
@@ -302,6 +309,11 @@ export class AggregateService {
    * limits the VIEWER to that team's subtree — never the app-wide
    * DataScope (spec §10 R13 explicitly rules that out).
    */
+  /** Who the caller is for this report (admin, manager, viewer and their team scope), or null. For sibling services. */
+  accessRoleFor(reportId: string, userId: string, roleId: string) {
+    return this.resolveAccessRole(this.prisma, reportId, userId, roleId);
+  }
+
   private async resolveAccessRole(
     client: Prisma.TransactionClient | PrismaService,
     reportId: string,
@@ -814,6 +826,8 @@ export class AggregateService {
         },
       };
     });
+    // Always, whoever is to be notified: the file the closed period is kept as is made from this.
+    this.eventEmitter.emit(PERIOD_CLOSED_EVENT, { periodId, actorId: userId } satisfies PeriodClosedEvent);
     if (notify.toUserIds.length > 0) {
       this.eventEmitter.emit(
         'dyn-report.period-finalized',
@@ -896,6 +910,11 @@ export class AggregateService {
       await tx.dynReportPeriod.update({
         where: { id: periodId },
         data: { status: 'OPEN', finalizedAt: null, finalizedById: null },
+      });
+      // The files made when it was closed no longer hold "the closed figures": they stay listed, marked void.
+      await tx.dynReportOfficialFile.updateMany({
+        where: { periodId, status: 'READY' },
+        data: { status: 'VOID', endedAt: new Date() },
       });
 
       return { periodId, status: 'OPEN' };

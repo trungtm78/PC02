@@ -20,6 +20,8 @@ import { SubmissionController } from './submission/submission.controller';
 import { SubmissionService } from './submission/submission.service';
 import { AggregateController } from './aggregate/aggregate.controller';
 import { ExportController } from './aggregate/export.controller';
+import { OfficialFileController } from './aggregate/official-file.controller';
+import { OfficialFileService } from './aggregate/official-file.service';
 import { AggregateService } from './aggregate/aggregate.service';
 import { FormulaEvaluationService } from './aggregate/formula-evaluation.service';
 import { StatusQueryController } from './status/status-query.controller';
@@ -45,6 +47,7 @@ import { TeamsModule } from '../teams/teams.module';
     SubmissionController,
     AggregateController,
     ExportController,
+    OfficialFileController,
     StatusQueryController,
     GridController,
   ],
@@ -64,6 +67,7 @@ import { TeamsModule } from '../teams/teams.module';
     ReportConfigUpdateService,
     SubmissionService,
     AggregateService,
+    OfficialFileService,
     FormulaEvaluationService,
     StatusQueryService,
   ],
