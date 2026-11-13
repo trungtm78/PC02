@@ -17,6 +17,7 @@ import {
   type RawRow,
 } from './bulk-import.parser';
 import { ROLE_NAMES } from '../../common/constants/role.constants';
+import { holdsPermission } from '../../authz/enforcement';
 
 export interface PreviewRow {
   rowIndex: number;
@@ -326,11 +327,17 @@ export class BulkImportService {
       });
       if (
         !actor?.isActive ||
-        !actor.role.permissions.some(
-          ({ permission }) =>
-            permission.subject === 'User' &&
-            permission.action === 'read' &&
-            permission.conditions === null,
+        !holdsPermission(
+          actorId,
+          'read:User',
+          () =>
+            actor.role.permissions.some(
+              ({ permission }) =>
+                permission.subject === 'User' &&
+                permission.action === 'read' &&
+                permission.conditions === null,
+            ),
+          { unconditional: true },
         )
       )
         throw new ForbiddenException(

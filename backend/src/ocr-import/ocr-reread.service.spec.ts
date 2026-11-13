@@ -87,7 +87,7 @@ function setup(
   };
   const policy = {
     assertForRole: jest.fn(() => Promise.resolve()),
-    requirePermission: jest.fn((_r: string, action: string) =>
+    requirePermission: jest.fn((_u: string, _r: string, action: string) =>
       options.editAllowed === false
         ? Promise.reject(
             new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN, {
@@ -172,6 +172,7 @@ describe('OcrRereadService', () => {
     );
     expect(denied.documents.getList).not.toHaveBeenCalled();
     expect(denied.policy.requirePermission).toHaveBeenCalledWith(
+      'u1',
       'role-1',
       'edit',
       'Case',
@@ -179,7 +180,7 @@ describe('OcrRereadService', () => {
 
     const ok = setup();
     await ok.service.start('CASE', 'c1', user, scope);
-    expect(ok.policy.assertForRole).toHaveBeenCalledWith('role-1');
+    expect(ok.policy.assertForRole).toHaveBeenCalledWith('u1', 'role-1');
   });
 
   it('says so when the record has no scans, and opens no session', async () => {

@@ -98,6 +98,30 @@ export class AuthzScopeService implements Enforcement, OnApplicationBootstrap, O
     };
   }
 
+  holdersOf(permission: string, now: Date = new Date()): readonly string[] | undefined {
+    const snapshot = this.enforced(now);
+    if (!snapshot) return undefined;
+    const holders: string[] = [];
+    for (const userId of snapshot.users.keys()) {
+      if (this.authz.effectiveIn(snapshot, userId, now).grants.has(permission)) holders.push(userId);
+    }
+    return holders;
+  }
+
+  unconditionalKeysOf(userId: string, now: Date = new Date()): readonly string[] | undefined {
+    const snapshot = this.enforced(now);
+    if (!snapshot) return undefined;
+    const effective = this.effectiveOf(snapshot, userId, now);
+    return effective.keys.filter((key) => !effective.conditional.includes(key));
+  }
+
+  /** What a person holds, or nothing when the configuration does not know them (switched off, removed). */
+  keysOrNone(userId: string, now: Date = new Date()): readonly string[] | undefined {
+    const snapshot = this.enforced(now);
+    if (!snapshot) return undefined;
+    return snapshot.users.has(userId) ? this.authz.effectiveIn(snapshot, userId, now).keys : [];
+  }
+
   keysOf(userId: string, now: Date = new Date()): readonly string[] | undefined {
     const snapshot = this.enforced(now);
     if (!snapshot) return undefined;

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { enforcement } from '../authz/enforcement';
 import { hoTenCanBo } from '../common/xuat-danh-sach/dinh-dang';
 import type { DynReportListMode } from './dto/list-reports-query.dto';
 
@@ -60,7 +61,7 @@ export class DynamicReportsRegistryService {
     user: CurrentUser,
     mode: DynReportListMode,
   ): Promise<ReportSummary[] | ReportSetupSummary[]> {
-    const grants = await this.getGrants(user.roleId);
+    const grants = await this.getGrants(user);
     const now = new Date();
 
     if (mode === 'setup') {
@@ -174,8 +175,16 @@ export class DynamicReportsRegistryService {
   }
 
   private async getGrants(
-    roleId: string,
+    user: CurrentUser,
   ): Promise<{ manage: boolean; admin: boolean }> {
+    const held = enforcement()?.keysOf(user.id);
+    if (held) {
+      return {
+        manage: held.includes('manage:DynamicReport'),
+        admin: held.includes('admin:DynamicReport'),
+      };
+    }
+    const roleId = user.roleId;
     const rolePerms = await this.prisma.rolePermission.findMany({
       where: { roleId, permission: { subject: 'DynamicReport' } },
       include: { permission: true },

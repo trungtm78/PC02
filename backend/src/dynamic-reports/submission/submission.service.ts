@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { holdsPermission } from '../../authz/enforcement';
 import {
   DynReportApprovedEvent,
   DynReportReturnedEvent,
@@ -343,12 +344,16 @@ export class SubmissionService {
     userId: string,
     roleId: string,
   ): Promise<'ADMIN' | 'MANAGER' | null> {
-    const adminGrant = await client.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: 'admin' },
-      },
-    });
+    const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+      Boolean(
+        await client.rolePermission.findFirst({
+          where: {
+            roleId,
+            permission: { subject: 'DynamicReport', action: 'admin' },
+          },
+        }),
+      ),
+    );
     if (adminGrant) return 'ADMIN';
 
     const now = new Date();
@@ -636,12 +641,16 @@ export class SubmissionService {
     userId: string,
     roleId: string,
   ): Promise<AssignmentSummary[]> {
-    const adminGrant = await this.prisma.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: 'admin' },
-      },
-    });
+    const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+      Boolean(
+        await this.prisma.rolePermission.findFirst({
+          where: {
+            roleId,
+            permission: { subject: 'DynamicReport', action: 'admin' },
+          },
+        }),
+      ),
+    );
 
     const now = new Date();
     let reportIds: string[];
@@ -1119,12 +1128,16 @@ export class SubmissionService {
     userId: string,
     roleId: string,
   ): Promise<UnlockRequestView[]> {
-    const adminGrant = await this.prisma.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: 'admin' },
-      },
-    });
+    const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+      Boolean(
+        await this.prisma.rolePermission.findFirst({
+          where: {
+            roleId,
+            permission: { subject: 'DynamicReport', action: 'admin' },
+          },
+        }),
+      ),
+    );
 
     const now = new Date();
     let reportIds: string[];

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { holdsPermission } from '../../authz/enforcement';
 import { AuditService } from '../../audit/audit.service';
 import { ReportConfigError } from './report-config.service';
 
@@ -320,9 +321,13 @@ export class ReportLifecycleService {
     reportId: string,
     actor: { id: string; roleId: string },
   ): Promise<'ADMIN' | 'MANAGER' | null> {
-    const admin = await client.rolePermission.findFirst({
-      where: { roleId: actor.roleId, permission: { subject: 'DynamicReport', action: 'admin' } },
-    });
+    const admin = await holdsPermission(actor.id, 'admin:DynamicReport', async () =>
+      Boolean(
+        await client.rolePermission.findFirst({
+          where: { roleId: actor.roleId, permission: { subject: 'DynamicReport', action: 'admin' } },
+        }),
+      ),
+    );
     if (admin) return 'ADMIN';
     const now = new Date();
     const manager = await client.dynReportRole.findFirst({

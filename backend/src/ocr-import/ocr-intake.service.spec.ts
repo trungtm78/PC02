@@ -319,7 +319,7 @@ describe('OcrIntakeService', () => {
         id: 'j1',
         deduplicated: false,
       });
-      expect(sendPolicy.assertForRole).toHaveBeenCalledWith('role-1');
+      expect(sendPolicy.assertForRole).toHaveBeenCalledWith('u1', 'role-1');
       expect(queue.enqueue).toHaveBeenCalledWith('s1', 'ANALYSE', { id: 'u1' });
     });
 

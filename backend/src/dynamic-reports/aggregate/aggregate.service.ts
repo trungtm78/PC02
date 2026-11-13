@@ -4,6 +4,7 @@ import { Injectable, Logger, NotFoundException, ConflictException } from '@nestj
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { holdsPermission } from '../../authz/enforcement';
 import { DynReportPeriodFinalizedEvent } from '../../notifications/events/notification.events';
 import { aggregateValues } from '../engine/aggregate';
 import { CALC_ENGINE_VERSION } from '../engine/grid-workbook';
@@ -297,12 +298,16 @@ export class AggregateService {
     userId: string,
     roleId: string,
   ): Promise<'ADMIN' | 'MANAGER' | null> {
-    const adminGrant = await client.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: 'admin' },
-      },
-    });
+    const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+      Boolean(
+        await client.rolePermission.findFirst({
+          where: {
+            roleId,
+            permission: { subject: 'DynamicReport', action: 'admin' },
+          },
+        }),
+      ),
+    );
     if (adminGrant) return 'ADMIN';
 
     const now = new Date();
@@ -903,12 +908,16 @@ export class AggregateService {
       if (!period) {
         throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
       }
-      const adminGrant = await tx.rolePermission.findFirst({
-        where: {
-          roleId,
-          permission: { subject: 'DynamicReport', action: 'admin' },
-        },
-      });
+      const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+        Boolean(
+          await tx.rolePermission.findFirst({
+            where: {
+              roleId,
+              permission: { subject: 'DynamicReport', action: 'admin' },
+            },
+          }),
+        ),
+      );
       if (!adminGrant) {
         throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
       }
@@ -2160,12 +2169,16 @@ export class AggregateService {
     userId: string,
     roleId: string,
   ): Promise<ViewablePeriodView[]> {
-    const adminGrant = await this.prisma.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: 'admin' },
-      },
-    });
+    const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+      Boolean(
+        await this.prisma.rolePermission.findFirst({
+          where: {
+            roleId,
+            permission: { subject: 'DynamicReport', action: 'admin' },
+          },
+        }),
+      ),
+    );
 
     const now = new Date();
     let reportIds: string[];

@@ -62,7 +62,7 @@ describe('OcrSendPolicy', () => {
     const { policy } = setup({
       destinations: { cloud: false, internal: false },
     });
-    expect(await codeOf(policy.assertForRole('role-1'))).toBe(
+    expect(await codeOf(policy.assertForRole('u1', 'role-1'))).toBe(
       'LLM_NO_PROVIDER',
     );
   });
@@ -72,7 +72,7 @@ describe('OcrSendPolicy', () => {
       destinations: { cloud: true, internal: true },
       granted: [['sendCloud', 'OcrImport']],
     });
-    expect(await codeOf(both.policy.assertForRole('role-1'))).toBe(
+    expect(await codeOf(both.policy.assertForRole('u1', 'role-1'))).toBe(
       'OCR_FORBIDDEN',
     );
 
@@ -84,7 +84,7 @@ describe('OcrSendPolicy', () => {
       ],
     });
     await expect(
-      allowed.policy.assertForRole('role-1'),
+      allowed.policy.assertForRole('u1', 'role-1'),
     ).resolves.toBeUndefined();
   });
 

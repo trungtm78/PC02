@@ -12,6 +12,12 @@ export interface Enforcement {
   scopeOf(userId: string): DataScope | null | undefined;
   /** The permissions a person holds, as `action:subject`, when enforced. */
   keysOf(userId: string): readonly string[] | undefined;
+  /** The same without those held only through a conditional grant of the role: unconditional authority. */
+  unconditionalKeysOf(userId: string): readonly string[] | undefined;
+  /** What a person holds when enforced, or nothing if the configuration does not know them (never throws for that). */
+  keysOrNone(userId: string): readonly string[] | undefined;
+  /** Everybody who holds a permission, when enforced: for filters over many people at once. */
+  holdersOf(permission: string): readonly string[] | undefined;
 }
 
 /**
@@ -29,3 +35,32 @@ export function setEnforcement(enforcement: Enforcement | null): void {
 export function enforcement(): Enforcement | null {
   return current;
 }
+
+/**
+ * Whether a person holds a permission, for code that decides this itself instead of leaving it to the route guard.
+ * When permissions by team are enforced the answer is what the person holds there; otherwise `fromRole` decides,
+ * exactly as the caller decided before. Every such check goes through here, so the guard, `/auth/me` and the
+ * services can never disagree about one person.
+ */
+export function holdsPermission<T extends boolean | Promise<boolean>>(
+  userId: string,
+  permission: string,
+  fromRole: () => T,
+  /** `unconditional`: for the checks whose role fallback requires `conditions === null`. */
+  options: { unconditional?: boolean } = {},
+): T | boolean {
+  const held = options.unconditional ? current?.unconditionalKeysOf(userId) : current?.keysOf(userId);
+  return held ? held.includes(permission) : fromRole();
+}
+
+/**
+ * The Prisma condition "a user who holds this permission", for filters over many people at once (who may be named as
+ * an editor, who may be notified). Enforced: the people who hold it under permissions by team. Otherwise: the people
+ * whose ROLE has it, exactly as such filters were written before.
+ */
+export function userHoldingPermission(action: string, subject: string): Record<string, unknown> {
+  const holders = current?.holdersOf(`${action}:${subject}`);
+  if (holders) return { id: { in: [...holders] } };
+  return { role: { permissions: { some: { permission: { action, subject } } } } };
+}
+

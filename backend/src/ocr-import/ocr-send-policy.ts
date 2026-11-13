@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { LlmAdminError } from '../llm/llm-admin-error';
 import { LlmProvidersService } from '../llm/llm-providers.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { holdsPermission } from '../authz/enforcement';
 import { OcrImportError } from './ocr-import-error';
 
 /**
@@ -18,7 +19,7 @@ export class OcrSendPolicy {
     private readonly providers: LlmProvidersService,
   ) {}
 
-  async assertForRole(roleId: string): Promise<void> {
+  async assertForRole(userId: string, roleId: string): Promise<void> {
     const destinations = await this.providers.activeDestinations();
     if (!destinations.cloud && !destinations.internal) {
       throw new LlmAdminError(
@@ -27,8 +28,8 @@ export class OcrSendPolicy {
       );
     }
     // A fail-over sends the same content to the next provider, so every active kind needs permission.
-    if (destinations.internal) await this.require(roleId, 'sendInternal');
-    if (destinations.cloud) await this.require(roleId, 'sendCloud');
+    if (destinations.internal) await this.require(userId, roleId, 'sendInternal');
+    if (destinations.cloud) await this.require(userId, roleId, 'sendCloud');
   }
 
   async assertForUser(userId: string): Promise<void> {
@@ -42,23 +43,29 @@ export class OcrSendPolicy {
         subject: 'OcrImport',
       });
     }
-    await this.assertForRole(user.roleId);
+    await this.assertForRole(userId, user.roleId);
   }
 
-  private require(roleId: string, action: string): Promise<void> {
-    return this.requirePermission(roleId, action, 'OcrImport');
+  private require(userId: string, roleId: string, action: string): Promise<void> {
+    return this.requirePermission(userId, roleId, action, 'OcrImport');
   }
 
-  /** Throws OCR_FORBIDDEN unless the role holds `action:subject`. */
+  /**
+   * Throws OCR_FORBIDDEN unless the person holds `action:subject`: what they hold under permissions by team when
+   * those are enforced, otherwise what their role holds.
+   */
   async requirePermission(
+    userId: string,
     roleId: string,
     action: string,
     subject: string,
   ): Promise<void> {
-    const granted = await this.prisma.rolePermission.count({
-      where: { roleId, permission: { action, subject } },
-    });
-    if (granted === 0) {
+    const granted = await holdsPermission(userId, `${action}:${subject}`, async () =>
+      (await this.prisma.rolePermission.count({
+        where: { roleId, permission: { action, subject } },
+      })) > 0,
+    );
+    if (!granted) {
       throw new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN, {
         action,
         subject,

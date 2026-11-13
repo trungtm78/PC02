@@ -246,7 +246,7 @@ export class AuthzService implements OnApplicationBootstrap, OnModuleDestroy {
         select: { id: true, name: true, entries: { select: { reach: true, permission: { select: { action: true, subject: true } } } } },
       }),
       this.prisma.role.findMany({
-        select: { id: true, name: true, permissions: { select: { permission: { select: { action: true, subject: true } } } } },
+        select: { id: true, name: true, permissions: { select: { permission: { select: { action: true, subject: true, conditions: true } } } } },
       }),
       this.prisma.user.findMany({ where: { isActive: true }, select: { id: true, roleId: true, canDispatch: true } }),
       this.prisma.userPermissionOverride.findMany({ include: { permission: { select: { action: true, subject: true } } } }),
@@ -289,7 +289,16 @@ export class AuthzService implements OnApplicationBootstrap, OnModuleDestroy {
       templates.map((t) => [t.id, { id: t.id, name: t.name, entries: new Map(t.entries.map((e) => [pair(e.permission), e.reach as Reach])) }]),
     );
 
-    const roleOf = new Map(roles.map((r) => [r.id, { name: r.name, permissions: r.permissions.map((p) => pair(p.permission)) }]));
+    const roleOf = new Map(
+      roles.map((r) => [
+        r.id,
+        {
+          name: r.name,
+          permissions: r.permissions.map((p) => pair(p.permission)),
+          conditional: r.permissions.filter((p) => p.permission.conditions !== null).map((p) => pair(p.permission)),
+        },
+      ]),
+    );
     const overridesOf = new Map<string, OverrideInput[]>();
     for (const o of userOverrides) {
       push(overridesOf, o.userId, { permission: pair(o.permission), effect: o.effect, reach: o.reach as Reach | null, expiresAt: o.expiresAt });
@@ -306,6 +315,7 @@ export class AuthzService implements OnApplicationBootstrap, OnModuleDestroy {
             id: u.id,
             roleName: role?.name ?? '',
             rolePermissions: role?.permissions ?? [],
+            conditionalRolePermissions: role?.conditional ?? [],
             canDispatch: u.canDispatch,
             memberships: membershipsOf.get(u.id) ?? [],
             overrides: overridesOf.get(u.id) ?? [],

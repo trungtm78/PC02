@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { enforcement } from '../../authz/enforcement';
 
 /**
  * Who may read a report version's grid model.
@@ -46,13 +47,19 @@ export class GridAccessService {
     });
     if (!version) return NONE;
 
-    const privileged = await this.prisma.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: { in: ['admin', 'manage'] } },
-      },
-      select: { roleId: true },
-    });
+    // One role query for "admin OR manage" when the role decides; what the person holds answers both when enforced.
+    const held = enforcement()?.keysOf(userId);
+    const privileged = held
+      ? held.includes('admin:DynamicReport') || held.includes('manage:DynamicReport')
+      : Boolean(
+          await this.prisma.rolePermission.findFirst({
+            where: {
+              roleId,
+              permission: { subject: 'DynamicReport', action: { in: ['admin', 'manage'] } },
+            },
+            select: { roleId: true },
+          }),
+        );
     if (privileged) return ALL;
 
     if (version.status === 'DRAFT') return NONE;

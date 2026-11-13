@@ -13,6 +13,7 @@ import { CaseEvidenceGovernanceService } from '../evidence-governance/evidence-g
 import { machMocGiaiQuyet } from '../../common/trang-thai/trang-thai-ket-thuc';
 import { CaseGovernanceService } from './case-governance.service';
 import { teamInScope, userInScope } from '../../common/utils/scope-filter.util';
+import { holdsPermission } from '../../authz/enforcement';
 import {
   ActorContext,
   MutationInput,
@@ -1450,11 +1451,17 @@ export class LegalWorkflowService {
     if (
       !user.isActive ||
       !['read', 'edit'].every((action) =>
-        user.role.permissions.some(
-          (p) =>
-            p.permission.subject === subject &&
-            p.permission.action === action &&
-            p.permission.conditions === null,
+        holdsPermission(
+          actor.actorId,
+          `${action}:${subject}`,
+          () =>
+            user.role.permissions.some(
+              (p) =>
+                p.permission.subject === subject &&
+                p.permission.action === action &&
+                p.permission.conditions === null,
+            ),
+          { unconditional: true },
         ),
       )
     )

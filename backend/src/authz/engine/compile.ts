@@ -73,6 +73,11 @@ export function compile(org: OrgSnapshot, config: AuthzConfig, user: UserInput, 
     return true;
   });
   const validUntil = () => (expiries.length ? new Date(Math.min(...expiries.map((d) => d.getTime()))) : null);
+  /** Held through nothing but a conditional grant of the role (a template or an override gives it outright). */
+  const conditionalOnly = (): string[] => {
+    const conditional = new Set(user.conditionalRolePermissions ?? []);
+    return [...grants].filter(([key, list]) => conditional.has(key) && list.every((g) => g.source.kind === 'ROLE')).map(([key]) => key).sort();
+  };
 
   if (user.roleName === ADMIN_ROLE) {
     for (const p of user.rolePermissions) add(p, { reach: 'ALL', teamId: null, source: { kind: 'ROLE', teamId: null } });
@@ -80,6 +85,7 @@ export function compile(org: OrgSnapshot, config: AuthzConfig, user: UserInput, 
       userId: user.id,
       admin: true,
       keys: [...grants.keys()].sort(),
+      conditional: conditionalOnly(),
       grants,
       muted,
       activeTeamIds: [],
@@ -139,6 +145,7 @@ export function compile(org: OrgSnapshot, config: AuthzConfig, user: UserInput, 
     userId: user.id,
     admin: false,
     keys: [...grants.keys()].sort(),
+    conditional: conditionalOnly(),
     grants,
     muted,
     activeTeamIds: memberships.map((m) => m.teamId),
