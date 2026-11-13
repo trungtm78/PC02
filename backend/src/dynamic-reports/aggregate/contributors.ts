@@ -75,6 +75,24 @@ export function contributionsFor(rows: readonly ContributorRow[], fieldKey: stri
   }));
 }
 
+/** The code a subset names a field by: its stable item key, or its field key when it has none (template reports). */
+export const itemKeyOf = (field: { fieldKey: string; itemKey?: string | null }): string =>
+  field.itemKey ?? field.fieldKey;
+
+/**
+ * Freezes a target's subset (item keys) into the field keys of ONE version, for the assignment of a period being made.
+ * null in = null out (the team owns everything). A key the version does not have is dropped: it names a criterion that
+ * a newer version removed.
+ */
+export function freezeOwnedFieldKeys(
+  itemKeys: unknown,
+  fields: readonly { fieldKey: string; itemKey?: string | null }[],
+): string[] | null {
+  if (!Array.isArray(itemKeys)) return null;
+  const wanted = new Set((itemKeys as unknown[]).filter((k): k is string => typeof k === 'string'));
+  return fields.filter((f) => wanted.has(itemKeyOf(f))).map((f) => f.fieldKey);
+}
+
 /** The fields of a version that this team reports, in the version's order. */
 export function ownedFieldsOf<F extends { fieldKey: string }>(
   row: Pick<ContributorRow, 'ownedFieldKeys'>,

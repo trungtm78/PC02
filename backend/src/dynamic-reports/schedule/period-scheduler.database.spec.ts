@@ -166,6 +166,33 @@ run('PeriodSchedulerService on PostgreSQL', () => {
     expect(await periodCount(other)).toBe(0);
   });
 
+  it('a team with a subset of criteria gets it frozen on its assignment; a team without one owns everything', async () => {
+    const id = await buildReport('subset');
+    const version = await db.dynReportVersion.findFirstOrThrow({ where: { reportId: id } });
+    await db.dynReportField.createMany({
+      data: [
+        { versionId: version.id, sheetKey: 'S', address: 'B2', fieldKey: 'S!B2', label: 'a', type: 'NUM', itemKey: 'tin-bao-moi' },
+        { versionId: version.id, sheetKey: 'S', address: 'B3', fieldKey: 'S!B3', label: 'b', type: 'NUM', itemKey: 'da-giai-quyet' },
+        { versionId: version.id, sheetKey: 'S', address: 'B4', fieldKey: 'S!B4', label: 'c', type: 'NUM' },
+      ],
+    });
+    const other = await db.team.create({ data: { code: `${tag}-sub`, name: `${tag}-sub` } });
+    // The second team reports one criterion by its item key and one template cell by its field key.
+    await db.dynReportTarget.create({
+      data: { reportId: id, teamId: other.id, itemKeys: ['da-giai-quyet', 'S!B4', 'no-longer-there'] },
+    });
+
+    await svc.generateForReport(id, now);
+
+    const assignments = await db.dynReportAssignment.findMany({ where: { period: { reportId: id } } });
+    const whole = assignments.filter((a) => a.teamId === teamId);
+    const subset = assignments.filter((a) => a.teamId === other.id);
+    expect(whole.length).toBeGreaterThan(0);
+    expect(whole.every((a) => a.ownedFieldKeys === null)).toBe(true);
+    expect(subset.length).toBe(whole.length);
+    expect(subset.every((a) => JSON.stringify(a.ownedFieldKeys) === JSON.stringify(['S!B3', 'S!B4']))).toBe(true);
+  });
+
   it('asking again changes nothing (no period made twice)', async () => {
     const id = await buildReport('twice');
     await svc.generateForReport(id, now);

@@ -3,6 +3,7 @@ import {
   contributing,
   contributionsFor,
   contributorsFor,
+  freezeOwnedFieldKeys,
   obligated,
   ownedFieldsOf,
   owns,
@@ -114,6 +115,32 @@ describe('contributors', () => {
     it('returns every field for a team with no subset, and only the owned ones otherwise, in the version order', () => {
       expect(ownedFieldsOf(a(), fields)).toEqual(fields);
       expect(ownedFieldsOf(a({ ownedFieldKeys: ['S!B2', 'S!GONE'] }), fields)).toEqual([{ fieldKey: 'S!B2' }]);
+    });
+  });
+
+  describe('freezeOwnedFieldKeys: a target subset becomes the field keys of one version', () => {
+    const fields = [
+      { fieldKey: 'S!B2', itemKey: 'tin-bao-moi' },
+      { fieldKey: 'S!B3', itemKey: 'tin-bao-da-giai-quyet' },
+      { fieldKey: 'S!B4', itemKey: null },
+    ];
+
+    it('no subset stays no subset', () => {
+      expect(freezeOwnedFieldKeys(null, fields)).toBeNull();
+      expect(freezeOwnedFieldKeys(undefined, fields)).toBeNull();
+    });
+
+    it('maps item keys to this version field keys, in the version order', () => {
+      expect(freezeOwnedFieldKeys(['tin-bao-da-giai-quyet', 'tin-bao-moi'], fields)).toEqual(['S!B2', 'S!B3']);
+    });
+
+    it('a field with no item key is named by its field key (ordinary template reports)', () => {
+      expect(freezeOwnedFieldKeys(['S!B4'], fields)).toEqual(['S!B4']);
+    });
+
+    it('drops a key this version no longer has, and an empty subset stays empty (owns nothing)', () => {
+      expect(freezeOwnedFieldKeys(['gone', 'tin-bao-moi'], fields)).toEqual(['S!B2']);
+      expect(freezeOwnedFieldKeys([], fields)).toEqual([]);
     });
   });
 
