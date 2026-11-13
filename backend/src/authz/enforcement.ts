@@ -12,6 +12,8 @@ export interface Enforcement {
   scopeOf(userId: string): DataScope | null | undefined;
   /** The permissions a person holds, as `action:subject`, when enforced. */
   keysOf(userId: string): readonly string[] | undefined;
+  /** Everybody who holds a permission, when enforced: for filters over many people at once. */
+  holdersOf(permission: string): readonly string[] | undefined;
 }
 
 /**
@@ -39,5 +41,16 @@ export function enforcement(): Enforcement | null {
 export function holdsPermission<T extends boolean | Promise<boolean>>(userId: string, permission: string, fromRole: () => T): T | boolean {
   const held = current?.keysOf(userId);
   return held ? held.includes(permission) : fromRole();
+}
+
+/**
+ * The Prisma condition "a user who holds this permission", for filters over many people at once (who may be named as
+ * an editor, who may be notified). Enforced: the people who hold it under permissions by team. Otherwise: the people
+ * whose ROLE has it, exactly as such filters were written before.
+ */
+export function userHoldingPermission(action: string, subject: string): Record<string, unknown> {
+  const holders = current?.holdersOf(`${action}:${subject}`);
+  if (holders) return { id: { in: [...holders] } };
+  return { role: { permissions: { some: { permission: { action, subject } } } } };
 }
 

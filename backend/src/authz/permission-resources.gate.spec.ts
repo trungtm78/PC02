@@ -25,8 +25,18 @@ import {
   type PermissionResource,
 } from '../../prisma/permission-resources';
 
-// otplib ships ESM only and jest cannot load it; this gate reads decorator metadata and calls none of it.
-jest.mock('otplib', () => ({}));
+// Loading every controller pulls in the 2FA chain (otplib, qrcode: ESM only). The mock shapes MUST be exactly those of
+// `app.bootstrap.spec.ts` / `two-fa.service.spec.ts`: suites that share a worker share its module registry, and an
+// empty mock here leaked into the 2FA suite and failed it at random (seen 14/11/2026).
+jest.mock('otplib', () => ({
+  generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
+  generateURI: jest
+    .fn()
+    .mockReturnValue('otpauth://totp/PC02:user@test.com?secret=JBSWY3DPEHPK3PXP&issuer=PC02'),
+  verify: jest.fn().mockResolvedValue({ valid: true }),
+  generate: jest.fn().mockResolvedValue('123456'),
+}));
+jest.mock('qrcode', () => ({ toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,fake') }));
 
 /**
  * GATE: the catalogue a person sets team permissions from is the same set the guards check.

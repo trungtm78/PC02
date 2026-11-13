@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { OcrEntity, OcrJobKind } from '@prisma/client';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { holdsPermission } from '../authz/enforcement';
 import { OcrJobQueue, type EnqueuedJob } from './jobs/ocr-job-queue';
 import { OcrImportError } from './ocr-import-error';
 import { OcrSendPolicy } from './ocr-send-policy';
@@ -135,7 +136,7 @@ export class OcrIntakeService {
     user: AuthUser,
   ): Promise<EnqueuedJob> {
     // Checked again when the job runs: permissions can change while it waits.
-    await this.sendPolicy.assertForRole(user.roleId);
+    await this.sendPolicy.assertForRole(user.id, user.roleId);
     return this.queue.enqueue(sessionId, kind, { id: user.id });
   }
 
@@ -158,10 +159,12 @@ export class OcrIntakeService {
   }
 
   private async require(user: AuthUser, action: string, subject: string) {
-    const granted = await this.prisma.rolePermission.count({
-      where: { roleId: user.roleId, permission: { action, subject } },
-    });
-    if (granted === 0) {
+    const granted = await holdsPermission(user.id, `${action}:${subject}`, async () =>
+      (await this.prisma.rolePermission.count({
+        where: { roleId: user.roleId, permission: { action, subject } },
+      })) > 0,
+    );
+    if (!granted) {
       throw new OcrImportError('OCR_FORBIDDEN', HttpStatus.FORBIDDEN, {
         action,
         subject,

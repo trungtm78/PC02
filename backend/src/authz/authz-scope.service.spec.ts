@@ -144,6 +144,19 @@ describe('AuthzScopeService', () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
+  it('enforced: who holds a permission, for filters over many people; not enforced: no answer', () => {
+    const snap = snapshot('ENFORCE', {
+      users: [person(), person({ id: 'mate', rolePermissions: ['read:Directory'] }), person({ id: 'junior', memberships: [{ teamId: 'A1', isLeader: false }] })],
+      configs: [explicit('A', 't')],
+      templates: { t: { 'read:Case': 'OWN' } },
+    });
+    const s = service(snap);
+    // A governs A1 too: all three are under the template, whatever their roles hold.
+    expect([...s.holdersOf('read:Case')!].sort()).toEqual(['junior', 'mate', 'me']);
+    expect(s.holdersOf('edit:Case')).toEqual([]);
+    expect(service(snapshot('OFF', { users: [person()] })).holdersOf('read:Case')).toBeUndefined();
+  });
+
   describe('the registry', () => {
     it('constructing or compiling is not enough: it becomes the enforcement only when its application starts', () => {
       const s = new AuthzScopeService(new AuthzService({} as never));

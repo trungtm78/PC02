@@ -16,6 +16,7 @@ import type {
 } from '../engine/status';
 import type { SubmissionState } from '../engine/access';
 import { ownedFieldsOf } from '../aggregate/contributors';
+import { holdsPermission } from '../../authz/enforcement';
 
 export interface AssignmentStatusRow {
   assignmentId: string;
@@ -123,12 +124,16 @@ export class StatusQueryService {
     userId: string,
     roleId: string,
   ): Promise<string[] | 'ALL'> {
-    const adminGrant = await this.prisma.rolePermission.findFirst({
-      where: {
-        roleId,
-        permission: { subject: 'DynamicReport', action: 'admin' },
-      },
-    });
+    const adminGrant = await holdsPermission(userId, 'admin:DynamicReport', async () =>
+      Boolean(
+        await this.prisma.rolePermission.findFirst({
+          where: {
+            roleId,
+            permission: { subject: 'DynamicReport', action: 'admin' },
+          },
+        }),
+      ),
+    );
     if (adminGrant) return 'ALL';
 
     const now = new Date();

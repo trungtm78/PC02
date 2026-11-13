@@ -13,6 +13,7 @@ import {
 } from '../common/utils/scope-filter.util';
 import { randomBytes } from 'node:crypto';
 import { hashPassword } from '../auth/utils/password-hash.util';
+import { holdsPermission } from '../authz/enforcement';
 
 type Tx = Prisma.TransactionClient;
 type Permission = { action: string; subject: string; conditions?: unknown };
@@ -125,10 +126,13 @@ export async function guardCaseAuthority(
     );
   }
   const current = rolePermissions.get(actor.roleId) ?? [];
+  // What the ACTOR may do: what the person holds when permissions by team are enforced, the role otherwise.
   const has = (subject: string, action: string) =>
-    current.some(
-      (p) =>
-        p.subject === subject && p.action === action && p.conditions === null,
+    holdsPermission(actorId, `${action}:${subject}`, () =>
+      current.some(
+        (p) =>
+          p.subject === subject && p.action === action && p.conditions === null,
+      ),
     );
   const affected = [target?.roleId, input.nextRoleId, input.roleId].flatMap(
     (roleId) => (roleId ? (rolePermissions.get(roleId) ?? []) : []),
@@ -183,7 +187,14 @@ export async function guardCaseAuthority(
       : input.roleId === actor.roleId
         ? (input.nextPermissions ?? []).filter(governance)
         : [];
-  if (acquired.some((p) => !actorGovernance.has(p.action)))
+  if (
+    acquired.some(
+      (p) =>
+        !holdsPermission(actorId, `${p.action}:CaseGovernance`, () =>
+          actorGovernance.has(p.action),
+        ),
+    )
+  )
     throw new ForbiddenException(
       'Self acquisition of business authority is prohibited',
     );

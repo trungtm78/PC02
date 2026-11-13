@@ -57,11 +57,12 @@ export class OcrRereadService {
     dataScope: DataScope | null | undefined,
   ): Promise<{ sessionId: string; jobId: string; pages: number }> {
     await this.sendPolicy.requirePermission(
+      user.id,
       user.roleId,
       'edit',
       SUBJECT[entity],
     );
-    await this.sendPolicy.assertForRole(user.roleId);
+    await this.sendPolicy.assertForRole(user.id, user.roleId);
 
     const listed = await this.documents.getList(
       {

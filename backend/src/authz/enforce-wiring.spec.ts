@@ -29,7 +29,7 @@ import { enforcement, setEnforcement, type Enforcement } from './enforcement';
  */
 const ENFORCED_SCOPE = { teamIds: [], userIds: ['u1'], writableTeamIds: [], writableUserIds: ['u1'], precise: { userId: 'u1' } } as unknown as DataScope;
 function enforce(scope: DataScope | null | undefined, keys?: readonly string[]) {
-  const e = { scopeOf: jest.fn().mockReturnValue(scope), keysOf: jest.fn().mockReturnValue(keys) };
+  const e = { scopeOf: jest.fn().mockReturnValue(scope), keysOf: jest.fn().mockReturnValue(keys), holdersOf: jest.fn().mockReturnValue(undefined) };
   setEnforcement(e as Enforcement);
   return e;
 }
@@ -147,10 +147,12 @@ describe('AuthzService keeps the configuration in memory, outside the request pa
       const db = database('ENFORCE');
       const service = new AuthzService(db as never);
       quiet(service);
+      // The moment of confirmation lies between these two readings of the clock.
+      const before = Date.now();
       await service.refresh();
       const loadedAt = Date.now();
       expect(service.state(loadedAt)).toBe('ENFORCE');
-      expect(service.state(loadedAt + MAX_SNAPSHOT_AGE_MS)).toBe('ENFORCE');
+      expect(service.state(before + MAX_SNAPSHOT_AGE_MS)).toBe('ENFORCE');
       // No successful refresh for too long (the database stopped answering): nothing may be decided from it.
       expect(service.state(loadedAt + MAX_SNAPSHOT_AGE_MS + 1)).toBe('UNAVAILABLE');
       db.$queryRaw.mockRejectedValue(new Error('database down'));

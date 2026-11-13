@@ -98,6 +98,16 @@ export class AuthzScopeService implements Enforcement, OnApplicationBootstrap, O
     };
   }
 
+  holdersOf(permission: string, now: Date = new Date()): readonly string[] | undefined {
+    const snapshot = this.enforced(now);
+    if (!snapshot) return undefined;
+    const holders: string[] = [];
+    for (const userId of snapshot.users.keys()) {
+      if (this.authz.effectiveIn(snapshot, userId, now).grants.has(permission)) holders.push(userId);
+    }
+    return holders;
+  }
+
   keysOf(userId: string, now: Date = new Date()): readonly string[] | undefined {
     const snapshot = this.enforced(now);
     if (!snapshot) return undefined;

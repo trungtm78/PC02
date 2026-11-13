@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { enforcement, userHoldingPermission } from '../../authz/enforcement';
 import { freezeOwnedFieldKeys } from './contributors';
 
 /**
@@ -29,15 +30,12 @@ export interface EditorChangeResult {
   ended: number;
 }
 
-/** A person who may be named as an editor: active, and their role can open the module (`read:DynamicReport`). */
-const QUALIFIED_USER = {
-  isActive: true,
-  role: {
-    permissions: {
-      some: { permission: { action: 'read', subject: 'DynamicReport' } },
-    },
-  },
-} as const;
+/**
+ * A person who may be named as an editor: active, and able to open the module (`read:DynamicReport`), by their role
+ * or, once permissions by team are enforced, by what they hold there. A function, not a constant: who holds the
+ * permission is asked each time.
+ */
+const qualifiedUser = () => ({ isActive: true, ...userHoldingPermission('read', 'DynamicReport') });
 
 const inWindow = (now: Date) => ({
   validFrom: { lte: now },
@@ -92,7 +90,7 @@ export interface ReconcileOptions extends EditorChangeContext {
 /**
  * Brings the assignments of a report's OPEN periods in line with the editors its configuration names now.
  *
- * Only people who qualify (`QUALIFIED_USER`) are ever put on an assignment. Left alone: an assignment whose team is no
+ * Only people who qualify (`qualifiedUser()`) are ever put on an assignment. Left alone: an assignment whose team is no
  * longer in the configuration (its period keeps what it has), and a team none of whose configured editors qualifies
  * (stripping every editor would leave nobody able to type).
  */
@@ -106,7 +104,7 @@ export async function reconcileAssignmentEditors(
     where: { reportId, ...inWindow(now) },
     include: {
       editors: {
-        where: { ...inWindow(now), user: QUALIFIED_USER },
+        where: { ...inWindow(now), user: qualifiedUser() },
         select: { userId: true },
       },
     },
@@ -171,8 +169,12 @@ export async function findUnqualifiedEditors(
 ): Promise<string[]> {
   const unique = [...new Set(userIds)];
   if (unique.length === 0) return [];
+  // Enforced: only the people who hold the permission are asked for at all. Otherwise the role filter, as before.
+  const holders = enforcement()?.holdersOf('read:DynamicReport');
   const ok = await tx.user.findMany({
-    where: { id: { in: unique }, ...QUALIFIED_USER },
+    where: holders
+      ? { id: { in: unique.filter((id) => holders.includes(id)) }, isActive: true }
+      : { id: { in: unique }, ...qualifiedUser() },
     select: { id: true },
   });
   const okIds = new Set(ok.map((u) => u.id));
@@ -214,7 +216,7 @@ export async function configuredEditorsOf(
     where: { reportId, teamId, ...inWindow(now) },
     include: {
       editors: {
-        where: { ...inWindow(now), user: QUALIFIED_USER },
+        where: { ...inWindow(now), user: qualifiedUser() },
         select: { userId: true },
       },
     },
