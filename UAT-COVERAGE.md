@@ -93,3 +93,11 @@ Còn trống **đánh giá trải nghiệm bằng người đóng vai thật** �
 1. **Một tài khoản thử trên prod.** 5 tài khoản cũ khoá từ 20/09 vì mật khẩu lộ ở repo công khai.
 2. **Một tài khoản cán bộ thuộc tổ khác.** Không có tài khoản thứ hai thì bốn ca phạm vi dữ liệu
    chỉ chứng minh được là mình thấy hồ sơ của mình, không chứng minh được ranh giới.
+
+---
+
+## Đợt 14/11/2026 (vòng đời Tổ · tiêu chí báo cáo theo tổ · quyền theo Tổ)
+
+Nằm ở **[`docs/uat/dot-1411/`](docs/uat/dot-1411/)**: `_domain-pack.md` (59 luật, lấy từ yêu cầu và tệp kế hoạch) · `_coverage-ledger.md` · `_platform.json` · `UAT-COVERAGE.md` (179 dòng) · `uat.json`. Ba tệp sau sinh từ một bảng mệnh đề (`_build.py`).
+
+Trạng thái đo được ngày 14/11: `validate_uat_json` đạt; độ phủ 179/179 mục; **`TC_min` hỏng (179 < 807, M2 chi phối)**; đã chạy **0/179 trên production**, 28/179 trên máy chủ dựng cục bộ qua HTTP (`tools/uat-phan-quyen/workflow.cjs`); gieo lỗi, soát đối kháng và đánh giá bằng người đóng vai chưa làm. Chặn ở tài khoản thử production.

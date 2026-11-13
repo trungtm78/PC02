@@ -1,0 +1,35 @@
+{
+  "platforms": ["WEB", "API"],
+  "evidence": {
+    "WEB": "frontend/vite.config.ts (React 19 + Vite); màn /admin/phan-quyen ở frontend/src/pages/admin/PermissionsPage.tsx",
+    "API": "backend/src/main.ts (NestJS), backend/prisma/schema.prisma; module backend/src/authz, backend/src/teams, backend/src/dynamic-reports"
+  },
+  "packages": [
+    { "name": "frontend", "platforms": ["WEB"] },
+    { "name": "backend", "platforms": ["API"] }
+  ],
+  "mobile": "N/A — ứng dụng di động không có tệp nào trong các PR #650, #652–#662",
+  "apiBaseUrl": {
+    "local": "http://127.0.0.1:3999/api/v1 (PORT=3999 DATABASE_URL=<CSDL thử> npx nest start trong backend/)",
+    "prod": "http://171.244.40.245/api/v1"
+  },
+  "host": { "os": "Windows 11", "iosPossible": false },
+  "scope": {
+    "prs": ["#650", "#652", "#653", "#654", "#655", "#656", "#657", "#658", "#659", "#660", "#661", "#662"],
+    "prod_build": "cb3f203a",
+    "prod_mode": "OFF (QUYEN_THEO_TO_CHE_DO), đo chỉ-đọc 14/11/2026: 244 người, 192 tổ đang hoạt động, 0 mẫu quyền"
+  },
+  "local_runners": [
+    "tools/uat-phan-quyen/workflow.cjs — quyền theo tổ qua HTTP, tự tạo và tự dọn tài khoản; 40/40 ngày 14/11",
+    "tools/uat-bao-cao-dong/workflow.cjs — báo cáo động qua HTTP (chưa mở rộng cho tập tiêu chí theo tổ)"
+  ],
+  "roles_needed": ["P-QUAN-TRI", "P-QUAN-TRI-2", "P-CAN-BO", "P-TO-TRUONG", "P-CAN-BO-KHAC-TO", "P-NGUOI-NHAP", "P-QUAN-LY-BC"],
+  "blockers": [
+    "Tài khoản thử trên production: 5 tài khoản cũ đã khoá từ 20/09; chờ anh cấp. Mọi ca E2E production chặn ở đây.",
+    "Ca bật Áp dụng (ENFORCE) KHÔNG chạy trên production thật: nó đổi quyền của ~231 cán bộ. Chạy trên bản sao production, hoặc cục bộ.",
+    "Ca cần hai quản trị viên cần hai tài khoản quản trị riêng; một tài khoản không đóng được cả hai vai.",
+    "Ca ghi dữ liệu (xoá tổ, gộp tổ, khoá sổ) chạy trên bản sao; phải ghi rõ tầng là bản sao chứ không phải production.",
+    "Trình duyệt: chưa có tiện ích Chrome kết nối trong phiên làm việc; chưa có lượt E2E nào bằng trình duyệt thật.",
+    "tools/uat-to/workflow.cjs (vòng đời tổ qua HTTP) chưa viết."
+  ]
+}
