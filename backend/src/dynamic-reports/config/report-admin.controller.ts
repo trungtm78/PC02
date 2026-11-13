@@ -30,6 +30,7 @@ import { attachmentDisposition } from '../attachment-disposition.util';
 import { ReportConfigService, ReportConfigError } from './report-config.service';
 import { ReportDetailService } from './report-detail.service';
 import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
+import { bestEffortWithin } from '../schedule/best-effort-within';
 import { ReportLifecycleService } from './report-lifecycle.service';
 import { ReportVersioningService } from './report-versioning.service';
 import { ReportConfigUpdateService } from './report-config-update.service';
@@ -43,6 +44,9 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
  * `ReportConfigController` (which creates reports and suspends them) on the same path prefix so the REST
  * shape stays `bao-cao-dong/reports/:reportId/...`; manage:DynamicReport only, like every authoring route.
  */
+/** How long a publish waits for its periods to be made; the proxy gives up after 90 s, the work carries on past this. */
+const PERIODS_WAIT_MS = 15_000;
+
 @Controller('bao-cao-dong/reports')
 @UseGuards(JwtAuthGuard, FeatureFlagGuard, PermissionsGuard)
 @FeatureFlag('dynamic_reports')
@@ -121,13 +125,11 @@ export class ReportAdminController {
   async publish(@Param('reportId') reportId: string) {
     const published = await this.guard(() => this.versioningService.publishDraft(reportId));
     // Make its periods now instead of at the next hourly tick. Best effort: it is published either way.
-    try {
-      await this.scheduler.generateForReport(reportId);
-    } catch (err) {
+    await bestEffortWithin(this.scheduler.generateForReport(reportId), PERIODS_WAIT_MS, (err) =>
       this.logger.error(
         `Could not make the periods of the report ${reportId} right after publishing: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+      ),
+    );
     return published;
   }
 

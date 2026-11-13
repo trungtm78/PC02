@@ -29,6 +29,10 @@ import {
 } from './report-config.service';
 import { SaveReportConfigRequestDto } from './dto/save-report-config.dto';
 import { PeriodSchedulerService } from '../schedule/period-scheduler.service';
+import { bestEffortWithin } from '../schedule/best-effort-within';
+
+/** How long a publish waits for its periods to be made; the proxy gives up after 90 s, the work carries on past this. */
+const PERIODS_WAIT_MS = 15_000;
 
 interface AuthenticatedUser {
   id: string;
@@ -129,12 +133,10 @@ export class ReportConfigController {
    * is logged and the hourly tick makes the periods as it always did.
    */
   private async makePeriodsNow(reportId: string): Promise<void> {
-    try {
-      await this.scheduler.generateForReport(reportId);
-    } catch (err) {
+    await bestEffortWithin(this.scheduler.generateForReport(reportId), PERIODS_WAIT_MS, (err) =>
       this.logger.error(
         `Could not make the periods of the report ${reportId} right after publishing: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+      ),
+    );
   }
 }

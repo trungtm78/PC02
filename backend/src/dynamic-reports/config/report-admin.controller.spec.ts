@@ -62,6 +62,22 @@ describe('ReportAdminController', () => {
       expect(scheduler.generateForReport).not.toHaveBeenCalled();
     });
 
+    it('does not hold the answer back for a slow scheduler (found by Codex)', async () => {
+      jest.useFakeTimers();
+      try {
+        const published = { reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' };
+        versioning.publishDraft.mockResolvedValue(published);
+        scheduler.generateForReport.mockReturnValue(new Promise(() => undefined));
+
+        const answered = controller.publish('r1');
+        await jest.advanceTimersByTimeAsync(15_000);
+
+        await expect(answered).resolves.toBe(published);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('a failure while making the periods never fails the publish', async () => {
       const published = { reportId: 'r1', versionId: 'v1', version: 1, status: 'PUBLISHED' };
       versioning.publishDraft.mockResolvedValue(published);

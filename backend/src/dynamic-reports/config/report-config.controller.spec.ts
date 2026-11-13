@@ -98,6 +98,22 @@ describe('ReportConfigController', () => {
     await expect(controller.save(file, body, user)).resolves.toBe(saved);
   });
 
+  it('does not hold the answer back for a slow scheduler: the proxy gives up after 90 s (found by Codex)', async () => {
+    jest.useFakeTimers();
+    try {
+      const saved = { reportId: 'rep1', versionId: 'ver1', status: 'PUBLISHED' };
+      service.save.mockResolvedValue(saved);
+      scheduler.generateForReport.mockReturnValue(new Promise(() => undefined)); // never finishes
+
+      const answered = controller.save(file, body, user);
+      await jest.advanceTimersByTimeAsync(15_000);
+
+      await expect(answered).resolves.toBe(saved);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('translates a REPORT_CODE_TAKEN ReportConfigError into a 409', async () => {
     service.save.mockRejectedValue(
       new ReportConfigError('Mã đã dùng', 'REPORT_CODE_TAKEN'),
