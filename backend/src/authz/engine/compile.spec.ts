@@ -1,6 +1,7 @@
 import * as fc from 'fast-check';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
-import { TEAM_TREE_MAX_DEPTH, TeamsService } from '../../teams/teams.service';
+import { TEAM_TREE_MAX_DEPTH } from '../../teams/team-tree.constants';
+import { TeamsService } from '../../teams/teams.service';
 import { compile, governingConfig, isRecordScoped, widestReach } from './compile';
 import { activeDescendants, operationOf, recordScope, toLegacyScope } from './scope';
 import { entryProblems } from './validate';

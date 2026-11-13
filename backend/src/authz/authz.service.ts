@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { compile } from './engine/compile';
@@ -16,6 +16,23 @@ import type {
 
 export const AUTHZ_MODES = ['OFF', 'SHADOW', 'ENFORCE'] as const;
 export type AuthzMode = (typeof AUTHZ_MODES)[number];
+/** How long after one background refresh ends the next one starts. */
+export const REFRESH_EVERY_MS = 3_000;
+/** A refresh that has not finished by then is given up (its result, if it ever comes, is not used). */
+export const REFRESH_TIMEOUT_MS = 10_000;
+/**
+ * While ENFORCING, a configuration last confirmed longer ago than this is not trusted any more: requests are refused
+ * instead of being answered from permissions that may have been taken away since.
+ */
+export const MAX_SNAPSHOT_AGE_MS = 60_000;
+
+/**
+ * What the request path may assume right now.
+ *   OFF          not enforcing (the mode is OFF or SHADOW): roles decide, as before
+ *   ENFORCE      enforcing, from a configuration confirmed recently
+ *   UNAVAILABLE  it cannot be told, or the configuration is too old: nothing may be decided from it
+ */
+export type AuthzState = 'OFF' | 'ENFORCE' | 'UNAVAILABLE';
 
 /** Everything effective permissions are computed from, as it was at one revision of the counter. */
 export interface AuthzSnapshot {
@@ -43,12 +60,118 @@ const push = <K, V>(map: Map<K, V[]>, key: K, value: V) => map.set(key, [...(map
  * database's revision counter moves; a person's answer is kept no longer than its own `validUntil`.
  */
 @Injectable()
-export class AuthzService {
+export class AuthzService implements OnApplicationBootstrap, OnModuleDestroy {
   private snapshotCache: AuthzSnapshot | null = null;
   private loading: Promise<AuthzSnapshot> | null = null;
   private readonly effectiveCache = new Map<string, EffectivePermissions>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private stopped = false;
+  private refreshing: Promise<void> | null = null;
+  /** When the configuration in memory was last confirmed against the database. */
+  private confirmedAt: number | null = null;
+  /** With nothing in memory: whether the mode itself could be read and is not ENFORCE. */
+  private knownNotEnforcing = false;
+
+  /**
+   * Whether the mode ENFORCE may take effect at all. FALSE until every place that decides from the role has been
+   * moved to permissions by team: a system that enforced in the guard but still asked the role elsewhere would
+   * give back permissions the configuration took away. While false, ENFORCE in the database is treated as SHADOW.
+   */
+  static enforceAvailable = false;
+  private readonly logger = new Logger(AuthzService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * The configuration is loaded BEFORE the application takes requests and then kept fresh in the background, so the
+   * request path only ever reads memory (`cached()`): it never waits on the database for this, in any mode, and
+   * takes no connection (the scope is also asked for inside open transactions).
+   *
+   * A change is noticed within `REFRESH_EVERY_MS`; the save path of the permission screen refreshes at once.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    await this.refresh();
+    this.schedule();
+  }
+
+  /** The next refresh starts only after the previous one has ended: refreshes never pile up behind a slow database. */
+  private schedule(): void {
+    if (this.stopped) return;
+    this.timer = setTimeout(() => {
+      void this.refresh().finally(() => this.schedule());
+    }, REFRESH_EVERY_MS);
+    // Never keeps the process alive on its own (tests, shutdown).
+    this.timer.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    this.stopped = true;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+  }
+
+  /**
+   * Brings the configuration in memory up to date. One at a time (callers arriving meanwhile wait for the same
+   * one), bounded in time, and it never throws: a failed or overdue read keeps what is in memory, and
+   * `state()` stops trusting it once it is too old.
+   */
+  refresh(): Promise<void> {
+    this.refreshing ??= this.refreshOnce().finally(() => {
+      this.refreshing = null;
+    });
+    return this.refreshing;
+  }
+
+  private async refreshOnce(): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        this.snapshot(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`no answer within ${REFRESH_TIMEOUT_MS} ms`)), REFRESH_TIMEOUT_MS);
+          timer.unref?.();
+        }),
+      ]);
+      this.confirmedAt = Date.now();
+    } catch (err) {
+      this.logger.error(`Permission configuration could not be refreshed: ${err instanceof Error ? err.message : String(err)}`);
+      // A load that hangs must not block every later one; its result, if it ever comes, is dropped by `publish`.
+      this.loading = null;
+      if (!this.snapshotCache) await this.confirmNotEnforcing();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /** With nothing in memory, the one thing worth knowing is whether anything is being enforced at all. */
+  private async confirmNotEnforcing(): Promise<void> {
+    if (!AuthzService.enforceAvailable) {
+      this.knownNotEnforcing = true;
+      return;
+    }
+    try {
+      const row = await this.prisma.systemSetting.findUnique({
+        where: { key: SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO },
+        select: { value: true },
+      });
+      this.knownNotEnforcing = row?.value !== 'ENFORCE';
+    } catch {
+      this.knownNotEnforcing = false;
+    }
+  }
+
+  /** See `AuthzState`. Synchronous, from memory. */
+  state(now: number = Date.now()): AuthzState {
+    const snapshot = this.snapshotCache;
+    if (!snapshot) return this.knownNotEnforcing ? 'OFF' : 'UNAVAILABLE';
+    if (snapshot.mode !== 'ENFORCE') return 'OFF';
+    return this.confirmedAt !== null && now - this.confirmedAt <= MAX_SNAPSHOT_AGE_MS ? 'ENFORCE' : 'UNAVAILABLE';
+  }
+
+  /** The configuration in memory, or null when it has never been loaded. Synchronous: what the request path reads. */
+  cached(): AuthzSnapshot | null {
+    return this.snapshotCache;
+  }
 
   /**
    * What the triggers have logged, as far as this connection can see: the number of rows and the last one. A change
@@ -69,11 +192,20 @@ export class AuthzService {
       this.loading = null;
     });
     const loaded = await this.loading;
-    if (this.snapshotCache !== loaded) {
-      this.snapshotCache = loaded;
-      this.effectiveCache.clear();
-    }
+    this.publish(loaded);
     return loaded;
+  }
+
+  /**
+   * Puts a loaded snapshot in memory unless what is there is newer (a load given up for being slow may still finish,
+   * long after a later one). The revision starts with the number of logged changes, which only grows.
+   */
+  private publish(loaded: AuthzSnapshot): void {
+    const changes = (s: AuthzSnapshot) => Number(s.revision.split(':')[0]);
+    if (this.snapshotCache === loaded) return;
+    if (this.snapshotCache && changes(loaded) < changes(this.snapshotCache)) return;
+    this.snapshotCache = loaded;
+    this.effectiveCache.clear();
   }
 
   async mode(): Promise<AuthzMode> {
@@ -184,10 +316,15 @@ export class AuthzService {
     );
 
     const value = modeRow?.value as AuthzMode | undefined;
+    // Anything that is not one of the three words is OFF: a typo must never switch enforcement on.
+    let mode: AuthzMode = value && AUTHZ_MODES.includes(value) ? value : 'OFF';
+    if (mode === 'ENFORCE' && !AuthzService.enforceAvailable) {
+      this.logger.warn('The mode is ENFORCE but enforcement is not available in this build: running as SHADOW.');
+      mode = 'SHADOW';
+    }
     return {
       revision,
-      // Anything that is not one of the three words is OFF: a typo must never switch enforcement on.
-      mode: value && AUTHZ_MODES.includes(value) ? value : 'OFF',
+      mode,
       org: { teams: orgTeams, children, members },
       config: { teamConfigs, templates: templateMap },
       users: userMap,

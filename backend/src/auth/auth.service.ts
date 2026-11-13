@@ -9,6 +9,7 @@ import type { StringValue } from 'ms';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
+import { enforcement } from '../authz/enforcement';
 import { OtpCodeService } from './services/otp-code.service';
 import { EmailService } from '../email/email.service';
 import { LoginDto } from './dto/login.dto';
@@ -728,9 +729,12 @@ export class AuthService {
       wardTeam,
       // Cùng dạng PermissionsGuard so khớp: 'action:subject'. Không ưu tiên riêng ADMIN — quản trị có đủ quyền qua
       // role_permissions, giao diện và máy chủ cùng một nguồn.
-      permissions: (user.role.permissions ?? []).map(
-        (rp) => `${rp.permission.action}:${rp.permission.subject}`,
-      ),
+      // Under permissions by team (enforced) the screen hides and shows by what the person holds there.
+      permissions:
+        enforcement()?.keysOf(user.id) ??
+        (user.role.permissions ?? []).map(
+          (rp) => `${rp.permission.action}:${rp.permission.subject}`,
+        ),
     };
   }
 

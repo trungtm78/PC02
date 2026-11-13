@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Case, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { enforcement } from '../../authz/enforcement';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 import {
   assertParentInScope,
@@ -921,6 +922,10 @@ export class CaseGovernanceService {
     return user;
   }
   private permission(user: DbActor, subject: string, action: string): boolean {
+    // Under permissions by team (enforced) the person holds what their teams give, not what the role holds: the
+    // same set the route guard and /auth/me use, or the three would disagree about one person.
+    const held = enforcement()?.keysOf(user.id);
+    if (held) return held.includes(`${action}:${subject}`);
     return user.role.permissions.some(
       ({ permission: p }) =>
         p.subject === subject && p.action === action && p.conditions === null,
@@ -943,6 +948,10 @@ export class CaseGovernanceService {
     }
   }
   async currentScope(tx: Tx, actor: DbActor): Promise<DataScope | null> {
+    // The same source as the request scope once permissions by team are enforced: one person, one scope.
+    // Read from memory: this runs inside transactions and must not take another connection.
+    const enforced = enforcement()?.scopeOf(actor.id);
+    if (enforced !== undefined) return enforced;
     if (actor.role.name === 'ADMIN') return null;
     const [memberships, teams, grants] = await Promise.all([
       tx.userTeam.findMany({

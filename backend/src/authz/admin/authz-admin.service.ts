@@ -334,6 +334,8 @@ export class AuthzAdminService {
     });
 
     if (!result) return { changed: false, changeSetId: null, items: [] };
+    // This process applies the change at once; the others notice it at their next background refresh.
+    await this.authz.refresh();
     return { changed: true, changeSetId: result.changeSetId, items: result.items };
   }
 
