@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TeamLifecycleService } from './team-lifecycle.service';
+import { TEAM_OWN_SETTINGS } from './team-references';
 
 /**
  * Team states on a REAL PostgreSQL.
@@ -183,7 +184,10 @@ run('Team status on PostgreSQL', () => {
 
       await new TeamLifecycleService(spy as never, audit as never).deletionCheck(id);
 
-      expect(seen.sort()).toEqual(await foreignKeysToTeams());
+      // Every reference is counted, except the team's own settings: those are not anybody's data and go with the team.
+      const all = await foreignKeysToTeams();
+      expect(seen.sort()).toEqual(all.filter((key) => !TEAM_OWN_SETTINGS.has(key)));
+      expect(all.filter((key) => TEAM_OWN_SETTINGS.has(key))).toEqual([...TEAM_OWN_SETTINGS].sort());
       // Anchors: the detector must include the cascading and the self-reference, or it proves nothing.
       expect(seen).toEqual(expect.arrayContaining(['user_teams.teamId', 'teams.parentId']));
     });

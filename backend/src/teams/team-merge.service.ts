@@ -19,7 +19,7 @@ export const MERGE_ERROR = {
  * "everything that points at the team" blindly is how a merge corrupts something nobody thought about, so a relation
  * added later has to be decided on before merge will touch the team.
  */
-type Strategy = 'repoint' | 'memberships' | 'grants' | 'report-targets' | 'history';
+type Strategy = 'repoint' | 'memberships' | 'grants' | 'report-targets' | 'history' | 'own-settings';
 const STRATEGY: Record<string, Strategy> = {
   'teams.parentId': 'repoint',
   'cases.assignedTeamId': 'repoint',
@@ -34,6 +34,8 @@ const STRATEGY: Record<string, Strategy> = {
   'dyn_report_targets.teamId': 'report-targets',
   // A generated period keeps the team it was generated for: history is never rewritten (D09).
   'dyn_report_assignments.teamId': 'history',
+  // What a team gives its people is that team's own setting: the people who move get what the target gives.
+  'team_permission_configs.teamId': 'own-settings',
 };
 const keyOf = (ref: TeamReference) => `${ref.table}.${ref.column}`;
 
@@ -44,7 +46,7 @@ export interface MergeSummary {
   moved: { table: string; column: string; count: number }[];
   duplicatesRemoved: { table: string; count: number }[];
   leadersRaised: number;
-  skipped: { table: string; column: string; count: number; reason: 'HISTORY' | 'TARGET_HAS_ONE' | 'CLOSED' }[];
+  skipped: { table: string; column: string; count: number; reason: 'HISTORY' | 'TARGET_HAS_ONE' | 'CLOSED' | 'OWN_SETTINGS' }[];
 }
 
 type Meta = { ipAddress?: string; userAgent?: string };
@@ -119,7 +121,7 @@ export class TeamMergeService {
         if (open - movable) summary.skipped.push({ table: ref.table, column: ref.column, count: open - movable, reason: 'TARGET_HAS_ONE' });
         if (total - open) summary.skipped.push({ table: ref.table, column: ref.column, count: total - open, reason: 'CLOSED' });
       } else if (total) {
-        summary.skipped.push({ table: ref.table, column: ref.column, count: total, reason: 'HISTORY' });
+        summary.skipped.push({ table: ref.table, column: ref.column, count: total, reason: strategy === 'own-settings' ? 'OWN_SETTINGS' : 'HISTORY' });
       }
     }
     return summary;
@@ -252,9 +254,9 @@ export class TeamMergeService {
       if (removed) summary.duplicatesRemoved.push({ table: ref.table, count: removed });
     }
 
-    if (strategy === 'history') {
+    if (strategy === 'history' || strategy === 'own-settings') {
       const kept = await int(tx, `SELECT count(*)::int AS n FROM ${t} WHERE ${c} = $1`, S);
-      if (kept) summary.skipped.push({ table: ref.table, column: ref.column, count: kept, reason: 'HISTORY' });
+      if (kept) summary.skipped.push({ table: ref.table, column: ref.column, count: kept, reason: strategy === 'history' ? 'HISTORY' : 'OWN_SETTINGS' });
       return;
     }
 

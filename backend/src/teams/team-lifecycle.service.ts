@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { TeamStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { listTeamReferences, quoteIdent, type RawDb } from './team-references';
+import { isTeamOwnSetting, listTeamReferences, quoteIdent, type RawDb } from './team-references';
 
 /** Machine codes the screen translates; the server never sends a sentence for these. */
 export const TEAM_ERROR = {
@@ -49,10 +49,12 @@ export class TeamLifecycleService {
   ) {}
 
   /** Rows that still refer to the team, per table and column. Includes the cascading ones (members, grants), because
-   * deleting those silently would be deleting people's data. */
+   * deleting those silently would be deleting people's data. The team's own settings (its permission configuration) are
+   * not data about anybody: they do not block, and go with the team. */
   private async blockersOf(db: RawDb, id: string): Promise<TeamBlocker[]> {
     const blockers: TeamBlocker[] = [];
     for (const ref of await listTeamReferences(db)) {
+      if (isTeamOwnSetting(ref)) continue;
       // The identifiers come from the catalogue and are quoted; the team id is always a bound parameter.
       const rows = await db.$queryRawUnsafe<{ n: number }[]>(
         `SELECT count(*)::int AS n FROM ${quoteIdent(ref.table)} WHERE ${quoteIdent(ref.column)} = $1`,
