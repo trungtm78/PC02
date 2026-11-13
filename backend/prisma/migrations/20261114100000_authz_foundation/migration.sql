@@ -100,12 +100,11 @@ CREATE TABLE "permission_change_sets" (
 );
 
 -- CreateTable
-CREATE TABLE "authz_revision" (
-    "id" INTEGER NOT NULL DEFAULT 1,
-    "revision" BIGINT NOT NULL DEFAULT 0,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE "authz_changes" (
+    "id" BIGSERIAL NOT NULL,
+    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "authz_revision_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "authz_changes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -168,63 +167,74 @@ ALTER TABLE "user_permission_overrides" ADD CONSTRAINT "user_permission_override
 -- AddForeignKey
 ALTER TABLE "user_permission_overrides" ADD CONSTRAINT "user_permission_overrides_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- The one row of the revision counter.
-INSERT INTO "authz_revision" ("id", "revision") VALUES (1, 0) ON CONFLICT ("id") DO NOTHING;
-
 -- TRIGGER-SECTION: everything below is re-applied by the database spec (the CI scratch schema is built with
 -- `prisma db push`, which creates the tables but not triggers).
--- Anything a person's effective permissions are computed from bumps the counter; caches are keyed by it.
+-- Anything a person's effective permissions are computed from leaves one row in "authz_changes"; caches are keyed by
+-- the rows a reader can see. An INSERT of a new row never waits for another transaction, so these triggers add no
+-- lock order to the writers that fire them (a counter row updated in place would: every writer would queue on it
+-- until the others commit).
 CREATE OR REPLACE FUNCTION authz_bump() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  INSERT INTO "authz_revision" ("id", "revision", "updatedAt") VALUES (1, 1, now())
-  ON CONFLICT ("id") DO UPDATE SET "revision" = "authz_revision"."revision" + 1, "updatedAt" = now();
+  INSERT INTO "authz_changes" DEFAULT VALUES;
   RETURN NULL;
 END $$;
 
-DROP TRIGGER IF EXISTS authz_bump ON "user_teams";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "user_teams"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
+-- The same, for statement triggers that are handed the rows the statement touched ("changed"): a statement that
+-- touched none (a cascade with nothing to delete, an update matching no row) is not a change.
+CREATE OR REPLACE FUNCTION authz_bump_if_rows() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM changed) THEN
+    INSERT INTO "authz_changes" DEFAULT VALUES;
+  END IF;
+  RETURN NULL;
+END $$;
 
-DROP TRIGGER IF EXISTS authz_bump ON "role_permissions";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "role_permissions"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
-
-DROP TRIGGER IF EXISTS authz_bump ON "data_access_grants";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "data_access_grants"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
-
-DROP TRIGGER IF EXISTS authz_bump ON "permission_templates";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "permission_templates"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
-
-DROP TRIGGER IF EXISTS authz_bump ON "permission_template_entries";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "permission_template_entries"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
-
-DROP TRIGGER IF EXISTS authz_bump ON "team_permission_configs";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "team_permission_configs"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
-
-DROP TRIGGER IF EXISTS authz_bump ON "team_permission_overrides";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "team_permission_overrides"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
-
-DROP TRIGGER IF EXISTS authz_bump ON "user_permission_overrides";
-CREATE TRIGGER authz_bump AFTER INSERT OR UPDATE OR DELETE ON "user_permission_overrides"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
+DO $$
+DECLARE t text;
+BEGIN
+  -- Whole-table sources: any row inserted, updated or deleted.
+  FOREACH t IN ARRAY ARRAY['user_teams', 'role_permissions', 'data_access_grants', 'permission_templates',
+                           'permission_template_entries', 'team_permission_configs', 'team_permission_overrides',
+                           'user_permission_overrides'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS authz_bump_upd ON %I', t);
+    EXECUTE format('CREATE TRIGGER authz_bump_upd AFTER UPDATE ON %I REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION authz_bump_if_rows()', t);
+  END LOOP;
+  -- Rows appearing or disappearing, for those and for the tables whose updates are watched by column below.
+  FOREACH t IN ARRAY ARRAY['user_teams', 'role_permissions', 'data_access_grants', 'permission_templates',
+                           'permission_template_entries', 'team_permission_configs', 'team_permission_overrides',
+                           'user_permission_overrides', 'teams', 'users', 'roles', 'permissions'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS authz_bump_ins ON %I', t);
+    EXECUTE format('CREATE TRIGGER authz_bump_ins AFTER INSERT ON %I REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION authz_bump_if_rows()', t);
+    EXECUTE format('DROP TRIGGER IF EXISTS authz_bump_del ON %I', t);
+    EXECUTE format('CREATE TRIGGER authz_bump_del AFTER DELETE ON %I REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION authz_bump_if_rows()', t);
+  END LOOP;
+END $$;
 
 -- Teams: only what changes who belongs under whom, or whether the team counts at all.
-DROP TRIGGER IF EXISTS authz_bump ON "teams";
-CREATE TRIGGER authz_bump AFTER INSERT OR DELETE OR UPDATE OF "parentId", "status", "isActive", "wardId" ON "teams"
-  FOR EACH STATEMENT EXECUTE FUNCTION authz_bump();
+DROP TRIGGER IF EXISTS authz_bump_upd ON "teams";
+CREATE TRIGGER authz_bump_upd AFTER UPDATE OF "parentId", "status", "isActive", "wardId" ON "teams"
+  FOR EACH ROW
+  WHEN (OLD."parentId" IS DISTINCT FROM NEW."parentId" OR OLD."status" IS DISTINCT FROM NEW."status"
+        OR OLD."isActive" IS DISTINCT FROM NEW."isActive" OR OLD."wardId" IS DISTINCT FROM NEW."wardId")
+  EXECUTE FUNCTION authz_bump();
 
--- Users: ONLY the three columns permissions depend on. `lastLoginAt` and `failedLoginAttempts` change at every login;
--- a trigger on the whole row would empty every cache each time anybody signs in.
-DROP TRIGGER IF EXISTS authz_bump ON "users";
-CREATE TRIGGER authz_bump AFTER UPDATE OF "roleId", "isActive", "canDispatch" ON "users"
+-- Users: ONLY the three columns permissions depend on. `lastLoginAt` and `failedLoginAttempts` change at every
+-- login; a trigger on the whole row would empty every cache at each sign-in.
+DROP TRIGGER IF EXISTS authz_bump_upd ON "users";
+CREATE TRIGGER authz_bump_upd AFTER UPDATE OF "roleId", "isActive", "canDispatch" ON "users"
   FOR EACH ROW
   WHEN (OLD."roleId" IS DISTINCT FROM NEW."roleId" OR OLD."isActive" IS DISTINCT FROM NEW."isActive"
         OR OLD."canDispatch" IS DISTINCT FROM NEW."canDispatch")
+  EXECUTE FUNCTION authz_bump();
+
+-- Roles: the name decides who is ADMIN. Permissions: what a pair IS. Rewriting a row with the same values (the
+-- permission seed does, at every deploy) is not a change.
+DROP TRIGGER IF EXISTS authz_bump_upd ON "roles";
+CREATE TRIGGER authz_bump_upd AFTER UPDATE OF "name" ON "roles"
+  FOR EACH ROW WHEN (OLD."name" IS DISTINCT FROM NEW."name") EXECUTE FUNCTION authz_bump();
+DROP TRIGGER IF EXISTS authz_bump_upd ON "permissions";
+CREATE TRIGGER authz_bump_upd AFTER UPDATE OF "action", "subject" ON "permissions"
+  FOR EACH ROW WHEN (OLD."action" IS DISTINCT FROM NEW."action" OR OLD."subject" IS DISTINCT FROM NEW."subject")
   EXECUTE FUNCTION authz_bump();
 
 -- The mode switch itself (OFF / SHADOW / ENFORCE).

@@ -1,13 +1,15 @@
+import { TEAM_TREE_MAX_DEPTH } from '../../teams/teams.service';
 import type { EffectivePermissions, OrgSnapshot, RecordScope } from './types';
 
-const MAX_DEPTH = 50;
-
-/** The active teams under a team, any depth (the team itself not included). Inactive branches are not entered. */
+/**
+ * The active teams under a team (the team itself not included), as deep as `TeamsService.getDescendantIds` goes
+ * today and no deeper: "as today" must not quietly reach a level it never reached. Inactive branches are not entered.
+ */
 export function activeDescendants(org: OrgSnapshot, teamId: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>([teamId]);
   const walk = (id: string, depth: number) => {
-    if (depth >= MAX_DEPTH) return;
+    if (depth >= TEAM_TREE_MAX_DEPTH) return;
     for (const child of org.children.get(id) ?? []) {
       if (seen.has(child) || !org.teams.get(child)?.active) continue;
       seen.add(child);
@@ -62,31 +64,39 @@ export function recordScope(
       }
     }
   }
-  // Data access grants extend whatever the person may do with records at all; they give nothing to someone with no
-  // grant for the permission.
+  // Data access grants extend whatever the person may do with records at all: the granted team's records and its
+  // members' records. They give nothing to someone with no grant for the permission, and they never bring the
+  // unassigned records with them: those come only with a TEAM_TREE grant.
+  const granted = new Set<string>();
   if (grants.length > 0) {
-    for (const g of effective.dataGrants) {
-      if (operation === 'read' || g.level === 'WRITE') {
-        tree = true;
-        treeTeams.add(g.teamId);
-      }
-    }
+    for (const g of effective.dataGrants) if (operation === 'read' || g.level === 'WRITE') granted.add(g.teamId);
   }
-  if (!tree) return { all: false, own, exactTeamIds: [...exact], tree: null };
+  if (!tree && granted.size === 0) return { all: false, own, exactTeamIds: [...exact], tree: null };
 
-  const users = membersOf(org, treeTeams);
+  const teams = new Set([...treeTeams, ...granted]);
+  const users = membersOf(org, teams);
   users.add(effective.userId);
   return {
     all: false,
     own,
-    exactTeamIds: [...exact].filter((t) => !treeTeams.has(t)),
+    exactTeamIds: [...exact].filter((t) => !teams.has(t)),
     tree: {
-      teamIds: [...treeTeams],
+      teamIds: [...teams],
       userIds: [...users],
-      // A ward officer never sees unassigned records; neither does someone whose tree is no team at all.
-      includeUnassigned: treeTeams.size > 0 && effective.wardTeamId === null,
+      // Unassigned records: only "as today" brings them, never for a ward officer, and (as today) only for someone
+      // who reaches at least one team.
+      includeUnassigned: tree && teams.size > 0 && effective.wardTeamId === null,
     },
   };
+}
+
+/**
+ * Whether having a permission is about seeing records or about changing them: which data access grants extend it
+ * (READ grants extend only seeing).
+ */
+export function operationOf(permission: string): 'read' | 'write' {
+  const action = permission.slice(0, permission.indexOf(':'));
+  return ['read', 'read_sensitive', 'export_full', 'download'].includes(action) ? 'read' : 'write';
 }
 
 /** The shape today's filters take (`DataScope` of UnitScopeService). */

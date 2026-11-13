@@ -7,7 +7,7 @@ import {
 } from '../../prisma/permission-resources';
 import { AuthzService, type AuthzMode } from './authz.service';
 import { widestReach } from './engine/compile';
-import { recordScope } from './engine/scope';
+import { operationOf, recordScope } from './engine/scope';
 import type { Grant, MuteSource, Reach } from './engine/types';
 
 export interface CatalogueResourceView {
@@ -41,7 +41,7 @@ export interface EffectivePermissionView {
   grants: GrantView[];
   /** Overrides that took it away, if any. */
   mutedBy: { source: MuteSource['kind']; teamId: string | null; teamName: string | null }[];
-  /** For a record permission the person has: the teams it reaches, by name. */
+  /** For a record permission the person has: how far it reaches (for seeing, or for changing, as the permission is). */
   reaches: { all: boolean; own: boolean; teams: { id: string; name: string }[]; unassigned: boolean } | null;
 }
 
@@ -73,7 +73,7 @@ export class AuthzLookupService {
   /** Every permission of the catalogue for one person: has it or not, how far, and why. */
   async effectiveOf(userId: string, now: Date = new Date()): Promise<EffectiveView> {
     const snapshot = await this.authz.snapshot();
-    const effective = await this.authz.effective(userId, now);
+    const effective = this.authz.effectiveIn(snapshot, userId, now);
     const team = (id: string | null) => (id ? (snapshot.teamNames.get(id) ?? id) : null);
     const named = (ids: readonly string[]) => ids.map((id) => ({ id, name: team(id) as string }));
 
@@ -83,7 +83,8 @@ export class AuthzLookupService {
         const grants = effective.grants.get(permission) ?? [];
         let reaches: EffectivePermissionView['reaches'] = null;
         if (grants.length > 0 && scopeSubjectOf(resource) !== undefined) {
-          const scope = recordScope(snapshot.org, effective, permission, 'read');
+          // A permission that changes records is extended only by grants that allow changing.
+          const scope = recordScope(snapshot.org, effective, permission, operationOf(permission));
           reaches = scope.all
             ? { all: true, own: true, teams: [], unassigned: true }
             : {

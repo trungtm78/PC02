@@ -19,7 +19,8 @@ export type AuthzMode = (typeof AUTHZ_MODES)[number];
 
 /** Everything effective permissions are computed from, as it was at one revision of the counter. */
 export interface AuthzSnapshot {
-  revision: bigint;
+  /** Opaque: equal while nothing changed. */
+  revision: string;
   mode: AuthzMode;
   org: OrgSnapshot;
   config: AuthzConfig;
@@ -49,10 +50,15 @@ export class AuthzService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** The counter the triggers keep. A database without its row yet (a fresh scratch schema) is at 0. */
-  async revision(): Promise<bigint> {
-    const row = await this.prisma.authzRevision.findUnique({ where: { id: 1 }, select: { revision: true } });
-    return row?.revision ?? 0n;
+  /**
+   * What the triggers have logged, as far as this connection can see: the number of rows and the last one. A change
+   * becomes visible here exactly when it is committed, so data read after seeing a revision is at least that new.
+   * (The count alone would do; the last id makes the value readable.)
+   */
+  async revision(): Promise<string> {
+    const rows = await this.prisma.$queryRaw<{ n: bigint; last: bigint }[]>`
+      SELECT count(*)::bigint AS n, coalesce(max("id"), 0)::bigint AS last FROM "authz_changes"`;
+    return `${rows[0].n}:${rows[0].last}`;
   }
 
   async snapshot(): Promise<AuthzSnapshot> {
@@ -76,19 +82,27 @@ export class AuthzService {
 
   /** What the person may do at `now`. Unknown or switched-off people are not found. */
   async effective(userId: string, now: Date = new Date()): Promise<EffectivePermissions> {
-    const snapshot = await this.snapshot();
-    const cached = this.effectiveCache.get(userId);
+    return this.effectiveIn(await this.snapshot(), userId, now);
+  }
+
+  /**
+   * The same, against a snapshot the caller already holds: whoever also reads teams or names from the snapshot must
+   * get the person's answer from THAT snapshot, or the two could describe different moments.
+   */
+  effectiveIn(snapshot: AuthzSnapshot, userId: string, now: Date = new Date()): EffectivePermissions {
+    const current = snapshot === this.snapshotCache;
+    const cached = current ? this.effectiveCache.get(userId) : undefined;
     if (cached && (cached.validUntil === null || cached.validUntil.getTime() > now.getTime())) return cached;
     const user = snapshot.users.get(userId);
     if (!user) throw new NotFoundException({ code: 'AUTHZ_USER_NOT_FOUND' });
     const effective = compile(snapshot.org, snapshot.config, user, now);
-    this.effectiveCache.set(userId, effective);
+    if (current) this.effectiveCache.set(userId, effective);
     return effective;
   }
 
   private async load(): Promise<AuthzSnapshot> {
-    // The counter is read FIRST: a change landing during the reads below leaves a snapshot labelled older than it
-    // is, which the next call replaces; the other order could label stale data as current and keep it.
+    // The revision is read FIRST: a change committed during the reads below leaves a snapshot labelled older than
+    // it is, which the next call replaces; the other order could label stale data as current and keep it.
     const revision = await this.revision();
     const [teams, memberships, configs, templates, roles, users, userOverrides, dataGrants, modeRow] = await Promise.all([
       this.prisma.team.findMany({ select: { id: true, name: true, parentId: true, status: true, wardId: true } }),

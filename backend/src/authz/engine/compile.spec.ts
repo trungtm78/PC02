@@ -1,7 +1,8 @@
 import * as fc from 'fast-check';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
+import { TEAM_TREE_MAX_DEPTH, TeamsService } from '../../teams/teams.service';
 import { compile, governingConfig, isRecordScoped, widestReach } from './compile';
-import { activeDescendants, recordScope, toLegacyScope } from './scope';
+import { activeDescendants, operationOf, recordScope, toLegacyScope } from './scope';
 import { entryProblems } from './validate';
 import type { AuthzConfig, OrgSnapshot, OrgTeam, Reach, RecordScope, TeamConfigInput, TemplateInput, UserInput } from './types';
 
@@ -119,6 +120,20 @@ describe('compile: a team that has its own configuration', () => {
     const e = compile(o, cfg, user({ id: 'u3', memberships: [{ teamId: 'A1', isLeader: false }] }), NOW);
     expect(e.grants.get('read:Petition')![0]).toMatchObject({ teamId: 'A1', source: { configTeamId: 'A' } });
     expect(recordScope(o, e, 'read:Petition', 'read')).toMatchObject({ exactTeamIds: ['A1'] });
+  });
+
+  it('a configured reach the permission cannot have grants NOTHING (it is never read as "everything")', () => {
+    const cfg = config(
+      [{ teamId: 'A', memberTemplateId: 't', overrides: [{ permission: 'write:User', effect: 'GRANT', reach: 'TEAM', expiresAt: null, audience: 'ALL' }] }],
+      [template('t', { 'read:User': 'OWN', 'read:Directory': 'TEAM_TREE', 'read:Setting': 'ALL', 'read:Case': 'OWN' })],
+    );
+    const e = compile(
+      o,
+      cfg,
+      user({ memberships: [{ teamId: 'A', isLeader: false }], overrides: [{ permission: 'delete:User', effect: 'GRANT', reach: 'OWN', expiresAt: null }] }),
+      NOW,
+    );
+    expect(e.keys).toEqual(['read:Case', 'read:Setting']);
   });
 
   it('an explicit configuration with no template gives nothing', () => {
@@ -246,6 +261,22 @@ describe('data access grants', () => {
     expect(sorted(read.tree!.userIds)).toEqual(['g1', 'u1', 'w1']);
     expect(sorted(write.tree!.teamIds)).toEqual(['A', 'W']);
     expect(sorted(write.tree!.userIds)).toEqual(['u1', 'w1']);
+  });
+
+  it('never bring unassigned records to someone limited to their own or to one team', () => {
+    for (const reach of ['OWN', 'TEAM'] as const) {
+      const cfg = config([{ teamId: 'A', memberTemplateId: 't' }], [template('t', { 'read:Case': reach })]);
+      const scope = recordScope(o, compile(o, cfg, u, NOW), 'read:Case', 'read') as Exclude<RecordScope, { all: true }>;
+      expect(sorted(scope.tree!.teamIds)).toEqual(['G', 'W']);
+      expect(scope.tree!.includeUnassigned).toBe(false);
+    }
+    // "As today" still has them.
+    expect((recordScope(o, compile(o, config(), u, NOW), 'read:Case', 'read') as { tree: { includeUnassigned: boolean } }).tree.includeUnassigned).toBe(true);
+  });
+
+  it('seeing and changing: which permissions a READ grant extends', () => {
+    expect(['read:Case', 'export_full:Petition', 'read_sensitive:CaseGovernance', 'download:CaseGovernance'].map(operationOf)).toEqual(['read', 'read', 'read', 'read']);
+    expect(['edit:Case', 'delete:Case', 'restore:Case', 'write:Case', 'approve:Report'].map(operationOf)).toEqual(['write', 'write', 'write', 'write', 'write']);
   });
 
   it('give nothing to someone who has no grant for the permission at all', () => {
@@ -392,10 +423,18 @@ describe('GOLDEN: with nothing configured, the engine answers what UnitScopeServ
             .map((g) => ({ teamId: g.teamId, accessLevel: g.level })),
       },
     };
-    const teams = {
-      getDescendantIds: async (id: string) => activeDescendants(o, id),
-      getUserIdsForTeams: async (ids: string[]) => [...new Set(ids.flatMap((id) => [...(o.members.get(id) ?? [])]))],
+    const teamRows = {
+      team: {
+        findMany: async ({ where }: { where: { parentId: string; isActive: boolean } }) =>
+          [...o.teams.values()].filter((t) => t.parentId === where.parentId && t.active === where.isActive).map((t) => ({ id: t.id })),
+      },
+      userTeam: {
+        findMany: async ({ where }: { where: { teamId: { in: string[] } } }) =>
+          where.teamId.in.flatMap((teamId) => [...(o.members.get(teamId) ?? [])].map((userId) => ({ userId }))),
+      },
     };
+    // The REAL TeamsService (its depth limit included), reading the generated organisation.
+    const teams = new (TeamsService as unknown as new (prisma: unknown) => TeamsService)(teamRows);
     return new UnitScopeService(prisma as never, teams as never).resolveScope(u.id, u.roleName, u.canDispatch);
   }
 
@@ -426,6 +465,18 @@ describe('GOLDEN: with nothing configured, the engine answers what UnitScopeServ
       ),
       { numRuns: 300 },
     );
+  });
+
+  it('a chain deeper than the limit of today stops where the resolver of today stops', async () => {
+    const chain = ['T0', 'T1', 'T2', 'T3', 'T4', 'T5'];
+    const o = org(chain.map((id, i) => ({ id, parentId: i ? chain[i - 1] : null })), Object.fromEntries(chain.map((id) => [id, [`m-${id}`]])));
+    const u = user({ memberships: [{ teamId: 'T0', isLeader: false }] });
+    const expected = (await today(o, u))!;
+    expect(sorted(expected.teamIds)).toEqual(chain.slice(0, TEAM_TREE_MAX_DEPTH + 1));
+    const e = compile(o, config(), u, NOW);
+    const mine = toLegacyScope(e, recordScope(o, e, 'read:Case', 'read'), recordScope(o, e, 'edit:Case', 'write'))!;
+    expect(sorted(mine.teamIds)).toEqual(sorted(expected.teamIds));
+    expect(sorted(mine.userIds)).toEqual(sorted(expected.userIds));
   });
 
   it('ADMIN is unrestricted in both', async () => {

@@ -47,16 +47,16 @@ run('authz foundation on PostgreSQL', () => {
   };
 
   /**
-   * How far the counter moves for one statement. The counter row is locked first, so nothing another connection does
-   * meanwhile can be mistaken for this statement's doing; everything is rolled back.
+   * How many change rows one statement leaves. Counted inside a REPEATABLE READ transaction: what other connections
+   * commit meanwhile is not seen, so it cannot be mistaken for this statement's doing. Everything is rolled back.
    */
   async function bumps(sql: string, params: unknown[] = []): Promise<number> {
-    await pg.query('BEGIN');
+    await pg.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
     try {
-      const before = await pg.query('SELECT "revision" FROM "authz_revision" WHERE "id" = 1 FOR UPDATE');
+      const count = async () => Number((await pg.query('SELECT count(*)::int AS n FROM "authz_changes"')).rows[0].n);
+      const before = await count();
       await pg.query(sql, params);
-      const after = await pg.query('SELECT "revision" FROM "authz_revision" WHERE "id" = 1');
-      return Number(after.rows[0].revision) - Number(before.rows[0].revision);
+      return (await count()) - before;
     } finally {
       await pg.query('ROLLBACK');
     }
@@ -73,7 +73,6 @@ run('authz foundation on PostgreSQL', () => {
     // `prisma db push` (how the CI scratch schema is built) creates tables but no triggers and no rows.
     await pg.query(triggersOf('20261113100000_team_status'));
     await pg.query(triggersOf('20261114100000_authz_foundation'));
-    await pg.query('INSERT INTO "authz_revision" ("id", "revision") VALUES (1, 0) ON CONFLICT ("id") DO NOTHING');
 
     roleId = (await db.role.create({ data: { name: `${tag}-role` } })).id;
     otherRoleId = (await db.role.create({ data: { name: `${tag}-role2` } })).id;
@@ -118,13 +117,12 @@ run('authz foundation on PostgreSQL', () => {
       ).toBe(1);
     });
 
-    it('a team moved under another, paused, or created; one statement over many rows counts once', async () => {
+    it('a team moved under another, paused, or created', async () => {
       const parent = await team();
       const a = await team();
       await team();
       expect(await bumps('UPDATE "teams" SET "parentId" = $1 WHERE "id" = $2', [parent.id, a.id])).toBe(1);
       expect(await bumps(`UPDATE "teams" SET "status" = 'INACTIVE' WHERE "id" = $1`, [a.id])).toBe(1);
-      expect(await bumps(`UPDATE "teams" SET "status" = 'INACTIVE' WHERE "code" LIKE $1`, [`${tag}-%`])).toBe(1);
       expect(
         await bumps(`INSERT INTO "teams" ("id", "name", "code", "updatedAt") VALUES ($1, $1, $1, now())`, [`${tag}-new`]),
       ).toBe(1);
@@ -168,6 +166,85 @@ run('authz foundation on PostgreSQL', () => {
         ? `UPDATE "system_settings" SET "value" = "value" WHERE "key" = $1`
         : `INSERT INTO "system_settings" ("id", "key", "value", "label", "updatedAt") VALUES ($1, $1, 'OFF', 'x', now())`;
       expect(await bumps(write, [KEY])).toBe(1);
+    });
+  });
+
+  describe('people, roles and permissions themselves', () => {
+    it('a person created or removed', async () => {
+      const insert = `INSERT INTO "users" ("id", "username", "passwordHash", "roleId", "updatedAt") VALUES ($1, $1, 'x', $2, now())`;
+      expect(await bumps(insert, [`${tag}-new-user`, roleId])).toBe(1);
+      const gone = await db.user.create({ data: { username: `${tag}-gone`, passwordHash: 'x', roleId } });
+      expect(await bumps('DELETE FROM "users" WHERE "id" = $1', [gone.id])).toBe(1);
+    });
+
+    it('a role renamed (the name decides who is ADMIN), created or removed; the same name written again is not a change', async () => {
+      expect(await bumps('UPDATE "roles" SET "name" = $1 WHERE "id" = $2', [`${tag}-renamed`, otherRoleId])).toBe(1);
+      expect(await bumps('UPDATE "roles" SET "name" = "name", "description" = $1 WHERE "id" = $2', ['d', otherRoleId])).toBe(0);
+      expect(await bumps(`INSERT INTO "roles" ("id", "name", "updatedAt") VALUES ($1, $1, now())`, [`${tag}-role3`])).toBe(1);
+    });
+
+    it('a permission created or redefined; the seed rewriting it with the same values is not a change', async () => {
+      expect(await bumps(`INSERT INTO "permissions" ("id", "action", "subject") VALUES ($1, $1, 'AuthzSpec')`, [`${tag}-p2`])).toBe(1);
+      expect(await bumps('UPDATE "permissions" SET "action" = $1 WHERE "id" = $2', [`${tag}-other`, permissionId])).toBe(1);
+      expect(
+        await bumps('UPDATE "permissions" SET "action" = "action", "subject" = "subject", "description" = $1 WHERE "id" = $2', ['d', permissionId]),
+      ).toBe(0);
+    });
+  });
+
+  describe('the change log is not a lock', () => {
+    it('two writers that both leave a change do not wait for each other (a counter row would make the second queue, and deadlock a merge)', async () => {
+      const t = await team();
+      const other = new Client({ connectionString: url! });
+      await other.connect();
+      try {
+        await pg.query('BEGIN');
+        await pg.query('INSERT INTO "user_teams" ("userId", "teamId") VALUES ($1, $2)', [userId, t.id]);
+        // The first writer has not committed. The second must go through at once, not wait for it.
+        await other.query('BEGIN');
+        await other.query(`SET LOCAL lock_timeout = '2s'`);
+        await other.query(`UPDATE "teams" SET "status" = 'INACTIVE' WHERE "id" = $1`, [(await team()).id]);
+        await other.query('COMMIT');
+      } finally {
+        await pg.query('ROLLBACK');
+        await other.end();
+      }
+    });
+
+    it('a change is seen by a reader only once it is committed', async () => {
+      const t = await team();
+      const reader = new Client({ connectionString: url! });
+      await reader.connect();
+      const seen = async () => Number((await reader.query('SELECT count(*)::int AS n FROM "authz_changes"')).rows[0].n);
+      try {
+        await pg.query('BEGIN');
+        const before = await seen();
+        await pg.query('INSERT INTO "user_teams" ("userId", "teamId") VALUES ($1, $2)', [userId, t.id]);
+        expect(await seen()).toBe(before);
+        await pg.query('COMMIT');
+        expect(await seen()).toBeGreaterThan(before);
+      } finally {
+        await pg.query('ROLLBACK').catch(() => undefined);
+        await reader.end();
+      }
+    });
+  });
+
+  describe('a statement that touches no row is not a change', () => {
+    it('a delete or an update that matches nothing', async () => {
+      expect(await bumps('DELETE FROM "user_teams" WHERE "teamId" = $1', [`${tag}-nothing`])).toBe(0);
+      expect(await bumps('UPDATE "data_access_grants" SET "expiresAt" = now() WHERE "teamId" = $1', [`${tag}-nothing`])).toBe(0);
+      expect(await bumps('DELETE FROM "users" WHERE "id" = $1', [`${tag}-nothing`])).toBe(0);
+    });
+
+    it('removing a person with no memberships, grants or overrides is one change, not one per cascade', async () => {
+      const gone = await db.user.create({ data: { username: `${tag}-bare`, passwordHash: 'x', roleId } });
+      expect(await bumps('DELETE FROM "users" WHERE "id" = $1', [gone.id])).toBe(1);
+    });
+
+    it('a team rewritten with the same parent, state and ward', async () => {
+      const t = await team();
+      expect(await bumps('UPDATE "teams" SET "parentId" = "parentId", "status" = "status", "wardId" = "wardId" WHERE "id" = $1', [t.id])).toBe(0);
     });
   });
 

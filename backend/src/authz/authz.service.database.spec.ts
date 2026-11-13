@@ -107,7 +107,7 @@ run('AuthzService on PostgreSQL', () => {
 
     const after = await service.snapshot();
     expect(after).not.toBe(before);
-    expect(after.revision > before.revision).toBe(true);
+    expect(after.revision).not.toBe(before.revision);
     expect((await service.effective(id.member)).keys).toEqual(['read:Case']);
     expect((await service.effective(id.leader)).keys).toEqual(['delete:Case', 'read:Case']);
     // Somebody in no team keeps the role.
@@ -132,6 +132,23 @@ run('AuthzService on PostgreSQL', () => {
     expect(e.activeTeamIds).toEqual([]);
     expect(e.keys).toEqual(['edit:Case', 'read:Case', 'read:Directory']);
     await db.team.update({ where: { id: id.A1 }, data: { status: 'ACTIVE' } });
+  });
+
+  it('a person created after the configuration was read is found (their creation is a change too)', async () => {
+    await service.snapshot();
+    const created = await db.user.create({ data: { username: `${tag}-late`, passwordHash: 'x', roleId: id.role } });
+    expect((await service.effective(created.id)).keys).toEqual(['edit:Case', 'read:Case', 'read:Directory']);
+  });
+
+  it('an answer asked against an older snapshot is computed from THAT snapshot and not kept', async () => {
+    const old = await service.snapshot();
+    await db.userTeam.create({ data: { userId: id.loner, teamId: id.A1 } });
+    const current = await service.snapshot();
+    expect(current).not.toBe(old);
+    expect(service.effectiveIn(old, id.loner).activeTeamIds).toEqual([]);
+    expect(service.effectiveIn(current, id.loner).activeTeamIds).toEqual([id.A1]);
+    expect(service.effectiveIn(current, id.loner)).toBe(await service.effective(id.loner));
+    await db.userTeam.delete({ where: { userId_teamId: { userId: id.loner, teamId: id.A1 } } });
   });
 
   it('someone unknown or switched off is not found', async () => {
@@ -179,6 +196,16 @@ run('AuthzService on PostgreSQL', () => {
       expect(view.permissions.find((p) => p.permission === 'edit:Case')).toMatchObject({ reach: null, grants: [], reaches: null });
       // Every permission of the catalogue is answered.
       expect(view.permissions.length).toBe(lookup.catalogue().reduce((n, r) => n + new Set([...Object.values(r.basic), ...Object.values(r.extras)]).size, 0));
+    });
+
+    it('a team the person may only READ through a data access grant is not shown as one they may change', async () => {
+      const granted = await db.team.create({ data: { code: `${tag}-G`, name: `${tag} Tổ G` } });
+      await db.dataAccessGrant.create({ data: { granteeId: id.leader, teamId: granted.id, accessLevel: 'READ', grantedById: id.leader } });
+      const view = await lookup.effectiveOf(id.leader);
+      const names = (permission: string) => view.permissions.find((p) => p.permission === permission)!.reaches!.teams.map((t) => t.name);
+      expect(names('read:Case')).toContain(`${tag} Tổ G`);
+      expect(names('delete:Case')).not.toContain(`${tag} Tổ G`);
+      await db.dataAccessGrant.deleteMany({ where: { teamId: granted.id } });
     });
 
     it('shows what an override took away and from whom it came', async () => {

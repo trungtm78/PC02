@@ -1,4 +1,4 @@
-import { depthRank, resourceOfPermission, scopeSubjectOf } from '../../../prisma/permission-resources';
+import { allowedDepths, depthRank, resourceOfPermission, scopeSubjectOf } from '../../../prisma/permission-resources';
 import type {
   AuthzConfig,
   EffectivePermissions,
@@ -23,8 +23,8 @@ export function isRecordScoped(permission: string): boolean {
   return !!resource && scopeSubjectOf(resource) !== undefined;
 }
 
-/** A permission that is all-or-nothing is held at ALL whatever reach it was written with. */
-const reachFor = (permission: string, reach: Reach): Reach => (isRecordScoped(permission) ? reach : 'ALL');
+/** What a ROLE holds has no reach of its own: as far as a team reaches today for records, simply held otherwise. */
+const roleReach = (permission: string): Reach => (isRecordScoped(permission) ? 'TEAM_TREE' : 'ALL');
 
 /**
  * The configuration that governs a team: its own if EXPLICIT, else its nearest ancestor's that is. Null = nobody up
@@ -55,9 +55,10 @@ export function compile(org: OrgSnapshot, config: AuthzConfig, user: UserInput, 
   const muted = new Map<string, MuteSource[]>();
   const expiries: Date[] = [];
   const add = (permission: string, grant: Grant) => {
-    const list = grants.get(permission) ?? [];
-    list.push({ ...grant, reach: reachFor(permission, grant.reach) });
-    grants.set(permission, list);
+    // A configured reach the permission cannot have ("users: own records only") is a broken row, not a request for
+    // everything: it grants NOTHING. The save path refuses such rows; this is for one that got in another way.
+    if (!allowedDepths(permission).includes(grant.reach)) return;
+    grants.set(permission, [...(grants.get(permission) ?? []), grant]);
   };
   const noteMute = (permission: string, source: MuteSource) => muted.set(permission, [...(muted.get(permission) ?? []), source]);
   const consider = (o: OverrideInput): boolean => {
@@ -91,7 +92,7 @@ export function compile(org: OrgSnapshot, config: AuthzConfig, user: UserInput, 
 
   const memberships = user.memberships.filter((m) => org.teams.get(m.teamId)?.active);
   const fromRole = (teamId: string | null) => {
-    for (const p of user.rolePermissions) add(p, { reach: 'TEAM_TREE', teamId, source: { kind: 'ROLE', teamId } });
+    for (const p of user.rolePermissions) add(p, { reach: roleReach(p), teamId, source: { kind: 'ROLE', teamId } });
   };
 
   // A person in no team that counts keeps what their role holds, over their own records (there is no team to reach).

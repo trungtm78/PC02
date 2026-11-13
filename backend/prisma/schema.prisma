@@ -5070,12 +5070,13 @@ model PermissionChangeSet {
   @@map("permission_change_sets")
 }
 
-/// One row (id = 1). Its number goes up, by database triggers, whenever anything a person's effective permissions
-/// are computed from changes; caches are keyed by it.
-model AuthzRevision {
-  id        Int      @id @default(1)
-  revision  BigInt   @default(0)
-  updatedAt DateTime @default(now())
+/// One row per change of anything a person's effective permissions are computed from, written by database triggers.
+/// Append-only on purpose: a single counter row would be a lock every such writer queues on (and deadlocks with a
+/// long transaction such as a team merge). Readers key their caches by how many rows they can see: a row is visible
+/// exactly when the change that wrote it is committed.
+model AuthzChange {
+  id BigInt   @id @default(autoincrement())
+  at DateTime @default(now())
 
-  @@map("authz_revision")
+  @@map("authz_changes")
 }
