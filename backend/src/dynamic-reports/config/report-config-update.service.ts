@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { generatePeriods } from '../engine/period';
 import type { ScheduleRule } from '../engine/period';
-import { ReportConfigError } from './report-config.service';
+import { ReportConfigError, subsetOrConfigError } from './report-config.service';
 import { reconcileAssignmentEditors } from '../aggregate/assignment-editors';
 import type { UpdateReportConfigDto } from './dto/update-report-config.dto';
 
@@ -245,6 +245,27 @@ export class ReportConfigUpdateService {
     return changed;
   }
 
+  /** The fields of the version new periods are made from: the latest published one, else the latest draft. */
+  private async currentFields(tx: Prisma.TransactionClient, reportId: string) {
+    const version =
+      (await tx.dynReportVersion.findFirst({
+        where: { reportId, status: 'PUBLISHED' },
+        orderBy: { version: 'desc' },
+        select: { id: true },
+      })) ??
+      (await tx.dynReportVersion.findFirst({
+        where: { reportId },
+        orderBy: { version: 'desc' },
+        select: { id: true },
+      }));
+    if (!version) return [];
+    return tx.dynReportField.findMany({
+      where: { versionId: version.id },
+      select: { fieldKey: true, itemKey: true },
+      orderBy: [{ sheetKey: 'asc' }, { address: 'asc' }],
+    });
+  }
+
   private async applyTargets(
     tx: Prisma.TransactionClient,
     reportId: string,
@@ -274,6 +295,10 @@ export class ReportConfigUpdateService {
     const byTeam = new Map(current.map((t) => [t.teamId, t]));
     const wanted = new Map(next.map((t) => [t.teamId, t]));
 
+    // A subset names criteria of the version in force; read its fields only when some team sends a subset.
+    const fields = next.some((t) => Array.isArray(t.itemKeys)) ? await this.currentFields(tx, reportId) : [];
+    const subsetOf = (t: (typeof next)[number]) => subsetOrConfigError(t.teamId, t.itemKeys, fields);
+
     let changed = false;
     // Teams that leave: the target and everyone typing for it get an end date.
     for (const target of current) {
@@ -288,12 +313,27 @@ export class ReportConfigUpdateService {
     for (const [teamId, t] of wanted) {
       const existing = byTeam.get(teamId);
       if (!existing) {
-        const created = await tx.dynReportTarget.create({ data: { reportId, teamId, validFrom: now } });
+        const itemKeys = subsetOf(t);
+        const created = await tx.dynReportTarget.create({
+          data: { reportId, teamId, validFrom: now, ...(itemKeys ? { itemKeys } : {}) },
+        });
         await tx.dynReportTargetEditor.createMany({
           data: [...new Set(t.editorUserIds)].map((userId) => ({ targetId: created.id, userId, validFrom: now })),
         });
         changed = true;
         continue;
+      }
+      // The criteria the team reports: left alone when the request does not mention them; null = every criterion.
+      if (t.itemKeys !== undefined) {
+        const itemKeys = subsetOf(t);
+        const before = Array.isArray(existing.itemKeys) ? (existing.itemKeys as unknown[]) : null;
+        if (JSON.stringify(before) !== JSON.stringify(itemKeys)) {
+          await tx.dynReportTarget.update({
+            where: { id: existing.id },
+            data: { itemKeys: itemKeys ?? Prisma.DbNull },
+          });
+          changed = true;
+        }
       }
       const wantedEditors = new Set(t.editorUserIds);
       const haveEditors = new Set(existing.editors.map((e) => e.userId));
