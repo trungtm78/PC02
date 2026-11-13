@@ -178,6 +178,9 @@ export interface AssignmentSummary {
   teamName: string;
   periodKey: string;
   dueAt: string;
+  /** The editor's own list only: when the period opens, and whether that is still ahead. */
+  opensAt?: string;
+  notYetOpen?: boolean;
   state: SubmissionState;
 }
 
@@ -1377,10 +1380,13 @@ export class SubmissionService {
           },
         },
       },
-      orderBy: { assignment: { period: { dueAt: 'desc' } } },
     });
 
-    return editors
+    // What can be entered now comes first, nearest due date first; the periods the scheduler made ahead (six of them)
+    // that have not opened come after, the one opening soonest first. The list used to open on the farthest future
+    // period, which is locked.
+    const now = Date.now();
+    const rows = editors
       .filter((e) => e.assignment.period.status === 'OPEN')
       .map((e) => {
         const { assignment } = e;
@@ -1395,9 +1401,16 @@ export class SubmissionService {
           teamName: teamSnapshot?.name ?? '',
           periodKey: assignment.period.periodKey,
           dueAt: assignment.period.dueAt.toISOString(),
+          opensAt: assignment.period.opensAt.toISOString(),
+          notYetOpen: assignment.period.opensAt.getTime() > now,
           state: assignment.submission?.state ?? 'NOT_STARTED',
         };
       });
+    return rows.sort((a, b) => {
+      if (a.notYetOpen !== b.notYetOpen) return a.notYetOpen ? 1 : -1;
+      const key = a.notYetOpen ? 'opensAt' : 'dueAt';
+      return a[key]!.localeCompare(b[key]!);
+    });
   }
 
   async getSubmission(

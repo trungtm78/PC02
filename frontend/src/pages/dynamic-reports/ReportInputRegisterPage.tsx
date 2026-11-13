@@ -12,7 +12,7 @@ import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
-import { formatVNDateTime } from '@/lib/dates';
+import { formatVNDate, formatVNDateTime } from '@/lib/dates';
 
 export default function ReportInputRegisterPage() {
   const { data, isLoading, isError } = useQuery({
@@ -54,7 +54,7 @@ export default function ReportInputRegisterPage() {
             <Link
               key={a.assignmentId}
               to={`/bao-cao-dong/nhap/${a.assignmentId}`}
-              className="flex items-center justify-between px-4 py-3 hover:bg-slate-50"
+              className={`flex items-center justify-between px-4 py-3 hover:bg-slate-50 ${a.notYetOpen ? 'opacity-60' : ''}`}
               data-testid={`assignment-row-${a.assignmentId}`}
             >
               <div>
@@ -64,6 +64,11 @@ export default function ReportInputRegisterPage() {
                 <div className="text-xs text-slate-500">
                   Kỳ {a.periodKey} · Hạn {formatVNDateTime(a.dueAt)}
                 </div>
+                {a.notYetOpen && a.opensAt && (
+                  <div className="text-xs text-amber-700" data-testid={`not-yet-open-${a.assignmentId}`}>
+                    Chưa mở · mở nhập từ {formatVNDate(a.opensAt)}
+                  </div>
+                )}
               </div>
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS[a.state]}`}

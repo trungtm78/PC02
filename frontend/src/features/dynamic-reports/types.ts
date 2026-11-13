@@ -328,6 +328,9 @@ export interface AssignmentSummary {
   teamName: string;
   periodKey: string;
   dueAt: string;
+  /** The editor's own list only: when the period opens, and whether that is still ahead. */
+  opensAt?: string;
+  notYetOpen?: boolean;
   state: DynReportSubmissionState;
 }
 

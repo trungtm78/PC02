@@ -67,4 +67,17 @@ describe('ReportInputRegisterPage', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('marks a period that has not opened yet, with the date it opens, so nobody opens a locked page by mistake', async () => {
+    vi.mocked(dynamicReportsApi.listMySubmissions).mockResolvedValue([
+      { ...SAMPLE, assignmentId: 'now', opensAt: '2020-01-01T00:00:00.000Z', notYetOpen: false },
+      { ...SAMPLE, assignmentId: 'later', periodKey: '2099-01', opensAt: '2098-12-31T17:00:00.000Z', notYetOpen: true },
+    ]);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('assignment-row-later'));
+    expect(screen.getByTestId('not-yet-open-later')).toHaveTextContent('Chưa mở');
+    expect(screen.getByTestId('not-yet-open-later')).toHaveTextContent('2099');
+    expect(screen.queryByTestId('not-yet-open-now')).not.toBeInTheDocument();
+  });
 });
