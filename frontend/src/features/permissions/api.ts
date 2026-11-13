@@ -4,12 +4,16 @@ import type {
   Catalogue,
   ChangeSet,
   EffectiveView,
+  ModeComparison,
+  ModeStatus,
   SaveUserOverridesBody,
   UserOverrides,
   PreviewRequest,
   PreviewResult,
   SaveTeamBody,
   SaveTemplateBody,
+  StarterTemplatesResult,
+  SwitchableMode,
   TeamRow,
   TemplateSummary,
   WriteResult,
@@ -34,6 +38,9 @@ export const permissionsApi = {
   deleteTemplate: (id: string, expectedRevision: number) =>
     api.delete<WriteResult>(`/authz/templates/${id}`, { params: { expectedRevision } }).then(data),
 
+  /** Creates whichever of the three starter templates do not exist yet, from what the officer role holds. */
+  createStarterTemplates: () => api.post<StarterTemplatesResult>('/authz/templates/starters').then(data),
+
   teams: () => api.get<TeamRow[]>('/authz/teams').then(data),
   saveTeam: (teamId: string, body: SaveTeamBody) => api.put<WriteResult>(`/authz/teams/${teamId}`, body).then(data),
   removeTeamConfig: (teamId: string, expectedRevision: number) =>
@@ -51,6 +58,17 @@ export const permissionsApi = {
     api.post<WriteResult>(`/authz/changes/${changeId}/undo`, reason ? { reason } : {}).then(data),
 
   effective: (userId: string) => api.get<EffectiveView>(`/authz/effective/${userId}`).then(data),
+
+  mode: () => api.get<ModeStatus>('/authz/mode').then(data),
+  modeComparison: () => api.get<ModeComparison>('/authz/mode/comparison').then(data),
+  /** Off or trial run: one administrator, at once. */
+  setMode: (body: { mode: SwitchableMode; reason: string }) => api.post<unknown>('/authz/mode', body).then(data),
+  /** Enforcing takes two administrators: one asks, another approves, each on the comparison they read. */
+  requestEnforce: (body: { reason: string; acknowledge: string }) => api.post<unknown>('/authz/mode/requests', body).then(data),
+  approveEnforce: (id: string, body: { acknowledge: string }) =>
+    api.post<unknown>(`/authz/mode/requests/${id}/approve`, body).then(data),
+  /** The asker withdraws, or another administrator rejects. */
+  closeEnforceRequest: (id: string) => api.post<unknown>(`/authz/mode/requests/${id}/close`).then(data),
 };
 
 /** Query keys: everything sits under `authz`, so one invalidation after a write refreshes every tab. */
@@ -62,4 +80,6 @@ export const authzKeys = {
   changes: ['authz', 'changes'] as const,
   effective: (userId: string) => ['authz', 'effective', userId] as const,
   userOverrides: (userId: string) => ['authz', 'user-overrides', userId] as const,
+  mode: ['authz', 'mode'] as const,
+  modeComparison: ['authz', 'mode-comparison'] as const,
 };

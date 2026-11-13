@@ -70,9 +70,19 @@ describe('AuthzService keeps the configuration in memory, outside the request pa
     const logger = (service as unknown as { logger: { error: (m: string) => void; warn: (m: string) => void } }).logger;
     return { error: jest.spyOn(logger, 'error').mockImplementation(() => undefined), warn: jest.spyOn(logger, 'warn').mockImplementation(() => undefined) };
   };
-  afterEach(() => {
+  // What the build ships with, read before any test of this file touches it.
+  const SHIPPED = AuthzService.enforceAvailable;
+  beforeEach(() => {
+    // Most tests below describe a build that cannot enforce; the ones about enforcing switch it on themselves.
     AuthzService.enforceAvailable = false;
+  });
+  afterEach(() => {
+    AuthzService.enforceAvailable = SHIPPED;
     jest.useRealTimers();
+  });
+
+  it('this build can enforce: the switch ships ON (the mode is still OFF until two administrators change it)', () => {
+    expect(SHIPPED).toBe(true);
   });
 
   it('nothing is in memory before the first load, and reading memory never touches the database', () => {
@@ -380,16 +390,23 @@ describe('the mode cannot be switched on from the generic settings form', () => 
     return { service, update };
   };
 
-  it.each(['ENFORCE', 'enforce', 'ON', ''])('refuses %j and writes nothing', async (value) => {
+  // Also the two that enforce nothing: switching OFF gives back what a team's configuration took away, so it is
+  // an administrator's decision with a reason and a history, made on the permission screen.
+  it.each(['ENFORCE', 'enforce', 'ON', '', 'OFF', 'SHADOW'])('refuses %j and writes nothing', async (value) => {
     const { service, update } = settings();
     await expect(service.updateValue('QUYEN_THEO_TO_CHE_DO', value)).resolves.toMatchObject({ success: false });
     expect(update).not.toHaveBeenCalled();
   });
 
-  it.each(['OFF', 'SHADOW'])('accepts %s', async (value) => {
-    const { service, update } = settings();
-    update.mockResolvedValue({ key: 'QUYEN_THEO_TO_CHE_DO', value });
-    await expect(service.updateValue('QUYEN_THEO_TO_CHE_DO', value)).resolves.toMatchObject({ success: true });
-    expect(update).toHaveBeenCalledWith({ where: { key: 'QUYEN_THEO_TO_CHE_DO' }, data: { value } });
+  it('other settings are saved as before', async () => {
+    const update = jest.fn().mockResolvedValue({ key: 'SOME_OTHER_KEY', value: 'x' });
+    const service = bare(SettingsService, {
+      prisma: { systemSetting: { findUnique: jest.fn().mockResolvedValue({ key: 'SOME_OTHER_KEY', value: 'a', unit: null }), update } },
+      cache: new Map(),
+      cacheTimestamp: 0,
+      audit: { log: jest.fn() },
+    });
+    await expect(service.updateValue('SOME_OTHER_KEY', 'x')).resolves.toMatchObject({ success: true });
+    expect(update).toHaveBeenCalledWith({ where: { key: 'SOME_OTHER_KEY' }, data: { value: 'x' } });
   });
 });

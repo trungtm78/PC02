@@ -5070,6 +5070,27 @@ model PermissionChangeSet {
   @@map("permission_change_sets")
 }
 
+/// Every change of the mode of permissions by team (OFF / SHADOW / ENFORCE), and every request to enforce.
+/// Enforcing needs two administrators: one asks (PENDING), another approves (APPLIED).
+model AuthzModeChange {
+  id            String    @id @default(cuid())
+  fromMode      String
+  toMode        String
+  /// PENDING | APPLIED | WITHDRAWN | REJECTED | SUPERSEDED
+  status        String
+  requestedById String
+  reason        String
+  /// The comparison (who gains and loses what) the asker read, as a fingerprint.
+  fingerprint   String?
+  decidedById   String?
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("authz_mode_changes")
+}
+
 /// One row per change of anything a person's effective permissions are computed from, written by database triggers.
 /// Append-only on purpose: a single counter row would be a lock every such writer queues on (and deadlocks with a
 /// long transaction such as a team merge). Readers key their caches by how many rows they can see: a row is visible

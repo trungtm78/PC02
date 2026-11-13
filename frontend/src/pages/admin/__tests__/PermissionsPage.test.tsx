@@ -18,6 +18,8 @@ vi.mock('@/features/permissions/api', async (original) => ({
     changes: vi.fn(),
     effective: vi.fn(),
     userOverrides: vi.fn(),
+    mode: vi.fn(),
+    modeComparison: vi.fn(),
   },
 }));
 const held = vi.hoisted(() => ({ value: null as string[] | null }));
@@ -104,6 +106,22 @@ describe('PermissionsPage', () => {
     fireEvent.click(screen.getByTestId('permissions-tab-history'));
     expect(await screen.findByTestId('history-tab')).toBeInTheDocument();
     expect(screen.getByTestId('where')).toHaveTextContent('tab=history');
+  });
+
+  it('?tab=apply opens the tab that switches permissions by team on and off', async () => {
+    api.mode.mockResolvedValue({ mode: AUTHZ_MODE.OFF, enforcing: false, enforceAvailable: true, pending: null, history: [] });
+    api.modeComparison.mockResolvedValue({
+      people: 3,
+      summary: { affected: 0, losing: 0, gaining: 0, changing: 0 },
+      impacts: [],
+      teamNames: {},
+      fingerprint: 'fp',
+    });
+    renderPage('/admin/phan-quyen?tab=apply');
+    expect(await screen.findByTestId('apply-tab')).toBeInTheDocument();
+    expect(screen.getByTestId('permissions-tab-apply')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('permissions-tab-apply')).toHaveTextContent(L.tabs.apply);
+    expect(await screen.findByTestId('apply-state-mode')).toHaveTextContent(L.apply.state.OFF);
   });
 
   it('an unknown tab in the address falls back to the templates', async () => {

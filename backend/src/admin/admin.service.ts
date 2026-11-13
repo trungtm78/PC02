@@ -738,9 +738,13 @@ export class AdminService {
       select: { roleId: true },
     });
     if (role.name === ROLE_NAMES.ADMIN || nguoiSua?.roleId === roleId) {
-      const thieu = ['read:User', 'write:User'].filter(
-        (k) => !idTheoKhoa.has(k),
-      );
+      // The administrator role also keeps the role administration: it is what opens the permission screen, where
+      // permissions by team are switched OFF again.
+      const canGiu =
+        role.name === ROLE_NAMES.ADMIN
+          ? ['read:User', 'write:User', 'read:Role', 'write:Role']
+          : ['read:User', 'write:User'];
+      const thieu = canGiu.filter((k) => !idTheoKhoa.has(k));
       if (thieu.length) {
         throw new BadRequestException(
           `Không được bỏ ${thieu.join(', ')} khỏi vai trò này — sẽ mất quyền quản trị phân quyền`,

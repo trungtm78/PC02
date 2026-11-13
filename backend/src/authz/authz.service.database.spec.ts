@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
 import { installTriggerSection } from '../common/testing/install-trigger-section';
+import { takeTurnOnSharedRow } from '../common/testing/shared-row-turn';
 import { randomUUID } from 'node:crypto';
 import { AuthzController } from './authz.controller';
 import { AuthzLookupService } from './authz-lookup.service';
@@ -15,7 +16,7 @@ const url = process.env.DYN_REPORTS_DATABASE_URL;
 const run = url ? describe : describe.skip;
 
 run('AuthzService on PostgreSQL', () => {
-  jest.setTimeout(30_000);
+  jest.setTimeout(180_000);
   let db: PrismaClient;
   let pg: Client;
   let service: AuthzService;
@@ -32,6 +33,8 @@ run('AuthzService on PostgreSQL', () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url! }) });
     pg = new Client({ connectionString: url! });
     await pg.connect();
+    // The mode row exists once for the whole database: the suites that write it take turns.
+    await takeTurnOnSharedRow(pg, 'authz-mode');
     await installTriggerSection(pg, '20261114100000_authz_foundation', 'authz_bump');
 
     for (const [action, subject] of [['read', 'Case'], ['edit', 'Case'], ['delete', 'Case'], ['read', 'Directory']]) {

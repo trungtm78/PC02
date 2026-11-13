@@ -79,6 +79,22 @@ export class UndoDto {
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
 
+export class SetModeDto {
+  /** Only the two modes that enforce nothing: enforcing is asked for and approved, never set. */
+  @IsIn(['OFF', 'SHADOW']) mode!: 'OFF' | 'SHADOW';
+  @IsString() @IsNotEmpty() @MaxLength(500) reason!: string;
+}
+
+export class RequestEnforceDto {
+  @IsString() @IsNotEmpty() @MaxLength(500) reason!: string;
+  /** The fingerprint of the comparison that was read. */
+  @IsString() @IsNotEmpty() @MaxLength(128) acknowledge!: string;
+}
+
+export class ApproveEnforceDto {
+  @IsString() @IsNotEmpty() @MaxLength(128) acknowledge!: string;
+}
+
 export class TemplateStateDto {
   @IsInt() @Min(1) expectedRevision!: number;
 }

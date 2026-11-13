@@ -9,6 +9,8 @@ export const PLAIN_REACHES: readonly Reach[] = [REACH.OWN, REACH.TEAM_TREE, REAC
 
 export const AUTHZ_MODE = { OFF: 'OFF', SHADOW: 'SHADOW', ENFORCE: 'ENFORCE' } as const;
 export type AuthzMode = (typeof AUTHZ_MODE)[keyof typeof AUTHZ_MODE];
+/** The modes one administrator may switch to at once. Enforcing is asked for and approved instead. */
+export type SwitchableMode = typeof AUTHZ_MODE.OFF | typeof AUTHZ_MODE.SHADOW;
 
 export const CAPABILITY = { VIEW: 'view', CREATE: 'create', EDIT: 'edit', DELETE: 'delete' } as const;
 export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
@@ -64,11 +66,48 @@ export const AUTHZ_ERROR = {
   USER_NOT_FOUND: 'AUTHZ_USER_NOT_FOUND',
   TEAM_NOT_FOUND: 'TEAM_NOT_FOUND',
   EXPECTED_REVISION_REQUIRED: 'EXPECTED_REVISION_REQUIRED',
+  STARTER_ROLE_NOT_FOUND: 'STARTER_ROLE_NOT_FOUND',
 } as const;
 
-export const PAGE_TAB = { TEMPLATES: 'templates', TEAMS: 'teams', LOOKUP: 'lookup', HISTORY: 'history' } as const;
+/** Error codes of the `/authz/mode` routes (switching permissions by team on and off). */
+export const AUTHZ_MODE_ERROR = {
+  ADMIN_ONLY: 'AUTHZ_MODE_ADMIN_ONLY',
+  REASON_REQUIRED: 'AUTHZ_MODE_REASON_REQUIRED',
+  ENFORCE_NEEDS_REQUEST: 'AUTHZ_MODE_ENFORCE_NEEDS_REQUEST',
+  ENFORCE_NOT_AVAILABLE: 'AUTHZ_MODE_ENFORCE_NOT_AVAILABLE',
+  COMPARISON_CHANGED: 'AUTHZ_MODE_COMPARISON_CHANGED',
+  ALREADY: 'AUTHZ_MODE_ALREADY',
+  REQUEST_PENDING: 'AUTHZ_MODE_REQUEST_PENDING',
+  REQUEST_NOT_FOUND: 'AUTHZ_MODE_REQUEST_NOT_FOUND',
+  REQUEST_NOT_PENDING: 'AUTHZ_MODE_REQUEST_NOT_PENDING',
+  REQUEST_EXPIRED: 'AUTHZ_MODE_REQUEST_EXPIRED',
+  SECOND_ADMIN_REQUIRED: 'AUTHZ_MODE_SECOND_ADMIN_REQUIRED',
+  WOULD_LOCK_OUT: 'AUTHZ_MODE_WOULD_LOCK_OUT',
+  /** 503: the configuration cannot be read right now. */
+  UNAVAILABLE: 'AUTHZ_UNAVAILABLE',
+} as const;
+/** Refusals that mean the screen shows something older than the server has: the way forward is to load again. */
+export const AUTHZ_MODE_STALE_ERRORS: readonly string[] = [
+  AUTHZ_MODE_ERROR.COMPARISON_CHANGED,
+  AUTHZ_MODE_ERROR.ALREADY,
+  AUTHZ_MODE_ERROR.REQUEST_PENDING,
+  AUTHZ_MODE_ERROR.REQUEST_NOT_FOUND,
+  AUTHZ_MODE_ERROR.REQUEST_NOT_PENDING,
+  AUTHZ_MODE_ERROR.REQUEST_EXPIRED,
+];
+
+export const MODE_CHANGE_STATUS = {
+  PENDING: 'PENDING',
+  APPLIED: 'APPLIED',
+  WITHDRAWN: 'WITHDRAWN',
+  REJECTED: 'REJECTED',
+  SUPERSEDED: 'SUPERSEDED',
+} as const;
+export type ModeChangeStatus = (typeof MODE_CHANGE_STATUS)[keyof typeof MODE_CHANGE_STATUS];
+
+export const PAGE_TAB = { TEMPLATES: 'templates', TEAMS: 'teams', LOOKUP: 'lookup', HISTORY: 'history', APPLY: 'apply' } as const;
 export type PageTab = (typeof PAGE_TAB)[keyof typeof PAGE_TAB];
-export const PAGE_TABS: readonly PageTab[] = [PAGE_TAB.TEMPLATES, PAGE_TAB.TEAMS, PAGE_TAB.LOOKUP, PAGE_TAB.HISTORY];
+export const PAGE_TABS: readonly PageTab[] = [PAGE_TAB.TEMPLATES, PAGE_TAB.TEAMS, PAGE_TAB.LOOKUP, PAGE_TAB.HISTORY, PAGE_TAB.APPLY];
 export const PAGE_PATH = '/admin/phan-quyen';
 /** Changes per page of the history. */
 export const HISTORY_PAGE = 50;
@@ -145,6 +184,12 @@ export interface PermissionDelta {
   /** Team ids newly reached / no longer reached (on `changed` when the reach word stays but the teams differ). */
   teamsGained?: string[];
   teamsLost?: string[];
+  /**
+   * On `changed` only: the permission is kept but reaches less somewhere / more somewhere. Both may be true at once,
+   * and either may be true with no team gained or lost (the whole team tree -> exactly the team, on the same team).
+   */
+  narrower?: boolean;
+  wider?: boolean;
 }
 export interface PersonImpact {
   userId: string;
@@ -160,6 +205,43 @@ export interface PreviewResult {
   /** teamId -> name, for the team ids inside the deltas. */
   teamNames?: Record<string, string>;
 }
+/** What enforcing would change for every active person, against what their role gives today. */
+export interface ModeComparison extends PreviewResult {
+  /** People counted once per line: somebody who both gains and loses is in both. */
+  summary: { affected: number; losing: number; gaining: number; changing: number };
+  teamNames: Record<string, string>;
+  /** Sent back when asking for or approving enforcement: proof of which comparison was read. */
+  fingerprint: string;
+}
+
+/** One change of the mode, or one request to enforce. */
+export interface ModeChange {
+  id: string;
+  fromMode: AuthzMode;
+  toMode: AuthzMode;
+  status: ModeChangeStatus;
+  requestedById: string;
+  requestedByName: string;
+  reason: string;
+  decidedById: string | null;
+  decidedByName: string | null;
+  /** ISO date-time. */
+  decidedAt: string | null;
+  createdAt: string;
+  /** ISO date-time, only while PENDING. */
+  expiresAt: string | null;
+}
+export interface ModeStatus {
+  /** The mode an administrator chose. */
+  mode: AuthzMode;
+  /** Whether enforcement is in effect right now (the chosen mode may be ENFORCE without it). */
+  enforcing: boolean;
+  /** False = this build cannot enforce at all. */
+  enforceAvailable: boolean;
+  pending: ModeChange | null;
+  history: ModeChange[];
+}
+
 export interface PreviewRequest {
   templates?: { id: string; entries: Entries | null }[];
   teams?: { teamId: string; config: TeamConfig | null }[];
@@ -253,6 +335,12 @@ export interface WriteResult {
   changed: boolean;
   changeSetId: string | null;
   id?: string;
+}
+
+/** What "create the starter templates" did: the ones it made, and the codes that were already there. */
+export interface StarterTemplatesResult extends WriteResult {
+  created: { id: string; code: string }[];
+  existing: string[];
 }
 
 export interface SaveTemplateBody {

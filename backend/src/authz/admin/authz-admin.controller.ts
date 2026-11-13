@@ -125,6 +125,13 @@ export class AuthzAdminController {
     return { ...result, id };
   }
 
+  /** The three templates to start from, for whichever of them does not exist yet. */
+  @Post('templates/starters')
+  @RequirePermissions({ action: 'write', subject: 'Role' })
+  createStarterTemplates(@CurrentUser() user: AuthUser, @Req() req: Request) {
+    return this.admin.createStarterTemplates(user.id, meta(req));
+  }
+
   @Patch('templates/:id')
   @RequirePermissions({ action: 'write', subject: 'Role' })
   async updateTemplate(@Param('id') id: string, @Body() body: UpdateTemplateDto, @CurrentUser() user: AuthUser, @Req() req: Request) {

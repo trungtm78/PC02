@@ -18,6 +18,7 @@ vi.mock('../api', async (original) => ({
     restoreTemplate: vi.fn(),
     deleteTemplate: vi.fn(),
     preview: vi.fn(),
+    createStarterTemplates: vi.fn(),
   },
 }));
 
@@ -71,6 +72,68 @@ describe('TemplatesTab', () => {
     fireEvent.click(screen.getByTestId('template-edit-tpl-entry'));
     expect(screen.queryByTestId('template-save')).toBeNull();
     expect(box('perm-view-petitions-OWN')).toBeDisabled();
+  });
+
+  describe('starter templates', () => {
+    const STARTERS = [
+      { id: 's1', code: 'STARTER_AS_TODAY' },
+      { id: 's2', code: 'STARTER_OWN_ONLY' },
+      { id: 's3', code: 'STARTER_VIEW_ONLY' },
+    ];
+
+    it('without the right to change there is no button and no hint', async () => {
+      renderTab(false);
+      await screen.findByTestId('template-row-tpl-entry');
+      expect(screen.queryByTestId('template-starters')).toBeNull();
+      expect(screen.queryByTestId('template-starters-hint')).toBeNull();
+    });
+
+    it('creates them, says how many were made, and loads the list again', async () => {
+      api.createStarterTemplates.mockResolvedValue({ ...OK, created: STARTERS, existing: [] });
+      renderTab();
+      const button = await screen.findByTestId('template-starters');
+      expect(button).toHaveTextContent(L.templates.starters);
+      expect(screen.getByTestId('template-starters-hint')).toHaveTextContent(L.templates.startersHint);
+      await screen.findByTestId('template-row-tpl-entry');
+
+      fireEvent.click(button);
+      await waitFor(() => expect(api.createStarterTemplates).toHaveBeenCalledTimes(1));
+      expect(await screen.findByTestId('templates-notice')).toHaveTextContent(L.templates.startersCreated(3));
+      await waitFor(() => expect(api.templates).toHaveBeenCalledTimes(2));
+    });
+
+    it('counts only the ones made this time', async () => {
+      api.createStarterTemplates.mockResolvedValue({ ...OK, created: STARTERS.slice(0, 1), existing: ['STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY'] });
+      renderTab();
+      fireEvent.click(await screen.findByTestId('template-starters'));
+      expect(await screen.findByTestId('templates-notice')).toHaveTextContent(L.templates.startersCreated(1));
+    });
+
+    it('says they are already there when nothing was made', async () => {
+      api.createStarterTemplates.mockResolvedValue({ changed: false, changeSetId: null, created: [], existing: STARTERS.map((s) => s.code) });
+      renderTab();
+      fireEvent.click(await screen.findByTestId('template-starters'));
+      const notice = await screen.findByTestId('templates-notice');
+      expect(notice).toHaveTextContent(L.templates.startersExisting);
+      expect(notice).not.toHaveTextContent(L.templates.startersCreated(0));
+    });
+
+    it('a missing officer role is explained in words, not as a code', async () => {
+      api.createStarterTemplates.mockRejectedValue(apiError(404, AUTHZ_ERROR.STARTER_ROLE_NOT_FOUND));
+      renderTab();
+      fireEvent.click(await screen.findByTestId('template-starters'));
+      const error = await screen.findByTestId('templates-error');
+      expect(error).toHaveTextContent(L.errors.STARTER_ROLE_NOT_FOUND);
+      expect(error).not.toHaveTextContent(AUTHZ_ERROR.STARTER_ROLE_NOT_FOUND);
+      expect(screen.queryByTestId('templates-notice')).toBeNull();
+    });
+
+    it('an invalid starter lists the reasons in plain words', async () => {
+      api.createStarterTemplates.mockRejectedValue(apiError(400, AUTHZ_ERROR.INVALID, [{ code: PROBLEM.ABOVE_OWN, permission: 'delete:User' }]));
+      renderTab();
+      fireEvent.click(await screen.findByTestId('template-starters'));
+      expect(await screen.findByTestId('templates-error-reasons')).toHaveTextContent(L.problems.ABOVE_OWN('Người dùng · Xoá', '', ''));
+    });
   });
 
   it('creating: the matrix keeps "no wider than view", and the exact document is sent', async () => {

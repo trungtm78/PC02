@@ -150,10 +150,11 @@ export class SettingsService {
       return { success: false, message: `Cấu hình '${key}' không tồn tại` };
     }
 
-    // Enforcing permissions by team changes what every officer may do. It is switched on from the permission
-    // screen, after the comparison of who gains and loses what has been read: never from this generic form.
-    if (key === SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO && value !== 'OFF' && value !== 'SHADOW') {
-      return { success: false, message: 'Chế độ này chỉ bật được từ màn Phân quyền theo tổ, sau khi đã xem báo cáo so sánh.' };
+    // The mode of permissions by team changes what every officer may do, in BOTH directions: switching it off gives
+    // back what a team's configuration took away. It is changed only on the permission screen (administrators, a
+    // reason, a history, two people to enforce): never from this generic form, whatever the value.
+    if (key === SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO) {
+      return { success: false, message: 'Chế độ này chỉ đổi được ở màn Phân quyền theo tổ (tab Áp dụng).' };
     }
 
     let normalizedValue = value;
