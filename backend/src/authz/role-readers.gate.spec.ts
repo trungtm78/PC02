@@ -58,6 +58,9 @@ const NOT_A_DECISION_ABOUT_A_PERSON = [
   'admin/admin.service.ts::permissions: { include: { permission: true } },',
   // Role administration: the (action, subject) pairs of one role, for the matrix on that screen.
   'admin/admin.service.ts::return role.permissions',
+  // Starter templates: the permissions of the officer ROLE are copied into templates; no person is judged.
+  'authz/admin/authz-admin.service.ts::select: { permissions: { select: { permission: { select: { action: true, subject: true } } } } },',
+  'authz/admin/authz-admin.service.ts::const docs = starterTemplates(role.permissions.map((p) => pair(p.permission)));',
   // Role administration: replacing a role's permissions (read the old set for the audit diff, delete, insert).
   'admin/admin.service.ts::const truoc = await tx.rolePermission.findMany({',
   'admin/admin.service.ts::await tx.rolePermission.deleteMany({',

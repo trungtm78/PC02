@@ -97,6 +97,8 @@ const A_FACT_ABOUT_THE_ROLE: string[] = [
 
   // ── The role is the SUBJECT: choosing which role to give a new account, sample rows of an import template ──
   'admin/bulk/bulk-import.service.ts::roles.find((r) => r.name === ROLE_NAMES.INVESTIGATOR)?.id ?? roles[0]?.id;',
+  // Starter templates are built from what the officer role holds: the role is read, nobody is judged by it.
+  'authz/admin/authz-admin.service.ts::where: { name: ROLE_NAMES.OFFICER },',
   "admin/bulk/bulk-import.controller.ts::role: 'OFFICER',",
   "admin/bulk/bulk-import.controller.ts::role: 'OFFICER',",
 

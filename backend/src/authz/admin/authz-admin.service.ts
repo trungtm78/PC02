@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { ROLE_NAMES } from '../../common/constants/role.constants';
 import { AuthzService } from '../authz.service';
+import { STARTER_TEMPLATES, starterTemplates } from './starter-templates';
 import { governingConfig } from '../engine/compile';
 import type { Reach } from '../engine/types';
 import {
@@ -492,6 +494,33 @@ export class AuthzAdminService {
   }
 
   /** A new template's id, made here so the caller can refer to it in the same change. */
+  /**
+   * Creates the starter templates that do not exist yet (by code), from what the officer role holds in this
+   * database. One change set, judged like any other save; they are ordinary templates afterwards.
+   */
+  async createStarterTemplates(actorId: string, meta?: Meta): Promise<CommitResult & { created: { id: string; code: string }[]; existing: string[] }> {
+    const role = await this.prisma.role.findUnique({
+      where: { name: ROLE_NAMES.OFFICER },
+      select: { permissions: { select: { permission: { select: { action: true, subject: true } } } } },
+    });
+    if (!role) throw new NotFoundException({ code: 'STARTER_ROLE_NOT_FOUND' });
+    const docs = starterTemplates(role.permissions.map((p) => pair(p.permission)));
+    const taken = await this.prisma.permissionTemplate.findMany({
+      where: { code: { in: STARTER_TEMPLATES.map((t) => t.code) } },
+      select: { code: true },
+    });
+    const existing = taken.map((t) => t.code);
+    const created = STARTER_TEMPLATES.filter((t) => !existing.includes(t.code)).map((t) => ({ id: this.newTemplateId(), code: t.code as string }));
+    if (created.length === 0) return { changed: false, changeSetId: null, items: [], created, existing };
+    const result = await this.commit(
+      actorId,
+      'STARTER_TEMPLATES_CREATED',
+      created.map((c) => ({ type: 'template' as const, id: c.id, after: docs[c.code as keyof typeof docs] })),
+      { reason: 'Starter templates built from the officer role', meta },
+    );
+    return { ...result, created, existing };
+  }
+
   newTemplateId(): string {
     return randomUUID();
   }
