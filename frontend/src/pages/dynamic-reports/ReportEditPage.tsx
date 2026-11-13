@@ -21,6 +21,12 @@ import type {
 } from '@/features/dynamic-reports/types';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import {
+  criteriaMetaFromVersion,
+  itemKeyOfField,
+  targetsForConfigPatch,
+} from '@/features/dynamic-reports/criteria/criteria';
+import { criteriaErrorText, reportCriteria } from '@/locales/reportCriteria.vi';
 import ReportScheduleStep from './ReportScheduleStep';
 import ReportTeamsStep from './ReportTeamsStep';
 
@@ -104,7 +110,11 @@ export default function ReportEditPage() {
       await queryClient.invalidateQueries({ queryKey: SETUP_LIST_KEY });
     } catch (err) {
       const e = extractApiError(err);
-      setError({ message: e.message, conflict: e.code === 'REVISION_CONFLICT' || e.status === 409 });
+      // A refused subset of criteria has its own wording; every other refusal is shown as the server said it.
+      setError({
+        message: criteriaErrorText(e.code, e.message),
+        conflict: e.code === 'REVISION_CONFLICT' || e.status === 409,
+      });
     } finally {
       setSaving(null);
     }
@@ -169,7 +179,14 @@ export default function ReportEditPage() {
   const initialTargets: ReportTargetConfig[] = report.targets.map((t) => ({
     teamId: t.teamId,
     editorUserIds: t.editors.map((e) => e.userId),
+    // The ticks each team's checklist opens with (null = everything).
+    itemKeys: t.itemKeys ?? null,
   }));
+  // What a team can be asked to report: the input cells of the version in force.
+  const versionFields = report.currentVersion?.fields ?? [];
+  const allItemKeys = versionFields.map(itemKeyOfField);
+  const versionCriteria =
+    report.currentVersion?.sourceKind === 'CRITERIA' ? criteriaMetaFromVersion(versionFields).criteria : undefined;
 
   return (
     <div className="max-w-4xl mx-auto p-6" data-testid="report-edit-page">
@@ -278,8 +295,18 @@ export default function ReportEditPage() {
           teamNames={teamNames}
           nextLabel={saving === 'teams' ? 'Đang lưu…' : 'Lưu quản lý và tổ'}
           busy={saving !== null}
-          onNext={(roles, targets) => void save('teams', { roles, targets })}
+          fields={versionFields.length > 0 ? versionFields : undefined}
+          criteria={versionCriteria}
+          // Only a team whose ticks changed (or a new team) says anything about its criteria.
+          onNext={(roles, targets) =>
+            void save('teams', { roles, targets: targetsForConfigPatch(targets, report.targets, allItemKeys) })
+          }
         />
+        {versionFields.length > 0 && (
+          <p className="text-xs text-slate-500 mt-2" data-testid="edit-criteria-hint">
+            {reportCriteria.edit.criteriaHint}
+          </p>
+        )}
       </Section>
     </div>
   );

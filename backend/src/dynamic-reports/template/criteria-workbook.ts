@@ -274,6 +274,7 @@ export interface CriteriaFieldRef {
   address: string;
   fieldKey: string;
   itemKey: string;
+  code: string | null;
   unit: string | null;
   parentItemKey: string | null;
   origin: CriterionOrigin;
@@ -322,6 +323,7 @@ export async function buildCriteriaWorkbook(
         address: `C${row}`,
         fieldKey: `${CRITERIA_SHEET_NAME}!C${row}`,
         itemKey: c.itemKey,
+        code: c.code,
         unit: c.unit,
         parentItemKey: c.parentItemKey,
         origin: c.origin,

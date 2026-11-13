@@ -50,7 +50,7 @@ const DETAIL: ReportDetailView = {
     { userId: 'u1', name: 'Nguyễn An', role: 'MANAGER', teamScopeId: null },
     { userId: 'u2', name: 'Lê Bình', role: 'VIEWER', teamScopeId: 't1' },
   ],
-  targets: [{ teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u1', name: 'Nguyễn An' }] }],
+  targets: [{ teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u1', name: 'Nguyễn An' }], itemKeys: null }],
   currentVersion: null,
   versionCount: 1,
   periods: [],
@@ -282,5 +282,122 @@ describe('ReportEditPage — "Sửa cấu hình"', () => {
     renderPage({ ...DETAIL, status: 'ARCHIVED' });
     expect(await screen.findByTestId('edit-archived')).toBeInTheDocument();
     expect(screen.queryByTestId('edit-name')).not.toBeInTheDocument();
+  });
+
+  describe('the criteria each team reports', () => {
+    const cell = (address: string, label: string, itemKey: string): NonNullable<ReportDetailView['currentVersion']>['fields'][number] => ({
+      sheetKey: 'Chỉ tiêu', address, fieldKey: `Chỉ tiêu!${address}`, label, type: 'NUM', format: null, aggregate: 'SUM',
+      blankPolicy: 'ZERO', required: false, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'TOKEN',
+      itemKey, unit: 'vụ', parentItemKey: null, origin: 'FILE',
+    });
+    const WITH_CRITERIA: ReportDetailView = {
+      ...DETAIL,
+      targets: [
+        { teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u1', name: 'Nguyễn An' }], itemKeys: ['cuop'] },
+        { teamId: 't2', teamCode: 'DOI-2', teamName: 'Đội 2', editors: [{ userId: 'u2', name: 'Lê Bình' }], itemKeys: null },
+      ],
+      currentVersion: {
+        versionId: 'v1', version: 1, status: 'PUBLISHED', fileName: 'tieu-chi.xlsx', selectedSheets: ['Chỉ tiêu'],
+        dateSystem: '1900', sourceKind: 'CRITERIA', publishedAt: null, createdAt: '2026-10-01T00:00:00.000Z',
+        fields: [cell('C3', 'Trộm cắp', 'trom-cap'), cell('C4', 'Cướp', 'cuop'), cell('C5', 'Khác', 'khac')],
+        rules: [],
+      },
+    };
+    const open = (teamId: string) => fireEvent.click(screen.getByTestId(`btn-team-criteria-toggle-${teamId}`));
+    const item = (teamId: string, key: string) => screen.getByTestId(`team-criteria-item-${teamId}-${key}`);
+    const savedTargets = async () => {
+      await waitFor(() => expect(dynamicReportsApi.updateReportConfig).toHaveBeenCalledTimes(1));
+      return vi.mocked(dynamicReportsApi.updateReportConfig).mock.calls[0][1].targets;
+    };
+
+    beforeEach(() => {
+      vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 4, changed: ['targets'] });
+    });
+
+    it('opens with each team\'s subset as it is stored: a team with a subset has only those ticked, a team without has all', async () => {
+      renderPage(WITH_CRITERIA);
+      expect(await screen.findByTestId('team-criteria-count-t1')).toHaveTextContent('Đội 1: 1/3 tiêu chí');
+      expect(screen.getByTestId('team-criteria-count-t2')).toHaveTextContent('Đội 2: 3/3 tiêu chí');
+
+      open('t1');
+      expect(item('t1', 'cuop')).toBeChecked();
+      expect(item('t1', 'trom-cap')).not.toBeChecked();
+      expect(item('t1', 'khac')).not.toBeChecked();
+      expect((item('t1', 'cuop') as HTMLInputElement).type).toBe('checkbox');
+      expect(screen.getByTestId('team-criteria-panel-t1')).toHaveTextContent('(vụ)');
+      expect(screen.getByTestId('edit-criteria-hint')).toHaveTextContent('kỳ kế tiếp');
+    });
+
+    it('saving without touching any tick sends no itemKeys for any team (the server leaves them as they are)', async () => {
+      renderPage(WITH_CRITERIA);
+      fireEvent.click(await screen.findByTestId('btn-teams-next'));
+
+      expect(await savedTargets()).toEqual([
+        { teamId: 't1', editorUserIds: ['u1'] },
+        { teamId: 't2', editorUserIds: ['u2'] },
+      ]);
+    });
+
+    it('changing one team\'s ticks sends that team\'s itemKeys in field order; the untouched team sends none', async () => {
+      renderPage(WITH_CRITERIA);
+      await screen.findByTestId('team-criteria-count-t1');
+      open('t1');
+      fireEvent.click(item('t1', 'khac'));
+      fireEvent.click(screen.getByTestId('btn-teams-next'));
+
+      const targets = await savedTargets();
+      expect(targets).toEqual([
+        { teamId: 't1', editorUserIds: ['u1'], itemKeys: ['cuop', 'khac'] },
+        { teamId: 't2', editorUserIds: ['u2'] },
+      ]);
+      expect(targets?.[1]).not.toHaveProperty('itemKeys');
+    });
+
+    it('ticking everything for a team that had a subset sends null ("every criterion"), not the full list', async () => {
+      renderPage(WITH_CRITERIA);
+      await screen.findByTestId('team-criteria-count-t1');
+      open('t1');
+      fireEvent.click(screen.getByTestId('btn-team-criteria-all-t1'));
+      fireEvent.click(screen.getByTestId('btn-teams-next'));
+
+      expect((await savedTargets())?.[0]).toEqual({ teamId: 't1', editorUserIds: ['u1'], itemKeys: null });
+    });
+
+    it('a tick changed and changed back is not a change', async () => {
+      renderPage(WITH_CRITERIA);
+      await screen.findByTestId('team-criteria-count-t2');
+      open('t2');
+      fireEvent.click(item('t2', 'cuop'));
+      fireEvent.click(item('t2', 'cuop'));
+      fireEvent.click(screen.getByTestId('btn-teams-next'));
+
+      expect((await savedTargets())?.[1]).toEqual({ teamId: 't2', editorUserIds: ['u2'] });
+    });
+
+    it('a team with nothing ticked cannot be saved', async () => {
+      renderPage(WITH_CRITERIA);
+      await screen.findByTestId('team-criteria-count-t1');
+      open('t1');
+      fireEvent.click(screen.getByTestId('btn-team-criteria-none-t1'));
+      expect(screen.getByTestId('team-criteria-empty-error')).toHaveTextContent('Đội 1');
+      expect(screen.getByTestId('btn-teams-next')).toBeDisabled();
+    });
+
+    it('a subset the server refuses is explained in the screen\'s own words', async () => {
+      vi.mocked(dynamicReportsApi.updateReportConfig).mockRejectedValue(
+        Object.assign(new Error('x'), {
+          isAxiosError: true,
+          response: { status: 400, data: { error: { code: 'TARGET_ITEM_KEY_UNKNOWN', message: 'Tiêu chí không có trong báo cáo: khac' } } },
+        }),
+      );
+      renderPage(WITH_CRITERIA);
+      await screen.findByTestId('team-criteria-count-t1');
+      open('t1');
+      fireEvent.click(item('t1', 'khac'));
+      fireEvent.click(screen.getByTestId('btn-teams-next'));
+
+      expect(await screen.findByTestId('edit-save-error')).toHaveTextContent('tiêu chí không còn trong báo cáo');
+      expect(screen.queryByTestId('btn-reload')).not.toBeInTheDocument();
+    });
   });
 });

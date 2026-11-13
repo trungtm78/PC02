@@ -4233,6 +4233,8 @@ model DynReportField {
   /// A stable code for the criterion this field stands for. Unlike `fieldKey` (a cell address) it survives a new
   /// version that inserts or reorders rows. NULL for a field of an ordinary template: its `fieldKey` is then the code.
   itemKey       String?
+  /// The code the author's list gives the criterion ("1.1", "II"): what people call it. Display only, not unique.
+  criterionCode String?
   /// Unit of measure shown next to the criterion ("vụ", "người"). Criteria reports only.
   unit          String?
   /// `itemKey` of the parent criterion, when the list is a tree (children add up into the parent).
@@ -4353,6 +4355,7 @@ model DynReportPeriod {
 
   assignments DynReportAssignment[]
   snapshots   DynReportSnapshot[]
+  officialFiles DynReportOfficialFile[]
 
   @@unique([reportId, periodKey])
   @@index([status, dueAt])
@@ -4378,6 +4381,7 @@ model DynReportAssignment {
   createdAt            DateTime              @default(now())
 
   editors      DynReportAssignmentEditor[]
+  scopeChanges DynReportAssignmentScopeChange[]
   submission   DynReportSubmission?
   unlocks      DynReportUnlock[]
   comments     DynReportComment[]
@@ -4385,6 +4389,23 @@ model DynReportAssignment {
 
   @@unique([periodId, teamId])
   @@map("dyn_report_assignments")
+}
+
+/// One change of the criteria a team reports in a period that is already running (D09): what it was, what it became,
+/// why, and who did it. Nothing is overwritten without a line here.
+model DynReportAssignmentScopeChange {
+  id           String              @id @default(cuid())
+  assignmentId String
+  assignment   DynReportAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  /// Field keys before / after; NULL = every field.
+  before       Json?
+  after        Json?
+  reason       String
+  changedById  String
+  createdAt    DateTime            @default(now())
+
+  @@index([assignmentId, createdAt])
+  @@map("dyn_report_assignment_scope_changes")
 }
 
 model DynReportAssignmentEditor {
@@ -4538,6 +4559,34 @@ model DynReportSnapshot {
 
   @@index([periodId, mode, sourceHash])
   @@map("dyn_report_snapshots")
+}
+
+enum DynReportOfficialFileStatus {
+  READY
+  FAILED
+  SUPERSEDED
+  VOID
+}
+
+/// The file a closed period is kept as: made when the period is closed, never expires. Making it again supersedes the
+/// one before; reopening the period voids them (their figures are no longer the closed figures). Rows are kept, so the
+/// screen can show what happened; they go with the period when a report is deleted with its data.
+model DynReportOfficialFile {
+  id          String                      @id @default(cuid())
+  periodId    String
+  period      DynReportPeriod             @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  status      DynReportOfficialFileStatus
+  fileBytes   Bytes?
+  fileName    String?
+  /// Why it could not be made (FAILED); never figures.
+  error       String?
+  createdById String
+  createdAt   DateTime                    @default(now())
+  /// When it stopped being the current file (superseded or voided).
+  endedAt     DateTime?
+
+  @@index([periodId, createdAt])
+  @@map("dyn_report_official_files")
 }
 
 model DynReportExport {

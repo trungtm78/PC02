@@ -540,6 +540,9 @@ describe('AggregateService', () => {
             .mockResolvedValue({ id: 'snapshot1' }),
           updateMany: jest.fn<Promise<unknown>, unknown[]>(),
         },
+        dynReportOfficialFile: {
+          updateMany: jest.fn<Promise<unknown>, unknown[]>(),
+        },
       };
       // The formulas are worked out before the transaction, so the plain client is read too.
       const prisma = {
@@ -842,6 +845,20 @@ describe('AggregateService', () => {
         data: { status: string };
       };
       expect(periodUpdateCall.data.status).toBe('OPEN');
+      // The file made when it was closed is no longer "the closed figures": kept, marked void.
+      expect(tx.dynReportOfficialFile.updateMany).toHaveBeenCalledWith({
+        where: { periodId: 'period1', status: 'READY' },
+        data: { status: 'VOID', endedAt: expect.any(Date) },
+      });
+    });
+
+    it('closing a period always announces it (the official file is made from that), even with nobody to notify', async () => {
+      const { service, tx, eventEmitter, ack } = buildTxService(basePeriod());
+      tx.rolePermission.findFirst.mockResolvedValue({ id: 'rp1' });
+
+      await service.finalizePeriod('period1', 'admin1', 'roleAdmin', ack);
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith('dyn-report.period-closed', { periodId: 'period1', actorId: 'admin1' });
     });
 
     it('rejects (404) when a report MANAGER (not admin) tries to reopen', async () => {

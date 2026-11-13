@@ -236,6 +236,7 @@ export class ReportVersioningService {
       source: f.source,
       // What the cell stands for: without these a team's subset would name criteria the published version lacks.
       itemKey: f.itemKey ?? undefined,
+      criterionCode: f.criterionCode ?? undefined,
       unit: f.unit ?? undefined,
       parentItemKey: f.parentItemKey ?? undefined,
       origin: f.origin ?? undefined,
@@ -421,7 +422,11 @@ export class ReportVersioningService {
     const same = await tx.dynReportVersion.findFirst({
       where: { reportId, sha256, sourceKind: 'CRITERIA' },
       orderBy: { version: 'desc' },
-      select: { fields: { select: { fieldKey: true, itemKey: true, unit: true, parentItemKey: true, origin: true } } },
+      select: {
+        fields: {
+          select: { fieldKey: true, itemKey: true, criterionCode: true, unit: true, parentItemKey: true, origin: true },
+        },
+      },
     });
     if (!same) return { fields: input.fields, sourceKind: input.sourceKind };
     const known = new Map(same.fields.map((f) => [f.fieldKey, f]));
@@ -433,6 +438,7 @@ export class ReportVersioningService {
           ? {
               ...f,
               itemKey: k.itemKey,
+              criterionCode: f.criterionCode ?? k.criterionCode ?? undefined,
               unit: f.unit ?? k.unit ?? undefined,
               parentItemKey: k.parentItemKey ?? undefined,
               origin: k.origin ?? undefined,

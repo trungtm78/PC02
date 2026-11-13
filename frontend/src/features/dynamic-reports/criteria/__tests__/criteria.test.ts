@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   addManualCriterion,
   applyCellPick,
+  criteriaMetaFromVersion,
+  targetsForConfigPatch,
   candidateAddresses,
   chosenKeys,
   columnLetters,
@@ -367,5 +369,92 @@ describe('what a team reports', () => {
   it('counts how many of the report\'s items a target reports', () => {
     expect(tickedCount(undefined, KEYS)).toBe(3);
     expect(tickedCount(['cuop'], KEYS)).toBe(1);
+  });
+});
+
+describe('a report that already exists', () => {
+  const ALL = ['trom-cap', 'cuop', 'khac'];
+  const editors = ['u1'];
+
+  it('a team left as it was says nothing about its criteria', () => {
+    const previous = [
+      { teamId: 't1', itemKeys: null },
+      { teamId: 't2', itemKeys: ['cuop'] },
+    ];
+    const next = [
+      { teamId: 't1', editorUserIds: editors },
+      { teamId: 't2', editorUserIds: editors, itemKeys: ['cuop'] },
+    ];
+    expect(targetsForConfigPatch(next, previous, ALL)).toEqual([
+      { teamId: 't1', editorUserIds: editors },
+      { teamId: 't2', editorUserIds: editors },
+    ]);
+  });
+
+  it('a team whose ticks changed sends them; everything ticked again is sent as null', () => {
+    const previous = [
+      { teamId: 't1', itemKeys: null },
+      { teamId: 't2', itemKeys: ['cuop'] },
+    ];
+    const next = [
+      { teamId: 't1', editorUserIds: editors, itemKeys: ['trom-cap', 'khac'] },
+      { teamId: 't2', editorUserIds: editors },
+    ];
+    expect(targetsForConfigPatch(next, previous, ALL)).toEqual([
+      { teamId: 't1', editorUserIds: editors, itemKeys: ['trom-cap', 'khac'] },
+      { teamId: 't2', editorUserIds: editors, itemKeys: null },
+    ]);
+  });
+
+  it('a new team always says what it reports: null for everything, else its keys', () => {
+    const next = [
+      { teamId: 't8', editorUserIds: editors },
+      { teamId: 't9', editorUserIds: editors, itemKeys: ['khac'] },
+    ];
+    expect(targetsForConfigPatch(next, [], ALL)).toEqual([
+      { teamId: 't8', editorUserIds: editors, itemKeys: null },
+      { teamId: 't9', editorUserIds: editors, itemKeys: ['khac'] },
+    ]);
+  });
+
+  it('a stored subset naming a criterion the report no longer has is not a change by itself', () => {
+    const previous = [{ teamId: 't1', itemKeys: ['cuop', 'da-xoa'] }];
+    const untouched = [{ teamId: 't1', editorUserIds: editors, itemKeys: ['cuop'] }];
+    expect(targetsForConfigPatch(untouched, previous, ALL)[0]).not.toHaveProperty('itemKeys');
+  });
+
+  it('a stored subset that lists every criterion is the same as none', () => {
+    const previous = [{ teamId: 't1', itemKeys: [...ALL] }];
+    expect(targetsForConfigPatch([{ teamId: 't1', editorUserIds: editors }], previous, ALL)[0]).not.toHaveProperty('itemKeys');
+  });
+
+  it('a report with no cells to pick from sends no criteria for anybody, new teams included', () => {
+    const next = [{ teamId: 't9', editorUserIds: editors }];
+    expect(targetsForConfigPatch(next, [], [])).toEqual([{ teamId: 't9', editorUserIds: editors }]);
+  });
+
+  it('a saved criteria version gives each of its cells back the criterion it stood for', () => {
+    const meta = criteriaMetaFromVersion([
+      { fieldKey: 'Chỉ tiêu!C3', address: 'C3', label: 'Trộm cắp', itemKey: 'trom-cap', unit: 'vụ', parentItemKey: 'toi-pham', origin: 'FILE' },
+      { fieldKey: 'Chỉ tiêu!C4', address: 'C4', label: 'Cướp', itemKey: 'cuop', unit: null, parentItemKey: 'toi-pham', origin: 'MANUAL' },
+      // A cell with no criterion (marked by hand on the sheet) stays an ordinary cell.
+      { fieldKey: 'Chỉ tiêu!E9', address: 'E9', label: 'Ghi chú', itemKey: null, unit: null, parentItemKey: null, origin: null },
+    ]);
+    expect(meta.fields).toEqual([
+      { address: 'C3', fieldKey: 'Chỉ tiêu!C3', itemKey: 'trom-cap', unit: 'vụ', parentItemKey: 'toi-pham', origin: 'FILE' },
+      { address: 'C4', fieldKey: 'Chỉ tiêu!C4', itemKey: 'cuop', unit: null, parentItemKey: 'toi-pham', origin: 'MANUAL' },
+    ]);
+    expect(meta.criteria.map((c) => [c.itemKey, c.name])).toEqual([
+      ['trom-cap', 'Trộm cắp'],
+      ['cuop', 'Cướp'],
+    ]);
+
+    const parsed = [
+      { sheetKey: 'Chỉ tiêu', address: 'C3', fieldKey: 'Chỉ tiêu!C3', label: 'Trộm cắp', type: 'NUM' as const, format: '', aggregate: 'SUM' as const, source: 'TOKEN' as const },
+      { sheetKey: 'Chỉ tiêu', address: 'E9', fieldKey: 'Chỉ tiêu!E9', label: 'Ghi chú', type: 'TEXT' as const, format: '', aggregate: 'NONE' as const, source: 'WEB' as const },
+    ];
+    const saved = withCriteriaMeta(parsed, meta);
+    expect(saved[0]).toMatchObject({ itemKey: 'trom-cap', unit: 'vụ', parentItemKey: 'toi-pham', origin: 'FILE' });
+    expect(saved[1]).not.toHaveProperty('itemKey');
   });
 });
