@@ -24,6 +24,7 @@ export { ocrImport, ocrErrorText } from './ocrImport.vi';
 export { ocrQuality } from './ocrQuality.vi';
 export { teams } from './teams.vi';
 export { reportCriteria } from './reportCriteria.vi';
+export { permissions } from './permissions.vi';
 
 // ── Error messages ────────────────────────────────────────────────────────────
 

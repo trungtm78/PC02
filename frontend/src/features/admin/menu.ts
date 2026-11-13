@@ -1,4 +1,6 @@
 import type { FeatureMenuEntry } from '@/lib/features/moduleTypes';
+import { permissions } from '@/locales/permissions.vi';
+import { PAGE_PATH, SCREEN_PERMISSION } from '@/features/permissions/types';
 
 export const adminMenu: FeatureMenuEntry[] = [
   {
@@ -8,6 +10,15 @@ export const adminMenu: FeatureMenuEntry[] = [
     path: '/nguoi-dung',
     quyen: ['read:User'],
     icon: 'User',
+  },
+  {
+    section: 'admin',
+    id: 'admin-permissions',
+    label: permissions.menuLabel,
+    path: PAGE_PATH,
+    // GET /authz/catalogue, /authz/templates, /authz/teams: all `read:Role`.
+    quyen: [SCREEN_PERMISSION.READ],
+    icon: 'Shield',
   },
   {
     section: 'admin',

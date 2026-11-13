@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
@@ -17,7 +18,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SingleWardPicker } from '@/components/SingleWardPicker'; // v0.34.0.0
-import { teams as L } from '@/locales/vi';
+import { teams as L, permissions as PL } from '@/locales/vi';
+import { usePermission } from '@/hooks/usePermission';
+import { PAGE_PATH, PAGE_TAB, SCREEN_PERMISSION } from '@/features/permissions/types';
 
 /* ─── Types ──────────────────────────────────────────── */
 
@@ -126,6 +129,9 @@ const LEVEL_LABELS: Record<number, string> = {
 
 export default function TeamsPage() {
   const queryClient = useQueryClient();
+  // The link to "permissions by team" is for those who may open that screen; unknown yet = shown.
+  const { permissions: heldPermissions } = usePermission();
+  const canOpenPermissions = heldPermissions == null || heldPermissions.includes(SCREEN_PERMISSION.READ);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -719,6 +725,16 @@ export default function TeamsPage() {
             >
               <Edit2 className="w-4 h-4" />
             </button>
+            {canOpenPermissions && (
+              <Link
+                to={`${PAGE_PATH}?tab=${PAGE_TAB.TEAMS}&team=${encodeURIComponent(team.id)}`}
+                data-testid={`team-action-permissions-${team.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50"
+              >
+                {PL.links.teamPermissions}
+              </Link>
+            )}
             <button
               data-testid={`team-action-delete-${team.id}`}
               onClick={(e) => {

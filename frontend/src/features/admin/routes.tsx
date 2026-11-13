@@ -14,6 +14,7 @@ const MigrationCleanupPage = lazy(() => import('@/pages/admin/deadline-rules/Mig
 const LegacyMigrationPage = lazy(() => import('@/pages/admin/LegacyMigrationPage'));
 const LlmConfigPage = lazy(() => import('@/pages/admin/llm/LlmConfigPage'));
 const OcrQualityPage = lazy(() => import('@/pages/admin/ocr-quality/OcrQualityPage'));
+const PermissionsPage = lazy(() => import('@/pages/admin/PermissionsPage'));
 
 
 export function renderAdminRoutes(): ReactElement[] {
@@ -23,6 +24,7 @@ export function renderAdminRoutes(): ReactElement[] {
     <Route key="admin-settings" path="/admin/settings" element={wrapRoute(<AdminSettingsPage />)} />,
     <Route key="admin-llm-config" path="/admin/cau-hinh-llm" element={wrapRoute(<LlmConfigPage />)} />,
     <Route key="admin-ocr-quality" path="/admin/chat-luong-ocr" element={wrapRoute(<OcrQualityPage />)} />,
+    <Route key="admin-permissions" path="/admin/phan-quyen" element={wrapRoute(<PermissionsPage />)} />,
     <Route key="admin-restore" path="/admin/khoi-phuc" element={wrapRoute(<RestorePage />)} />,
     // Deadline Rule Versioning workflow
     <Route key="deadline-rules-list" path="/admin/deadline-rules" element={wrapRoute(<DeadlineRulesListPage />)} />,
