@@ -1,5 +1,6 @@
 import { AuthzScopeService } from './authz-scope.service';
 import { AuthzService, type AuthzMode, type AuthzSnapshot } from './authz.service';
+import { enforcement, setEnforcement } from './enforcement';
 import type { OrgTeam, Reach, TeamConfigInput, UserInput } from './engine/types';
 
 const OFFICER = ['read:Case', 'edit:Case', 'read:Incident', 'edit:Incident', 'read:Petition', 'edit:Petition', 'read:Directory'];
@@ -30,24 +31,25 @@ function snapshot(mode: AuthzMode, over: { users: UserInput[]; configs?: TeamCon
 const person = (over: Partial<UserInput> = {}): UserInput => ({
   id: 'me', roleName: 'OFFICER', rolePermissions: OFFICER, canDispatch: false, memberships: [{ teamId: 'A', isLeader: false }], overrides: [], dataGrants: [], ...over,
 });
-/** The real AuthzService with its snapshot pinned: the engine runs for real, nothing is read from a database. */
+/** The real AuthzService with the snapshot in memory pinned: the engine runs for real, nothing reads a database. */
 function service(snap: AuthzSnapshot): AuthzScopeService {
   const authz = new AuthzService({} as never);
-  jest.spyOn(authz, 'snapshot').mockResolvedValue(snap);
-  jest.spyOn(authz, 'currentMode').mockResolvedValue(snap.mode);
+  jest.spyOn(authz, 'cached').mockReturnValue(snap);
   return new AuthzScopeService(authz);
 }
 const explicit = (teamId: string, memberTemplateId: string): TeamConfigInput => ({ teamId, mode: 'EXPLICIT', memberTemplateId, leaderTemplateId: null, overrides: [] });
 
 describe('AuthzScopeService', () => {
+  afterEach(() => setEnforcement(null));
+
   it.each(['OFF', 'SHADOW'] as AuthzMode[])('in mode %s it answers nothing: the callers resolve as before', async (mode) => {
     const s = service(snapshot(mode, { users: [person()] }));
-    expect(await s.forUser('me')).toBeUndefined();
-    expect(await s.keysFor('me')).toBeUndefined();
+    expect(s.scopeOf('me')).toBeUndefined();
+    expect(s.keysOf('me')).toBeUndefined();
   });
 
   it('enforced, with nothing configured: every subject is reached "as today" (the team, the teams under it, their people, unassigned)', async () => {
-    const scope = (await service(snapshot('ENFORCE', { users: [person()] })).forUser('me'))!;
+    const scope = (service(snapshot('ENFORCE', { users: [person()] })).scopeOf('me'))!;
     for (const subject of ['Case', 'Incident', 'Petition'] as const) {
       for (const op of ['read', 'write'] as const) {
         const p = scope.precise!.subjects[subject][op];
@@ -70,7 +72,7 @@ describe('AuthzScopeService', () => {
       templates: { t: { 'read:Case': 'TEAM_TREE', 'edit:Case': 'OWN', 'read:Petition': 'TEAM', 'read:Directory': 'ALL' } },
     });
     const s = service(snap);
-    const scope = (await s.forUser('me'))!;
+    const scope = (s.scopeOf('me'))!;
     const { Case, Incident, Petition } = scope.precise!.subjects;
     expect(Case.read.tree!.teamIds.sort()).toEqual(['A', 'A1']);
     expect(Case.write).toEqual({ all: false, own: true, exactTeamIds: [], tree: null });
@@ -81,7 +83,7 @@ describe('AuthzScopeService', () => {
     // The summary lists are measured on cases: what is written is "mine only".
     expect(scope.writableTeamIds).toEqual([]);
     expect(scope.writableUserIds).toEqual(['me']);
-    expect(await s.keysFor('me')).toEqual(['edit:Case', 'read:Case', 'read:Directory', 'read:Petition']);
+    expect(s.keysOf('me')).toEqual(['edit:Case', 'read:Case', 'read:Directory', 'read:Petition']);
   });
 
   it('enforced: "all" on a subject is said as all, and ADMIN is unrestricted (null)', async () => {
@@ -91,34 +93,60 @@ describe('AuthzScopeService', () => {
       templates: { t: { 'read:Incident': 'ALL', 'edit:Incident': 'ALL' } },
     });
     const s = service(snap);
-    expect((await s.forUser('me'))!.precise!.subjects.Incident).toEqual({
+    expect((s.scopeOf('me'))!.precise!.subjects.Incident).toEqual({
       read: { all: true, own: false, exactTeamIds: [], tree: null },
       write: { all: true, own: false, exactTeamIds: [], tree: null },
     });
-    expect(await s.forUser('boss')).toBeNull();
-    expect(await s.keysFor('boss')).toEqual(['read:Case', 'write:Role']);
+    expect(s.scopeOf('boss')).toBeNull();
+    expect(s.keysOf('boss')).toEqual(['read:Case', 'write:Role']);
   });
 
   it('enforced: the dispatcher flag and the ward team travel with the scope; a ward officer gets no unassigned records', async () => {
     const snap = snapshot('ENFORCE', { users: [person({ id: 'wardy', canDispatch: true, memberships: [{ teamId: 'W', isLeader: false }] })] });
-    const scope = (await service(snap).forUser('wardy'))!;
+    const scope = (service(snap).scopeOf('wardy'))!;
     expect(scope).toMatchObject({ canDispatch: true, isWardOfficer: true, wardTeamId: 'W' });
     expect(scope.precise!.subjects.Case.read.tree).toEqual({ teamIds: ['W'], userIds: ['wardy'], includeUnassigned: false });
   });
 
-  it('while not enforced the permission configuration is not read at all (a request must not depend on it)', async () => {
-    const authz = new AuthzService({} as never);
-    jest.spyOn(authz, 'currentMode').mockResolvedValue('OFF');
-    const read = jest.spyOn(authz, 'snapshot');
+  it('answers from memory only: no promise, no database, in any mode', () => {
+    const prisma = new Proxy({}, { get: () => { throw new Error('the database was touched'); } });
+    const authz = new AuthzService(prisma as never);
     const s = new AuthzScopeService(authz);
-    expect(await s.forUser('me')).toBeUndefined();
-    expect(await s.keysFor('me')).toBeUndefined();
-    expect(read).not.toHaveBeenCalled();
+    // Nothing loaded yet (the process has only just started): not enforced, and still no read.
+    expect(s.scopeOf('me')).toBeUndefined();
+    expect(s.keysOf('me')).toBeUndefined();
+    jest.spyOn(authz, 'cached').mockReturnValue(snapshot('ENFORCE', { users: [person()] }));
+    expect(s.keysOf('me')).toEqual([...OFFICER].sort());
+    expect(s.scopeOf('me')).not.toBeInstanceOf(Promise);
   });
 
-  it('enforced: somebody the configuration does not know is not found, rather than unrestricted', async () => {
+  it('the mode is that of the snapshot: a scope is never computed from the mode of one moment and the configuration of another', () => {
+    const authz = new AuthzService({} as never);
+    const cached = jest.spyOn(authz, 'cached').mockReturnValue(snapshot('ENFORCE', { users: [person()] }));
+    const s = new AuthzScopeService(authz);
+    expect(s.scopeOf('me')).toBeDefined();
+    cached.mockReturnValue(snapshot('OFF', { users: [person()] }));
+    expect(s.scopeOf('me')).toBeUndefined();
+  });
+
+  it('enforced: somebody the configuration does not know is not found, rather than unrestricted', () => {
     const s = service(snapshot('ENFORCE', { users: [person()] }));
-    await expect(s.forUser('ghost')).rejects.toMatchObject({ response: { code: 'AUTHZ_USER_NOT_FOUND' } });
-    await expect(s.keysFor('ghost')).rejects.toMatchObject({ response: { code: 'AUTHZ_USER_NOT_FOUND' } });
+    expect(() => s.scopeOf('ghost')).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_USER_NOT_FOUND' } }));
+    expect(() => s.keysOf('ghost')).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_USER_NOT_FOUND' } }));
+  });
+
+  it('registers itself as the enforcement of the process, and steps down when its module is destroyed', () => {
+    const s = service(snapshot('OFF', { users: [] }));
+    expect(enforcement()).toBe(s);
+    s.onModuleDestroy();
+    expect(enforcement()).toBeNull();
+  });
+
+  it('assertReady fails while the configuration has never been loaded', () => {
+    const authz = new AuthzService({} as never);
+    const s = new AuthzScopeService(authz);
+    expect(() => s.assertReady()).toThrow(expect.objectContaining({ response: { code: 'AUTHZ_NOT_READY' } }));
+    jest.spyOn(authz, 'cached').mockReturnValue(snapshot('OFF', { users: [] }));
+    expect(() => s.assertReady()).not.toThrow();
   });
 });

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger, Optional } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -9,7 +9,7 @@ import type { StringValue } from 'ms';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
-import { AuthzScopeService } from '../authz/authz-scope.service';
+import { enforcement } from '../authz/enforcement';
 import { OtpCodeService } from './services/otp-code.service';
 import { EmailService } from '../email/email.service';
 import { LoginDto } from './dto/login.dto';
@@ -77,7 +77,6 @@ export class AuthService {
     private readonly otpCodeService: OtpCodeService,
     private readonly emailService: EmailService,
     private readonly metrics: MetricsService,
-    @Optional() private readonly authzScope?: AuthzScopeService,
   ) {
     const privateKeyPath = this.configService.get<string>(
       'JWT_PRIVATE_KEY_PATH',
@@ -732,7 +731,7 @@ export class AuthService {
       // role_permissions, giao diện và máy chủ cùng một nguồn.
       // Under permissions by team (enforced) the screen hides and shows by what the person holds there.
       permissions:
-        (await this.authzScope?.keysFor(user.id)) ??
+        enforcement()?.keysOf(user.id) ??
         (user.role.permissions ?? []).map(
           (rp) => `${rp.permission.action}:${rp.permission.subject}`,
         ),

@@ -1,10 +1,10 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TeamsService } from '../../teams/teams.service';
 import { AccessLevel } from '@prisma/client';
 import { ROLE_NAMES } from '../../common/constants/role.constants';
 import type { PreciseScopes } from '../../common/utils/precise-scope';
-import { AuthzScopeService } from '../../authz/authz-scope.service';
+import { enforcement } from '../../authz/enforcement';
 
 export interface DataScope {
   teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
@@ -36,7 +36,6 @@ export class UnitScopeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamsService: TeamsService,
-    @Optional() private readonly authzScope?: AuthzScopeService,
   ) {}
 
   /**
@@ -53,7 +52,7 @@ export class UnitScopeService {
   ): Promise<DataScope | null> {
     // Permissions by team, when enforced, decide the scope; in any other mode this answers undefined and the
     // scope is resolved from the role and the teams exactly as before.
-    const enforced = await this.authzScope?.forUser(userId);
+    const enforced = enforcement()?.scopeOf(userId);
     if (enforced !== undefined) return enforced;
 
     // Admin bypasses all scope restrictions

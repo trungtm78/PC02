@@ -3,7 +3,6 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
-  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
@@ -12,14 +11,13 @@ import {
   PermissionRule,
 } from '../decorators/permissions.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AuthzScopeService } from '../../authz/authz-scope.service';
+import { enforcement } from '../../authz/enforcement';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
-    @Optional() private readonly authzScope?: AuthzScopeService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -49,7 +47,7 @@ export class PermissionsGuard implements CanActivate {
 
     // Permissions by team, when enforced, are what the person holds; otherwise the role's, read as before.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    const enforced = await this.authzScope?.keysFor(user.id);
+    const enforced = enforcement()?.keysOf(user.id);
     const userPermissions = enforced
       ? enforced.map((key) => {
           const at = key.indexOf(':');

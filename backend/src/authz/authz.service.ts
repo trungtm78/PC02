@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { compile } from './engine/compile';
@@ -16,8 +16,8 @@ import type {
 
 export const AUTHZ_MODES = ['OFF', 'SHADOW', 'ENFORCE'] as const;
 export type AuthzMode = (typeof AUTHZ_MODES)[number];
-/** How long the request path trusts the mode it last read. */
-export const MODE_TTL_MS = 10_000;
+/** How often the configuration in memory is checked against the database, in the background. */
+export const REFRESH_EVERY_MS = 3_000;
 
 /** Everything effective permissions are computed from, as it was at one revision of the counter. */
 export interface AuthzSnapshot {
@@ -45,13 +45,47 @@ const push = <K, V>(map: Map<K, V[]>, key: K, value: V) => map.set(key, [...(map
  * database's revision counter moves; a person's answer is kept no longer than its own `validUntil`.
  */
 @Injectable()
-export class AuthzService {
+export class AuthzService implements OnApplicationBootstrap, OnModuleDestroy {
   private snapshotCache: AuthzSnapshot | null = null;
   private loading: Promise<AuthzSnapshot> | null = null;
   private readonly effectiveCache = new Map<string, EffectivePermissions>();
-  private modeCache: { mode: AuthzMode; readAt: number } | null = null;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private readonly logger = new Logger(AuthzService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * The configuration is loaded BEFORE the application takes requests and then kept fresh in the background, so the
+   * request path only ever reads memory (`cached()`): it never waits on the database for this, in any mode, and
+   * takes no connection (the scope is also asked for inside open transactions).
+   *
+   * A change is noticed within `REFRESH_EVERY_MS`; the save path of the permission screen refreshes at once.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    await this.refresh();
+    this.timer = setInterval(() => void this.refresh(), REFRESH_EVERY_MS);
+    // Never keeps the process alive on its own (tests, shutdown).
+    this.timer.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  /** Brings the configuration in memory up to date. Never throws: a failed read keeps what is in memory. */
+  async refresh(): Promise<void> {
+    try {
+      await this.snapshot();
+    } catch (err) {
+      this.logger.error(`Permission configuration could not be refreshed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** The configuration in memory, or null when it has never been loaded. Synchronous: what the request path reads. */
+  cached(): AuthzSnapshot | null {
+    return this.snapshotCache;
+  }
 
   /**
    * What the triggers have logged, as far as this connection can see: the number of rows and the last one. A change
@@ -81,28 +115,6 @@ export class AuthzService {
 
   async mode(): Promise<AuthzMode> {
     return (await this.snapshot()).mode;
-  }
-
-  /**
-   * The mode, for the request path: one indexed row, remembered for a few seconds, and NOTHING else. While the
-   * mode is OFF a request must not depend on the permission configuration being readable at all.
-   *
-   * If the setting cannot be read, the last mode known is kept; with none known the mode is OFF (the process
-   * has just started and cannot read its settings: nothing was being enforced by it).
-   */
-  async currentMode(now: number = Date.now()): Promise<AuthzMode> {
-    if (this.modeCache && now - this.modeCache.readAt < MODE_TTL_MS) return this.modeCache.mode;
-    try {
-      const row = await this.prisma.systemSetting.findUnique({
-        where: { key: SETTINGS_KEY.QUYEN_THEO_TO_CHE_DO },
-        select: { value: true },
-      });
-      const value = row?.value as AuthzMode | undefined;
-      this.modeCache = { mode: value && AUTHZ_MODES.includes(value) ? value : 'OFF', readAt: now };
-    } catch {
-      this.modeCache = { mode: this.modeCache?.mode ?? 'OFF', readAt: now };
-    }
-    return this.modeCache.mode;
   }
 
   /** What the person may do at `now`. Unknown or switched-off people are not found. */
