@@ -15,6 +15,7 @@ import type {
   FinalizeResultView,
   ImportPreviewResult,
   MidPeriodAssignmentView,
+  OfficialFileView,
   AssignmentEditorsView,
   MidPeriodImpactPreview,
   PeriodSummaryView,
@@ -452,6 +453,22 @@ export const dynamicReportsApi = {
   /** Triggers the browser download directly; `fileName` from `exportPeriod` is the fallback. */
   downloadExport: async (exportId: string, fileName: string) => {
     const response = await api.get<Blob>(`/bao-cao-dong/exports/${exportId}/download`, {
+      responseType: 'blob',
+    });
+    triggerDownload(response, fileName);
+  },
+
+  /** The official files of a closed period, newest first (made by the server right after the period is closed). */
+  listOfficialFiles: (periodId: string) =>
+    api.get<OfficialFileView[]>(`/bao-cao-dong/periods/${periodId}/official-files`).then((r) => r.data),
+
+  /** Make the official file of a closed period again; the one before it stays downloadable as "replaced". */
+  remakeOfficialFile: (periodId: string) =>
+    api.post<OfficialFileView>(`/bao-cao-dong/periods/${periodId}/official-files`, {}).then((r) => r.data),
+
+  /** Triggers the browser download of one official file; `fileName` is the fallback name. */
+  downloadOfficialFile: async (fileId: string, fileName: string) => {
+    const response = await api.get<Blob>(`/bao-cao-dong/official-files/${fileId}/download`, {
       responseType: 'blob',
     });
     triggerDownload(response, fileName);

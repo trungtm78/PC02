@@ -101,11 +101,12 @@ const REPORT: ReportDetailView = {
     fileName: 'mau-cu.xlsx',
     selectedSheets: ['Chỉ tiêu'],
     dateSystem: '1900',
+    sourceKind: 'TEMPLATE',
     publishedAt: null,
     createdAt: '2026-10-01T00:00:00.000Z',
     fields: [
       // Same cell as a criterion of the new list, but another thing altogether: its settings must not travel.
-      { sheetKey: 'Chỉ tiêu', address: 'C3', fieldKey: 'Chỉ tiêu!C3', label: 'Ô cũ', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: null, max: null, scale: null, maxLength: null, helpText: 'Ghi chú cũ', source: 'WEB' },
+      { sheetKey: 'Chỉ tiêu', address: 'C3', fieldKey: 'Chỉ tiêu!C3', label: 'Ô cũ', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: null, max: null, scale: null, maxLength: null, helpText: 'Ghi chú cũ', source: 'WEB', itemKey: null, unit: null, parentItemKey: null, origin: null },
     ],
     rules: [],
   },

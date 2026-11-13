@@ -46,7 +46,7 @@ import ReportVersionSummaryStep from './ReportVersionSummaryStep';
 import type { ReportRoleConfig, ReportRuleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
 import CriteriaSetup from '@/features/dynamic-reports/criteria/CriteriaSetup';
 import type { CriteriaBuilt } from '@/features/dynamic-reports/criteria/CriteriaSetup';
-import { withCriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
+import { criteriaMetaFromVersion, withCriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
 import type { CriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
 import { reportCriteria } from '@/locales/reportCriteria.vi';
 
@@ -117,6 +117,9 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
   const [criteriaOpened, setCriteriaOpened] = useState(false);
   // Present: the file in hand was generated from a list of criteria, and this says what each of its cells stands for.
   const [criteriaMeta, setCriteriaMeta] = useState<CriteriaMeta | null>(null);
+  // True when that file is the source report's own criteria workbook taken again: same cells, so what the previous
+  // version knew of each cell (required, decimals, help text) still belongs to it.
+  const [criteriaFromCurrent, setCriteriaFromCurrent] = useState(false);
   const [targetTeamNames, setTargetTeamNames] = useState<Record<string, string>>({});
 
   function chooseStartMode(mode: StartMode) {
@@ -129,6 +132,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
     setSelectedSheets([]);
     setPreview(null);
     setCriteriaMeta(null);
+    setCriteriaFromCurrent(false);
     setCarryNote(null);
     setError(null);
     setStep('upload');
@@ -152,6 +156,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
     );
     setSelectedCandidates(new Set());
     setCriteriaMeta(built.meta);
+    setCriteriaFromCurrent(false);
     setStep('preview');
   }
 
@@ -184,14 +189,21 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
   async function useCurrentFile() {
     const current = source?.currentVersion;
     if (!source || !current) return;
-    // The report's own file is a template: this is the template way of starting, whatever was chosen before.
+    // The report's own file is read as a file in hand: the sheet list and the preview, whatever was chosen before.
     setStartMode('template');
     setCriteriaMeta(null);
+    setCriteriaFromCurrent(false);
     setError(null);
     setLoading(true);
     try {
       const f = await dynamicReportsApi.downloadVersionFile(source.id, current.versionId, current.fileName);
       await handleFileChange(f);
+      // A workbook generated from criteria stays one: each cell keeps the criterion it stood for, and the new
+      // version (or the copy) is saved as a criteria report again.
+      if (current.sourceKind === 'CRITERIA') {
+        setCriteriaMeta(criteriaMetaFromVersion(current.fields));
+        setCriteriaFromCurrent(true);
+      }
     } catch (err) {
       setError(extractApiError(err).message);
       setLoading(false);
@@ -469,7 +481,12 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               accept=".xlsx"
               data-testid="file-input"
               disabled={loading}
-              onChange={(e) => void handleFileChange(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                // Another file from the disk is an ordinary template, even after the report's criteria file was in hand.
+                setCriteriaMeta(null);
+                setCriteriaFromCurrent(false);
+                void handleFileChange(e.target.files?.[0] ?? null);
+              }}
               className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium hover:file:bg-blue-100"
             />
           </>
@@ -771,7 +788,12 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               initialTargets={
                 targets.length > 0
                   ? targets
-                  : copyFrom?.targets.map((t) => ({ teamId: t.teamId, editorUserIds: t.editors.map((e) => e.userId) }))
+                  : copyFrom?.targets.map((t) => ({
+                      teamId: t.teamId,
+                      editorUserIds: t.editors.map((e) => e.userId),
+                      // The copy starts with what each team reports in the source (keys the copy no longer has drop out).
+                      ...(t.itemKeys ? { itemKeys: t.itemKeys } : {}),
+                    }))
               }
               teamNames={copyFrom ? Object.fromEntries(copyFrom.targets.map((t) => [t.teamId, t.teamName])) : undefined}
               fields={savedFields}
@@ -828,7 +850,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               dateSystem={preview.dateSystem}
               fields={savedFields}
               // A generated workbook has its own cells: the previous version's per-cell settings do not belong to them.
-              previousFields={criteriaMeta ? [] : previousFields}
+              previousFields={criteriaMeta && !criteriaFromCurrent ? [] : previousFields}
               layout={preview.layout}
               formulas={preview.formulas}
               rules={rules}
@@ -847,7 +869,9 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               description={description}
               selectedSheets={selectedSheets}
               dateSystem={preview.dateSystem}
-              fields={copyFrom && !criteriaMeta ? withPreviousExtras(savedFields, previousFields) : savedFields}
+              fields={
+                copyFrom && (!criteriaMeta || criteriaFromCurrent) ? withPreviousExtras(savedFields, previousFields) : savedFields
+              }
               layout={preview.layout}
               formulas={preview.formulas}
               schedule={schedule}

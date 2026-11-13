@@ -6,7 +6,7 @@
  */
 import { Fragment, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   AlertCircle,
@@ -34,7 +34,9 @@ import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING, BTN_OUTLINE_BLUE } from '@/constants/styles';
 import GridViewer from '@/features/dynamic-reports/grid/GridViewer';
 import { useGridLayout } from '@/features/dynamic-reports/grid/useGridLayout';
+import { officialFilesKey } from '@/features/dynamic-reports/officialFile';
 import PeriodDeleteDialog from './PeriodDeleteDialog';
+import OfficialFilePanel from './OfficialFilePanel';
 
 const MODE_LABEL: Record<SummaryMode, string> = {
   SUBMITTED: 'Đã nộp + đã duyệt',
@@ -64,6 +66,7 @@ export default function ReportPeriodSummaryPage() {
   const [exportFormat, setExportFormat] = useState<'TEMPLATE' | 'LIST' | null>(null);
   const [deletingPeriod, setDeletingPeriod] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   async function handleExport() {
     if (!periodId) return;
@@ -106,6 +109,8 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
         // Say yes to exactly this sentence; if the teams changed while the question was open, the server asks again.
         await dynamicReportsApi.finalizePeriod(periodId, e.message);
       }
+      // The server starts making the official file now: whatever list was read before this closing is out of date.
+      void queryClient.invalidateQueries({ queryKey: officialFilesKey(periodId) });
       await refetch();
       setFinalizeStatus('idle');
     } catch (err) {
@@ -122,6 +127,8 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
     setFinalizeError(null);
     try {
       await dynamicReportsApi.reopenPeriod(periodId, reason.trim());
+      // Reopening voids the official file: the list kept from before must not be shown at the next closing.
+      void queryClient.invalidateQueries({ queryKey: officialFilesKey(periodId) });
       await refetch();
       setFinalizeStatus('idle');
     } catch (err) {
@@ -308,6 +315,8 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
           </p>
         </div>
       </div>
+
+      {view.status === 'FINALIZED' && <OfficialFilePanel key={view.periodId} periodId={view.periodId} />}
 
       {gridUnavailable && (
         <p className="text-sm text-amber-700 mb-3" data-testid="grid-fallback-note">

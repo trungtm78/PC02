@@ -298,6 +298,11 @@ export interface ReportDetailField {
   maxLength: number | null;
   helpText: string | null;
   source: string;
+  /** Criteria reports: the criterion's stable key, unit, parent and origin; null for an ordinary template cell. */
+  itemKey: string | null;
+  unit: string | null;
+  parentItemKey: string | null;
+  origin: CriterionOrigin | null;
 }
 
 export interface ReportDetailRule {
@@ -318,6 +323,8 @@ export interface ReportDetailVersion {
   fileName: string;
   selectedSheets: string[];
   dateSystem: string;
+  /** What the workbook was made from: an authored TEMPLATE, or a list of CRITERIA the system turned into one. */
+  sourceKind: ReportSourceKind;
   publishedAt: string | null;
   createdAt: string;
   fields: ReportDetailField[];
@@ -364,6 +371,8 @@ export interface ReportDetailView {
     teamCode: string;
     teamName: string;
     editors: Array<{ userId: string; name: string }>;
+    /** The criteria this team reports, by item key; null = every criterion. */
+    itemKeys: string[] | null;
   }>;
   currentVersion: ReportDetailVersion | null;
   versionCount: number;
@@ -593,6 +602,20 @@ export interface FinalizeResultView {
   status: 'FINALIZED';
   finalizedAt: string;
   snapshotId: string;
+}
+
+/** One making of the workbook a closed period is kept as (`GET /periods/:periodId/official-files`, newest first). */
+export type OfficialFileStatus = 'READY' | 'FAILED' | 'SUPERSEDED' | 'VOID';
+
+export interface OfficialFileView {
+  id: string;
+  status: OfficialFileStatus;
+  /** Null when the file could not be made. */
+  fileName: string | null;
+  error: string | null;
+  createdAt: string;
+  /** When it stopped being the current one (replaced, or the period was reopened). */
+  endedAt: string | null;
 }
 
 export interface ReopenResultView {

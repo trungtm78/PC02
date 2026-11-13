@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportPeriodSummaryPage from '../ReportPeriodSummaryPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
-import type { PeriodSummaryView } from '@/features/dynamic-reports/types';
+import type { OfficialFileView, PeriodSummaryView } from '@/features/dynamic-reports/types';
 import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
 import { FeatureFlagsContext } from '@/lib/features/featureFlagsContextObject';
 import { GRID_FLAG } from '@/features/dynamic-reports/grid/useGridLayout';
@@ -20,6 +20,9 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getPeriodDeletionImpact: vi.fn(),
     deletePeriod: vi.fn(),
     deletePeriodWithData: vi.fn(),
+    listOfficialFiles: vi.fn(),
+    remakeOfficialFile: vi.fn(),
+    downloadOfficialFile: vi.fn(),
   },
 }));
 
@@ -89,6 +92,7 @@ const VIEW: PeriodSummaryView = {
 describe('ReportPeriodSummaryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([]);
   });
 
   it('links to the add-team/exempt-team page (S30)', async () => {
@@ -547,6 +551,186 @@ describe('ReportPeriodSummaryPage', () => {
       await waitFor(() => screen.getByTestId('field-table'));
       expect(screen.queryByTestId('layout-grid')).toBeNull();
       expect(dynamicReportsApi.getVersionGrid).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('"File chính thức" of a closed period', () => {
+    const FINALIZED: PeriodSummaryView = { ...VIEW, status: 'FINALIZED' };
+    const officialFile = (id: string, status: OfficialFileView['status'], over: Partial<OfficialFileView> = {}): OfficialFileView => ({
+      id,
+      status,
+      fileName: status === 'FAILED' ? null : `HSLN-2026-06-${id}.xlsx`,
+      error: status === 'FAILED' ? 'Không dựng được mẫu' : null,
+      createdAt: '2026-07-06T03:15:00.000Z',
+      endedAt: null,
+      ...over,
+    });
+
+    it('an OPEN period has no such panel, and its list is never asked for', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+      renderPage();
+      await screen.findByTestId('btn-finalize');
+      expect(screen.queryByTestId('official-file-panel')).not.toBeInTheDocument();
+      expect(dynamicReportsApi.listOfficialFiles).not.toHaveBeenCalled();
+    });
+
+    it('the current file is on top with its time, and "Tải về" downloads it by its own name', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      // The server sends newest first; a failed making newer than the file in force must not push it off the top.
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([
+        officialFile('f3', 'FAILED'),
+        officialFile('f2', 'READY'),
+        officialFile('f1', 'SUPERSEDED'),
+      ]);
+      vi.mocked(dynamicReportsApi.downloadOfficialFile).mockResolvedValue(undefined);
+      renderPage();
+
+      const panel = await screen.findByTestId('official-file-panel');
+      expect(panel).toHaveTextContent('File chính thức');
+      await screen.findByTestId('official-file-row-f2');
+      expect(dynamicReportsApi.listOfficialFiles).toHaveBeenCalledWith('period1');
+      const rows = screen.getByTestId('official-file-list').querySelectorAll('li');
+      expect(rows[0]).toHaveAttribute('data-testid', 'official-file-row-f2');
+      // 03:15 UTC is 10:15 in Việt Nam.
+      expect(screen.getByTestId('official-file-created-f2')).toHaveTextContent('10:15');
+      expect(screen.getByTestId('official-file-created-f2')).toHaveTextContent('06/07/2026');
+
+      const download = screen.getByTestId('btn-official-file-download-f2');
+      expect(download.tagName).toBe('BUTTON');
+      expect(download).toHaveTextContent('Tải về');
+      fireEvent.click(download);
+      await waitFor(() =>
+        expect(dynamicReportsApi.downloadOfficialFile).toHaveBeenCalledWith('f2', 'HSLN-2026-06-f2.xlsx'),
+      );
+      expect(screen.queryByTestId('official-file-error')).not.toBeInTheDocument();
+    });
+
+    it('a failed making says "Chưa tạo được file", has nothing to download, and "Tạo lại" makes it again', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.listOfficialFiles)
+        .mockResolvedValueOnce([officialFile('f1', 'FAILED')])
+        .mockResolvedValue([officialFile('f2', 'READY'), officialFile('f1', 'FAILED')]);
+      vi.mocked(dynamicReportsApi.remakeOfficialFile).mockResolvedValue(officialFile('f2', 'READY'));
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      expect(await screen.findByTestId('official-file-status-f1')).toHaveTextContent('Chưa tạo được file');
+      expect(screen.queryByTestId('btn-official-file-download-f1')).not.toBeInTheDocument();
+      const remake = screen.getByTestId('btn-official-file-remake-f1');
+      expect(remake.tagName).toBe('BUTTON');
+      expect(remake).toHaveTextContent('Tạo lại');
+      fireEvent.click(remake);
+
+      await waitFor(() => expect(dynamicReportsApi.remakeOfficialFile).toHaveBeenCalledWith('period1'));
+      // Nothing good is replaced by making a failed file again: no question asked.
+      expect(confirmSpy).not.toHaveBeenCalled();
+      // The list is read again and the new file is the current one.
+      expect(await screen.findByTestId('btn-official-file-download-f2')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-official-file-remake-f1')).not.toBeInTheDocument();
+      confirmSpy.mockRestore();
+    });
+
+    it('"Tạo lại" next to the current file asks first, and does nothing when declined', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([officialFile('f1', 'READY')]);
+      vi.mocked(dynamicReportsApi.remakeOfficialFile).mockResolvedValue(officialFile('f2', 'READY'));
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+      renderPage();
+
+      fireEvent.click(await screen.findByTestId('btn-official-file-remake-f1'));
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(dynamicReportsApi.remakeOfficialFile).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByTestId('btn-official-file-remake-f1'));
+      await waitFor(() => expect(dynamicReportsApi.remakeOfficialFile).toHaveBeenCalledWith('period1'));
+      confirmSpy.mockRestore();
+    });
+
+    it('a refused "Tạo lại" is shown in plain words, not swallowed', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([officialFile('f1', 'FAILED')]);
+      vi.mocked(dynamicReportsApi.remakeOfficialFile).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: { error: { code: 'PERIOD_NOT_FINALIZED', message: 'Period is not finalized' } } },
+      });
+      renderPage();
+
+      fireEvent.click(await screen.findByTestId('btn-official-file-remake-f1'));
+      expect(await screen.findByTestId('official-file-error')).toHaveTextContent('Kỳ này chưa chốt');
+    });
+
+    it('replaced and void files say why they are no longer in force, are muted, and can still be downloaded', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([
+        officialFile('f3', 'READY'),
+        officialFile('f2', 'SUPERSEDED'),
+        officialFile('f1', 'VOID'),
+      ]);
+      vi.mocked(dynamicReportsApi.downloadOfficialFile).mockResolvedValue(undefined);
+      renderPage();
+
+      expect(await screen.findByTestId('official-file-status-f2')).toHaveTextContent('Đã thay bằng bản mới');
+      expect(screen.getByTestId('official-file-status-f1')).toHaveTextContent('Đã vô hiệu vì kỳ được mở lại');
+      expect(screen.getByTestId('official-file-row-f2').className).toContain('text-slate-400');
+      expect(screen.getByTestId('official-file-row-f1').className).toContain('text-slate-400');
+      expect(screen.getByTestId('official-file-row-f3').className).not.toContain('text-slate-400');
+      expect(screen.queryByTestId('btn-official-file-remake-f2')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('btn-official-file-download-f1'));
+      await waitFor(() =>
+        expect(dynamicReportsApi.downloadOfficialFile).toHaveBeenCalledWith('f1', 'HSLN-2026-06-f1.xlsx'),
+      );
+    });
+
+    it('a download the server refuses (the answer arrives as a blob) shows why', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([officialFile('f1', 'READY')]);
+      const body = new Blob(
+        [JSON.stringify({ error: { code: 'OFFICIAL_FILE_NOT_AVAILABLE', message: 'not available' } })],
+        { type: 'application/json' },
+      );
+      vi.mocked(dynamicReportsApi.downloadOfficialFile).mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 409, data: body },
+      });
+      renderPage();
+
+      fireEvent.click(await screen.findByTestId('btn-official-file-download-f1'));
+      expect(await screen.findByTestId('official-file-error')).toHaveTextContent('không tải về được');
+    });
+
+    it('a list that cannot be loaded shows an error line with a retry — never "no file" or "making"', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockRejectedValueOnce(new Error('500'));
+      renderPage();
+
+      expect(await screen.findByTestId('official-file-load-error')).toHaveTextContent('Không tải được danh sách file chính thức');
+      expect(screen.queryByTestId('official-file-making')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('official-file-none')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('official-file-list')).not.toBeInTheDocument();
+      // The rest of the page is still there.
+      expect(screen.getByTestId('kpi-cards')).toBeInTheDocument();
+
+      vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([officialFile('f1', 'READY')]);
+      fireEvent.click(screen.getByTestId('btn-official-file-retry'));
+      expect(await screen.findByTestId('official-file-row-f1')).toBeInTheDocument();
+      expect(screen.queryByTestId('official-file-load-error')).not.toBeInTheDocument();
+    });
+
+    it('closing the period on this page brings the panel up, reading the list afresh', async () => {
+      vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValueOnce(VIEW).mockResolvedValue(FINALIZED);
+      vi.mocked(dynamicReportsApi.finalizePeriod).mockResolvedValue({
+        periodId: 'period1', status: 'FINALIZED', finalizedAt: '2026-07-06T03:00:00.000Z', snapshotId: 's1',
+      });
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage();
+
+      fireEvent.click(await screen.findByTestId('btn-finalize'));
+
+      // Nothing is made yet right after the closing: the panel says the file is on its way.
+      expect(await screen.findByTestId('official-file-making')).toHaveTextContent('Đang tạo file…');
+      expect(dynamicReportsApi.listOfficialFiles).toHaveBeenCalledWith('period1');
+      confirmSpy.mockRestore();
     });
   });
 });

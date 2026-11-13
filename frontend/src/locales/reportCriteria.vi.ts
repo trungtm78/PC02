@@ -117,6 +117,32 @@ export const reportCriteria = {
     matrixNo: 'không',
     emptyTeams: (teams: string) => `Chưa tích tiêu chí nào cho: ${teams}. Mỗi tổ phải báo ít nhất một tiêu chí.`,
   },
+  officialFile: {
+    title: 'File chính thức',
+    hint: 'File Excel của kỳ đã chốt, được lưu lại không thời hạn.',
+    making: 'Đang tạo file…',
+    none: 'Kỳ này chưa có file chính thức.',
+    make: 'Tạo file',
+    current: 'Bản hiện hành',
+    failed: 'Chưa tạo được file',
+    superseded: 'Đã thay bằng bản mới',
+    voided: 'Đã vô hiệu vì kỳ được mở lại',
+    createdAt: (time: string) => `Tạo lúc ${time}`,
+    download: 'Tải về',
+    downloading: 'Đang tải…',
+    remake: 'Tạo lại',
+    remaking: 'Đang tạo…',
+    confirmRemake: 'Tạo lại file chính thức? Bản hiện hành vẫn tải được, nhưng sẽ ghi là đã thay bằng bản mới.',
+    loadError: 'Không tải được danh sách file chính thức.',
+    retry: 'Thử lại',
+    errors: {
+      PERIOD_NOT_FINALIZED: 'Kỳ này chưa chốt nên chưa có file chính thức. Hãy chốt kỳ trước.',
+      OFFICIAL_FILE_NOT_AVAILABLE: 'File này chưa tạo được nên không tải về được. Hãy bấm "Tạo lại".',
+    } as Record<string, string>,
+  },
+  edit: {
+    criteriaHint: 'Tiêu chí từng tổ phải báo cũng áp dụng từ kỳ kế tiếp.',
+  },
   summary: {
     source: 'Nguồn mẫu',
     sourceCriteria: 'Sinh từ danh sách tiêu chí',
@@ -133,4 +159,11 @@ export function criteriaErrorText(code: string | undefined, serverMessage: strin
 
 export function criteriaWarningText(code: string): string {
   return reportCriteria.warnings[code] ?? code;
+}
+
+/** The message for a refused official-file request: by the server's code when known, else what the server said. */
+export function officialFileErrorText(code: string | undefined, serverMessage: string): string {
+  const known = reportCriteria.officialFile.errors;
+  if (code && Object.prototype.hasOwnProperty.call(known, code)) return known[code];
+  return serverMessage || reportCriteria.errorFallback;
 }

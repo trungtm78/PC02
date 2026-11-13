@@ -39,11 +39,12 @@ const REPORT: ReportDetailView = {
     fileName: 'mau-cu.xlsx',
     selectedSheets: ['Đội 3'],
     dateSystem: '1900',
+    sourceKind: 'TEMPLATE',
     publishedAt: null,
     createdAt: '2026-10-01T00:00:00.000Z',
     fields: [
-      { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Số vụ cũ', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB' },
-      { sheetKey: 'Đội 3', address: 'C9', fieldKey: 'Đội 3!C9', label: 'Ô đã mất', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: false, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB' },
+      { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Số vụ cũ', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB', itemKey: null, unit: null, parentItemKey: null, origin: null },
+      { sheetKey: 'Đội 3', address: 'C9', fieldKey: 'Đội 3!C9', label: 'Ô đã mất', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: false, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB', itemKey: null, unit: null, parentItemKey: null, origin: null },
     ],
     rules: [
       { name: 'Quy tắc cũ', leftExpr: 'C6', operator: 'GTE', rightExpr: '0', severity: 'ERROR', message: 'Không âm', missingStrategy: null, origin: 'MANUAL' },
@@ -144,6 +145,120 @@ describe('ReportTemplateUploadPage — "Cập nhật mẫu" (version mode)', () 
     await waitFor(() => expect(dynamicReportsApi.downloadVersionFile).toHaveBeenCalledWith('r1', 'v1', 'mau-cu.xlsx'));
     await waitFor(() => screen.getByTestId('sheet-checkbox-Đội 3'));
     expect(dynamicReportsApi.listTemplateSheets).toHaveBeenCalled();
+  });
+
+  describe('"Dùng lại file đang áp dụng" on a report made from criteria', () => {
+    const criteriaCell = (address: string, label: string, itemKey: string, over: Record<string, unknown> = {}) => ({
+      sheetKey: 'Đội 3', address, fieldKey: `Đội 3!${address}`, label, type: 'NUM', format: null, aggregate: 'SUM',
+      blankPolicy: 'ZERO', required: false, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'TOKEN',
+      itemKey, unit: null, parentItemKey: null, origin: 'FILE' as const, ...over,
+    });
+    const CRITERIA_REPORT: ReportDetailView = {
+      ...REPORT,
+      currentVersion: {
+        ...REPORT.currentVersion!,
+        fileName: 'tieu-chi.xlsx',
+        sourceKind: 'CRITERIA',
+        fields: [
+          criteriaCell('C6', 'Trộm cắp', 'trom-cap', { unit: 'vụ', parentItemKey: 'toi-pham', required: true }),
+          criteriaCell('C7', 'Cướp', 'cuop', { parentItemKey: 'toi-pham', origin: 'MANUAL' }),
+        ],
+        rules: [],
+      },
+    };
+    const GENERATED = {
+      ...PREVIEW,
+      markableCells: [],
+      fields: [
+        { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Trộm cắp', type: 'NUM', format: '', aggregate: 'SUM', source: 'TOKEN' },
+        { sheetKey: 'Đội 3', address: 'C7', fieldKey: 'Đội 3!C7', label: 'Cướp', type: 'NUM', format: '', aggregate: 'SUM', source: 'TOKEN' },
+      ],
+    } as TemplatePreviewResult;
+
+    function renderCriteriaVersion() {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <ReportTemplateUploadPage report={CRITERIA_REPORT} />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    }
+
+    async function toPublish() {
+      fireEvent.click(screen.getByTestId('btn-preview'));
+      fireEvent.click(await screen.findByTestId('btn-go-to-schedule'));
+      fireEvent.click(await screen.findByTestId('btn-rules-next'));
+      fireEvent.click(await screen.findByTestId('btn-version-publish'));
+      await waitFor(() => expect(dynamicReportsApi.createReportVersion).toHaveBeenCalledTimes(1));
+      return vi.mocked(dynamicReportsApi.createReportVersion).mock.calls[0][2];
+    }
+
+    beforeEach(() => {
+      vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue(GENERATED);
+      vi.mocked(dynamicReportsApi.downloadVersionFile).mockResolvedValue(new File(['x'], 'tieu-chi.xlsx'));
+      vi.mocked(dynamicReportsApi.createReportVersion).mockResolvedValue({
+        reportId: 'r1', versionId: 'v2', version: 2, status: 'PUBLISHED', appliedToPeriods: [], keptOnOldVersionPeriods: [],
+      });
+    });
+
+    it('the new version is still a criteria report, and each cell keeps its criterion, unit, parent and origin', async () => {
+      renderCriteriaVersion();
+      fireEvent.click(screen.getByTestId('btn-use-current-file'));
+      await screen.findByTestId('sheet-checkbox-Đội 3');
+
+      const payload = await toPublish();
+      expect(payload.sourceKind).toBe('CRITERIA');
+      expect(payload.fields).toEqual([
+        expect.objectContaining({ fieldKey: 'Đội 3!C6', itemKey: 'trom-cap', unit: 'vụ', parentItemKey: 'toi-pham', origin: 'FILE' }),
+        expect.objectContaining({ fieldKey: 'Đội 3!C7', itemKey: 'cuop', parentItemKey: 'toi-pham', origin: 'MANUAL' }),
+      ]);
+      // Same cells as before: the settings the previous version had for them are kept as well.
+      expect(payload.fields[0]).toMatchObject({ required: true });
+      expect(screen.getByTestId('version-result')).toBeInTheDocument();
+    });
+
+    it('says so on the last step before anything is sent', async () => {
+      renderCriteriaVersion();
+      fireEvent.click(screen.getByTestId('btn-use-current-file'));
+      await screen.findByTestId('sheet-checkbox-Đội 3');
+      fireEvent.click(screen.getByTestId('btn-preview'));
+      fireEvent.click(await screen.findByTestId('btn-go-to-schedule'));
+      fireEvent.click(await screen.findByTestId('btn-rules-next'));
+      expect(await screen.findByTestId('version-summary-source')).toHaveTextContent('Sinh từ danh sách tiêu chí');
+    });
+
+    it('choosing another file from the disk afterwards is an ordinary template again: no criteria are claimed for it', async () => {
+      renderCriteriaVersion();
+      fireEvent.click(screen.getByTestId('btn-use-current-file'));
+      await screen.findByTestId('sheet-checkbox-Đội 3');
+      await waitFor(() => expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument());
+      fireEvent.change(screen.getByTestId('file-input'), { target: { files: [newFile()] } });
+      await waitFor(() => expect(dynamicReportsApi.listTemplateSheets).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument());
+
+      const payload = await toPublish();
+      expect(payload.sourceKind).toBeUndefined();
+      expect(payload.fields[0]).not.toHaveProperty('itemKey');
+    });
+  });
+
+  it('a template report reusing its file stays a template: no sourceKind is sent', async () => {
+    vi.mocked(dynamicReportsApi.downloadVersionFile).mockResolvedValue(newFile());
+    vi.mocked(dynamicReportsApi.createReportVersion).mockResolvedValue({
+      reportId: 'r1', versionId: 'v2', version: 2, status: 'PUBLISHED', appliedToPeriods: [], keptOnOldVersionPeriods: [],
+    });
+    renderVersionPage();
+    fireEvent.click(screen.getByTestId('btn-use-current-file'));
+    await screen.findByTestId('sheet-checkbox-Đội 3');
+    fireEvent.click(screen.getByTestId('btn-preview'));
+    fireEvent.click(await screen.findByTestId('btn-go-to-schedule'));
+    fireEvent.click(await screen.findByTestId('btn-rules-next'));
+    fireEvent.click(await screen.findByTestId('btn-version-publish'));
+
+    await waitFor(() => expect(dynamicReportsApi.createReportVersion).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(dynamicReportsApi.createReportVersion).mock.calls[0][2].sourceKind).toBeUndefined();
   });
 
   it('publishes a new version for THIS report with the carried fields (their required flag included) and shows where it applies', async () => {

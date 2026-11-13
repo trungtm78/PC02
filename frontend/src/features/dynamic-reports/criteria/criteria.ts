@@ -8,7 +8,9 @@ import type {
   CriteriaWarning,
   Criterion,
   CriterionDraft,
+  CriterionOrigin,
   ParsedField,
+  ReportTargetConfig,
 } from '../types';
 
 // ── Addresses ────────────────────────────────────────────────────────────────
@@ -324,13 +326,25 @@ export interface ItemGroup {
   items: ReportableItem[];
 }
 
+/**
+ * What a checklist needs of an input cell. Both a field of the wizard's preview and a field of a saved version
+ * (where "none" is null instead of absent) fit.
+ */
+export interface ItemSourceField {
+  fieldKey: string;
+  label: string;
+  itemKey?: string | null;
+  unit?: string | null;
+  parentItemKey?: string | null;
+}
+
 /** The key the server names a field by in a team's subset. */
-export function itemKeyOfField(field: Pick<ParsedField, 'fieldKey' | 'itemKey'>): string {
+export function itemKeyOfField(field: Pick<ItemSourceField, 'fieldKey' | 'itemKey'>): string {
   return field.itemKey ?? field.fieldKey;
 }
 
 /** The reportable items of a report, in the order of its fields. */
-export function reportableItems(fields: readonly ParsedField[], criteria?: readonly Criterion[] | null): ReportableItem[] {
+export function reportableItems(fields: readonly ItemSourceField[], criteria?: readonly Criterion[] | null): ReportableItem[] {
   const names = new Map((criteria ?? []).map((c) => [c.itemKey, c.name]));
   return fields.map((f) => ({
     key: itemKeyOfField(f),
@@ -449,4 +463,64 @@ export function itemKeysForPayload(ticked: ReadonlySet<string>, allKeys: readonl
 /** How many of the report's items a target reports. */
 export function tickedCount(itemKeys: readonly string[] | null | undefined, allKeys: readonly string[]): number {
   return ticksFromTarget(itemKeys, allKeys).size;
+}
+
+// ── A report that already exists ─────────────────────────────────────────────
+
+/** The fields of a saved version that say which criterion they stand for. */
+export interface VersionCriterionField extends ItemSourceField {
+  address: string;
+  origin?: CriterionOrigin | null;
+}
+
+/**
+ * What a saved criteria version says of its own cells, in the shape the wizard remembers a criteria report by: used
+ * when the report's current file is taken again, so each cell keeps the criterion it stood for. Only the criteria
+ * that have a cell are known here (a parent criterion has none: its figure is the sum of its children).
+ */
+export function criteriaMetaFromVersion(fields: readonly VersionCriterionField[]): CriteriaMeta {
+  const refs: CriteriaFieldRef[] = [];
+  const criteria: Criterion[] = [];
+  for (const f of fields) {
+    if (!f.itemKey) continue;
+    const unit = f.unit ?? null;
+    const parentItemKey = f.parentItemKey ?? null;
+    const origin: CriterionOrigin = f.origin ?? 'FILE';
+    refs.push({ address: f.address, fieldKey: f.fieldKey, itemKey: f.itemKey, unit, parentItemKey, origin });
+    criteria.push({ itemKey: f.itemKey, code: null, name: f.label, unit, parentItemKey, origin, sourceRow: null });
+  }
+  return { criteria, fields: refs };
+}
+
+/**
+ * "Sửa cấu hình": the teams as the config PATCH carries them. A team's `itemKeys` is sent only when its ticks are
+ * not what the report has now, or the team is new; everything ticked is sent as null ("every criterion"). A team
+ * left as it was sends none, so the server leaves its criteria alone.
+ *
+ * `next` is what the teams step hands over (`itemKeys` absent = everything ticked); `previous` is the report as loaded.
+ */
+export function targetsForConfigPatch(
+  next: readonly ReportTargetConfig[],
+  previous: ReadonlyArray<Pick<ReportTargetConfig, 'teamId' | 'itemKeys'>>,
+  allKeys: readonly string[],
+): ReportTargetConfig[] {
+  // A report with no cells to pick from has no checklist: nothing about criteria is said at all.
+  if (allKeys.length === 0) {
+    return next.map((t) => ({ teamId: t.teamId, editorUserIds: t.editorUserIds }));
+  }
+  const before = new Map(previous.map((t) => [t.teamId, t]));
+  return next.map((t) => {
+    const base = { teamId: t.teamId, editorUserIds: t.editorUserIds };
+    const now = t.itemKeys ?? null;
+    const old = before.get(t.teamId);
+    if (!old) return { ...base, itemKeys: now };
+    // The ticks the screen opened with: the stored subset minus keys the report no longer has, "all" as null.
+    const opened = itemKeysForPayload(ticksFromTarget(old.itemKeys, allKeys), allKeys) ?? null;
+    return sameKeys(opened, now) ? base : { ...base, itemKeys: now };
+  });
+}
+
+function sameKeys(a: readonly string[] | null, b: readonly string[] | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.length === b.length && a.every((k, i) => k === b[i]);
 }

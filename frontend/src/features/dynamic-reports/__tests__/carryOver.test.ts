@@ -19,6 +19,10 @@ function oldField(address: string, over: Partial<ReportDetailField> = {}): Repor
     maxLength: null,
     helpText: null,
     source: 'WEB',
+    itemKey: null,
+    unit: null,
+    parentItemKey: null,
+    origin: null,
     ...over,
   };
 }

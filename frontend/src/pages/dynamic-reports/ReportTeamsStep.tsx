@@ -14,7 +14,7 @@ import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { gomCanBoTheoTo } from '@/hooks/gomCanBoTheoTo';
 import { FKSelect } from '@/components/FKSelect';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
-import type { Criterion, ParsedField, ReportRoleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
+import type { Criterion, ReportRoleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
 import TeamCriteriaChecklist from '@/features/dynamic-reports/criteria/TeamCriteriaChecklist';
 import TeamCriteriaMatrix from '@/features/dynamic-reports/criteria/TeamCriteriaMatrix';
 import {
@@ -23,6 +23,7 @@ import {
   reportableItems,
   ticksFromTarget,
 } from '@/features/dynamic-reports/criteria/criteria';
+import type { ItemSourceField } from '@/features/dynamic-reports/criteria/criteria';
 import { reportCriteria } from '@/locales/reportCriteria.vi';
 
 interface TeamOption {
@@ -36,7 +37,10 @@ interface Props {
   onNext: (roles: ReportRoleConfig[], targets: ReportTargetConfig[]) => void;
   /** Who manages / views the report now, when editing. */
   initialRoles?: ReportRoleConfig[];
-  /** The teams that submit now and who types for each, when editing. */
+  /**
+   * The teams that submit now and who types for each, when editing or copying. A team's `itemKeys` are the ticks its
+   * checklist opens with (absent or null = everything ticked).
+   */
   initialTargets?: ReportTargetConfig[];
   /** Names of the teams already attached, for teams the picker below does not list (e.g. ward police). */
   teamNames?: Record<string, string>;
@@ -46,9 +50,9 @@ interface Props {
   busy?: boolean;
   /**
    * The report's input cells. Present: each team gets a checklist of what it reports ("Tiêu chí tổ này phải báo").
-   * Absent (the edit screen): no checklist, and no team's subset is sent, so the server leaves them as they are.
+   * Absent (a report with no version yet): no checklist, and no team's subset is sent.
    */
-  fields?: readonly ParsedField[];
+  fields?: readonly ItemSourceField[];
   /** Criteria reports: the whole list, parents included, to group a checklist under each parent. */
   criteria?: readonly Criterion[] | null;
   /** Told the names of the chosen teams on "next", for screens that list teams after this step. */

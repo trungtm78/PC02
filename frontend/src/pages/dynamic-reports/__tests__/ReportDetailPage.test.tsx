@@ -43,7 +43,7 @@ const DETAIL: ReportDetailView = {
     effectiveFrom: '2026-10-01T00:00:00.000Z',
   },
   roles: [{ userId: 'u1', name: 'Nguyễn An', role: 'MANAGER', teamScopeId: null }],
-  targets: [{ teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u2', name: 'Lê Bình' }] }],
+  targets: [{ teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u2', name: 'Lê Bình' }], itemKeys: null }],
   currentVersion: {
     versionId: 'v2',
     version: 2,
@@ -51,13 +51,14 @@ const DETAIL: ReportDetailView = {
     fileName: 'mau.xlsx',
     selectedSheets: ['Thống kê'],
     dateSystem: '1900',
+    sourceKind: 'TEMPLATE',
     publishedAt: '2026-10-01T00:00:00.000Z',
     createdAt: '2026-10-01T00:00:00.000Z',
     fields: [
       {
         sheetKey: 'Thống kê', address: 'C4', fieldKey: 'Thống kê!C4', label: 'Số vụ tiếp nhận', type: 'NUM', format: null,
         aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: '0', max: null, scale: null, maxLength: null,
-        helpText: null, source: 'WEB',
+        helpText: null, source: 'WEB', itemKey: null, unit: null, parentItemKey: null, origin: null,
       },
     ],
     rules: [

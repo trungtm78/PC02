@@ -45,7 +45,7 @@ const SOURCE: ReportDetailView = {
     effectiveFrom: '2026-10-01T00:00:00.000Z',
   },
   roles: [{ userId: 'u1', name: 'Nguyễn An', role: 'MANAGER', teamScopeId: null }],
-  targets: [{ teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u1', name: 'Nguyễn An' }] }],
+  targets: [{ teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u1', name: 'Nguyễn An' }], itemKeys: null }],
   currentVersion: {
     versionId: 'v1',
     version: 1,
@@ -53,10 +53,11 @@ const SOURCE: ReportDetailView = {
     fileName: 'mau.xlsx',
     selectedSheets: ['Đội 3'],
     dateSystem: '1900',
+    sourceKind: 'TEMPLATE',
     publishedAt: null,
     createdAt: '2026-10-01T00:00:00.000Z',
     fields: [
-      { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Số vụ', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB' },
+      { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Số vụ', type: 'NUM', format: null, aggregate: 'SUM', blankPolicy: 'ZERO', required: true, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB', itemKey: null, unit: null, parentItemKey: null, origin: null },
     ],
     rules: [],
   },
@@ -160,6 +161,100 @@ describe('ReportCopyPage / wizard in copy mode', () => {
     expect(payload.fields).toEqual([expect.objectContaining({ fieldKey: 'Đội 3!C6', label: 'Số vụ', required: true })]);
     expect(payload.targets).toEqual([{ teamId: 't1', editorUserIds: ['u1'] }]);
     expect(payload.schedule.dueRule).toMatchObject({ kind: 'DAYS_AFTER_END', days: 5 });
+  });
+
+  describe('what each team reports is copied from the source', () => {
+    const cell = (address: string, label: string, itemKey: string | null) => ({
+      sheetKey: 'Đội 3', address, fieldKey: `Đội 3!${address}`, label, type: 'NUM', format: null, aggregate: 'SUM',
+      blankPolicy: 'ZERO', required: false, min: null, max: null, scale: null, maxLength: null, helpText: null, source: 'WEB',
+      itemKey, unit: null, parentItemKey: null, origin: itemKey ? ('FILE' as const) : null,
+    });
+    const twoTeams = (first: string[] | null): ReportDetailView['targets'] => [
+      { teamId: 't1', teamCode: 'DOI-1', teamName: 'Đội 1', editors: [{ userId: 'u1', name: 'Nguyễn An' }], itemKeys: first },
+      { teamId: 't2', teamCode: 'DOI-2', teamName: 'Đội 2', editors: [{ userId: 'u1', name: 'Nguyễn An' }], itemKeys: null },
+    ];
+    const markable = [
+      { sheetKey: 'Đội 3', address: 'C6', suggestedLabel: null },
+      { sheetKey: 'Đội 3', address: 'C7', suggestedLabel: null },
+    ];
+
+    async function toTeamsStep() {
+      renderCopy();
+      fireEvent.click(await screen.findByTestId('btn-use-current-file'));
+      await screen.findByTestId('sheet-checkbox-Đội 3');
+      fireEvent.change(screen.getByTestId('input-report-code'), { target: { value: 'HSLN-2' } });
+      fireEvent.click(screen.getByTestId('btn-preview'));
+      fireEvent.click(await screen.findByTestId('btn-go-to-schedule'));
+      fireEvent.click(await screen.findByTestId('btn-schedule-next'));
+      await screen.findByTestId('target-t1');
+    }
+
+    async function publish() {
+      vi.mocked(dynamicReportsApi.saveReportConfig).mockResolvedValue({ reportId: 'r2', versionId: 'v9', status: 'PUBLISHED' });
+      fireEvent.click(screen.getByTestId('btn-teams-next'));
+      fireEvent.click(await screen.findByTestId('btn-rules-next'));
+      fireEvent.click(await screen.findByTestId('btn-publish'));
+      await waitFor(() => expect(dynamicReportsApi.saveReportConfig).toHaveBeenCalledTimes(1));
+      return vi.mocked(dynamicReportsApi.saveReportConfig).mock.calls[0][1];
+    }
+
+    it('a template report: the copy starts from each team\'s subset (by field key), not from "all"', async () => {
+      vi.mocked(dynamicReportsApi.getReportDetail).mockResolvedValue({
+        ...SOURCE,
+        targets: twoTeams(['Đội 3!C7']),
+        currentVersion: { ...SOURCE.currentVersion!, fields: [cell('C6', 'Số vụ', null), cell('C7', 'Số bị can', null)] },
+      });
+      vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue({ ...PREVIEW, markableCells: markable });
+      await toTeamsStep();
+
+      expect(screen.getByTestId('team-criteria-count-t1')).toHaveTextContent('Đội 1: 1/2 tiêu chí');
+      expect(screen.getByTestId('team-criteria-count-t2')).toHaveTextContent('Đội 2: 2/2 tiêu chí');
+      fireEvent.click(screen.getByTestId('btn-team-criteria-toggle-t1'));
+      expect(screen.getByTestId('team-criteria-item-t1-Đội 3!C7')).toBeChecked();
+      expect(screen.getByTestId('team-criteria-item-t1-Đội 3!C6')).not.toBeChecked();
+
+      const payload = await publish();
+      expect(payload.targets).toEqual([
+        { teamId: 't1', editorUserIds: ['u1'], itemKeys: ['Đội 3!C7'] },
+        { teamId: 't2', editorUserIds: ['u1'] },
+      ]);
+      expect(payload.sourceKind).toBeUndefined();
+    });
+
+    it('a criteria report: its file is still a criteria report in the copy, and subsets match by item key', async () => {
+      vi.mocked(dynamicReportsApi.getReportDetail).mockResolvedValue({
+        ...SOURCE,
+        targets: twoTeams(['cuop']),
+        currentVersion: {
+          ...SOURCE.currentVersion!,
+          sourceKind: 'CRITERIA',
+          fields: [cell('C6', 'Trộm cắp', 'trom-cap'), { ...cell('C7', 'Cướp', 'cuop'), required: true }],
+        },
+      });
+      vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue({
+        ...PREVIEW,
+        markableCells: [],
+        fields: [
+          { sheetKey: 'Đội 3', address: 'C6', fieldKey: 'Đội 3!C6', label: 'Trộm cắp', type: 'NUM', format: '', aggregate: 'SUM', source: 'TOKEN' },
+          { sheetKey: 'Đội 3', address: 'C7', fieldKey: 'Đội 3!C7', label: 'Cướp', type: 'NUM', format: '', aggregate: 'SUM', source: 'TOKEN' },
+        ],
+      });
+      await toTeamsStep();
+
+      expect(screen.getByTestId('team-criteria-count-t1')).toHaveTextContent('Đội 1: 1/2 tiêu chí');
+      fireEvent.click(screen.getByTestId('btn-team-criteria-toggle-t1'));
+      expect(screen.getByTestId('team-criteria-item-t1-cuop')).toBeChecked();
+      expect(screen.getByTestId('team-criteria-item-t1-trom-cap')).not.toBeChecked();
+
+      const payload = await publish();
+      expect(payload.sourceKind).toBe('CRITERIA');
+      expect(payload.targets[0]).toEqual({ teamId: 't1', editorUserIds: ['u1'], itemKeys: ['cuop'] });
+      expect(payload.fields).toEqual([
+        expect.objectContaining({ fieldKey: 'Đội 3!C6', itemKey: 'trom-cap', origin: 'FILE' }),
+        // Same cells as the source: what the source knew of each cell travels too.
+        expect.objectContaining({ fieldKey: 'Đội 3!C7', itemKey: 'cuop', origin: 'FILE', required: true }),
+      ]);
+    });
   });
 
   it('a source report that cannot be loaded says so', async () => {
