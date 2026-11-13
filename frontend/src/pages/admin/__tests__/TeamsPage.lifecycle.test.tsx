@@ -122,6 +122,121 @@ describe('TeamsPage lifecycle', () => {
     );
   });
 
+  describe('real delete', () => {
+    it('asks the server what still refers to the team, confirms, then deletes', async () => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/a1/deletion-check'
+          ? { data: { deletable: true, total: 0, blockers: [] } }
+          : { data: TEAMS },
+      );
+      vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+
+      fireEvent.click(screen.getByTestId('team-action-delete-a1'));
+
+      await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/teams/a1'));
+      expect(window.confirm).toHaveBeenCalledWith(t.delete.confirm('Tổ công tác số 2'));
+    });
+
+    it('a team that still has data is not deleted: the screen lists what blocks it and offers Archive', async () => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/a1/deletion-check'
+          ? {
+              data: {
+                deletable: false,
+                total: 763 + 13,
+                blockers: [
+                  { table: 'petitions', column: 'assignedTeamId', count: 763 },
+                  { table: 'user_teams', column: 'teamId', count: 13 },
+                ],
+              },
+            }
+          : { data: TEAMS },
+      );
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+
+      fireEvent.click(screen.getByTestId('team-action-delete-a1'));
+
+      const box = await screen.findByTestId('team-delete-blocked');
+      expect(box).toHaveTextContent('763 ' + t.delete.sources.petitions);
+      expect(box).toHaveTextContent('13 ' + t.delete.sources.user_teams);
+      expect(box).toHaveTextContent(t.delete.blockedHint);
+      expect(api.delete).not.toHaveBeenCalled();
+      expect(window.confirm).not.toHaveBeenCalled();
+    });
+
+    it('a table the screen has no words for is still shown, by its own name', async () => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/a1/deletion-check'
+          ? { data: { deletable: false, total: 2, blockers: [{ table: 'brand_new_table', column: 'teamId', count: 2 }] } }
+          : { data: TEAMS },
+      );
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+
+      fireEvent.click(screen.getByTestId('team-action-delete-a1'));
+
+      expect(await screen.findByTestId('team-delete-blocked')).toHaveTextContent('2 brand_new_table');
+    });
+
+    it('when the server refuses at delete time (a race), it shows the same list from the error', async () => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/a1/deletion-check'
+          ? { data: { deletable: true, total: 0, blockers: [] } }
+          : { data: TEAMS },
+      );
+      vi.mocked(api.delete).mockRejectedValue({
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            error: {
+              code: 'TEAM_HAS_DATA',
+              message: 'x',
+              details: [{ table: 'user_teams', column: 'teamId', count: 1 }],
+            },
+          },
+        },
+      });
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+
+      fireEvent.click(screen.getByTestId('team-action-delete-a1'));
+
+      expect(await screen.findByTestId('team-delete-blocked')).toHaveTextContent('1 ' + t.delete.sources.user_teams);
+    });
+
+    it('the blocked box can be closed', async () => {
+      vi.mocked(api.get).mockImplementation(async (url: string) =>
+        url === '/teams/a1/deletion-check'
+          ? { data: { deletable: false, total: 1, blockers: [{ table: 'cases', column: 'assignedTeamId', count: 1 }] } }
+          : { data: TEAMS },
+      );
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+      fireEvent.click(screen.getByTestId('team-action-delete-a1'));
+      await screen.findByTestId('team-delete-blocked');
+
+      fireEvent.click(screen.getByTestId('team-delete-blocked-close'));
+
+      expect(screen.queryByTestId('team-delete-blocked')).toBeNull();
+    });
+
+    it('Delete is offered from every state', async () => {
+      renderPage();
+      await screen.findByText('Tổ công tác số 2');
+      expect(screen.getByTestId('team-action-delete-a1')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('team-tab-INACTIVE'));
+      await screen.findByText('Tổ thử nghiệm');
+      expect(screen.getByTestId('team-action-delete-p1')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('team-tab-ARCHIVED'));
+      await screen.findByText('Tổ cũ Phường 3');
+      expect(screen.getByTestId('team-action-delete-z1')).toBeInTheDocument();
+    });
+  });
+
   it('the parent picker of the form offers active teams only', async () => {
     renderPage();
     await screen.findByText('Tổ công tác số 2');

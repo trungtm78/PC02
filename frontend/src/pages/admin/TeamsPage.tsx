@@ -42,6 +42,26 @@ interface Team {
   _count?: { members: number };
 }
 
+interface Blocker {
+  table: string;
+  column: string;
+  count: number;
+}
+
+/** The server sends blockers as the `details` of the error envelope; the shared helper hands each back as JSON text. */
+function blockersFromError(messages: string[]): Blocker[] {
+  return messages.flatMap((m) => {
+    try {
+      const parsed = JSON.parse(m) as Partial<Blocker>;
+      return typeof parsed.table === 'string' && typeof parsed.count === 'number'
+        ? [{ table: parsed.table, column: String(parsed.column ?? ''), count: parsed.count }]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
 interface TeamFormData {
   name: string;
   code: string;
@@ -94,6 +114,7 @@ export default function TeamsPage() {
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState<TeamStatus>('ACTIVE');
   const [statusError, setStatusError] = useState('');
+  const [deleteBlocked, setDeleteBlocked] = useState<{ team: Team; blockers: Blocker[] } | null>(null);
   const [formData, setFormData] = useState<TeamFormData>({
     name: '',
     code: '',
@@ -275,6 +296,44 @@ export default function TeamsPage() {
       status === 'INACTIVE' ? L.confirm.deactivate(team.name) : status === 'ARCHIVED' ? L.confirm.archive(team.name) : null;
     if (question && !confirm(question)) return;
     statusMutation.mutate({ id: team.id, status });
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/teams/${id}`),
+    onSuccess: () => {
+      setStatusError('');
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err, id) => {
+      const { code, messages } = extractApiError(err, L.delete.failed);
+      const team = allTeams.find((t) => t.id === id);
+      if (code === 'TEAM_HAS_DATA' && team) {
+        setDeleteBlocked({ team, blockers: blockersFromError(messages) });
+        return;
+      }
+      setStatusError((code && L.errors[code]) || L.delete.failed);
+    },
+  });
+
+  /**
+   * Delete is only for a team nothing refers to. The server says what still does BEFORE anything is asked of the
+   * person, so they are never told "are you sure?" about something that cannot happen; and it decides again at delete
+   * time, so a change in between still gets the same explanation.
+   */
+  const startDelete = async (team: Team) => {
+    setStatusError('');
+    setDeleteBlocked(null);
+    try {
+      const { data } = await api.get<{ deletable: boolean; blockers: Blocker[] }>(`/teams/${team.id}/deletion-check`);
+      if (!data.deletable) {
+        setDeleteBlocked({ team, blockers: data.blockers });
+        return;
+      }
+    } catch (err) {
+      setStatusError(extractApiError(err, L.delete.failed).message);
+      return;
+    }
+    if (confirm(L.delete.confirm(team.name))) deleteMutation.mutate(team.id);
   };
 
   /** What can be done from each state; every action has its way back. */
@@ -581,6 +640,17 @@ export default function TeamsPage() {
             >
               <Edit2 className="w-4 h-4" />
             </button>
+            <button
+              data-testid={`team-action-delete-${team.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                void startDelete(team);
+              }}
+              disabled={deleteMutation.isPending}
+              className="px-2 py-1 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 disabled:opacity-50"
+            >
+              {L.delete.action}
+            </button>
             {ACTIONS[team.status].map((a) => (
               <button
                 key={a.key}
@@ -642,6 +712,25 @@ export default function TeamsPage() {
       {statusError && (
         <div role="alert" data-testid="team-status-error" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {statusError}
+        </div>
+      )}
+
+      {deleteBlocked && (
+        <div role="alert" data-testid="team-delete-blocked" className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">{L.delete.blockedTitle(deleteBlocked.team.name)}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {deleteBlocked.blockers.map((b) => (
+              <li key={`${b.table}.${b.column}`}>{L.delete.line(b.count, L.delete.sources[b.table] ?? b.table)}</li>
+            ))}
+          </ul>
+          <p className="mt-2">{L.delete.blockedHint}</p>
+          <button
+            data-testid="team-delete-blocked-close"
+            onClick={() => setDeleteBlocked(null)}
+            className="mt-2 px-3 py-1 text-xs border border-amber-300 rounded hover:bg-amber-100"
+          >
+            {L.delete.close}
+          </button>
         </div>
       )}
 

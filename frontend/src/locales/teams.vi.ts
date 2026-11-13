@@ -28,9 +28,33 @@ export const teams = {
       `Lưu trữ "${name}"? Tổ được ẩn khỏi mọi danh sách, dữ liệu giữ nguyên. Có thể "Khôi phục".`,
   },
   statusFailed: 'Không đổi được trạng thái của tổ. Hãy thử lại.',
+  delete: {
+    action: 'Xoá',
+    confirm: (name: string) => `Xoá hẳn "${name}"? Tổ chưa có dữ liệu nên xoá được, nhưng không khôi phục lại được.`,
+    blockedTitle: (name: string) => `Chưa xoá được "${name}": tổ vẫn còn dữ liệu`,
+    blockedHint: 'Có thể Lưu trữ để ẩn tổ khỏi mọi danh sách mà vẫn giữ dữ liệu. Muốn dồn dữ liệu sang tổ khác thì dùng Gộp.',
+    close: 'Đóng',
+    failed: 'Không xoá được tổ. Hãy thử lại.',
+    /** What each table that refers to a team holds, in the words of the people who use the system. */
+    sources: {
+      calendar_events: 'lịch công tác',
+      case_handoffs: 'lượt bàn giao vụ án',
+      cases: 'vụ án',
+      data_access_grants: 'uỷ quyền truy cập dữ liệu',
+      dyn_report_assignments: 'lượt giao báo cáo',
+      dyn_report_targets: 'báo cáo đang giao cho tổ',
+      incident_handoffs: 'lượt bàn giao vụ việc',
+      incidents: 'vụ việc',
+      petitions: 'đơn thư',
+      teams: 'tổ con',
+      user_teams: 'thành viên',
+    } as Record<string, string>,
+    line: (count: number, what: string) => `${count} ${what}`,
+  },
   /** Server error codes the screen translates. */
   errors: {
     TEAM_INVALID_TRANSITION: 'Tổ đang ở trạng thái không cho phép thao tác này. Hãy tải lại danh sách.',
     TEAM_STATUS_UNKNOWN: 'Trạng thái yêu cầu không tồn tại.',
+    TEAM_HAS_DATA: 'Tổ vẫn còn dữ liệu nên chưa xoá được.',
   } as Record<string, string>,
 };
