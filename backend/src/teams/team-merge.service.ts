@@ -327,7 +327,7 @@ export class TeamMergeService {
                 `WITH r AS (UPDATE ${t} x SET ${c} = $3
                    FROM team_merge_items i
                   WHERE i."operationId" = $1 AND i."tableName" = $4 AND i.kind = 'REPOINT' AND jsonb_exists(i.before, $5)
-                    AND x.id = i."recordKey"->>'id' AND x.${c} = $2
+                    AND x.id = i."recordKey"->>'id' AND x.${c} = $2${noTwinOnSource(g.table_name)}
                   RETURNING 1) SELECT count(*)::int AS n FROM r`,
                 operationId, T, S, g.table_name, g.col,
               );
@@ -403,6 +403,17 @@ export class TeamMergeService {
       },
     });
   }
+}
+
+/**
+ * Putting a row back on the source must not collide with a row that now exists there: grants are unique per
+ * (grantee, level, team), so a grant created on the source after the merge would make the whole undo fail.
+ * Such a row is left where it is and counted as skipped.
+ */
+function noTwinOnSource(table: string): string {
+  return table === 'data_access_grants'
+    ? ` AND NOT EXISTS (SELECT 1 FROM data_access_grants y WHERE y."granteeId" = x."granteeId" AND y."accessLevel" = x."accessLevel" AND y."teamId" = $3)`
+    : '';
 }
 
 /** A source open target moves only when the target team has no open target of its own for the same report. */

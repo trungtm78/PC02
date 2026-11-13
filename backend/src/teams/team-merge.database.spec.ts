@@ -286,6 +286,20 @@ run('Team merge on PostgreSQL', () => {
       expect((await memberships(s.S.id)).filter((m) => m.userId === u2)).toHaveLength(1);
     });
 
+    it('a grant recreated on the source since the merge does not make the undo fail on the unique key', async () => {
+      const s = await scenario();
+      const { operationId } = await service.merge(s.S.id, s.T.id, 'actor');
+      // u2's WRITE grant moved to T; someone has since granted the same thing on S again.
+      await db.dataAccessGrant.create({ data: { granteeId: u2, teamId: s.S.id, accessLevel: 'WRITE', grantedById: u3 } });
+
+      const undone = await service.undo(operationId, 'actor');
+
+      // the moved grant stays on T (the equal one on S is kept), and the undo as a whole still completes
+      expect(await db.dataAccessGrant.count({ where: { teamId: s.S.id, granteeId: u2, accessLevel: 'WRITE' } })).toBe(1);
+      expect(undone.skipped).toBeGreaterThanOrEqual(1);
+      expect(await db.teamMergeOperation.findUniqueOrThrow({ where: { id: operationId } })).toMatchObject({ status: 'UNDONE' });
+    });
+
     it('an operation can be undone once; an unknown one is a 404', async () => {
       const s = await scenario();
       const { operationId } = await service.merge(s.S.id, s.T.id, 'actor');
