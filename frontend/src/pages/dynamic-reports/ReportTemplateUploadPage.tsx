@@ -46,7 +46,11 @@ import ReportVersionSummaryStep from './ReportVersionSummaryStep';
 import type { ReportRoleConfig, ReportRuleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
 import CriteriaSetup from '@/features/dynamic-reports/criteria/CriteriaSetup';
 import type { CriteriaBuilt } from '@/features/dynamic-reports/criteria/CriteriaSetup';
-import { criteriaMetaFromVersion, withCriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
+import {
+  criteriaGroupsForPayload,
+  criteriaMetaFromVersion,
+  withCriteriaMeta,
+} from '@/features/dynamic-reports/criteria/criteria';
 import type { CriteriaMeta } from '@/features/dynamic-reports/criteria/criteria';
 import { reportCriteria } from '@/locales/reportCriteria.vi';
 
@@ -201,7 +205,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
       // A workbook generated from criteria stays one: each cell keeps the criterion it stood for, and the new
       // version (or the copy) is saved as a criteria report again.
       if (current.sourceKind === 'CRITERIA') {
-        setCriteriaMeta(criteriaMetaFromVersion(current.fields));
+        setCriteriaMeta(criteriaMetaFromVersion(current.fields, current.criteriaGroups));
         setCriteriaFromCurrent(true);
       }
     } catch (err) {
@@ -262,6 +266,11 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
   );
   // What is saved: each field of a criteria report says which criterion it stands for.
   const savedFields = useMemo(() => withCriteriaMeta(preview?.fields ?? [], criteriaMeta), [preview?.fields, criteriaMeta]);
+  // The criteria that have children are not fields: their names travel apart, as the group headings.
+  const savedGroups = useMemo(
+    () => (criteriaMeta ? criteriaGroupsForPayload(criteriaMeta.criteria) : undefined),
+    [criteriaMeta],
+  );
   const candidateKeys = useMemo(
     () => new Set((preview?.markableCells ?? []).map((c) => `${c.sheetKey}!${c.address}`)),
     [preview?.markableCells],
@@ -855,6 +864,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               formulas={preview.formulas}
               rules={rules}
               sourceKind={criteriaMeta ? 'CRITERIA' : undefined}
+              criteriaGroups={savedGroups}
               onBack={() => setStep('rules')}
             />
           </div>
@@ -879,6 +889,7 @@ export default function ReportTemplateUploadPage({ report, copyFrom }: Props = {
               targets={targets}
               rules={rules}
               sourceKind={criteriaMeta ? 'CRITERIA' : undefined}
+              criteriaGroups={savedGroups}
               teamNames={targetTeamNames}
               onBack={() => setStep('rules')}
             />

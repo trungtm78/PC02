@@ -45,9 +45,27 @@ export interface ParsedField {
   source: ParsedFieldSource;
   /** Criteria reports only: the criterion this cell stands for, its unit, its parent, and where it came from. */
   itemKey?: string;
+  /** The code the author's list gives the criterion ("1.1"); shown before its name. */
+  criterionCode?: string;
   unit?: string;
   parentItemKey?: string;
   origin?: CriterionOrigin;
+}
+
+/** A criterion that has children, as the save payloads carry it: a heading of the lists, never an input cell. */
+export interface CriteriaGroupPayload {
+  itemKey: string;
+  code?: string;
+  name: string;
+  parentItemKey?: string;
+}
+
+/** The same heading as a saved version returns it. */
+export interface CriteriaGroupView {
+  itemKey: string;
+  code: string | null;
+  name: string;
+  parentItemKey: string | null;
 }
 
 export type CriterionOrigin = 'FILE' | 'MANUAL';
@@ -107,6 +125,8 @@ export interface CriteriaFieldRef {
   address: string;
   fieldKey: string;
   itemKey: string;
+  /** The criterion's code ("1.1"); absent or null when the list gives none. */
+  code?: string | null;
   unit: string | null;
   parentItemKey: string | null;
   origin: CriterionOrigin;
@@ -236,6 +256,8 @@ export interface SaveReportConfigPayload {
   targets: ReportTargetConfig[];
   rules?: ReportRuleConfig[];
   sourceKind?: ReportSourceKind;
+  /** Criteria reports: the criteria that have children (the group headings). */
+  criteriaGroups?: CriteriaGroupPayload[];
   effectiveFrom: string;
   publish: boolean;
   idempotencyKey: string;
@@ -256,6 +278,8 @@ export interface SaveReportVersionPayload {
   formulas: ParsedFormulaCell[];
   rules?: ReportRuleConfig[];
   sourceKind?: ReportSourceKind;
+  /** Criteria reports: the criteria that have children (the group headings). */
+  criteriaGroups?: CriteriaGroupPayload[];
   publish: boolean;
   idempotencyKey: string;
 }
@@ -300,6 +324,8 @@ export interface ReportDetailField {
   source: string;
   /** Criteria reports: the criterion's stable key, unit, parent and origin; null for an ordinary template cell. */
   itemKey: string | null;
+  /** The criterion's code ("1.1"), shown before its name; null (or absent from an older server) when it has none. */
+  criterionCode?: string | null;
   unit: string | null;
   parentItemKey: string | null;
   origin: CriterionOrigin | null;
@@ -328,6 +354,8 @@ export interface ReportDetailVersion {
   publishedAt: string | null;
   createdAt: string;
   fields: ReportDetailField[];
+  /** Criteria reports: the criteria that have children. They are headings, not fields. */
+  criteriaGroups?: CriteriaGroupView[];
   rules: ReportDetailRule[];
 }
 
@@ -686,6 +714,53 @@ export interface MidPeriodAssignmentView {
   teamId: string;
   teamName: string;
   obligation: 'REQUIRED' | 'EXEMPT';
+}
+
+/** The criteria of a period's version and what each team reports of them now (`GET /periods/:periodId/criteria`). */
+export interface PeriodCriteriaView {
+  criteria: Array<{
+    itemKey: string;
+    fieldKey: string;
+    code: string | null;
+    label: string;
+    unit: string | null;
+    parentItemKey: string | null;
+  }>;
+  groups: CriteriaGroupView[];
+  /** `ownedFieldKeys` are FIELD keys; null = every criterion. */
+  assignments: Array<{ assignmentId: string; ownedFieldKeys: string[] | null }>;
+}
+
+/** The result of changing the criteria a team reports in a running period. */
+export interface AssignmentCriteriaResult {
+  assignmentId: string;
+  ownedFieldKeys: string[] | null;
+  changed: boolean;
+}
+
+/** One reason an uploaded criteria matrix cannot be used (`CRITERIA_MATRIX_INVALID`, in `error.details`). */
+export type CriteriaMatrixError =
+  | { code: 'MATRIX_NOT_RECOGNISED' }
+  | { code: 'MATRIX_CRITERION_UNKNOWN'; row: number }
+  | { code: 'MATRIX_CRITERION_MISSING'; itemKey: string }
+  | { code: 'MATRIX_TEAM_UNKNOWN'; column: string }
+  | { code: 'MATRIX_TEAM_MISSING'; teamId: string; name: string }
+  | { code: 'MATRIX_TEAM_EMPTY'; teamId: string; name: string };
+
+export interface CriteriaMatrixTeamResult {
+  teamId: string;
+  name: string;
+  /** What the file says the team reports; null = every criterion. */
+  itemKeys: string[] | null;
+  added: string[];
+  removed: string[];
+}
+
+/** A criteria matrix read by the server: a preview (`applied` false) or the change made. */
+export interface CriteriaMatrixImportResult {
+  applied: boolean;
+  configVersion: number;
+  teams: CriteriaMatrixTeamResult[];
 }
 
 /** The result of changing who types for a team: who may type now. */

@@ -21,6 +21,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     unexemptTeamMidPeriod: vi.fn(),
     removeAddedTeamMidPeriod: vi.fn(),
     setAssignmentEditors: vi.fn(),
+    loadPeriodCriteria: vi.fn(),
+    setAssignmentCriteria: vi.fn(),
   },
 }));
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
@@ -410,6 +412,54 @@ describe('ReportPeriodTeamsPage (S30)', () => {
 
       expect(await screen.findByTestId('reverse-error')).toHaveTextContent('đã có số liệu');
       expect(dynamicReportsApi.removeAddedTeamMidPeriod).toHaveBeenCalledWith('period1', 'a3');
+    });
+  });
+
+  describe('"Tiêu chí" of a team in this period', () => {
+    const VIEW = {
+      criteria: [
+        { itemKey: 'alpha', fieldKey: 'S!C2', code: '1', label: 'Alpha', unit: null, parentItemKey: null },
+        { itemKey: 'beta', fieldKey: 'S!C3', code: '2', label: 'Beta', unit: null, parentItemKey: null },
+      ],
+      groups: [],
+      assignments: [{ assignmentId: 'a1', ownedFieldKeys: null }],
+    };
+
+    it('opens the panel of that team, saves the change with its reason, says so and reads the list again', async () => {
+      vi.mocked(dynamicReportsApi.loadPeriodCriteria).mockResolvedValue(VIEW);
+      vi.mocked(dynamicReportsApi.setAssignmentCriteria).mockResolvedValue({ assignmentId: 'a1', ownedFieldKeys: ['S!C2'], changed: true });
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-criteria-a1'));
+
+      fireEvent.click(await screen.findByTestId('team-criteria-item-team-a1-beta'));
+      fireEvent.change(screen.getByTestId('criteria-reason-input'), { target: { value: 'Đổi phân công' } });
+      fireEvent.click(screen.getByTestId('btn-confirm-criteria'));
+
+      expect(await screen.findByTestId('criteria-saved')).toHaveTextContent('Đội 3 báo 1/2 tiêu chí');
+      expect(dynamicReportsApi.setAssignmentCriteria).toHaveBeenCalledWith('period1', 'a1', ['alpha'], 'Đổi phân công');
+      expect(screen.queryByTestId('criteria-panel')).not.toBeInTheDocument();
+      await waitFor(() => expect(vi.mocked(dynamicReportsApi.listAssignments).mock.calls.length).toBeGreaterThan(1));
+    });
+
+    it('saving what the team already reports says nothing changed', async () => {
+      vi.mocked(dynamicReportsApi.loadPeriodCriteria).mockResolvedValue(VIEW);
+      vi.mocked(dynamicReportsApi.setAssignmentCriteria).mockResolvedValue({ assignmentId: 'a1', ownedFieldKeys: null, changed: false });
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-criteria-a1'));
+      await screen.findByTestId('team-criteria-item-team-a1-beta');
+      fireEvent.change(screen.getByTestId('criteria-reason-input'), { target: { value: 'x' } });
+      fireEvent.click(screen.getByTestId('btn-confirm-criteria'));
+
+      expect(await screen.findByTestId('criteria-saved')).toHaveTextContent('không có gì thay đổi');
+    });
+
+    it('"Huỷ" closes the panel and changes nothing', async () => {
+      vi.mocked(dynamicReportsApi.loadPeriodCriteria).mockResolvedValue(VIEW);
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-criteria-a1'));
+      fireEvent.click(await screen.findByTestId('btn-cancel-criteria'));
+      expect(screen.queryByTestId('criteria-panel')).not.toBeInTheDocument();
+      expect(dynamicReportsApi.setAssignmentCriteria).not.toHaveBeenCalled();
     });
   });
 });

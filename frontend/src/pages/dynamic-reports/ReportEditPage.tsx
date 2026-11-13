@@ -23,9 +23,11 @@ import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import {
   criteriaMetaFromVersion,
+  criterionLabel,
   itemKeyOfField,
   targetsForConfigPatch,
 } from '@/features/dynamic-reports/criteria/criteria';
+import CriteriaMatrixExcel from '@/features/dynamic-reports/criteria/CriteriaMatrixExcel';
 import { criteriaErrorText, reportCriteria } from '@/locales/reportCriteria.vi';
 import ReportScheduleStep from './ReportScheduleStep';
 import ReportTeamsStep from './ReportTeamsStep';
@@ -128,6 +130,15 @@ export default function ReportEditPage() {
     setResets((r) => ({ schedule: r.schedule + 1, teams: r.teams + 1 }));
   }
 
+  /** The matrix file changed which criteria the teams report: read the report again and redraw the teams from it. */
+  async function afterMatrixApplied() {
+    if (!report) return;
+    setError(null);
+    setSaved(null);
+    await queryClient.invalidateQueries({ queryKey: DETAIL_KEY(report.id) });
+    setResets((r) => ({ ...r, teams: r.teams + 1 }));
+  }
+
   const back = (
     <Link
       to={report ? `/bao-cao-dong/thiet-lap/${report.id}` : '/bao-cao-dong/thiet-lap'}
@@ -185,8 +196,15 @@ export default function ReportEditPage() {
   // What a team can be asked to report: the input cells of the version in force.
   const versionFields = report.currentVersion?.fields ?? [];
   const allItemKeys = versionFields.map(itemKeyOfField);
+  // A criteria report: the headings (criteria with children) are kept apart from the cells, with their names.
   const versionCriteria =
-    report.currentVersion?.sourceKind === 'CRITERIA' ? criteriaMetaFromVersion(versionFields).criteria : undefined;
+    report.currentVersion?.sourceKind === 'CRITERIA'
+      ? criteriaMetaFromVersion(versionFields, report.currentVersion.criteriaGroups).criteria
+      : undefined;
+  const criterionName = (itemKey: string): string => {
+    const field = versionFields.find((f) => itemKeyOfField(f) === itemKey);
+    return field ? criterionLabel(field.criterionCode, field.label || field.fieldKey) : itemKey;
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6" data-testid="report-edit-page">
@@ -306,6 +324,17 @@ export default function ReportEditPage() {
           <p className="text-xs text-slate-500 mt-2" data-testid="edit-criteria-hint">
             {reportCriteria.edit.criteriaHint}
           </p>
+        )}
+        {versionFields.length > 0 && report.targets.length > 0 && (
+          <CriteriaMatrixExcel
+            reportId={report.id}
+            reportCode={report.code}
+            configVersion={report.configVersion}
+            criterionName={criterionName}
+            onApplied={afterMatrixApplied}
+            onReload={reload}
+            disabled={saving !== null}
+          />
         )}
       </Section>
     </div>

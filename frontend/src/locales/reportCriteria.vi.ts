@@ -1,4 +1,6 @@
 /** Vietnamese labels for "criteria picked from an Excel file" in the dynamic-report wizard, and the per-team checklist. */
+import type { CriteriaMatrixError } from '@/features/dynamic-reports/types';
+
 export const reportCriteria = {
   start: {
     legend: 'Cách tạo mẫu báo cáo',
@@ -143,6 +145,63 @@ export const reportCriteria = {
   edit: {
     criteriaHint: 'Tiêu chí từng tổ phải báo cũng áp dụng từ kỳ kế tiếp.',
   },
+  period: {
+    action: 'Tiêu chí',
+    title: (team: string) => `Tiêu chí phải báo trong kỳ này — ${team}`,
+    hint: 'Chỉ áp dụng cho kỳ này. Số liệu đã nhập cho tiêu chí bị bỏ vẫn được giữ nhưng không còn được tính; tích lại thì được tính trở lại. Muốn trả về như cũ, tích lại các tiêu chí rồi lưu.',
+    loading: 'Đang tải danh sách tiêu chí…',
+    loadError: 'Không tải được danh sách tiêu chí của kỳ này.',
+    retry: 'Thử lại',
+    noCriteria: 'Mẫu của kỳ này không có tiêu chí nào để chọn.',
+    reason: 'Lý do (bắt buộc)',
+    reasonPlaceholder: 'Ví dụ: Tổ không còn phụ trách mảng này từ tháng 11',
+    reasonRequired: 'Hãy ghi lý do trước khi lưu.',
+    emptyTicks: 'Mỗi tổ phải báo ít nhất một tiêu chí. Muốn tổ không báo gì thì dùng "Miễn nộp".',
+    save: 'Lưu',
+    saving: 'Đang lưu…',
+    cancel: 'Huỷ',
+    saved: (team: string, ticked: number, total: number) => `Đã lưu: ${team} báo ${ticked}/${total} tiêu chí trong kỳ này.`,
+    unchanged: (team: string) => `Tiêu chí của ${team} không có gì thay đổi.`,
+    errors: {
+      SUBMISSION_MUST_BE_RETURNED:
+        'Bản nộp của tổ này đang chờ duyệt hoặc đã duyệt. Hãy trả lại bản nộp trước, rồi mới đổi tiêu chí.',
+      TARGET_SUBSET_EMPTY: 'Mỗi tổ phải báo ít nhất một tiêu chí. Muốn tổ không báo gì thì dùng "Miễn nộp".',
+      TARGET_ITEM_KEY_UNKNOWN: 'Có tiêu chí không còn trong mẫu của kỳ này. Hãy đóng bảng này, mở lại rồi chọn lại.',
+      INVALID_STATE_TRANSITION: 'Kỳ này đã chốt nên không đổi được tiêu chí của tổ. Hãy mở lại kỳ trước.',
+    } as Record<string, string>,
+  },
+  matrix: {
+    heading: 'Ma trận tiêu chí bằng file Excel',
+    hint: 'Tải ma trận về, sửa dấu tích trong Excel rồi nạp lại. Hệ thống cho xem trước, chưa đổi gì cho tới khi bấm "Áp dụng".',
+    download: 'Tải ma trận Excel',
+    downloading: 'Đang tải…',
+    upload: 'Nạp ma trận Excel',
+    reading: 'Đang đọc file…',
+    fileLabel: 'File ma trận tiêu chí (.xlsx)',
+    fallbackFileName: (code: string) => `ma-tran-tieu-chi-${code}.xlsx`,
+    previewHeading: (fileName: string) => `Xem trước thay đổi từ file ${fileName}`,
+    teamChange: (added: number, removed: number) => `+${added} tiêu chí, −${removed} tiêu chí`,
+    teamUnchanged: 'không thay đổi',
+    summary: (changed: number, total: number) => `${changed}/${total} tổ có thay đổi.`,
+    nothingToApply: 'File này giống hệt cấu hình hiện tại, không có gì để áp dụng.',
+    unsavedNote: 'Áp dụng sẽ tải lại phần tổ bên dưới: thay đổi chưa lưu ở đó sẽ mất.',
+    apply: 'Áp dụng',
+    applying: 'Đang áp dụng…',
+    cancel: 'Huỷ',
+    applied: (changed: number) => `Đã áp dụng ma trận cho ${changed} tổ. Thay đổi có hiệu lực từ kỳ kế tiếp.`,
+    errorHeading: 'File chưa dùng được:',
+    reload: 'Tải lại cấu hình mới nhất',
+    errors: {
+      MATRIX_NOT_RECOGNISED: 'Không nhận ra đây là file ma trận tiêu chí. Hãy tải ma trận về rồi sửa trên chính file đó.',
+      MATRIX_CRITERION_UNKNOWN: (row: number) => `Dòng ${row}: tiêu chí này không có trong báo cáo. Đừng thêm hay sửa dòng tiêu chí.`,
+      MATRIX_CRITERION_MISSING: (name: string) => `Thiếu dòng của tiêu chí "${name}". Đừng xoá dòng tiêu chí.`,
+      MATRIX_TEAM_UNKNOWN: (column: string) => `Cột ${column}: tổ này không thuộc báo cáo. Đừng thêm hay sửa cột tổ.`,
+      MATRIX_TEAM_MISSING: (name: string) => `Thiếu cột của tổ "${name}". Đừng xoá cột tổ.`,
+      MATRIX_TEAM_EMPTY: (name: string) => `Tổ "${name}" chưa được tích tiêu chí nào. Mỗi tổ phải báo ít nhất một tiêu chí.`,
+    },
+    conflict: 'Cấu hình báo cáo vừa được người khác thay đổi. Hãy tải lại cấu hình mới nhất rồi nạp file lần nữa.',
+    fileMissing: 'Chưa chọn file. Hãy chọn file ma trận (.xlsx).',
+  },
   summary: {
     source: 'Nguồn mẫu',
     sourceCriteria: 'Sinh từ danh sách tiêu chí',
@@ -155,6 +214,32 @@ export const reportCriteria = {
 export function criteriaErrorText(code: string | undefined, serverMessage: string): string {
   if (code && Object.prototype.hasOwnProperty.call(reportCriteria.errors, code)) return reportCriteria.errors[code];
   return serverMessage || reportCriteria.errorFallback;
+}
+
+/** The message for a refused change of a team's criteria in a running period. */
+export function periodCriteriaErrorText(code: string | undefined, serverMessage: string): string {
+  const known = reportCriteria.period.errors;
+  if (code && Object.prototype.hasOwnProperty.call(known, code)) return known[code];
+  return serverMessage || reportCriteria.errorFallback;
+}
+
+/** One reason a criteria matrix file was refused, in plain words. `criterionName` names a criterion by its key. */
+export function matrixErrorText(error: CriteriaMatrixError, criterionName: (itemKey: string) => string): string {
+  const t = reportCriteria.matrix.errors;
+  switch (error.code) {
+    case 'MATRIX_NOT_RECOGNISED':
+      return t.MATRIX_NOT_RECOGNISED;
+    case 'MATRIX_CRITERION_UNKNOWN':
+      return t.MATRIX_CRITERION_UNKNOWN(error.row);
+    case 'MATRIX_CRITERION_MISSING':
+      return t.MATRIX_CRITERION_MISSING(criterionName(error.itemKey));
+    case 'MATRIX_TEAM_UNKNOWN':
+      return t.MATRIX_TEAM_UNKNOWN(error.column);
+    case 'MATRIX_TEAM_MISSING':
+      return t.MATRIX_TEAM_MISSING(error.name);
+    case 'MATRIX_TEAM_EMPTY':
+      return t.MATRIX_TEAM_EMPTY(error.name);
+  }
 }
 
 export function criteriaWarningText(code: string): string {

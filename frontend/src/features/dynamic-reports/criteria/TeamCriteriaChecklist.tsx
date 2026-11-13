@@ -23,6 +23,8 @@ interface Props {
   otherTeams: ReadonlyArray<{ id: string; name: string }>;
   onCopyFrom: (teamId: string) => void;
   onApplyToAll: () => void;
+  /** True where the checklist is the whole point of the panel it sits in: it starts unfolded. */
+  defaultOpen?: boolean;
 }
 
 export default function TeamCriteriaChecklist({
@@ -35,8 +37,9 @@ export default function TeamCriteriaChecklist({
   otherTeams,
   onCopyFrom,
   onApplyToAll,
+  defaultOpen = false,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
   const shown = filterGroups(groups, query);
   const shownKeys = shown.flatMap((g) => g.items.map((i) => i.key));

@@ -12,6 +12,7 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import type {
+  CriteriaGroupPayload,
   ParsedField,
   ParsedFormulaCell,
   ReportRoleConfig,
@@ -40,6 +41,8 @@ interface Props {
   rules: ReportRuleConfig[];
   /** 'CRITERIA' when the workbook was generated from a list of criteria; absent for an uploaded template. */
   sourceKind?: ReportSourceKind;
+  /** Criteria reports: the criteria that have children (group headings), saved with the version. */
+  criteriaGroups?: CriteriaGroupPayload[];
   /** Names of the teams, to say per team how many criteria it reports. */
   teamNames?: Record<string, string>;
   onBack: () => void;
@@ -67,6 +70,7 @@ export default function ReportSummaryStep({
   targets,
   rules,
   sourceKind,
+  criteriaGroups,
   teamNames,
   onBack,
 }: Props) {
@@ -105,6 +109,7 @@ export default function ReportSummaryStep({
         targets,
         rules: rules.length > 0 ? rules : undefined,
         ...(sourceKind ? { sourceKind } : {}),
+        ...(sourceKind === 'CRITERIA' && criteriaGroups ? { criteriaGroups } : {}),
         effectiveFrom: `${effectiveFrom}T00:00:00.000Z`,
         publish,
         idempotencyKey,
