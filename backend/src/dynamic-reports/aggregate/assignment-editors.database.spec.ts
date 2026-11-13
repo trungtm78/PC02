@@ -274,6 +274,37 @@ run('assignment editors on PostgreSQL', () => {
       );
     });
 
+    it('never swaps in an editor who cannot open the module: the working editor stays (found by Codex)', async () => {
+      const { reportId, periods } = await buildReport('noaccess');
+      await setTargetEditors(reportId, 't1', ['noperm']);
+
+      await reconcile(reportId);
+
+      expect(await activeEditors(periods.unopened.assignments.t1)).toEqual(sorted('e1'));
+    });
+
+    it('waits for the period lock and looks at the period again when it gets it (found by Codex)', async () => {
+      const { reportId, periods } = await buildReport('lock');
+      await setTargetEditors(reportId, 't1', ['e2']);
+      let finished = false;
+      let pending: Promise<unknown> = Promise.resolve();
+
+      await db.$transaction(async (holder) => {
+        await holder.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periods.unopened.id} FOR UPDATE`;
+        pending = reconcile(reportId).then(() => {
+          finished = true;
+        });
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        // Another request (a mid-period change, a closing) holds the period: the reconciliation must not run through it.
+        expect(finished).toBe(false);
+        await holder.dynReportPeriod.update({ where: { id: periods.unopened.id }, data: { status: 'FINALIZED' } });
+      });
+      await pending;
+
+      // The period closed while it waited, so it is no longer something the configuration may change.
+      expect(await activeEditors(periods.unopened.assignments.t1)).toEqual(sorted('e1'));
+    });
+
     it('running again changes nothing and makes no duplicate row', async () => {
       const { reportId, periods } = await buildReport('again');
       await setTargetEditors(reportId, 't1', ['e1', 'e2']);

@@ -299,6 +299,32 @@ describe('ReportPeriodTeamsPage (S30)', () => {
       expect(await screen.findByTestId('editors-error')).toHaveTextContent('đã bị khoá');
     });
 
+    it('switching the team being added forgets the editors chosen for the previous team (found by Codex)', async () => {
+      vi.mocked(dynamicReportsApi.previewAddTeam).mockResolvedValue(ADD_PREVIEW);
+      vi.mocked(dynamicReportsApi.addTeamMidPeriod).mockResolvedValue({
+        assignmentId: 'new1', teamId: 'team-b', teamName: 'Đội 6', obligation: 'REQUIRED',
+      });
+      vi.mocked(api.get).mockResolvedValue({
+        data: [...TEAMS, { id: 'team-b', name: 'Đội 6', isActive: true, wardId: null }],
+      });
+      renderPage();
+      await waitFor(() => screen.getByTestId('select-add-team-trigger'));
+      openAndSelect('select-add-team', 'team-new');
+      fireEvent.click(screen.getByTestId('btn-preview-add'));
+      await waitFor(() => screen.getByTestId('impact-preview'));
+      openAndSelect('add-editors-picker', 'u3');
+
+      openAndSelect('select-add-team', 'team-b');
+      fireEvent.click(screen.getByTestId('btn-preview-add'));
+      await waitFor(() => screen.getByTestId('impact-preview'));
+      fireEvent.change(screen.getByTestId('add-reason-input'), { target: { value: 'Bổ sung' } });
+      fireEvent.click(screen.getByTestId('btn-confirm-add'));
+
+      await waitFor(() =>
+        expect(dynamicReportsApi.addTeamMidPeriod).toHaveBeenCalledWith('period1', 'team-b', 'Bổ sung', undefined),
+      );
+    });
+
     it('add-team sends the editors the manager chose', async () => {
       vi.mocked(dynamicReportsApi.previewAddTeam).mockResolvedValue(ADD_PREVIEW);
       vi.mocked(dynamicReportsApi.addTeamMidPeriod).mockResolvedValue({

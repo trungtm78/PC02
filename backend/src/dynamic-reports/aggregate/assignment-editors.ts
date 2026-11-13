@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 /**
  * Who may type into a period's assignment.
@@ -27,6 +27,16 @@ export interface EditorChangeResult {
   added: number;
   ended: number;
 }
+
+/** A person who may be named as an editor: active, and their role can open the module (`read:DynamicReport`). */
+const QUALIFIED_USER = {
+  isActive: true,
+  role: {
+    permissions: {
+      some: { permission: { action: 'read', subject: 'DynamicReport' } },
+    },
+  },
+} as const;
 
 const inWindow = (now: Date) => ({
   validFrom: { lte: now },
@@ -81,8 +91,9 @@ export interface ReconcileOptions extends EditorChangeContext {
 /**
  * Brings the assignments of a report's OPEN periods in line with the editors its configuration names now.
  *
- * Left alone: an assignment whose team is no longer in the configuration (its period keeps what it has), and a team
- * whose configured editors are all inactive (stripping every editor would leave nobody able to type).
+ * Only people who qualify (`QUALIFIED_USER`) are ever put on an assignment. Left alone: an assignment whose team is no
+ * longer in the configuration (its period keeps what it has), and a team none of whose configured editors qualifies
+ * (stripping every editor would leave nobody able to type).
  */
 export async function reconcileAssignmentEditors(
   tx: Tx,
@@ -94,7 +105,7 @@ export async function reconcileAssignmentEditors(
     where: { reportId, ...inWindow(now) },
     include: {
       editors: {
-        where: { ...inWindow(now), user: { isActive: true } },
+        where: { ...inWindow(now), user: QUALIFIED_USER },
         select: { userId: true },
       },
     },
@@ -106,16 +117,30 @@ export async function reconcileAssignmentEditors(
   }
   if (wantedByTeam.size === 0) return { added: 0, ended: 0 };
 
-  const assignments = await tx.dynReportAssignment.findMany({
-    where: {
-      teamId: { in: [...wantedByTeam.keys()] },
-      period: {
-        reportId,
-        status: 'OPEN',
-        ...(onlyNotYetOpened ? { opensAt: { gt: now } } : {}),
-      },
-      ...(assignmentIds ? { id: { in: assignmentIds } } : {}),
+  const eligible = {
+    teamId: { in: [...wantedByTeam.keys()] },
+    period: {
+      reportId,
+      status: 'OPEN' as const,
+      ...(onlyNotYetOpened ? { opensAt: { gt: now } } : {}),
     },
+    ...(assignmentIds ? { id: { in: assignmentIds } } : {}),
+  };
+  const candidates = await tx.dynReportAssignment.findMany({
+    where: eligible,
+    select: { periodId: true },
+    distinct: ['periodId'],
+  });
+  if (candidates.length === 0) return { added: 0, ended: 0 };
+
+  // The mid-period action and every other write to a period take the period's row first. Reading the editors without
+  // holding it would let two changes both end the same editor and each add its own replacement (two active rows). Lock
+  // in id order so two reconciliations can never wait on each other, then look again: a period that closed, or an
+  // assignment that was changed, while this waited is judged as it is now.
+  const periodIds = [...new Set(candidates.map((c) => c.periodId))].sort();
+  await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id IN (${Prisma.join(periodIds)}) ORDER BY id FOR UPDATE`;
+  const assignments = await tx.dynReportAssignment.findMany({
+    where: eligible,
     select: { id: true, teamId: true },
   });
 
@@ -146,15 +171,7 @@ export async function findUnqualifiedEditors(
   const unique = [...new Set(userIds)];
   if (unique.length === 0) return [];
   const ok = await tx.user.findMany({
-    where: {
-      id: { in: unique },
-      isActive: true,
-      role: {
-        permissions: {
-          some: { permission: { action: 'read', subject: 'DynamicReport' } },
-        },
-      },
-    },
+    where: { id: { in: unique }, ...QUALIFIED_USER },
     select: { id: true },
   });
   const okIds = new Set(ok.map((u) => u.id));
@@ -172,7 +189,7 @@ export async function configuredEditorsOf(
     where: { reportId, teamId, ...inWindow(now) },
     include: {
       editors: {
-        where: { ...inWindow(now), user: { isActive: true } },
+        where: { ...inWindow(now), user: QUALIFIED_USER },
         select: { userId: true },
       },
     },

@@ -538,6 +538,8 @@ export default function ReportPeriodTeamsPage() {
           onChange={(v) => {
             setAddTeamId(v);
             setAddPreview(null);
+            // The people chosen were for the previous team; keeping them would send them with the next one.
+            setAddEditors([]);
           }}
           groups={addTeamGroups}
           loading={loadingTeams}
