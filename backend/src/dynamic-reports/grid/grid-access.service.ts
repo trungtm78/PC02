@@ -13,16 +13,38 @@ import { PrismaService } from '../../prisma/prisma.service';
  * Drafts are visible only to the first group. Anyone else gets the same
  * answer as for a version that does not exist (the caller maps `false` to 404).
  */
+export type GridReadScope =
+  | { kind: 'NONE' }
+  | { kind: 'ALL' }
+  | {
+      kind: 'OWNED';
+      ownedFieldKeys: string[];
+      fields: { sheetKey: string; address: string; fieldKey: string }[];
+      /** The workbook was generated from a list of criteria: one criterion per row. */
+      criteriaRows: boolean;
+    };
+const NONE: GridReadScope = { kind: 'NONE' };
+const ALL: GridReadScope = { kind: 'ALL' };
+
 @Injectable()
 export class GridAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
   async canReadVersion(userId: string, roleId: string, versionId: string): Promise<boolean> {
+    return (await this.readScope(userId, roleId, versionId)).kind !== 'NONE';
+  }
+
+  /**
+   * What of a version's grid the caller may see. A manager, viewer or admin sees all of it. Someone who is only an
+   * editor sees what their team reports: every field when one of their assignments on this version has no subset,
+   * otherwise the union of the subsets of their assignments (the controller then removes the rest from the grid).
+   */
+  async readScope(userId: string, roleId: string, versionId: string): Promise<GridReadScope> {
     const version = await this.prisma.dynReportVersion.findUnique({
       where: { id: versionId },
-      select: { id: true, reportId: true, status: true },
+      select: { id: true, reportId: true, status: true, sourceKind: true },
     });
-    if (!version) return false;
+    if (!version) return NONE;
 
     const privileged = await this.prisma.rolePermission.findFirst({
       where: {
@@ -31,9 +53,9 @@ export class GridAccessService {
       },
       select: { roleId: true },
     });
-    if (privileged) return true;
+    if (privileged) return ALL;
 
-    if (version.status === 'DRAFT') return false;
+    if (version.status === 'DRAFT') return NONE;
 
     const now = new Date();
     const reportRole = await this.prisma.dynReportRole.findFirst({
@@ -45,16 +67,25 @@ export class GridAccessService {
       },
       select: { id: true },
     });
-    if (reportRole) return true;
+    if (reportRole) return ALL;
 
-    const editor = await this.prisma.dynReportAssignmentEditor.findFirst({
+    const editing = await this.prisma.dynReportAssignmentEditor.findMany({
       where: {
         userId,
         isActive: true,
         assignment: { period: { versionId } },
       },
-      select: { id: true },
+      select: { assignment: { select: { ownedFieldKeys: true } } },
     });
-    return !!editor;
+    if (editing.length === 0) return NONE;
+    const subsets = editing.map((e) => e.assignment.ownedFieldKeys);
+    if (subsets.some((keys) => !Array.isArray(keys))) return ALL;
+
+    const ownedFieldKeys = [...new Set(subsets.flatMap((keys) => keys as string[]))];
+    const fields = await this.prisma.dynReportField.findMany({
+      where: { versionId },
+      select: { sheetKey: true, address: true, fieldKey: true },
+    });
+    return { kind: 'OWNED', ownedFieldKeys, fields, criteriaRows: version.sourceKind === 'CRITERIA' };
   }
 }

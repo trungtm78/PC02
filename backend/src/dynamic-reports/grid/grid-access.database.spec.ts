@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { randomUUID } from 'node:crypto';
 import { GridAccessService } from './grid-access.service';
@@ -156,6 +156,7 @@ run('GridAccessService on PostgreSQL', () => {
   const roleOf = (who: string) =>
     who === 'admin' ? roleAdmin : who === 'manage' ? roleManage : roleReader;
   const can = (who: string, versionId: string) => svc.canReadVersion(user[who], roleOf(who), versionId);
+  const SCOPE = (who: string, versionId: string) => svc.readScope(user[who], roleOf(who), versionId);
 
   it('admin:DynamicReport reads any version, drafts included', async () => {
     expect(await can('admin', versionAPublished)).toBe(true);
@@ -189,6 +190,34 @@ run('GridAccessService on PostgreSQL', () => {
 
   it('an active editor of an assignment on this version reads it', async () => {
     expect(await can('editorA', versionAPublished)).toBe(true);
+  });
+
+  describe('how much of the grid an editor may see', () => {
+    afterEach(async () => {
+      await db.dynReportAssignment.update({ where: { id: assignmentA }, data: { ownedFieldKeys: Prisma.DbNull } });
+      await db.dynReportField.deleteMany({ where: { versionId: versionAPublished } });
+    });
+
+    it('all of it while the team reports every criterion', async () => {
+      expect(await SCOPE('editorA', versionAPublished)).toEqual({ kind: 'ALL' });
+    });
+
+    it('only its own criteria once the team has a subset; a manager of the report still sees everything', async () => {
+      await db.dynReportField.createMany({
+        data: [
+          { versionId: versionAPublished, sheetKey: 'S', address: 'C2', fieldKey: 'S!C2', label: 'a', type: 'NUM' },
+          { versionId: versionAPublished, sheetKey: 'S', address: 'C3', fieldKey: 'S!C3', label: 'b', type: 'NUM' },
+        ],
+      });
+      await db.dynReportAssignment.update({ where: { id: assignmentA }, data: { ownedFieldKeys: ['S!C2'] } });
+
+      const scope = await SCOPE('editorA', versionAPublished);
+
+      expect(scope).toMatchObject({ kind: 'OWNED', ownedFieldKeys: ['S!C2'], criteriaRows: false });
+      expect((scope as { fields: unknown[] }).fields).toHaveLength(2);
+      expect(await SCOPE('mgrA', versionAPublished)).toEqual({ kind: 'ALL' });
+      expect(await SCOPE('stranger', versionAPublished)).toEqual({ kind: 'NONE' });
+    });
   });
 
   it('an editor whose seat was replaced (isActive=false) does not', async () => {

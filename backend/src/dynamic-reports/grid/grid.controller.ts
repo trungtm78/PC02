@@ -9,6 +9,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { GridAccessService } from './grid-access.service';
 import { GridModelService } from './grid-model.service';
 import type { GridModel } from '../engine/grid-types';
+import { redactGrid, scopeTag } from './redact-grid';
 
 interface AuthenticatedUser {
   id: string;
@@ -38,10 +39,19 @@ export class GridController {
   ): Promise<GridModel | undefined> {
     // Authorise BEFORE touching the cache or the ETag: a caller outside the
     // report must not learn whether a version exists, nor get a 304 for it.
-    const allowed = await this.access.canReadVersion(user.id, user.roleId, versionId);
-    if (!allowed) throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
+    const scope = await this.access.readScope(user.id, user.roleId, versionId);
+    if (scope.kind === 'NONE') throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
 
-    const { model, etag } = await this.grids.getForVersion(versionId);
+    const whole = await this.grids.getForVersion(versionId);
+    // An editor of a team that reports only some criteria gets the grid without the others, under a validator of its
+    // own: the whole-report ETag must never earn a 304 for a narrower answer, nor the other way round.
+    const { model, etag } =
+      scope.kind === 'OWNED'
+        ? {
+            model: redactGrid(whole.model, scope.fields, scope.ownedFieldKeys, scope.criteriaRows),
+            etag: `${whole.etag.replace(/"$/, '')}-o${scopeTag(scope.ownedFieldKeys)}"`,
+          }
+        : whole;
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate');
     if (req.headers['if-none-match'] === etag) {
