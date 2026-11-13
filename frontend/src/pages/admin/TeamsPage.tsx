@@ -6,7 +6,6 @@ import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import {
   Plus,
   Edit2,
-  Trash2,
   ChevronRight,
   ChevronDown,
   Users,
@@ -18,8 +17,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SingleWardPicker } from '@/components/SingleWardPicker'; // v0.34.0.0
+import { teams as L } from '@/locales/vi';
 
 /* ─── Types ──────────────────────────────────────────── */
+
+type TeamStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+const TAB_ORDER: TeamStatus[] = ['ACTIVE', 'INACTIVE', 'ARCHIVED'];
 
 interface Team {
   id: string;
@@ -29,6 +32,7 @@ interface Team {
   parentId: string | null;
   order: number;
   isActive: boolean;
+  status: TeamStatus;
   wardId?: string | null; // v0.33.0.0: Hybrid ward scoping
   editWindowHours?: number | null; // v0.33.0.0: per-team override
   createdAt: string;
@@ -37,6 +41,43 @@ interface Team {
   children?: Team[];
   _count?: { members: number };
 }
+
+interface Blocker {
+  table: string;
+  column: string;
+  count: number;
+}
+
+/** The server sends blockers as the `details` of the error envelope; the shared helper hands each back as JSON text. */
+function blockersFromError(messages: string[]): Blocker[] {
+  return messages.flatMap((m) => {
+    try {
+      const parsed = JSON.parse(m) as Partial<Blocker>;
+      return typeof parsed.table === 'string' && typeof parsed.count === 'number'
+        ? [{ table: parsed.table, column: String(parsed.column ?? ''), count: parsed.count }]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
+interface MergeSummary {
+  moved: { table: string; column: string; count: number }[];
+  duplicatesRemoved: { table: string; count: number }[];
+  leadersRaised: number;
+  skipped: { table: string; column: string; count: number; reason: string }[];
+}
+
+interface MergeOperation {
+  id: string;
+  sourceName: string;
+  targetName: string;
+  status: 'APPLIED' | 'UNDONE';
+  mergedAt: string;
+}
+
+const sourceLabel = (table: string) => L.delete.sources[table] ?? table;
 
 interface TeamFormData {
   name: string;
@@ -88,6 +129,17 @@ export default function TeamsPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [tab, setTab] = useState<TeamStatus>('ACTIVE');
+  const [statusError, setStatusError] = useState('');
+  const [deleteBlocked, setDeleteBlocked] = useState<{ team: Team; blockers: Blocker[] } | null>(null);
+  const [mergeSource, setMergeSource] = useState<Team | null>(null);
+  const [mergeTarget, setMergeTarget] = useState('');
+  // A preview counts for ONE target; it is shown, and unlocks the merge, only while that target is still selected.
+  const [mergePreview, setMergePreview] = useState<{ target: string; summary: MergeSummary } | null>(null);
+  const mergeSummary = mergePreview && mergePreview.target === mergeTarget ? mergePreview.summary : null;
+  const [mergeError, setMergeError] = useState('');
+  const [mergeDone, setMergeDone] = useState('');
+  const [undoResult, setUndoResult] = useState('');
   const [formData, setFormData] = useState<TeamFormData>({
     name: '',
     code: '',
@@ -103,10 +155,14 @@ export default function TeamsPage() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: teams = [], isLoading, isError: loiTaiTo, error: loiTo } = useQuery<Team[]>({
-    queryKey: ['teams'],
-    queryFn: () => api.get('/teams').then((r) => r.data),
+  // One request for every state: the tabs are a filter over it and their counts come for free.
+  const { data: allTeams = [], isLoading, isError: loiTaiTo, error: loiTo } = useQuery<Team[]>({
+    queryKey: ['teams', 'admin'],
+    queryFn: () => api.get('/teams', { params: { status: 'ALL' } }).then((r) => r.data),
   });
+  const teams = allTeams.filter((t) => t.status === tab);
+  const activeTeams = allTeams.filter((t) => t.status === 'ACTIVE');
+  const countOf = (status: TeamStatus) => allTeams.filter((t) => t.status === status).length;
 
   // Truy vấn hỏng thì `teams` là mảng rỗng mặc định — màn hình nói "{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu tổ/nhóm'}",
   // một khẳng định về thứ chưa hề hỏi được. Quy về cùng một tên `loadError` như các trang khác
@@ -132,9 +188,17 @@ export default function TeamsPage() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/teams/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teams'] }),
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: TeamStatus }) =>
+      api.patch(`/teams/${id}/status`, { status }),
+    onSuccess: () => {
+      setStatusError('');
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => {
+      const { code } = extractApiError(err, L.statusFailed);
+      setStatusError((code && L.errors[code]) || L.statusFailed);
+    },
   });
 
   // ── Team detail (members) query ────────────────────────
@@ -251,10 +315,117 @@ export default function TeamsPage() {
     }
   };
 
-  const handleDelete = (team: Team) => {
-    if (confirm(`Bạn chắc chắn muốn xóa "${team.name}"?`)) {
-      deleteMutation.mutate(team.id);
+  /** Pausing and archiving hide the team from every list, so they ask first; the way back needs no question. */
+  const changeStatus = (team: Team, status: TeamStatus) => {
+    const question =
+      status === 'INACTIVE' ? L.confirm.deactivate(team.name) : status === 'ARCHIVED' ? L.confirm.archive(team.name) : null;
+    if (question && !confirm(question)) return;
+    statusMutation.mutate({ id: team.id, status });
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/teams/${id}`),
+    onSuccess: () => {
+      setStatusError('');
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err, id) => {
+      const { code, messages } = extractApiError(err, L.delete.failed);
+      const team = allTeams.find((t) => t.id === id);
+      if (code === 'TEAM_HAS_DATA' && team) {
+        setDeleteBlocked({ team, blockers: blockersFromError(messages) });
+        return;
+      }
+      setStatusError((code && L.errors[code]) || L.delete.failed);
+    },
+  });
+
+  /**
+   * Delete is only for a team nothing refers to. The server says what still does BEFORE anything is asked of the
+   * person, so they are never told "are you sure?" about something that cannot happen; and it decides again at delete
+   * time, so a change in between still gets the same explanation.
+   */
+  const startDelete = async (team: Team) => {
+    setStatusError('');
+    setDeleteBlocked(null);
+    try {
+      const { data } = await api.get<{ deletable: boolean; blockers: Blocker[] }>(`/teams/${team.id}/deletion-check`);
+      if (!data.deletable) {
+        setDeleteBlocked({ team, blockers: data.blockers });
+        return;
+      }
+    } catch (err) {
+      setStatusError(extractApiError(err, L.delete.failed).message);
+      return;
     }
+    if (confirm(L.delete.confirm(team.name))) deleteMutation.mutate(team.id);
+  };
+
+  const { data: merges = [] } = useQuery<MergeOperation[]>({
+    queryKey: ['teams', 'merges'],
+    queryFn: () => api.get('/teams/merges').then((r) => r.data),
+  });
+
+  const closeMerge = () => {
+    setMergeSource(null);
+    setMergeTarget('');
+    setMergePreview(null);
+    setMergeError('');
+  };
+  const mergeFailure = (err: unknown, fallback: string) => {
+    const { code } = extractApiError(err, fallback);
+    return (code && L.errors[code]) || fallback;
+  };
+
+  const previewMutation = useMutation({
+    mutationFn: (target: string) => api.post(`/teams/${mergeSource!.id}/merge-preview`, { targetTeamId: target }),
+    onSuccess: (r, target) => {
+      setMergeError('');
+      setMergePreview({ target, summary: r.data.summary });
+    },
+    onError: (err) => {
+      setMergePreview(null);
+      setMergeError(mergeFailure(err, L.merge.failed));
+    },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: () => api.post(`/teams/${mergeSource!.id}/merge`, { targetTeamId: mergeTarget }),
+    onSuccess: () => {
+      const target = allTeams.find((t) => t.id === mergeTarget);
+      setMergeDone(L.merge.done(mergeSource!.name, target?.name ?? ''));
+      setUndoResult('');
+      closeMerge();
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => setMergeError(mergeFailure(err, L.merge.failed)),
+  });
+
+  const undoMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/teams/merges/${id}/undo`),
+    onSuccess: (r) => {
+      setMergeDone('');
+      setUndoResult(L.merge.undoResult(r.data.restored, r.data.skipped));
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => setStatusError(mergeFailure(err, L.merge.undoFailed)),
+  });
+
+  const startUndo = (op: MergeOperation) => {
+    if (confirm(L.merge.undoConfirm(op.sourceName, op.targetName))) undoMutation.mutate(op.id);
+  };
+
+  /** What can be done from each state; every action has its way back. */
+  const ACTIONS: Record<TeamStatus, { key: string; label: string; to: TeamStatus }[]> = {
+    ACTIVE: [
+      { key: 'deactivate', label: L.actions.deactivate, to: 'INACTIVE' },
+      { key: 'archive', label: L.actions.archive, to: 'ARCHIVED' },
+    ],
+    INACTIVE: [
+      { key: 'activate', label: L.actions.activate, to: 'ACTIVE' },
+      { key: 'archive', label: L.actions.archive, to: 'ARCHIVED' },
+    ],
+    ARCHIVED: [{ key: 'restore', label: L.actions.restore, to: 'ACTIVE' }],
   };
 
   const toggleExpand = (id: string) => {
@@ -266,11 +437,14 @@ export default function TeamsPage() {
     });
   };
 
-  // Build tree from flat list
-  const rootTeams = teams.filter((t) => !t.parentId);
+  // The active tab is a tree; the other tabs are flat lists (a paused child of an active parent has no parent in its
+  // own tab, so a tree would hide it). A team whose parent is not in the same tab is shown as a root.
+  const inTab = new Set(teams.map((t) => t.id));
+  const flat = tab !== 'ACTIVE';
+  const rootTeams = teams.filter((t) => flat || !t.parentId || !inTab.has(t.parentId));
 
   const getChildren = (parentId: string) =>
-    teams.filter((t) => t.parentId === parentId);
+    flat ? [] : teams.filter((t) => t.parentId === parentId);
 
   const renderMemberPanel = (team: Team) => {
     const isSelected = selectedTeamId === team.id;
@@ -493,7 +667,7 @@ export default function TeamsPage() {
       <div key={team.id}>
         <div
           className={`flex items-center gap-2 px-4 py-2 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${
-            !team.isActive ? 'opacity-50' : ''
+            team.status !== 'ACTIVE' ? 'opacity-50' : ''
           } ${isSelected ? 'bg-blue-50 border-l-2 border-l-primary' : ''}`}
           style={{ paddingLeft: `${depth * 24 + 16}px` }}
           onClick={() => handleSelectTeam(team.id)}
@@ -527,9 +701,9 @@ export default function TeamsPage() {
                 {team._count.members}
               </span>
             )}
-            {!team.isActive && (
+            {team.status !== 'ACTIVE' && (
               <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">
-                Ngừng hoạt động
+                {L.tabs[team.status]}
               </span>
             )}
           </div>
@@ -546,15 +720,44 @@ export default function TeamsPage() {
               <Edit2 className="w-4 h-4" />
             </button>
             <button
+              data-testid={`team-action-delete-${team.id}`}
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete(team);
+                void startDelete(team);
               }}
-              className="p-1.5 hover:bg-red-50 rounded text-red-500"
-              title="Xóa"
+              disabled={deleteMutation.isPending}
+              className="px-2 py-1 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 disabled:opacity-50"
             >
-              <Trash2 className="w-4 h-4" />
+              {L.delete.action}
             </button>
+            {team.status !== 'ARCHIVED' && (
+              <button
+                data-testid={`team-action-merge-${team.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMergeDone('');
+                  setUndoResult('');
+                  setMergeSource(team);
+                }}
+                className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50"
+              >
+                {L.merge.action}
+              </button>
+            )}
+            {ACTIONS[team.status].map((a) => (
+              <button
+                key={a.key}
+                data-testid={`team-action-${a.key}-${team.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  changeStatus(team, a.to);
+                }}
+                disabled={statusMutation.isPending}
+                className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+              >
+                {a.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -598,6 +801,155 @@ export default function TeamsPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="danh sách tổ/nhóm" data-testid="teams-load-error" />
+
+      {statusError && (
+        <div role="alert" data-testid="team-status-error" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {statusError}
+        </div>
+      )}
+
+      {mergeDone && (
+        <div role="status" data-testid="team-merge-done" className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {mergeDone} {L.merge.after}
+        </div>
+      )}
+      {undoResult && (
+        <div role="status" data-testid="team-merge-undo-result" className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {undoResult}
+        </div>
+      )}
+
+      {mergeSource && (
+        <div data-testid="team-merge-dialog" className="mb-4 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-700 mb-3">{L.merge.title(mergeSource.name)}</h2>
+          <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor="team-merge-target">
+            {L.merge.pick}
+          </label>
+          <select
+            id="team-merge-target"
+            data-testid="team-merge-target"
+            value={mergeTarget}
+            onChange={(e) => {
+              setMergeTarget(e.target.value);
+              setMergeError('');
+            }}
+            className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-md text-sm"
+          >
+            <option value="">{L.merge.pickPlaceholder}</option>
+            {activeTeams
+              .filter((t) => t.id !== mergeSource.id)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.code} - {t.name}
+                </option>
+              ))}
+          </select>
+
+          {mergeError && (
+            <p role="alert" data-testid="team-merge-error" className="mt-3 text-sm text-red-700">
+              {mergeError}
+            </p>
+          )}
+
+          {previewMutation.isPending && <p className="mt-3 text-sm text-slate-500">{L.merge.previewing}</p>}
+
+          {mergeSummary && (
+            <div data-testid="team-merge-summary" className="mt-3 text-sm text-slate-700">
+              {mergeSummary.moved.length === 0 && mergeSummary.duplicatesRemoved.length === 0 ? (
+                <p>{L.merge.nothing}</p>
+              ) : (
+                <>
+                  <p className="font-semibold">{L.merge.previewTitle}</p>
+                  <ul className="list-disc pl-5">
+                    {mergeSummary.moved.map((m) => (
+                      <li key={`${m.table}.${m.column}`}>{L.merge.moved(m.count, sourceLabel(m.table))}</li>
+                    ))}
+                    {mergeSummary.duplicatesRemoved.map((d) => (
+                      <li key={`dup-${d.table}`}>{L.merge.duplicates(d.count, sourceLabel(d.table))}</li>
+                    ))}
+                    {mergeSummary.leadersRaised > 0 && <li>{L.merge.leaders(mergeSummary.leadersRaised)}</li>}
+                  </ul>
+                </>
+              )}
+              {mergeSummary.skipped.length > 0 && (
+                <>
+                  <p className="mt-2 font-semibold">{L.merge.skippedTitle}</p>
+                  <ul className="list-disc pl-5">
+                    {mergeSummary.skipped.map((s) => (
+                      <li key={`${s.table}.${s.reason}`}>
+                        {(L.merge.skipped[s.reason] ?? ((c: number, w: string) => `${c} ${w}`))(s.count, sourceLabel(s.table))}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="mt-2 text-slate-500">{L.merge.after}</p>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              data-testid="team-merge-preview"
+              onClick={() => previewMutation.mutate(mergeTarget)}
+              disabled={!mergeTarget || previewMutation.isPending}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
+            >
+              {L.merge.preview}
+            </button>
+            <button
+              data-testid="team-merge-confirm"
+              onClick={() => mergeMutation.mutate()}
+              disabled={!mergeSummary || mergeMutation.isPending}
+              className="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50"
+            >
+              {L.merge.confirm}
+            </button>
+            <button
+              onClick={closeMerge}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+            >
+              {L.merge.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {deleteBlocked && (
+        <div role="alert" data-testid="team-delete-blocked" className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">{L.delete.blockedTitle(deleteBlocked.team.name)}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {deleteBlocked.blockers.map((b) => (
+              <li key={`${b.table}.${b.column}`}>{L.delete.line(b.count, L.delete.sources[b.table] ?? b.table)}</li>
+            ))}
+          </ul>
+          <p className="mt-2">{L.delete.blockedHint}</p>
+          <button
+            data-testid="team-delete-blocked-close"
+            onClick={() => setDeleteBlocked(null)}
+            className="mt-2 px-3 py-1 text-xs border border-amber-300 rounded hover:bg-amber-100"
+          >
+            {L.delete.close}
+          </button>
+        </div>
+      )}
+
+      <div className="flex gap-1 mb-3" role="tablist">
+        {TAB_ORDER.map((status) => (
+          <button
+            key={status}
+            role="tab"
+            aria-selected={tab === status}
+            data-testid={`team-tab-${status}`}
+            onClick={() => setTab(status)}
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              tab === status ? 'bg-blue-50 border-primary text-primary font-semibold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {L.tabs[status]} ({countOf(status)})
+          </button>
+        ))}
+      </div>
+      {tab !== 'ACTIVE' && <p className="text-xs text-slate-500 mb-3">{L.hint[tab]}</p>}
 
       {/* Form Modal */}
       {showForm && (
@@ -661,7 +1013,7 @@ export default function TeamsPage() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
               >
                 <option value="">-- Không --</option>
-                {teams.map((t) => (
+                {activeTeams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.code} - {t.name}
                   </option>
@@ -730,7 +1082,7 @@ export default function TeamsPage() {
           <div className="p-8 text-center text-slate-400">Đang tải...</div>
         ) : rootTeams.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
-            {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu tổ/nhóm'}
+            {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : L.emptyTab[tab]}
           </div>
         ) : (
           rootTeams
@@ -738,6 +1090,36 @@ export default function TeamsPage() {
             .map((team) => renderTeamRow(team, 0))
         )}
       </div>
+
+      {merges.length > 0 && (
+        <div className="mt-6 bg-white border border-slate-200 rounded-lg shadow-sm">
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-t-lg">
+            {L.merge.historyTitle}
+          </div>
+          <ul>
+            {merges.map((op) => (
+              <li key={op.id} className="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-100 text-sm">
+                <span>
+                  {op.sourceName} → {op.targetName}
+                  <span className="ml-2 text-xs text-slate-400">{new Date(op.mergedAt).toLocaleString('vi-VN')}</span>
+                </span>
+                {op.status === 'APPLIED' ? (
+                  <button
+                    data-testid={`team-merge-undo-${op.id}`}
+                    onClick={() => startUndo(op)}
+                    disabled={undoMutation.isPending}
+                    className="px-2 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {L.merge.undo}
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400">{L.merge.undone}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

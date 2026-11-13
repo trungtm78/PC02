@@ -2326,6 +2326,12 @@ model MasterClass {
 // Team (Tổ/Nhóm/Đơn vị)
 // ─────────────────────────────────────────────
 
+enum TeamStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 model Team {
   caseHandoff_fromTeam CaseHandoff[] @relation("CaseHandoff_fromTeam")
   caseHandoff_toTeam   CaseHandoff[] @relation("CaseHandoff_toTeam")
@@ -2337,7 +2343,13 @@ model Team {
   parent               Team?         @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children             Team[]        @relation("TeamHierarchy")
   order                Int           @default(0)
+  // `status` is the source of truth; `isActive` is kept in step by the trigger `teams_status_sync` (migration
+  // 20261113100000_team_status), so seeds and the legacy migration that still write `isActive` stay consistent.
+  // Application code changes the state only through TeamLifecycleService.
   isActive             Boolean       @default(true)
+  status               TeamStatus    @default(ACTIVE)
+  archivedAt           DateTime?
+  archivedById         String?
   // v0.33.0.0: Hybrid ward scoping — Team có thể là functional (wardId=null) hoặc geographic (wardId set)
   wardId               String?
   ward                 Directory?    @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
@@ -2359,6 +2371,7 @@ model Team {
   @@index([parentId])
   @@index([level])
   @@index([wardId])
+  @@index([status])
   @@map("teams")
 }
 
@@ -2398,6 +2411,51 @@ model UserTeam {
   @@id([userId, teamId])
   @@index([teamId])
   @@map("user_teams")
+}
+
+enum TeamMergeStatus {
+  APPLIED
+  UNDONE
+}
+
+/// One merge of a team into another. Team ids are plain text on purpose (no foreign key): the manifest must survive
+/// a later delete of either team, and a foreign key would make every merged team look "referenced" to the delete check.
+model TeamMergeOperation {
+  id                   String          @id @default(cuid())
+  sourceTeamId         String
+  sourceName           String
+  targetTeamId         String
+  targetName           String
+  status               TeamMergeStatus @default(APPLIED)
+  sourcePreviousStatus TeamStatus
+  mergedById           String
+  mergedAt             DateTime        @default(now())
+  undoneById           String?
+  undoneAt             DateTime?
+  /// Counts only, never figures from the records: what moved, what was removed as a duplicate, what was left alone.
+  summary              Json
+  items                TeamMergeItem[]
+
+  @@index([sourceTeamId])
+  @@index([targetTeamId])
+  @@index([mergedAt])
+  @@map("team_merge_operations")
+}
+
+/// One record the merge touched, with enough of the previous state to put it back.
+model TeamMergeItem {
+  id          String             @id @default(cuid())
+  operationId String
+  operation   TeamMergeOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  /// REPOINT (a column moved to the target), FIELD (a flag changed on a surviving row), DELETED (a duplicate removed).
+  kind        String
+  tableName   String
+  recordKey   Json
+  before      Json?
+  after       Json?
+
+  @@index([operationId, tableName])
+  @@map("team_merge_items")
 }
 
 // ─────────────────────────────────────────────

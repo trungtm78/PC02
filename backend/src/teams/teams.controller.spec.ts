@@ -1,9 +1,13 @@
 import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
 import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
+import { TeamLifecycleService } from './team-lifecycle.service';
+import { TeamMergeService } from './team-merge.service';
+import { BadRequestException } from '@nestjs/common';
 
 const mockService = {
   getList: jest.fn(),
+  options: jest.fn(),
   getById: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
@@ -12,11 +16,17 @@ const mockService = {
   removeMember: jest.fn(),
 };
 
+const mockLifecycle = { setStatus: jest.fn(), deleteIfEmpty: jest.fn(), deletionCheck: jest.fn() };
+const mockMerge = { preview: jest.fn(), merge: jest.fn(), undo: jest.fn(), list: jest.fn() };
+
 describe('TeamsController — delegation', () => {
   let controller: TeamsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(TeamsController, TeamsService, mockService);
+    const module = await buildControllerModule(TeamsController, TeamsService, mockService, [
+      { token: TeamLifecycleService, mock: mockLifecycle },
+      { token: TeamMergeService, mock: mockMerge },
+    ]);
     controller = module.get(TeamsController);
     jest.clearAllMocks();
   });
@@ -25,6 +35,92 @@ describe('TeamsController — delegation', () => {
     mockService.getList.mockResolvedValue({ data: [] });
     await controller.getList();
     expect(mockService.getList).toHaveBeenCalled();
+  });
+
+  it('getList() passes the requested state to the service', async () => {
+    mockService.getList.mockResolvedValue([]);
+    await controller.getList('ARCHIVED');
+    expect(mockService.getList).toHaveBeenCalledWith('ARCHIVED');
+  });
+
+  it('getList() with no state asks for the default (active teams)', async () => {
+    mockService.getList.mockResolvedValue([]);
+    await controller.getList(undefined);
+    expect(mockService.getList).toHaveBeenCalledWith(undefined);
+  });
+
+  it('getList() rejects a state that does not exist with a machine code', async () => {
+    expect(() => controller.getList('DELETED')).toThrow(BadRequestException);
+    try {
+      controller.getList('DELETED');
+    } catch (err) {
+      expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'TEAM_STATUS_UNKNOWN' });
+    }
+    expect(mockService.getList).not.toHaveBeenCalled();
+  });
+
+  it('getOptions() serves the picker list', async () => {
+    mockService.options.mockResolvedValue([{ id: 't1' }]);
+    await expect(controller.getOptions()).resolves.toEqual([{ id: 't1' }]);
+  });
+
+  it('delete() runs the guarded real delete through the lifecycle with the actor and audit info', async () => {
+    mockLifecycle.deleteIfEmpty.mockResolvedValue({ success: true });
+    const req = makeReq();
+    await controller.delete('team-1', mockUser, req);
+    expect(mockLifecycle.deleteIfEmpty).toHaveBeenCalledWith(
+      'team-1',
+      mockUser.id,
+      expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
+    expect(mockService.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletionCheck() serves the preview the confirmation dialog shows', async () => {
+    mockLifecycle.deletionCheck.mockResolvedValue({ deletable: true, total: 0, blockers: [] });
+    await expect(controller.deletionCheck('team-1')).resolves.toEqual({ deletable: true, total: 0, blockers: [] });
+    expect(mockLifecycle.deletionCheck).toHaveBeenCalledWith('team-1');
+  });
+
+  it('mergePreview() asks the merge service what would happen, without changing anything', async () => {
+    mockMerge.preview.mockResolvedValue({ summary: {} });
+    await controller.mergePreview('src', { targetTeamId: 'dst' });
+    expect(mockMerge.preview).toHaveBeenCalledWith('src', 'dst');
+    expect(mockMerge.merge).not.toHaveBeenCalled();
+  });
+
+  it('merge() merges with the actor and audit info', async () => {
+    mockMerge.merge.mockResolvedValue({ operationId: 'op1', summary: {} });
+    await controller.merge('src', { targetTeamId: 'dst' }, mockUser, makeReq());
+    expect(mockMerge.merge).toHaveBeenCalledWith(
+      'src',
+      'dst',
+      mockUser.id,
+      expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
+  });
+
+  it('undoMerge() undoes one operation as the actor', async () => {
+    mockMerge.undo.mockResolvedValue({ restored: 3, skipped: 0 });
+    await controller.undoMerge('op1', mockUser, makeReq());
+    expect(mockMerge.undo).toHaveBeenCalledWith('op1', mockUser.id, expect.objectContaining({ ipAddress: '127.0.0.1' }));
+  });
+
+  it('listMerges() serves the recent operations', async () => {
+    mockMerge.list.mockResolvedValue([{ id: 'op1' }]);
+    await expect(controller.listMerges()).resolves.toEqual([{ id: 'op1' }]);
+  });
+
+  it('setStatus() hands the new state to the lifecycle with the actor and audit info', async () => {
+    mockLifecycle.setStatus.mockResolvedValue({ id: 'team-1', status: 'ARCHIVED' });
+    const req = makeReq();
+    await controller.setStatus('team-1', { status: 'ARCHIVED' }, mockUser, req);
+    expect(mockLifecycle.setStatus).toHaveBeenCalledWith(
+      'team-1',
+      'ARCHIVED',
+      mockUser.id,
+      expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
   });
 
   it('create() delegates to service.create with dto, userId and audit info', async () => {

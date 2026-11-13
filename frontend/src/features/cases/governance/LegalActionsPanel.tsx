@@ -665,7 +665,7 @@ function SplitFields({
         />
         <Lookup
           label="Đội quản lý hồ sơ tách"
-          endpoint="/teams"
+          endpoint="/teams/options"
           value={newCase.assignedTeamId}
           onChange={(value) => write("assignedTeamId", value)}
         />

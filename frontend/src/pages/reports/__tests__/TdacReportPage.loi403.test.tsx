@@ -13,7 +13,7 @@ const LY_DO = 'Bạn chưa thuộc tổ nào nên không xem được báo cáo 
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
-      if (url === '/teams') return Promise.resolve({ data: { data: [] } });
+      if (url === '/teams/options') return Promise.resolve({ data: { data: [] } });
       return Promise.reject(
         new AxiosError('Forbidden', 'ERR_BAD_REQUEST', undefined, undefined, {
           status: 403,

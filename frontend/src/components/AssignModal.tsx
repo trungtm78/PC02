@@ -51,10 +51,10 @@ export function AssignModal({
 
   useEffect(() => {
     if (!open) return;
-    // `GET /teams` trả MẢNG THÔ, không bọc `{data}` — đọc `r.data.data` là luôn `undefined`,
+    // `GET /teams/options` trả MẢNG THÔ, không bọc `{data}` — đọc `r.data.data` là luôn `undefined`,
     // nên danh sách Tổ RỖNG trên prod mà không báo gì. Nhận cả hai hình cho chắc.
     api
-      .get<Team[] | { data?: Team[] }>('/teams')
+      .get<Team[] | { data?: Team[] }>('/teams/options')
       .then((r) => setTeams(Array.isArray(r.data) ? r.data : (r.data?.data ?? [])))
       .catch(() => setTeams([]));
   }, [open]);

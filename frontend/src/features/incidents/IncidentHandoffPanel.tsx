@@ -52,14 +52,10 @@ export function IncidentHandoffPanel({
       });
     if (enabled && canDispatch)
       api
-        .get<{ id: string; name: string; isActive: boolean }[]>("/teams")
+        .get<{ id: string; name: string }[]>("/teams/options")
         .then((r) => {
           if (active && Array.isArray(r.data))
-            setTeams(
-              r.data
-                .filter((t) => t.isActive)
-                .map((t) => ({ value: t.id, label: t.name })),
-            );
+            setTeams(r.data.map((t) => ({ value: t.id, label: t.name })));
         })
         .catch((e) => {
           if (active)

@@ -1,4 +1,45 @@
 # PROGRESS
+
+# ACTIVE EPIC (13/11/2026): team permissions + team lifecycle + report criteria per team
+Spec = plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md` (approved, ENG CLEARED). Protocol = AUTONOMOUS EXECUTION PROTOCOL (no questions; stop only for done / real blocker / irreversible-or-security action). Branch: `feat/team-lifecycle` from `origin/main` `74043fd6`. Commit trailer per session reminder; never `git add -A`, never `git stash -u`; `uat/` is untracked and must stay so.
+
+## Đã hoàn thành
+- Spec + review (Claude + Codex outside voice, 12 findings integrated).
+- M0 mockup: `docs/mockups/team-permissions-criteria.html` (artifact tools were unavailable).
+- M1 team lifecycle, all committed on `feat/team-lifecycle` (NOT pushed yet): status + trigger + `TeamLifecycleService`; `GET /teams/options` + 10 pickers; admin tabs; real delete with locked recount; merge + manifest + undo; 5 defects found by review/Codex fixed with tests. Backend `src/teams` 97/97 on real PostgreSQL; tsc clean both sides.
+
+## Đang làm dở
+- PR 1 (M1): frontend full suite running in background with JSON report (`scratchpad/fe-full.json`); first run showed 13 red suites while the backend suite ran concurrently (suspected load).
+- BƯỚC TIẾP THEO: read `fe-full.json`, rerun red suites alone, fix real ones; push `feat/team-lifecycle`; open PR; wait for CI (check results); merge; verify deploy health + read-only count of teams by status on production. Then PR 2 (B-foundation).
+
+## Hàng queue (order revised 13/11: report criteria BEFORE permissions; 9 vertical PRs, see plan section "Rà soát hiệu quả")
+PR1 M1 → PR2 B-foundation (contributors, itemKey/unit/parentItemKey/origin on DynReportField, DynReportTarget.itemKeys, ownedFieldKeys, ownedFields()) → PR3 B-setup (generate criteria workbook endpoint, column/cell selection in the wizard template step, per-team criteria in the teams step) → PR4 B-enforcement (editor filtering, ownership-aware aggregation, official export at finalize) → PR5 B-operations (mid-period change, remap by itemKey, matrix Excel) → PR6 A-foundation OFF → PR7 A-SHADOW → PR8 A-UI → PR9 A-ENFORCE + full UAT.
+Working rule per PR: targeted tests + tsc after each change; ONE Codex pass + full suites in background one after the other; never two full suites at once.
+
+## Quyết định kiến trúc
+See the plan's Decision ledger (D1, R1–R12) and binding decisions B1–B7.
+- **B8 (owner, 13/11/2026, binding):** the report criteria and loading them from an Excel file belong INSIDE the existing report setup screen ("Thiết lập báo cáo": the wizard `ReportTemplateUploadPage` -> `ReportTeamsStep` -> `ReportRulesStep` -> `ReportScheduleStep` -> `ReportSummaryStep`), not on a separate screen. Phase B therefore adds: the criteria upload as an input mode of the template step; the per-team criteria checklist inside the teams step; the matrix and bulk tools as panels of those same steps; the summary step shows the criteria per team. Editing an existing report's criteria goes through the same wizard (`ReportEditPage` / `ReportNewVersionPage`). No new top-level menu item.
+
+## Phase B design notes (from code survey 13/11, for the criteria-from-Excel work)
+- Template parse is `POST bao-cao-dong/templates/sheets` and `/preview` (backend `template/`, worker `parse-worker.ts`); the wizard `ReportTemplateUploadPage` keeps the `File` in browser memory and resends it; `/preview` already returns a `grid` (`GridModel`: rows, cols, merges, `cells` A1 -> {k:'text'|'num'|'formula'}) plus `fields[]`, `markableCells[]`. Formula cells carry no cached text (criteria in formula cells cannot be read).
+- Frontend has NO spreadsheet library. `GridViewer`/`GridTable` (features/dynamic-reports/grid) already render the grid with column-letter headers and a rectangular drag-select "mark mode" (`GridMarkBinding {candidates, chosen, onPick}`); gaps: no whole-column select (column `<th>` has no handlers), no per-row tick, candidates are only unlocked cells.
+- A field = an unlocked cell with a `{TYPE|FORMAT|AGG}` token (source TOKEN) or a hand-marked markable cell (source WEB); `fieldKey = Sheet!Addr`; publish re-parses the file and `reconcileFieldsWithWorkbook` demands every token cell be in the field list. Therefore criteria must be turned into a generated workbook "Chi tieu" (locked label cell in A, unlocked token cell in B per row, `escapeXlsxCell`, sheet name via `sanitizeSheetName`, never `__dr_meta`) built in a NEW backend endpoint (frontend has no xlsx lib), then fed through the existing save/new-version flow. Closest precedent: `SubmissionService.buildListWorkbook`.
+- `DynReportTarget` has no per-team field subset; hook points for the subset: `toFieldView`, unknown-field checks (`submission.service.ts` ~1714, ~1999), required check (~2170), grid `fields`/`editable`, aggregate/status services, exports. `version-fields-cache` caches fields per versionId forever (fields are write-once once published).
+- Because `fieldKey` is an address, inserting/reordering criterion rows changes keys; `carryOverMarks` matches by `fieldKey`. A stable criterion code (`itemKey`) is therefore needed (plan R-field `DynReportField.itemKey`).
+- Known limit not enforced today: `assertWorkbookLimits` (20 sheets / 100k rows) is never called in the dynamic-reports path; tier 2 limits (5 sheets, 50k cells, 5k inputs) apply after parse; grid limits 3000 rows x 128 cols.
+
+## Assumption
+- Production writes (migrations) go only through the normal `deploy.sh` pipeline; no ad-hoc production data writes.
+- The petition shadow-column loader (below) stays an owner decision; unrelated to this epic.
+
+## Trạng thái test
+- Baseline not yet re-measured on this branch.
+
+## Nợ kỹ thuật
+- none yet.
+
+---
+# PREVIOUS EPIC (kept for context): scan-image intake with LLM
 Updated: 2026-11-04 | Epic: scan-image intake with LLM (Petition / Incident / Case) | Milestone: M1-M10 built, review fixes applied, real-scan run done (04/11) | Task: browser UAT on the create screens + golden-set scoring by a person
 
 STATUS: BLOCKED

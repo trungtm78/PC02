@@ -78,7 +78,7 @@ beforeEach(() => {
           }
         : url.startsWith("/documents")
           ? [{ id: "doc1", title: "Actual decision", updatedAt: version }]
-          : url === "/teams"
+          : url === "/teams/options"
             ? [{ id: "team1", name: "Authorized team" }]
             : url.startsWith("/cases?")
               ? [

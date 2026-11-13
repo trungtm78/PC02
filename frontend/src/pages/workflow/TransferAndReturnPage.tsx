@@ -577,7 +577,6 @@ function nguonCua(loai: LoaiHoSo): NguonHoSo {
 interface To {
   id: string;
   name: string;
-  isActive?: boolean;
 }
 
 /**
@@ -600,13 +599,12 @@ function HopChuyenDoi({
   const [ketQua, setKetQua] = useState<{ xong: string[]; hong: string[] } | null>(null);
 
   useEffect(() => {
-    // `GET /teams` trả MẢNG THÔ (không bọc `{data}`) — đọc `r.data.data` là danh sách luôn rỗng và nút
-    // xác nhận không bao giờ bật được. Lọc tổ đã ngừng hoạt động (prod: 23/215).
+    // `GET /teams/options` trả MẢNG THÔ (không bọc `{data}`) — đọc `r.data.data` là danh sách luôn rỗng và nút
+    // xác nhận không bao giờ bật được. Máy chủ chỉ trả tổ đang hoạt động (prod: 23/215 đã ngừng).
     api
-      .get<To[] | { data?: To[] }>('/teams')
+      .get<To[] | { data?: To[] }>('/teams/options')
       .then((r) => {
-        const ds = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
-        setDsTo(ds.filter((t) => t.isActive !== false));
+        setDsTo(Array.isArray(r.data) ? r.data : (r.data?.data ?? []));
       })
       .catch(() => setDsTo([]));
   }, []);

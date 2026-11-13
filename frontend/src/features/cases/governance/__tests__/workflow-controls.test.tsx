@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.mocked(api.get).mockImplementation(async (url) => ({
     data: {
       data:
-        url === "/teams"
+        url === "/teams/options"
           ? [
               { id: "t1", name: "Team 1" },
               { id: "t2", name: "Team 2" },
