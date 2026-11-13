@@ -17,8 +17,10 @@ import type {
   ParsedFormulaCell,
   ReportDetailField,
   ReportRuleConfig,
+  ReportSourceKind,
   TemplateLayout,
 } from '@/features/dynamic-reports/types';
+import { reportCriteria } from '@/locales/reportCriteria.vi';
 
 interface Props {
   reportId: string;
@@ -32,6 +34,8 @@ interface Props {
   layout: TemplateLayout;
   formulas: ParsedFormulaCell[];
   rules: ReportRuleConfig[];
+  /** 'CRITERIA' when the workbook was generated from a list of criteria; absent for an uploaded template. */
+  sourceKind?: ReportSourceKind;
   onBack: () => void;
 }
 
@@ -47,6 +51,7 @@ export default function ReportVersionSummaryStep({
   layout,
   formulas,
   rules,
+  sourceKind,
   onBack,
 }: Props) {
   // Stable across retries of the SAME attempt: a double click or a network retry never creates two versions.
@@ -66,6 +71,7 @@ export default function ReportVersionSummaryStep({
         layout,
         formulas,
         rules: rules.length > 0 ? rules : undefined,
+        ...(sourceKind ? { sourceKind } : {}),
         publish,
         idempotencyKey,
       });
@@ -131,6 +137,11 @@ export default function ReportVersionSummaryStep({
         <Row label="Sheet đã chọn" value={selectedSheets.join(', ')} />
         <Row label="Ô nhập" value={String(fields.length)} />
         <Row label="Quy tắc kiểm tra" value={String(rules.length)} />
+        {sourceKind === 'CRITERIA' && (
+          <div data-testid="version-summary-source">
+            <Row label={reportCriteria.summary.source} value={reportCriteria.summary.sourceCriteria} />
+          </div>
+        )}
       </dl>
 
       <p className="text-sm text-slate-600 mb-4" data-testid="d09-explainer">

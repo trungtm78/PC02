@@ -82,6 +82,15 @@ export interface GridTableProps {
   onCellActivate?: (activation: CellActivation) => void;
   /** Drag over cells to pick them (see `GridPick`). */
   pick?: GridPick;
+  /**
+   * Present: every column letter is a button, and a click on it reports that column (its letters and 0-based
+   * index). Needs `showHeaders`.
+   */
+  onColumnHeaderClick?: (column: string, index: number) => void;
+  /** Letters of the column whose header is drawn as picked. */
+  selectedColumn?: string | null;
+  /** Tooltip / accessible name of a column-header button, e.g. "Chọn cả cột B". */
+  columnHeaderLabel?: (column: string) => string;
   /** The scroll area, for callers that need to measure cells or scroll them into view. */
   containerRef?: Ref<HTMLDivElement>;
   /** Drawn on top of the table inside the scrolling area (the cell editor). */
@@ -94,6 +103,7 @@ const WINDOW_OVERSCAN_PX = 400;
 const SCROLL_STEP_PX = 100;
 const HEADER_BG = '#f1f3f4';
 const HEADER_COLOR = '#5f6368';
+const HEADER_PICKED_BG = '#fde68a';
 const GRIDLINE = '#d9d9d9';
 const INPUT_BG = '#eef6ff';
 const INPUT_RING = '#93c5fd';
@@ -422,6 +432,9 @@ function GridSheetView({
   interaction,
   onCellActivate,
   pick,
+  onColumnHeaderClick,
+  selectedColumn,
+  columnHeaderLabel,
   containerRef,
   children,
 }: GridSheetViewProps) {
@@ -588,26 +601,53 @@ function GridSheetView({
                   border: `1px solid ${GRIDLINE}`,
                 }}
               />
-              {index.visibleCols.map((c) => (
-                <th
-                  key={c}
-                  scope="col"
-                  aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: c < freezeCols ? 3 : 2,
-                    left: c < freezeCols ? headerW + Math.round((index.colLeft.get(c) ?? 0) * z) : undefined,
-                    background: HEADER_BG,
-                    color: HEADER_COLOR,
-                    fontWeight: 400,
-                    fontSize: `${11 * z}px`,
-                    border: `1px solid ${GRIDLINE}`,
-                  }}
-                >
-                  {columnLetters(c)}
-                </th>
-              ))}
+              {index.visibleCols.map((c) => {
+                const letters = columnLetters(c);
+                const picked = selectedColumn === letters;
+                return (
+                  <th
+                    key={c}
+                    scope="col"
+                    aria-colindex={c + 1 + (showHeaders ? 1 : 0)}
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: c < freezeCols ? 3 : 2,
+                      left: c < freezeCols ? headerW + Math.round((index.colLeft.get(c) ?? 0) * z) : undefined,
+                      background: picked ? HEADER_PICKED_BG : HEADER_BG,
+                      color: HEADER_COLOR,
+                      fontWeight: picked ? 700 : 400,
+                      fontSize: `${11 * z}px`,
+                      border: `1px solid ${GRIDLINE}`,
+                      padding: onColumnHeaderClick ? 0 : undefined,
+                    }}
+                  >
+                    {onColumnHeaderClick ? (
+                      <button
+                        type="button"
+                        data-testid={`col-header-${letters}`}
+                        aria-pressed={picked}
+                        title={columnHeaderLabel?.(letters)}
+                        aria-label={columnHeaderLabel?.(letters)}
+                        onClick={() => onColumnHeaderClick(letters, c)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          height: '100%',
+                          font: 'inherit',
+                          color: 'inherit',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {letters}
+                      </button>
+                    ) : (
+                      letters
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
         )}

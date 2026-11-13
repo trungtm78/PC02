@@ -7,6 +7,10 @@ import type {
   AssignmentSummary,
   BulkGrantUnlockResult,
   CommentView,
+  CriteriaExtractResult,
+  CriteriaSelectionRequest,
+  CriteriaWorkbookResult,
+  CriterionDraft,
   ExportCreateResultView,
   FinalizeResultView,
   ImportPreviewResult,
@@ -73,6 +77,29 @@ export const dynamicReportsApi = {
       })
       .then((r) => r.data);
   },
+
+  /** Criteria from a picked column (all of it, or some of its cells) of any workbook, for the author to review. */
+  extractCriteria: (file: File, selection: CriteriaSelectionRequest) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('sheet', selection.sheet);
+    form.append('column', selection.column);
+    if (selection.rows) form.append('rows', JSON.stringify(selection.rows));
+    if (selection.codeColumn) form.append('codeColumn', selection.codeColumn);
+    if (selection.unitColumn) form.append('unitColumn', selection.unitColumn);
+    if (selection.hierarchy) form.append('hierarchy', selection.hierarchy);
+    return api
+      .post<CriteriaExtractResult>('/bao-cao-dong/templates/criteria/extract', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+
+  /** The workbook the rest of the wizard understands, built from the reviewed list of criteria. */
+  buildCriteriaWorkbook: (criteria: CriterionDraft[]) =>
+    api
+      .post<CriteriaWorkbookResult>('/bao-cao-dong/templates/criteria/workbook', { criteria })
+      .then((r) => r.data),
 
   /** S05-S08 schedule preview (R7) — dates the real PeriodScheduler would also shift. */
   getNonWorkingDates: (from: string, to: string) =>

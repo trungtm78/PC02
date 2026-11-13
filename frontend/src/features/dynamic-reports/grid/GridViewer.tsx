@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { dynamicReportsApi } from '../api';
@@ -58,6 +58,8 @@ export interface GridMarkBinding {
   chosen: ReadonlySet<string>;
   /** A drag ended over these candidates (row-major). `additive`: Ctrl/⌘ was held, add instead of replace. */
   onPick: (keys: string[], additive: boolean) => void;
+  /** Said above the grid instead of the wizard's own words about input cells, when the pick means something else. */
+  legend?: ReactNode;
 }
 
 export interface GridViewerProps {
@@ -75,6 +77,12 @@ export interface GridViewerProps {
   entry?: GridEntryBinding;
   /** Called once if the grid cannot be shown, so the caller can show the list instead. */
   onUnavailable?: (reason: string) => void;
+  /** Present (read-only views): the column letters are buttons; a click reports the column and the sheet shown. */
+  onColumnHeaderClick?: (column: string, sheetName: string) => void;
+  /** Letters of the column whose header is drawn as picked. */
+  selectedColumn?: string | null;
+  /** Tooltip / accessible name of a column-header button. */
+  columnHeaderLabel?: (column: string) => string;
 }
 
 const NO_FIELDS: readonly GridField[] = [];
@@ -120,6 +128,9 @@ export default function GridViewer({
   aggregate,
   entry,
   onUnavailable,
+  onColumnHeaderClick,
+  selectedColumn,
+  columnHeaderLabel,
 }: GridViewerProps) {
   const fetched = useQuery({
     queryKey: ['dynamic-reports', 'grid', versionId],
@@ -329,7 +340,12 @@ export default function GridViewer({
         </p>
       )}
 
-      {mark && (
+      {mark && mark.legend !== undefined && (
+        <p className="text-xs text-slate-600 mb-2" data-testid="mark-legend">
+          {mark.legend}
+        </p>
+      )}
+      {mark && mark.legend === undefined && (
         <p className="text-xs text-slate-600 mb-2" data-testid="mark-legend">
           <span style={{ outline: '2px dashed #d97706', outlineOffset: -2 }} className="inline-block w-3 h-3 align-middle mr-1" />
           ô có thể đánh dấu ·{' '}
@@ -364,6 +380,9 @@ export default function GridViewer({
           onlyInputRows={onlyInputRows}
           onCellActivate={aggregate ? activate : undefined}
           pick={pick}
+          onColumnHeaderClick={onColumnHeaderClick ? (column) => onColumnHeaderClick(column, sheetName) : undefined}
+          selectedColumn={selectedColumn}
+          columnHeaderLabel={columnHeaderLabel}
         />
       )}
       {opened && openedField && (

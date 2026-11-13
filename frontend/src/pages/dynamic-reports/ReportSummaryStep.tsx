@@ -16,9 +16,12 @@ import type {
   ParsedFormulaCell,
   ReportRoleConfig,
   ReportRuleConfig,
+  ReportSourceKind,
   ReportTargetConfig,
   TemplateLayout,
 } from '@/features/dynamic-reports/types';
+import { itemKeyOfField, tickedCount } from '@/features/dynamic-reports/criteria/criteria';
+import { criteriaErrorText, reportCriteria } from '@/locales/reportCriteria.vi';
 import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/period';
 
 interface Props {
@@ -35,8 +38,15 @@ interface Props {
   roles: ReportRoleConfig[];
   targets: ReportTargetConfig[];
   rules: ReportRuleConfig[];
+  /** 'CRITERIA' when the workbook was generated from a list of criteria; absent for an uploaded template. */
+  sourceKind?: ReportSourceKind;
+  /** Names of the teams, to say per team how many criteria it reports. */
+  teamNames?: Record<string, string>;
   onBack: () => void;
 }
+
+/** Refusals about a team's subset of criteria are translated here; every other refusal keeps the server's words. */
+const SUBSET_ERROR_CODES = new Set(['TARGET_SUBSET_EMPTY', 'TARGET_ITEM_KEY_UNKNOWN']);
 
 function todayDateOnly(): string {
   return new Date().toISOString().slice(0, 10);
@@ -56,8 +66,11 @@ export default function ReportSummaryStep({
   roles,
   targets,
   rules,
+  sourceKind,
+  teamNames,
   onBack,
 }: Props) {
+  const allItemKeys = fields.map(itemKeyOfField);
   const [effectiveFrom, setEffectiveFrom] = useState(todayDateOnly());
   // Stable across retries of the SAME attempt (so a double-click or a
   // network-error retry never double-publishes) — a fresh key only if the
@@ -91,13 +104,15 @@ export default function ReportSummaryStep({
         roles,
         targets,
         rules: rules.length > 0 ? rules : undefined,
+        ...(sourceKind ? { sourceKind } : {}),
         effectiveFrom: `${effectiveFrom}T00:00:00.000Z`,
         publish,
         idempotencyKey,
       });
       setResult(saved);
     } catch (err) {
-      setError(extractApiError(err).message);
+      const e = extractApiError(err);
+      setError(e.code && SUBSET_ERROR_CODES.has(e.code) ? criteriaErrorText(e.code, e.message) : e.message);
     } finally {
       setLoading(null);
     }
@@ -154,7 +169,30 @@ export default function ReportSummaryStep({
           label="Tổng người nhập"
           value={String(new Set(targets.flatMap((t) => t.editorUserIds)).size)}
         />
+        {sourceKind === 'CRITERIA' && (
+          <div data-testid="summary-source">
+            <dt className="text-xs text-slate-500">{reportCriteria.summary.source}</dt>
+            <dd className="text-slate-800 font-medium">{reportCriteria.summary.sourceCriteria}</dd>
+          </div>
+        )}
       </dl>
+
+      {targets.length > 0 && fields.length > 0 && (
+        <div className="text-sm mb-6" data-testid="summary-team-criteria">
+          <p className="text-xs text-slate-500 mb-1">{reportCriteria.summary.perTeam}</p>
+          <ul className="space-y-0.5">
+            {targets.map((t) => (
+              <li key={t.teamId} className="text-slate-800" data-testid={`summary-team-criteria-${t.teamId}`}>
+                {reportCriteria.summary.teamLine(
+                  teamNames?.[t.teamId] ?? t.teamId,
+                  tickedCount(t.itemKeys, allItemKeys),
+                  fields.length,
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-red-700 mb-4" data-testid="save-error">

@@ -43,6 +43,81 @@ export interface ParsedField {
   format: string;
   aggregate: ParsedAggregateType;
   source: ParsedFieldSource;
+  /** Criteria reports only: the criterion this cell stands for, its unit, its parent, and where it came from. */
+  itemKey?: string;
+  unit?: string;
+  parentItemKey?: string;
+  origin?: CriterionOrigin;
+}
+
+export type CriterionOrigin = 'FILE' | 'MANUAL';
+export type CriteriaHierarchy = 'NONE' | 'INDENT' | 'NUMBERING';
+/** Where a version's workbook came from: an uploaded template, or a list of criteria picked from a file. */
+export type ReportSourceKind = 'TEMPLATE' | 'CRITERIA';
+
+/** One criterion of a criteria report (backend `template/criteria-workbook.ts#Criterion`). */
+export interface Criterion {
+  itemKey: string;
+  code: string | null;
+  name: string;
+  unit: string | null;
+  parentItemKey: string | null;
+  origin: CriterionOrigin;
+  /** The row of the uploaded file it was read from; null for a hand-typed one. */
+  sourceRow: number | null;
+}
+
+export type CriteriaWarningCode = 'BLANK_SKIPPED' | 'DUPLICATE_NAME' | 'NAME_TRUNCATED';
+
+export interface CriteriaWarning {
+  code: CriteriaWarningCode;
+  row: number;
+}
+
+/** Where the author picked the criteria in the uploaded file (`POST /templates/criteria/extract`). */
+export interface CriteriaSelectionRequest {
+  sheet: string;
+  /** Column letters of the criteria text, e.g. "B". */
+  column: string;
+  /** 1-based rows picked in that column; absent = the whole column. */
+  rows?: number[];
+  codeColumn?: string;
+  unitColumn?: string;
+  hierarchy?: CriteriaHierarchy;
+}
+
+export interface CriteriaExtractResult {
+  criteria: Criterion[];
+  warnings: CriteriaWarning[];
+}
+
+/** One line of the list sent to `POST /templates/criteria/workbook`; order = row order. */
+export interface CriterionDraft {
+  itemKey?: string;
+  code?: string;
+  name: string;
+  unit?: string;
+  parentItemKey?: string;
+  origin?: CriterionOrigin;
+  sourceRow?: number;
+}
+
+/** A value cell of the generated workbook. A criterion that has children has none: its cell adds them up. */
+export interface CriteriaFieldRef {
+  address: string;
+  fieldKey: string;
+  itemKey: string;
+  unit: string | null;
+  parentItemKey: string | null;
+  origin: CriterionOrigin;
+}
+
+export interface CriteriaWorkbookResult {
+  fileName: string;
+  fileBase64: string;
+  sheetName: string;
+  criteria: Criterion[];
+  fields: CriteriaFieldRef[];
 }
 
 /** S04 web-marking candidate — see backend template/types.ts MarkableCell. */
@@ -104,6 +179,11 @@ export interface ReportRoleConfig {
 export interface ReportTargetConfig {
   teamId: string;
   editorUserIds: string[];
+  /**
+   * The criteria this team reports, by item key (a field's `itemKey`, or its `fieldKey` when it has none).
+   * Absent or null = all of them. The server refuses an empty list.
+   */
+  itemKeys?: string[] | null;
 }
 
 /** S36 (PR9 slice 1) — manually-authored validation rule, part of the save payload. */
@@ -155,6 +235,7 @@ export interface SaveReportConfigPayload {
   roles: ReportRoleConfig[];
   targets: ReportTargetConfig[];
   rules?: ReportRuleConfig[];
+  sourceKind?: ReportSourceKind;
   effectiveFrom: string;
   publish: boolean;
   idempotencyKey: string;
@@ -174,6 +255,7 @@ export interface SaveReportVersionPayload {
   layout: TemplateLayout;
   formulas: ParsedFormulaCell[];
   rules?: ReportRuleConfig[];
+  sourceKind?: ReportSourceKind;
   publish: boolean;
   idempotencyKey: string;
 }
