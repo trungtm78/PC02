@@ -31,6 +31,8 @@ const OWNERS = [
   'common/utils/precise-scope.ts',
   // The permission engine's scope computation: builds the lists of a precise scope and of the legacy shape.
   'authz/engine/scope.ts',
+  // Turns the engine's RecordScope into the DataScope of an enforced person: it FILLS the lists.
+  'authz/authz-scope.service.ts',
   // Reads the `tree.teamIds` of the engine's RecordScope to name the teams a permission reaches.
   'authz/authz-lookup.service.ts',
   // The preview compares the teams two RecordScopes reach.
