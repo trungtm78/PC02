@@ -5,13 +5,16 @@ Spec = plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twink
 
 ## Đã hoàn thành
 - Spec + review (Claude + Codex outside voice, 12 findings integrated).
+- M0 mockup: `docs/mockups/team-permissions-criteria.html` (artifact tools were unavailable).
+- M1 team lifecycle, all committed on `feat/team-lifecycle` (NOT pushed yet): status + trigger + `TeamLifecycleService`; `GET /teams/options` + 10 pickers; admin tabs; real delete with locked recount; merge + manifest + undo; 5 defects found by review/Codex fixed with tests. Backend `src/teams` 97/97 on real PostgreSQL; tsc clean both sides.
 
 ## Đang làm dở
-- M0 mockup (interactive HTML, private artifact) for team lifecycle, permission matrix, criteria checklist.
-- BƯỚC TIẾP THEO: publish mockup, then Phase 0.1: `Team.status`/`archivedAt`/`archivedById` migration + `TeamLifecycleService` (test first), then `GET /teams/options` and migrate the 11 callers of `GET /teams`.
+- PR 1 (M1): frontend full suite running in background with JSON report (`scratchpad/fe-full.json`); first run showed 13 red suites while the backend suite ran concurrently (suspected load).
+- BƯỚC TIẾP THEO: read `fe-full.json`, rerun red suites alone, fix real ones; push `feat/team-lifecycle`; open PR; wait for CI (check results); merge; verify deploy health + read-only count of teams by status on production. Then PR 2 (B-foundation).
 
-## Hàng queue
-M1 0.1–0.3 → M2 A1–A5 → M3 B1–B8 → M4 A6–A12 → M5 UAT 100% (`UAT-COVERAGE.md`). `/plan-eng-review` at every milestone end.
+## Hàng queue (order revised 13/11: report criteria BEFORE permissions; 9 vertical PRs, see plan section "Rà soát hiệu quả")
+PR1 M1 → PR2 B-foundation (contributors, itemKey/unit/parentItemKey/origin on DynReportField, DynReportTarget.itemKeys, ownedFieldKeys, ownedFields()) → PR3 B-setup (generate criteria workbook endpoint, column/cell selection in the wizard template step, per-team criteria in the teams step) → PR4 B-enforcement (editor filtering, ownership-aware aggregation, official export at finalize) → PR5 B-operations (mid-period change, remap by itemKey, matrix Excel) → PR6 A-foundation OFF → PR7 A-SHADOW → PR8 A-UI → PR9 A-ENFORCE + full UAT.
+Working rule per PR: targeted tests + tsc after each change; ONE Codex pass + full suites in background one after the other; never two full suites at once.
 
 ## Quyết định kiến trúc
 See the plan's Decision ledger (D1, R1–R12) and binding decisions B1–B7.
