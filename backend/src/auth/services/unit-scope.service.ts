@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TeamsService } from '../../teams/teams.service';
 import { AccessLevel } from '@prisma/client';
 import { ROLE_NAMES } from '../../common/constants/role.constants';
+import type { PreciseScopes } from '../../common/utils/precise-scope';
 
 export interface DataScope {
   teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
@@ -21,6 +22,12 @@ export interface DataScope {
   // v0.33.0.0: nếu isWardOfficer, đây là teamId của ward team đầu tiên.
   // Service dùng để force-set assignedTeamId khi ward officer create record.
   wardTeamId?: string | null;
+  /**
+   * Present ONLY when permissions by team are enforced: how far the person reaches, per record subject and per
+   * operation. When present the record filters use THIS and ignore the four lists above (which then hold a
+   * conservative summary for the few readers that only need "which teams").
+   */
+  precise?: PreciseScopes;
 }
 
 @Injectable()

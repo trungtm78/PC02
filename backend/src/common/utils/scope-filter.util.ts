@@ -1,5 +1,12 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { DataScope } from '../../auth/services/unit-scope.service';
+import {
+  preciseAllows,
+  preciseAllowsCreator,
+  preciseConditions,
+  type PreciseScope,
+  type RecordSubject,
+} from './precise-scope';
 
 export const FORBIDDEN_MSG = 'Bạn không có quyền truy cập bản ghi này';
 const NO_ACCESS_SENTINEL = '__no_access__';
@@ -49,6 +56,32 @@ function phamViTheoThaoTac(
       };
 }
 
+/** Reading uses the read scope; changing and assigning use the write scope. */
+const preciseOp = (op: ThaoTacPhamVi): 'read' | 'write' => (op === 'read' ? 'read' : 'write');
+
+/**
+ * The precise scopes to apply for a Case/Incident helper. Callers say which subject the records are; one that does
+ * not is held to BOTH (a record must be within the Case scope and the Incident scope): never wider than either.
+ */
+function preciseFor(scope: DataScope, op: ThaoTacPhamVi, subject: RecordSubject | undefined): PreciseScope[] {
+  const subjects = scope.precise!.subjects;
+  const which: RecordSubject[] = subject ? [subject] : ['Case', 'Incident'];
+  return which.map((s) => subjects[s][preciseOp(op)]);
+}
+
+/** The where-clause of precise scopes: every one of them must allow the record. */
+function preciseFilter(scopes: PreciseScope[], userId: string, ownerField: string): Record<string, unknown> | null {
+  const parts: Record<string, unknown>[] = [];
+  for (const scope of scopes) {
+    const conditions = preciseConditions(scope, userId, ownerField);
+    if (conditions === null) continue;
+    if (conditions.length === 0) return { id: NO_ACCESS_SENTINEL };
+    parts.push({ OR: conditions });
+  }
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? parts[0] : { AND: parts };
+}
+
 /**
  * Build Prisma where-clause filter for Case/Incident scope.
  * Uses investigatorId for ownership.
@@ -59,10 +92,12 @@ function phamViTheoThaoTac(
 export function buildScopeFilter(
   scope: DataScope | null | undefined,
   op: ThaoTacPhamVi = 'read',
+  subject?: 'Case' | 'Incident',
 ): Record<string, unknown> | null {
   // null scope = admin, no filtering
   if (scope === null || scope === undefined) return null;
   if (dieuPhoiBoQua(scope, op)) return null;
+  if (scope.precise) return preciseFilter(preciseFor(scope, op, subject), scope.precise.userId, 'investigatorId');
 
   const conditions: Record<string, unknown>[] = [];
   const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
@@ -99,6 +134,9 @@ export function buildPetitionScopeFilter(
 ): Record<string, unknown> | null {
   if (scope === null || scope === undefined) return null;
   if (dieuPhoiBoQua(scope, op)) return null;
+  if (scope.precise) {
+    return preciseFilter([scope.precise.subjects.Petition[preciseOp(op)]], scope.precise.userId, 'enteredById');
+  }
 
   const conditions: Record<string, unknown>[] = [];
   const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
@@ -127,6 +165,8 @@ export function buildPetitionScopeFilter(
  * Pass the parent object (from an include) containing assignedTeamId + investigatorId.
  * If parent is null/undefined (orphan record), check passes silently.
  * Pass operation='write' on mutation paths — uses writableTeamIds instead of teamIds.
+ * Pass `subject` ('Case' or 'Incident') so that, when permissions by team are enforced, the parent is measured
+ * against the right subject's scope; without it the parent must be within both.
  */
 export function assertParentInScope(
   parent:
@@ -139,6 +179,7 @@ export function assertParentInScope(
     | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
+  subject?: 'Case' | 'Incident',
 ): void {
   if (operation === 'write' && parent?.intakeStage === 'CHO_NHAN')
     throw new ConflictException('Pending handoff protects this case');
@@ -149,6 +190,17 @@ export function assertParentInScope(
   // Previously: silent pass → cross-tenant data leak. Now: deny by default. Admin (scope=null) bypassed above.
   if (!parent) {
     recordDenial('parent-null');
+    throw new ForbiddenException(
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
+    );
+  }
+  if (scope.precise) {
+    const { userId } = scope.precise;
+    const record = { assignedTeamId: parent.assignedTeamId, ownerId: parent.investigatorId };
+    if (preciseFor(scope, operation, subject).every((p) => preciseAllows(p, userId, record))) return;
+    recordDenial('parent');
     throw new ForbiddenException(
       operation === 'write'
         ? 'Bạn không có quyền chỉnh sửa bản ghi này'
@@ -204,6 +256,19 @@ export function assertPetitionParentInScope(
         : FORBIDDEN_MSG,
     );
   }
+  if (scope.precise) {
+    const allowed = preciseAllows(scope.precise.subjects.Petition[operation], scope.precise.userId, {
+      assignedTeamId: parent.assignedTeamId,
+      ownerId: parent.enteredById,
+    });
+    if (allowed) return;
+    recordDenial('petition-parent');
+    throw new ForbiddenException(
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
+    );
+  }
   const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
     scope,
     operation,
@@ -245,6 +310,17 @@ export function assertCreatorInScope(
   if (scope.canDispatch && operation === 'read') return;
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
+  }
+  if (scope.precise) {
+    // These records (exchanges, guidance, a delegation or proposal with no case) hang off case work: they are
+    // reached as far as the person reaches cases.
+    if (preciseAllowsCreator(scope.precise.subjects.Case[operation], scope.precise.userId, createdById)) return;
+    recordDenial('creator');
+    throw new ForbiddenException(
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
+    );
   }
   const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
     scope,
