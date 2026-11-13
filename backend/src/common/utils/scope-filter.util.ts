@@ -363,3 +363,143 @@ export function assertSourceInScope(
   }
   assertParentInScope({ assignedTeamId: source.assignedTeamId, investigatorId: source.investigatorId }, scope, operation, 'Incident');
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// One place that reads the lists of a scope. Services ask these; they do not read `teamIds`, `userIds`,
+// `writableTeamIds` or `writableUserIds` themselves (gate: `scope-fields.gate.spec.ts`), because the lists are not
+// the truth once permissions by team are enforced: `scope.precise` is.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The field that says who owns a record of each subject. */
+const OWNER_FIELD: Record<RecordSubject, string> = { Case: 'investigatorId', Incident: 'investigatorId', Petition: 'enteredById' };
+
+/**
+ * The conditions (to be OR-ed) under which a record of `subject` is within the scope for `op`.
+ * `null` = no restriction (admin, or a dispatcher reading / assigning); `[]` = nothing at all.
+ * The same rule as `buildScopeFilter` / `buildPetitionScopeFilter`, for callers that compose the conditions.
+ */
+export function scopeConditions(
+  scope: DataScope | null | undefined,
+  op: ThaoTacPhamVi,
+  subject: RecordSubject,
+): Record<string, unknown>[] | null {
+  if (!scope) return null;
+  if (dieuPhoiBoQua(scope, op)) return null;
+  const ownerField = OWNER_FIELD[subject];
+  if (scope.precise) return preciseConditions(scope.precise.subjects[subject][preciseOp(op)], scope.precise.userId, ownerField);
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
+  const conditions: Record<string, unknown>[] = [];
+  if (userIds.length > 0) conditions.push({ [ownerField]: { in: userIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
+    if (!scope.isWardOfficer) conditions.push({ assignedTeamId: null });
+  }
+  return conditions;
+}
+
+/**
+ * Whether one record in hand is within the scope. `ownerId` is the record's owner (the investigator of a case or an
+ * incident, the person who entered a petition). A dispatcher reads everything and changes only within reach.
+ */
+export function recordInScope(
+  record: { assignedTeamId?: string | null; ownerId?: string | null },
+  scope: DataScope | null | undefined,
+  op: 'read' | 'write',
+  subject: RecordSubject,
+): boolean {
+  if (!scope) return true;
+  if (scope.canDispatch && op === 'read') return true;
+  if (scope.precise) return preciseAllows(scope.precise.subjects[subject][op], scope.precise.userId, record);
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
+  if (record.ownerId && userIds.includes(record.ownerId)) return true;
+  if (record.assignedTeamId && teamIds.includes(record.assignedTeamId)) return true;
+  return !record.assignedTeamId && teamIds.length > 0 && scope.isWardOfficer !== true;
+}
+
+/**
+ * The teams whose records of `subject` the scope reaches for `op`; `null` = every team. Raw: a dispatcher is NOT
+ * special here (callers that let a dispatcher read everything say so themselves).
+ */
+export function scopeTeamIds(
+  scope: DataScope | null | undefined,
+  op: 'read' | 'write',
+  subject: RecordSubject,
+): string[] | null {
+  if (!scope) return null;
+  if (scope.precise) {
+    const p = scope.precise.subjects[subject][op];
+    return p.all ? null : [...new Set([...p.exactTeamIds, ...(p.tree?.teamIds ?? [])])];
+  }
+  return phamViTheoThaoTac(scope, op).teamIds;
+}
+
+/** Whether `teamId` is one of those teams (a destination team must be within reach to move a record there). */
+export function teamInScope(teamId: string, scope: DataScope | null | undefined, op: 'read' | 'write', subject: RecordSubject): boolean {
+  const teams = scopeTeamIds(scope, op, subject);
+  return teams === null || teams.includes(teamId);
+}
+
+/**
+ * Whether records of `subject` owned by `userId` are within reach for `op` whatever team they sit in: the people of
+ * the teams reached "as today", and the person themselves when they reach their own records. Used where a decision
+ * is about a PERSON (acting on a user's records, granting them access).
+ *
+ * "Exactly the team" says nothing about a person: a record of theirs in another team is not reached, so it does not
+ * put anybody, not even the person asking, in reach here.
+ */
+export function userInScope(userId: string, scope: DataScope | null | undefined, op: 'read' | 'write', subject: RecordSubject): boolean {
+  if (!scope) return true;
+  if (scope.precise) {
+    const p = scope.precise.subjects[subject][op];
+    if (p.all) return true;
+    if (p.own && userId === scope.precise.userId) return true;
+    return p.tree?.userIds.includes(userId) ?? false;
+  }
+  return phamViTheoThaoTac(scope, op).userIds.includes(userId);
+}
+
+/**
+ * The list filter of records known only by who created them (exchanges, guidance, a delegation or proposal with no
+ * case). `null` = no restriction; otherwise ONE condition to AND.
+ *
+ * `dispatcherSeesAll`: whether a dispatcher is unrestricted here WHEN READING (the lists differ on this today, and
+ * keep doing so). A dispatcher never changes anything outside their reach.
+ * `whenTeamOnly`: what somebody with teams but no people in scope sees today: every record that has a creator
+ * ('has-creator'), or every record ('all').
+ */
+export function creatorFilter(
+  scope: DataScope | null | undefined,
+  op: 'read' | 'write',
+  options: { dispatcherSeesAll: boolean; whenTeamOnly: 'has-creator' | 'all' },
+): Record<string, unknown> | null {
+  if (!scope) return null;
+  if (options.dispatcherSeesAll && scope.canDispatch && op === 'read') return null;
+  if (scope.precise) {
+    const p = scope.precise.subjects.Case[op];
+    if (p.all) return null;
+    const people = new Set(p.tree?.userIds ?? []);
+    if (p.own || p.exactTeamIds.length > 0 || p.tree) people.add(scope.precise.userId);
+    return people.size > 0 ? { createdById: { in: [...people] } } : { id: NO_ACCESS_SENTINEL };
+  }
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
+  if (userIds.length === 0 && teamIds.length === 0) return { id: NO_ACCESS_SENTINEL };
+  if (userIds.length > 0) return { createdById: { in: userIds } };
+  return options.whenTeamOnly === 'has-creator' ? { createdById: { not: null } } : null;
+}
+
+/** True for the filter the helpers return to say "nothing at all" (so callers need not know how it is spelled). */
+export function isNoAccessFilter(filter: Record<string, unknown> | null | undefined): boolean {
+  return !!filter && filter.id === NO_ACCESS_SENTINEL;
+}
+
+/** True when the scope reaches nothing at all: no record of any subject, for reading. */
+export function scopeIsEmpty(scope: DataScope | null | undefined): boolean {
+  if (!scope) return false;
+  if (scope.precise) {
+    return Object.values(scope.precise.subjects).every(
+      ({ read }) => !read.all && !read.own && read.exactTeamIds.length === 0 && read.tree === null,
+    );
+  }
+  return scope.userIds.length === 0 && scope.teamIds.length === 0;
+}
+

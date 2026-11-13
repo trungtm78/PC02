@@ -9,7 +9,10 @@ import { CreateGuidanceDto } from './dto/create-guidance.dto';
 import { QueryGuidanceDto } from './dto/query-guidance.dto';
 import { GuidanceStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertCreatorInScope } from '../common/utils/scope-filter.util';
+import {
+  assertCreatorInScope,
+  creatorFilter,
+} from '../common/utils/scope-filter.util';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, docKhoangNgay } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_HUONG_DAN } from '../common/tim-kiem/khai/huong-dan.khai';
@@ -154,15 +157,13 @@ export class GuidanceService {
     if (tu || den)
       where.date = { ...(tu && { gte: tu.gte }), ...(den && { lt: den.lt }) };
 
-    if (dataScope) {
-      const { userIds, teamIds } = dataScope;
-      if (userIds.length === 0 && teamIds.length === 0) {
-        dieuKien.push({ id: '__no_access__' });
-      } else if (userIds.length > 0) {
-        dieuKien.push({ createdById: { in: userIds } });
-      }
-      // userIds=[] + teamIds non-empty: team leader, no user restriction — show all
-    }
+    // A dispatcher is NOT special on this list; a team with no people (team leader) sees every record.
+    const phamVi = creatorFilter(dataScope, 'read', {
+      dispatcherSeesAll: false,
+      whenTeamOnly: 'all',
+    });
+    if (phamVi !== null)
+      dieuKien.push(phamVi as Prisma.GuidanceRecordWhereInput);
     if (dieuKien.length) where.AND = dieuKien;
     return where;
   }

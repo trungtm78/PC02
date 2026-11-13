@@ -6,6 +6,11 @@ import {
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { CaseGovernanceService } from '../cases/governance/case-governance.service';
+import {
+  scopeTeamIds,
+  teamInScope,
+  userInScope,
+} from '../common/utils/scope-filter.util';
 import { randomBytes } from 'node:crypto';
 import { hashPassword } from '../auth/utils/password-hash.util';
 
@@ -199,7 +204,7 @@ export async function guardCaseAuthority(
       });
       if (
         !team?.isActive ||
-        (scope && !scope.writableTeamIds.includes(input.destinationTeamId))
+        !teamInScope(input.destinationTeamId, scope, 'write', 'Case')
       )
         throw new ForbiddenException(
           'Business scope destination is outside current writable teams',
@@ -210,12 +215,16 @@ export async function guardCaseAuthority(
         throw new ForbiddenException(
           'Global management required for unassigned business account creation',
         );
+      // The teams whose cases the actor may change; null = every team (no team filter).
+      const writableTeams = scopeTeamIds(scope, 'write', 'Case');
       for (const affectedUser of affectedUsers) {
-        if (scope.writableUserIds.includes(affectedUser.id)) continue;
+        if (userInScope(affectedUser.id, scope, 'write', 'Case')) continue;
         const membership = await tx.userTeam.findFirst({
           where: {
             userId: affectedUser.id,
-            teamId: { in: scope.writableTeamIds },
+            ...(writableTeams !== null
+              ? { teamId: { in: writableTeams } }
+              : {}),
             team: { isActive: true },
           },
           select: { userId: true },

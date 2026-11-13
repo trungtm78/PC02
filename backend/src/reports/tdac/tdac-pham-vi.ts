@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { DataScope } from '../../auth/services/unit-scope.service';
+import { scopeTeamIds } from '../../common/utils/scope-filter.util';
 
 /**
  * Phạm vi theo tổ của báo cáo TĐC — một chỗ cho phần tính báo cáo và bản nháp (soát IDOR 19/09/2026).
@@ -14,9 +15,9 @@ export function phamViTo(
   thaoTac: 'read' | 'write',
 ): string[] | null {
   if (!dataScope) return null;
-  if (thaoTac === 'read')
-    return dataScope.canDispatch ? null : dataScope.teamIds;
-  return dataScope.writableTeamIds ?? [];
+  if (thaoTac === 'read' && dataScope.canDispatch) return null;
+  // Read: the readable teams; write: the writable teams (a missing write list is empty, never the read one).
+  return scopeTeamIds(dataScope, thaoTac, 'Case');
 }
 
 /**

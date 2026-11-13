@@ -7,6 +7,7 @@ import {
   PETITION_STATUS_LABEL,
 } from '../common/constants/status-labels.constants';
 import type { DataScope } from '../auth/services/unit-scope.service';
+import { scopeConditions } from '../common/utils/scope-filter.util';
 import type {
   TimelineEventDto,
   TimelineEntityType,
@@ -143,24 +144,26 @@ export class CasesJourneyService {
     };
 
     // Scope petition IDs: only include petitions the caller is authorized to see.
-    // getById already enforces case-level scope. Petitions are team-scoped individually —
-    // restrict to petitions whose assignedTeamId or investigatorId falls within dataScope.
-    // If dataScope is null (admin), include all petitions.
-    const petitionIds = dataScope
-      ? await this.prisma.petition
-          .findMany({
-            where: {
-              id: { in: caseRecord.petitions.map((p) => p.id) },
-              deletedAt: null,
-              OR: [
-                { assignedTeamId: { in: dataScope.teamIds } },
-                { assignedToId: { in: dataScope.userIds } },
-              ],
-            },
-            select: { id: true },
-          })
-          .then((rows) => rows.map((r) => r.id))
-      : caseRecord.petitions.map((p) => p.id);
+    // getById already enforces case-level scope. Petitions are scoped individually, by the SAME rule as the
+    // petition list and detail: the person who entered it, its team, or unassigned for a non-ward officer with a
+    // team. null = no restriction (admin, or a dispatcher reading); [] = none of them.
+    const petitionScope = scopeConditions(dataScope, 'read', 'Petition');
+    const linkedPetitionIds = caseRecord.petitions.map((p) => p.id);
+    const petitionIds =
+      petitionScope === null
+        ? linkedPetitionIds
+        : petitionScope.length === 0
+          ? []
+          : await this.prisma.petition
+              .findMany({
+                where: {
+                  id: { in: linkedPetitionIds },
+                  deletedAt: null,
+                  OR: petitionScope,
+                },
+                select: { id: true },
+              })
+              .then((rows) => rows.map((r) => r.id));
 
     // Find linked incident (Incident.linkedCaseId → Case.id)
     const incident = await this.prisma.incident.findFirst({

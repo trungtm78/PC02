@@ -8,6 +8,7 @@ import { CaseAccessMode, Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CaseGovernanceService } from './case-governance.service';
+import { userInScope } from '../../common/utils/scope-filter.util';
 import {
   canonicalJson,
   mutationHash,
@@ -92,7 +93,7 @@ export class CasePrincipalAccessService {
           const user = await tx.user.findUnique({ where: { id: userId } });
           if (!user) throw new BadRequestException('Principal not found');
           const scope = await this.core.currentActorScope(tx, actor);
-          if (scope && !scope.writableUserIds.includes(userId))
+          if (!userInScope(userId, scope, 'write', 'Case'))
             throw new ForbiddenException('Principal is outside writable scope');
           const replay = await tx.auditLog.findUnique({ where: { id } });
           if (replay) {
@@ -201,7 +202,7 @@ export class CasePrincipalAccessService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new BadRequestException('Principal not found');
     const scope = await this.core.currentActorScope(this.prisma, actor);
-    if (scope && !scope.writableUserIds.includes(userId))
+    if (!userInScope(userId, scope, 'write', 'Case'))
       throw new ForbiddenException('Principal outside writable scope');
     return {
       success: true,

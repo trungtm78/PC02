@@ -14,6 +14,8 @@ import {
   assertParentInScope,
   assertCreatorInScope,
   buildScopeFilter,
+  creatorFilter,
+  isNoAccessFilter,
 } from '../common/utils/scope-filter.util';
 import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import {
@@ -205,22 +207,22 @@ export class DelegationsService {
 
     // Phạm vi KHỚP quyền xem chi tiết (`getById`): gắn vụ án → phạm vi vụ án; không gắn → người tạo.
     // Người điều phối đọc toàn bộ; tổ trưởng (userIds rỗng, có tổ) thấy mọi bản không gắn hồ sơ.
-    if (dataScope && !dataScope.canDispatch) {
-      const { userIds, teamIds } = dataScope;
-      if (userIds.length === 0 && teamIds.length === 0) {
-        dieuKien.push({ id: '__no_access__' });
+    // The creator part: null = unrestricted (admin, a dispatcher); `{ id }` = nothing in scope at all; otherwise
+    // the condition on `createdById` (people in scope, or "has a creator" for a team with no people: getById
+    // refuses a record whose creator is gone, so the list must not show one that opens as 403).
+    const nguoiTao = creatorFilter(dataScope, 'read', {
+      dispatcherSeesAll: true,
+      whenTeamOnly: 'has-creator',
+    });
+    if (nguoiTao !== null) {
+      if (isNoAccessFilter(nguoiTao)) {
+        dieuKien.push(nguoiTao as Prisma.DelegationWhereInput);
       } else {
         const caseScope = buildScopeFilter(dataScope, 'read', 'Case');
         const phamVi: Prisma.DelegationWhereInput[] = [];
         if (caseScope)
           phamVi.push({ relatedCase: caseScope as Prisma.CaseWhereInput });
-        phamVi.push(
-          userIds.length > 0
-            ? { relatedCase: null, createdById: { in: userIds } }
-            : // Chỉ bản CÓ người tạo: getById (assertCreatorInScope) từ chối bản createdById rỗng — hiện
-              // trong danh sách mà mở ra 403 (người tạo bị xoá → SetNull).
-              { relatedCase: null, createdById: { not: null } },
-        );
+        phamVi.push({ relatedCase: null, ...nguoiTao });
         dieuKien.push({ OR: phamVi });
       }
     }

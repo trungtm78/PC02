@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
+import { scopeTeamIds } from '../common/utils/scope-filter.util';
 
 @UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('kpi')
@@ -34,7 +35,7 @@ export class KpiController {
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getByTeam(@Query() query: QueryKpiDto, @Req() req: ScopedRequest) {
     const dataScope = req.dataScope ?? null;
-    const allowedTeamIds = dataScope ? dataScope.teamIds : null;
+    const allowedTeamIds = scopeTeamIds(dataScope, 'read', 'Incident');
     return this.kpiService.getKpiByTeam(query, allowedTeamIds);
   }
 }

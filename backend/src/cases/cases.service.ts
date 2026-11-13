@@ -56,7 +56,10 @@ import {
 } from '@prisma/client';
 import { TrangThaiPhanHoi } from './dto/query-cases.dto';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { buildScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  buildScopeFilter,
+  recordInScope,
+} from '../common/utils/scope-filter.util';
 import {
   apDungKyVaoWhere,
   phuDeKyXuat,
@@ -1207,20 +1210,17 @@ export class CasesService {
     },
     dataScope?: DataScope | null,
   ) {
-    if (!dataScope) return; // admin or no scope = allow
-    if (dataScope.canDispatch) return; // dispatcher: full read access
-    const { userIds, teamIds, isWardOfficer } = dataScope;
-
-    const ownerMatch =
-      record.investigatorId && userIds.includes(record.investigatorId);
-    const teamMatch =
-      record.assignedTeamId && teamIds.includes(record.assignedTeamId);
-    // Cán bộ phường KHÔNG thấy hồ sơ chưa giao tổ (luật v0.33 "Crit 1") — danh sách đã ẩn; trang chi tiết cũng
-    // phải chặn, nếu không biết id là mở được (rà độc lập 19/09/2026).
-    const unassignedMatch =
-      !record.assignedTeamId && teamIds.length > 0 && !isWardOfficer;
-
-    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+    // Admin and a dispatcher read everything; a ward officer does not see records no team holds yet.
+    const inScope = recordInScope(
+      {
+        assignedTeamId: record.assignedTeamId,
+        ownerId: record.investigatorId,
+      },
+      dataScope,
+      'read',
+      'Case',
+    );
+    if (!inScope) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
     }
   }
@@ -1238,22 +1238,17 @@ export class CasesService {
     dataScope?: DataScope | null,
   ): boolean {
     if (record.intakeStage === 'CHO_NHAN') return false;
-    if (!dataScope) return true;
-    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
-    const {
-      writableUserIds: userIds,
-      writableTeamIds,
-      isWardOfficer,
-    } = dataScope;
-    const ownerMatch =
-      record.investigatorId && userIds.includes(record.investigatorId);
-    const teamMatch =
-      record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    // Cán bộ phường không ghi hồ sơ chưa giao tổ — khớp bộ lọc ghi dùng chung và checkWriteScope của đơn thư
-    // (trước 19/09/2026 sửa/xoá lẻ được, xoá hàng loạt thì bị chặn).
-    const unassignedMatch =
-      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
-    return Boolean(ownerMatch || teamMatch || unassignedMatch);
+    // The write scope: people and teams the viewer may change (not the read-only grants); a ward officer does
+    // not change records no team holds yet; a dispatcher changes only within reach.
+    return recordInScope(
+      {
+        assignedTeamId: record.assignedTeamId,
+        ownerId: record.investigatorId,
+      },
+      dataScope,
+      'write',
+      'Case',
+    );
   }
 
   private checkWriteScope(

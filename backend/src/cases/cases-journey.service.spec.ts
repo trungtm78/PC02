@@ -86,6 +86,9 @@ const mockPrisma = {
   incident: {
     findFirst: jest.fn(),
   },
+  petition: {
+    findMany: jest.fn(),
+  },
   incidentStatusHistory: {
     findMany: jest.fn(),
   },
@@ -256,6 +259,150 @@ describe('CasesJourneyService', () => {
       await expect(
         service.getJourney('case-001', outOfScope, 1, 50),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ── TC-J05b ───────────────────────────────────────────────────────────────
+
+  describe('TC-J05b: linked petitions follow the petition scope rule', () => {
+    interface PetitionRow {
+      id: string;
+      enteredById: string | null;
+      assignedTeamId: string | null;
+      assignedToId: string | null;
+    }
+    type Condition = Partial<
+      Record<keyof PetitionRow, string | null | { in: string[] }>
+    >;
+    const PETITIONS: PetitionRow[] = [
+      // Entered by a team-mate, assigned to nobody and to no team.
+      {
+        id: 'pet-mate',
+        enteredById: 'mate',
+        assignedTeamId: null,
+        assignedToId: null,
+      },
+      // In a team within the scope, entered by a stranger.
+      {
+        id: 'pet-team',
+        enteredById: 'stranger',
+        assignedTeamId: 'team-001',
+        assignedToId: null,
+      },
+      // Outside: another team, entered by a stranger; assigned to me (the old rule let this one in).
+      {
+        id: 'pet-out',
+        enteredById: 'stranger',
+        assignedTeamId: 'team-other',
+        assignedToId: 'user-001',
+      },
+    ];
+    const matches = (row: PetitionRow, condition: Condition) =>
+      (Object.keys(condition) as (keyof PetitionRow)[]).every((field) => {
+        const wanted = condition[field];
+        return wanted !== null && typeof wanted === 'object'
+          ? row[field] !== null && wanted.in.includes(row[field])
+          : row[field] === wanted;
+      });
+    /** Answers the petition query the way the database would, from its `id` and `OR` conditions. */
+    const answerPetitionQuery = () =>
+      mockPrisma.petition.findMany.mockImplementation(
+        (args: { where: { id: { in: string[] }; OR: Condition[] } }) =>
+          Promise.resolve(
+            PETITIONS.filter(
+              (row) =>
+                args.where.id.in.includes(row.id) &&
+                args.where.OR.some((condition) => matches(row, condition)),
+            ).map((row) => ({ id: row.id })),
+          ),
+      );
+    const auditedSubjectIds = (): string[] =>
+      (
+        mockPrisma.auditLog.findMany.mock.calls[0] as [
+          { where: { subjectId: { in: string[] } } },
+        ]
+      )[0].where.subjectId.in;
+    const scopeOf = (over: Partial<DataScope> = {}): DataScope => ({
+      canDispatch: false,
+      userIds: ['user-001', 'mate'],
+      teamIds: ['team-001'],
+      writableTeamIds: ['team-001'],
+      writableUserIds: ['user-001', 'mate'],
+      ...over,
+    });
+
+    beforeEach(() => {
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: { ...mockCase, petitions: PETITIONS.map(({ id }) => ({ id })) },
+      });
+      mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
+      mockPrisma.incident.findFirst.mockResolvedValue(null);
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      answerPetitionQuery();
+    });
+
+    it('includes a petition entered by a team-mate and assigned to nobody, and one of my team; not one outside the scope', async () => {
+      await service.getJourney('case-001', scopeOf(), 1, 50);
+
+      expect(auditedSubjectIds()).toEqual(['case-001', 'pet-mate', 'pet-team']);
+    });
+
+    it('asks with the conditions of the petition lists: who entered it, its team, or no team yet', async () => {
+      await service.getJourney('case-001', scopeOf(), 1, 50);
+
+      expect(mockPrisma.petition.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['pet-mate', 'pet-team', 'pet-out'] },
+          deletedAt: null,
+          OR: [
+            { enteredById: { in: ['user-001', 'mate'] } },
+            { assignedTeamId: { in: ['team-001'] } },
+            { assignedTeamId: null },
+          ],
+        },
+        select: { id: true },
+      });
+    });
+
+    it('a ward officer does not get a petition no team holds yet, unless a team-mate entered it', async () => {
+      await service.getJourney(
+        'case-001',
+        scopeOf({ isWardOfficer: true, userIds: ['user-001'] }),
+        1,
+        50,
+      );
+
+      expect(auditedSubjectIds()).toEqual(['case-001', 'pet-team']);
+    });
+
+    it('a dispatcher gets all of them, without a petition query', async () => {
+      await service.getJourney(
+        'case-001',
+        scopeOf({ canDispatch: true }),
+        1,
+        50,
+      );
+
+      expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+      expect(auditedSubjectIds()).toEqual([
+        'case-001',
+        'pet-mate',
+        'pet-team',
+        'pet-out',
+      ]);
+    });
+
+    it('somebody with nobody and no team in scope gets none, without a petition query', async () => {
+      await service.getJourney(
+        'case-001',
+        scopeOf({ userIds: [], teamIds: [] }),
+        1,
+        50,
+      );
+
+      expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+      expect(auditedSubjectIds()).toEqual(['case-001']);
     });
   });
 

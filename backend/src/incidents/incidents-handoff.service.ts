@@ -10,6 +10,7 @@ import { Prisma, Incident } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
+import { recordInScope, scopeTeamIds } from '../common/utils/scope-filter.util';
 import { TERMINAL_STATUSES } from './incidents.constants';
 import { laNgayThat } from '../common/validators/is-ngay-that.validator';
 
@@ -47,19 +48,16 @@ export class IncidentsHandoffService {
   }
 
   private writable(record: Incident, scope?: DataScope | null) {
-    if (!scope) return;
-    const own =
-      record.investigatorId &&
-      scope.writableUserIds.includes(record.investigatorId);
-    const team =
-      record.assignedTeamId &&
-      scope.writableTeamIds.includes(record.assignedTeamId);
-    const unassigned =
-      !record.assignedTeamId &&
-      scope.writableTeamIds.length > 0 &&
-      !scope.isWardOfficer;
-    if (!own && !team && !unassigned)
-      throw new ForbiddenException('Không có quyền ghi hồ sơ');
+    const inScope = recordInScope(
+      {
+        assignedTeamId: record.assignedTeamId,
+        ownerId: record.investigatorId,
+      },
+      scope,
+      'write',
+      'Incident',
+    );
+    if (!inScope) throw new ForbiddenException('Không có quyền ghi hồ sơ');
   }
 
   private dispatch(scope?: DataScope | null) {
@@ -342,10 +340,15 @@ export class IncidentsHandoffService {
       limit > 100
     )
       throw new BadRequestException('Phân trang không hợp lệ');
+    // An incoming handoff is shown to the people of the team it was SENT TO: being asked to take a record is what
+    // lets them see its name before it is theirs (it is still assigned to the sending team until accepted). So the
+    // inbox is filtered by destination team, on purpose, and not by the incident's own assignment.
+    // The teams whose incidents the viewer reads; null = every team (no filter). A dispatcher is not special here.
+    const teamIds = scopeTeamIds(scope, 'read', 'Incident');
     const where: Prisma.IncidentHandoffWhereInput = {
       state: 'PENDING',
       incident: { deletedAt: null },
-      ...(scope ? { toTeamId: { in: scope.teamIds } } : {}),
+      ...(teamIds !== null ? { toTeamId: { in: teamIds } } : {}),
     };
     const [data, total] = await Promise.all([
       this.prisma.incidentHandoff.findMany({
@@ -373,22 +376,17 @@ export class IncidentsHandoffService {
 
   async history(id: string, scope?: DataScope | null) {
     const record = await this.incident(id);
-    if (scope && !scope.canDispatch) {
-      const team =
-        record.assignedTeamId && scope.teamIds.includes(record.assignedTeamId);
-      const owner =
-        record.investigatorId && scope.userIds.includes(record.investigatorId);
-      if (
-        !team &&
-        !owner &&
-        !(
-          record.assignedTeamId === null &&
-          scope.teamIds.length &&
-          !scope.isWardOfficer
-        )
-      )
-        throw new ForbiddenException('Không có quyền xem lịch sử');
-    }
+    // Admin and a dispatcher read every history.
+    const inScope = recordInScope(
+      {
+        assignedTeamId: record.assignedTeamId,
+        ownerId: record.investigatorId,
+      },
+      scope,
+      'read',
+      'Incident',
+    );
+    if (!inScope) throw new ForbiddenException('Không có quyền xem lịch sử');
     return {
       success: true,
       data: await this.prisma.incidentHandoff.findMany({
