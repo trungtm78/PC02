@@ -1233,6 +1233,12 @@ export class AggregateService {
 
       // The same freeze the scheduler does when it makes a period: the team joins with the criteria it is configured for.
       const ownedFieldKeys = await configuredSubsetOf(tx, period.reportId, period.versionId, teamId, now);
+      if (ownedFieldKeys?.length === 0) {
+        throw new SubmissionError(
+          'Phiên bản mẫu của kỳ này không có tiêu chí nào của tổ. Hãy chọn tiêu chí cho tổ trong Thiết lập báo cáo trước.',
+          'TEAM_HAS_NO_CRITERIA',
+        );
+      }
       const assignment = await tx.dynReportAssignment.create({
         data: {
           periodId,

@@ -44,6 +44,9 @@ interface LockRow {
   locked: boolean;
 }
 
+/** Why the scheduler exempted a team by itself; shown where an exemption's reason is shown. */
+export const NO_CRITERIA_REASON = 'Phiên bản mẫu hiện hành không còn tiêu chí nào của tổ này.';
+
 @Injectable()
 export class PeriodSchedulerService {
   private readonly logger = new Logger(PeriodSchedulerService.name);
@@ -278,7 +281,11 @@ export class PeriodSchedulerService {
               name: target.team.name,
               code: target.team.code,
             },
-            obligation: 'REQUIRED',
+            // A subset that names nothing in this version (a newer version dropped the team's criteria) leaves the
+            // team with nothing to report: it is exempt, with the reason, instead of "required" for zero fields.
+            ...(ownedFieldKeys?.length === 0
+              ? { obligation: 'EXEMPT' as const, exemptReason: NO_CRITERIA_REASON, exemptAt: now }
+              : { obligation: 'REQUIRED' as const }),
             ...(ownedFieldKeys ? { ownedFieldKeys } : {}),
           },
         });

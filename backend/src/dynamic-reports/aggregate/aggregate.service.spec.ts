@@ -1934,6 +1934,17 @@ describe('AggregateService', () => {
         expect(created.data.ownedFieldKeys).toEqual(['S!B2']);
       });
 
+      it('a team none of whose criteria exist in the period version is refused, and nothing is created', async () => {
+        const { service, tx } = buildTxServiceWithTeam(basePeriod(), [{ role: 'MANAGER' }]);
+        tx.dynReportTarget.findFirst.mockResolvedValue({ itemKeys: ['gone'], editors: [] });
+        tx.dynReportField.findMany.mockResolvedValue([{ fieldKey: 'S!B1', itemKey: 'k1' }]);
+
+        await expect(
+          service.addTeamMidPeriod('period1', 'mgr1', 'roleMgr', 'team-new', 'Bổ sung', ['u9']),
+        ).rejects.toMatchObject({ code: 'TEAM_HAS_NO_CRITERIA' });
+        expect(tx.dynReportAssignment.create).not.toHaveBeenCalled();
+      });
+
       it('a team with no configured subset owns every field: nothing is written and the fields are not even read', async () => {
         const { service, tx } = buildTxServiceWithTeam(basePeriod(), [{ role: 'MANAGER' }]);
 

@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
 import { randomUUID } from 'node:crypto';
-import { PeriodSchedulerService } from './period-scheduler.service';
+import { NO_CRITERIA_REASON, PeriodSchedulerService } from './period-scheduler.service';
 
 /**
  * Making periods for published reports — checked on a REAL PostgreSQL.
@@ -191,6 +191,23 @@ run('PeriodSchedulerService on PostgreSQL', () => {
     expect(whole.every((a) => a.ownedFieldKeys === null)).toBe(true);
     expect(subset.length).toBe(whole.length);
     expect(subset.every((a) => JSON.stringify(a.ownedFieldKeys) === JSON.stringify(['S!B3', 'S!B4']))).toBe(true);
+  });
+
+  it('a team whose criteria are all gone from the version is made exempt with the reason, not required for nothing', async () => {
+    const id = await buildReport('gone');
+    const version = await db.dynReportVersion.findFirstOrThrow({ where: { reportId: id } });
+    await db.dynReportField.create({
+      data: { versionId: version.id, sheetKey: 'S', address: 'B2', fieldKey: 'S!B2', label: 'a', type: 'NUM', itemKey: 'con-lai' },
+    });
+    const other = await db.team.create({ data: { code: `${tag}-gone`, name: `${tag}-gone` } });
+    await db.dynReportTarget.create({ data: { reportId: id, teamId: other.id, itemKeys: ['da-bo'] } });
+
+    await svc.generateForReport(id, now);
+
+    const rows = await db.dynReportAssignment.findMany({ where: { period: { reportId: id }, teamId: other.id } });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((a) => a.obligation === 'EXEMPT' && a.exemptReason === NO_CRITERIA_REASON)).toBe(true);
+    expect(rows.every((a) => JSON.stringify(a.ownedFieldKeys) === '[]')).toBe(true);
   });
 
   it('asking again changes nothing (no period made twice)', async () => {
