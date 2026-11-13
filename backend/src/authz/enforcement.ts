@@ -29,3 +29,15 @@ export function setEnforcement(enforcement: Enforcement | null): void {
 export function enforcement(): Enforcement | null {
   return current;
 }
+
+/**
+ * Whether a person holds a permission, for code that decides this itself instead of leaving it to the route guard.
+ * When permissions by team are enforced the answer is what the person holds there; otherwise `fromRole` decides,
+ * exactly as the caller decided before. Every such check goes through here, so the guard, `/auth/me` and the
+ * services can never disagree about one person.
+ */
+export function holdsPermission<T extends boolean | Promise<boolean>>(userId: string, permission: string, fromRole: () => T): T | boolean {
+  const held = current?.keysOf(userId);
+  return held ? held.includes(permission) : fromRole();
+}
+
