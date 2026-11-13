@@ -19,10 +19,12 @@ import {
   contributorsFor,
   countsUnder,
   freezeOwnedFieldKeys,
+  itemKeyOf,
   ownedKeys,
   owns,
 } from './contributors';
 import { normaliseTargetSubset, TargetSubsetError } from '../config/target-subsets';
+import { criteriaGroupsOf } from '../config/report-config.service';
 import type { SummaryMode } from './contributors';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -53,6 +55,12 @@ export interface PeriodClosedEvent {
 const EXPORT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type { SummaryMode };
+
+export interface PeriodCriteriaView {
+  criteria: { itemKey: string; fieldKey: string; code: string | null; label: string; unit: string | null; parentItemKey: string | null }[];
+  groups: { itemKey: string; code: string | null; name: string; parentItemKey: string | null }[];
+  assignments: { assignmentId: string; ownedFieldKeys: string[] | null }[];
+}
 
 export interface FieldAggregateView {
   fieldKey: string;
@@ -1360,6 +1368,48 @@ export class AggregateService {
         editorUserIds: [...wanted],
       };
     });
+  }
+
+  /**
+   * The criteria of a period's version and what each team reports of them now: what the "change a team's criteria"
+   * panel shows. For a manager or admin of the report (a viewer does not change anything).
+   */
+  async getPeriodCriteria(periodId: string, userId: string, roleId: string): Promise<PeriodCriteriaView> {
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: periodId },
+      select: {
+        reportId: true,
+        version: {
+          select: {
+            sourceSelection: true,
+            fields: {
+              select: { fieldKey: true, itemKey: true, criterionCode: true, label: true, unit: true, parentItemKey: true, sheetKey: true, address: true },
+            },
+          },
+        },
+        assignments: { select: { id: true, ownedFieldKeys: true } },
+      },
+    });
+    const actorRole = period ? await this.resolveManagerRole(this.prisma, period.reportId, userId, roleId) : null;
+    if (!period || !actorRole) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    const rowOf = (address: string) => Number(/\d+$/.exec(address)?.[0] ?? 0);
+    return {
+      criteria: [...period.version.fields]
+        .sort((a, b) => a.sheetKey.localeCompare(b.sheetKey) || rowOf(a.address) - rowOf(b.address))
+        .map((f) => ({
+          itemKey: itemKeyOf(f),
+          fieldKey: f.fieldKey,
+          code: f.criterionCode,
+          label: f.label,
+          unit: f.unit,
+          parentItemKey: f.parentItemKey,
+        })),
+      groups: criteriaGroupsOf(period.version.sourceSelection),
+      assignments: period.assignments.map((a) => ({
+        assignmentId: a.id,
+        ownedFieldKeys: ownedKeys(a) ? [...(ownedKeys(a) as readonly string[])] : null,
+      })),
+    };
   }
 
   /**

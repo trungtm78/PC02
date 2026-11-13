@@ -199,6 +199,13 @@ export class AggregateController {
     );
   }
 
+  /** The criteria of the period's version and what each team reports of them now. */
+  @Get(':periodId/criteria')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  periodCriteria(@Param('periodId') periodId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.aggregateService.getPeriodCriteria(periodId, user.id, user.roleId);
+  }
+
   /** Đổi tiêu chí một tổ phải báo trong kỳ đang chạy (D09, bắt buộc lý do). */
   @Post(':periodId/assignments/:assignmentId/criteria')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })

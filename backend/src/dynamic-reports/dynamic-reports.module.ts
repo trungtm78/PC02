@@ -21,6 +21,8 @@ import { SubmissionService } from './submission/submission.service';
 import { AggregateController } from './aggregate/aggregate.controller';
 import { ExportController } from './aggregate/export.controller';
 import { OfficialFileController } from './aggregate/official-file.controller';
+import { CriteriaMatrixController } from './config/criteria-matrix.controller';
+import { CriteriaMatrixService } from './config/criteria-matrix.service';
 import { OfficialFileService } from './aggregate/official-file.service';
 import { AggregateService } from './aggregate/aggregate.service';
 import { FormulaEvaluationService } from './aggregate/formula-evaluation.service';
@@ -48,6 +50,7 @@ import { TeamsModule } from '../teams/teams.module';
     AggregateController,
     ExportController,
     OfficialFileController,
+    CriteriaMatrixController,
     StatusQueryController,
     GridController,
   ],
@@ -68,6 +71,7 @@ import { TeamsModule } from '../teams/teams.module';
     SubmissionService,
     AggregateService,
     OfficialFileService,
+    CriteriaMatrixService,
     FormulaEvaluationService,
     StatusQueryService,
   ],

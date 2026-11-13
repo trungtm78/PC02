@@ -7,7 +7,15 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { CriteriaWarning, Criterion } from '../types';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import { criteriaWarningText, reportCriteria } from '@/locales/reportCriteria.vi';
-import { addManualCriterion, depthsOf, parentKeysOf, removeCriterion, splitWarnings, updateCriterion } from './criteria';
+import {
+  addManualCriterion,
+  criterionLabel,
+  depthsOf,
+  parentKeysOf,
+  removeCriterion,
+  splitWarnings,
+  updateCriterion,
+} from './criteria';
 
 const t = reportCriteria.review;
 
@@ -58,6 +66,14 @@ export default function CriteriaReviewList({ criteria, warnings, onChange, disab
             return (
               <li key={c.itemKey} className="px-3 py-2 text-sm" data-testid={`criterion-${c.itemKey}`} data-depth={depths.get(c.itemKey) ?? 0}>
                 <div className="flex items-center gap-2" style={{ paddingLeft: (depths.get(c.itemKey) ?? 0) * 20 }}>
+                  {c.code && (
+                    <span
+                      className="shrink-0 font-mono text-xs text-slate-600 tabular-nums"
+                      data-testid={`criterion-code-${c.itemKey}`}
+                    >
+                      {c.code}
+                    </span>
+                  )}
                   <input
                     type="text"
                     data-testid={`criterion-name-${c.itemKey}`}
@@ -161,7 +177,7 @@ export default function CriteriaReviewList({ criteria, warnings, onChange, disab
               <option value="">{t.addNoParent}</option>
               {criteria.map((c) => (
                 <option key={c.itemKey} value={c.itemKey}>
-                  {c.name}
+                  {criterionLabel(c.code, c.name)}
                 </option>
               ))}
             </select>

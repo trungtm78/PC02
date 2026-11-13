@@ -1,5 +1,6 @@
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -9,7 +10,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { ReportFieldConfigDto, ReportRuleConfigDto } from './save-report-config.dto';
+import { CriterionGroupDto, ReportFieldConfigDto, ReportRuleConfigDto } from './save-report-config.dto';
 
 /**
  * "Cập nhật mẫu" — a new version of an existing report: a new template file, the cells marked on it, and the
@@ -22,6 +23,13 @@ export class SaveReportVersionDto {
   @IsIn(['1900', '1904']) dateSystem!: '1900' | '1904';
   /** What the workbook was made from; CRITERIA when the system generated it from a picked list. */
   @IsOptional() @IsIn(['TEMPLATE', 'CRITERIA']) sourceKind?: 'TEMPLATE' | 'CRITERIA';
+  /** Criteria reports: the group headings (criteria with children). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(2000)
+  @ValidateNested({ each: true })
+  @Type(() => CriterionGroupDto)
+  criteriaGroups?: CriterionGroupDto[];
 
   @IsArray()
   @ValidateNested({ each: true })

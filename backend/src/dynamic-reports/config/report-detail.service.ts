@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { hoTenCanBo } from '../../common/xuat-danh-sach/dinh-dang';
 import { ReportConfigError } from './report-config.service';
+import { criteriaGroupsOf } from './report-config.service';
 
 const PERIODS_SHOWN = 12;
 
@@ -49,6 +50,8 @@ export interface ReportDetailVersion {
   dateSystem: string;
   /** What the workbook was made from: an authored TEMPLATE, or a list of CRITERIA the system turned into one. */
   sourceKind: string;
+  /** Criteria reports: the group headings (criteria with children), so a list of criteria can be shown by group. */
+  criteriaGroups: { itemKey: string; code: string | null; name: string; parentItemKey: string | null }[];
   publishedAt: string | null;
   createdAt: string;
   fields: ReportDetailField[];
@@ -162,6 +165,7 @@ export class ReportDetailService {
         selectedSheets: true,
         dateSystem: true,
         sourceKind: true,
+        sourceSelection: true,
         publishedAt: true,
         createdAt: true,
         fields: { orderBy: [{ sheetKey: 'asc' }, { id: 'asc' }] },
@@ -236,6 +240,7 @@ export class ReportDetailService {
             selectedSheets: current.selectedSheets as string[],
             dateSystem: current.dateSystem,
             sourceKind: current.sourceKind,
+            criteriaGroups: criteriaGroupsOf(current.sourceSelection),
             publishedAt: current.publishedAt?.toISOString() ?? null,
             createdAt: current.createdAt.toISOString(),
             fields: current.fields.map((f) => ({

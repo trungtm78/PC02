@@ -12,6 +12,7 @@ import { withPreviousExtras } from '@/features/dynamic-reports/carryOver';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import type {
+  CriteriaGroupPayload,
   CreateVersionResult,
   ParsedField,
   ParsedFormulaCell,
@@ -36,6 +37,8 @@ interface Props {
   rules: ReportRuleConfig[];
   /** 'CRITERIA' when the workbook was generated from a list of criteria; absent for an uploaded template. */
   sourceKind?: ReportSourceKind;
+  /** Criteria reports: the criteria that have children (group headings), saved with the version. */
+  criteriaGroups?: CriteriaGroupPayload[];
   onBack: () => void;
 }
 
@@ -52,6 +55,7 @@ export default function ReportVersionSummaryStep({
   formulas,
   rules,
   sourceKind,
+  criteriaGroups,
   onBack,
 }: Props) {
   // Stable across retries of the SAME attempt: a double click or a network retry never creates two versions.
@@ -72,6 +76,7 @@ export default function ReportVersionSummaryStep({
         formulas,
         rules: rules.length > 0 ? rules : undefined,
         ...(sourceKind ? { sourceKind } : {}),
+        ...(sourceKind === 'CRITERIA' && criteriaGroups ? { criteriaGroups } : {}),
         publish,
         idempotencyKey,
       });

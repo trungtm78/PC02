@@ -13,6 +13,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getReportDetail: vi.fn(),
     updateReportConfig: vi.fn(),
     getNonWorkingDates: vi.fn(),
+    downloadCriteriaMatrix: vi.fn(),
+    uploadCriteriaMatrix: vi.fn(),
   },
 }));
 
@@ -312,6 +314,36 @@ describe('ReportEditPage — "Sửa cấu hình"', () => {
 
     beforeEach(() => {
       vi.mocked(dynamicReportsApi.updateReportConfig).mockResolvedValue({ configVersion: 4, changed: ['targets'] });
+    });
+
+    it('offers the matrix as an Excel file; applying one reads the report again and redraws the teams from it', async () => {
+      const teams = [{ teamId: 't1', name: 'Đội 1', itemKeys: null, added: ['trom-cap', 'khac'], removed: [] }];
+      vi.mocked(dynamicReportsApi.uploadCriteriaMatrix)
+        .mockResolvedValueOnce({ applied: false, configVersion: 3, teams })
+        .mockResolvedValueOnce({ applied: true, configVersion: 4, teams });
+      renderPage(WITH_CRITERIA);
+      expect(await screen.findByTestId('team-criteria-count-t1')).toHaveTextContent('Đội 1: 1/3 tiêu chí');
+      const file = new File(['x'], 'ma-tran.xlsx');
+      fireEvent.change(screen.getByTestId('matrix-file-input'), { target: { files: [file] } });
+      expect(await screen.findByTestId('matrix-preview-team-t1')).toHaveTextContent('+2 tiêu chí');
+      expect(dynamicReportsApi.uploadCriteriaMatrix).toHaveBeenCalledWith('r1', file, { apply: false, expectedConfigVersion: 3 });
+
+      vi.mocked(dynamicReportsApi.getReportDetail).mockResolvedValue({
+        ...WITH_CRITERIA,
+        configVersion: 4,
+        targets: WITH_CRITERIA.targets.map((t) => ({ ...t, itemKeys: null })),
+      });
+      fireEvent.click(screen.getByTestId('btn-matrix-apply'));
+
+      expect(await screen.findByTestId('matrix-applied')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByTestId('team-criteria-count-t1')).toHaveTextContent('Đội 1: 3/3 tiêu chí'));
+      expect(dynamicReportsApi.updateReportConfig).not.toHaveBeenCalled();
+    });
+
+    it('a report whose version has no fields has no matrix to take out', async () => {
+      renderPage(DETAIL);
+      await screen.findByTestId('edit-name');
+      expect(screen.queryByTestId('criteria-matrix-excel')).not.toBeInTheDocument();
     });
 
     it('opens with each team\'s subset as it is stored: a team with a subset has only those ticked, a team without has all', async () => {

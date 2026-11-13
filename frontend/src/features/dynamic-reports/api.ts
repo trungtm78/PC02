@@ -17,6 +17,9 @@ import type {
   MidPeriodAssignmentView,
   OfficialFileView,
   AssignmentEditorsView,
+  AssignmentCriteriaResult,
+  CriteriaMatrixImportResult,
+  PeriodCriteriaView,
   MidPeriodImpactPreview,
   PeriodSummaryView,
   ReopenResultView,
@@ -427,6 +430,43 @@ export const dynamicReportsApi = {
         { editorUserIds, reason },
       )
       .then((r) => r.data),
+
+  /** The criteria of the period's version and what each team reports of them now. Managers of the report only. */
+  loadPeriodCriteria: (periodId: string) =>
+    api.get<PeriodCriteriaView>(`/bao-cao-dong/periods/${periodId}/criteria`).then((r) => r.data),
+
+  /** D09: change what a team reports in a period that is running. `itemKeys` null = every criterion. */
+  setAssignmentCriteria: (periodId: string, assignmentId: string, itemKeys: string[] | null, reason: string) =>
+    api
+      .post<AssignmentCriteriaResult>(
+        `/bao-cao-dong/periods/${periodId}/assignments/${assignmentId}/criteria`,
+        { itemKeys, reason },
+      )
+      .then((r) => r.data),
+
+  /** The criteria-by-team matrix of a report as an Excel file, saved to the person's disk. */
+  downloadCriteriaMatrix: async (reportId: string, fallbackFileName: string): Promise<void> => {
+    const response = await api.get<Blob>(`/bao-cao-dong/reports/${reportId}/criteria-matrix`, {
+      responseType: 'blob',
+    });
+    triggerDownload(response, fallbackFileName);
+  },
+
+  /**
+   * Reads an edited matrix. Without `apply` nothing changes: the result says what WOULD change. With `apply` the
+   * report's configuration is changed, guarded by the revision the preview was shown at.
+   */
+  uploadCriteriaMatrix: (reportId: string, file: File, options: { apply: boolean; expectedConfigVersion: number }) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('apply', options.apply ? 'true' : 'false');
+    form.append('expectedConfigVersion', String(options.expectedConfigVersion));
+    return api
+      .post<CriteriaMatrixImportResult>(`/bao-cao-dong/reports/${reportId}/criteria-matrix`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
 
   previewExemptTeam: (periodId: string, assignmentId: string) =>
     api

@@ -5,6 +5,8 @@
 import type { GridSheet } from '../engine/generated/grid-types';
 import type {
   CriteriaFieldRef,
+  CriteriaGroupPayload,
+  CriteriaGroupView,
   CriteriaWarning,
   Criterion,
   CriterionDraft,
@@ -243,6 +245,35 @@ export function addManualCriterion(criteria: readonly Criterion[], input: Manual
   return [...criteria.slice(0, insertAt), added, ...criteria.slice(insertAt)];
 }
 
+/**
+ * A criterion as a list shows it: its code before its name ("1.1 Số tin báo mới"). A name that already begins with
+ * the code (the author's file wrote "1.1 Số tin báo mới" in one cell) is left as it is.
+ */
+export function criterionLabel(code: string | null | undefined, name: string): string {
+  const c = code?.trim();
+  if (!c) return name;
+  const text = name.trim();
+  if (text === c) return text;
+  if (text.startsWith(c) && /^[\s.):-]/.test(text.slice(c.length))) return name;
+  return `${c} ${name}`;
+}
+
+/**
+ * The criteria that have children, as the save payloads carry them (`criteriaGroups`): they are headings, not input
+ * cells, so the fields alone would lose their names. In list order; nulls and blank codes left out.
+ */
+export function criteriaGroupsForPayload(criteria: readonly Criterion[]): CriteriaGroupPayload[] {
+  const parents = parentKeysOf(criteria);
+  return criteria
+    .filter((c) => parents.has(c.itemKey))
+    .map((c) => ({
+      itemKey: c.itemKey,
+      ...(c.code?.trim() ? { code: c.code.trim() } : {}),
+      name: c.name.trim(),
+      ...(c.parentItemKey ? { parentItemKey: c.parentItemKey } : {}),
+    }));
+}
+
 /** The list as the workbook endpoint takes it: nulls left out, blank text left out. */
 export function toDrafts(criteria: readonly Criterion[]): CriterionDraft[] {
   return criteria.map((c) => ({
@@ -295,12 +326,15 @@ export interface CriteriaMeta {
 export function withCriteriaMeta<F extends ParsedField>(fields: readonly F[], meta: CriteriaMeta | null): F[] {
   if (!meta) return [...fields];
   const byFieldKey = new Map(meta.fields.map((f) => [f.fieldKey, f]));
+  const codes = new Map(meta.criteria.map((c) => [c.itemKey, c.code]));
   return fields.map((f) => {
     const ref = byFieldKey.get(f.fieldKey);
     if (!ref) return f;
+    const code = (ref.code ?? codes.get(ref.itemKey))?.trim();
     return {
       ...f,
       itemKey: ref.itemKey,
+      ...(code ? { criterionCode: code } : {}),
       ...(ref.unit ? { unit: ref.unit } : {}),
       ...(ref.parentItemKey ? { parentItemKey: ref.parentItemKey } : {}),
       origin: ref.origin,
@@ -334,6 +368,8 @@ export interface ItemSourceField {
   fieldKey: string;
   label: string;
   itemKey?: string | null;
+  /** The criterion's code, shown before its name. */
+  criterionCode?: string | null;
   unit?: string | null;
   parentItemKey?: string | null;
 }
@@ -343,15 +379,18 @@ export function itemKeyOfField(field: Pick<ItemSourceField, 'fieldKey' | 'itemKe
   return field.itemKey ?? field.fieldKey;
 }
 
-/** The reportable items of a report, in the order of its fields. */
+/** The reportable items of a report, in the order of its fields. A criterion's label begins with its code. */
 export function reportableItems(fields: readonly ItemSourceField[], criteria?: readonly Criterion[] | null): ReportableItem[] {
-  const names = new Map((criteria ?? []).map((c) => [c.itemKey, c.name]));
-  return fields.map((f) => ({
-    key: itemKeyOfField(f),
-    label: (f.itemKey ? names.get(f.itemKey) : undefined) || f.label || f.fieldKey,
-    unit: f.unit ?? null,
-    parentKey: f.parentItemKey ?? null,
-  }));
+  const known = new Map((criteria ?? []).map((c) => [c.itemKey, c]));
+  return fields.map((f) => {
+    const criterion = f.itemKey ? known.get(f.itemKey) : undefined;
+    return {
+      key: itemKeyOfField(f),
+      label: criterionLabel(f.criterionCode ?? criterion?.code, criterion?.name || f.label || f.fieldKey),
+      unit: f.unit ?? null,
+      parentKey: f.parentItemKey ?? null,
+    };
+  });
 }
 
 /**
@@ -366,7 +405,7 @@ export function groupItems(items: readonly ReportableItem[], criteria?: readonly
     for (let steps = 0; cursor !== null && steps <= byKey.size; steps += 1) {
       const c = byKey.get(cursor);
       if (!c) break;
-      names.unshift(c.name);
+      names.unshift(criterionLabel(c.code, c.name));
       cursor = c.parentItemKey;
     }
     return names.join(' › ') || key;
@@ -474,22 +513,97 @@ export interface VersionCriterionField extends ItemSourceField {
 }
 
 /**
- * What a saved criteria version says of its own cells, in the shape the wizard remembers a criteria report by: used
- * when the report's current file is taken again, so each cell keeps the criterion it stood for. Only the criteria
- * that have a cell are known here (a parent criterion has none: its figure is the sum of its children).
+ * What a saved criteria version says of itself, in the shape the wizard remembers a criteria report by: used on the
+ * edit screen, and when the report's current file is taken again (a new version, a copy), so each cell keeps the
+ * criterion and the code it stood for. A parent criterion has no cell (its figure is the sum of its children): the
+ * version keeps those apart as `groups`, and they come first in the list here.
  */
-export function criteriaMetaFromVersion(fields: readonly VersionCriterionField[]): CriteriaMeta {
+export function criteriaMetaFromVersion(
+  fields: readonly VersionCriterionField[],
+  groups?: readonly CriteriaGroupView[] | null,
+): CriteriaMeta {
   const refs: CriteriaFieldRef[] = [];
-  const criteria: Criterion[] = [];
+  const criteria: Criterion[] = (groups ?? []).map((g) => ({
+    itemKey: g.itemKey,
+    code: g.code ?? null,
+    name: g.name,
+    unit: null,
+    parentItemKey: g.parentItemKey ?? null,
+    origin: 'FILE',
+    sourceRow: null,
+  }));
+  const groupKeys = new Set(criteria.map((c) => c.itemKey));
   for (const f of fields) {
     if (!f.itemKey) continue;
     const unit = f.unit ?? null;
     const parentItemKey = f.parentItemKey ?? null;
     const origin: CriterionOrigin = f.origin ?? 'FILE';
-    refs.push({ address: f.address, fieldKey: f.fieldKey, itemKey: f.itemKey, unit, parentItemKey, origin });
-    criteria.push({ itemKey: f.itemKey, code: null, name: f.label, unit, parentItemKey, origin, sourceRow: null });
+    const code = f.criterionCode?.trim() || null;
+    refs.push({
+      address: f.address,
+      fieldKey: f.fieldKey,
+      itemKey: f.itemKey,
+      ...(code ? { code } : {}),
+      unit,
+      parentItemKey,
+      origin,
+    });
+    if (!groupKeys.has(f.itemKey)) {
+      criteria.push({ itemKey: f.itemKey, code, name: f.label, unit, parentItemKey, origin, sourceRow: null });
+    }
   }
   return { criteria, fields: refs };
+}
+
+// ── A period that is running ─────────────────────────────────────────────────
+
+/** What the "change a team's criteria" panel of a running period draws for ONE team. */
+export interface PeriodChecklist {
+  items: ReportableItem[];
+  groups: ItemGroup[];
+  allKeys: string[];
+  /** What the team reports now. */
+  ticked: Set<string>;
+}
+
+/** The slice of `GET /periods/:periodId/criteria` this needs (see `PeriodCriteriaView`). */
+export interface PeriodCriteriaSource {
+  criteria: ReadonlyArray<{
+    itemKey: string;
+    fieldKey: string;
+    code: string | null;
+    label: string;
+    unit: string | null;
+    parentItemKey: string | null;
+  }>;
+  groups: readonly CriteriaGroupView[];
+  assignments: ReadonlyArray<{ assignmentId: string; ownedFieldKeys: string[] | null }>;
+}
+
+/**
+ * The checklist of one team in a running period. The server keeps what a team owns as FIELD keys, and takes a change
+ * as ITEM keys: the ticks here are item keys. A team with no entry, or with null, reports everything.
+ */
+export function periodChecklist(view: PeriodCriteriaSource, assignmentId: string): PeriodChecklist {
+  const known = criteriaMetaFromVersion([], view.groups).criteria;
+  const items = reportableItems(
+    view.criteria.map((c) => ({
+      fieldKey: c.fieldKey,
+      label: c.label,
+      itemKey: c.itemKey,
+      criterionCode: c.code,
+      unit: c.unit,
+      parentItemKey: c.parentItemKey,
+    })),
+    known,
+  );
+  const allKeys = items.map((i) => i.key);
+  const owned = view.assignments.find((a) => a.assignmentId === assignmentId)?.ownedFieldKeys ?? null;
+  const ownedSet = owned === null ? null : new Set(owned);
+  const ticked = new Set(
+    ownedSet === null ? allKeys : view.criteria.filter((c) => ownedSet.has(c.fieldKey)).map((c) => c.itemKey),
+  );
+  return { items, groups: groupItems(items, known), allKeys, ticked };
 }
 
 /**

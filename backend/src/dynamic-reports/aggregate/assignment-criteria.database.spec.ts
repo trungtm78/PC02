@@ -123,6 +123,19 @@ run('AggregateService.setAssignmentCriteria on PostgreSQL', () => {
     await expect(set(s, ['alpha'])).resolves.toMatchObject({ changed: true });
   });
 
+  it('the panel is given the period criteria and what each team reports now; a stranger is told it does not exist', async () => {
+    const s = await scenario();
+    await set(s, ['alpha']);
+
+    const view = await svc.getPeriodCriteria(s.periodId, managerId, roleId);
+
+    expect(view.criteria.map((c) => [c.itemKey, c.fieldKey])).toEqual([['alpha', 'S!C2'], ['beta', 'S!C3']]);
+    expect(view.assignments).toEqual([{ assignmentId: s.assignmentId, ownedFieldKeys: ['S!C2'] }]);
+    expect(view.groups).toEqual([]);
+    const stranger = (await db.user.create({ data: { username: `${tag}-y${n}`, passwordHash: 'x', roleId } })).id;
+    await expect(svc.getPeriodCriteria(s.periodId, stranger, roleId)).rejects.toMatchObject({ status: 404 });
+  });
+
   it('a closed period is not changed', async () => {
     const s = await scenario({ status: 'FINALIZED' });
     await expect(set(s, ['alpha'])).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });

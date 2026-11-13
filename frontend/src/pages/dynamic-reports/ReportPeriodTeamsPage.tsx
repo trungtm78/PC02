@@ -10,11 +10,14 @@
  *
  * "Đổi người nhập" là thao tác giữa kỳ thứ ba của D09: kỳ đã mở giữ người nhập lúc nó được sinh ra, đổi ở đây (có lý do,
  * người rời đi vẫn còn trong lịch sử). Tổ thêm giữa kỳ phải có người nhập, nếu không không ai mở được lượt giao của nó.
+ *
+ * "Tiêu chí" is the fourth mid-period action of D09: what a team reports in THIS period (with a reason). Its way back
+ * is the action itself: tick the criteria again.
  */
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowLeft, UserCog, UserMinus, UserPlus, Users, Undo2, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ListChecks, UserCog, UserMinus, UserPlus, Users, Undo2, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { MidPeriodImpactPreview } from '@/features/dynamic-reports/types';
@@ -25,7 +28,9 @@ import {
 import { extractApiError } from '@/lib/api-errors';
 import { FKSelect } from '@/components/FKSelect';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import { reportCriteria } from '@/locales/reportCriteria.vi';
 import EditorPicker from './EditorPicker';
+import PeriodTeamCriteriaPanel from './PeriodTeamCriteriaPanel';
 
 interface TeamOption {
   id: string;
@@ -227,6 +232,16 @@ export default function ReportPeriodTeamsPage() {
     }
   }
 
+  // --- "Tiêu chí" flow ---
+  const [criteriaAssignmentId, setCriteriaAssignmentId] = useState<string | null>(null);
+  const [criteriaNote, setCriteriaNote] = useState<string | null>(null);
+  const criteriaAssignment = assignments.find((a) => a.assignmentId === criteriaAssignmentId);
+
+  function startCriteria(assignmentId: string) {
+    setCriteriaNote(null);
+    setCriteriaAssignmentId(assignmentId);
+  }
+
   // --- "Miễn nộp" flow ---
   const [exemptAssignmentId, setExemptAssignmentId] = useState<string | null>(null);
   const [exemptPreview, setExemptPreview] = useState<MidPeriodImpactPreview | null>(null);
@@ -361,6 +376,15 @@ export default function ReportPeriodTeamsPage() {
                       <UserCog className="w-3.5 h-3.5" />
                       Đổi người nhập
                     </button>
+                    <button
+                      type="button"
+                      data-testid={`btn-criteria-${a.assignmentId}`}
+                      className={`inline-flex items-center gap-1 text-xs text-blue-700 hover:bg-blue-50 px-2 py-1 rounded ${A11Y_FOCUS_RING}`}
+                      onClick={() => startCriteria(a.assignmentId)}
+                    >
+                      <ListChecks className="w-3.5 h-3.5" />
+                      {reportCriteria.period.action}
+                    </button>
                     {a.obligation !== 'EXEMPT' && (
                       <button
                         type="button"
@@ -463,6 +487,32 @@ export default function ReportPeriodTeamsPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {criteriaNote && (
+        <p className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-800" data-testid="criteria-saved" role="status">
+          {criteriaNote}
+        </p>
+      )}
+
+      {periodId && criteriaAssignment && (
+        <PeriodTeamCriteriaPanel
+          key={criteriaAssignment.assignmentId}
+          periodId={periodId}
+          assignmentId={criteriaAssignment.assignmentId}
+          teamId={criteriaAssignment.teamId}
+          teamName={criteriaAssignment.teamName}
+          onClose={() => setCriteriaAssignmentId(null)}
+          onSaved={({ changed, ticked, total }) => {
+            setCriteriaNote(
+              changed
+                ? reportCriteria.period.saved(criteriaAssignment.teamName, ticked, total)
+                : reportCriteria.period.unchanged(criteriaAssignment.teamName),
+            );
+            setCriteriaAssignmentId(null);
+            void queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY(periodId) });
+          }}
+        />
       )}
 
       {exemptAssignmentId && (

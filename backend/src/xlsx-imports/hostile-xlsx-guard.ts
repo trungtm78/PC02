@@ -94,7 +94,7 @@ export function assertCompressedSize(buffer: Buffer): void {
  * Here we do a simpler byte-level scan of the End-of-Central-Directory record
  * which is enough to refuse the most obvious bombs without unpacking.
  */
-export function assertNoZipBomb(buffer: Buffer): void {
+export function assertNoZipBomb(buffer: Buffer, maxTotalUncompressedBytes?: number): void {
   // Find End-of-Central-Directory (EOCD) signature: 0x06054b50
   const eocdSig = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
   let eocdOffset = -1;
@@ -143,6 +143,13 @@ export function assertNoZipBomb(buffer: Buffer): void {
     pos += 46 + fileNameLen + extraLen + commentLen;
   }
   if (totalUncompressed === 0) return; // empty zip — let exceljs reject
+  // A caller that knows its files are small (a criteria matrix) can refuse far below the general caps.
+  if (maxTotalUncompressedBytes !== undefined && totalUncompressed > maxTotalUncompressedBytes) {
+    throw new HostileXlsxError(
+      `Zip-bomb defense — archive uncompresses to ${totalUncompressed} bytes (cap ${maxTotalUncompressedBytes}).`,
+      'ZIP_BOMB_TOTAL',
+    );
+  }
   const ratio = totalUncompressed / buffer.length;
   if (ratio > XLSX_LIMITS.MAX_COMPRESSION_RATIO) {
     throw new HostileXlsxError(
