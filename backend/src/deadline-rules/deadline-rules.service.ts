@@ -16,6 +16,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ROLE_NAMES } from '../common/constants/role.constants';
+import { enforcement } from '../authz/enforcement';
 import { ProposeRuleDto } from './dto/propose-rule.dto';
 import { UpdateDraftDto } from './dto/update-draft.dto';
 import { ApproveRuleDto } from './dto/approve-rule.dto';
@@ -899,10 +901,14 @@ export class DeadlineRulesService {
   }
 
   private async findActiveApproverIds(): Promise<string[]> {
+    const holders = enforcement()?.holdersOf('approve:DeadlineRuleVersion');
     const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
-        role: { name: { in: ['DEADLINE_APPROVER', 'ADMIN'] } },
+        // Under permissions by team: whoever holds the approval. Otherwise the two roles that carry it, as before.
+        ...(holders
+          ? { id: { in: [...holders] } }
+          : { role: { name: { in: [ROLE_NAMES.DEADLINE_APPROVER, ROLE_NAMES.ADMIN] } } }),
       },
       select: { id: true },
     });
