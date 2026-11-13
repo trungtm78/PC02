@@ -194,7 +194,7 @@ describe('SubmissionService', () => {
   }
 
   describe('listMyAssignments', () => {
-    it('returns one row per active editor assignment whose period is OPEN, newest due date first', async () => {
+    it('returns one row per active editor assignment whose period is OPEN', async () => {
       const tx = buildTx();
       tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
         {
@@ -207,6 +207,7 @@ describe('SubmissionService', () => {
               reportId: 'report1',
               periodKey: '2026-06',
               dueAt: new Date('2026-07-05T17:00:00Z'),
+              opensAt: new Date('2020-01-01T00:00:00Z'),
               status: 'OPEN',
               report: { id: 'report1', name: 'HSLN' },
             },
@@ -226,6 +227,8 @@ describe('SubmissionService', () => {
           teamName: 'Tổ 1',
           periodKey: '2026-06',
           dueAt: '2026-07-05T17:00:00.000Z',
+          opensAt: '2020-01-01T00:00:00.000Z',
+          notYetOpen: false,
           state: 'DRAFT',
         },
       ]);
@@ -242,6 +245,7 @@ describe('SubmissionService', () => {
             period: {
               periodKey: '2026-05',
               dueAt: new Date('2026-06-05T17:00:00Z'),
+              opensAt: new Date('2020-01-01T00:00:00Z'),
               status: 'FINALIZED',
               report: { id: 'report1', name: 'HSLN' },
             },
@@ -265,6 +269,7 @@ describe('SubmissionService', () => {
             period: {
               periodKey: '2026-06',
               dueAt: new Date('2026-07-05T17:00:00Z'),
+              opensAt: new Date('2020-01-01T00:00:00Z'),
               status: 'OPEN',
               report: { id: 'report1', name: 'HSLN' },
             },
@@ -276,6 +281,41 @@ describe('SubmissionService', () => {
       const result = await service.listMyAssignments('u1');
       expect(result[0].state).toBe('NOT_STARTED');
       expect(result[0].teamName).toBe('');
+    });
+    it('lists what can be entered now first (nearest due date first) and the periods that have not opened after them, opening soonest first (the screen used to open on the farthest future period)', async () => {
+      const row = (id: string, opensAt: string, dueAt: string) => ({
+        assignment: {
+          id,
+          teamSnapshot: { name: 'Tổ 1' },
+          submission: { state: 'NOT_STARTED' },
+          period: {
+            id: `p-${id}`,
+            reportId: 'report1',
+            periodKey: id,
+            opensAt: new Date(opensAt),
+            dueAt: new Date(dueAt),
+            status: 'OPEN',
+            report: { id: 'report1', name: 'HSLN' },
+          },
+        },
+      });
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        row('far-2099-03', '2099-03-01T00:00:00Z', '2099-04-05T00:00:00Z'),
+        row('near-2099-01', '2099-01-01T00:00:00Z', '2099-02-05T00:00:00Z'),
+        row('open-late', '2020-01-01T00:00:00Z', '2098-01-05T00:00:00Z'),
+        row('open-soon', '2020-01-01T00:00:00Z', '2097-01-05T00:00:00Z'),
+      ]);
+      const { service } = buildService(tx);
+
+      const result = await service.listMyAssignments('u1');
+
+      expect(result.map((r) => [r.periodKey, r.notYetOpen])).toEqual([
+        ['open-soon', false],
+        ['open-late', false],
+        ['near-2099-01', true],
+        ['far-2099-03', true],
+      ]);
     });
   });
 
