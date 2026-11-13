@@ -31,7 +31,7 @@ run('OfficialFileService on PostgreSQL', () => {
         fileName: 'm.xlsx', selectedSheets: ['S'], layout: {}, parserVersion: 't', engineVersion: 't',
         fields: {
           create: [
-            { sheetKey: 'S', address: 'C2', fieldKey: 'S!C2', label: 'Số tin báo mới', type: 'NUM', aggregate: 'SUM', unit: 'tin' },
+            { sheetKey: 'S', address: 'C2', fieldKey: 'S!C2', label: 'Số tin báo mới', type: 'NUM', aggregate: 'SUM', unit: 'tin', criterionCode: '1.1' },
             { sheetKey: 'S', address: 'C10', fieldKey: 'S!C10', label: 'Số vụ khởi tố', type: 'NUM', aggregate: 'SUM', unit: 'vụ' },
           ],
         },
@@ -94,7 +94,7 @@ run('OfficialFileService on PostgreSQL', () => {
     const summary = wb.worksheets[0];
     const row = (r: number) => Array.from((summary.getRow(r).values as unknown[]).slice(1), (v) => v ?? null);
     // Rows follow the sheet (C2 before C10), not the text order of the addresses.
-    expect(row(5)).toEqual(['', 'Số tin báo mới', 'tin', 15, '2/2', '100%', 10, 5]);
+    expect(row(5)).toEqual(['1.1', 'Số tin báo mới', 'tin', 15, '2/2', '100%', 10, 5]);
     expect(row(6)).toEqual(['', 'Số vụ khởi tố', 'vụ', 3, '1/1', '100%', 3, '—']);
     expect(wb.getWorksheet('Tổ 2')!.rowCount).toBe(5);
   });
@@ -123,6 +123,75 @@ run('OfficialFileService on PostgreSQL', () => {
     const id = await period('OPEN');
     await expect(svc.onPeriodClosed({ periodId: id, actorId: 'closer' })).resolves.toBeUndefined();
   });
+
+  it('a build that finishes after the period was reopened is thrown away: no current file for an open period', async () => {
+    const id = await period();
+    // Reopen the period at the very moment the finished workbook is about to be stored.
+    const reopenDuringBuild = new Proxy(db, {
+      get(target, prop, receiver) {
+        if (prop === '$transaction') {
+          return async (fn: never, options: never) => {
+            await target.dynReportPeriod.update({ where: { id }, data: { status: 'OPEN', finalizedAt: null } });
+            return (target.$transaction as (f: never, o: never) => unknown)(fn, options);
+          };
+        }
+        const value = Reflect.get(target, prop, receiver);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const racing = new OfficialFileService(reopenDuringBuild as never, aggregate as never);
+
+    await expect(racing.regenerate(id, 'mgr', 'r')).rejects.toMatchObject({ response: { code: 'PERIOD_NOT_FINALIZED' } });
+
+    expect(await db.dynReportOfficialFile.count({ where: { periodId: id } })).toBe(0);
+  });
+
+  it('a build of an earlier closure does not replace the file of the closure after it', async () => {
+    const id = await period();
+    await db.dynReportPeriod.update({ where: { id }, data: { finalizedAt: new Date('2026-11-01T00:00:00Z') } });
+    const reclosedDuringBuild = new Proxy(db, {
+      get(target, prop, receiver) {
+        if (prop === '$transaction') {
+          return async (fn: never, options: never) => {
+            await target.dynReportPeriod.update({ where: { id }, data: { finalizedAt: new Date('2026-11-02T00:00:00Z') } });
+            return (target.$transaction as (f: never, o: never) => unknown)(fn, options);
+          };
+        }
+        const value = Reflect.get(target, prop, receiver);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+
+    await expect(new OfficialFileService(reclosedDuringBuild as never, aggregate as never).regenerate(id, 'mgr', 'r')).rejects.toMatchObject({
+      response: { code: 'PERIOD_NOT_FINALIZED' },
+    });
+    expect(await db.dynReportOfficialFile.count({ where: { periodId: id } })).toBe(0);
+  });
+
+  it('two builds at the same moment leave exactly one current file', async () => {
+    const id = await period();
+
+    await Promise.all([svc.regenerate(id, 'a', 'r'), svc.regenerate(id, 'b', 'r')]);
+
+    const rows = await svc.list(id, 'u', 'r');
+    expect(rows.filter((r) => r.status === 'READY')).toHaveLength(1);
+    expect(rows).toHaveLength(2);
+  });
+
+  it('a closed period left without a file (a restart between the close and the build) gets one at the next catch-up', async () => {
+    const id = await period();
+    // The catch-up takes the oldest closures first; other specs leave closed periods in this scratch database, so this
+    // one is given the oldest closing time to be in the first batch.
+    await db.dynReportPeriod.update({ where: { id }, data: { finalizedAt: new Date('2000-01-01T00:00:00Z') } });
+    expect(await db.dynReportOfficialFile.count({ where: { periodId: id } })).toBe(0);
+
+    await svc.catchUp();
+
+    expect((await svc.list(id, 'u', 'r')).map((r) => r.status)).toEqual(['READY']);
+    // A period that already has a file is left alone by the next run.
+    await svc.catchUp();
+    expect(await db.dynReportOfficialFile.count({ where: { periodId: id } })).toBe(1);
+  }, 60_000);
 
   describe('who may take it', () => {
     it('a viewer of the whole report may list and download, but not make it again', async () => {

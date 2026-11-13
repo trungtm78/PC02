@@ -69,7 +69,19 @@ function uniqueSheetNames(names: string[]): string[] {
   });
 }
 
+/** The most criterion-by-team cells one file may hold: beyond it the workbook would not fit in memory safely. */
+export const OFFICIAL_FILE_MAX_CELLS = 400_000;
+
+export class OfficialFileTooLargeError extends Error {
+  constructor(public readonly cells: number) {
+    super(`OFFICIAL_FILE_TOO_LARGE: ${cells} cells, at most ${OFFICIAL_FILE_MAX_CELLS}`);
+  }
+}
+
 export async function buildOfficialWorkbook(input: OfficialWorkbookInput): Promise<Buffer> {
+  const cells = input.fields.length * Math.max(input.teams.length, 1);
+  if (cells > OFFICIAL_FILE_MAX_CELLS) throw new OfficialFileTooLargeError(cells);
+
   // The shape `contributors.ts` reads: one row per team with its submission.
   const rows = input.teams.map((t) => ({
     id: t.teamId,
@@ -107,8 +119,8 @@ export async function buildOfficialWorkbook(input: OfficialWorkbookInput): Promi
     const owing = rows.map((row) => obligated(row, f.fieldKey));
     const owed = owing.filter(Boolean).length;
     const received = rows.filter((row, i) => contributing(row, f.fieldKey, 'APPROVED') && filled(i, f.fieldKey)).length;
-    const total =
-      owed === 0 ? null : aggregateValues(f.aggregate, f.blankPolicy, contributionsFor(rows, f.fieldKey, 'APPROVED')).value;
+    // Always the engine's own answer (a COUNT nobody owes is 0, not blank): the same figure the closed snapshot holds.
+    const total = aggregateValues(f.aggregate, f.blankPolicy, contributionsFor(rows, f.fieldKey, 'APPROVED')).value;
 
     const row = summary.getRow(r);
     row.getCell(1).value = escapeXlsxCell(f.code ?? '');

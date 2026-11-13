@@ -1,5 +1,11 @@
 import * as ExcelJS from 'exceljs';
-import { buildOfficialWorkbook, OFFICIAL_SUMMARY_SHEET, type OfficialWorkbookInput } from './official-workbook';
+import {
+  buildOfficialWorkbook,
+  OFFICIAL_FILE_MAX_CELLS,
+  OFFICIAL_SUMMARY_SHEET,
+  OfficialFileTooLargeError,
+  type OfficialWorkbookInput,
+} from './official-workbook';
 
 const field = (fieldKey: string, label: string, over: Record<string, unknown> = {}) => ({
   fieldKey,
@@ -100,6 +106,22 @@ describe('buildOfficialWorkbook: the file a closed period is kept as', () => {
     const ws = (await open(await buildOfficialWorkbook(data))).worksheets[0];
 
     expect(rowValues(ws, 6)).toEqual(['2.2', 'Số vụ đình chỉ', 'vụ', null, '0/0', '—', '—', '—', '—']);
+  });
+
+  it('the total is always the engine\'s own: a COUNT nobody owes is 0, exactly as the closed snapshot has it', async () => {
+    const data = input({ fields: [field('S!C2', 'Số tổ có báo', { aggregate: 'COUNT' })] });
+    data.teams = data.teams.map((t) => ({ ...t, obligation: 'EXEMPT' }));
+
+    const ws = (await open(await buildOfficialWorkbook(data))).worksheets[0];
+
+    expect(ws.getCell('D5').value).toBe(0);
+    expect(ws.getCell('E5').value).toBe('0/0');
+  });
+
+  it('refuses to build a file too large to hold in memory, saying so', async () => {
+    const data = input({ fields: Array.from({ length: OFFICIAL_FILE_MAX_CELLS / 2 + 1 }, (_, i) => field(`S!C${i + 2}`, `c${i}`)) });
+    data.teams = data.teams.slice(0, 2);
+    await expect(buildOfficialWorkbook(data)).rejects.toBeInstanceOf(OfficialFileTooLargeError);
   });
 
   it('text that looks like a formula is written as text, and two teams with the same name get distinct sheets', async () => {

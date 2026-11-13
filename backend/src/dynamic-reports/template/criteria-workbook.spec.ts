@@ -250,9 +250,9 @@ describe('buildCriteriaWorkbook: the workbook the rest of the system already und
     const built = await buildCriteriaWorkbook(criteria);
 
     expect(built.fields).toEqual([
-      { address: 'C3', fieldKey: `${CRITERIA_SHEET_NAME}!C3`, itemKey: 'tin-moi', unit: 'tin', parentItemKey: 'tiep-nhan', origin: 'FILE' },
-      { address: 'C4', fieldKey: `${CRITERIA_SHEET_NAME}!C4`, itemKey: 'tin-cu', unit: 'tin', parentItemKey: 'tiep-nhan', origin: 'FILE' },
-      { address: 'C5', fieldKey: `${CRITERIA_SHEET_NAME}!C5`, itemKey: 'khoi-to', unit: 'vụ', parentItemKey: null, origin: 'MANUAL' },
+      { address: 'C3', fieldKey: `${CRITERIA_SHEET_NAME}!C3`, itemKey: 'tin-moi', code: '1', unit: 'tin', parentItemKey: 'tiep-nhan', origin: 'FILE' },
+      { address: 'C4', fieldKey: `${CRITERIA_SHEET_NAME}!C4`, itemKey: 'tin-cu', code: '2', unit: 'tin', parentItemKey: 'tiep-nhan', origin: 'FILE' },
+      { address: 'C5', fieldKey: `${CRITERIA_SHEET_NAME}!C5`, itemKey: 'khoi-to', code: null, unit: 'vụ', parentItemKey: null, origin: 'MANUAL' },
     ]);
   });
 

@@ -23,6 +23,7 @@ export interface ReportDetailField {
   source: string;
   /** Criteria reports: the criterion's stable code, unit, parent and origin; null for an ordinary template cell. */
   itemKey: string | null;
+  criterionCode: string | null;
   unit: string | null;
   parentItemKey: string | null;
   origin: string | null;
@@ -254,6 +255,7 @@ export class ReportDetailService {
               helpText: f.helpText,
               source: f.source,
               itemKey: f.itemKey,
+              criterionCode: f.criterionCode,
               unit: f.unit,
               parentItemKey: f.parentItemKey,
               origin: f.origin,

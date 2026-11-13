@@ -4233,6 +4233,8 @@ model DynReportField {
   /// A stable code for the criterion this field stands for. Unlike `fieldKey` (a cell address) it survives a new
   /// version that inserts or reorders rows. NULL for a field of an ordinary template: its `fieldKey` is then the code.
   itemKey       String?
+  /// The code the author's list gives the criterion ("1.1", "II"): what people call it. Display only, not unique.
+  criterionCode String?
   /// Unit of measure shown next to the criterion ("vụ", "người"). Criteria reports only.
   unit          String?
   /// `itemKey` of the parent criterion, when the list is a tree (children add up into the parent).

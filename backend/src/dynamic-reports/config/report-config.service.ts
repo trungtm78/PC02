@@ -214,6 +214,7 @@ export class ReportConfigService {
           helpText: f.helpText ?? t?.helpText,
           source: f.source,
           itemKey: f.itemKey,
+          criterionCode: f.criterionCode,
           unit: f.unit,
           parentItemKey: f.parentItemKey,
           origin: f.origin,

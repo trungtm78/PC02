@@ -112,9 +112,15 @@ run('AggregateService.setAssignmentCriteria on PostgreSQL', () => {
     expect((await db.dynReportAssignment.findUniqueOrThrow({ where: { id: s.assignmentId } })).ownedFieldKeys).toBeNull();
   });
 
-  it('an approved submission must be returned first', async () => {
-    const s = await scenario({ state: 'APPROVED' });
-    await expect(set(s, ['alpha'])).rejects.toMatchObject({ code: 'SUBMISSION_APPROVED' });
+  it.each(['SUBMITTED', 'APPROVED'])('a %s submission must be returned first: it was validated against the criteria it had', async (state) => {
+    const s = await scenario({ state });
+    await expect(set(s, ['alpha'])).rejects.toMatchObject({ code: 'SUBMISSION_MUST_BE_RETURNED' });
+    expect((await db.dynReportAssignment.findUniqueOrThrow({ where: { id: s.assignmentId } })).ownedFieldKeys).toBeNull();
+  });
+
+  it('a returned submission can be changed (the team will submit again and be validated again)', async () => {
+    const s = await scenario({ state: 'RETURNED' });
+    await expect(set(s, ['alpha'])).resolves.toMatchObject({ changed: true });
   });
 
   it('a closed period is not changed', async () => {

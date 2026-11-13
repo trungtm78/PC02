@@ -1,11 +1,15 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildOfficialWorkbook } from '../export/official-workbook';
 import { sanitizeFileNamePart } from '../export-filename.util';
 import { ownedKeys } from './contributors';
 import { AggregateService, PERIOD_CLOSED_EVENT } from './aggregate.service';
 import type { PeriodClosedEvent } from './aggregate.service';
+
+const CATCH_UP_BATCH = 5;
+const SYSTEM_ACTOR = 'system';
 
 export const OFFICIAL_FILE_ERROR = {
   PERIOD_NOT_FINALIZED: 'PERIOD_NOT_FINALIZED',
@@ -46,6 +50,25 @@ export class OfficialFileService {
         `Could not make the official file of period ${event.periodId}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
+  }
+
+  /**
+   * The close commits before the file is made, and the signal between the two lives in memory: a restart in between
+   * would leave a closed period with no file and no failed attempt to make again. This looks for such periods and
+   * makes their file; a few at a time, oldest closure first.
+   */
+  @Cron('*/10 * * * *', { name: 'dynamic-reports-official-file-catch-up' })
+  async catchUp(): Promise<number> {
+    const missing = await this.prisma.dynReportPeriod.findMany({
+      where: { status: 'FINALIZED', officialFiles: { none: {} } },
+      orderBy: { finalizedAt: 'asc' },
+      take: CATCH_UP_BATCH,
+      select: { id: true, finalizedById: true },
+    });
+    for (const period of missing) {
+      await this.onPeriodClosed({ periodId: period.id, actorId: period.finalizedById ?? SYSTEM_ACTOR });
+    }
+    return missing.length;
   }
 
   /** The manager's "make it again". */
@@ -98,7 +121,16 @@ export class OfficialFileService {
           select: {
             fields: {
               orderBy: [{ sheetKey: 'asc' }, { address: 'asc' }],
-              select: { fieldKey: true, label: true, unit: true, type: true, aggregate: true, blankPolicy: true, address: true },
+              select: {
+                fieldKey: true,
+                label: true,
+                criterionCode: true,
+                unit: true,
+                type: true,
+                aggregate: true,
+                blankPolicy: true,
+                address: true,
+              },
             },
           },
         },
@@ -109,6 +141,8 @@ export class OfficialFileService {
     if (period.status !== 'FINALIZED') {
       throw new ConflictException({ code: OFFICIAL_FILE_ERROR.PERIOD_NOT_FINALIZED });
     }
+    // WHICH closure this file is of: a period can be reopened and closed again while the workbook is being written.
+    const closedAt = period.finalizedAt?.getTime() ?? null;
 
     const nameOf = (a: (typeof period.assignments)[number]) =>
       (a.teamSnapshot as { name?: string } | null)?.name || a.teamId;
@@ -133,7 +167,7 @@ export class OfficialFileService {
       .map((f) => ({
         fieldKey: f.fieldKey,
         label: f.label,
-        code: null,
+        code: f.criterionCode,
         unit: f.unit,
         type: f.type,
         aggregate: f.aggregate,
@@ -156,6 +190,14 @@ export class OfficialFileService {
 
     const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}-chinh-thuc.xlsx`;
     const row = await this.prisma.$transaction(async (tx) => {
+      // Published under the period lock (the one closing and reopening take), and only if the period is still closed
+      // by the SAME closure the figures were read from: a file of an earlier closure, or of a period reopened in the
+      // meantime, is thrown away instead of becoming "the current file". The lock also makes two builds take turns.
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+      const now = await tx.dynReportPeriod.findUnique({ where: { id: periodId }, select: { status: true, finalizedAt: true } });
+      if (!now || now.status !== 'FINALIZED' || (now.finalizedAt?.getTime() ?? null) !== closedAt) {
+        throw new ConflictException({ code: OFFICIAL_FILE_ERROR.PERIOD_NOT_FINALIZED });
+      }
       if (fileBytes) {
         // The new file replaces the current one; a failed attempt replaces nothing.
         await tx.dynReportOfficialFile.updateMany({

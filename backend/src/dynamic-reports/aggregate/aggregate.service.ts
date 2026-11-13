@@ -1391,10 +1391,13 @@ export class AggregateService {
       if (!assignment || assignment.periodId !== periodId) {
         throw new NotFoundException('Không tìm thấy lượt giao này.');
       }
-      if (assignment.submission?.state === 'APPROVED') {
+      // A submission that is waiting for approval, or approved, was checked (required fields, rules) against the
+      // criteria it had: changing them underneath it would let figures be approved that nobody validated.
+      const state = assignment.submission?.state;
+      if (state === 'SUBMITTED' || state === 'APPROVED') {
         throw new SubmissionError(
-          'Bản nộp của tổ đã được duyệt. Hãy trả lại bản nộp trước khi đổi tiêu chí.',
-          'SUBMISSION_APPROVED',
+          'Bản nộp của tổ đang chờ duyệt hoặc đã duyệt. Hãy trả lại bản nộp trước khi đổi tiêu chí.',
+          'SUBMISSION_MUST_BE_RETURNED',
         );
       }
       const fields = await tx.dynReportField.findMany({

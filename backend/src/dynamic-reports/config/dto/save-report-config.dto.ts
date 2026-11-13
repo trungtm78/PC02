@@ -55,6 +55,8 @@ export class ReportFieldConfigDto {
   @IsIn(FIELD_SOURCES) source!: (typeof FIELD_SOURCES)[number];
   /** Criteria reports: the criterion this cell stands for, its unit, its parent, and where it came from. */
   @IsOptional() @Matches(ITEM_KEY) itemKey?: string;
+  /** The code the author's list gives the criterion ("1.1"); display only. */
+  @IsOptional() @IsString() @MaxLength(60) criterionCode?: string;
   @IsOptional() @IsString() @MaxLength(60) unit?: string;
   @IsOptional() @Matches(ITEM_KEY) parentItemKey?: string;
   @IsOptional() @IsIn(CRITERION_ORIGINS) origin?: (typeof CRITERION_ORIGINS)[number];
