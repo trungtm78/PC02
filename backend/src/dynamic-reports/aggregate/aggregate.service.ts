@@ -25,6 +25,7 @@ import { closingBasis, describeExcluded, excludedMessage, totalsNote } from './c
 import {
   applyAssignmentEditors,
   configuredEditorsOf,
+  configuredSubsetOf,
   findUnqualifiedEditors,
 } from './assignment-editors';
 import { hoTenCanBo } from '../../common/xuat-danh-sach/dinh-dang';
@@ -1239,6 +1240,8 @@ export class AggregateService {
       }
       await this.assertEditorsQualify(tx, [...editors]);
 
+      // The same freeze the scheduler does when it makes a period: the team joins with the criteria it is configured for.
+      const ownedFieldKeys = await configuredSubsetOf(tx, period.reportId, period.versionId, teamId, now);
       const assignment = await tx.dynReportAssignment.create({
         data: {
           periodId,
@@ -1246,6 +1249,7 @@ export class AggregateService {
           teamSnapshot: { id: team.id, name: team.name, code: team.code },
           obligation: 'REQUIRED',
           addedMidPeriodReason: reason,
+          ...(ownedFieldKeys ? { ownedFieldKeys } : {}),
         },
       });
       await tx.dynReportSubmission.create({
