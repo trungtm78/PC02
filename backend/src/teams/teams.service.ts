@@ -138,16 +138,6 @@ export class TeamsService {
     });
   }
 
-  async delete(
-    id: string,
-    actorId: string,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ) {
-    // Until the real delete lands this is a pause, through the lifecycle (the only writer of a team's state).
-    await this.lifecycle.setStatus(id, 'INACTIVE', actorId, meta);
-    return { success: true, message: 'Xóa tổ/nhóm thành công' };
-  }
-
   async addMember(teamId: string, userId: string, actorId: string) {
     // Fix #1: Guard empty/undefined userId
     if (!userId || typeof userId !== 'string') {

@@ -15,7 +15,7 @@ const mockService = {
   removeMember: jest.fn(),
 };
 
-const mockLifecycle = { setStatus: jest.fn() };
+const mockLifecycle = { setStatus: jest.fn(), deleteIfEmpty: jest.fn(), deletionCheck: jest.fn() };
 
 describe('TeamsController — delegation', () => {
   let controller: TeamsController;
@@ -59,6 +59,24 @@ describe('TeamsController — delegation', () => {
   it('getOptions() serves the picker list', async () => {
     mockService.options.mockResolvedValue([{ id: 't1' }]);
     await expect(controller.getOptions()).resolves.toEqual([{ id: 't1' }]);
+  });
+
+  it('delete() runs the guarded real delete through the lifecycle with the actor and audit info', async () => {
+    mockLifecycle.deleteIfEmpty.mockResolvedValue({ success: true });
+    const req = makeReq();
+    await controller.delete('team-1', mockUser, req);
+    expect(mockLifecycle.deleteIfEmpty).toHaveBeenCalledWith(
+      'team-1',
+      mockUser.id,
+      expect.objectContaining({ ipAddress: '127.0.0.1' }),
+    );
+    expect(mockService.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletionCheck() serves the preview the confirmation dialog shows', async () => {
+    mockLifecycle.deletionCheck.mockResolvedValue({ deletable: true, total: 0, blockers: [] });
+    await expect(controller.deletionCheck('team-1')).resolves.toEqual({ deletable: true, total: 0, blockers: [] });
+    expect(mockLifecycle.deletionCheck).toHaveBeenCalledWith('team-1');
   });
 
   it('setStatus() hands the new state to the lifecycle with the actor and audit info', async () => {

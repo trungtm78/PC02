@@ -107,10 +107,17 @@ export class TeamsController {
     @CurrentUser() user: AuthUser,
     @Req() req: Request,
   ) {
-    return this.teamsService.delete(id, user.id, {
+    return this.lifecycle.deleteIfEmpty(id, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
+  }
+
+  /** What still refers to the team: the delete confirmation lists it. Read-only. */
+  @Get(':id/deletion-check')
+  @RequirePermissions({ action: 'delete', subject: 'Team' })
+  deletionCheck(@Param('id') id: string) {
+    return this.lifecycle.deletionCheck(id);
   }
 
   // ── Members ────────────────────────────────────────────

@@ -61,7 +61,10 @@ run('Team status on PostgreSQL', () => {
   });
 
   afterAll(async () => {
+    await db.userTeam.deleteMany({ where: { team: { code: { startsWith: tag } } } });
     await db.team.deleteMany({ where: { code: { startsWith: tag } } });
+    await db.user.deleteMany({ where: { username: { startsWith: tag } } });
+    await db.role.deleteMany({ where: { name: { startsWith: tag } } });
     await pg.end();
     await db.$disconnect();
   });
@@ -136,6 +139,118 @@ run('Team status on PostgreSQL', () => {
         response: { code: 'TEAM_INVALID_TRANSITION' },
       });
       expect((await read(id)).status).toBe('ARCHIVED');
+    });
+  });
+
+  describe('real delete', () => {
+    let userId = '';
+    beforeAll(async () => {
+      const role = await db.role.create({ data: { name: `${tag}-role` } });
+      userId = (
+        await db.user.create({ data: { username: `${tag}-u`, passwordHash: 'x', roleId: role.id } })
+      ).id;
+    });
+
+    /** Every (table, column) that has a foreign key to `teams`, asked of PostgreSQL by an independent query. */
+    async function foreignKeysToTeams() {
+      const r = await pg.query<{ t: string; c: string }>(
+        `SELECT cl.relname AS t, a.attname AS c
+           FROM pg_constraint k
+           JOIN pg_class cl ON cl.oid = k.conrelid
+           JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = ANY (k.conkey)
+          WHERE k.contype = 'f' AND k.confrelid = 'teams'::regclass
+          ORDER BY 1, 2`,
+      );
+      return r.rows.map((x) => `${x.t}.${x.c}`);
+    }
+
+    it('looks at EVERY foreign key that points at teams (no hand-kept list to forget a new one)', async () => {
+      const seen: string[] = [];
+      const spy = new Proxy(db, {
+        get(target, prop, receiver) {
+          if (prop === '$queryRawUnsafe') {
+            return (sql: string, ...rest: unknown[]) => {
+              const m = /FROM "([^"]+)" WHERE "([^"]+)" = \$1/.exec(sql);
+              if (m) seen.push(`${m[1]}.${m[2]}`);
+              return (target as never as { $queryRawUnsafe: (...a: unknown[]) => unknown }).$queryRawUnsafe(sql, ...rest);
+            };
+          }
+          const value = Reflect.get(target, prop, receiver);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+      const { id } = await create();
+
+      await new TeamLifecycleService(spy as never, audit as never).deletionCheck(id);
+
+      expect(seen.sort()).toEqual(await foreignKeysToTeams());
+      // Anchors: the detector must include the cascading and the self-reference, or it proves nothing.
+      expect(seen).toEqual(expect.arrayContaining(['user_teams.teamId', 'teams.parentId']));
+    });
+
+    it('deletes an empty team for real and audits it', async () => {
+      const { id } = await create();
+
+      await expect(service.deleteIfEmpty(id, 'actor')).resolves.toEqual({ success: true });
+
+      expect(await db.team.findUnique({ where: { id } })).toBeNull();
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'TEAM_DELETED', subjectId: id }));
+    });
+
+    it('refuses a team that has a member (a cascading reference must not be deleted silently)', async () => {
+      const { id } = await create();
+      await db.userTeam.create({ data: { userId, teamId: id } });
+
+      await expect(service.deleteIfEmpty(id, 'actor')).rejects.toMatchObject({
+        response: { code: 'TEAM_HAS_DATA', details: [{ table: 'user_teams', column: 'teamId', count: 1 }] },
+      });
+
+      expect(await db.team.findUnique({ where: { id } })).not.toBeNull();
+      expect(await db.userTeam.count({ where: { teamId: id } })).toBe(1);
+    });
+
+    it('refuses a team that has a child team', async () => {
+      const parent = await create();
+      await create({ parentId: parent.id });
+
+      await expect(service.deleteIfEmpty(parent.id, 'actor')).rejects.toMatchObject({
+        response: { code: 'TEAM_HAS_DATA', details: [{ table: 'teams', column: 'parentId', count: 1 }] },
+      });
+    });
+
+    it('the preview and the delete agree, and an unknown team is a 404 for both', async () => {
+      const { id } = await create();
+      await expect(service.deletionCheck(id)).resolves.toEqual({ deletable: true, total: 0, blockers: [] });
+      await expect(service.deletionCheck('missing')).rejects.toMatchObject({ status: 404 });
+      await expect(service.deleteIfEmpty('missing', 'actor')).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('a member added while the delete is waiting for its lock is counted, and blocks the delete', async () => {
+      const { id } = await create();
+      const adder = new Client({ connectionString: url! });
+      await adder.connect();
+      try {
+        // The insert holds a share lock on the team row until it commits (that is what a foreign-key check takes).
+        await adder.query('BEGIN');
+        await adder.query('INSERT INTO user_teams ("userId", "teamId") VALUES ($1, $2)', [userId, id]);
+
+        const attempt = service.deleteIfEmpty(id, 'actor').catch((e: unknown) => e);
+
+        // Wait until the delete is really queued behind that lock, instead of sleeping for a guess.
+        for (let i = 0; i < 200; i += 1) {
+          const waiting = await pg.query(
+            `SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query ILIKE '%FOR UPDATE%' AND query ILIKE '%teams%'`,
+          );
+          if (waiting.rowCount) break;
+          await new Promise((r) => setTimeout(r, 25));
+        }
+        await adder.query('COMMIT');
+
+        expect(await attempt).toMatchObject({ response: { code: 'TEAM_HAS_DATA' } });
+        expect(await db.team.findUnique({ where: { id } })).not.toBeNull();
+      } finally {
+        await adder.end();
+      }
     });
   });
 });

@@ -230,29 +230,6 @@ describe('TeamsService', () => {
     });
   });
 
-  // ── delete ──────────────────────────────────────────────────────────────
-
-  describe('delete', () => {
-    it('is routed through the lifecycle (pause) until the real delete lands', async () => {
-      mockPrisma.team.findUnique.mockResolvedValue({ id: 't1', name: 'Team' });
-      mockLifecycle.setStatus.mockResolvedValue({ id: 't1', status: 'INACTIVE' });
-
-      const result = await service.delete('t1', 'actor-1');
-
-      expect(result.success).toBe(true);
-      expect(mockLifecycle.setStatus).toHaveBeenCalledWith('t1', 'INACTIVE', 'actor-1', undefined);
-      expect(mockPrisma.team.update).not.toHaveBeenCalled();
-    });
-
-    it('throws NotFoundException when team not found', async () => {
-      mockLifecycle.setStatus.mockRejectedValue(new NotFoundException('Team not found'));
-
-      await expect(service.delete('bad-id', 'actor-1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
   // ── getDescendantIds ─────────────────────────────────────────────────────
 
   describe('getDescendantIds', () => {
