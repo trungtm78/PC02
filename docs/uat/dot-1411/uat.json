@@ -1,0 +1,4483 @@
+{
+ "feature": "to-bao-cao-quyen-dot-1411",
+ "evidence_profile": "signoff",
+ "generated_at": "2026-11-14",
+ "test_cases": [
+  {
+   "tc_id": "TC-001",
+   "title": "Tổ đang hoạt động chuyển được sang Tạm ngừng",
+   "type": "STATE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T1-STATES",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T1-STATES (Kế hoạch Phần 0; yêu cầu 3 của anh)",
+   "catches_bug": "nút Tạm ngừng không đổi trạng thái",
+   "coverage_ids": [
+    "COV-T1-STATES-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Quản trị Tổ; chọn một tổ đang hoạt động; bấm Tạm ngừng; xác nhận",
+   "expected": "Tổ rời tab Đang hoạt động, xuất hiện ở tab Tạm ngừng",
+   "transition": {
+    "from": "ACTIVE",
+    "to": "INACTIVE",
+    "allowed": true
+   }
+  },
+  {
+   "tc_id": "TC-002",
+   "title": "Tổ tạm ngừng hoạt động lại được",
+   "type": "STATE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T1-STATES",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T1-STATES (Kế hoạch Phần 0; yêu cầu 3 của anh)",
+   "catches_bug": "tạm ngừng là ngõ cụt",
+   "coverage_ids": [
+    "COV-T1-STATES-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Tạm ngừng; bấm Hoạt động lại",
+   "expected": "Tổ trở về tab Đang hoạt động",
+   "transition": {
+    "from": "INACTIVE",
+    "to": "ACTIVE",
+    "allowed": true
+   }
+  },
+  {
+   "tc_id": "TC-003",
+   "title": "Tổ lưu trữ được và khôi phục được",
+   "type": "STATE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T1-STATES",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T1-STATES (Kế hoạch Phần 0; yêu cầu 3 của anh)",
+   "catches_bug": "lưu trữ xong không lấy lại được",
+   "coverage_ids": [
+    "COV-T1-STATES-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Lưu trữ một tổ; sang tab Đã lưu trữ; bấm Khôi phục",
+   "expected": "Sau Lưu trữ tổ ở tab Đã lưu trữ; sau Khôi phục tổ trở lại danh sách dùng được",
+   "transition": {
+    "from": "ARCHIVED",
+    "to": "ACTIVE",
+    "allowed": true
+   }
+  },
+  {
+   "tc_id": "TC-004",
+   "title": "Tổ đã lưu trữ không tạm ngừng tiếp được",
+   "type": "STATE",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T1-STATES",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T1-STATES (Kế hoạch Phần 0; yêu cầu 3 của anh)",
+   "catches_bug": "chuyển trạng thái tuỳ tiện",
+   "coverage_ids": [
+    "COV-T1-STATES-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gọi thao tác Tạm ngừng lên một tổ đã lưu trữ",
+   "expected": "Bị từ chối có mã lỗi; trạng thái giữ nguyên Đã lưu trữ",
+   "transition": {
+    "from": "ARCHIVED",
+    "to": "INACTIVE",
+    "allowed": false
+   }
+  },
+  {
+   "tc_id": "TC-005",
+   "title": "Màn quản trị Tổ có đúng ba tab kèm số đếm",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T4-TABS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T4-TABS (Mockup Quản trị Tổ)",
+   "catches_bug": "số trên tab lệch số dòng",
+   "coverage_ids": [
+    "COV-T4-TABS-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở Quản trị Tổ",
+   "expected": "Ba tab Đang hoạt động / Tạm ngừng / Đã lưu trữ; số trên tab bằng số dòng trong tab"
+  },
+  {
+   "tc_id": "TC-006",
+   "title": "Tổ tạm ngừng biến khỏi ô chọn tổ ở màn tạo Đơn thư",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T2-OPTIONS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T2-OPTIONS (Yêu cầu 3; R9)",
+   "catches_bug": "tổ đã ngừng vẫn chọn được khi giao việc",
+   "coverage_ids": [
+    "COV-T2-OPTIONS-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tạm ngừng tổ X; mở màn tạo Đơn thư; mở ô chọn tổ",
+   "expected": "Không còn tổ X trong ô chọn"
+  },
+  {
+   "tc_id": "TC-007",
+   "title": "Tổ tạm ngừng biến khỏi ô chọn ở màn bàn giao và phân công",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T2-OPTIONS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T2-OPTIONS (Yêu cầu 3; R9)",
+   "catches_bug": "một trong 11 chỗ gọi danh sách tổ bị sót",
+   "coverage_ids": [
+    "COV-T2-OPTIONS-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tạm ngừng tổ X; mở màn bàn giao / phân công; mở ô chọn tổ",
+   "expected": "Không còn tổ X"
+  },
+  {
+   "tc_id": "TC-008",
+   "title": "Tổ tạm ngừng biến khỏi ô chọn tổ khi thiết lập báo cáo động",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T2-OPTIONS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T2-OPTIONS (Yêu cầu 3; R9)",
+   "catches_bug": "báo cáo giao cho tổ đã ngừng",
+   "coverage_ids": [
+    "COV-T2-OPTIONS-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tạm ngừng tổ X; mở wizard báo cáo, bước chọn tổ",
+   "expected": "Không còn tổ X để chọn"
+  },
+  {
+   "tc_id": "TC-009",
+   "title": "Tổ đã lưu trữ cũng không có trong ô chọn",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T2-OPTIONS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T2-OPTIONS (Yêu cầu 3; R9)",
+   "catches_bug": "ô chọn chỉ lọc tạm ngừng, sót lưu trữ",
+   "coverage_ids": [
+    "COV-T2-OPTIONS-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Lưu trữ tổ Y; lấy danh sách ô chọn tổ",
+   "expected": "Danh sách chỉ gồm tổ đang hoạt động; không có Y"
+  },
+  {
+   "tc_id": "TC-010",
+   "title": "Tổ hoạt động lại thì hiện lại trong ô chọn",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T2-OPTIONS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T2-OPTIONS (Yêu cầu 3; R9)",
+   "catches_bug": "bật lại mà ô chọn còn nhớ bản cũ",
+   "coverage_ids": [
+    "COV-T2-OPTIONS-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Hoạt động lại tổ X; mở ô chọn tổ",
+   "expected": "Tổ X có trong ô chọn"
+  },
+  {
+   "tc_id": "TC-011",
+   "title": "Hồ sơ cũ của tổ đã ngừng vẫn hiện đúng tên tổ",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T3-NAME-KEEP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T3-NAME-KEEP (R9)",
+   "catches_bug": "ngừng tổ làm mất tên tổ trên hồ sơ cũ",
+   "coverage_ids": [
+    "COV-T3-NAME-KEEP-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tạm ngừng tổ X đang có hồ sơ; mở danh sách và chi tiết một hồ sơ của X",
+   "expected": "Cột/ô Tổ vẫn ghi tên tổ X, không rỗng, không hiện mã"
+  },
+  {
+   "tc_id": "TC-012",
+   "title": "Mỗi thao tác vòng đời có nút chiều ngược ngay trên màn đó",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T5-REVERSE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T5-REVERSE (Tiêu chuẩn \"tạo thì phải sửa và xoá\" (CLAUDE.md, 13/10))",
+   "catches_bug": "tạo xong là kẹt",
+   "coverage_ids": [
+    "COV-T5-REVERSE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Lần lượt Tạm ngừng, Lưu trữ; ở mỗi tab tìm nút đưa tổ trở lại",
+   "expected": "Tạm ngừng có Hoạt động lại; Lưu trữ có Khôi phục; không phải đi màn khác"
+  },
+  {
+   "tc_id": "TC-013",
+   "title": "Tổ chưa có dữ liệu xoá hẳn được",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T6-DELETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T6-DELETE (Yêu cầu 3; R8)",
+   "catches_bug": "xoá chỉ là ẩn",
+   "coverage_ids": [
+    "COV-T6-DELETE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tạo tổ mới chưa có người, chưa có hồ sơ; bấm Xoá; xác nhận",
+   "expected": "Tổ biến khỏi cả ba tab"
+  },
+  {
+   "tc_id": "TC-014",
+   "title": "Tổ có hồ sơ không có nút Xoá, chỉ có Gộp hoặc Lưu trữ",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "T6-DELETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T6-DELETE (Yêu cầu 3; R8)",
+   "catches_bug": "xoá tổ làm mồ côi hồ sơ",
+   "coverage_ids": [
+    "COV-T6-DELETE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở dòng một tổ đang có hồ sơ",
+   "expected": "Không có nút Xoá; có Gộp vào tổ khác và Lưu trữ"
+  },
+  {
+   "tc_id": "TC-015",
+   "title": "Gọi xoá thẳng một tổ có dữ liệu thì bị từ chối và nêu số bản ghi theo từng loại",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "T6-DELETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T6-DELETE (Yêu cầu 3; R8)",
+   "catches_bug": "máy chủ tin giao diện",
+   "coverage_ids": [
+    "COV-T6-DELETE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gọi xoá tổ đang có thành viên và hồ sơ",
+   "expected": "Từ chối kèm mã lỗi và số bản ghi phụ thuộc theo từng loại; tổ còn nguyên"
+  },
+  {
+   "tc_id": "TC-016",
+   "title": "Tổ chỉ có thành viên (chưa có hồ sơ) cũng không xoá hẳn được",
+   "type": "BOUNDARY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T6-DELETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T6-DELETE (Yêu cầu 3; R8)",
+   "catches_bug": "xoá kéo theo mất thành viên (quan hệ Cascade)",
+   "coverage_ids": [
+    "COV-T6-DELETE-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tổ có đúng 1 thành viên, 0 hồ sơ; gọi xoá",
+   "expected": "Từ chối; thành viên còn nguyên"
+  },
+  {
+   "tc_id": "TC-017",
+   "title": "Thêm thành viên vào tổ đúng lúc đang xoá thì không mất ai",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P1",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "T7-DELETE-RACE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T7-DELETE-RACE (R8)",
+   "catches_bug": "kẽ hở giữa xem trước và xoá",
+   "coverage_ids": [
+    "COV-T7-DELETE-RACE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Cùng lúc: một lệnh xoá tổ rỗng và một lệnh thêm thành viên vào tổ ấy",
+   "expected": "Hoặc xoá thành công và lệnh thêm bị từ chối, hoặc ngược lại; không có thành viên trỏ vào tổ đã mất"
+  },
+  {
+   "tc_id": "TC-018",
+   "title": "Gộp tổ có màn xem trước nêu số bản ghi sẽ chuyển",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T8-MERGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T8-MERGE (R5)",
+   "catches_bug": "gộp hàng loạt mà không biết trước",
+   "coverage_ids": [
+    "COV-T8-MERGE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Chọn Gộp vào tổ khác; chọn tổ đích",
+   "expected": "Trước khi xác nhận thấy số hồ sơ, số thành viên sẽ chuyển theo từng loại"
+  },
+  {
+   "tc_id": "TC-019",
+   "title": "Sau khi gộp, hồ sơ của tổ cũ thuộc tổ đích",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "T8-MERGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T8-MERGE (R5)",
+   "catches_bug": "gộp làm rơi hồ sơ",
+   "coverage_ids": [
+    "COV-T8-MERGE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Gộp tổ A vào tổ B; mở danh sách hồ sơ lọc theo tổ B",
+   "expected": "Hồ sơ trước đây của A nay hiện dưới tổ B; số lượng bằng số ở màn xem trước"
+  },
+  {
+   "tc_id": "TC-020",
+   "title": "Người thuộc cả hai tổ chỉ còn một dòng thành viên ở tổ đích",
+   "type": "EDGE",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T8-MERGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T8-MERGE (R5)",
+   "catches_bug": "trùng khoá làm gộp vỡ giữa chừng",
+   "coverage_ids": [
+    "COV-T8-MERGE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "A và B có chung một người; gộp A vào B",
+   "expected": "Người ấy thuộc B đúng một lần; nếu là tổ trưởng ở một trong hai thì vẫn là tổ trưởng"
+  },
+  {
+   "tc_id": "TC-021",
+   "title": "Tổ cũ sau khi gộp nằm ở Đã lưu trữ",
+   "type": "STATE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T8-MERGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T8-MERGE (R5)",
+   "catches_bug": "tổ cũ vẫn nhận việc sau khi gộp",
+   "coverage_ids": [
+    "COV-T8-MERGE-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Gộp A vào B; mở tab Đã lưu trữ",
+   "expected": "Tổ A ở tab Đã lưu trữ, không còn ở Đang hoạt động",
+   "transition": {
+    "from": "ACTIVE",
+    "to": "ARCHIVED",
+    "allowed": true
+   }
+  },
+  {
+   "tc_id": "TC-022",
+   "title": "Kỳ báo cáo đã sinh của tổ cũ không bị sửa khi gộp",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T8-MERGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T8-MERGE (R5)",
+   "catches_bug": "gộp viết lại lịch sử báo cáo",
+   "coverage_ids": [
+    "COV-T8-MERGE-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tổ A có lượt giao của một kỳ đã sinh; gộp A vào B; đọc lại kỳ ấy",
+   "expected": "Lượt giao của kỳ đã sinh vẫn đứng tên tổ A (lịch sử giữ nguyên)"
+  },
+  {
+   "tc_id": "TC-023",
+   "title": "Không gộp được một tổ vào chính nó",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T8-MERGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T8-MERGE (R5)",
+   "catches_bug": "gộp vào chính mình rồi lưu trữ chính mình",
+   "coverage_ids": [
+    "COV-T8-MERGE-6"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gọi gộp tổ A vào tổ A",
+   "expected": "Từ chối có mã lỗi; không gì thay đổi"
+  },
+  {
+   "tc_id": "TC-024",
+   "title": "Hoàn tác gộp đưa hồ sơ và thành viên về tổ cũ",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "T9-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T9-UNDO (R5)",
+   "catches_bug": "gộp không có đường lui",
+   "coverage_ids": [
+    "COV-T9-UNDO-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Gộp A vào B; bấm Hoàn tác",
+   "expected": "Hồ sơ và thành viên đã chuyển trở về A; A hoạt động lại"
+  },
+  {
+   "tc_id": "TC-025",
+   "title": "Hoàn tác bỏ qua bản ghi đã bị đổi sau khi gộp và nêu rõ là đã bỏ qua",
+   "type": "EDGE",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "T9-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T9-UNDO (R5)",
+   "catches_bug": "hoàn tác đè lên thay đổi sau đó",
+   "coverage_ids": [
+    "COV-T9-UNDO-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gộp A vào B; chuyển một hồ sơ từ B sang C; hoàn tác",
+   "expected": "Hồ sơ đã chuyển sang C ở nguyên C và được liệt kê là bỏ qua; phần còn lại về A"
+  },
+  {
+   "tc_id": "TC-026",
+   "title": "Hoàn tác hai lần thì lần hai bị từ chối",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-GOP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "T9-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T9-UNDO (R5)",
+   "catches_bug": "hoàn tác lặp làm xáo dữ liệu",
+   "coverage_ids": [
+    "COV-T9-UNDO-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Hoàn tác một lần gộp; gọi hoàn tác lần nữa",
+   "expected": "Lần hai bị từ chối có mã lỗi"
+  },
+  {
+   "tc_id": "TC-027",
+   "title": "Cán bộ thường không đổi được trạng thái tổ",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-TO-VONG-DOI",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "T1-STATES",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §T1-STATES (Kế hoạch Phần 0; yêu cầu 3 của anh)",
+   "catches_bug": "route vòng đời thiếu kiểm quyền",
+   "coverage_ids": [
+    "COV-T1-STATES-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Dùng tài khoản cán bộ gọi Tạm ngừng / Lưu trữ / Xoá / Gộp",
+   "expected": "Bị từ chối; tổ giữ nguyên",
+   "access": {
+    "url": "/api/v1/teams",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-028",
+   "title": "Tải file Excel lên thì thấy lưới của từng sheet và đổi sheet được",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B1-IMPORT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B1-IMPORT (Yêu cầu 2; xác nhận 13/11 \"chọn phạm vi\")",
+   "catches_bug": "chỉ đọc được sheet đầu",
+   "coverage_ids": [
+    "COV-B1-IMPORT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Wizard báo cáo, bước mẫu; tải file có 2 sheet",
+   "expected": "Hiện lưới chỉ đọc của sheet đầu; chọn được sheet thứ hai"
+  },
+  {
+   "tc_id": "TC-029",
+   "title": "Bấm tiêu đề cột thì cả cột thành tiêu chí, theo thứ tự dòng",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B1-IMPORT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B1-IMPORT (Yêu cầu 2; xác nhận 13/11 \"chọn phạm vi\")",
+   "catches_bug": "đảo thứ tự hoặc sót dòng",
+   "coverage_ids": [
+    "COV-B1-IMPORT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bấm tiêu đề cột chứa tên chỉ tiêu",
+   "expected": "Danh sách xem trước có mỗi ô chữ của cột là một tiêu chí, đúng thứ tự trên file"
+  },
+  {
+   "tc_id": "TC-030",
+   "title": "Chọn một số ô trong một cột thì chỉ các ô ấy thành tiêu chí",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B1-IMPORT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B1-IMPORT (Yêu cầu 2; xác nhận 13/11 \"chọn phạm vi\")",
+   "catches_bug": "chọn ô mà lấy cả cột",
+   "coverage_ids": [
+    "COV-B1-IMPORT-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tick 3 ô rời nhau trong một cột",
+   "expected": "Xem trước có đúng 3 tiêu chí ấy"
+  },
+  {
+   "tc_id": "TC-031",
+   "title": "Chọn theo khoảng bằng Shift và \"Chọn các dòng đang thấy\"",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B1-IMPORT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B1-IMPORT (Yêu cầu 2; xác nhận 13/11 \"chọn phạm vi\")",
+   "catches_bug": "chọn nhanh lệch một dòng",
+   "coverage_ids": [
+    "COV-B1-IMPORT-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bấm ô đầu; giữ Shift bấm ô cuối; rồi thử Chọn các dòng đang thấy",
+   "expected": "Khoảng giữa được chọn hết; lệnh chọn nhanh chọn đúng các dòng đang hiển thị"
+  },
+  {
+   "tc_id": "TC-032",
+   "title": "Không chọn được ô ở hai cột khác nhau làm tiêu chí",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B1-IMPORT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B1-IMPORT (Yêu cầu 2; xác nhận 13/11 \"chọn phạm vi\")",
+   "catches_bug": "tiêu chí trộn từ nhiều cột, sai thứ tự",
+   "coverage_ids": [
+    "COV-B1-IMPORT-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đã chọn ô ở cột B; thử tick thêm ô ở cột D",
+   "expected": "Lựa chọn chỉ nằm trong một cột (bị chặn hoặc chuyển hẳn sang cột mới)"
+  },
+  {
+   "tc_id": "TC-033",
+   "title": "Đặt cột mã và cột đơn vị tính thì tiêu chí mang mã và ĐVT của cùng dòng",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B2-CODE-UNIT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B2-CODE-UNIT (Xác nhận 13/11)",
+   "catches_bug": "mã lệch dòng với tên",
+   "coverage_ids": [
+    "COV-B2-CODE-UNIT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đặt cột A làm cột mã, cột C làm cột ĐVT",
+   "expected": "Mỗi tiêu chí ở xem trước có mã và ĐVT lấy từ đúng dòng của nó"
+  },
+  {
+   "tc_id": "TC-034",
+   "title": "Dòng trống mã hoặc trống ĐVT vẫn tạo được tiêu chí với giá trị mặc định",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B2-CODE-UNIT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B2-CODE-UNIT (Xác nhận 13/11)",
+   "catches_bug": "thiếu mã làm hỏng cả lượt nhập",
+   "coverage_ids": [
+    "COV-B2-CODE-UNIT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "File có vài dòng không có mã, không có ĐVT",
+   "expected": "Các dòng ấy vẫn thành tiêu chí; mã được sinh, ĐVT để trống hoặc mặc định"
+  },
+  {
+   "tc_id": "TC-035",
+   "title": "Thụt lề hoặc đánh số 1 / 1.1 / 1.1.1 thành cây cha con ở xem trước",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B3-HIER",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B3-HIER (Xác nhận 13/11)",
+   "catches_bug": "mất cấp cha con",
+   "coverage_ids": [
+    "COV-B3-HIER-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "File có mục 1, 1.1, 1.2, 2",
+   "expected": "Xem trước dạng cây: 1.1 và 1.2 nằm dưới 1"
+  },
+  {
+   "tc_id": "TC-036",
+   "title": "Khi tổng hợp, mục cha bằng tổng các mục con",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B3-HIER",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B3-HIER (Xác nhận 13/11)",
+   "catches_bug": "mục cha không cộng con",
+   "coverage_ids": [
+    "COV-B3-HIER-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Nhập 1.1 = 3, 1.2 = 4; xem tổng hợp",
+   "expected": "Mục 1 hiện 7"
+  },
+  {
+   "tc_id": "TC-037",
+   "title": "Xem trước cảnh báo ô trống, trùng tên, ô gộp, ô công thức",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B4-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B4-PREVIEW (Xác nhận 13/11)",
+   "catches_bug": "nhập thầm lặng dữ liệu xấu",
+   "coverage_ids": [
+    "COV-B4-PREVIEW-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "File có một ô trống, hai tên trùng, một ô gộp, một ô công thức trong phạm vi chọn",
+   "expected": "Mỗi loại có một cảnh báo nêu đúng dòng"
+  },
+  {
+   "tc_id": "TC-038",
+   "title": "Quá 2.000 dòng thì bị chặn kèm lời giải thích",
+   "type": "BOUNDARY",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B4-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B4-PREVIEW (Xác nhận 13/11)",
+   "catches_bug": "treo trình duyệt vì file quá lớn",
+   "coverage_ids": [
+    "COV-B4-PREVIEW-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Chọn cột có 2.001 ô chữ",
+   "expected": "Bị chặn và nói rõ giới hạn 2.000; với đúng 2.000 thì qua"
+  },
+  {
+   "tc_id": "TC-039",
+   "title": "Sửa tên, bỏ dòng, đổi ĐVT ngay ở xem trước mà không phải sửa file",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B4-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B4-PREVIEW (Xác nhận 13/11)",
+   "catches_bug": "phải sửa Excel rồi tải lại vì một lỗi chính tả",
+   "coverage_ids": [
+    "COV-B4-PREVIEW-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Ở xem trước: đổi tên một dòng, bỏ một dòng, đổi ĐVT một dòng; lưu",
+   "expected": "Bộ tiêu chí lưu đúng theo ba chỉnh sửa ấy"
+  },
+  {
+   "tc_id": "TC-040",
+   "title": "Máy chủ tự đọc lại ô từ file đã lưu, không tin nội dung trình duyệt gửi",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B5-SERVER",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B5-SERVER (Kế hoạch Phần B mục 2)",
+   "catches_bug": "chèn tiêu chí không có trong file",
+   "coverage_ids": [
+    "COV-B5-SERVER-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gửi yêu cầu tạo tiêu chí với (sheet, cột, dòng) hợp lệ nhưng kèm tên tiêu chí bịa",
+   "expected": "Tiêu chí được tạo mang tên ĐỌC TỪ FILE, không phải tên bịa",
+   "access": {
+    "url": "/api/v1/dynamic-reports",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-LY-BC"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-041",
+   "title": "Ô bắt đầu bằng = + - @ không thành công thức khi mở file xuất",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B5-SERVER",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B5-SERVER (Kế hoạch Phần B mục 2)",
+   "catches_bug": "CSV/Excel injection",
+   "coverage_ids": [
+    "COV-B5-SERVER-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "File có ô tên \"=HYPERLINK(...)\"; nhập; xuất file",
+   "expected": "Trong file xuất, ô ấy là chữ thường, không chạy công thức",
+   "access": {
+    "url": "/api/v1/dynamic-reports",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-LY-BC"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-042",
+   "title": "Tổ vừa được chọn mặc định phải báo TẤT CẢ tiêu chí",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B6-DEFAULT-ALL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B6-DEFAULT-ALL (Yêu cầu 2 \"mặc định chọn hết\")",
+   "catches_bug": "mặc định rỗng làm tổ không phải báo gì",
+   "coverage_ids": [
+    "COV-B6-DEFAULT-ALL-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bước chọn tổ; chọn một tổ; mở phần Tiêu chí tổ này phải báo",
+   "expected": "Mọi tiêu chí đều đang tick; dòng đếm ghi N/N"
+  },
+  {
+   "tc_id": "TC-043",
+   "title": "Bỏ tick một tiêu chí thì tổ ấy không phải báo tiêu chí đó",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "bỏ tick của tổ này ảnh hưởng tổ khác",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bỏ tick 2 tiêu chí của tổ A; lưu",
+   "expected": "Đếm của tổ A giảm 2; tổ khác không đổi"
+  },
+  {
+   "tc_id": "TC-044",
+   "title": "Chọn nhanh theo nhóm cha, Chọn hết, Bỏ hết, Đảo",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "nút chọn nhanh làm sai",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tick nhóm cha; bấm Bỏ hết; bấm Chọn hết; bấm Đảo",
+   "expected": "Tick nhóm cha chọn mọi con; ba nút làm đúng tên gọi"
+  },
+  {
+   "tc_id": "TC-045",
+   "title": "Thêm tay một tiêu chí cho báo cáo này, có nhãn phân biệt với tiêu chí từ file",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "muốn thêm một dòng phải sửa Excel",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Gõ một tiêu chí mới (tên, ĐVT, mục cha); lưu",
+   "expected": "Tiêu chí mới có trong danh sách và mang nhãn khác tiêu chí nạp từ file"
+  },
+  {
+   "tc_id": "TC-046",
+   "title": "Chép bộ tiêu chí từ tổ khác",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "chép sai hoặc chép ngược",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tổ B: bấm Chép từ tổ; chọn tổ A",
+   "expected": "Bộ tick của B giống hệt A"
+  },
+  {
+   "tc_id": "TC-047",
+   "title": "Áp một bộ tiêu chí cho nhiều tổ cùng lúc",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "áp nhầm cho tổ không chọn",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bấm Áp cho nhiều tổ; chọn 3 tổ; xác nhận",
+   "expected": "Cả 3 tổ có cùng bộ tick; tổ không chọn giữ nguyên"
+  },
+  {
+   "tc_id": "TC-048",
+   "title": "Ma trận tổ × tiêu chí cho tick theo hàng, theo cột",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "ma trận và danh sách nói khác nhau",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-6"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở Xem dạng ma trận; tick một ô; tick cả hàng; tick cả cột",
+   "expected": "Mỗi thao tác đổi đúng các ô tương ứng; số đếm mỗi tổ cập nhật"
+  },
+  {
+   "tc_id": "TC-049",
+   "title": "Trước khi sang bước sau thấy số tiêu chí mỗi tổ sẽ báo",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "B7-PER-TEAM",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B7-PER-TEAM (B8; kế hoạch mục 2b)",
+   "catches_bug": "không biết đã cài đúng chưa trước khi xuất bản",
+   "coverage_ids": [
+    "COV-B7-PER-TEAM-7"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Sau khi cài cho 3 tổ, nhìn phần tóm tắt",
+   "expected": "Mỗi tổ một dòng dạng \"Tổ A: 45/120\""
+  },
+  {
+   "tc_id": "TC-050",
+   "title": "Xuất ma trận ra Excel rồi nhập lại thì bộ tick không đổi",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B15-MATRIX",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B15-MATRIX (B3 cách thứ tư)",
+   "catches_bug": "khứ hồi làm lệch dữ liệu",
+   "coverage_ids": [
+    "COV-B15-MATRIX-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Xuất ma trận; không sửa; nhập lại",
+   "expected": "Không ô nào đổi; báo 0 thay đổi"
+  },
+  {
+   "tc_id": "TC-051",
+   "title": "Nhập ma trận đã sửa thì đổi đúng các ô đã sửa",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B15-MATRIX",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B15-MATRIX (B3 cách thứ tư)",
+   "catches_bug": "nhập đè cả bảng",
+   "coverage_ids": [
+    "COV-B15-MATRIX-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Xuất ma trận; đổi 2 ô trong Excel; nhập lại",
+   "expected": "Đúng 2 ô đổi; xem trước nêu 2 thay đổi trước khi lưu"
+  },
+  {
+   "tc_id": "TC-052",
+   "title": "File ma trận hỏng, sai mẫu hoặc nén bom bị từ chối, không đổi gì",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B15-MATRIX",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B15-MATRIX (B3 cách thứ tư)",
+   "catches_bug": "file độc làm sập máy chủ",
+   "coverage_ids": [
+    "COV-B15-MATRIX-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Nhập một file không phải mẫu ma trận; một file giải nén ra cực lớn",
+   "expected": "Cả hai bị từ chối có mã lỗi; bộ tick giữ nguyên",
+   "access": {
+    "url": "/api/v1/dynamic-reports",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-LY-BC"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-053",
+   "title": "Nhập ma trận dựa trên bản cũ khi người khác vừa sửa thì bị báo xung đột",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B15-MATRIX",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B15-MATRIX (B3 cách thứ tư)",
+   "catches_bug": "người sau đè người trước",
+   "coverage_ids": [
+    "COV-B15-MATRIX-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "A xuất ma trận; B sửa và lưu; A nhập file của mình",
+   "expected": "A bị từ chối vì dữ liệu đã đổi; thay đổi của B còn nguyên"
+  },
+  {
+   "tc_id": "TC-054",
+   "title": "Người nhập của tổ chỉ thấy tiêu chí được giao cho tổ mình",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B8-ENTRY-ONLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B8-ENTRY-ONLY (Yêu cầu 2; R6)",
+   "catches_bug": "tổ thấy tiêu chí của tổ khác",
+   "coverage_ids": [
+    "COV-B8-ENTRY-ONLY-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tổ A được giao 3/10 tiêu chí; người nhập của A mở màn nhập",
+   "expected": "Lưới có đúng 3 dòng ấy"
+  },
+  {
+   "tc_id": "TC-055",
+   "title": "Dữ liệu trả về cho người nhập không chứa tiêu chí ngoài tập của tổ",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B8-ENTRY-ONLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B8-ENTRY-ONLY (Yêu cầu 2; R6)",
+   "catches_bug": "ẩn ở giao diện nhưng lộ trong phản hồi",
+   "coverage_ids": [
+    "COV-B8-ENTRY-ONLY-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Người nhập của A tải mô hình lưới và giá trị",
+   "expected": "Phản hồi không có mã hay tên của 7 tiêu chí không giao (không chỉ ẩn trên màn hình)",
+   "access": {
+    "url": "/api/v1/dynamic-reports",
+    "method": "GET",
+    "allow": [
+     "P-NGUOI-NHAP",
+     "P-QUAN-LY-BC",
+     "P-QUAN-TRI"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-056",
+   "title": "File tổ tự xuất không có nội dung của tiêu chí không được giao",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B8-ENTRY-ONLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B8-ENTRY-ONLY (Yêu cầu 2; R6)",
+   "catches_bug": "file xuất lộ tiêu chí",
+   "coverage_ids": [
+    "COV-B8-ENTRY-ONLY-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Người nhập của A xuất file của tổ mình",
+   "expected": "File chỉ có 3 tiêu chí của A; không ô nào mang tên/giá trị tiêu chí khác"
+  },
+  {
+   "tc_id": "TC-057",
+   "title": "Đổi tập tiêu chí của tổ thì màn nhập đang mở nhận tập mới ở lần tải kế tiếp",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B8-ENTRY-ONLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B8-ENTRY-ONLY (Yêu cầu 2; R6)",
+   "catches_bug": "bộ đệm giữ tập cũ",
+   "coverage_ids": [
+    "COV-B8-ENTRY-ONLY-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Người nhập đang mở lưới; quản lý bỏ một tiêu chí của tổ; người nhập tải lại",
+   "expected": "Lưới không còn dòng vừa bỏ (không dùng bản đệm cũ)"
+  },
+  {
+   "tc_id": "TC-058",
+   "title": "Lưu giá trị cho tiêu chí không thuộc tổ bị từ chối",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B9-REJECT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B9-REJECT (Kế hoạch Phần B mục 4)",
+   "catches_bug": "ghi lậu vào tiêu chí của tổ khác",
+   "coverage_ids": [
+    "COV-B9-REJECT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Người nhập của A gửi giá trị cho một tiêu chí không giao cho A",
+   "expected": "Từ chối với mã FIELD_NOT_ASSIGNED; không giá trị nào được ghi"
+  },
+  {
+   "tc_id": "TC-059",
+   "title": "Nhập Excel có dòng của tiêu chí không thuộc tổ bị từ chối",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B9-REJECT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B9-REJECT (Kế hoạch Phần B mục 4)",
+   "catches_bug": "đường nhập Excel đi vòng qua kiểm tra",
+   "coverage_ids": [
+    "COV-B9-REJECT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Nhập file có thêm một dòng tiêu chí không giao",
+   "expected": "Lượt nhập bị từ chối nêu dòng sai; các giá trị cũ còn nguyên"
+  },
+  {
+   "tc_id": "TC-060",
+   "title": "Kiểm tra bắt buộc chỉ xét tiêu chí của tổ",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-NGUOI-NHAP",
+   "journey_ref": "J-BC-NHAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B9-REJECT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B9-REJECT (Kế hoạch Phần B mục 4)",
+   "catches_bug": "tổ không nộp được vì tiêu chí không phải của mình",
+   "coverage_ids": [
+    "COV-B9-REJECT-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tổ A có 3 tiêu chí bắt buộc; báo cáo có tiêu chí bắt buộc khác không giao cho A; A điền đủ 3 rồi nộp",
+   "expected": "Nộp được; không bị đòi tiêu chí không giao"
+  },
+  {
+   "tc_id": "TC-061",
+   "title": "Tổng của một tiêu chí chỉ cộng các tổ được giao tiêu chí đó",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B10-AGG",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B10-AGG (Kế hoạch Phần B mục 5)",
+   "catches_bug": "tổng sai",
+   "coverage_ids": [
+    "COV-B10-AGG-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tiêu chí X giao cho A (20) và B (25), không giao cho C; xem tổng",
+   "expected": "Tổng X = 45"
+  },
+  {
+   "tc_id": "TC-062",
+   "title": "Tổ không được giao không bị tính như số 0",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B10-AGG",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B10-AGG (Kế hoạch Phần B mục 5)",
+   "catches_bug": "tổ không giao kéo trung bình xuống",
+   "coverage_ids": [
+    "COV-B10-AGG-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Như trên; xem ô của tổ C và các phép tính trung bình",
+   "expected": "Ô của C là \"—\" (không giao), không phải 0; trung bình chia cho 2"
+  },
+  {
+   "tc_id": "TC-063",
+   "title": "Độ đầy đủ = số đã nhận / số PHẢI NỘP",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B11-COMPLETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B11-COMPLETE (R7)",
+   "catches_bug": "báo 1/1 = 100% trong khi thiếu một tổ",
+   "coverage_ids": [
+    "COV-B11-COMPLETE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "X giao cho A và B; chỉ A nộp",
+   "expected": "X hiện 1/2 và 50%"
+  },
+  {
+   "tc_id": "TC-064",
+   "title": "Tổ được miễn nộp không nằm trong số phải nộp",
+   "type": "EDGE",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B11-COMPLETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B11-COMPLETE (R7)",
+   "catches_bug": "miễn nộp vẫn bị tính thiếu",
+   "coverage_ids": [
+    "COV-B11-COMPLETE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "X giao cho A, B; B được miễn nộp; A nộp",
+   "expected": "X hiện 1/1 và 100%"
+  },
+  {
+   "tc_id": "TC-065",
+   "title": "Màn Tình trạng chia theo số tiêu chí thuộc từng tổ",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B11-COMPLETE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B11-COMPLETE (R7)",
+   "catches_bug": "mọi tổ bị chia cho tổng số tiêu chí của báo cáo",
+   "coverage_ids": [
+    "COV-B11-COMPLETE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tổ A được giao 3, đã điền 3; tổ B được giao 10, đã điền 5",
+   "expected": "A hiện 3/3; B hiện 5/10"
+  },
+  {
+   "tc_id": "TC-066",
+   "title": "Khoá sổ xong có file chính thức trong danh sách tải về",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B12-OFFICIAL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B12-OFFICIAL (Yêu cầu 2; kế hoạch mục 6)",
+   "catches_bug": "khoá sổ xong không có file",
+   "coverage_ids": [
+    "COV-B12-OFFICIAL-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Khoá sổ một kỳ; mở danh sách file",
+   "expected": "Có file chính thức của kỳ, tải được"
+  },
+  {
+   "tc_id": "TC-067",
+   "title": "File chính thức không hết hạn",
+   "type": "BOUNDARY",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B12-OFFICIAL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B12-OFFICIAL (Yêu cầu 2; kế hoạch mục 6)",
+   "catches_bug": "file biến mất sau 24 giờ như file xuất thường",
+   "coverage_ids": [
+    "COV-B12-OFFICIAL-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở lại danh sách file sau hơn 24 giờ kể từ lúc khoá sổ",
+   "expected": "File vẫn tải được"
+  },
+  {
+   "tc_id": "TC-068",
+   "title": "Sheet đầu \"Tổng hợp\": mỗi tiêu chí một dòng, có Tổng, Đã nhận/Phải nộp, %, rồi mỗi tổ một cột",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B12-OFFICIAL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B12-OFFICIAL (Yêu cầu 2; kế hoạch mục 6)",
+   "catches_bug": "sheet tổng hợp sai số",
+   "coverage_ids": [
+    "COV-B12-OFFICIAL-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở file chính thức, sheet đầu",
+   "expected": "Đúng bố cục ấy; số Tổng và % khớp phép tính tay trên dữ liệu đã nhập"
+  },
+  {
+   "tc_id": "TC-069",
+   "title": "Ô của tổ ở sheet Tổng hợp: giá trị nếu có, đánh dấu thiếu nếu được giao mà chưa nộp, \"—\" nếu không giao",
+   "type": "DECISION",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B12-OFFICIAL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B12-OFFICIAL (Yêu cầu 2; kế hoạch mục 6)",
+   "catches_bug": "không phân biệt được thiếu với không giao",
+   "coverage_ids": [
+    "COV-B12-OFFICIAL-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Dựng ba trường hợp cho ba tổ trên cùng một tiêu chí; khoá sổ; mở file",
+   "expected": "Ba ô hiện đúng ba kiểu"
+  },
+  {
+   "tc_id": "TC-070",
+   "title": "Sau sheet Tổng hợp, mỗi tổ một sheet chỉ có tiêu chí của tổ đó",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B12-OFFICIAL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B12-OFFICIAL (Yêu cầu 2; kế hoạch mục 6)",
+   "catches_bug": "sheet tổ chứa tiêu chí của tổ khác",
+   "coverage_ids": [
+    "COV-B12-OFFICIAL-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở từng sheet tổ trong file chính thức",
+   "expected": "Số sheet tổ bằng số tổ; mỗi sheet chỉ có tiêu chí giao cho tổ ấy"
+  },
+  {
+   "tc_id": "TC-071",
+   "title": "Tạo file lỗi thì kỳ vẫn khoá, có báo lỗi và nút Tạo lại",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B13-RETRY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B13-RETRY (R12)",
+   "catches_bug": "khoá sổ thành công mà không ai biết thiếu file",
+   "coverage_ids": [
+    "COV-B13-RETRY-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Gây lỗi tạo file (theo cách môi trường thử cho phép); khoá sổ",
+   "expected": "Kỳ đã khoá; màn kỳ báo tạo file lỗi và có nút Tạo lại; bấm thì có file"
+  },
+  {
+   "tc_id": "TC-072",
+   "title": "Mở lại kỳ thì file chính thức cũ được đánh dấu vô hiệu",
+   "type": "STATE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B13-RETRY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B13-RETRY (R12)",
+   "catches_bug": "file cũ vẫn được coi là chính thức sau khi số liệu đổi",
+   "coverage_ids": [
+    "COV-B13-RETRY-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Kỳ đã có file chính thức; quản trị mở lại kỳ",
+   "expected": "File cũ mang nhãn vô hiệu; khoá sổ lại thì có file mới",
+   "transition": {
+    "from": "LOCKED",
+    "to": "REOPENED",
+    "allowed": true
+   }
+  },
+  {
+   "tc_id": "TC-073",
+   "title": "Đổi tập tiêu chí của kỳ đang chạy phải nhập lý do",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B14-MIDPERIOD",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B14-MIDPERIOD (Kế hoạch mục 3 (D09))",
+   "catches_bug": "đổi giữa kỳ không để lại dấu vết",
+   "coverage_ids": [
+    "COV-B14-MIDPERIOD-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Kỳ đang chạy; đổi tập tiêu chí của một tổ; để trống lý do",
+   "expected": "Không lưu được khi thiếu lý do; có lý do thì lưu và ghi lại ai, khi nào"
+  },
+  {
+   "tc_id": "TC-074",
+   "title": "Đổi tập khi bản nộp đã duyệt thì bản nộp được trả lại kèm lý do",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B14-MIDPERIOD",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B14-MIDPERIOD (Kế hoạch mục 3 (D09))",
+   "catches_bug": "bản đã duyệt thiếu tiêu chí vừa giao",
+   "coverage_ids": [
+    "COV-B14-MIDPERIOD-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bản nộp của tổ đã duyệt; thêm một tiêu chí cho tổ",
+   "expected": "Bản nộp trở về trạng thái trả lại, có lý do; tổ phải điền tiêu chí mới"
+  },
+  {
+   "tc_id": "TC-075",
+   "title": "Kỳ chưa mở nhận tập theo cấu hình mới, không cần thao tác giữa kỳ",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B14-MIDPERIOD",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B14-MIDPERIOD (Kế hoạch mục 3 (D09))",
+   "catches_bug": "đổi cấu hình làm thay kỳ đã sinh",
+   "coverage_ids": [
+    "COV-B14-MIDPERIOD-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Đổi cấu hình tập của tổ; để kỳ kế tiếp sinh ra",
+   "expected": "Kỳ mới dùng tập mới; kỳ đã sinh giữ tập đã chụp"
+  },
+  {
+   "tc_id": "TC-076",
+   "title": "Tiêu chí mới ở phiên bản sau mặc định giao cho mọi tổ",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "B17-NEWVERSION",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B17-NEWVERSION (Kế hoạch mục 3)",
+   "catches_bug": "tiêu chí mới không tổ nào phải báo",
+   "coverage_ids": [
+    "COV-B17-NEWVERSION-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Ra phiên bản mới có thêm một tiêu chí",
+   "expected": "Tiêu chí mới được tick cho mọi tổ; màn xuất bản cho đổi"
+  },
+  {
+   "tc_id": "TC-077",
+   "title": "Ra phiên bản mới thì tập của tổ được giữ theo MÃ tiêu chí, kể cả khi đổi tên",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "B17-NEWVERSION",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B17-NEWVERSION (Kế hoạch mục 3)",
+   "catches_bug": "đổi tên làm rơi tiêu chí khỏi tập của tổ",
+   "coverage_ids": [
+    "COV-B17-NEWVERSION-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đổi tên một tiêu chí và đổi vị trí dòng trong file; ra phiên bản mới",
+   "expected": "Tổ nào đang báo tiêu chí ấy vẫn báo nó; màn so khác biệt ghi \"đổi tên\""
+  },
+  {
+   "tc_id": "TC-078",
+   "title": "Báo cáo cũ không cài tập tiêu chí cho ra tổng hợp y như trước",
+   "type": "REGRESSION",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-KHOA-SO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B16-LEGACY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B16-LEGACY (Rủi ro Phần B)",
+   "catches_bug": "gom vòng tính làm lệch báo cáo đang dùng",
+   "coverage_ids": [
+    "COV-B16-LEGACY-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Báo cáo đã có từ trước đợt này (mọi tổ cùng một bộ ô); xem tổng hợp và độ đầy đủ",
+   "expected": "Số liệu bằng đúng số trước đợt này"
+  },
+  {
+   "tc_id": "TC-079",
+   "title": "Người không có quyền quản lý báo cáo không cài được tập tiêu chí",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-LY-BC",
+   "journey_ref": "J-BC-THIET-LAP",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "B8-ENTRY-ONLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §B8-ENTRY-ONLY (Yêu cầu 2; R6)",
+   "catches_bug": "người nhập tự bớt tiêu chí của tổ mình",
+   "coverage_ids": [
+    "COV-B8-ENTRY-ONLY-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tài khoản cán bộ gọi lưu tập tiêu chí của một tổ",
+   "expected": "Bị từ chối",
+   "access": {
+    "url": "/api/v1/dynamic-reports",
+    "method": "PUT",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-LY-BC"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-080",
+   "title": "Chưa bật thì cấu hình ở màn Phân quyền không đổi quyền của ai",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A18-OFF",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A18-OFF (Kế hoạch \"Triển khai an toàn\")",
+   "catches_bug": "cấu hình có hiệu lực trước khi bật",
+   "coverage_ids": [
+    "COV-A18-OFF-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Chế độ Tắt; gán cho tổ một mẫu ít quyền hơn vai trò; cán bộ của tổ đọc hồ sơ cá nhân",
+   "expected": "Cán bộ vẫn có đủ quyền của vai trò"
+  },
+  {
+   "tc_id": "TC-081",
+   "title": "Phạm vi xem dùng lời Chỉ của mình / Cả tổ / Toàn bộ; thao tác là Thêm / Sửa / Xoá",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A31-EASY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A31-EASY (B5 \"dễ dùng, dễ hiểu\")",
+   "catches_bug": "màn hình dùng từ kỹ thuật khó hiểu",
+   "coverage_ids": [
+    "COV-A31-EASY-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở tab Quyền theo tổ, chọn một tổ",
+   "expected": "Bảng dùng đúng các từ ấy; không có mã quyền kỹ thuật trên màn chính"
+  },
+  {
+   "tc_id": "TC-082",
+   "title": "Phần nâng cao (kế thừa, ngoại lệ, hạn dùng, theo người) nằm sau nút Nâng cao",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "A31-EASY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A31-EASY (B5 \"dễ dùng, dễ hiểu\")",
+   "catches_bug": "màn chính quá rối",
+   "coverage_ids": [
+    "COV-A31-EASY-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở tab Quyền theo tổ; chưa bấm Nâng cao",
+   "expected": "Chỉ thấy chọn mẫu và bảng quyền; bấm Nâng cao mới thấy ngoại lệ"
+  },
+  {
+   "tc_id": "TC-083",
+   "title": "Tạo mẫu quyền mới và thấy nó trong danh sách",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "lưu xong không thấy mẫu",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Mẫu quyền; Thêm mẫu; đặt tên; tick vài quyền; lưu",
+   "expected": "Mẫu xuất hiện trong danh sách với đúng các quyền đã tick"
+  },
+  {
+   "tc_id": "TC-084",
+   "title": "Sửa mẫu rồi mở lại thấy đúng thay đổi",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "sửa không lưu",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở một mẫu; đổi phạm vi Đơn thư từ Cả tổ sang Chỉ của mình; lưu; mở lại",
+   "expected": "Mẫu ghi Chỉ của mình"
+  },
+  {
+   "tc_id": "TC-085",
+   "title": "Sao chép mẫu cho ra mẫu mới giống hệt, sửa bản sao không đổi bản gốc",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "bản sao dính bản gốc",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Sao chép một mẫu; sửa bản sao; mở bản gốc",
+   "expected": "Bản gốc không đổi"
+  },
+  {
+   "tc_id": "TC-086",
+   "title": "Lưu trữ mẫu rồi khôi phục được",
+   "type": "STATE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "lưu trữ là ngõ cụt",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Lưu trữ một mẫu; khôi phục",
+   "expected": "Mẫu lưu trữ không còn để chọn cho tổ; khôi phục thì chọn lại được",
+   "transition": {
+    "from": "ARCHIVED",
+    "to": "ACTIVE",
+    "allowed": true
+   }
+  },
+  {
+   "tc_id": "TC-087",
+   "title": "Xoá mẫu không tổ nào dùng",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "tạo được mà không xoá được",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Xoá một mẫu chưa gán cho tổ nào",
+   "expected": "Mẫu biến khỏi danh sách"
+  },
+  {
+   "tc_id": "TC-088",
+   "title": "Mẫu đang có tổ dùng thì không xoá được, và nói rõ tổ nào đang dùng",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "xoá mẫu làm tổ mất cấu hình",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-6"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Xoá một mẫu đang gán cho tổ A",
+   "expected": "Bị từ chối, nêu tên tổ A; mẫu còn nguyên"
+  },
+  {
+   "tc_id": "TC-089",
+   "title": "Mẫu không có tên thì không lưu được",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "A8-TEMPLATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A8-TEMPLATE (B3 cách 1; \"tạo thì phải sửa và xoá\")",
+   "catches_bug": "mẫu vô danh",
+   "coverage_ids": [
+    "COV-A8-TEMPLATE-7"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Thêm mẫu; để trống tên; lưu",
+   "expected": "Không lưu; báo cần tên"
+  },
+  {
+   "tc_id": "TC-090",
+   "title": "Tick cả hàng, cả cột, cả mục trong ma trận mẫu",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A9-MATRIX",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A9-MATRIX (B3 cách 3)",
+   "catches_bug": "tick nhanh đổi nhầm ô",
+   "coverage_ids": [
+    "COV-A9-MATRIX-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Trong ma trận: tick ô đầu mục; tick tiêu đề cột Xoá; tick đầu hàng Vụ án",
+   "expected": "Mỗi lần tick đổi đúng các ô thuộc mục / cột / hàng ấy"
+  },
+  {
+   "tc_id": "TC-091",
+   "title": "Không cấp được Sửa rộng hơn Xem trên cùng một chức năng",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A14-SEE-BEFORE-CHANGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A14-SEE-BEFORE-CHANGE (Kế hoạch (quyền ghi nằm trong quyền đọc))",
+   "catches_bug": "người sửa được hồ sơ mình không mở được",
+   "coverage_ids": [
+    "COV-A14-SEE-BEFORE-CHANGE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đặt Xem Đơn thư = Chỉ của mình, Sửa Đơn thư = Cả tổ; lưu",
+   "expected": "Không lưu được; lời báo nói phải được xem thì mới được sửa"
+  },
+  {
+   "tc_id": "TC-092",
+   "title": "Không cấp được Thêm/Sửa/Xoá khi không cấp Xem",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A14-SEE-BEFORE-CHANGE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A14-SEE-BEFORE-CHANGE (Kế hoạch (quyền ghi nằm trong quyền đọc))",
+   "catches_bug": "quyền ghi mồ côi",
+   "coverage_ids": [
+    "COV-A14-SEE-BEFORE-CHANGE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bỏ Xem Vụ việc nhưng tick Sửa Vụ việc; lưu",
+   "expected": "Không lưu được"
+  },
+  {
+   "tc_id": "TC-093",
+   "title": "Người lưu không cấp được quyền mà chính họ không có",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A13-NO-ESCALATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A13-NO-ESCALATE (Kế hoạch \"Ai được sửa cấu hình quyền\")",
+   "catches_bug": "tự nâng quyền qua mẫu",
+   "coverage_ids": [
+    "COV-A13-NO-ESCALATE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tài khoản có quyền sửa cấu hình nhưng thiếu quyền Q; lưu mẫu có Q",
+   "expected": "Bị từ chối, nêu quyền Q",
+   "access": {
+    "url": "/api/v1/authz/templates",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-094",
+   "title": "Cấp quyền nhạy cảm (Toàn bộ, xuất đầy đủ, quản trị người dùng/vai trò) phải có lý do",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A13-NO-ESCALATE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A13-NO-ESCALATE (Kế hoạch \"Ai được sửa cấu hình quyền\")",
+   "catches_bug": "cấp quyền nhạy cảm không dấu vết",
+   "coverage_ids": [
+    "COV-A13-NO-ESCALATE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tick một quyền nhạy cảm; lưu không nhập lý do",
+   "expected": "Không lưu được khi thiếu lý do; có lý do thì lưu"
+  },
+  {
+   "tc_id": "TC-095",
+   "title": "Bấm Tạo 3 mẫu khởi đầu thì có ba mẫu: Cán bộ (như hiện nay), Chỉ hồ sơ của mình, Chỉ xem",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A17-STARTERS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A17-STARTERS (B3 cách 1; kế hoạch D6)",
+   "catches_bug": "quản trị viên không có điểm bắt đầu",
+   "coverage_ids": [
+    "COV-A17-STARTERS-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Hệ thống chưa có mẫu; bấm Tạo 3 mẫu khởi đầu",
+   "expected": "Ba mẫu xuất hiện; mẫu Chỉ xem không có Thêm/Sửa/Xoá; mẫu Chỉ hồ sơ của mình ghi Chỉ của mình"
+  },
+  {
+   "tc_id": "TC-096",
+   "title": "Bấm lần hai không tạo trùng",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A17-STARTERS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A17-STARTERS (B3 cách 1; kế hoạch D6)",
+   "catches_bug": "bấm hai lần ra sáu mẫu",
+   "coverage_ids": [
+    "COV-A17-STARTERS-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Bấm Tạo 3 mẫu khởi đầu lần nữa",
+   "expected": "Báo ba mẫu đã có sẵn; không có mẫu trùng"
+  },
+  {
+   "tc_id": "TC-097",
+   "title": "Mẫu khởi đầu sửa và xoá được như mẫu thường",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-MAU",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A17-STARTERS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A17-STARTERS (B3 cách 1; kế hoạch D6)",
+   "catches_bug": "mẫu hệ thống không gỡ được",
+   "coverage_ids": [
+    "COV-A17-STARTERS-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Sửa tên một mẫu khởi đầu; xoá một mẫu khởi đầu chưa dùng",
+   "expected": "Cả hai thao tác thành công"
+  },
+  {
+   "tc_id": "TC-098",
+   "title": "Mỗi tổ chọn riêng mẫu cho Thành viên và mẫu cho Tổ trưởng",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A5-MEMBER-LEADER",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A5-MEMBER-LEADER (R4)",
+   "catches_bug": "một mẫu cho cả tổ",
+   "coverage_ids": [
+    "COV-A5-MEMBER-LEADER-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Quyền theo tổ; chọn tổ; chọn mẫu Thành viên và mẫu Tổ trưởng khác nhau; lưu; mở lại",
+   "expected": "Hai lựa chọn được giữ đúng"
+  },
+  {
+   "tc_id": "TC-099",
+   "title": "Khi áp dụng, tổ trưởng có quyền theo mẫu Tổ trưởng, thành viên theo mẫu Thành viên",
+   "type": "DECISION",
+   "platform": "api",
+   "persona": "P-TO-TRUONG",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A5-MEMBER-LEADER",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A5-MEMBER-LEADER (R4)",
+   "catches_bug": "nâng quyền cán bộ hoặc hạ quyền tổ trưởng",
+   "coverage_ids": [
+    "COV-A5-MEMBER-LEADER-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tổ T: mẫu Thành viên không có Xoá đơn thư, mẫu Tổ trưởng có; bật áp dụng; mỗi người đọc quyền của mình",
+   "expected": "Tổ trưởng có Xoá đơn thư; thành viên không"
+  },
+  {
+   "tc_id": "TC-100",
+   "title": "Tổ chưa cài thì theo cấu hình của tổ cha",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A2-INHERIT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A2-INHERIT (Kế hoạch \"Kế thừa\")",
+   "catches_bug": "tổ con rơi về vai trò dù tổ cha đã cài",
+   "coverage_ids": [
+    "COV-A2-INHERIT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tổ cha có mẫu Chỉ xem; tổ con không cài; bật áp dụng; cán bộ tổ con đọc quyền",
+   "expected": "Cán bộ tổ con có quyền theo mẫu của tổ cha"
+  },
+  {
+   "tc_id": "TC-101",
+   "title": "Cây tổ ghi nhãn Kế thừa hoặc Riêng cho từng tổ",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "A2-INHERIT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A2-INHERIT (Kế hoạch \"Kế thừa\")",
+   "catches_bug": "không biết tổ đang theo cấu hình nào",
+   "coverage_ids": [
+    "COV-A2-INHERIT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở tab Quyền theo tổ với tổ cha đã cài, tổ con chưa cài",
+   "expected": "Tổ cha ghi Riêng; tổ con ghi Kế thừa và nêu kế thừa từ tổ nào"
+  },
+  {
+   "tc_id": "TC-102",
+   "title": "Tổ không cài gì và không tổ cha nào cài thì giữ quyền như hiện nay",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-CAN-BO-KHAC-TO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A1-DEFAULT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A1-DEFAULT (B2)",
+   "catches_bug": "bật lên làm cả đơn vị mất quyền",
+   "coverage_ids": [
+    "COV-A1-DEFAULT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Bật áp dụng; cán bộ của một tổ chưa cài gì đọc quyền và mở danh sách",
+   "expected": "Quyền và danh sách giống hệt lúc chưa bật"
+  },
+  {
+   "tc_id": "TC-103",
+   "title": "Hai người sửa cùng cấu hình một tổ: người lưu sau bị báo xung đột",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A12-CONFLICT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A12-CONFLICT (Kế hoạch màn Quyền theo tổ)",
+   "catches_bug": "người sau đè người trước không ai biết",
+   "coverage_ids": [
+    "COV-A12-CONFLICT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "A và B mở cùng tổ; A lưu; B lưu",
+   "expected": "B bị báo cấu hình vừa được người khác sửa; thay đổi của A còn nguyên"
+  },
+  {
+   "tc_id": "TC-104",
+   "title": "Chép cấu hình từ tổ khác",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A10-COPY-APPLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A10-COPY-APPLY (B3 cách 2 và 4)",
+   "catches_bug": "chép thiếu mẫu tổ trưởng",
+   "coverage_ids": [
+    "COV-A10-COPY-APPLY-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tổ B: Chép từ tổ; chọn tổ A; lưu",
+   "expected": "Tổ B có cùng mẫu Thành viên và Tổ trưởng như A"
+  },
+  {
+   "tc_id": "TC-105",
+   "title": "Áp cho nhiều tổ có xem trước rồi mới lưu",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A10-COPY-APPLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A10-COPY-APPLY (B3 cách 2 và 4)",
+   "catches_bug": "áp hàng loạt mù",
+   "coverage_ids": [
+    "COV-A10-COPY-APPLY-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Chọn Áp cho nhiều tổ; chọn 3 tổ; xem trước; lưu",
+   "expected": "Xem trước nêu số người đổi quyền; sau lưu cả 3 tổ có cấu hình ấy, tổ khác không đổi"
+  },
+  {
+   "tc_id": "TC-106",
+   "title": "Áp cho nhiều tổ là tất cả hoặc không: một tổ không hợp lệ thì không tổ nào đổi",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A10-COPY-APPLY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A10-COPY-APPLY (B3 cách 2 và 4)",
+   "catches_bug": "áp dở dang",
+   "coverage_ids": [
+    "COV-A10-COPY-APPLY-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Áp cho 3 tổ trong đó 1 tổ vừa bị người khác sửa",
+   "expected": "Cả lượt bị từ chối; 2 tổ còn lại không đổi"
+  },
+  {
+   "tc_id": "TC-107",
+   "title": "Xem trước nêu số người và ai mất quyền gì, bằng lời",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "lưu mà không biết ai bị ảnh hưởng",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đổi mẫu của tổ sang mẫu ít quyền hơn; bấm Xem trước thay đổi",
+   "expected": "Thấy dạng \"áp cho N người: M người mất quyền Xoá đơn thư\", nêu tên người"
+  },
+  {
+   "tc_id": "TC-108",
+   "title": "Xem trước không ghi gì",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "xem trước lỡ lưu",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gọi xem trước; đọc lại cấu hình và lịch sử",
+   "expected": "Cấu hình và lịch sử không đổi"
+  },
+  {
+   "tc_id": "TC-109",
+   "title": "Phạm vi thu hẹp nhưng không mất tổ nào vẫn được đánh dấu \"phạm vi hẹp hơn\"",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "thu hẹp bị coi là không đổi",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đổi Xem Đơn thư từ Cả tổ sang Đúng tổ trên cùng một tổ; xem trước",
+   "expected": "Người trong tổ được liệt kê với nhãn phạm vi hẹp hơn"
+  },
+  {
+   "tc_id": "TC-110",
+   "title": "Thêm quyền riêng cho một người, có lý do và hạn dùng",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A6-OVERRIDE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A6-OVERRIDE (R3, R4)",
+   "catches_bug": "ngoại lệ không có hạn",
+   "coverage_ids": [
+    "COV-A6-OVERRIDE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Nâng cao; ngoại lệ theo người; cấp Xem Vụ án Toàn bộ cho ông X, hạn 7 ngày, có lý do; lưu",
+   "expected": "Ngoại lệ được lưu, hiện người, quyền, lý do, hạn"
+  },
+  {
+   "tc_id": "TC-111",
+   "title": "Tắt một quyền riêng của một người",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A6-OVERRIDE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A6-OVERRIDE (R3, R4)",
+   "catches_bug": "tắt của một người ảnh hưởng cả tổ",
+   "coverage_ids": [
+    "COV-A6-OVERRIDE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tắt Xoá đơn thư của riêng ông X; bật áp dụng; ông X và đồng đội đọc quyền",
+   "expected": "Ông X không có Xoá đơn thư; đồng đội cùng tổ vẫn có"
+  },
+  {
+   "tc_id": "TC-112",
+   "title": "Ngoại lệ hết hạn thì quyền tự mất, không cần ai thao tác",
+   "type": "BOUNDARY",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A6-OVERRIDE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A6-OVERRIDE (R3, R4)",
+   "catches_bug": "quyền tạm thành vĩnh viễn",
+   "coverage_ids": [
+    "COV-A6-OVERRIDE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Cấp quyền riêng hạn tới thời điểm T; gọi trước T và sau T",
+   "expected": "Trước T có quyền; sau T không còn"
+  },
+  {
+   "tc_id": "TC-113",
+   "title": "Ngoại lệ thiếu lý do không lưu được",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A6-OVERRIDE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A6-OVERRIDE (R3, R4)",
+   "catches_bug": "ngoại lệ không giải trình được",
+   "coverage_ids": [
+    "COV-A6-OVERRIDE-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Thêm ngoại lệ; để trống lý do; lưu",
+   "expected": "Không lưu được"
+  },
+  {
+   "tc_id": "TC-114",
+   "title": "Ngày hạn không có thật (31/02) bị từ chối",
+   "type": "DATA",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A6-OVERRIDE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A6-OVERRIDE (R3, R4)",
+   "catches_bug": "ngày sai lặng lẽ thành ngày khác",
+   "coverage_ids": [
+    "COV-A6-OVERRIDE-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gửi ngoại lệ có hạn 2026-02-31",
+   "expected": "Bị từ chối; không lưu thành ngày khác",
+   "db_assert": {
+    "query": "SELECT count(*) FROM user_permission_overrides WHERE reason = 'UAT-1411-NGAY-SAI'",
+    "expect": {
+     "value": 0
+    }
+   }
+  },
+  {
+   "tc_id": "TC-115",
+   "title": "Tra cứu một người thấy quyền hiệu lực và lý do \"vì sao\"",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TRA-CUU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A15-LOOKUP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A15-LOOKUP (Nguyên tắc dễ dùng 5)",
+   "catches_bug": "không trả lời được vì sao anh X thấy hồ sơ này",
+   "coverage_ids": [
+    "COV-A15-LOOKUP-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Tra cứu quyền; chọn một cán bộ của tổ đã cài",
+   "expected": "Mỗi quyền nêu phạm vi và nguồn: tổ nào, mẫu Thành viên hay Tổ trưởng, hay ngoại lệ"
+  },
+  {
+   "tc_id": "TC-116",
+   "title": "Tra cứu nêu cả quyền KHÔNG có và lý do",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TRA-CUU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A15-LOOKUP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A15-LOOKUP (Nguyên tắc dễ dùng 5)",
+   "catches_bug": "chỉ liệt kê quyền có",
+   "coverage_ids": [
+    "COV-A15-LOOKUP-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tra một cán bộ thuộc tổ có mẫu không cấp Xoá đơn thư",
+   "expected": "Dòng Xoá đơn thư ghi Không và lý do mẫu không cấp"
+  },
+  {
+   "tc_id": "TC-117",
+   "title": "Từ màn Quản lý người dùng mở được quyền hiệu lực của người đó",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TRA-CUU",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "A15-LOOKUP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A15-LOOKUP (Nguyên tắc dễ dùng 5)",
+   "catches_bug": "phải tìm lại người ở màn khác",
+   "coverage_ids": [
+    "COV-A15-LOOKUP-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Quản lý người dùng; trên một dòng bấm Xem quyền hiệu lực",
+   "expected": "Mở đúng tra cứu của người ấy"
+  },
+  {
+   "tc_id": "TC-118",
+   "title": "Người thuộc hai tổ: tra cứu nêu quyền từ từng tổ",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TRA-CUU",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A15-LOOKUP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A15-LOOKUP (Nguyên tắc dễ dùng 5)",
+   "catches_bug": "gộp thành một dòng không rõ nguồn",
+   "coverage_ids": [
+    "COV-A15-LOOKUP-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tra một người thuộc tổ T (Chỉ của mình) và T2 (Cả tổ)",
+   "expected": "Thấy hai nguồn, mỗi nguồn kèm tổ của nó"
+  },
+  {
+   "tc_id": "TC-119",
+   "title": "Mỗi lần lưu cấu hình là một dòng lịch sử: ai, lúc nào, đổi gì",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-LICH-SU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A16-HISTORY-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A16-HISTORY-UNDO (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "đổi quyền không truy được",
+   "coverage_ids": [
+    "COV-A16-HISTORY-UNDO-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Lưu một thay đổi; mở tab Lịch sử",
+   "expected": "Dòng mới nhất nêu người lưu, thời điểm, đối tượng đã đổi"
+  },
+  {
+   "tc_id": "TC-120",
+   "title": "Hoàn tác đưa cấu hình về như trước và tự nó là một dòng lịch sử mới",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-LICH-SU",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A16-HISTORY-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A16-HISTORY-UNDO (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "hoàn tác xoá mất dấu vết",
+   "coverage_ids": [
+    "COV-A16-HISTORY-UNDO-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Hoàn tác thay đổi vừa lưu",
+   "expected": "Cấu hình trở lại như trước; lịch sử có thêm dòng hoàn tác"
+  },
+  {
+   "tc_id": "TC-121",
+   "title": "Không hoàn tác được khi đối tượng đã bị sửa tiếp sau đó",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-LICH-SU",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A16-HISTORY-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A16-HISTORY-UNDO (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "hoàn tác vứt thay đổi mới hơn",
+   "coverage_ids": [
+    "COV-A16-HISTORY-UNDO-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Lưu thay đổi 1; lưu thay đổi 2 trên cùng tổ; hoàn tác thay đổi 1",
+   "expected": "Bị từ chối, nói rõ đã có thay đổi sau đó"
+  },
+  {
+   "tc_id": "TC-122",
+   "title": "Hoàn tác cũng không cấp vượt quyền người bấm",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-LICH-SU",
+   "priority": "P1",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A16-HISTORY-UNDO",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A16-HISTORY-UNDO (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "hoàn tác là cửa sau để cấp quyền",
+   "coverage_ids": [
+    "COV-A16-HISTORY-UNDO-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Người thiếu quyền Q hoàn tác một thay đổi đã GỠ Q",
+   "expected": "Bị từ chối",
+   "access": {
+    "url": "/api/v1/authz/changes",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-123",
+   "title": "Người không có quyền quản trị vai trò không mở được màn Phân quyền",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A18-OFF",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A18-OFF (Kế hoạch \"Triển khai an toàn\")",
+   "catches_bug": "cán bộ đọc được cấu hình quyền",
+   "coverage_ids": [
+    "COV-A18-OFF-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tài khoản cán bộ gọi đọc mẫu, cấu hình tổ, chế độ, bảng so sánh",
+   "expected": "Tất cả bị từ chối",
+   "access": {
+    "url": "/api/v1/authz/mode",
+    "method": "GET",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-124",
+   "title": "Thẻ trạng thái nói rõ đang Tắt, Chạy thử hay Áp dụng bằng lời",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "không biết hệ thống đang ở chế độ nào",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở tab Áp dụng ở từng chế độ",
+   "expected": "Tắt: \"quyền theo vai trò như trước nay\"; Chạy thử: \"chưa áp dụng\"; Áp dụng: \"Đang áp dụng\""
+  },
+  {
+   "tc_id": "TC-125",
+   "title": "Bảng \"Nếu áp dụng ngay bây giờ\" nêu tổng số người, số bị mất, được thêm, đổi phạm vi",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "bật mà không biết ai mất quyền",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Áp dụng",
+   "expected": "Năm con số và danh sách từng người; người mất quyền xếp trên cùng"
+  },
+  {
+   "tc_id": "TC-126",
+   "title": "Quản trị viên không nằm trong bảng so sánh",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "báo quản trị viên mất quyền",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Đọc bảng so sánh",
+   "expected": "Không có tài khoản quản trị nào trong danh sách"
+  },
+  {
+   "tc_id": "TC-127",
+   "title": "Thành viên của tổ đã ngừng được nêu là mất phạm vi tổ ấy",
+   "type": "EDGE",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "thay đổi có chủ đích bị giấu",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-6"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Có người thuộc một tổ đã ngừng; đọc bảng so sánh",
+   "expected": "Người ấy có trong danh sách với nhãn phạm vi hẹp hơn và tên tổ đã ngừng"
+  },
+  {
+   "tc_id": "TC-128",
+   "title": "Không bật Áp dụng trực tiếp được",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "một người tự bật",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gọi đổi chế độ thẳng sang Áp dụng",
+   "expected": "Bị từ chối; chế độ vẫn Tắt"
+  },
+  {
+   "tc_id": "TC-129",
+   "title": "Gửi đề nghị cần lý do và tick \"đã đọc danh sách\"",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "đề nghị bật mà chưa đọc",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Áp dụng; chưa nhập lý do hoặc chưa tick; nhìn nút Gửi đề nghị",
+   "expected": "Nút không bấm được cho tới khi có cả lý do và dấu tick"
+  },
+  {
+   "tc_id": "TC-130",
+   "title": "Người đề nghị không tự duyệt được",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "một người đóng cả hai vai",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Quản trị viên A gửi đề nghị; vẫn A mở tab Áp dụng",
+   "expected": "A chỉ thấy Rút lại đề nghị và lời nhắc cần người khác duyệt; gọi duyệt thẳng thì bị từ chối"
+  },
+  {
+   "tc_id": "TC-131",
+   "title": "Quản trị viên thứ hai duyệt thì chế độ thành Áp dụng",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "duyệt xong mà không bật",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Quản trị viên B mở tab Áp dụng; đọc danh sách; tick; bấm Duyệt và áp dụng",
+   "expected": "Thẻ trạng thái ghi Đang áp dụng; lịch sử ghi A đề nghị, B duyệt"
+  },
+  {
+   "tc_id": "TC-132",
+   "title": "Cán bộ không đề nghị, không duyệt, không từ chối được",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "cán bộ bật được chế độ",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-6"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tài khoản cán bộ gọi đề nghị, duyệt, đóng đề nghị",
+   "expected": "Cả ba bị từ chối",
+   "access": {
+    "url": "/api/v1/authz/mode/requests",
+    "method": "POST",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-133",
+   "title": "Khi đã có một đề nghị chờ thì không gửi được đề nghị thứ hai",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "hai đề nghị chồng nhau",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-7"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "A đã gửi; B gửi thêm một đề nghị",
+   "expected": "B bị từ chối, nói đang có đề nghị chờ"
+  },
+  {
+   "tc_id": "TC-134",
+   "title": "Đề nghị trên một bảng so sánh chưa đọc (đã cũ) bị từ chối và phải đọc lại",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A20-FINGERPRINT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A20-FINGERPRINT (Quyết định D6)",
+   "catches_bug": "xác nhận một danh sách đã cũ",
+   "coverage_ids": [
+    "COV-A20-FINGERPRINT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "A mở tab; người khác đổi cấu hình tổ; A tick và gửi",
+   "expected": "Bị báo danh sách đã khác; danh sách được tải lại; dấu tick tự bỏ"
+  },
+  {
+   "tc_id": "TC-135",
+   "title": "Cấu hình đổi sau khi đề nghị thì người duyệt không duyệt được đề nghị cũ",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A20-FINGERPRINT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A20-FINGERPRINT (Quyết định D6)",
+   "catches_bug": "bật một cấu hình người đề nghị chưa thấy",
+   "coverage_ids": [
+    "COV-A20-FINGERPRINT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "A đề nghị; ai đó đổi một mẫu; B đọc danh sách mới và duyệt",
+   "expected": "Bị từ chối: hai người không cùng đọc một danh sách; phải đề nghị lại"
+  },
+  {
+   "tc_id": "TC-136",
+   "title": "Đề nghị quá 24 giờ chưa ai duyệt thì hết hiệu lực",
+   "type": "BOUNDARY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A21-TTL",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A21-TTL (Quyết định D6)",
+   "catches_bug": "đề nghị treo mãi",
+   "coverage_ids": [
+    "COV-A21-TTL-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Đề nghị tạo lúc T; duyệt lúc T+24h01",
+   "expected": "Bị từ chối vì quá hạn; ngay trước mốc 24 giờ thì duyệt được; sau đó gửi được đề nghị mới"
+  },
+  {
+   "tc_id": "TC-137",
+   "title": "Người đề nghị rút lại được đề nghị của mình",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A22-WITHDRAW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A22-WITHDRAW (\"Yêu cầu ⇒ có Rút lại\")",
+   "catches_bug": "yêu cầu không có đường rút",
+   "coverage_ids": [
+    "COV-A22-WITHDRAW-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "A gửi đề nghị; bấm Rút lại đề nghị",
+   "expected": "Đề nghị ghi Đã rút lại; form đề nghị hiện lại"
+  },
+  {
+   "tc_id": "TC-138",
+   "title": "Quản trị viên khác từ chối được đề nghị",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A22-WITHDRAW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A22-WITHDRAW (\"Yêu cầu ⇒ có Rút lại\")",
+   "catches_bug": "chỉ có duyệt, không có từ chối",
+   "coverage_ids": [
+    "COV-A22-WITHDRAW-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "A gửi; B bấm Từ chối",
+   "expected": "Đề nghị ghi Bị từ chối; chế độ không đổi"
+  },
+  {
+   "tc_id": "TC-139",
+   "title": "Đề nghị đã đóng không duyệt được nữa",
+   "type": "STATE",
+   "platform": "api",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A22-WITHDRAW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A22-WITHDRAW (\"Yêu cầu ⇒ có Rút lại\")",
+   "catches_bug": "đề nghị đã rút sống lại",
+   "coverage_ids": [
+    "COV-A22-WITHDRAW-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "A rút lại; B gọi duyệt đề nghị ấy",
+   "expected": "Bị từ chối; chế độ vẫn Tắt",
+   "transition": {
+    "from": "WITHDRAWN",
+    "to": "APPLIED",
+    "allowed": false
+   }
+  },
+  {
+   "tc_id": "TC-140",
+   "title": "Chuyển sang Chạy thử khi có đề nghị chờ thì đề nghị bị huỷ, có báo trước",
+   "type": "EDGE",
+   "platform": "web",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A22-WITHDRAW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A22-WITHDRAW (\"Yêu cầu ⇒ có Rút lại\")",
+   "catches_bug": "đề nghị cũ được duyệt trên trạng thái mới",
+   "coverage_ids": [
+    "COV-A22-WITHDRAW-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "A gửi đề nghị; B bấm Chạy thử",
+   "expected": "Trước khi xác nhận có lời nhắc đề nghị sẽ bị huỷ; sau đó đề nghị ghi Đã huỷ vì có thay đổi khác"
+  },
+  {
+   "tc_id": "TC-141",
+   "title": "Chạy thử bật và dừng được bởi một quản trị viên, không đổi quyền của ai",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "chạy thử lỡ áp dụng",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-8"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Bật Chạy thử; cán bộ của tổ đã cài đọc quyền; Dừng chạy thử",
+   "expected": "Quyền của cán bộ không đổi trong lúc Chạy thử"
+  },
+  {
+   "tc_id": "TC-142",
+   "title": "Đổi chế độ thiếu lý do bị từ chối",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A19-TWO-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A19-TWO-ADMIN (Kế hoạch A12; quyết định D6)",
+   "catches_bug": "đổi chế độ không giải trình",
+   "coverage_ids": [
+    "COV-A19-TWO-ADMIN-9"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Gọi chuyển sang Chạy thử với lý do toàn khoảng trắng",
+   "expected": "Bị từ chối"
+  },
+  {
+   "tc_id": "TC-143",
+   "title": "Màn cấu hình chung không đổi được chế độ phân quyền",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A29-SETTINGS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A29-SETTINGS (Rà soát Codex #662)",
+   "catches_bug": "lách qua màn khác để tắt, không lịch sử",
+   "coverage_ids": [
+    "COV-A29-SETTINGS-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Dùng màn/route cấu hình hệ thống đặt chế độ sang Chạy thử hoặc Tắt",
+   "expected": "Bị từ chối; chế độ không đổi",
+   "access": {
+    "url": "/api/v1/settings/QUYEN_THEO_TO_CHE_DO",
+    "method": "PUT",
+    "allow": [
+     "P-QUAN-TRI"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-144",
+   "title": "Không bật được khi người đề nghị hoặc người duyệt sẽ mất quyền mở màn này",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A24-NO-LOCKOUT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A24-NO-LOCKOUT (Kế hoạch \"Chống khoá\")",
+   "catches_bug": "bật xong không ai tắt được",
+   "coverage_ids": [
+    "COV-A24-NO-LOCKOUT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Dựng cấu hình khiến một trong hai người mất quyền quản trị vai trò; duyệt",
+   "expected": "Bị từ chối, nói rõ lý do"
+  },
+  {
+   "tc_id": "TC-145",
+   "title": "Vai trò quản trị không bỏ được quyền xem và sửa vai trò",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A24-NO-LOCKOUT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A24-NO-LOCKOUT (Kế hoạch \"Chống khoá\")",
+   "catches_bug": "mất đường tắt áp dụng",
+   "coverage_ids": [
+    "COV-A24-NO-LOCKOUT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Màn Vai trò & quyền; bỏ quyền Xem/Sửa vai trò khỏi vai trò quản trị; lưu",
+   "expected": "Không lưu được"
+  },
+  {
+   "tc_id": "TC-146",
+   "title": "Khi áp dụng, cán bộ chỉ còn quyền tổ cấp, và thực đơn theo đó",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A25-ENFORCED-PROFILE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A25-ENFORCED-PROFILE (Yêu cầu 1 \"chọn màn hình/chức năng\")",
+   "catches_bug": "giao diện còn hiện mục máy chủ sẽ từ chối",
+   "coverage_ids": [
+    "COV-A25-ENFORCED-PROFILE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tổ của cán bộ có mẫu chỉ Xem Đơn thư; bật áp dụng; cán bộ tải lại trang",
+   "expected": "Thực đơn chỉ còn mục Đơn thư (và mục không cần quyền); không còn Vụ án, Vụ việc"
+  },
+  {
+   "tc_id": "TC-147",
+   "title": "Màn hình mất quyền thì gõ thẳng địa chỉ cũng không vào được",
+   "type": "SECURITY",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A25-ENFORCED-PROFILE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A25-ENFORCED-PROFILE (Yêu cầu 1 \"chọn màn hình/chức năng\")",
+   "catches_bug": "ẩn thực đơn nhưng địa chỉ vẫn mở",
+   "coverage_ids": [
+    "COV-A25-ENFORCED-PROFILE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Như trên; cán bộ gõ địa chỉ danh sách Vụ án",
+   "expected": "Không xem được dữ liệu vụ án",
+   "access": {
+    "url": "/api/v1/cases",
+    "method": "GET",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2",
+     "P-TO-TRUONG"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-148",
+   "title": "Không có quyền Xoá thì không thấy nút Xoá, và gọi xoá bị từ chối",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A25-ENFORCED-PROFILE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A25-ENFORCED-PROFILE (Yêu cầu 1 \"chọn màn hình/chức năng\")",
+   "catches_bug": "nút ẩn nhưng xoá vẫn chạy",
+   "coverage_ids": [
+    "COV-A25-ENFORCED-PROFILE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mẫu của tổ không có Xoá đơn thư; cán bộ mở một đơn thư của mình",
+   "expected": "Không có nút Xoá; gọi xoá thẳng bị từ chối"
+  },
+  {
+   "tc_id": "TC-149",
+   "title": "Chỉ của mình: chỉ thấy hồ sơ do mình phụ trách/nhập",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "thấy hồ sơ của người khác",
+   "coverage_ids": [
+    "COV-A3-REACH-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mẫu Xem Đơn thư = Chỉ của mình; cán bộ mở danh sách",
+   "expected": "Chỉ có đơn do chính cán bộ ấy nhập; không có đơn của đồng đội cùng tổ"
+  },
+  {
+   "tc_id": "TC-150",
+   "title": "Chỉ của mình: không thấy hồ sơ chưa giao tổ của người khác",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "hồ sơ chưa giao lọt qua",
+   "coverage_ids": [
+    "COV-A3-REACH-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Có đơn chưa giao tổ do người khác nhập; cán bộ (Chỉ của mình) mở danh sách",
+   "expected": "Không có đơn ấy"
+  },
+  {
+   "tc_id": "TC-151",
+   "title": "Đúng tổ: thấy hồ sơ giao cho đúng tổ mình, không thấy của tổ con",
+   "type": "BOUNDARY",
+   "platform": "api",
+   "persona": "P-TO-TRUONG",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "Đúng tổ rò xuống tổ con",
+   "coverage_ids": [
+    "COV-A3-REACH-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Quyền ở mức Đúng tổ T; T có tổ con T1; mở danh sách",
+   "expected": "Có hồ sơ giao cho T; không có hồ sơ giao cho T1"
+  },
+  {
+   "tc_id": "TC-152",
+   "title": "Đúng tổ: không thấy hồ sơ giao tổ khác dù do thành viên tổ mình xử lý",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-TO-TRUONG",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "điều kiện \"thành viên HOẶC tổ\" làm rò",
+   "coverage_ids": [
+    "COV-A3-REACH-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Hồ sơ giao cho tổ B nhưng người phụ trách thuộc tổ T; người có Đúng tổ T mở danh sách",
+   "expected": "Không có hồ sơ ấy"
+  },
+  {
+   "tc_id": "TC-153",
+   "title": "Đúng tổ: không thấy hồ sơ chưa giao tổ",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-TO-TRUONG",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "chưa giao lọt qua mức Đúng tổ",
+   "coverage_ids": [
+    "COV-A3-REACH-5"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Có hồ sơ chưa giao tổ; người có Đúng tổ T mở danh sách",
+   "expected": "Không có hồ sơ chưa giao"
+  },
+  {
+   "tc_id": "TC-154",
+   "title": "Cả tổ: thấy tổ mình, tổ con, hồ sơ của thành viên và hồ sơ chưa giao, như hôm nay",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-TO-TRUONG",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "Cả tổ khác với hành vi hôm nay",
+   "coverage_ids": [
+    "COV-A3-REACH-6"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Quyền mức Cả tổ T; mở danh sách",
+   "expected": "Có hồ sơ của T, của T1, và hồ sơ chưa giao tổ; không có hồ sơ của tổ không liên quan"
+  },
+  {
+   "tc_id": "TC-155",
+   "title": "Toàn bộ: thấy hồ sơ của mọi tổ",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-TO-TRUONG",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "Toàn bộ vẫn bị lọc",
+   "coverage_ids": [
+    "COV-A3-REACH-7"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Quyền mức Toàn bộ; mở danh sách",
+   "expected": "Có hồ sơ của mọi tổ"
+  },
+  {
+   "tc_id": "TC-156",
+   "title": "Mở thẳng một hồ sơ ngoài phạm vi bằng địa chỉ thì bị từ chối",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "IDOR",
+   "coverage_ids": [
+    "COV-A3-REACH-8"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Cán bộ (Chỉ của mình) gọi chi tiết một đơn của đồng đội",
+   "expected": "Bị từ chối; thân phản hồi không có nội dung đơn",
+   "access": {
+    "url": "/api/v1/petitions/{id-cua-nguoi-khac}",
+    "method": "GET",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2",
+     "P-TO-TRUONG"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-157",
+   "title": "Tài liệu, đối tượng của hồ sơ theo phạm vi của hồ sơ cha",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "vào hồ sơ qua tài nguyên con",
+   "coverage_ids": [
+    "COV-A3-REACH-9"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Cán bộ gọi tài liệu / đối tượng của một hồ sơ ngoài phạm vi",
+   "expected": "Bị từ chối",
+   "access": {
+    "url": "/api/v1/documents",
+    "method": "GET",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2",
+     "P-TO-TRUONG"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-158",
+   "title": "Phạm vi Sửa hẹp hơn Xem: xem được cả tổ nhưng chỉ sửa được của mình",
+   "type": "DECISION",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A3-REACH",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A3-REACH (R2; yêu cầu 1)",
+   "catches_bug": "quyền xem thành quyền sửa",
+   "coverage_ids": [
+    "COV-A3-REACH-10"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mẫu: Xem Đơn thư = Cả tổ, Sửa = Chỉ của mình; mở đơn của đồng đội và thử sửa",
+   "expected": "Xem được; sửa bị từ chối; đơn của mình thì sửa được"
+  },
+  {
+   "tc_id": "TC-159",
+   "title": "Phạm vi Đơn thư và phạm vi Vụ án độc lập nhau",
+   "type": "DECISION",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A4-PER-SUBJECT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A4-PER-SUBJECT (R1)",
+   "catches_bug": "gom phạm vi theo nhóm làm lẫn hai loại hồ sơ",
+   "coverage_ids": [
+    "COV-A4-PER-SUBJECT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Mẫu: Đơn thư = Chỉ của mình, Vụ án = Cả tổ; mở hai danh sách",
+   "expected": "Đơn thư chỉ của mình; Vụ án của cả tổ"
+  },
+  {
+   "tc_id": "TC-160",
+   "title": "Người thuộc hai tổ có hợp quyền, mỗi quyền phủ đúng tổ cấp nó",
+   "type": "DECISION",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A4-PER-SUBJECT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A4-PER-SUBJECT (R1)",
+   "catches_bug": "quyền của tổ này phủ sang tổ kia",
+   "coverage_ids": [
+    "COV-A4-PER-SUBJECT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Thuộc T (Đúng tổ) và T2 (Chỉ của mình); mở danh sách",
+   "expected": "Thấy mọi hồ sơ của T và chỉ hồ sơ của mình ở T2"
+  },
+  {
+   "tc_id": "TC-161",
+   "title": "Quản trị viên không bị giới hạn khi áp dụng",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A7-ADMIN",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A7-ADMIN (B2)",
+   "catches_bug": "bật lên khoá cả quản trị viên",
+   "coverage_ids": [
+    "COV-A7-ADMIN-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Bật áp dụng; quản trị viên mở danh sách, trang chủ, màn quản trị",
+   "expected": "Mọi thứ như trước"
+  },
+  {
+   "tc_id": "TC-162",
+   "title": "Thành viên của tổ đã ngừng không còn với tới hồ sơ của tổ ấy khi áp dụng",
+   "type": "EDGE",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A10-SCOPE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A10-SCOPE (Kế hoạch Phần 0)",
+   "catches_bug": "tổ ngừng vẫn mở phạm vi",
+   "coverage_ids": [
+    "COV-A10-SCOPE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Cán bộ chỉ thuộc một tổ đã ngừng; bật áp dụng; mở danh sách",
+   "expected": "Không còn hồ sơ của tổ đã ngừng (trừ hồ sơ của chính mình nếu mẫu cho)"
+  },
+  {
+   "tc_id": "TC-163",
+   "title": "Số trên huy hiệu thực đơn bằng số dòng trong danh sách",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A26-ENFORCED-RECORDS",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A26-ENFORCED-RECORDS (Yêu cầu 1 \"phạm vi xem\")",
+   "catches_bug": "huy hiệu đếm ngoài phạm vi",
+   "coverage_ids": [
+    "COV-A26-ENFORCED-RECORDS-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Khi áp dụng; so số trên huy hiệu Đơn thư với số dòng danh sách",
+   "expected": "Hai số bằng nhau"
+  },
+  {
+   "tc_id": "TC-164",
+   "title": "Số liệu tổng và biểu đồ Trang chủ đếm theo phạm vi của người xem khi áp dụng",
+   "type": "RED",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A28-DASHBOARD",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A28-DASHBOARD (Rà soát Codex #662)",
+   "catches_bug": "con số tiết lộ điều danh sách không cho xem",
+   "coverage_ids": [
+    "COV-A28-DASHBOARD-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Cán bộ (Chỉ của mình, có quyền xem vụ án) mở Trang chủ",
+   "expected": "Tổng số vụ án bằng số vụ án của chính cán bộ ấy, không phải của cả đơn vị"
+  },
+  {
+   "tc_id": "TC-165",
+   "title": "Người không có quyền xem vụ án không đọc được số liệu Trang chủ",
+   "type": "SECURITY",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A28-DASHBOARD",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A28-DASHBOARD (Rà soát Codex #662)",
+   "catches_bug": "đếm được hồ sơ không được xem",
+   "coverage_ids": [
+    "COV-A28-DASHBOARD-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Mẫu không có Xem Vụ án; gọi số liệu Trang chủ",
+   "expected": "Bị từ chối",
+   "access": {
+    "url": "/api/v1/dashboard/stats",
+    "method": "GET",
+    "allow": [
+     "P-QUAN-TRI",
+     "P-QUAN-TRI-2",
+     "P-TO-TRUONG"
+    ],
+    "deny_status": [
+     401,
+     403
+    ]
+   }
+  },
+  {
+   "tc_id": "TC-166",
+   "title": "Chưa bật thì Trang chủ đếm toàn đơn vị như trước nay",
+   "type": "REGRESSION",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A28-DASHBOARD",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A28-DASHBOARD (Rà soát Codex #662)",
+   "catches_bug": "đợt này làm lệch số Trang chủ",
+   "coverage_ids": [
+    "COV-A28-DASHBOARD-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Chế độ Tắt; cán bộ mở Trang chủ",
+   "expected": "Các con số bằng đúng trước đợt này"
+  },
+  {
+   "tc_id": "TC-167",
+   "title": "Thông báo đơn quá hạn chỉ tới người mở được đơn đó khi áp dụng",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A27-NOTICE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A27-NOTICE (Rà soát Codex #662)",
+   "catches_bug": "thông báo lộ tên người gửi đơn cho người không được xem",
+   "coverage_ids": [
+    "COV-A27-NOTICE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Tổ có 2 cán bộ mức Chỉ của mình; đơn của người thứ nhất quá hạn; chạy lượt quét hạn",
+   "expected": "Người thứ nhất nhận thông báo; người thứ hai không"
+  },
+  {
+   "tc_id": "TC-168",
+   "title": "Chưa bật thì thông báo hạn gửi như trước nay",
+   "type": "REGRESSION",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A27-NOTICE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A27-NOTICE (Rà soát Codex #662)",
+   "catches_bug": "đợt này làm mất thông báo",
+   "coverage_ids": [
+    "COV-A27-NOTICE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Chế độ Tắt; chạy lượt quét hạn",
+   "expected": "Cả tổ nhận như trước"
+  },
+  {
+   "tc_id": "TC-169",
+   "title": "Thông báo \"được phân công\" không tới người không có quyền xem loại hồ sơ đó",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A27-NOTICE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A27-NOTICE (Rà soát Codex #662)",
+   "catches_bug": "thông báo nêu hồ sơ người nhận không mở được",
+   "coverage_ids": [
+    "COV-A27-NOTICE-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Khi áp dụng; phân công một vụ việc cho người mà tổ không cấp Xem Vụ việc",
+   "expected": "Người ấy không nhận thông báo nêu tên vụ việc"
+  },
+  {
+   "tc_id": "TC-170",
+   "title": "Một quản trị viên tắt áp dụng trong một bước, có lý do",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI-2",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A23-OFF-ONE-STEP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A23-OFF-ONE-STEP (Kế hoạch \"Rollback: đặt về OFF\")",
+   "catches_bug": "lùi lại phải chờ người khác",
+   "coverage_ids": [
+    "COV-A23-OFF-ONE-STEP-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đang áp dụng; bấm Tắt áp dụng (về như cũ); nhập lý do; xác nhận",
+   "expected": "Thẻ trạng thái ghi Đang tắt; không cần người thứ hai"
+  },
+  {
+   "tc_id": "TC-171",
+   "title": "Tắt xong cán bộ có lại quyền của vai trò ngay, không cần đăng nhập lại",
+   "type": "GREEN",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P0",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A23-OFF-ONE-STEP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A23-OFF-ONE-STEP (Kế hoạch \"Rollback: đặt về OFF\")",
+   "catches_bug": "tắt rồi mà vẫn bị chặn",
+   "coverage_ids": [
+    "COV-A23-OFF-ONE-STEP-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Sau khi tắt; cán bộ đọc quyền và mở màn hình trước đó bị chặn",
+   "expected": "Có đủ quyền vai trò; màn hình mở được"
+  },
+  {
+   "tc_id": "TC-172",
+   "title": "Tắt không làm mất cấu hình mẫu và tổ",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A23-OFF-ONE-STEP",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A23-OFF-ONE-STEP (Kế hoạch \"Rollback: đặt về OFF\")",
+   "catches_bug": "tắt là mất công cài đặt",
+   "coverage_ids": [
+    "COV-A23-OFF-ONE-STEP-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tắt áp dụng; mở tab Mẫu quyền và Quyền theo tổ",
+   "expected": "Mẫu và cấu hình tổ còn nguyên"
+  },
+  {
+   "tc_id": "TC-173",
+   "title": "Lịch sử bật/tắt nêu ai đề nghị, ai quyết định, lý do, từ chế độ nào sang chế độ nào",
+   "type": "GREEN",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P0",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A32-AUDIT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A32-AUDIT (Tiêu chuẩn máy chủ (audit chỉ metadata))",
+   "catches_bug": "không truy được ai đã bật",
+   "coverage_ids": [
+    "COV-A32-AUDIT-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Sau một vòng đề nghị, rút lại, từ chối, duyệt, tắt; đọc phần lịch sử ở tab Áp dụng",
+   "expected": "Mỗi lần là một dòng đủ các thông tin ấy, mới nhất ở trên"
+  },
+  {
+   "tc_id": "TC-174",
+   "title": "Đổi chế độ để lại bản ghi trong nhật ký hệ thống, chỉ có siêu dữ liệu",
+   "type": "DATA",
+   "platform": "api",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P1",
+   "severity_if_fail": "S2",
+   "oracle_type": "Claim",
+   "rule_ref": "A32-AUDIT",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A32-AUDIT (Tiêu chuẩn máy chủ (audit chỉ metadata))",
+   "catches_bug": "đổi quyền toàn hệ thống mà nhật ký trống",
+   "coverage_ids": [
+    "COV-A32-AUDIT-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Sau khi đổi chế độ; đọc nhật ký hệ thống",
+   "expected": "Có bản ghi hành động đổi chế độ nêu người và hai chế độ; không chứa danh sách quyền của từng người",
+   "db_assert": {
+    "query": "SELECT count(*) FROM audit_logs WHERE action = 'AUTHZ_MODE_CHANGED'",
+    "expect": {
+     "min_rows": 1
+    }
+   }
+  },
+  {
+   "tc_id": "TC-175",
+   "title": "Đang áp dụng mà hệ thống không đọc được cấu hình quyền thì từ chối, không lùi về vai trò",
+   "type": "RED",
+   "platform": "api",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P1",
+   "severity_if_fail": "S1",
+   "oracle_type": "Claim",
+   "rule_ref": "A30-UNAVAILABLE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A30-UNAVAILABLE (Quyết định D5)",
+   "catches_bug": "sự cố trả lại quyền cấu hình đã lấy đi",
+   "coverage_ids": [
+    "COV-A30-UNAVAILABLE-1"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "http-log"
+   ],
+   "steps": "Đang áp dụng; làm cấu hình quyền không đọc được quá hạn tin cậy; cán bộ gọi một màn hình",
+   "expected": "Bị từ chối với mã AUTHZ_UNAVAILABLE; không được trả quyền của vai trò"
+  },
+  {
+   "tc_id": "TC-176",
+   "title": "Lời báo khi hệ thống phân quyền chưa sẵn sàng là lời tiếng Việt dễ hiểu",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-CAN-BO",
+   "journey_ref": "J-PQ-CAN-BO",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "A30-UNAVAILABLE",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A30-UNAVAILABLE (Quyết định D5)",
+   "catches_bug": "người dùng thấy mã lỗi kỹ thuật",
+   "coverage_ids": [
+    "COV-A30-UNAVAILABLE-2"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Như trên, nhìn trên giao diện",
+   "expected": "Thấy câu tiếng Việt bảo thử lại sau, không phải mã lỗi trần"
+  },
+  {
+   "tc_id": "TC-177",
+   "title": "Màn Phân quyền dùng được bằng bàn phím và đọc được bằng trình đọc màn hình",
+   "type": "A11Y",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A31-EASY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A31-EASY (B5 \"dễ dùng, dễ hiểu\")",
+   "catches_bug": "ô tick không nhãn",
+   "coverage_ids": [
+    "COV-A31-EASY-3"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Đi hết 5 tab bằng phím Tab/Enter; chạy axe",
+   "expected": "Mọi nút, ô tick có nhãn; tiêu điểm nhìn thấy được; axe không báo lỗi mức A/AA"
+  },
+  {
+   "tc_id": "TC-178",
+   "title": "Màn Phân quyền dùng được ở bề rộng máy tính xách tay 1366",
+   "type": "COMPAT",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-TO",
+   "priority": "P2",
+   "severity_if_fail": "S4",
+   "oracle_type": "Claim",
+   "rule_ref": "A31-EASY",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A31-EASY (B5 \"dễ dùng, dễ hiểu\")",
+   "catches_bug": "ma trận tràn màn hình",
+   "coverage_ids": [
+    "COV-A31-EASY-4"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Mở 5 tab ở 1366×768 trên Chrome và Edge",
+   "expected": "Bảng quyền không vỡ, nút Lưu không bị che"
+  },
+  {
+   "tc_id": "TC-179",
+   "title": "Bảng so sánh với hơn 200 người vẫn đọc và cuộn được",
+   "type": "UX",
+   "platform": "web",
+   "persona": "P-QUAN-TRI",
+   "journey_ref": "J-PQ-AP-DUNG",
+   "priority": "P2",
+   "severity_if_fail": "S3",
+   "oracle_type": "Claim",
+   "rule_ref": "A11-PREVIEW",
+   "oracle_source": "docs/uat/dot-1411/_domain-pack.md §A11-PREVIEW (Nguyên tắc dễ dùng 4)",
+   "catches_bug": "danh sách dài làm treo màn",
+   "coverage_ids": [
+    "COV-A11-PREVIEW-7"
+   ],
+   "backend_policy": "live",
+   "evidence_required": [
+    "trace",
+    "screenshot-final"
+   ],
+   "steps": "Tab Áp dụng trên dữ liệu thật (244 người)",
+   "expected": "Danh sách tải xong, cuộn được, người mất quyền ở trên"
+  }
+ ],
+ "tc_min": {
+  "M1": 179,
+  "M2": 807,
+  "M3": 69,
+  "M4": 120,
+  "max": 807,
+  "computed_by": "coverage_calc.py",
+  "coverage_pct": 100.0,
+  "items": 179,
+  "covered": 179,
+  "missing_inputs": [],
+  "status": "ĐỦ ENSEMBLE"
+ }
+}
