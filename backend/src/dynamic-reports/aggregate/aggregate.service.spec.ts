@@ -73,6 +73,7 @@ describe('AggregateService', () => {
       obligation: 'REQUIRED',
       unlocks: [],
       teamSnapshot: { name: `Team ${id}` },
+      editors: [],
       submission: {
         state,
         values:
@@ -1676,6 +1677,7 @@ describe('AggregateService', () => {
         teamSnapshot: { name: `Team ${id}` },
         obligation: 'REQUIRED',
         addedMidPeriodReason: 'thêm nhầm',
+        editors: [],
         submission: { state, currentRevision: BigInt(revision) },
       });
       period.assignments = [
@@ -1700,7 +1702,7 @@ describe('AggregateService', () => {
     it('a closed period has nothing removable', async () => {
       const period = { ...(basePeriod() as Record<string, unknown>), status: 'FINALIZED' } as unknown as { assignments: Array<Record<string, unknown>> };
       period.assignments = [
-        { id: 'x1', teamId: 't', teamSnapshot: { name: 'T' }, obligation: 'REQUIRED', addedMidPeriodReason: 'x', submission: { state: 'NOT_STARTED', currentRevision: BigInt(0) } },
+        { id: 'x1', teamId: 't', teamSnapshot: { name: 'T' }, obligation: 'REQUIRED', addedMidPeriodReason: 'x', editors: [], submission: { state: 'NOT_STARTED', currentRevision: BigInt(0) } },
       ];
       const { service, prisma } = buildService(period, [{ role: 'MANAGER' }]);
       withSideTables(prisma);
@@ -1763,6 +1765,20 @@ describe('AggregateService', () => {
         dynReportSubmission: {
           create: jest.fn<Promise<unknown>, unknown[]>(),
         },
+        // The editors a team needs: none configured by default, the test chooses its own.
+        dynReportTarget: {
+          findFirst: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue(null),
+        },
+        user: {
+          findMany: jest
+            .fn<Promise<unknown>, [{ where: { id: { in: string[] } } }]>()
+            .mockImplementation((args) => Promise.resolve(args.where.id.in.map((id) => ({ id })))),
+        },
+        dynReportAssignmentEditor: {
+          findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
+          updateMany: jest.fn<Promise<unknown>, unknown[]>(),
+          createMany: jest.fn<Promise<unknown>, unknown[]>(),
+        },
       };
       const prisma = {
         $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
@@ -1806,6 +1822,15 @@ describe('AggregateService', () => {
         expect(field.afterCountTotal).toBe(2);
         expect(field.beforeValue).toBe('30');
         expect(field.afterValue).toBe('30');
+      });
+
+      it('is refused, creating nothing, when nobody would be able to type for the team', async () => {
+        const { service, tx } = buildTxServiceWithTeam(basePeriod(), [{ role: 'MANAGER' }]);
+
+        await expect(
+          service.addTeamMidPeriod('period1', 'mgr1', 'roleMgr', 'team-new', 'Bổ sung'),
+        ).rejects.toMatchObject({ code: 'EDITORS_REQUIRED' });
+        expect(tx.dynReportAssignment.create).not.toHaveBeenCalled();
       });
 
       it('rejects with TEAM_ALREADY_ASSIGNED when the team already has an assignment in this period', async () => {
@@ -1903,6 +1928,7 @@ describe('AggregateService', () => {
           'roleMgr',
           'team-new',
           'Chia tách địa bàn, bổ sung Tổ 5',
+          ['editor-1'],
         );
 
         expect(result).toEqual({
@@ -1910,6 +1936,10 @@ describe('AggregateService', () => {
           teamId: 'team-new',
           teamName: 'Tổ mới',
           obligation: 'REQUIRED',
+        });
+        // The team comes with the person who types for it: without that row nobody could open its assignment.
+        expect(tx.dynReportAssignmentEditor.createMany).toHaveBeenCalledWith({
+          data: [{ assignmentId: 'new-assignment1', userId: 'editor-1', isActive: true }],
         });
 
         const createCall = tx.dynReportAssignment.create.mock.calls[0][0] as {

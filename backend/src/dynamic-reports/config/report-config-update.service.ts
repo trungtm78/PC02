@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { generatePeriods } from '../engine/period';
 import type { ScheduleRule } from '../engine/period';
 import { ReportConfigError } from './report-config.service';
+import { reconcileAssignmentEditors } from '../aggregate/assignment-editors';
 import type { UpdateReportConfigDto } from './dto/update-report-config.dto';
 
 export interface UpdateReportConfigResult {
@@ -47,9 +48,10 @@ const active = (now: Date) => ({
 /**
  * "Sửa cấu hình" of an existing report (design standard: created ⇒ editable).
  *
- * D09 again: changes apply FROM THE NEXT PERIOD. A period already generated keeps the schedule, the teams and the
- * editors it was generated with (its assignments are its own rows; changing who types in an open period is the
- * mid-period action on the period screen, with its reason and audit). Managers and viewers are different: they are
+ * D09 again: changes apply FROM THE NEXT PERIOD. A period that has OPENED keeps the schedule, the teams and the
+ * editors it was generated with (its assignments are its own rows; changing who types in it is the mid-period action
+ * on the period screen, `AggregateService.setAssignmentEditors`, with its reason and audit). A period the scheduler
+ * made ahead but that has not opened has nothing in progress, so its editors follow the configuration. Managers and viewers are different: they are
  * checked live, so a change to them takes effect at once.
  *
  * Nothing is deleted: a role, a target or an editor that leaves gets an end date (`validTo`), so history says who
@@ -93,7 +95,17 @@ export class ReportConfigUpdateService {
 
       if (input.schedule && (await this.applySchedule(tx, reportId, input.schedule, now))) changed.push('schedule');
       if (input.roles && (await this.applyRoles(tx, reportId, input.roles, now))) changed.push('roles');
-      if (input.targets && (await this.applyTargets(tx, reportId, input.targets, now))) changed.push('targets');
+      if (input.targets && (await this.applyTargets(tx, reportId, input.targets, now))) {
+        changed.push('targets');
+        // Periods the scheduler made ahead but that have not opened have nothing in progress: they follow the new
+        // editors. Opened periods keep theirs (D09); changing them is the mid-period action on the period screen.
+        await reconcileAssignmentEditors(tx, {
+          reportId,
+          now,
+          onlyNotYetOpened: true,
+          reason: 'CONFIG_CHANGED',
+        });
+      }
 
       let configVersion = report.configVersion;
       if (changed.length > 0) {

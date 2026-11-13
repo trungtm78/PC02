@@ -11,6 +11,7 @@ import type {
   FinalizeResultView,
   ImportPreviewResult,
   MidPeriodAssignmentView,
+  AssignmentEditorsView,
   MidPeriodImpactPreview,
   PeriodSummaryView,
   ReopenResultView,
@@ -382,11 +383,20 @@ export const dynamicReportsApi = {
       )
       .then((r) => r.data),
 
-  addTeamMidPeriod: (periodId: string, teamId: string, reason: string) =>
+  addTeamMidPeriod: (periodId: string, teamId: string, reason: string, editorUserIds?: string[]) =>
     api
       .post<MidPeriodAssignmentView>(
         `/bao-cao-dong/periods/${periodId}/assignments/add-team`,
-        { teamId, reason },
+        { teamId, reason, ...(editorUserIds ? { editorUserIds } : {}) },
+      )
+      .then((r) => r.data),
+
+  /** D09: change who types for a team in a period that is running; the reason is kept with the change. */
+  setAssignmentEditors: (periodId: string, assignmentId: string, editorUserIds: string[], reason: string) =>
+    api
+      .post<AssignmentEditorsView>(
+        `/bao-cao-dong/periods/${periodId}/assignments/${assignmentId}/editors`,
+        { editorUserIds, reason },
       )
       .then((r) => r.data),
 
