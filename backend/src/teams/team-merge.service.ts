@@ -281,7 +281,10 @@ export class TeamMergeService {
 
   // ── undo ────────────────────────────────────────────────────────────────
 
-  /** Puts back what the merge changed, except what has changed since: that is left alone and counted. */
+  /**
+   * Puts back what the merge changed, except what has changed since: that is left alone, counted, and LISTED by
+   * kind of record (`skippedItems`), so the person who undid the merge knows what to look at.
+   */
   async undo(operationId: string, actorId: string, meta?: Meta) {
     const result = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM team_merge_operations WHERE id = ${operationId} FOR UPDATE`;
@@ -297,9 +300,11 @@ export class TeamMergeService {
 
       let restored = 0;
       let skipped = 0;
-      const tally = (done: number, total: number) => {
+      const left = new Map<string, number>();
+      const tally = (done: number, total: number, table: string) => {
         restored += done;
         skipped += total - done;
+        if (total > done) left.set(table, (left.get(table) ?? 0) + (total - done));
       };
 
       // 1. rows that were moved: put the column back where the row has not moved on again
@@ -334,7 +339,7 @@ export class TeamMergeService {
                   RETURNING 1) SELECT count(*)::int AS n FROM r`,
                 operationId, T, S, g.table_name, g.col,
               );
-        tally(done, g.n);
+        tally(done, g.n, g.table_name);
       }
 
       // 2. the leader flags the merge raised
@@ -350,7 +355,7 @@ export class TeamMergeService {
           RETURNING 1) SELECT count(*)::int AS n FROM r`,
         operationId,
       );
-      tally(flagsDone, flags);
+      tally(flagsDone, flags, 'user_teams');
 
       // 3. duplicates that were removed: put the row back unless an equal one exists again
       for (const table of RESTORABLE_TABLES) {
@@ -369,7 +374,7 @@ export class TeamMergeService {
                       ON CONFLICT DO NOTHING RETURNING 1) SELECT count(*)::int AS n FROM r`,
           operationId, table,
         );
-        tally(done, total);
+        tally(done, total, table);
       }
 
       // 4. the source goes back to the state it had, if nobody has moved it since the merge archived it
@@ -381,7 +386,8 @@ export class TeamMergeService {
         where: { id: operationId },
         data: { status: 'UNDONE', undoneById: actorId, undoneAt: new Date() },
       });
-      return { restored, skipped, sourceTeamId: S, targetTeamId: T };
+      const skippedItems = [...left].map(([table, count]) => ({ table, count })).sort((a, b) => a.table.localeCompare(b.table));
+      return { restored, skipped, skippedItems, sourceTeamId: S, targetTeamId: T };
     }, TX_OPTIONS);
 
     await this.audit.log({
@@ -393,7 +399,7 @@ export class TeamMergeService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
-    return { restored: result.restored, skipped: result.skipped };
+    return { restored: result.restored, skipped: result.skipped, skippedItems: result.skippedItems };
   }
 
   /** Recent merges, newest first, for the screen that offers Undo. */

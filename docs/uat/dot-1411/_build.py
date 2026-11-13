@@ -337,6 +337,18 @@ Tổ T (đã cài mẫu) có tổ con T1 (chưa cài) và tổ T2 (cài mẫu kh
 Không gì cả ở phía hệ thống. Đường duy nhất được thay là **thời gian** (ca hết hạn ngoại lệ, ca đề nghị quá 24 giờ) và **sự cố** (ca hệ thống không đọc được cấu hình quyền): cả hai chỉ dựng được trên bản cục bộ hoặc bản sao, không trên production.
 '''
 
+# Các mệnh đề về vòng đời tổ mà `tools/uat-to/workflow.cjs` đã đi qua bằng HTTP trên máy chủ dựng cục bộ (40/40, 14/11).
+LOCAL_TEAM = {
+    'Tổ đang hoạt động chuyển được sang Tạm ngừng', 'Tổ tạm ngừng hoạt động lại được', 'Tổ lưu trữ được và khôi phục được',
+    'Tổ đã lưu trữ không tạm ngừng tiếp được', 'Tổ đã lưu trữ cũng không có trong ô chọn', 'Tổ hoạt động lại thì hiện lại trong ô chọn',
+    'Tổ chưa có dữ liệu xoá hẳn được', 'Gọi xoá thẳng một tổ có dữ liệu thì bị từ chối và nêu số bản ghi theo từng loại',
+    'Tổ chỉ có thành viên (chưa có hồ sơ) cũng không xoá hẳn được', 'Gộp tổ có màn xem trước nêu số bản ghi sẽ chuyển',
+    'Sau khi gộp, hồ sơ của tổ cũ thuộc tổ đích', 'Người thuộc cả hai tổ chỉ còn một dòng thành viên ở tổ đích',
+    'Tổ cũ sau khi gộp nằm ở Đã lưu trữ', 'Không gộp được một tổ vào chính nó', 'Hoàn tác gộp đưa hồ sơ và thành viên về tổ cũ',
+    'Hoàn tác bỏ qua bản ghi đã bị đổi sau khi gộp và nêu rõ là đã bỏ qua', 'Hoàn tác hai lần thì lần hai bị từ chối',
+    'Cán bộ thường không đổi được trạng thái tổ',
+}
+
 GROUPS = [('T', 'I. Vòng đời Tổ (#650)'), ('B', 'II. Báo cáo động theo tiêu chí từng tổ (#652–#654)'), ('A', 'III. Quyền theo Tổ (#655–#662)')]
 PLATFORM = {'E2E': 'web', 'API': 'api', 'UNIT': 'api'}
 # M2: Σ V(G) của các tệp logic MỚI, đo bằng lizard (xem cuối Ledger); FP ước từ số chức năng; risk theo tier.
@@ -348,7 +360,7 @@ def build():
     rows = []
     for n, item in enumerate(ITEMS, 1):
         rule, claim, layer, typ, persona, journey, pri, sev, steps, expected, catches, extra = item[:12]
-        local = len(item) > 12 and item[12] == WF
+        local = (len(item) > 12 and item[12] == WF) or claim in LOCAL_TEAM
         assert rule in RULES, rule
         counters[rule] += 1
         cov = 'COV-%s-%d' % (rule, counters[rule])
@@ -363,6 +375,8 @@ def build():
         if extra:
             tc.update(extra)
         rows.append((cov, claim, layer, typ, tc, local, rule))
+    missing = LOCAL_TEAM - {i[1] for i in ITEMS}
+    assert not missing, missing
     unused = [r for r in RULES if counters[r] == 0]
     assert not unused, unused
     return rows
@@ -429,7 +443,7 @@ def main():
     C.append('| | |\n|---|---|')
     C.append('| Cổng máy của bộ viết ca | `validate_uat_json` ĐẠT · độ phủ %d/%d mục · **`TC_min` HỎNG: %d ca < sàn %d** (M2 chi phối, xem dưới) · ba mục cần người (gieo lỗi, soát đối kháng, đánh giá bằng người đóng vai) **chưa làm** |' % (n, n, n, max(n, M2, 120)))
     C.append('| Đã chạy trên production | **0/%d** |' % n)
-    C.append('| Đã chạy trên máy chủ dựng CỤC BỘ, qua HTTP thật | **%d/%d** — `tools/uat-phan-quyen/workflow.cjs`, 40/40 bước đạt. Đây là tầng API trên CSDL thử, **không phải production**; các dòng E2E trong số này vẫn chưa có lượt chạy trình duyệt. |' % (local_n, n))
+    C.append('| Đã chạy trên máy chủ dựng CỤC BỘ, qua HTTP thật | **%d/%d** — `tools/uat-phan-quyen/workflow.cjs` (40/40 bước) và `tools/uat-to/workflow.cjs` (40/40 bước). Đây là tầng API trên CSDL thử, **không phải production**; các dòng E2E trong số này vẫn chưa có lượt chạy trình duyệt. |' % (local_n, n))
     C.append('| Chưa chạy ở đâu cả | **%d/%d** |' % (n - local_n, n))
     C.append('| Chặn ở | Tài khoản thử trên production (5 tài khoản cũ khoá từ 20/09); cần **hai quản trị viên**, **một cán bộ**, **một tổ trưởng**, **một cán bộ khác tổ**. Ca ghi dữ liệu và ca bật Áp dụng phải chạy trên bản sao, không chạy trên production thật. |\n')
     C.append('Ca kiểm tự động đã có (đơn vị, PostgreSQL, vitest) là tầng thấp hơn và **không thay được** các dòng dưới đây.\n')
@@ -437,7 +451,7 @@ def main():
     C.append('`TC_min = MAX(M1, M2, M3, M4)`. M2 là tổng độ phức tạp vòng (cyclomatic) đo bằng `lizard` trên 17 tệp logic mới của ba phần: **%d**. Bộ ca này có %d dòng, mỗi dòng là một mệnh đề nhìn từ phía người dùng. Khoảng cách ấy là thật: phần lớn các nhánh trong bộ tính quyền (kế thừa, hợp quyền nhiều tổ, hạn dùng, so sánh trước/sau) được kiểm ở tầng đơn vị và PostgreSQL, là tầng mà quy ước UAT của kho **không tính**.\n' % (M2, n))
     C.append('M2 không bị hạ bằng cách bỏ bớt tệp khỏi phép đo, và không có ca nào chèn cho đủ số. Hai hướng để đóng khoảng này, cần anh chọn: (1) đào tiếp sổ mệnh đề cho bộ tính quyền (tổ hợp tổ cha/con × vai trong tổ × mức phạm vi × ngoại lệ × hạn dùng) tới khi số ca tự lên; (2) chấp nhận bằng văn bản rằng đường cơ sở (basis-path) của các tệp ấy do tầng đơn vị gánh, và UAT chỉ gánh mệnh đề phía người dùng.\n')
     C.append('## Quy ước\n')
-    C.append('- **Oracle lấy từ `_domain-pack.md`**, tức từ yêu cầu của anh và tệp kế hoạch — không lấy từ mã nguồn.\n- Cột **Cục bộ**: `PASS` = bước tương ứng trong `workflow.cjs` đã đạt trên máy chủ dựng cục bộ; trống = chưa chạy.\n- Cột **Production**: chỉ ghi khi có lượt chạy thật kèm bằng chứng.\n')
+    C.append('- **Oracle lấy từ `_domain-pack.md`**, tức từ yêu cầu của anh và tệp kế hoạch — không lấy từ mã nguồn.\n- Cột **Cục bộ**: `PASS` = bước tương ứng trong `tools/uat-phan-quyen/workflow.cjs` hoặc `tools/uat-to/workflow.cjs` đã đạt trên máy chủ dựng cục bộ, qua HTTP; trống = chưa chạy. Với dòng tầng E2E, `PASS` ở đây chỉ nói phần máy chủ; phần trình duyệt vẫn chưa chạy.\n- Cột **Production**: chỉ ghi khi có lượt chạy thật kèm bằng chứng.\n')
     for prefix, title in GROUPS:
         C.append('## %s\n' % title)
         C.append('| ID | Màn hình / chức năng | Luật | Tầng | Loại | Ưu tiên | Cục bộ | Production |\n|---|---|---|---|---|---|---|---|')

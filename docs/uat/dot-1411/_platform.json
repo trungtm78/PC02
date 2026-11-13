@@ -21,6 +21,7 @@
   },
   "local_runners": [
     "tools/uat-phan-quyen/workflow.cjs — quyền theo tổ qua HTTP, tự tạo và tự dọn tài khoản; 40/40 ngày 14/11",
+    "tools/uat-to/workflow.cjs — vòng đời tổ qua HTTP (tạm ngừng, lưu trữ, xoá, gộp, hoàn tác); 40/40 ngày 14/11",
     "tools/uat-bao-cao-dong/workflow.cjs — báo cáo động qua HTTP (chưa mở rộng cho tập tiêu chí theo tổ)"
   ],
   "roles_needed": ["P-QUAN-TRI", "P-QUAN-TRI-2", "P-CAN-BO", "P-TO-TRUONG", "P-CAN-BO-KHAC-TO", "P-NGUOI-NHAP", "P-QUAN-LY-BC"],
@@ -30,6 +31,6 @@
     "Ca cần hai quản trị viên cần hai tài khoản quản trị riêng; một tài khoản không đóng được cả hai vai.",
     "Ca ghi dữ liệu (xoá tổ, gộp tổ, khoá sổ) chạy trên bản sao; phải ghi rõ tầng là bản sao chứ không phải production.",
     "Trình duyệt: chưa có tiện ích Chrome kết nối trong phiên làm việc; chưa có lượt E2E nào bằng trình duyệt thật.",
-    "tools/uat-to/workflow.cjs (vòng đời tổ qua HTTP) chưa viết."
+    "tools/uat-bao-cao-dong/workflow.cjs chưa được mở rộng cho tập tiêu chí theo tổ."
   ]
 }

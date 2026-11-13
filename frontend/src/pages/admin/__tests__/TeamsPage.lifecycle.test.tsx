@@ -378,7 +378,9 @@ describe('TeamsPage lifecycle', () => {
             }
           : { data: TEAMS_WITH_TARGET },
       );
-      vi.mocked(api.post).mockResolvedValue({ data: { restored: 10, skipped: 2 } });
+      vi.mocked(api.post).mockResolvedValue({
+        data: { restored: 10, skipped: 2, skippedItems: [{ table: 'petitions', count: 1 }, { table: 'user_teams', count: 1 }] },
+      });
       renderPage();
 
       await screen.findByText('Tổ cũ A', { exact: false });
@@ -387,7 +389,11 @@ describe('TeamsPage lifecycle', () => {
 
       expect(window.confirm).toHaveBeenCalledWith(t.merge.undoConfirm('Tổ cũ A', 'Tổ mới B'));
       await waitFor(() => expect(api.post).toHaveBeenCalledWith('/teams/merges/op1/undo'));
-      expect(await screen.findByTestId('team-merge-undo-result')).toHaveTextContent(t.merge.undoResult(10, 2));
+      // The records left where they are, are named by kind, in the words of the screen.
+      const kept = [`1 ${t.delete.sources.petitions}`, `1 ${t.delete.sources.user_teams ?? 'user_teams'}`];
+      const result = await screen.findByTestId('team-merge-undo-result');
+      expect(result).toHaveTextContent(t.merge.undoResult(10, 2, kept));
+      expect(result).toHaveTextContent(`1 ${t.delete.sources.petitions}`);
     });
   });
 

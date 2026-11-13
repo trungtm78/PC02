@@ -12,8 +12,8 @@
 |---|---|
 | Cổng máy của bộ viết ca | `validate_uat_json` ĐẠT · độ phủ 179/179 mục · **`TC_min` HỎNG: 179 ca < sàn 807** (M2 chi phối, xem dưới) · ba mục cần người (gieo lỗi, soát đối kháng, đánh giá bằng người đóng vai) **chưa làm** |
 | Đã chạy trên production | **0/179** |
-| Đã chạy trên máy chủ dựng CỤC BỘ, qua HTTP thật | **28/179** — `tools/uat-phan-quyen/workflow.cjs`, 40/40 bước đạt. Đây là tầng API trên CSDL thử, **không phải production**; các dòng E2E trong số này vẫn chưa có lượt chạy trình duyệt. |
-| Chưa chạy ở đâu cả | **151/179** |
+| Đã chạy trên máy chủ dựng CỤC BỘ, qua HTTP thật | **46/179** — `tools/uat-phan-quyen/workflow.cjs` (40/40 bước) và `tools/uat-to/workflow.cjs` (40/40 bước). Đây là tầng API trên CSDL thử, **không phải production**; các dòng E2E trong số này vẫn chưa có lượt chạy trình duyệt. |
+| Chưa chạy ở đâu cả | **133/179** |
 | Chặn ở | Tài khoản thử trên production (5 tài khoản cũ khoá từ 20/09); cần **hai quản trị viên**, **một cán bộ**, **một tổ trưởng**, **một cán bộ khác tổ**. Ca ghi dữ liệu và ca bật Áp dụng phải chạy trên bản sao, không chạy trên production thật. |
 
 Ca kiểm tự động đã có (đơn vị, PostgreSQL, vitest) là tầng thấp hơn và **không thay được** các dòng dưới đây.
@@ -27,40 +27,40 @@ M2 không bị hạ bằng cách bỏ bớt tệp khỏi phép đo, và không c
 ## Quy ước
 
 - **Oracle lấy từ `_domain-pack.md`**, tức từ yêu cầu của anh và tệp kế hoạch — không lấy từ mã nguồn.
-- Cột **Cục bộ**: `PASS` = bước tương ứng trong `workflow.cjs` đã đạt trên máy chủ dựng cục bộ; trống = chưa chạy.
+- Cột **Cục bộ**: `PASS` = bước tương ứng trong `tools/uat-phan-quyen/workflow.cjs` hoặc `tools/uat-to/workflow.cjs` đã đạt trên máy chủ dựng cục bộ, qua HTTP; trống = chưa chạy. Với dòng tầng E2E, `PASS` ở đây chỉ nói phần máy chủ; phần trình duyệt vẫn chưa chạy.
 - Cột **Production**: chỉ ghi khi có lượt chạy thật kèm bằng chứng.
 
 ## I. Vòng đời Tổ (#650)
 
 | ID | Màn hình / chức năng | Luật | Tầng | Loại | Ưu tiên | Cục bộ | Production |
 |---|---|---|---|---|---|---|---|
-| TC-001 | Tổ đang hoạt động chuyển được sang Tạm ngừng | T1-STATES | E2E | STATE | P0 |  | CHƯA CHẠY |
-| TC-002 | Tổ tạm ngừng hoạt động lại được | T1-STATES | E2E | STATE | P0 |  | CHƯA CHẠY |
-| TC-003 | Tổ lưu trữ được và khôi phục được | T1-STATES | E2E | STATE | P1 |  | CHƯA CHẠY |
-| TC-004 | Tổ đã lưu trữ không tạm ngừng tiếp được | T1-STATES | API | STATE | P2 |  | CHƯA CHẠY |
+| TC-001 | Tổ đang hoạt động chuyển được sang Tạm ngừng | T1-STATES | E2E | STATE | P0 | PASS | CHƯA CHẠY |
+| TC-002 | Tổ tạm ngừng hoạt động lại được | T1-STATES | E2E | STATE | P0 | PASS | CHƯA CHẠY |
+| TC-003 | Tổ lưu trữ được và khôi phục được | T1-STATES | E2E | STATE | P1 | PASS | CHƯA CHẠY |
+| TC-004 | Tổ đã lưu trữ không tạm ngừng tiếp được | T1-STATES | API | STATE | P2 | PASS | CHƯA CHẠY |
 | TC-005 | Màn quản trị Tổ có đúng ba tab kèm số đếm | T4-TABS | E2E | GREEN | P1 |  | CHƯA CHẠY |
 | TC-006 | Tổ tạm ngừng biến khỏi ô chọn tổ ở màn tạo Đơn thư | T2-OPTIONS | E2E | RED | P0 |  | CHƯA CHẠY |
 | TC-007 | Tổ tạm ngừng biến khỏi ô chọn ở màn bàn giao và phân công | T2-OPTIONS | E2E | RED | P1 |  | CHƯA CHẠY |
 | TC-008 | Tổ tạm ngừng biến khỏi ô chọn tổ khi thiết lập báo cáo động | T2-OPTIONS | E2E | RED | P1 |  | CHƯA CHẠY |
-| TC-009 | Tổ đã lưu trữ cũng không có trong ô chọn | T2-OPTIONS | API | RED | P1 |  | CHƯA CHẠY |
-| TC-010 | Tổ hoạt động lại thì hiện lại trong ô chọn | T2-OPTIONS | E2E | GREEN | P1 |  | CHƯA CHẠY |
+| TC-009 | Tổ đã lưu trữ cũng không có trong ô chọn | T2-OPTIONS | API | RED | P1 | PASS | CHƯA CHẠY |
+| TC-010 | Tổ hoạt động lại thì hiện lại trong ô chọn | T2-OPTIONS | E2E | GREEN | P1 | PASS | CHƯA CHẠY |
 | TC-011 | Hồ sơ cũ của tổ đã ngừng vẫn hiện đúng tên tổ | T3-NAME-KEEP | E2E | GREEN | P0 |  | CHƯA CHẠY |
 | TC-012 | Mỗi thao tác vòng đời có nút chiều ngược ngay trên màn đó | T5-REVERSE | E2E | UX | P1 |  | CHƯA CHẠY |
-| TC-013 | Tổ chưa có dữ liệu xoá hẳn được | T6-DELETE | E2E | GREEN | P0 |  | CHƯA CHẠY |
+| TC-013 | Tổ chưa có dữ liệu xoá hẳn được | T6-DELETE | E2E | GREEN | P0 | PASS | CHƯA CHẠY |
 | TC-014 | Tổ có hồ sơ không có nút Xoá, chỉ có Gộp hoặc Lưu trữ | T6-DELETE | E2E | RED | P0 |  | CHƯA CHẠY |
-| TC-015 | Gọi xoá thẳng một tổ có dữ liệu thì bị từ chối và nêu số bản ghi theo từng loại | T6-DELETE | API | RED | P0 |  | CHƯA CHẠY |
-| TC-016 | Tổ chỉ có thành viên (chưa có hồ sơ) cũng không xoá hẳn được | T6-DELETE | API | BOUNDARY | P1 |  | CHƯA CHẠY |
+| TC-015 | Gọi xoá thẳng một tổ có dữ liệu thì bị từ chối và nêu số bản ghi theo từng loại | T6-DELETE | API | RED | P0 | PASS | CHƯA CHẠY |
+| TC-016 | Tổ chỉ có thành viên (chưa có hồ sơ) cũng không xoá hẳn được | T6-DELETE | API | BOUNDARY | P1 | PASS | CHƯA CHẠY |
 | TC-017 | Thêm thành viên vào tổ đúng lúc đang xoá thì không mất ai | T7-DELETE-RACE | API | RED | P1 |  | CHƯA CHẠY |
-| TC-018 | Gộp tổ có màn xem trước nêu số bản ghi sẽ chuyển | T8-MERGE | E2E | GREEN | P0 |  | CHƯA CHẠY |
-| TC-019 | Sau khi gộp, hồ sơ của tổ cũ thuộc tổ đích | T8-MERGE | E2E | GREEN | P0 |  | CHƯA CHẠY |
-| TC-020 | Người thuộc cả hai tổ chỉ còn một dòng thành viên ở tổ đích | T8-MERGE | API | EDGE | P1 |  | CHƯA CHẠY |
-| TC-021 | Tổ cũ sau khi gộp nằm ở Đã lưu trữ | T8-MERGE | E2E | STATE | P1 |  | CHƯA CHẠY |
+| TC-018 | Gộp tổ có màn xem trước nêu số bản ghi sẽ chuyển | T8-MERGE | E2E | GREEN | P0 | PASS | CHƯA CHẠY |
+| TC-019 | Sau khi gộp, hồ sơ của tổ cũ thuộc tổ đích | T8-MERGE | E2E | GREEN | P0 | PASS | CHƯA CHẠY |
+| TC-020 | Người thuộc cả hai tổ chỉ còn một dòng thành viên ở tổ đích | T8-MERGE | API | EDGE | P1 | PASS | CHƯA CHẠY |
+| TC-021 | Tổ cũ sau khi gộp nằm ở Đã lưu trữ | T8-MERGE | E2E | STATE | P1 | PASS | CHƯA CHẠY |
 | TC-022 | Kỳ báo cáo đã sinh của tổ cũ không bị sửa khi gộp | T8-MERGE | API | RED | P1 |  | CHƯA CHẠY |
-| TC-023 | Không gộp được một tổ vào chính nó | T8-MERGE | API | RED | P2 |  | CHƯA CHẠY |
-| TC-024 | Hoàn tác gộp đưa hồ sơ và thành viên về tổ cũ | T9-UNDO | E2E | GREEN | P0 |  | CHƯA CHẠY |
-| TC-025 | Hoàn tác bỏ qua bản ghi đã bị đổi sau khi gộp và nêu rõ là đã bỏ qua | T9-UNDO | API | EDGE | P1 |  | CHƯA CHẠY |
-| TC-026 | Hoàn tác hai lần thì lần hai bị từ chối | T9-UNDO | API | RED | P2 |  | CHƯA CHẠY |
-| TC-027 | Cán bộ thường không đổi được trạng thái tổ | T1-STATES | API | SECURITY | P0 |  | CHƯA CHẠY |
+| TC-023 | Không gộp được một tổ vào chính nó | T8-MERGE | API | RED | P2 | PASS | CHƯA CHẠY |
+| TC-024 | Hoàn tác gộp đưa hồ sơ và thành viên về tổ cũ | T9-UNDO | E2E | GREEN | P0 | PASS | CHƯA CHẠY |
+| TC-025 | Hoàn tác bỏ qua bản ghi đã bị đổi sau khi gộp và nêu rõ là đã bỏ qua | T9-UNDO | API | EDGE | P1 | PASS | CHƯA CHẠY |
+| TC-026 | Hoàn tác hai lần thì lần hai bị từ chối | T9-UNDO | API | RED | P2 | PASS | CHƯA CHẠY |
+| TC-027 | Cán bộ thường không đổi được trạng thái tổ | T1-STATES | API | SECURITY | P0 | PASS | CHƯA CHẠY |
 
 ## II. Báo cáo động theo tiêu chí từng tổ (#652–#654)
 

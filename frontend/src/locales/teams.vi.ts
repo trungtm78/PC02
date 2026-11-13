@@ -80,9 +80,10 @@ export const teams = {
     undone: 'Đã hoàn tác',
     undoConfirm: (source: string, target: string) =>
       `Hoàn tác việc gộp "${source}" vào "${target}"? Những bản ghi đã bị sửa sau khi gộp sẽ được giữ nguyên.`,
-    undoResult: (restored: number, skipped: number) =>
+    /** `kept`: what was left where it is, already worded ("1 đơn thư"), one entry per kind of record. */
+    undoResult: (restored: number, skipped: number, kept: string[] = []) =>
       skipped > 0
-        ? `Đã khôi phục ${restored} bản ghi; ${skipped} bản ghi đã bị sửa sau khi gộp nên được giữ nguyên.`
+        ? `Đã khôi phục ${restored} bản ghi; ${skipped} bản ghi đã bị sửa sau khi gộp nên được giữ nguyên${kept.length ? `: ${kept.join(', ')}` : ''}.`
         : `Đã khôi phục ${restored} bản ghi.`,
     failed: 'Không gộp được. Hãy thử lại.',
     undoFailed: 'Không hoàn tác được. Hãy thử lại.',
