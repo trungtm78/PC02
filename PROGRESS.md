@@ -15,6 +15,7 @@ M1 0.1–0.3 → M2 A1–A5 → M3 B1–B8 → M4 A6–A12 → M5 UAT 100% (`UAT
 
 ## Quyết định kiến trúc
 See the plan's Decision ledger (D1, R1–R12) and binding decisions B1–B7.
+- **B8 (owner, 13/11/2026, binding):** the report criteria and loading them from an Excel file belong INSIDE the existing report setup screen ("Thiết lập báo cáo": the wizard `ReportTemplateUploadPage` -> `ReportTeamsStep` -> `ReportRulesStep` -> `ReportScheduleStep` -> `ReportSummaryStep`), not on a separate screen. Phase B therefore adds: the criteria upload as an input mode of the template step; the per-team criteria checklist inside the teams step; the matrix and bulk tools as panels of those same steps; the summary step shows the criteria per team. Editing an existing report's criteria goes through the same wizard (`ReportEditPage` / `ReportNewVersionPage`). No new top-level menu item.
 
 ## Assumption
 - Production writes (migrations) go only through the normal `deploy.sh` pipeline; no ad-hoc production data writes.
