@@ -2,6 +2,7 @@ import {
   CONTRIBUTING_STATES,
   contributing,
   contributionsFor,
+  contributorSetIdentity,
   contributorsFor,
   freezeOwnedFieldKeys,
   obligated,
@@ -141,6 +142,31 @@ describe('contributors', () => {
     it('drops a key this version no longer has, and an empty subset stays empty (owns nothing)', () => {
       expect(freezeOwnedFieldKeys(['gone', 'tin-bao-moi'], fields)).toEqual(['S!B2']);
       expect(freezeOwnedFieldKeys([], fields)).toEqual([]);
+    });
+  });
+
+  describe('contributorSetIdentity', () => {
+    it('with no subset anywhere it is the sorted team ids, exactly as before subsets existed', () => {
+      expect(contributorSetIdentity([{ teamId: 'b' }, { teamId: 'a', ownedFieldKeys: null }])).toEqual(['a', 'b']);
+    });
+
+    it('a subset is part of the identity, so changing it changes the set', () => {
+      const one = contributorSetIdentity([{ teamId: 'a', ownedFieldKeys: ['S!B1'] }, { teamId: 'b' }]);
+      const two = contributorSetIdentity([{ teamId: 'a', ownedFieldKeys: ['S!B2'] }, { teamId: 'b' }]);
+      expect(JSON.stringify(one)).not.toBe(JSON.stringify(two));
+      expect(one).toEqual([['a', ['S!B1']], ['b', null]]);
+    });
+
+    it('two different subsets never look the same, even when a key contains a comma', () => {
+      const split = contributorSetIdentity([{ teamId: 'a', ownedFieldKeys: ['A!B1', 'C!D1'] }]);
+      const joined = contributorSetIdentity([{ teamId: 'a', ownedFieldKeys: ['A!B1,C!D1'] }]);
+      expect(JSON.stringify(split)).not.toBe(JSON.stringify(joined));
+    });
+
+    it('does not depend on the order the keys or the teams are stored in', () => {
+      const x = contributorSetIdentity([{ teamId: 'b', ownedFieldKeys: ['2', '1'] }, { teamId: 'a' }]);
+      const y = contributorSetIdentity([{ teamId: 'a' }, { teamId: 'b', ownedFieldKeys: ['1', '2'] }]);
+      expect(x).toEqual(y);
     });
   });
 

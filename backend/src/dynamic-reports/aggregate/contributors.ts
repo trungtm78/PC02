@@ -75,6 +75,24 @@ export function contributionsFor(rows: readonly ContributorRow[], fieldKey: stri
   }));
 }
 
+/**
+ * What identifies "the set a file was made from": the teams, and for a team with a subset also WHICH fields it brings,
+ * so a changed subset invalidates an older file. With no subset anywhere the result is exactly the sorted team ids it
+ * always was (files made before subsets keep matching). Subsets are kept as structured entries, never joined into one
+ * string: a field key may itself contain a comma.
+ */
+export function contributorSetIdentity(
+  rows: readonly (Pick<ContributorRow, 'ownedFieldKeys'> & { teamId: string })[],
+): unknown[] {
+  if (!rows.some((row) => ownedKeys(row) !== null)) return rows.map((row) => row.teamId).sort();
+  return rows
+    .map((row) => {
+      const keys = ownedKeys(row);
+      return [row.teamId, keys === null ? null : [...keys].sort()] as [string, string[] | null];
+    })
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+}
+
 /** The code a subset names a field by: its stable item key, or its field key when it has none (template reports). */
 export const itemKeyOf = (field: { fieldKey: string; itemKey?: string | null }): string =>
   field.itemKey ?? field.fieldKey;

@@ -13,7 +13,7 @@ import type { PeriodExportScope } from '../export/period-export';
 import { FormulaEvaluationService, toFormulaView } from './formula-evaluation.service';
 import type { FormulaCellView, FormulaSource } from './formula-evaluation.service';
 import type { Contribution } from '../engine/aggregate';
-import { contributionsFor, contributorsFor, countsUnder, ownedKeys } from './contributors';
+import { contributionsFor, contributorSetIdentity, contributorsFor, countsUnder } from './contributors';
 import type { SummaryMode } from './contributors';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -406,16 +406,7 @@ export class AggregateService {
     for (const a of period.assignments) {
       sourceRevisions[a.id] = a.submission?.currentRevision.toString() ?? '0';
     }
-    // The set a file was made from: the teams, and for a team with a subset also WHICH fields it brings, so a changed
-    // subset invalidates an older file. A period with no subsets hashes exactly as it always did.
-    const contributorTeamIds = contributingAssignments.some((a) => ownedKeys(a) !== null)
-      ? contributingAssignments
-          .map((a) => {
-            const keys = ownedKeys(a);
-            return keys === null ? a.teamId : `${a.teamId}:${[...keys].sort().join(',')}`;
-          })
-          .sort()
-      : contributingAssignments.map((a) => a.teamId).sort();
+    const contributorTeamIds = contributorSetIdentity(contributingAssignments);
 
     const sourceHash = createHash('sha256')
       .update(

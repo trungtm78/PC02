@@ -37,6 +37,8 @@ See the plan's Decision ledger (D1, R1–R12) and binding decisions B1–B7.
 - Baseline not yet re-measured on this branch.
 
 ## Nợ kỹ thuật
+- **Must be closed in PR 4 before any screen can set a subset** (Codex review of PR 2, 13/11; none is reachable today because nothing writes `itemKeys`): (1) P1 Excel totals formulas and `PeriodExportScope.counted` are team-level (`aggregate.service.ts` ~1618, `export/period-export.ts` ~411): an AVG/ZERO field would divide by teams that do not own it; (2) P1 submit requires every required field of the version (`submission.service.ts` ~2170); (3) P2 save/import accept fields the team does not own (~1710, ~1995, import preview ~1909); (4) P2 the editor receives every field (`toFieldView` ~1466); (5) P2 `closing-basis.ts` ~62 and (6) the KPI denominators (`aggregate.service.ts` ~478, `status-query.service.ts` ~270) count a team whose subset is empty as owing something.
+- Pre-existing, not ours: `officer-read-grant.database.spec.ts` only accepts the database `pc02_goiy_scope_test`; frontend suites `StatusDashboardPage`, `StatusMatrixPanel`, three OCR form tests and `configuration-editors` time out when the machine is loaded and pass alone.
 - none yet.
 
 ---
