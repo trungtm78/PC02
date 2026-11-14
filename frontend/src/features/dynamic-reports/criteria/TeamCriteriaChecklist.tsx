@@ -34,6 +34,8 @@ interface Props {
    * the ids are the team checklist's own (`team-criteria-item-<teamId>-<key>`, `btn-team-criteria-all-<teamId>`).
    */
   testIdPrefix?: string;
+  /** True while the ticks must not change (a save of them is on its way): every box and bulk button is off. */
+  disabled?: boolean;
 }
 
 /** The test ids of one checklist: the team checklist's historical ones, or `<prefix>-…` for another use. */
@@ -68,6 +70,7 @@ export default function TeamCriteriaChecklist({
   sectionLabel,
   countLabel,
   testIdPrefix,
+  disabled = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
@@ -115,6 +118,7 @@ export default function TeamCriteriaChecklist({
             <button
               type="button"
               data-testid={ids.button('all')}
+              disabled={disabled}
               onClick={() => onChange(tickAll(ticked, shownKeys))}
               className={smallButton}
             >
@@ -123,6 +127,7 @@ export default function TeamCriteriaChecklist({
             <button
               type="button"
               data-testid={ids.button('none')}
+              disabled={disabled}
               onClick={() => onChange(untickAll(ticked, shownKeys))}
               className={smallButton}
             >
@@ -131,6 +136,7 @@ export default function TeamCriteriaChecklist({
             <button
               type="button"
               data-testid={ids.button('invert')}
+              disabled={disabled}
               onClick={() => onChange(invertTicks(ticked, shownKeys))}
               className={smallButton}
             >
@@ -152,6 +158,7 @@ export default function TeamCriteriaChecklist({
                       testId={ids.keyed('group', g.key)}
                       label={g.label ?? g.key}
                       state={groupState(ticked, g)}
+                      disabled={disabled}
                       onToggle={(on) => {
                         const keys = g.items.map((i) => i.key);
                         onChange(on ? tickAll(ticked, keys) : untickAll(ticked, keys));
@@ -166,6 +173,7 @@ export default function TeamCriteriaChecklist({
                             type="checkbox"
                             data-testid={ids.keyed('item', item.key)}
                             checked={ticked.has(item.key)}
+                            disabled={disabled}
                             onChange={() => onChange(toggleTick(ticked, item.key))}
                           />
                           <span>{item.label}</span>
@@ -221,11 +229,13 @@ function GroupBox({
   testId,
   label,
   state,
+  disabled,
   onToggle,
 }: {
   testId: string;
   label: string;
   state: 'all' | 'some' | 'none';
+  disabled: boolean;
   onToggle: (on: boolean) => void;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
@@ -241,6 +251,7 @@ function GroupBox({
         data-testid={testId}
         aria-label={t.groupOf(label)}
         checked={state === 'all'}
+        disabled={disabled}
         onChange={(e) => onToggle(e.target.checked)}
       />
       <span>{label}</span>

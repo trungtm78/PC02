@@ -32,7 +32,7 @@ run('Custom reports (views) on PostgreSQL', () => {
   let manager = { id: '', roleId: '' };
   let outsider = { id: '', roleId: '' };
   let viewer = { id: '', roleId: '' };
-  const team: Record<'a' | 'b' | 'c', string> = { a: '', b: '', c: '' };
+  const team: Record<'a' | 'b' | 'c' | 'd', string> = { a: '', b: '', c: '', d: '' };
   const reportIds: string[] = [];
 
   const past = new Date('2020-01-01T00:00:00Z');
@@ -126,6 +126,7 @@ run('Custom reports (views) on PostgreSQL', () => {
     team.a = (await db.team.create({ data: { code: `${tag}-a`, name: `${tag} A`, order: 1 } })).id;
     team.b = (await db.team.create({ data: { code: `${tag}-b`, name: `${tag} B`, order: 2 } })).id;
     team.c = (await db.team.create({ data: { code: `${tag}-c`, name: `${tag} C`, order: 3 } })).id;
+    team.d = (await db.team.create({ data: { code: `${tag}-d`, name: `${tag} D`, order: 4 } })).id;
   });
 
   afterAll(async () => {
@@ -310,6 +311,43 @@ run('Custom reports (views) on PostgreSQL', () => {
       ]);
     });
 
+    it('archiving from an older revision is refused and changes nothing; from the current one it goes through', async () => {
+      const r = await report();
+      const made = await views.create(r.id, manager, { name: 'Cất' });
+      await views.update(made.id, manager, { expectedRevision: 1, title: 'T' });
+
+      expect(await refusal(views.archive(made.id, manager, 1))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
+
+      expect(await db.dynReportView.findUniqueOrThrow({ where: { id: made.id } })).toMatchObject({ revision: 2, archivedAt: null, title: 'T' });
+      expect((await auditOf(made.id)).map((a) => a.action)).toEqual(['DYN_REPORT_VIEW_CREATE', 'DYN_REPORT_VIEW_UPDATE']);
+
+      const archived = await views.archive(made.id, manager, 2);
+      expect(archived.revision).toBe(3);
+      expect(archived.archivedAt).not.toBeNull();
+      expect((await auditOf(made.id)).map((a) => a.action)).toEqual([
+        'DYN_REPORT_VIEW_CREATE', 'DYN_REPORT_VIEW_UPDATE', 'DYN_REPORT_VIEW_ARCHIVE',
+      ]);
+    });
+
+    it('restoring from an older revision is refused and changes nothing; from the current one it goes through', async () => {
+      const r = await report();
+      const made = await views.create(r.id, manager, { name: 'Khôi phục' });
+      await views.archive(made.id, manager);
+
+      expect(await refusal(views.restore(made.id, manager, 1))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
+
+      const still = await db.dynReportView.findUniqueOrThrow({ where: { id: made.id } });
+      expect(still.revision).toBe(2);
+      expect(still.archivedAt).not.toBeNull();
+      expect((await auditOf(made.id)).map((a) => a.action)).toEqual(['DYN_REPORT_VIEW_CREATE', 'DYN_REPORT_VIEW_ARCHIVE']);
+
+      const restored = await views.restore(made.id, manager, 2);
+      expect(restored).toMatchObject({ archivedAt: null, revision: 3 });
+      expect((await auditOf(made.id)).map((a) => a.action)).toEqual([
+        'DYN_REPORT_VIEW_CREATE', 'DYN_REPORT_VIEW_ARCHIVE', 'DYN_REPORT_VIEW_RESTORE',
+      ]);
+    });
+
     it('a view is deleted for good, in use or archived; a delete from an older revision is refused', async () => {
       const r = await report();
       const made = await views.create(r.id, manager, { name: 'Xoá' });
@@ -469,11 +507,88 @@ run('Custom reports (views) on PostgreSQL', () => {
       expect(november.title).toBe(`${r.name} — kỳ 2026-11`);
       expect(november.rows.map((x) => [x.code, x.total])).toEqual([['1', '15'], ['1.1', '7'], ['2', '9']]);
       expect(november.teams).toEqual([{ teamId: team.b, name: 'Tổ B' }]);
-      expect(november.ignored.teams).toEqual([{ teamId: team.a, name: `${tag} A` }]);
+      // Named as the report knew it: by the snapshot of its assignment in the other period.
+      expect(november.ignored.teams).toEqual([{ teamId: team.a, name: 'Tổ A' }]);
 
       const made = await custom.export(r.november, manager, { viewId: view.id });
       expect(made.fileName).toBe('Hai-tổ-2026-11.xlsx');
       expect((await db.dynReportExport.findUniqueOrThrow({ where: { id: made.exportId } })).scope).toMatchObject({ viewId: view.id, teamIds: [team.b] });
+    });
+
+    it('a team left out is named only when it belongs to THIS report: by an assignment in another period, or as a target; any other id stays nameless', async () => {
+      const [r, other] = [await report(), await report()];
+      const november = await db.dynReportPeriod.findUniqueOrThrow({ where: { id: r.november } });
+      // Tổ A was renamed for December: the most recent period's name is the one said.
+      const december = await db.dynReportPeriod.create({
+        data: {
+          reportId: r.id, versionId: november.versionId, periodKey: '2026-12', startDate: new Date('2026-12-01'), endDate: new Date('2026-12-28'),
+          opensAt: past, dueAt: future, scheduleSnapshot: {},
+        },
+      });
+      await db.dynReportAssignment.create({ data: { periodId: december.id, teamId: team.a, teamSnapshot: { name: 'Tổ A (đổi tên)' } } });
+      // Tổ D is a target of the report and has no period yet.
+      await db.dynReportTarget.create({ data: { reportId: r.id, teamId: team.d } });
+      // Tổ C has nothing to do with this report; it reports in ANOTHER one.
+      await db.dynReportAssignment.create({ data: { periodId: other.november, teamId: team.c, teamSnapshot: { name: 'Tổ C của báo cáo khác' } } });
+
+      const summary = await custom.preview(r.november, manager, {
+        definition: { teamIds: [team.b, team.a, team.d, team.c, 'no-such-team'] },
+      });
+
+      expect(summary.teams).toEqual([{ teamId: team.b, name: 'Tổ B' }]);
+      expect(summary.ignored.teamIds).toEqual([team.a, team.d, team.c, 'no-such-team']);
+      expect(summary.ignored.teams).toEqual([
+        { teamId: team.a, name: 'Tổ A (đổi tên)' },
+        { teamId: team.d, name: `${tag} D` },
+        { teamId: team.c, name: null },
+        { teamId: 'no-such-team', name: null },
+      ]);
+      // The manager of the other report does see Tổ C by the name it has there.
+      const there = await custom.preview(other.october, manager, { definition: { teamIds: [team.b, team.c] } });
+      expect(there.ignored.teams).toEqual([{ teamId: team.c, name: 'Tổ C của báo cáo khác' }]);
+    });
+
+    it('a saved view of which nothing is left in the period is still previewed, with no rows and what was left out; it cannot be exported', async () => {
+      const r = await report();
+      // Saved for Tổ A alone, used on November where Tổ A reports nothing.
+      const onlyA = await views.create(r.id, manager, { name: 'Chỉ tổ A', teamIds: [team.a] });
+      // Saved for a criterion that the period's version no longer has.
+      const onlyK2 = await views.create(r.id, manager, { name: 'Chỉ tiêu chí 2', itemKeys: ['k2'] });
+      await db.dynReportField.deleteMany({ where: { versionId: (await db.dynReportPeriod.findUniqueOrThrow({ where: { id: r.november } })).versionId, itemKey: 'k2' } });
+
+      const noTeam = await custom.preview(r.november, manager, { viewId: onlyA.id });
+      const noCriterion = await custom.preview(r.november, manager, { viewId: onlyK2.id });
+
+      expect(noTeam).toMatchObject({
+        periodId: r.november,
+        reportId: r.id,
+        viewId: onlyA.id,
+        title: `${r.name} — kỳ 2026-11`,
+        rows: [],
+        teams: [],
+        ignored: { itemKeys: [], teamIds: [team.a], teams: [{ teamId: team.a, name: 'Tổ A' }] },
+        counts: { criteria: { selected: 2, total: 2 }, teams: { selected: 0, total: 1 } },
+      });
+      expect(noTeam.columns.map((c) => c.key)).toEqual(['code', 'label', 'unit', 'total']);
+      expect(noTeam.notes).toEqual([
+        { code: 'PERIOD_OPEN', params: { mode: 'SUBMITTED' } },
+        { code: 'TEAMS_IGNORED', params: { count: 1 } },
+      ]);
+      expect(noCriterion).toMatchObject({
+        viewId: onlyK2.id,
+        rows: [],
+        teams: [{ teamId: team.b, name: 'Tổ B' }],
+        ignored: { itemKeys: ['k2'], teamIds: [], teams: [] },
+        counts: { criteria: { selected: 0, total: 2 }, teams: { selected: 1, total: 1 } },
+      });
+      expect(noCriterion.notes).toEqual([
+        { code: 'PERIOD_OPEN', params: { mode: 'SUBMITTED' } },
+        { code: 'ITEM_KEYS_IGNORED', params: { count: 1 } },
+      ]);
+
+      expect(await refusal(custom.export(r.november, manager, { viewId: onlyA.id }))).toEqual({ status: 400, code: 'VIEW_TEAMS_EMPTY' });
+      expect(await refusal(custom.export(r.november, manager, { viewId: onlyK2.id }))).toEqual({ status: 400, code: 'VIEW_SELECTION_EMPTY' });
+      expect(await db.dynReportExport.count({ where: { scope: { path: ['periodId'], equals: r.november } } })).toBe(0);
     });
 
     it('a criterion added to the report after the view was saved is counted as new; a view of another report is not found', async () => {

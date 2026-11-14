@@ -6,10 +6,14 @@ import { foldText } from '../criteria/criteria';
 import type { TeamDirectoryEntry } from './types';
 
 /**
- * Ticks as the server takes them. Everything on the screen ticked is `null` ("all"), never today's list: a saved
- * report then keeps following criteria and teams added later. Otherwise the ticked keys in the order shown, followed
- * by the keys the saved report names that this period does not have (they are not on the screen, so they cannot have
- * been unticked: the report keeps them for the periods that do have them).
+ * Ticks as the server takes them: the ticked keys in the order shown, followed by the keys the saved report names
+ * that this period does not have (they are not on the screen, so they cannot have been unticked: the report keeps
+ * them for the periods that do have them).
+ *
+ * `null` ("all", also what is added later) only when everything on the screen is ticked AND the saved report names
+ * nothing that is absent here. A report saved with teams [A, B], opened in a period that only has A, is still
+ * [A, B] after A is unticked and ticked again: "everything shown" is not "everything" for a report that was a
+ * subset.
  */
 export function selectionForPayload(
   ticked: ReadonlySet<string>,
@@ -17,9 +21,10 @@ export function selectionForPayload(
   savedKeys: readonly string[] | null = null,
 ): string[] | null {
   const picked = shownKeys.filter((k) => ticked.has(k));
-  if (picked.length === shownKeys.length) return null;
   const shown = new Set(shownKeys);
-  return [...picked, ...(savedKeys ?? []).filter((k) => !shown.has(k))];
+  const absentSaved = (savedKeys ?? []).filter((k) => !shown.has(k));
+  if (picked.length === shownKeys.length && absentSaved.length === 0) return null;
+  return [...picked, ...absentSaved];
 }
 
 /** One line of the team picker. */

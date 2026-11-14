@@ -118,16 +118,38 @@ const refusal = (status: number, code: string) => ({
 
 const FULL_DEFINITION = { title: null, showFilterLine: true, itemKeys: null, teamIds: null, teamColumns: true };
 
+type PeriodStatus = 'OPEN' | 'FINALIZED';
+
 function renderPanel(mode: SummaryMode = 'SUBMITTED') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const ui = (m: SummaryMode) => (
+  const ui = (m: SummaryMode, status: PeriodStatus) => (
     <QueryClientProvider client={client}>
-      <CustomReportPanel reportId="report1" periodId="period1" mode={m} previewDelayMs={0} />
+      <CustomReportPanel reportId="report1" periodId="period1" mode={m} periodStatus={status} previewDelayMs={0} />
     </QueryClientProvider>
   );
-  const utils = render(ui(mode));
-  return { ...utils, client, setMode: (m: SummaryMode) => utils.rerender(ui(m)) };
+  const utils = render(ui(mode, 'OPEN'));
+  return {
+    ...utils,
+    client,
+    setMode: (m: SummaryMode) => utils.rerender(ui(m, 'OPEN')),
+    setPeriodStatus: (status: PeriodStatus) => utils.rerender(ui(mode, status)),
+  };
 }
+
+/** A promise settled by the test: what is on the screen while the server has not answered yet. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+const exportButton = () => screen.getByTestId('custom-report-export');
+/** The export waits for the preview of exactly what is on the screen. */
+const exportReady = () => waitFor(() => expect(exportButton()).toBeEnabled());
 
 const criterion = (key: string) => screen.getByTestId(`custom-report-criteria-item-${key}`) as HTMLInputElement;
 const team = (id: string) => screen.getByTestId(`custom-report-team-${id}`) as HTMLInputElement;
@@ -288,7 +310,7 @@ describe('CustomReportPanel', () => {
       await openNew();
       expect(screen.getByTestId('custom-report-save')).toBeDisabled();
       expect(screen.getByTestId('custom-report-save-reason')).toHaveTextContent(t.builder.nameNeeded);
-      expect(screen.getByTestId('custom-report-export')).toBeEnabled();
+      await exportReady();
       fireEvent.change(screen.getByTestId('custom-report-name'), { target: { value: 'Báo cáo tuần' } });
       expect(screen.getByTestId('custom-report-save')).toBeEnabled();
       expect(screen.queryByTestId('custom-report-save-reason')).not.toBeInTheDocument();
@@ -436,6 +458,123 @@ describe('CustomReportPanel', () => {
       expect(screen.getByTestId('custom-report-note-TEAMS_IGNORED')).toBeInTheDocument();
     });
 
+    it('is asked again when the period is closed or opened again, and the export waits for it', async () => {
+      const { setPeriodStatus } = renderPanel();
+      await openNew();
+      await exportReady();
+      expect(reportViewsApi.preview).toHaveBeenCalledTimes(1);
+
+      const afterClosing = deferred<CustomReportPreview>();
+      vi.mocked(reportViewsApi.preview).mockReturnValueOnce(afterClosing.promise);
+      setPeriodStatus('FINALIZED');
+      await waitFor(() => expect(reportViewsApi.preview).toHaveBeenCalledTimes(2));
+      expect(exportButton()).toBeDisabled();
+      afterClosing.resolve({ ...PREVIEW, periodStatus: 'FINALIZED', mode: 'APPROVED' });
+      await exportReady();
+      expect(await screen.findByTestId('custom-report-cell-tin-t2')).toHaveTextContent('chưa duyệt');
+
+      setPeriodStatus('OPEN');
+      await waitFor(() => expect(reportViewsApi.preview).toHaveBeenCalledTimes(3));
+    });
+
+    describe('a saved report of which nothing is left in this period', () => {
+      const EMPTY_ANSWER: CustomReportPreview = {
+        ...PREVIEW,
+        viewId: 'v1',
+        teams: [],
+        rows: [],
+        notes: [{ code: 'TEAMS_IGNORED', params: { count: 2 } }],
+        ignored: {
+          itemKeys: [],
+          teamIds: ['gone-1', 'gone-2'],
+          teams: [
+            { teamId: 'gone-1', name: 'Tổ 9' },
+            { teamId: 'gone-2', name: null },
+          ],
+        },
+        counts: { criteria: { selected: 2, total: 3 }, teams: { selected: 0, total: 4 } },
+      };
+
+      it('teams: the preview is still asked for; the warnings, the teams by name and a plain sentence are shown; export is off with the reason', async () => {
+        vi.mocked(reportViewsApi.list).mockResolvedValue([view({ teamIds: ['gone-1', 'gone-2'] })]);
+        vi.mocked(reportViewsApi.preview).mockResolvedValue(EMPTY_ANSWER);
+        renderPanel();
+        await openSaved();
+        await waitFor(() => expect(reportViewsApi.preview).toHaveBeenCalledWith('period1', { viewId: 'v1', mode: 'SUBMITTED' }));
+        // Not the sentence of somebody who unticked everything by hand.
+        expect(screen.queryByTestId('custom-report-block-reason')).not.toBeInTheDocument();
+
+        const gone = await screen.findByTestId('custom-report-saved-teams-gone');
+        expect(gone).toHaveTextContent(t.preview.savedTeamsGone(`Tổ 9, ${t.preview.unknownTeam}`));
+        expect(gone).not.toHaveTextContent('gone-2');
+        expect(screen.getByTestId('custom-report-ignored-teams')).toHaveTextContent(`Tổ 9, ${t.preview.unknownTeam}`);
+        expect(screen.getByTestId('custom-report-preview-area')).not.toHaveTextContent('gone-2');
+        expect(screen.getByTestId('custom-report-note-TEAMS_IGNORED')).toBeInTheDocument();
+        expect(screen.queryByTestId('custom-report-preview-table')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('custom-report-saved-criteria-gone')).not.toBeInTheDocument();
+
+        await waitFor(() => expect(screen.getByTestId('custom-report-export-reason')).toHaveTextContent(t.builder.exportNothingLeft));
+        expect(exportButton()).toBeDisabled();
+      });
+
+      it('teams: ticking a team of this period fixes it, and the absent ones stay in the selection', async () => {
+        vi.mocked(reportViewsApi.list).mockResolvedValue([view({ teamIds: ['gone-1', 'gone-2'] })]);
+        vi.mocked(reportViewsApi.preview).mockResolvedValueOnce(EMPTY_ANSWER).mockResolvedValue({ ...PREVIEW, viewId: 'v1' });
+        renderPanel();
+        await openSaved();
+        await screen.findByTestId('custom-report-saved-teams-gone');
+        expect(team('t1')).toBeEnabled();
+        fireEvent.click(team('t1'));
+        await waitFor(() =>
+          expect(lastPreviewBody()).toEqual({
+            viewId: 'v1',
+            definition: { title: 'Tình hình tin báo', showFilterLine: true, itemKeys: ['tin-moi', 'an'], teamIds: ['t1', 'gone-1', 'gone-2'], teamColumns: true },
+            mode: 'SUBMITTED',
+          }),
+        );
+        await exportReady();
+        expect(screen.queryByTestId('custom-report-saved-teams-gone')).not.toBeInTheDocument();
+      });
+
+      it('criteria: the same, counted by the answer', async () => {
+        vi.mocked(reportViewsApi.list).mockResolvedValue([view({ itemKeys: ['old-1', 'old-2'] })]);
+        vi.mocked(reportViewsApi.preview).mockResolvedValue({
+          ...PREVIEW,
+          viewId: 'v1',
+          rows: [],
+          notes: [{ code: 'ITEM_KEYS_IGNORED', params: { count: 2 } }],
+          ignored: { itemKeys: ['old-1', 'old-2'], teamIds: [], teams: [] },
+          counts: { criteria: { selected: 0, total: 3 }, teams: { selected: 2, total: 4 } },
+        });
+        renderPanel();
+        await openSaved();
+        expect(await screen.findByTestId('custom-report-saved-criteria-gone')).toHaveTextContent(t.preview.savedCriteriaGone);
+        expect(screen.getByTestId('custom-report-ignored-criteria')).toHaveTextContent(t.preview.ignoredCriteria(2));
+        expect(screen.getByTestId('custom-report-note-ITEM_KEYS_IGNORED')).toBeInTheDocument();
+        expect(screen.queryByTestId('custom-report-block-reason')).not.toBeInTheDocument();
+        expect(reportViewsApi.preview).toHaveBeenCalledWith('period1', { viewId: 'v1', mode: 'SUBMITTED' });
+        await waitFor(() => expect(screen.getByTestId('custom-report-export-reason')).toHaveTextContent(t.builder.exportNothingLeft));
+        expect(exportButton()).toBeDisabled();
+        expect(criterion('tin-moi')).toBeEnabled();
+      });
+
+      it('somebody who then unticks everything by hand is told to tick, and nothing more is asked', async () => {
+        vi.mocked(reportViewsApi.list).mockResolvedValue([view({ teamIds: ['gone-1', 'gone-2'] })]);
+        vi.mocked(reportViewsApi.preview).mockResolvedValue(EMPTY_ANSWER);
+        renderPanel();
+        await openSaved();
+        await screen.findByTestId('custom-report-saved-teams-gone');
+        await waitFor(() => expect(screen.getByTestId('custom-report-export-reason')).toHaveTextContent(t.builder.exportNothingLeft));
+        const asked = vi.mocked(reportViewsApi.preview).mock.calls.length;
+        fireEvent.click(screen.getByTestId('custom-report-teams-none'));
+        expect(screen.getByTestId('custom-report-block-reason')).toHaveTextContent(t.builder.noTeamsTicked);
+        expect(exportButton()).toBeDisabled();
+        expect(screen.queryByTestId('custom-report-preview')).not.toBeInTheDocument();
+        await new Promise((r) => setTimeout(r, 30));
+        expect(reportViewsApi.preview).toHaveBeenCalledTimes(asked);
+      });
+    });
+
     it('a refused preview is told by its code', async () => {
       vi.mocked(reportViewsApi.preview).mockRejectedValue(refusal(400, 'VIEW_TEAMS_EMPTY'));
       renderPanel();
@@ -452,7 +591,9 @@ describe('CustomReportPanel', () => {
       await openNew();
       fireEvent.change(screen.getByTestId('custom-report-title'), { target: { value: '  Tình hình tuần  ' } });
       fireEvent.click(criterion('an'));
-      fireEvent.click(screen.getByTestId('custom-report-export'));
+      expect(exportButton()).toBeDisabled();
+      await exportReady();
+      fireEvent.click(exportButton());
 
       await waitFor(() => expect(dynamicReportsApi.downloadExport).toHaveBeenCalledWith('exp1', 'bao-cao-2026-06.xlsx'));
       expect(reportViewsApi.createExport).toHaveBeenCalledWith('period1', {
@@ -463,11 +604,51 @@ describe('CustomReportPanel', () => {
       expect(await screen.findByTestId('custom-report-builder-notice')).toHaveTextContent(t.done.exported('bao-cao-2026-06.xlsx'));
     });
 
+    it('waits for the preview of what is on the screen: disabled, with the reason, until it has arrived', async () => {
+      const first = deferred<CustomReportPreview>();
+      vi.mocked(reportViewsApi.preview).mockReturnValueOnce(first.promise);
+      renderPanel();
+      await openNew();
+      await waitFor(() => expect(reportViewsApi.preview).toHaveBeenCalledTimes(1));
+      expect(exportButton()).toBeDisabled();
+      expect(screen.getByTestId('custom-report-export-reason')).toHaveTextContent(t.builder.exportWaitsPreview);
+
+      first.resolve(PREVIEW);
+      await exportReady();
+      expect(screen.queryByTestId('custom-report-export-reason')).not.toBeInTheDocument();
+
+      // A change: the preview on the screen is of an earlier state of the form until the new one arrives.
+      const second = deferred<CustomReportPreview>();
+      vi.mocked(reportViewsApi.preview).mockReturnValueOnce(second.promise);
+      fireEvent.click(criterion('an'));
+      expect(exportButton()).toBeDisabled();
+      expect(screen.getByTestId('custom-report-export-reason')).toHaveTextContent(t.builder.exportWaitsPreview);
+      await waitFor(() => expect(reportViewsApi.preview).toHaveBeenCalledTimes(2));
+      expect(exportButton()).toBeDisabled();
+      fireEvent.click(exportButton());
+      expect(reportViewsApi.createExport).not.toHaveBeenCalled();
+      second.resolve(PREVIEW);
+      await exportReady();
+    });
+
+    it('a preview that failed gives nothing to export: disabled with the reason, and it can be tried again', async () => {
+      vi.mocked(reportViewsApi.preview).mockRejectedValueOnce(refusal(500, 'INTERNAL'));
+      renderPanel();
+      await openNew();
+      await screen.findByTestId('custom-report-preview-error');
+      expect(exportButton()).toBeDisabled();
+      expect(screen.getByTestId('custom-report-export-reason')).toHaveTextContent(t.builder.exportNeedsPreview);
+      fireEvent.click(screen.getByTestId('custom-report-preview-retry'));
+      await exportReady();
+      expect(screen.queryByTestId('custom-report-preview-error')).not.toBeInTheDocument();
+    });
+
     it('a refused export is told by its code', async () => {
       vi.mocked(reportViewsApi.createExport).mockRejectedValue(refusal(409, 'PERIOD_TEAMS_CHANGED'));
       renderPanel();
       await openNew();
-      fireEvent.click(screen.getByTestId('custom-report-export'));
+      await exportReady();
+      fireEvent.click(exportButton());
       expect(await screen.findByTestId('custom-report-error')).toHaveTextContent(t.errors.PERIOD_TEAMS_CHANGED);
       expect(dynamicReportsApi.downloadExport).not.toHaveBeenCalled();
     });
@@ -517,7 +698,7 @@ describe('CustomReportPanel', () => {
       expect(screen.queryByTestId('custom-report-unsaved')).not.toBeInTheDocument();
     });
 
-    it('edits a saved report with the revision it was read at, sending only the selection that was touched', async () => {
+    it('edits a saved report with the revision it was read at, sending only what was touched', async () => {
       vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
       vi.mocked(reportViewsApi.update).mockResolvedValue(view({ title: null, itemKeys: null, revision: 5 }));
       renderPanel();
@@ -535,14 +716,8 @@ describe('CustomReportPanel', () => {
       fireEvent.click(screen.getByTestId('custom-report-save'));
 
       expect(await screen.findByTestId('custom-report-builder-notice')).toHaveTextContent(t.done.updated('Gửi Ban Giám đốc'));
-      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', {
-        expectedRevision: 4,
-        name: 'Gửi Ban Giám đốc',
-        title: null,
-        showFilterLine: true,
-        teamColumns: true,
-        itemKeys: null,
-      });
+      // The name, the two switches and the teams were not touched: they are not sent, so the server keeps them.
+      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', { expectedRevision: 4, title: null, itemKeys: null });
       await waitFor(() => expect(reportViewsApi.list).toHaveBeenCalledTimes(2));
       expect(screen.queryByTestId('custom-report-unsaved')).not.toBeInTheDocument();
     });
@@ -612,7 +787,111 @@ describe('CustomReportPanel', () => {
 
       fireEvent.click(screen.getByTestId('custom-report-save'));
       await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalledTimes(2));
-      expect(vi.mocked(reportViewsApi.update).mock.calls[1][1]).toMatchObject({ expectedRevision: 6, itemKeys: null });
+      // Only the criteria were touched: the other person's name is not sent back, so it cannot be undone.
+      expect(vi.mocked(reportViewsApi.update).mock.calls[1][1]).toEqual({ expectedRevision: 6, itemKeys: null });
+    });
+
+    it('after touching only the title, only the title is sent', async () => {
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      vi.mocked(reportViewsApi.update).mockResolvedValue(view({ title: 'Tiêu đề mới', revision: 5 }));
+      renderPanel();
+      await openSaved();
+      fireEvent.change(screen.getByTestId('custom-report-title'), { target: { value: ' Tiêu đề mới ' } });
+      fireEvent.click(screen.getByTestId('custom-report-save'));
+      await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalled());
+      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', { expectedRevision: 4, title: 'Tiêu đề mới' });
+    });
+
+    it('each switch and the name are sent only when touched', async () => {
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      vi.mocked(reportViewsApi.update).mockResolvedValue(view({ name: 'Tên mới', teamColumns: false, revision: 5 }));
+      renderPanel();
+      await openSaved();
+      fireEvent.change(screen.getByTestId('custom-report-name'), { target: { value: 'Tên mới' } });
+      fireEvent.click(screen.getByTestId('custom-report-team-columns'));
+      fireEvent.click(screen.getByTestId('custom-report-save'));
+      await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalled());
+      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', { expectedRevision: 4, name: 'Tên mới', teamColumns: false });
+    });
+
+    it('a report saved with teams this period lacks keeps them when the only team shown is unticked and ticked again', async () => {
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view({ itemKeys: ['tin-moi', 'old-key'], teamIds: ['t1', 'gone-team'] })]);
+      vi.mocked(dynamicReportsApi.loadPeriodCriteria).mockResolvedValue({ ...CRITERIA, criteria: [CRITERIA.criteria[0]] });
+      vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue([assignment('t1', 'Tổ 1')]);
+      vi.mocked(reportViewsApi.update).mockResolvedValue(view({ revision: 5 }));
+      renderPanel();
+      await openSaved();
+      fireEvent.click(team('t1'));
+      fireEvent.click(team('t1'));
+      fireEvent.click(criterion('tin-moi'));
+      fireEvent.click(criterion('tin-moi'));
+      expect(screen.getByTestId('custom-report-teams-count')).toHaveTextContent('Đã chọn 1/1 tổ');
+      fireEvent.click(screen.getByTestId('custom-report-save'));
+      await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalled());
+      // Everything on the screen is ticked, and still neither selection became "all" (null).
+      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', {
+        expectedRevision: 4,
+        itemKeys: ['tin-moi', 'old-key'],
+        teamIds: ['t1', 'gone-team'],
+      });
+    });
+
+    it('while a save is on its way nothing can be edited, so the answer overwrites nothing typed meanwhile', async () => {
+      const pending = deferred<ReportViewDto>();
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      vi.mocked(reportViewsApi.update).mockReturnValue(pending.promise);
+      renderPanel();
+      await openSaved();
+      fireEvent.click(criterion('tin-cu'));
+      const editable = () => [
+        screen.getByTestId('custom-report-name'),
+        screen.getByTestId('custom-report-title'),
+        screen.getByTestId('custom-report-show-filter-line'),
+        screen.getByTestId('custom-report-team-columns'),
+        criterion('tin-moi'),
+        screen.getByTestId('custom-report-criteria-group-tin'),
+        screen.getByTestId('custom-report-criteria-all'),
+        screen.getByTestId('custom-report-criteria-none'),
+        screen.getByTestId('custom-report-criteria-invert'),
+        team('t1'),
+        team('d1'),
+        screen.getByTestId('custom-report-teams-all'),
+        screen.getByTestId('custom-report-teams-none'),
+      ];
+      for (const control of editable()) expect(control).toBeEnabled();
+
+      fireEvent.click(screen.getByTestId('custom-report-save'));
+      await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalled());
+      for (const control of editable()) expect(control).toBeDisabled();
+
+      pending.resolve(view({ itemKeys: null, revision: 5 }));
+      expect(await screen.findByTestId('custom-report-builder-notice')).toHaveTextContent(t.done.updated('Gửi Ban Giám đốc'));
+      for (const control of editable()) expect(control).toBeEnabled();
+    });
+
+    it('nothing can be edited while "Lưu thành bản mới" or an archive is on its way either', async () => {
+      const creating = deferred<ReportViewDto>();
+      const archiving = deferred<ReportViewDto>();
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      vi.mocked(reportViewsApi.create).mockReturnValue(creating.promise);
+      vi.mocked(reportViewsApi.archive).mockReturnValue(archiving.promise);
+      renderPanel();
+      await openSaved();
+      fireEvent.click(screen.getByTestId('custom-report-save-as'));
+      fireEvent.click(screen.getByTestId('custom-report-save-as-confirm'));
+      await waitFor(() => expect(reportViewsApi.create).toHaveBeenCalled());
+      expect(screen.getByTestId('custom-report-name')).toBeDisabled();
+      expect(screen.getByTestId('custom-report-save-as-name')).toBeDisabled();
+      expect(team('t1')).toBeDisabled();
+      creating.resolve(view({ id: 'v7', name: 'Bản sao', revision: 1 }));
+      await waitFor(() => expect(screen.getByTestId('custom-report-name')).toBeEnabled());
+
+      fireEvent.click(screen.getByTestId('custom-report-archive'));
+      await waitFor(() => expect(reportViewsApi.archive).toHaveBeenCalled());
+      expect(screen.getByTestId('custom-report-title')).toBeDisabled();
+      expect(criterion('an')).toBeDisabled();
+      archiving.resolve(view({ id: 'v7', name: 'Bản sao', archivedAt: '2026-11-14T00:00:00.000Z', revision: 2 }));
+      await waitFor(() => expect(screen.getByTestId('custom-report-title')).toBeEnabled());
     });
 
     it('when the report was deleted meanwhile: says so and the next save makes a new one', async () => {
@@ -639,14 +918,15 @@ describe('CustomReportPanel', () => {
       await openSaved();
       fireEvent.click(screen.getByTestId('custom-report-archive'));
       expect(await screen.findByTestId('custom-report-builder-notice')).toHaveTextContent(t.done.archived('Gửi Ban Giám đốc'));
-      expect(reportViewsApi.archive).toHaveBeenCalledWith('v1');
+      // With the revision the screen holds: somebody else's change in between is a conflict, not silently passed over.
+      expect(reportViewsApi.archive).toHaveBeenCalledWith('v1', 4);
       expect(screen.getByTestId('custom-report-save')).toBeDisabled();
       expect(screen.getByTestId('custom-report-save-reason')).toHaveTextContent(t.builder.archivedReason);
       expect(screen.queryByTestId('custom-report-archive')).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByTestId('custom-report-restore'));
       expect(await screen.findByTestId('custom-report-builder-notice')).toHaveTextContent(t.done.restored('Gửi Ban Giám đốc'));
-      expect(reportViewsApi.restore).toHaveBeenCalledWith('v1');
+      expect(reportViewsApi.restore).toHaveBeenCalledWith('v1', 5);
       expect(screen.getByTestId('custom-report-save')).toBeEnabled();
       await waitFor(() => expect(reportViewsApi.list).toHaveBeenCalledTimes(3));
     });
@@ -660,12 +940,69 @@ describe('CustomReportPanel', () => {
       renderPanel();
       fireEvent.click(await screen.findByTestId('custom-report-archive-v1'));
       expect(await screen.findByTestId('custom-report-notice')).toHaveTextContent(t.done.archived('Gửi Ban Giám đốc'));
-      expect(reportViewsApi.archive).toHaveBeenCalledWith('v1');
+      expect(reportViewsApi.archive).toHaveBeenCalledWith('v1', 4);
 
       fireEvent.click(await screen.findByTestId('custom-report-toggle-archived'));
       fireEvent.click(screen.getByTestId('custom-report-restore-v1'));
-      await waitFor(() => expect(reportViewsApi.restore).toHaveBeenCalledWith('v1'));
+      await waitFor(() => expect(reportViewsApi.restore).toHaveBeenCalledWith('v1', 5));
       expect(await screen.findByTestId('custom-report-notice')).toHaveTextContent(t.done.restored('Gửi Ban Giám đốc'));
+    });
+
+    it('an archive refused because somebody else changed the report: said in plain words, the report is read again, and what was not touched follows it', async () => {
+      vi.mocked(reportViewsApi.list)
+        .mockResolvedValueOnce([view()])
+        .mockResolvedValue([view({ revision: 6, name: 'Tên người khác đặt', showFilterLine: false })]);
+      vi.mocked(reportViewsApi.archive).mockRejectedValueOnce(refusal(409, 'REVISION_CONFLICT'));
+      vi.mocked(reportViewsApi.update).mockResolvedValue(view({ revision: 7, name: 'Tên người khác đặt', title: 'Tiêu đề của tôi' }));
+      renderPanel();
+      await openSaved();
+      fireEvent.change(screen.getByTestId('custom-report-title'), { target: { value: 'Tiêu đề của tôi' } });
+      fireEvent.click(screen.getByTestId('custom-report-archive'));
+
+      const error = await screen.findByTestId('custom-report-error');
+      expect(error).toHaveTextContent(t.conflictReloadedRetry);
+      expect(error).not.toHaveTextContent('REVISION_CONFLICT');
+      expect(reportViewsApi.archive).toHaveBeenCalledWith('v1', 4);
+      // Read again: the untouched name and switch are the other person's; the title typed here stays.
+      expect(screen.getByTestId('custom-report-builder-heading')).toHaveTextContent('Tên người khác đặt');
+      expect(screen.getByTestId('custom-report-name')).toHaveValue('Tên người khác đặt');
+      expect((screen.getByTestId('custom-report-show-filter-line') as HTMLInputElement).checked).toBe(false);
+      expect(screen.getByTestId('custom-report-title')).toHaveValue('Tiêu đề của tôi');
+
+      fireEvent.click(screen.getByTestId('custom-report-save'));
+      await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalled());
+      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', { expectedRevision: 6, title: 'Tiêu đề của tôi' });
+    });
+
+    it('after an archive answered with a newer version, an untouched name is that of the server and is not sent', async () => {
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      vi.mocked(reportViewsApi.archive).mockResolvedValue(view({ archivedAt: '2026-11-14T00:00:00.000Z', revision: 8, name: 'Tên trên máy chủ' }));
+      vi.mocked(reportViewsApi.restore).mockResolvedValue(view({ revision: 9, name: 'Tên trên máy chủ', teamColumns: false }));
+      vi.mocked(reportViewsApi.update).mockResolvedValue(view({ revision: 10, name: 'Tên trên máy chủ' }));
+      renderPanel();
+      await openSaved();
+      fireEvent.change(screen.getByTestId('custom-report-title'), { target: { value: 'Tiêu đề của tôi' } });
+      fireEvent.click(screen.getByTestId('custom-report-archive'));
+      await waitFor(() => expect(screen.getByTestId('custom-report-name')).toHaveValue('Tên trên máy chủ'));
+      expect(screen.getByTestId('custom-report-title')).toHaveValue('Tiêu đề của tôi');
+
+      fireEvent.click(await screen.findByTestId('custom-report-restore'));
+      await waitFor(() => expect(reportViewsApi.restore).toHaveBeenCalledWith('v1', 8));
+      await waitFor(() => expect((screen.getByTestId('custom-report-team-columns') as HTMLInputElement).checked).toBe(false));
+
+      await waitFor(() => expect(screen.getByTestId('custom-report-save')).toBeEnabled());
+      fireEvent.click(screen.getByTestId('custom-report-save'));
+      await waitFor(() => expect(reportViewsApi.update).toHaveBeenCalled());
+      expect(reportViewsApi.update).toHaveBeenCalledWith('v1', { expectedRevision: 9, title: 'Tiêu đề của tôi' });
+    });
+
+    it('an archive from the list refused for the same reason is told by its code and the list is read again', async () => {
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      vi.mocked(reportViewsApi.archive).mockRejectedValue(refusal(409, 'REVISION_CONFLICT'));
+      renderPanel();
+      fireEvent.click(await screen.findByTestId('custom-report-archive-v1'));
+      expect(await screen.findByTestId('custom-report-list-error')).toHaveTextContent(t.errors.REVISION_CONFLICT);
+      await waitFor(() => expect(reportViewsApi.list).toHaveBeenCalledTimes(2));
     });
 
     it('deleting from the list asks first, naming the report; "Huỷ" deletes nothing', async () => {

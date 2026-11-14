@@ -49,7 +49,9 @@ export default function CustomReportPreviewTable({ preview }: { preview: CustomR
         </p>
       )}
 
-      {/* A long report scrolls inside this box, so the buttons under it stay within reach. */}
+      {/* A long report scrolls inside this box, so the buttons under it stay within reach. With no row at all (nothing
+          of a saved selection is in this period) there is no table to draw: the warnings above say why. */}
+      {preview.rows.length > 0 && (
       <div className="overflow-auto max-h-[28rem] border border-slate-200 rounded mt-2">
         <table className="min-w-full text-sm" data-testid="custom-report-preview-table">
           <thead className="bg-slate-50 text-slate-600 text-xs sticky top-0">
@@ -105,6 +107,7 @@ export default function CustomReportPreviewTable({ preview }: { preview: CustomR
           </tbody>
         </table>
       </div>
+      )}
 
       {preview.notes.length > 0 && (
         <div className="mt-2 text-xs text-slate-600" data-testid="custom-report-notes">

@@ -102,15 +102,25 @@ type Group = CustomSummaryInput['groups'][number];
 
 const filled = (v: string | null | undefined): v is string => v !== null && v !== undefined && v !== '';
 
-export function buildCustomSummary(input: CustomSummaryInput): CustomSummary {
+export interface CustomSummaryOptions {
+  /**
+   * What to do when NONE of the criteria the selection names exists in the period, or none of its teams is in it.
+   * false (the default, and what the file needs): refuse, there is no report to make. true (the screen's preview):
+   * answer with no rows and with what was left out, so the person sees why the report is empty.
+   */
+  allowNothingLeft?: boolean;
+}
+
+export function buildCustomSummary(input: CustomSummaryInput, options: CustomSummaryOptions = {}): CustomSummary {
   const { definition, mode, fields } = input;
+  const allowNothingLeft = options.allowNothingLeft === true;
 
   // ---- which criteria
   const knownKeys = new Set(fields.map((f) => f.itemKey));
   const wantedKeys = definition.itemKeys === null ? null : new Set(definition.itemKeys);
   const ignoredItemKeys = definition.itemKeys === null ? [] : definition.itemKeys.filter((k) => !knownKeys.has(k));
   const selectedFields = wantedKeys === null ? fields : fields.filter((f) => wantedKeys.has(f.itemKey));
-  if (selectedFields.length === 0) throw new ViewError('VIEW_SELECTION_EMPTY');
+  if (selectedFields.length === 0 && !allowNothingLeft) throw new ViewError('VIEW_SELECTION_EMPTY');
 
   // ---- which teams (always in the period's order)
   const periodTeamIds = new Set(input.teams.map((t) => t.teamId));
@@ -118,7 +128,7 @@ export function buildCustomSummary(input: CustomSummaryInput): CustomSummary {
   const wantedTeams = askedTeamIds === null ? null : new Set(askedTeamIds);
   const ignoredTeamIds = askedTeamIds === null ? [] : askedTeamIds.filter((id) => !periodTeamIds.has(id));
   const teams = wantedTeams === null ? input.teams : input.teams.filter((t) => wantedTeams.has(t.teamId));
-  if (teams.length === 0) throw new ViewError('VIEW_TEAMS_EMPTY');
+  if (teams.length === 0 && !allowNothingLeft) throw new ViewError('VIEW_TEAMS_EMPTY');
 
   // The shape `contributors.ts` reads: one row per SELECTED team with its submission.
   const rows = teams.map((t) => ({
@@ -167,15 +177,18 @@ export function buildCustomSummary(input: CustomSummaryInput): CustomSummary {
         params: { code: group.code, label: group.name, listed, total: leaves.length },
       });
     }
+    // The figures that exist are added up; where there is none the answer is "no figure" (null), never a 0 nobody
+    // typed. A 0 that IS among the figures stays a 0.
     const sum = (values: Array<string | null>) =>
-      aggregateValues('SUM', 'ZERO', values.map((value, i) => ({ sourceId: String(i), value }))).value;
+      aggregateValues('SUM', 'IGNORE', values.map((value, i) => ({ sourceId: String(i), value }))).value;
     const cells = teams.map((team, i): CustomSummaryCell => {
       const owned = leaves.filter((f) => owns(rows[i], f.fieldKey));
       if (owned.length === 0) return { value: null, mark: 'NOT_ASSIGNED' };
       if (team.obligation === 'EXEMPT') return { value: null, mark: 'EXEMPT' };
       if (!countsUnder(rows[i], mode)) return { value: null, mark: 'NOT_COUNTED' };
       if (!summable) return { value: null, mark: 'NOT_AGGREGATED' };
-      return { value: sum(owned.map((f) => (filled(team.values[f.fieldKey]) ? (team.values[f.fieldKey] as string) : null))), mark: null };
+      const value = sum(owned.map((f) => (filled(team.values[f.fieldKey]) ? (team.values[f.fieldKey] as string) : null)));
+      return value === null ? { value: null, mark: 'BLANK' } : { value, mark: null };
     });
     return {
       kind: 'GROUP',
@@ -218,7 +231,8 @@ export function buildCustomSummary(input: CustomSummaryInput): CustomSummary {
   // ---- the rows: each heading once, above the first of its criteria that is listed
   const out: CustomSummaryRow[] = [];
   const headingsListed = new Set<string>();
-  for (const f of selectedFields) {
+  // With no team left there is nothing to put in a row: the answer says what was left out instead.
+  for (const f of teams.length === 0 ? [] : selectedFields) {
     const ancestors = ancestorsByField.get(f.fieldKey) as Group[];
     ancestors.forEach((group, depth) => {
       if (headingsListed.has(group.itemKey)) return;

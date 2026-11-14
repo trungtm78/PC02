@@ -155,11 +155,15 @@ export class ReportViewsService {
     return (await this.toDtos([row]))[0];
   }
 
-  /** Out of the working list; its name becomes free. Nothing is lost: `restore` brings it back. */
-  async archive(viewId: string, actor: ViewActor): Promise<ReportViewDto> {
+  /**
+   * Out of the working list; its name becomes free. Nothing is lost: `restore` brings it back.
+   * `expectedRevision` (optional): refuse when the view changed since it was looked at.
+   */
+  async archive(viewId: string, actor: ViewActor, expectedRevision?: number): Promise<ReportViewDto> {
     const found = await this.findManaged(viewId, actor);
     const row = await this.prisma.$transaction(async (tx) => {
       const current = await this.lockedView(tx, found.reportId, viewId);
+      this.assertRevision(current, expectedRevision);
       if (current.archivedAt !== null) throw new ConflictException({ code: VIEW_ERROR.VIEW_ALREADY_ARCHIVED });
       const updated = await tx.dynReportView.update({
         where: { id: viewId },
@@ -171,10 +175,12 @@ export class ReportViewsService {
     return (await this.toDtos([row]))[0];
   }
 
-  async restore(viewId: string, actor: ViewActor): Promise<ReportViewDto> {
+  /** The other way of archiving. `expectedRevision` as for `archive`. */
+  async restore(viewId: string, actor: ViewActor, expectedRevision?: number): Promise<ReportViewDto> {
     const found = await this.findManaged(viewId, actor);
     const row = await this.prisma.$transaction(async (tx) => {
       const current = await this.lockedView(tx, found.reportId, viewId);
+      this.assertRevision(current, expectedRevision);
       if (current.archivedAt === null) throw new ConflictException({ code: VIEW_ERROR.VIEW_NOT_ARCHIVED });
       // Its name may have been taken while it was away: the one in use has to be renamed (or removed) first.
       await this.assertNameFree(tx, found.reportId, current.name, viewId);
@@ -193,9 +199,7 @@ export class ReportViewsService {
     const found = await this.findManaged(viewId, actor);
     await this.prisma.$transaction(async (tx) => {
       const current = await this.lockedView(tx, found.reportId, viewId);
-      if (expectedRevision !== undefined && current.revision !== expectedRevision) {
-        throw new ConflictException({ code: VIEW_ERROR.REVISION_CONFLICT });
-      }
+      this.assertRevision(current, expectedRevision);
       await tx.dynReportView.delete({ where: { id: viewId } });
       await this.log(tx, 'DYN_REPORT_VIEW_DELETE', actor, current);
     });
@@ -229,6 +233,13 @@ export class ReportViewsService {
     const view = await tx.dynReportView.findUnique({ where: { id: viewId } });
     if (!view) throw new NotFoundException({ code: VIEW_ERROR.VIEW_NOT_FOUND });
     return view;
+  }
+
+  /** The guard of the writes whose revision is optional: no revision sent, no check. */
+  private assertRevision(current: ViewRow, expectedRevision: number | undefined): void {
+    if (expectedRevision !== undefined && current.revision !== expectedRevision) {
+      throw new ConflictException({ code: VIEW_ERROR.REVISION_CONFLICT });
+    }
   }
 
   private async assertNameFree(tx: Prisma.TransactionClient, reportId: string, name: string, exceptId: string | null): Promise<void> {

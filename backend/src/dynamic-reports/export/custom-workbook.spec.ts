@@ -113,6 +113,26 @@ describe('buildCustomWorkbook', () => {
     expect(sheet.rowCount).toBe(CUSTOM_HEADER_ROW + summary.rows.length);
   });
 
+  it('a heading with nothing to add up is an empty cell, never a 0: no team counted, or a team that typed nothing under it', async () => {
+    const blankTeam = { teamId: 'D', name: 'Tổ D', obligation: 'REQUIRED', state: 'APPROVED', ownedFieldKeys: null, values: { 'S!C5': '7' } };
+    const draftTeam = { ...blankTeam, teamId: 'E', name: 'Tổ E', state: 'DRAFT', values: { 'S!C3': '4' } };
+    const summary = buildCustomSummary({
+      ...base,
+      mode: 'APPROVED',
+      fields: base.fields.map((f) => ({ ...f, blankPolicy: 'IGNORE' as const })),
+      teams: [blankTeam, draftTeam],
+    });
+    expect(summary.rows[0]).toMatchObject({ kind: 'GROUP', total: null, cells: [{ value: null, mark: 'BLANK' }, { value: null, mark: 'NOT_COUNTED' }] });
+
+    const sheet = await open(await buildCustomWorkbook(summary));
+
+    expect(rowValues(sheet, CUSTOM_HEADER_ROW + 1, 6)).toEqual(['1', 'Tin báo tội phạm', '', null, null, 'chưa duyệt']);
+    expect(rowValues(sheet, CUSTOM_HEADER_ROW + 2, 6)).toEqual(['1.1', 'Tin báo mới', 'vụ', null, null, 'chưa duyệt']);
+    // A zero that was typed is written as the number 0.
+    const zero = buildCustomSummary({ ...base, mode: 'APPROVED', teams: [{ ...blankTeam, values: { 'S!C3': '0' } }] });
+    expect(rowValues(await open(await buildCustomWorkbook(zero)), CUSTOM_HEADER_ROW + 1, 5)).toEqual(['1', 'Tin báo tội phạm', '', 0, 0]);
+  });
+
   it('text that looks like a formula stays text: in the title, a name, a team, a typed value', async () => {
     const summary = buildCustomSummary({
       ...base,

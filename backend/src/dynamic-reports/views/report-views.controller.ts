@@ -26,6 +26,29 @@ interface AuthenticatedUser {
   roleId: string;
 }
 
+/** The largest revision a request may name: the nine digits the delete route accepts. */
+const MAX_REVISION = 999_999_999;
+
+/**
+ * The optional `expectedRevision` of a body that carries nothing else (archive, restore).
+ *
+ * No body, an empty one, or `expectedRevision: null` = not given. The body is read here and not through a DTO class
+ * so that a bad revision is answered with its own code, as on the delete route; like everywhere else, a field the
+ * route does not know is refused.
+ */
+function expectedRevisionOf(body: unknown): number | undefined {
+  if (body === undefined || body === null) return undefined;
+  const invalid = () => new BadRequestException({ code: 'EXPECTED_REVISION_INVALID' });
+  if (typeof body !== 'object' || Array.isArray(body)) throw invalid();
+  const { expectedRevision, ...rest } = body as { expectedRevision?: unknown };
+  if (Object.keys(rest).length > 0) throw invalid();
+  if (expectedRevision === undefined || expectedRevision === null) return undefined;
+  if (typeof expectedRevision !== 'number' || !Number.isInteger(expectedRevision) || expectedRevision < 1 || expectedRevision > MAX_REVISION) {
+    throw invalid();
+  }
+  return expectedRevision;
+}
+
 /**
  * The custom reports ("views") saved on a dynamic report.
  *
@@ -60,19 +83,20 @@ export class ReportViewsController {
     return this.views.update(id, user, body);
   }
 
+  /** Body: nothing, or `{ expectedRevision }` to refuse the archiving when the view changed since it was looked at. */
   @Post('views/:id/archive')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
-  archive(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.views.archive(id, user);
+  archive(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.views.archive(id, user, expectedRevisionOf(body));
   }
 
-  /** The other way of archiving. */
+  /** The other way of archiving; the same body. */
   @Post('views/:id/restore')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
-  restore(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.views.restore(id, user);
+  restore(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.views.restore(id, user, expectedRevisionOf(body));
   }
 
   /** `expectedRevision` (optional): refuse the delete when the view changed since it was looked at. */

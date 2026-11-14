@@ -27,10 +27,12 @@ interface Props {
   periodId: string;
   /** The calculation mode chosen on the page ("Chế độ tính"). */
   mode: SummaryMode;
+  /** Whether the period is closed: a preview read before a closing (or a reopening) is not asked for again by itself. */
+  periodStatus: 'OPEN' | 'FINALIZED';
   previewDelayMs?: number;
 }
 
-export default function CustomReportPanel({ reportId, periodId, mode, previewDelayMs }: Props) {
+export default function CustomReportPanel({ reportId, periodId, mode, periodStatus, previewDelayMs }: Props) {
   const queryClient = useQueryClient();
   const viewsQ = useQuery({
     queryKey: reportViewsKey(reportId),
@@ -103,10 +105,10 @@ export default function CustomReportPanel({ reportId, periodId, mode, previewDel
     });
 
   const handleArchive = (view: ReportViewDto) =>
-    act(view, async () => t.done.archived((await reportViewsApi.archive(view.id)).name));
+    act(view, async () => t.done.archived((await reportViewsApi.archive(view.id, view.revision)).name));
 
   const handleRestore = (view: ReportViewDto) =>
-    act(view, async () => t.done.restored((await reportViewsApi.restore(view.id)).name));
+    act(view, async () => t.done.restored((await reportViewsApi.restore(view.id, view.revision)).name));
 
   const handleDelete = (view: ReportViewDto) =>
     act(view, async () => {
@@ -296,6 +298,7 @@ export default function CustomReportPanel({ reportId, periodId, mode, previewDel
           reportId={reportId}
           periodId={periodId}
           mode={mode}
+          periodStatus={periodStatus}
           initialView={builder.view}
           previewDelayMs={previewDelayMs}
           onClose={() => setBuilder(null)}

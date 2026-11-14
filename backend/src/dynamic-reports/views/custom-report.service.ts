@@ -8,7 +8,7 @@ import { criteriaGroupsOf } from '../config/report-config.service';
 import { buildCustomWorkbook, CustomFileTooLargeError } from '../export/custom-workbook';
 import { sanitizeFileNamePart } from '../export-filename.util';
 import { buildCustomSummary } from './custom-summary';
-import type { CustomSummary } from './custom-summary';
+import type { CustomSummary, CustomSummaryOptions } from './custom-summary';
 import { looseDefinition, readStoredItemKeys, readStoredTeamIds, teamIdsOf } from './report-view';
 import type { ViewDefinition, ViewDefinitionInput } from './report-view';
 import { VIEW_ERROR, viewErrorToHttp } from './report-views.service';
@@ -59,13 +59,15 @@ export class CustomReportService {
   ) {}
 
   async preview(periodId: string, actor: ViewActor, request: CustomReportRequest): Promise<CustomReportPreview> {
-    const { summary, period, view } = await this.summarise(periodId, actor, request);
+    // A selection of which nothing is left in this period is still answered: the screen shows what was left out.
+    const { summary, period, view } = await this.summarise(periodId, actor, request, { allowNothingLeft: true });
     return { ...summary, periodId, reportId: period.reportId, viewId: view?.id ?? null };
   }
 
   /** Stores the file as an export of the period; it is taken through the existing download of exports. */
   async export(periodId: string, actor: ViewActor, request: CustomReportRequest): Promise<CustomReportExportResult> {
-    const { summary, titleTyped, period, view } = await this.summarise(periodId, actor, request);
+    // No file is made of nothing: a selection with no criterion or no team left is refused.
+    const { summary, titleTyped, period, view } = await this.summarise(periodId, actor, request, { allowNothingLeft: false });
 
     let fileBuffer: Buffer;
     try {
@@ -144,7 +146,7 @@ export class CustomReportService {
   }
 
   /** Loads the period, decides the definition and the mode, and builds THE summary both callers use. */
-  private async summarise(periodId: string, actor: ViewActor, request: CustomReportRequest) {
+  private async summarise(periodId: string, actor: ViewActor, request: CustomReportRequest, options: CustomSummaryOptions) {
     const period = await this.prisma.dynReportPeriod.findUnique({
       where: { id: periodId },
       include: {
@@ -217,33 +219,74 @@ export class CustomReportService {
       ),
     }));
 
-    // Teams the selection names that this period does not have: named in the answer, so they are looked up.
+    // Teams the selection names that this period does not have: named in the answer when they belong to the report.
     const inPeriod = new Set(teams.map((t) => t.teamId));
     const absent = (teamIdsOf(definition) ?? []).filter((id) => !inPeriod.has(id));
-    const otherTeamNames = absent.length
-      ? Object.fromEntries(
-          (await this.prisma.team.findMany({ where: { id: { in: absent } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]),
-        )
-      : {};
+    const otherTeamNames = await this.namesOfReportTeams(period.reportId, absent);
 
     let built: CustomSummary;
     try {
-      built = buildCustomSummary({
-        reportName: period.report.name,
-        periodKey: period.periodKey,
-        periodStatus: period.status,
-        mode,
-        fields,
-        // A report made from an Excel template has no headings of this kind: plain rows.
-        groups: period.version.sourceKind === 'CRITERIA' ? criteriaGroupsOf(period.version.sourceSelection) : [],
-        teams,
-        definition,
-        knownItemKeysAtSave,
-        otherTeamNames,
-      });
+      built = buildCustomSummary(
+        {
+          reportName: period.report.name,
+          periodKey: period.periodKey,
+          periodStatus: period.status,
+          mode,
+          fields,
+          // A report made from an Excel template has no headings of this kind: plain rows.
+          groups: period.version.sourceKind === 'CRITERIA' ? criteriaGroupsOf(period.version.sourceSelection) : [],
+          teams,
+          definition,
+          knownItemKeysAtSave,
+          otherTeamNames,
+        },
+        options,
+      );
     } catch (err) {
       throw viewErrorToHttp(err);
     }
     return { summary: built, titleTyped: definition.title, period, view };
+  }
+
+  /**
+   * The names of the teams among `teamIds` that belong to THIS report, by id. A team belongs to it when it has an
+   * assignment in any of the report's periods (it is then named as the most recent of those periods knew it) or is one
+   * of the report's targets. Any other id gets no name: a manager of one report is not told what a team is called
+   * just for knowing its id.
+   */
+  private async namesOfReportTeams(reportId: string, teamIds: readonly string[]): Promise<Record<string, string>> {
+    if (teamIds.length === 0) return {};
+    const ids = [...new Set(teamIds)];
+    const names: Record<string, string> = {};
+
+    const assignments = await this.prisma.dynReportAssignment.findMany({
+      where: { teamId: { in: ids }, period: { reportId } },
+      orderBy: [{ period: { startDate: 'desc' } }, { createdAt: 'desc' }],
+      select: { teamId: true, teamSnapshot: true },
+    });
+    const ofReport = new Set<string>();
+    for (const assignment of assignments) {
+      ofReport.add(assignment.teamId);
+      const name = (assignment.teamSnapshot as { name?: unknown } | null)?.name;
+      // The first one met is the most recent period's.
+      if (names[assignment.teamId] === undefined && typeof name === 'string' && name !== '') names[assignment.teamId] = name;
+    }
+
+    const targets = await this.prisma.dynReportTarget.findMany({
+      where: { reportId, teamId: { in: ids } },
+      select: { teamId: true, team: { select: { name: true } } },
+    });
+    for (const target of targets) {
+      ofReport.add(target.teamId);
+      if (names[target.teamId] === undefined) names[target.teamId] = target.team.name;
+    }
+
+    // A team of the report whose snapshot carries no name (and which is not a target): its present name.
+    const unnamed = [...ofReport].filter((id) => names[id] === undefined);
+    if (unnamed.length > 0) {
+      const found = await this.prisma.team.findMany({ where: { id: { in: unnamed } }, select: { id: true, name: true } });
+      for (const t of found) names[t.id] = t.name;
+    }
+    return names;
   }
 }

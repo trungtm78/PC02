@@ -30,12 +30,42 @@ describe('ReportViewsController', () => {
   it('hands each operation to the service with who asks', async () => {
     await controller.create('r1', { name: 'A', itemKeys: ['k'] }, user);
     await controller.update('v1', { expectedRevision: 3, name: 'B' }, user);
-    await controller.archive('v1', user);
-    await controller.restore('v1', user);
+    await controller.archive('v1', undefined, user);
+    await controller.restore('v1', {}, user);
     expect(service.create).toHaveBeenCalledWith('r1', user, { name: 'A', itemKeys: ['k'] });
     expect(service.update).toHaveBeenCalledWith('v1', user, { expectedRevision: 3, name: 'B' });
-    expect(service.archive).toHaveBeenCalledWith('v1', user);
-    expect(service.restore).toHaveBeenCalledWith('v1', user);
+    expect(service.archive).toHaveBeenCalledWith('v1', user, undefined);
+    expect(service.restore).toHaveBeenCalledWith('v1', user, undefined);
+  });
+
+  it.each(['archive', 'restore'] as const)(
+    '%s takes the revision the view was looked at when one is sent; without one (no body, an empty body, null) it goes ahead as before',
+    async (operation) => {
+      await controller[operation]('v1', { expectedRevision: 4 }, user);
+      await controller[operation]('v1', undefined, user);
+      await controller[operation]('v1', null, user);
+      await controller[operation]('v1', {}, user);
+      await controller[operation]('v1', { expectedRevision: null }, user);
+      expect(service[operation].mock.calls).toEqual([
+        ['v1', user, 4],
+        ['v1', user, undefined],
+        ['v1', user, undefined],
+        ['v1', user, undefined],
+        ['v1', user, undefined],
+      ]);
+    },
+  );
+
+  it.each(['archive', 'restore'] as const)('%s refuses a revision that is not a whole number from 1 up, and anything else in the body', (operation) => {
+    for (const bad of ['4', '', 'abc', 1.5, -1, 0, 1e9, true, [4], {}]) {
+      expect(() => controller[operation]('v1', { expectedRevision: bad }, user)).toThrow(
+        expect.objectContaining({ status: 400, response: { code: 'EXPECTED_REVISION_INVALID' } }),
+      );
+    }
+    for (const bad of [{ expectedRevision: 2, name: 'x' }, { revision: 2 }, 'text', [2]]) {
+      expect(() => controller[operation]('v1', bad, user)).toThrow(expect.objectContaining({ status: 400 }));
+    }
+    expect(service[operation]).not.toHaveBeenCalled();
   });
 
   it('deleting takes the revision it was looked at when one is sent; a revision that is not a whole number is refused', async () => {

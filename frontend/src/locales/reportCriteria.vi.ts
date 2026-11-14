@@ -275,6 +275,9 @@ export const reportCriteria = {
       copyName: (name: string) => `${name} (bản sao)`,
       close: 'Đóng',
       unsaved: 'Có thay đổi chưa lưu.',
+      exportWaitsPreview: 'Đang tính lại phần xem trước. Nút "Xuất Excel" dùng được ngay khi phần xem trước cập nhật xong.',
+      exportNeedsPreview: 'Chưa xem trước được nên chưa xuất được. Hãy bấm "Thử lại" ở phần xem trước, hoặc đổi lựa chọn.',
+      exportNothingLeft: 'Chưa xuất được vì lựa chọn đã lưu không còn gì có trong kỳ này. Hãy tích thêm ở danh sách bên trên.',
     },
     preview: {
       heading: 'Xem trước',
@@ -302,6 +305,10 @@ export const reportCriteria = {
       ignoredTeams: (names: string) => `Các tổ sau đã được chọn nhưng không được giao báo cáo trong kỳ này nên không có trong báo cáo: ${names}.`,
       ignoredCriteria: (count: number) => `${count} tiêu chí đã chọn không còn trong mẫu của kỳ này nên không có trong báo cáo.`,
       unknownTeam: 'tổ không còn trong hệ thống',
+      savedCriteriaGone:
+        'Không tiêu chí nào đã lưu trong báo cáo này còn trong mẫu của kỳ này. Hãy tích những tiêu chí muốn đưa vào báo cáo ở danh sách tiêu chí bên trên.',
+      savedTeamsGone: (names: string) =>
+        `Không tổ nào đã lưu trong báo cáo này được giao báo cáo trong kỳ này${names ? ` (${names})` : ''}. Hãy tích những tổ muốn đưa vào báo cáo ở danh sách tổ bên trên.`,
       newCriteria: (count: number) => `Có ${count} tiêu chí mới chưa được chọn. Muốn đưa vào báo cáo, hãy tích thêm ở danh sách tiêu chí rồi lưu.`,
     },
     modes: {
@@ -335,12 +342,14 @@ export const reportCriteria = {
     },
     conflictReloaded:
       'Người khác vừa sửa báo cáo này. Đã tải bản mới nhất; các lựa chọn trên màn hình vẫn được giữ nguyên. Kiểm tra lại rồi bấm "Lưu" lần nữa nếu vẫn muốn ghi.',
+    conflictReloadedRetry:
+      'Người khác vừa sửa báo cáo này nên thao tác chưa được thực hiện. Đã tải bản mới nhất; những gì bạn đã sửa trên màn hình vẫn được giữ nguyên. Kiểm tra lại rồi bấm lần nữa nếu vẫn muốn làm.',
     conflictGone: 'Báo cáo này vừa bị người khác xoá. Các lựa chọn trên màn hình vẫn còn: bấm "Lưu" để lưu thành báo cáo mới.',
     errors: {
       VIEW_NAME_REQUIRED: 'Hãy đặt tên báo cáo trước khi lưu.',
       VIEW_NAME_TOO_LONG: 'Tên báo cáo quá dài (tối đa 120 ký tự).',
       VIEW_TITLE_TOO_LONG: 'Tiêu đề quá dài (tối đa 300 ký tự).',
-      VIEW_SELECTION_EMPTY: 'Chưa chọn tiêu chí nào. Hãy tích ít nhất một tiêu chí.',
+      VIEW_SELECTION_EMPTY: 'Chưa chọn tiêu chí nào, hoặc không tiêu chí nào đã chọn còn trong mẫu của kỳ này. Hãy tích ít nhất một tiêu chí.',
       VIEW_TEAMS_EMPTY: 'Chưa chọn tổ nào, hoặc không tổ nào đã chọn có trong kỳ này. Hãy tích ít nhất một tổ.',
       VIEW_ITEM_KEY_UNKNOWN: 'Có tiêu chí đã chọn không còn trong báo cáo. Hãy đóng bảng này, mở lại rồi chọn lại.',
       VIEW_TEAM_UNKNOWN: 'Có tổ đã chọn không còn trong hệ thống. Hãy đóng bảng này, mở lại rồi chọn lại.',
@@ -355,6 +364,11 @@ export const reportCriteria = {
       VIEW_NOT_ARCHIVED: 'Báo cáo này đang được dùng, không cần khôi phục.',
       PERIOD_TEAMS_CHANGED: 'Danh sách tổ của kỳ vừa thay đổi trong lúc xuất. Hãy bấm "Xuất Excel" lần nữa.',
     } as Record<string, string>,
+    /** The aggregate screen itself, around the custom reports. */
+    page: {
+      refreshing: 'Đang tính lại theo chế độ vừa chọn. Các số bên dưới vẫn là số của chế độ trước.',
+      waitForFigures: 'Đang tính lại theo chế độ vừa chọn. Hãy chờ số liệu mới hiện ra.',
+    },
   },
   summary: {
     source: 'Nguồn mẫu',

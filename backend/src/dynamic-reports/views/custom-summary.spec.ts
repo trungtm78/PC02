@@ -258,17 +258,142 @@ describe('buildCustomSummary', () => {
       expect(buildCustomSummary(input({ knownItemKeysAtSave: ['k11'] })).newCriteria).toBe(0);
     });
 
-    it('nothing left of the criteria, or of the teams, is refused: there is no report to make', () => {
+    describe('nothing left of it', () => {
       const refused = (definition: Partial<ViewDefinition>) => {
         try {
-          buildCustomSummary(input({}, definition));
+          buildCustomSummary(input({}, definition), { allowNothingLeft: false });
           return null;
         } catch (err) {
           return err instanceof ViewError ? err.code : err;
         }
       };
-      expect(refused({ itemKeys: ['gone'] })).toBe('VIEW_SELECTION_EMPTY');
-      expect(refused({ teamIds: ['Z'] })).toBe('VIEW_TEAMS_EMPTY');
+
+      it('every criterion it names is gone: the preview answers with no rows and says which keys were left out', () => {
+        const summary = buildCustomSummary(input({}, { itemKeys: ['gone', 'gone-too'] }), { allowNothingLeft: true });
+        expect(summary.rows).toEqual([]);
+        expect(summary.ignored).toEqual({ itemKeys: ['gone', 'gone-too'], teamIds: [], teams: [] });
+        expect(summary.notes).toEqual([
+          { code: 'PERIOD_OPEN', params: { mode: 'SUBMITTED' } },
+          { code: 'ITEM_KEYS_IGNORED', params: { count: 2 } },
+        ]);
+        expect(summary.counts).toEqual({ criteria: { selected: 0, total: 4 }, teams: { selected: 3, total: 3 } });
+        // The teams are still the period's: only the criteria are missing.
+        expect(summary.teams.map((t) => t.teamId)).toEqual(['A', 'B', 'C']);
+        expect(summary.columns.map((c) => c.key)).toEqual(['code', 'label', 'unit', 'total', 'team:A', 'team:B', 'team:C']);
+        expect(summary.title).toBe('Báo cáo tháng — kỳ 2026-10');
+      });
+
+      it('every team it names is absent from the period: no rows, no team, the four fixed columns, and the teams left out are said', () => {
+        const summary = buildCustomSummary(input({ otherTeamNames: { Z: 'Tổ Z' } }, { teamIds: ['Z', 'Y'] }), { allowNothingLeft: true });
+        expect(summary.rows).toEqual([]);
+        expect(summary.teams).toEqual([]);
+        expect(summary.columns.map((c) => c.key)).toEqual(['code', 'label', 'unit', 'total']);
+        expect(summary.ignored).toEqual({
+          itemKeys: [],
+          teamIds: ['Z', 'Y'],
+          teams: [{ teamId: 'Z', name: 'Tổ Z' }, { teamId: 'Y', name: null }],
+        });
+        expect(summary.notes).toEqual([
+          { code: 'PERIOD_OPEN', params: { mode: 'SUBMITTED' } },
+          { code: 'TEAMS_IGNORED', params: { count: 2 } },
+        ]);
+        expect(summary.counts).toEqual({ criteria: { selected: 4, total: 4 }, teams: { selected: 0, total: 3 } });
+      });
+
+      it('both gone at once: both are reported', () => {
+        const summary = buildCustomSummary(input({}, { itemKeys: ['gone'], teamIds: ['Z'] }), { allowNothingLeft: true });
+        expect(summary.rows).toEqual([]);
+        expect(summary.notes.map((n) => n.code)).toEqual(['PERIOD_OPEN', 'ITEM_KEYS_IGNORED', 'TEAMS_IGNORED']);
+        expect(summary.counts).toEqual({ criteria: { selected: 0, total: 4 }, teams: { selected: 0, total: 3 } });
+      });
+
+      it('the export still refuses either: there is no file to make', () => {
+        expect(refused({ itemKeys: ['gone'] })).toBe('VIEW_SELECTION_EMPTY');
+        expect(refused({ teamIds: ['Z'] })).toBe('VIEW_TEAMS_EMPTY');
+        // The criteria are judged first when both are gone.
+        expect(refused({ itemKeys: ['gone'], teamIds: ['Z'] })).toBe('VIEW_SELECTION_EMPTY');
+      });
+
+      it('refusing is what happens when the caller does not say otherwise', () => {
+        expect(() => buildCustomSummary(input({}, { itemKeys: ['gone'] }))).toThrow(ViewError);
+        expect(() => buildCustomSummary(input({}, { teamIds: ['Z'] }))).toThrow(ViewError);
+      });
+
+      it('allowing it changes nothing of a report that has something in it', () => {
+        expect(buildCustomSummary(input(), { allowNothingLeft: true })).toEqual(buildCustomSummary(input()));
+      });
+    });
+  });
+
+  describe('the number of a heading when there is nothing to add up', () => {
+    const heading = (summary: { rows: CustomSummaryRow[] }) => rowOf(summary.rows, '1');
+    const blankIgnored = FIELDS.map((f) => ({ ...f, blankPolicy: 'IGNORE' as const }));
+    const team = (teamId: string, state: string, values: Record<string, string>): CustomSummaryInput['teams'][number] => ({
+      teamId,
+      name: `Tổ ${teamId}`,
+      obligation: 'REQUIRED',
+      state,
+      ownedFieldKeys: null,
+      values,
+    });
+
+    it('no team counts (approved figures, the only team is still a draft): the criteria have no total and neither has the heading', () => {
+      const summary = buildCustomSummary(input({ mode: 'APPROVED' }, { teamIds: ['C'] }));
+      expect(totals(summary.rows)).toEqual([
+        ['GROUP', '1', null],
+        ['CRITERION', '1.1', null],
+        ['CRITERION', '1.2', null],
+        ['CRITERION', '2', null],
+        ['CRITERION', '3', null],
+      ]);
+      expect(heading(summary).totalMark).toBeNull();
+      expect(heading(summary).cells).toEqual([{ value: null, mark: 'NOT_COUNTED' }]);
+    });
+
+    it('a team that typed nothing under the heading has a blank there, not a zero', () => {
+      const summary = buildCustomSummary(input({ teams: [team('D', 'APPROVED', { 'S!C5': '7' })] }));
+      expect(heading(summary).cells).toEqual([{ value: null, mark: 'BLANK' }]);
+      expect(rowOf(summary.rows, '1.1').cells).toEqual([{ value: null, mark: 'BLANK' }]);
+    });
+
+    it('every figure under it blank and blanks not counted: the criteria have no total and neither has the heading', () => {
+      const summary = buildCustomSummary(input({ fields: blankIgnored, teams: [team('D', 'APPROVED', {})] }));
+      expect([rowOf(summary.rows, '1.1').total, rowOf(summary.rows, '1.2').total]).toEqual([null, null]);
+      expect(heading(summary).total).toBeNull();
+      expect(heading(summary).totalMark).toBeNull();
+    });
+
+    it('the heading is the sum of the totals shown under it: where a blank counts as zero the criteria say 0 and so does the heading', () => {
+      const summary = buildCustomSummary(input({ teams: [team('D', 'APPROVED', {})] }));
+      expect([rowOf(summary.rows, '1.1').total, rowOf(summary.rows, '1.2').total]).toEqual(['0', '0']);
+      expect(heading(summary).total).toBe('0');
+      // The team itself typed nothing: its own cell stays blank.
+      expect(heading(summary).cells).toEqual([{ value: null, mark: 'BLANK' }]);
+    });
+
+    it('a zero somebody typed is a zero', () => {
+      const summary = buildCustomSummary(input({ fields: blankIgnored, teams: [team('D', 'APPROVED', { 'S!C3': '0' })] }));
+      expect(heading(summary).total).toBe('0');
+      expect(heading(summary).cells).toEqual([{ value: '0', mark: null }]);
+      const both = buildCustomSummary(input({ teams: [team('D', 'APPROVED', { 'S!C3': '0', 'S!C4': '0' })] }));
+      expect(heading(both).total).toBe('0');
+      expect(heading(both).cells).toEqual([{ value: '0', mark: null }]);
+    });
+
+    it('some with a figure and some without: the figures are added up', () => {
+      const summary = buildCustomSummary(
+        input({
+          fields: blankIgnored,
+          teams: [team('D', 'APPROVED', { 'S!C3': '5' }), team('E', 'APPROVED', {}), team('F', 'DRAFT', { 'S!C4': '9' })],
+        }),
+      );
+      expect([rowOf(summary.rows, '1.1').total, rowOf(summary.rows, '1.2').total]).toEqual(['5', null]);
+      expect(heading(summary).total).toBe('5');
+      expect(heading(summary).cells).toEqual([
+        { value: '5', mark: null },
+        { value: null, mark: 'BLANK' },
+        { value: null, mark: 'NOT_COUNTED' },
+      ]);
     });
   });
 

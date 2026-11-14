@@ -38,6 +38,7 @@ import { officialFilesKey } from '@/features/dynamic-reports/officialFile';
 import PeriodDeleteDialog from './PeriodDeleteDialog';
 import OfficialFilePanel from './OfficialFilePanel';
 import CustomReportPanel from '@/features/dynamic-reports/views/CustomReportPanel';
+import { reportCriteria } from '@/locales/reportCriteria.vi';
 
 const MODE_LABEL: Record<SummaryMode, string> = {
   SUBMITTED: 'Đã nộp + đã duyệt',
@@ -54,7 +55,7 @@ export default function ReportPeriodSummaryPage() {
   // Remember WHICH template version failed to draw: the page is reused across periods.
   const [unavailableVersionId, setUnavailableVersionId] = useState<string | null>(null);
 
-  const { data: view, isLoading, isError, refetch } = useQuery({
+  const { data: view, isLoading, isError, isPlaceholderData, refetch } = useQuery({
     queryKey: ['dynamic-reports', 'period-summary', periodId, mode],
     queryFn: () => dynamicReportsApi.getPeriodSummary(periodId as string, mode),
     enabled: !!periodId,
@@ -62,6 +63,9 @@ export default function ReportPeriodSummaryPage() {
     // report being built on it) is not torn down and drawn again. Another period starts from nothing.
     placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === periodId ? previous : undefined),
   });
+  // Until the totals of the newly chosen mode arrive, the figures on the screen are those of the mode before: they are
+  // marked as such, and nothing is exported or closed on the strength of them.
+  const figuresStale = isPlaceholderData;
 
   const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'working' | 'error'>('idle');
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
@@ -198,11 +202,13 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
             type="button"
             data-testid="btn-export"
             title={
-              view.status === 'OPEN'
-                ? `File xuất tính theo chế độ đang chọn: ${MODE_LABEL[mode]}`
-                : 'Kỳ đã chốt: file xuất là số chốt (các tổ đã duyệt)'
+              figuresStale
+                ? reportCriteria.customReport.page.waitForFigures
+                : view.status === 'OPEN'
+                  ? `File xuất tính theo chế độ đang chọn: ${MODE_LABEL[mode]}`
+                  : 'Kỳ đã chốt: file xuất là số chốt (các tổ đã duyệt)'
             }
-            disabled={isExporting}
+            disabled={isExporting || figuresStale}
             onClick={() => void handleExport()}
             className={`${BTN_OUTLINE_BLUE} ${A11Y_FOCUS_RING} inline-flex items-center gap-2`}
           >
@@ -225,7 +231,8 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
             <button
               type="button"
               data-testid="btn-finalize"
-              disabled={finalizeStatus === 'working'}
+              title={figuresStale ? reportCriteria.customReport.page.waitForFigures : undefined}
+              disabled={finalizeStatus === 'working' || figuresStale}
               onClick={() => void handleFinalize()}
               className={`flex items-center gap-2 px-3 py-1.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
             >
@@ -241,7 +248,8 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
               <button
                 type="button"
                 data-testid="btn-reopen"
-                disabled={finalizeStatus === 'working'}
+                title={figuresStale ? reportCriteria.customReport.page.waitForFigures : undefined}
+                disabled={finalizeStatus === 'working' || figuresStale}
                 onClick={() => void handleReopen()}
                 className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
               >
@@ -293,7 +301,14 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" data-testid="kpi-cards">
+      {figuresStale && (
+        <p className="inline-flex items-center gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-3" data-testid="summary-refreshing" role="status">
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+          {reportCriteria.customReport.page.refreshing}
+        </p>
+      )}
+
+      <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 ${figuresStale ? 'opacity-60' : ''}`} data-testid="kpi-cards" aria-busy={figuresStale}>
         <div className="bg-white border border-slate-200 rounded-lg p-3">
           <p className="text-xs text-slate-500">Đã nộp/đã duyệt</p>
           <p className="text-lg font-bold text-slate-800" data-testid="kpi-completed">
@@ -323,7 +338,16 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
       {view.status === 'FINALIZED' && <OfficialFilePanel key={view.periodId} periodId={view.periodId} />}
 
       {/* Managers and admins of the report only: for anybody else the panel draws nothing. */}
-      <CustomReportPanel key={`custom-${view.periodId}`} reportId={view.reportId} periodId={view.periodId} mode={mode} />
+      <CustomReportPanel
+        key={`custom-${view.periodId}`}
+        reportId={view.reportId}
+        periodId={view.periodId}
+        mode={mode}
+        periodStatus={view.status}
+      />
+
+      {/* The figures of the summary: dimmed while they are still those of the mode chosen before. */}
+      <div className={figuresStale ? 'opacity-60' : ''} data-testid="summary-figures" aria-busy={figuresStale}>
 
       {gridUnavailable && (
         <p className="text-sm text-amber-700 mb-3" data-testid="grid-fallback-note">
@@ -462,6 +486,7 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
         </table>
       </div>
       )}
+      </div>
       {view && (
         <PeriodDeleteDialog
           periodId={deletingPeriod ? view.periodId : null}

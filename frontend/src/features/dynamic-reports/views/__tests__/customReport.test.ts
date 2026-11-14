@@ -24,6 +24,25 @@ describe('selectionForPayload', () => {
   it('keeps what the saved report names that this period does not show', () => {
     expect(selectionForPayload(new Set(['a']), ['a', 'b'], ['a', 'old'])).toEqual(['a', 'old']);
   });
+
+  it('teams: a report saved with [A, B], in a period that only has A, stays [A, B] after A is unticked and ticked again', () => {
+    const saved = ['team-a', 'team-b'];
+    const periodTeams = ['team-a'];
+    // Unticked: only the team this period does not have is left.
+    expect(selectionForPayload(new Set(), periodTeams, saved)).toEqual(['team-b']);
+    // Ticked again: every team on the screen is ticked, and still it is not "all teams".
+    expect(selectionForPayload(new Set(['team-a']), periodTeams, saved)).toEqual(['team-a', 'team-b']);
+  });
+
+  it('criteria: everything shown ticked is an explicit list while the saved report names a criterion this version lacks', () => {
+    expect(selectionForPayload(new Set(['k1', 'k2']), ['k1', 'k2'], ['k1', 'gone'])).toEqual(['k1', 'k2', 'gone']);
+  });
+
+  it('is null only when everything shown is ticked and the saved report names nothing that is absent', () => {
+    expect(selectionForPayload(new Set(['a', 'b']), ['a', 'b'], ['a'])).toBeNull();
+    expect(selectionForPayload(new Set(['a', 'b']), ['a', 'b'], null)).toBeNull();
+    expect(selectionForPayload(new Set(['a', 'b']), ['a', 'b'], [])).toBeNull();
+  });
 });
 
 describe('buildTeamTree', () => {

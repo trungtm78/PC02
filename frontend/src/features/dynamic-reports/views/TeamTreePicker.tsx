@@ -18,9 +18,11 @@ interface Props {
   total: number;
   ticked: ReadonlySet<string>;
   onChange: (next: Set<string>) => void;
+  /** True while the ticks must not change (a save of them is on its way): every box and bulk button is off. */
+  disabled?: boolean;
 }
 
-export default function TeamTreePicker({ nodes, total, ticked, onChange }: Props) {
+export default function TeamTreePicker({ nodes, total, ticked, onChange, disabled = false }: Props) {
   const [query, setQuery] = useState('');
   const shown = filterTeamNodes(nodes, query);
   const shownIds = shown.filter((n) => n.inPeriod).map((n) => n.id);
@@ -48,10 +50,10 @@ export default function TeamTreePicker({ nodes, total, ticked, onChange }: Props
           onChange={(e) => setQuery(e.target.value)}
           className="flex-1 min-w-40 border border-slate-300 rounded px-2 py-1 text-sm"
         />
-        <button type="button" data-testid="custom-report-teams-all" onClick={() => onChange(tickAll(ticked, shownIds))} className={smallButton}>
+        <button type="button" data-testid="custom-report-teams-all" disabled={disabled} onClick={() => onChange(tickAll(ticked, shownIds))} className={smallButton}>
           {t.teamAll}
         </button>
-        <button type="button" data-testid="custom-report-teams-none" onClick={() => onChange(untickAll(ticked, shownIds))} className={smallButton}>
+        <button type="button" data-testid="custom-report-teams-none" disabled={disabled} onClick={() => onChange(untickAll(ticked, shownIds))} className={smallButton}>
           {t.teamNone}
         </button>
       </div>
@@ -68,6 +70,7 @@ export default function TeamTreePicker({ nodes, total, ticked, onChange }: Props
               <TeamBox
                 node={node}
                 ticked={ticked}
+                disabled={disabled}
                 onToggle={(on) => {
                   // A line with teams under it carries them with it; a single team is only itself.
                   const ids = node.hasChildren ? node.memberIds : [node.id];
@@ -82,7 +85,17 @@ export default function TeamTreePicker({ nodes, total, ticked, onChange }: Props
   );
 }
 
-function TeamBox({ node, ticked, onToggle }: { node: TeamNode; ticked: ReadonlySet<string>; onToggle: (on: boolean) => void }) {
+function TeamBox({
+  node,
+  ticked,
+  disabled,
+  onToggle,
+}: {
+  node: TeamNode;
+  ticked: ReadonlySet<string>;
+  disabled: boolean;
+  onToggle: (on: boolean) => void;
+}) {
   const ref = useRef<HTMLInputElement | null>(null);
   const state = nodeState(ticked, node);
   // A team in the period shows its own tick; a heading shows the teams under it ("some" is a property, not an attribute).
@@ -99,6 +112,7 @@ function TeamBox({ node, ticked, onToggle }: { node: TeamNode; ticked: ReadonlyS
         data-testid={`custom-report-team-${node.id}`}
         aria-label={node.hasChildren ? t.teamGroupOf(node.name) : undefined}
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onToggle(e.target.checked)}
       />
       <span>{node.name}</span>
