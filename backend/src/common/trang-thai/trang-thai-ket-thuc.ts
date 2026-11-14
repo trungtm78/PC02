@@ -92,6 +92,24 @@ export function laKetThuc(thucThe: ThucThe, trangThai: string): boolean {
 }
 
 /**
+ * The "tạm đình chỉ" (suspended) statuses of each kind: the unit has stopped working on the record for now and may
+ * resume it. Declared beside the finished statuses because the two are read together and must never overlap: a
+ * suspended record is NOT finished (see the note on `TAM_DINH_CHI` above).
+ *
+ * An incident has two more statuses whose names begin with `TDC_` (`TDC_HET_THOI_HIEU`, `TDC_HTH_KHONG_KT`): those are
+ * outcomes, listed as finished above, and are deliberately absent here.
+ */
+export const TRANG_THAI_TAM_DINH_CHI = {
+  case: [CaseStatus.TAM_DINH_CHI] as CaseStatus[],
+  incident: [IncidentStatus.TAM_DINH_CHI] as IncidentStatus[],
+  petition: [PetitionStatus.TAM_DINH_CHI] as PetitionStatus[],
+} as const;
+
+export function laTamDinhChi(thucThe: ThucThe, trangThai: string): boolean {
+  return (TRANG_THAI_TAM_DINH_CHI[thucThe] as readonly string[]).includes(trangThai);
+}
+
+/**
  * Mốc giải quyết MỚI, quyết theo CHUYỂN TIẾP chứ không theo trạng thái đích.
  *
  * ── Vì sao phải biết trạng thái CŨ ──

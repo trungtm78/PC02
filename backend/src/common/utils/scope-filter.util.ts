@@ -417,6 +417,22 @@ export function recordInScope(
 }
 
 /**
+ * Whether the scope lets a person OPEN one record: the rule of the detail route of each kind (`getById` of the
+ * petition, incident and case services), in one place so that whoever else must answer "may this person read this
+ * record" (the record gateway of the processing flow) gives the same answer. The record is the row itself: who owns
+ * it is read from the column of its kind (the investigator of a case or an incident, the person who entered a
+ * petition).
+ */
+export function recordReadable(
+  subject: RecordSubject,
+  record: { assignedTeamId?: string | null; investigatorId?: string | null; enteredById?: string | null },
+  scope: DataScope | null | undefined,
+): boolean {
+  const ownerId = subject === 'Petition' ? record.enteredById : record.investigatorId;
+  return recordInScope({ assignedTeamId: record.assignedTeamId, ownerId }, scope, 'read', subject);
+}
+
+/**
  * The teams whose records of `subject` the scope reaches for `op`; `null` = every team. Raw: a dispatcher is NOT
  * special here (callers that let a dispatcher read everything say so themselves).
  */
