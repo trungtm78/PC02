@@ -4122,6 +4122,7 @@ enum DynReportExportKind {
   TEAM
   MANAGER_FULL
   STATUS_LIST
+  MANAGER_CUSTOM
 }
 
 enum DynReportExportStatus {
@@ -4150,6 +4151,7 @@ model DynReport {
   roles      DynReportRole[]
   targets    DynReportTarget[]
   periods    DynReportPeriod[]
+  views      DynReportView[]
 
   @@index([status])
   @@map("dyn_reports")
@@ -4612,6 +4614,34 @@ model DynReportExport {
 
   @@index([status, expiresAt])
   @@map("dyn_report_exports")
+}
+
+/// A custom report a manager saved from the aggregate screen: which criteria and which teams appear, under what title.
+/// It belongs to the report and is used on any of its periods. `name` is unique per report among the views that are
+/// not archived: the service enforces it under a lock on the report (a partial unique index backs it in the migration).
+model DynReportView {
+  id             String    @id @default(cuid())
+  reportId       String
+  report         DynReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  name           String
+  /// The heading of the produced report; NULL = "<report name> — kỳ <period key>".
+  title          String?
+  showFilterLine Boolean   @default(true)
+  /// NULL = every criterion (also the ones a later version adds). Otherwise `{ selected: string[], known: string[] }`:
+  /// the item keys picked, and the item keys that existed when it was saved (to tell a NEW criterion from an unticked one).
+  itemKeys       Json?
+  /// NULL = every team of the period. Otherwise a list of team ids.
+  teamIds        Json?
+  teamColumns    Boolean   @default(true)
+  revision       Int       @default(1)
+  createdById    String
+  updatedById    String
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([reportId, archivedAt])
+  @@map("dyn_report_views")
 }
 
 model DynReportIdempotency {

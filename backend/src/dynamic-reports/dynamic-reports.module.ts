@@ -32,6 +32,10 @@ import { GridController } from './grid/grid.controller';
 import { GridAccessService } from './grid/grid-access.service';
 import { GridModelService } from './grid/grid-model.service';
 import { TemplateExportService } from './export/template-export.service';
+import { ReportViewsController } from './views/report-views.controller';
+import { ReportViewsService } from './views/report-views.service';
+import { CustomReportController } from './views/custom-report.controller';
+import { CustomReportService } from './views/custom-report.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarEventsModule } from '../calendar-events/calendar-events.module';
@@ -53,6 +57,8 @@ import { TeamsModule } from '../teams/teams.module';
     CriteriaMatrixController,
     StatusQueryController,
     GridController,
+    ReportViewsController,
+    CustomReportController,
   ],
   providers: [
     GridAccessService,
@@ -74,6 +80,8 @@ import { TeamsModule } from '../teams/teams.module';
     CriteriaMatrixService,
     FormulaEvaluationService,
     StatusQueryService,
+    ReportViewsService,
+    CustomReportService,
   ],
 })
 export class DynamicReportsModule {}
