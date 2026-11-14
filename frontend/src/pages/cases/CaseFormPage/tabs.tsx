@@ -48,6 +48,7 @@ import {
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LegacyTabBody } from "./LegacyTabBody";
+import { LoaiThongTinPicker } from "./LoaiThongTinPicker";
 import type { NhomOKhai } from "@/components/legacy-form/NhomOGap";
 import { laNguonTrucTiep } from "@/shared/nguon-don/truc-tiep";
 import { DTBSTable } from "./DTBSTable";
@@ -1833,6 +1834,14 @@ export function TabInfo(props: TabProps) {
             onCreated: (ten) => update("nguonDon", ten),
           })
         }
+      />
+    ),
+    // Catalogue picker like the Petition and Incident forms; the shared layout keeps `kind: "text"`.
+    loaiThongTin: (label) => (
+      <LoaiThongTinPicker
+        label={label}
+        value={props.formData.loaiThongTin}
+        onChange={(name) => update("loaiThongTin", name)}
       />
     ),
     ...(laUyThac ? {
