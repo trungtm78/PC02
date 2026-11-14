@@ -74,7 +74,7 @@ function Harness({ tab, initial = {}, lock = 'none' }: {
         <CheDoXemProvider xem={lock === 'view-mode'}>{body}</CheDoXemProvider>
       )}
       <output data-testid="payload-loaiThongTin">
-        {String(buildCreateCasePayload(formData).loaiThongTin ?? '')}
+        {JSON.stringify(buildCreateCasePayload(formData).loaiThongTin ?? '')}
       </output>
     </>
   );
@@ -89,7 +89,8 @@ function show(props: Parameters<typeof Harness>[0]) {
 }
 
 const trigger = () => screen.getByTestId('field-loaiThongTin-trigger');
-const payload = () => screen.getByTestId('payload-loaiThongTin').textContent;
+// The value exactly as the API would be sent it: a name in an array, or an id object, must not pass for the name.
+const payload = (): unknown => JSON.parse(screen.getByTestId('payload-loaiThongTin').textContent ?? 'null');
 
 beforeEach(() => {
   openQuickCreate.mockClear();
