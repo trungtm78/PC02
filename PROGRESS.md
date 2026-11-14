@@ -11,10 +11,23 @@ Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-
 - M4 = oversight: PR 11 (tracking + alert column), PR 12 (backlog by unit + on-time rate + Excel), PR 13 (reminders through an outbox, escalation, nudge), PR 14 (CLI applying flows to open records, dry run first).
 - M5 = PR 15 (Flutter), PR 16 (UAT over HTTP, browser click-through, one monkey run, switch on/off contract; then switch on).
 
+## Đã hoàn thành
+- [x] M0 mockup — artifact https://claude.ai/artifact/Jveo4PwSygFFhvc2xetjPD (7 screens, checked in Chromium at 1366 and 400 px; not in the repository).
+- [x] PR 1 = #668 — Case form picks Loại thông tin from the catalogue — production build `42ae2b98`, CI 5/5, `prod-lists-check` identical before/after. Not clicked in a real browser on production.
+
 ## Đang làm dở
-- Task: PR 1 — Case form: Loại thông tin becomes a catalogue picker like the Petition and Incident forms. Branch `feat/case-loai-thong-tin-picker` from `origin/main` `2c7e1e25`.
-- BƯỚC TIẾP THEO: implement in `frontend/src/pages/cases/CaseFormPage/tabs.tsx` (`renderOverride` of `TabInfo`, as `IncidentFormPage.tsx:209-226` does with `FKSelect directoryType="LOAI_THONG_TIN"` + quick create) and the second writer `CaseFormTab1UyThac.tsx:99`; payload test; `npx tsc -b`; one Codex pass; PR; CI; merge; deploy by health buildId; `prod-lists-check.cjs` before/after.
-- M0 mockup: one HTML artifact of the 7 wireframes the owner accepted on 15/11 ("Không cần chỉnh"); built in the session scratchpad, not in the repository.
+- Task: PR 2 — regression contract of today's deadlines and reminders + read-only `RecordGateway`. Branch `test/deadline-regression-contract` (rebased on `42ae2b98`). 158 new tests in 7 spec files; six planted errors each turned a suite red; no product behaviour changed (the three services' `checkRecordInScope` now call one `recordReadable`).
+- BƯỚC TIẾP THEO: one Codex pass on `git diff origin/main`, fix findings, push, PR, `scratchpad/ship-pr.sh <n>` (snapshot → CI → merge → deploy → compare). Then PR 3: pure engine `backend/src/processing-flow/engine/` + working calendar per year (own table, confirmation, compensatory days, version) + shared code contract file for server / web / Flutter.
+- NOT proven for PR 2: the five new PostgreSQL specs on an EMPTY `db push` schema as the CI runner builds it (the CI run of the PR is that proof: read its Database Gate result, not just "no longer pending").
+
+## What PR 2 pinned (facts the next PRs must respect)
+- Writers of `deadline` today. Incident: create `incidents.service.ts:1025/1034/1064`, update `:1395`, extend `:1987`, assign `:2372`, and created without one by `petitions.service.ts:1481` + `common/utils/incident-factory.util.ts:35`. Petition: create `petitions.service.ts:838/860`, update `:1094`, assign `:1804`. Case: create `cases.service.ts:1556`, update `:2300`, and **`cases/governance/legal-workflow.service.ts:1158`** (a third writer, not pinned by a test yet). PR 7 (single deadline writer) must route ALL of these.
+- Incident deadline = `ngayDeXuat` + rule days (none without a proposal date); Petition = `receivedDate` + days by group (always has one); Case = only what the form sends. A DTO deadline wins. Editing the anchor or the information type does NOT recompute; update/assign overwrite the deadline but keep the old `deadlineRuleVersionId`.
+- Deadlines are stored at 00:00 UTC (07:00 Vietnam) and the legacy reminder compares instants, so the 07:00 run already counts a record overdue ON its due day.
+- The legacy reminder has its own "finished" lists that differ from `trang-thai-ket-thuc.ts` (still reminds e.g. Incident `DINH_CHI`, Petition `DA_LUU_DON`; does not remind Incident/Case `TAM_DINH_CHI`).
+- Petition: the reminded person and the read scope follow `enteredById` (who typed it), not `assignedToId`; an assignee from another team cannot open the petition. `RecordGateway.ownerUserId` is `assignedToId`: two notions of "owner". PR 8 must decide the step-party read reach with this in mind.
+- No column means "ngày thụ lý" for any kind: the ACCEPTED anchor is null everywhere. PR 6 must add an explicit accepted-date (set by a step action) instead of guessing a column.
+- Case `ngayTiepNhan` is documented in the schema as the date on the hand-over minutes (delegated investigation) while `receiveDate` is "ngày tiếp nhận vụ án"; the gateway currently prefers `ngayTiepNhan`. Decision for PR 3/6: expose BOTH as separate anchors (RECEIVED = `receiveDate` else `ngayTiepNhan`; MINUTES_RECEIVED = `ngayTiepNhan`) and change the gateway order in PR 3 with a test.
 
 ## Quyết định kiến trúc (this epic)
 | Ngày | Quyết định | Lý do |
