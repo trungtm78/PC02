@@ -4,6 +4,19 @@ import type { Client } from 'pg';
 const SHARED_ROWS = {
   /** `system_settings.QUYEN_THEO_TO_CHE_DO`: the mode of permissions by team. One row for the whole database. */
   'authz-mode': 7226003,
+  /**
+   * `deadline_rule_versions` with status `active`: the rule every record created meanwhile takes its deadline from.
+   * A suite that adds its own active version changes the answer of `DeadlineRulesService.getActive` for everybody.
+   */
+  'deadline-rules': 7226004,
+  /** `system_settings.CANH_BAO_SAP_HAN`: how many days ahead the daily deadline reminder warns. One row. */
+  'deadline-warning-days': 7226005,
+  /**
+   * `roles` named `ADMIN` and what that role holds: being an administrator goes by the NAME of the role, and a name
+   * exists once. A suite that needs an administrator creates the role when the database has none, or gives it
+   * permissions, and takes both back.
+   */
+  'admin-role': 7226006,
 } as const;
 
 /**

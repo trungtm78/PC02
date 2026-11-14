@@ -51,6 +51,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import {
   buildPetitionScopeFilter,
   recordInScope,
+  recordReadable,
   scopeConditions,
 } from '../common/utils/scope-filter.util';
 import { boDauTimKiem } from '../common/tim-kiem/bo-dau';
@@ -551,12 +552,7 @@ export class PetitionsService {
     dataScope?: DataScope | null,
   ) {
     // Admin and a dispatcher read everything; a ward officer does not see petitions no team holds yet.
-    const inScope = recordInScope(
-      { assignedTeamId: record.assignedTeamId, ownerId: record.enteredById },
-      dataScope,
-      'read',
-      'Petition',
-    );
+    const inScope = recordReadable('Petition', record, dataScope);
     if (!inScope) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
     }

@@ -36,6 +36,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import {
   buildScopeFilter,
   recordInScope,
+  recordReadable,
   scopeConditions,
 } from '../common/utils/scope-filter.util';
 import {
@@ -712,15 +713,7 @@ export class IncidentsService {
     dataScope?: DataScope | null,
   ) {
     // Admin and a dispatcher read everything; a ward officer does not see records no team holds yet.
-    const inScope = recordInScope(
-      {
-        assignedTeamId: record.assignedTeamId,
-        ownerId: record.investigatorId,
-      },
-      dataScope,
-      'read',
-      'Incident',
-    );
+    const inScope = recordReadable('Incident', record, dataScope);
     if (!inScope) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
     }
