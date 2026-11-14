@@ -181,6 +181,12 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
+            # A slow runner makes the system UI itself hang ("Pixel Launcher isn't responding"), and that dialog
+            # sits on top of the app: every flow then fails to find the login field although the app drew it
+            # (seen on 14/11/2026, both attempts of one run). The system must not put its own dialogs over the
+            # app under test.
+            adb shell settings put global hide_error_dialogs 1
+
             # Install the APK we built.
             adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
 
