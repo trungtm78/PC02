@@ -336,6 +336,8 @@ model Directory {
 
   // v0.33.0.0: inverse — Teams gắn ward (geographic teams)
   teams Team[] @relation("TeamWard")
+  /// Processing flows bound to this entry (only entries of type LOAI_THONG_TIN are ever bound).
+  procFlowBindings ProcFlowBinding[]
 
   // v0.34.0.0: snapshot pattern metadata (WARD/PROVINCE only — NULL cho type khác)
   officialCode  String? // mã chính danh Bộ Nội vụ (vd "26506" cho Phường 1 TPHCM)
@@ -2372,6 +2374,7 @@ model Team {
   calendarEvents           CalendarEvent[] // Calendar Events v2 (PR 1)
   dynReportTargets         DynReportTarget[] // Dynamic Report Builder (Báo cáo động)
   dynReportAssignments     DynReportAssignment[] @relation("DynReportAssignmentTeam")
+  procFlowStepParties      ProcFlowStepParty[] // Processing flow: a step names this unit as a party
 
   @@index([parentId])
   @@index([level])
@@ -5181,4 +5184,219 @@ model ProcWorkingCalendarDay {
 
   @@unique([yearId, date])
   @@map("proc_working_calendar_days")
+}
+
+// ─── Processing flow: the configuration (flows, their bindings to information types, versions, steps) ───────────────
+
+enum ProcRecordKind {
+  PETITION
+  INCIDENT
+  CASE
+}
+
+enum ProcFlowStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProcFlowVersionStatus {
+  DRAFT
+  /// The version records follow. It never changes again.
+  PUBLISHED
+  /// A published version replaced by a later one.
+  SUPERSEDED
+}
+
+enum ProcDurationUnit {
+  HOUR
+  DAY
+  WORKING_DAY
+  MONTH
+}
+
+enum ProcAnchorKind {
+  RECEIVED
+  PROPOSED
+  ASSIGNED_TO_UNIT
+  ACCEPTED
+  PROSECUTED
+  MINUTES_RECEIVED
+  PREVIOUS_STEP_DONE
+}
+
+enum ProcPartyKind {
+  /// The unit holding the record, resolved per record.
+  RECORD_TEAM
+  /// One named unit.
+  TEAM
+}
+
+enum ProcPartyRole {
+  MAIN
+  CHECK
+  COORDINATE
+  INFORM
+}
+
+enum ProcConditionKey {
+  /// The gravity of the crime of a case (`CapDoToiPham`).
+  CRIME_GRAVITY
+}
+
+/// A processing flow of one record kind: an ordered list of steps, kept in versions. Among the flows that are not
+/// archived, a record kind has at most ONE default flow and a name is used once: the service enforces both under a
+/// lock per record kind (a partial unique index backs each in the migration; `prisma db push` cannot build them).
+model ProcFlow {
+  id          String         @id @default(cuid())
+  recordKind  ProcRecordKind
+  name        String
+  description String?
+  /// The flow of the records of this kind whose information type is bound to no flow.
+  isDefault   Boolean        @default(false)
+  status      ProcFlowStatus @default(ACTIVE)
+  /// Goes up by one with every write of the flow itself or of its bindings; a writer says which revision it looked at.
+  revision    Int            @default(1)
+  archivedAt  DateTime?
+  createdById String
+  updatedById String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  bindings ProcFlowBinding[]
+  versions ProcFlowVersion[]
+
+  @@index([recordKind, status])
+  @@map("proc_flows")
+}
+
+/// What a flow is bound to: one information type (a LOAI_THONG_TIN catalogue entry) or, for petitions, one deadline
+/// group. Exactly one of `directoryId` / `deadlineGroup` is set. Among the flows that are not archived, a type and a
+/// group belong to at most one flow per record kind (the service enforces it under the lock per record kind).
+model ProcFlowBinding {
+  id            String         @id @default(cuid())
+  flowId        String
+  flow          ProcFlow       @relation(fields: [flowId], references: [id], onDelete: Restrict)
+  /// The record kind of the flow, repeated here so that "who holds this type for this kind" is one indexed lookup.
+  recordKind    ProcRecordKind
+  directoryId   String?
+  directory     Directory?     @relation(fields: [directoryId], references: [id], onDelete: Restrict)
+  /// The merged key of the name of the entry (`khoaLoaiThongTin`) AT THE TIME OF BINDING: raw legacy text still
+  /// matches after the entry is renamed, and a rename shows as a difference from the key the entry has today.
+  typeKey       String?
+  deadlineGroup LoaiDon?
+  createdAt     DateTime       @default(now())
+
+  @@unique([flowId, directoryId])
+  @@unique([flowId, deadlineGroup])
+  @@index([recordKind, directoryId])
+  @@index([recordKind, typeKey])
+  @@index([recordKind, deadlineGroup])
+  @@map("proc_flow_bindings")
+}
+
+/// One version of a flow. A flow has at most one DRAFT and at most one PUBLISHED version (the service enforces both
+/// under a lock on the flow; partial unique indexes back them in the migration).
+model ProcFlowVersion {
+  id            String                @id @default(cuid())
+  flowId        String
+  flow          ProcFlow              @relation(fields: [flowId], references: [id], onDelete: Restrict)
+  versionNo     Int
+  status        ProcFlowVersionStatus @default(DRAFT)
+  note          String?
+  publishedAt   DateTime?
+  publishedById String?
+  /// Goes up by one with every write of the version or of its steps.
+  revision      Int                   @default(1)
+  createdById   String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  steps ProcFlowStep[]
+
+  @@unique([flowId, versionNo])
+  @@index([flowId, status])
+  @@map("proc_flow_versions")
+}
+
+/// One step of a version: how long it may take, counted from what, who works it.
+model ProcFlowStep {
+  id                          String            @id @default(cuid())
+  versionId                   String
+  version                     ProcFlowVersion   @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  /// The identity of the step across the versions of its flow: made once, copied into the next draft.
+  stepKey                     String
+  order                       Int
+  name                        String
+  description                 String?
+  durationValue               Int
+  durationUnit                ProcDurationUnit
+  anchor                      ProcAnchorKind
+  /// For DAY and MONTH: a last day that is not a working day moves to the next working day.
+  rollToWorkingDay            Boolean           @default(true)
+  /// The alert thresholds, in remaining civil days: 0 <= red <= yellow <= green.
+  redDays                     Int
+  yellowDays                  Int
+  greenDays                   Int
+  legalBasis                  String?
+  legalDocNumber              String?
+  legalDocUrl                 String?
+  /// A person compared the figures of this step with the source text. Cleared when those figures change.
+  legalVerifiedAt             DateTime?
+  legalVerifiedById           String?
+  /// The deadline of this step is the deadline of the record. At most one step of a version.
+  setsRecordDeadline          Boolean           @default(false)
+  requiresApproval            Boolean           @default(false)
+  maxExtensions               Int               @default(0)
+  extensionValue              Int?
+  extensionUnit               ProcDurationUnit?
+  /// Overdue by this many civil days: told to the leaders of the parent unit.
+  escalateAfterDays           Int?
+  /// Overdue by this many civil days: told to the leadership group.
+  escalateLeadershipAfterDays Int?
+
+  parties  ProcFlowStepParty[]
+  variants ProcFlowStepVariant[]
+
+  @@unique([versionId, stepKey])
+  @@unique([versionId, order])
+  @@map("proc_flow_steps")
+}
+
+/// The part of a unit in a step. The same unit appears once per step (the service checks it; no unique index, because
+/// a team merge moves rows from one team to another).
+model ProcFlowStepParty {
+  id        String        @id @default(cuid())
+  stepId    String
+  step      ProcFlowStep  @relation(fields: [stepId], references: [id], onDelete: Restrict)
+  partyKind ProcPartyKind
+  /// Set for TEAM, NULL for RECORD_TEAM.
+  teamId    String?
+  team      Team?         @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  role      ProcPartyRole
+  note      String?
+  order     Int
+
+  @@index([stepId])
+  @@index([teamId])
+  @@map("proc_flow_step_parties")
+}
+
+/// Another duration of a step for the records in which a fact has a given value (today: the gravity of the crime).
+/// A step with variants uses the duration of the matching variant, otherwise its own. A NULL extension field means
+/// "as the step says".
+model ProcFlowStepVariant {
+  id             String            @id @default(cuid())
+  stepId         String
+  step           ProcFlowStep      @relation(fields: [stepId], references: [id], onDelete: Restrict)
+  conditionKey   ProcConditionKey
+  /// For CRIME_GRAVITY: a value of `CapDoToiPham`.
+  conditionValue String
+  durationValue  Int
+  durationUnit   ProcDurationUnit
+  maxExtensions  Int?
+  extensionValue Int?
+  extensionUnit  ProcDurationUnit?
+
+  @@unique([stepId, conditionKey, conditionValue])
+  @@map("proc_flow_step_variants")
 }

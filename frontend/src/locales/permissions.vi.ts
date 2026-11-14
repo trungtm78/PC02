@@ -60,6 +60,8 @@ export const permissions = {
     auditLog: 'Nhật ký hoạt động',
     directory: 'Danh mục',
     deadlineRules: 'Quy tắc thời hạn',
+    processingFlows: 'Quy trình & hạn xử lý',
+    processingCalendar: 'Lịch làm việc',
     users: 'Người dùng',
     roles: 'Vai trò & phân quyền',
     teams: 'Tổ & đơn vị',
@@ -96,6 +98,9 @@ export const permissions = {
     sendInternal: 'Gửi ảnh cho mô hình nội bộ',
     sendCloud: 'Gửi ảnh cho mô hình bên ngoài',
     reviewResetRequest: 'Duyệt yêu cầu mở khoá',
+    publishFlow: 'Ban hành quy trình',
+    verifyLegal: 'Xác nhận căn cứ pháp lý',
+    confirmYear: 'Xác nhận lịch năm',
   } as Record<string, string>,
   reaches: {
     OWN: 'Chỉ của mình',

@@ -56,6 +56,22 @@ export interface CalendarYearDto {
   days: Array<{ date: string; kind: CalendarDayKind; label: string | null }>;
 }
 
+/** A stored year without its days: one line of the list of years. */
+export interface CalendarYearSummaryDto {
+  id: string;
+  year: number;
+  weekendDays: number[];
+  status: CalendarYearStatus;
+  revision: number;
+  /** How many exceptions of each kind the year holds. */
+  daysOff: number;
+  workingDays: number;
+  note: string | null;
+  confirmedById: string | null;
+  confirmedAt: string | null;
+  updatedAt: string;
+}
+
 /** A year row with its days, as ONE statement read them (see `readYears`). */
 interface StoredYear {
   id: string;
@@ -133,7 +149,7 @@ function readYears(client: Reader, fromYear: number, toYear: number): Promise<St
  * goes up one revision, and leaves an audit row in the same transaction (the year, its status, counts; never a label).
  * Refusals are `{ code }` objects; no display text travels.
  *
- * Who may write is the caller's business: this PR has no route, the later controller guards them.
+ * Who may write is the caller's business: `WorkingCalendarController` guards the routes.
  */
 @Injectable()
 export class WorkingCalendarService {
@@ -152,6 +168,23 @@ export class WorkingCalendarService {
     this.assertYear(toYear);
     if (fromYear > toYear) throw new BadRequestException({ code: PROCESSING_ERROR.CALENDAR_YEAR_INVALID });
     return buildWorkingCalendar((await readYears(tx, fromYear, toYear)).map(toYearData));
+  }
+
+  /** Every stored year, by year, with its state and its counts. A year that has no row is not listed. */
+  async listYears(): Promise<CalendarYearSummaryDto[]> {
+    return (await readYears(this.prisma, MIN_CALENDAR_YEAR, MAX_CALENDAR_YEAR)).map((row) => ({
+      id: row.id,
+      year: row.year,
+      weekendDays: [...row.weekendDays],
+      status: row.status,
+      revision: row.revision,
+      daysOff: row.days.filter((day) => day.kind === 'OFF').length,
+      workingDays: row.days.filter((day) => day.kind === 'WORKING').length,
+      note: row.note,
+      confirmedById: row.confirmedById,
+      confirmedAt: row.confirmedAt?.toISOString() ?? null,
+      updatedAt: row.updatedAt.toISOString(),
+    }));
   }
 
   /** The year as stored (its `id` and `revision` are what a later write must send back), or `null` when it has no row. */

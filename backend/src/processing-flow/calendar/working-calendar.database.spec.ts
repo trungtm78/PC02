@@ -499,6 +499,58 @@ run('WorkingCalendarService on PostgreSQL', () => {
     });
   });
 
+  describe('the list of years', () => {
+    it('every stored year with its state and how many exceptions of each kind, by year; no days', async () => {
+      const [early, late] = [freshYear(), freshYear()].sort((a, b) => a - b);
+      /** The second Saturday of January: a weekend day that is never the first of January. */
+      const saturday = (year: number): string => {
+        const first = new Date(Date.UTC(year, 0, 1)).getUTCDay();
+        return `${year}-01-${String(8 + ((6 - first + 7) % 7)).padStart(2, '0')}`;
+      };
+      const lateRow = await calendars.saveYear(late, { weekendDays: [0], days: [{ date: `${late}-09-02`, kind: 'OFF' }], note: 'late', expected: null }, actor);
+      const earlyRow = await calendars.saveYear(
+        early,
+        { weekendDays: [6, 0], days: [...holidays(early), { date: saturday(early), kind: 'WORKING', label: 'make-up day' }], expected: null },
+        actor,
+      );
+      const confirmed = await calendars.confirmYear(early, earlyRow, other);
+
+      const listed = (await calendars.listYears()).filter((row) => row.year === early || row.year === late);
+
+      expect(listed).toEqual([
+        {
+          id: earlyRow.id,
+          year: early,
+          status: 'CONFIRMED',
+          revision: 2,
+          weekendDays: [6, 0],
+          daysOff: 2,
+          workingDays: 1,
+          note: null,
+          confirmedAt: confirmed.confirmedAt,
+          confirmedById: other,
+          updatedAt: confirmed.updatedAt,
+        },
+        {
+          id: lateRow.id,
+          year: late,
+          status: 'DRAFT',
+          revision: 1,
+          weekendDays: [0],
+          daysOff: 1,
+          workingDays: 0,
+          note: 'late',
+          confirmedAt: null,
+          confirmedById: null,
+          updatedAt: lateRow.updatedAt,
+        },
+      ]);
+      // By year, whatever else the database holds.
+      const all = (await calendars.listYears()).map((row) => row.year);
+      expect(all).toEqual([...all].sort((a, b) => a - b));
+    });
+  });
+
   describe('a year deleted and entered again is another generation', () => {
     let year = 0;
     /** The first row, as somebody saw it when it was a draft at revision 1, and when it was confirmed at revision 2. */

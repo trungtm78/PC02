@@ -1,5 +1,10 @@
 {
   "_generated": "Do not edit by hand. Source: backend/src/processing-flow/contract/processing-codes.ts. Re-run in backend: npm run gen:processing-codes",
+  "recordKinds": [
+    "PETITION",
+    "INCIDENT",
+    "CASE"
+  ],
   "durationUnits": [
     "HOUR",
     "DAY",
@@ -27,6 +32,40 @@
     "CHECK",
     "COORDINATE",
     "INFORM"
+  ],
+  "partyKinds": [
+    "RECORD_TEAM",
+    "TEAM"
+  ],
+  "conditionKeys": [
+    "CRIME_GRAVITY"
+  ],
+  "crimeGravities": [
+    "IT_NGHIEM_TRONG",
+    "NGHIEM_TRONG",
+    "RAT_NGHIEM_TRONG",
+    "DAC_BIET_NGHIEM_TRONG"
+  ],
+  "deadlineGroups": [
+    "TO_CAO",
+    "KHIEU_NAI",
+    "KIEN_NGHI",
+    "PHAN_ANH"
+  ],
+  "flowStatuses": [
+    "ACTIVE",
+    "ARCHIVED"
+  ],
+  "flowVersionStatuses": [
+    "DRAFT",
+    "PUBLISHED",
+    "SUPERSEDED"
+  ],
+  "flowMatches": [
+    "TYPE",
+    "GROUP",
+    "DEFAULT",
+    "UNKNOWN_TYPE"
   ],
   "stepStatuses": [
     "WAITING_ANCHOR",
@@ -63,6 +102,49 @@
     "CALENDAR_DAY_INVALID",
     "CALENDAR_YEAR_CONFIRMED",
     "CALENDAR_YEAR_ALREADY_CONFIRMED",
-    "CALENDAR_YEAR_NOT_CONFIRMED"
+    "CALENDAR_YEAR_NOT_CONFIRMED",
+    "EXPECTED_REVISION_INVALID",
+    "RECORD_KIND_INVALID",
+    "FLOW_NOT_FOUND",
+    "FLOW_VERSION_NOT_FOUND",
+    "FLOW_STEP_NOT_FOUND",
+    "FLOW_NAME_REQUIRED",
+    "FLOW_NAME_TAKEN",
+    "DEFAULT_FLOW_EXISTS",
+    "FLOW_SOURCE_AMBIGUOUS",
+    "FLOW_SOURCE_NOT_FOUND",
+    "SOURCE_KIND_MISMATCH",
+    "TEMPLATE_UNKNOWN",
+    "FLOW_ARCHIVED",
+    "FLOW_ALREADY_ARCHIVED",
+    "FLOW_NOT_ARCHIVED",
+    "TYPE_ALREADY_BOUND",
+    "TYPE_UNKNOWN",
+    "GROUP_UNKNOWN",
+    "GROUP_NOT_FOR_KIND",
+    "FLOW_IN_USE",
+    "CONFIRMATION_MISMATCH",
+    "DRAFT_ALREADY_EXISTS",
+    "VERSION_IMMUTABLE",
+    "STEPS_INVALID",
+    "STEP_KEY_UNKNOWN",
+    "TEAM_UNKNOWN",
+    "TEAM_NOT_ACTIVE",
+    "FLOW_INVALID",
+    "LEGAL_BASIS_REQUIRED",
+    "LEGAL_ALREADY_VERIFIED",
+    "LEGAL_NOT_VERIFIED",
+    "PREVIEW_ANCHORS_INVALID",
+    "FLOW_HAS_NO_STEPS",
+    "STEP_NAME_REQUIRED",
+    "STEP_NEEDS_ONE_MAIN",
+    "DUPLICATE_PARTY",
+    "EXTENSION_INCOMPLETE",
+    "ANCHOR_NOT_AVAILABLE_FOR_KIND",
+    "PREVIOUS_STEP_ANCHOR_ON_FIRST_STEP",
+    "MULTIPLE_RECORD_DEADLINE_STEPS",
+    "VARIANT_DUPLICATE",
+    "VARIANT_NOT_AVAILABLE_FOR_KIND",
+    "ANCHOR_DATE_MISSING"
   ]
 }
