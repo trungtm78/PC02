@@ -5131,3 +5131,54 @@ model AuthzChange {
 
   @@map("authz_changes")
 }
+
+// ─── Processing flow: the working calendar deadlines are counted on ─────────────────────────────────────────────────
+
+enum ProcCalendarYearStatus {
+  DRAFT
+  CONFIRMED
+}
+
+enum ProcCalendarDayKind {
+  /// A day off.
+  OFF
+  /// A compensatory working day that falls on a weekend.
+  WORKING
+}
+
+/// The working calendar of one year, for deadlines counted in working days. Its own data, not `CalendarEvent`: a
+/// deadline needs every day of a multi-day holiday, and needs to know that a person has declared the year complete.
+/// A year with no row behaves as: Saturday and Sunday off, no holidays, not confirmed.
+model ProcWorkingCalendarYear {
+  id            String                   @id @default(cuid())
+  year          Int                      @unique
+  /// Weekdays that are off every week, in JavaScript weekday numbers: 0 = Sunday, 1 = Monday, ... 6 = Saturday.
+  weekendDays   Int[]                    @default([6, 0])
+  /// CONFIRMED: a person declared the days of this year complete. A deadline that leans on a DRAFT year is provisional.
+  status        ProcCalendarYearStatus   @default(DRAFT)
+  /// Goes up by one with every write; a writer says which revision it looked at.
+  revision      Int                      @default(1)
+  confirmedById String?
+  confirmedAt   DateTime?
+  note          String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  updatedById   String?
+  days          ProcWorkingCalendarDay[]
+
+  @@map("proc_working_calendar_years")
+}
+
+/// One exception of a year: a day off, or a working day on a weekend. Days that follow the weekly rule have no row.
+model ProcWorkingCalendarDay {
+  id     String                  @id @default(cuid())
+  yearId String
+  year   ProcWorkingCalendarYear @relation(fields: [yearId], references: [id], onDelete: Restrict)
+  /// A calendar day of that year (no time of day).
+  date   DateTime                @db.Date
+  kind   ProcCalendarDayKind
+  label  String?
+
+  @@unique([yearId, date])
+  @@map("proc_working_calendar_days")
+}

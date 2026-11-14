@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "npm run gen:enums && npm run gen:catalog && npm run gen:dr-engine && nest build",
+    "build": "npm run gen:enums && npm run gen:processing-codes && npm run gen:catalog && npm run gen:dr-engine && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -21,6 +21,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "gen:enums": "node scripts/generate-shared-enums.cjs",
+    "gen:processing-codes": "ts-node --transpile-only scripts/gen-processing-codes.ts",
     "gen:catalog": "node scripts/generate-catalog.cjs",
     "gen:dr-engine": "node scripts/gen-dr-engine.cjs",
     "gen:tim-kiem": "ts-node --transpile-only src/common/tim-kiem/cli/gen-tim-kiem.ts",

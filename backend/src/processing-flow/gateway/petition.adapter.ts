@@ -54,6 +54,8 @@ export function petitionSnapshot(row: PetitionSnapshotRow): RecordSnapshot {
       ACCEPTED: NO_ANCHOR,
       // A petition is not prosecuted; `ngayKhoiToBd` is a search shadow of the linked case, not a date of this record.
       PROSECUTED: NO_ANCHOR,
+      // Hand-over minutes belong to a case.
+      MINUTES_RECEIVED: NO_ANCHOR,
     },
   };
 }

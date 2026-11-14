@@ -246,6 +246,7 @@ run('RecordGateway on PostgreSQL', () => {
           assignedTeamId: id.T,
           status: 'DA_KET_LUAN',
           receiveDate: new Date('2026-01-08T00:00:00Z'),
+          ngayTiepNhan: new Date('2026-01-03T00:00:00Z'),
           ngayKhoiTo: new Date('2026-02-01T00:00:00Z'),
           ...over,
         } as never,
@@ -412,6 +413,7 @@ run('RecordGateway on PostgreSQL', () => {
           ASSIGNED_TO_UNIT: { at: day('2026-01-07'), hasTime: false },
           ACCEPTED: none,
           PROSECUTED: none,
+          MINUTES_RECEIVED: none,
         },
       });
     });
@@ -434,11 +436,12 @@ run('RecordGateway on PostgreSQL', () => {
           ASSIGNED_TO_UNIT: none,
           ACCEPTED: none,
           PROSECUTED: none,
+          MINUTES_RECEIVED: none,
         },
       });
     });
 
-    it('a concluded case, received on the date it was taken in when the minutes carry none', async () => {
+    it('a concluded case: received on the day it was received, with the date on the hand-over minutes kept apart', async () => {
       expect(await gateway.load('CASE', record.CASE)).toEqual({
         kind: 'CASE',
         id: record.CASE,
@@ -456,6 +459,7 @@ run('RecordGateway on PostgreSQL', () => {
           ASSIGNED_TO_UNIT: none,
           ACCEPTED: none,
           PROSECUTED: { at: day('2026-02-01'), hasTime: false },
+          MINUTES_RECEIVED: { at: day('2026-01-03'), hasTime: false },
         },
       });
     });

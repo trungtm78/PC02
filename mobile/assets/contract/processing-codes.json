@@ -1,0 +1,68 @@
+{
+  "_generated": "Do not edit by hand. Source: backend/src/processing-flow/contract/processing-codes.ts. Re-run in backend: npm run gen:processing-codes",
+  "durationUnits": [
+    "HOUR",
+    "DAY",
+    "WORKING_DAY",
+    "MONTH"
+  ],
+  "anchorKinds": [
+    "RECEIVED",
+    "PROPOSED",
+    "ASSIGNED_TO_UNIT",
+    "ACCEPTED",
+    "PROSECUTED",
+    "MINUTES_RECEIVED",
+    "PREVIOUS_STEP_DONE"
+  ],
+  "bands": [
+    "OVERDUE",
+    "RED",
+    "YELLOW",
+    "GREEN",
+    "NONE"
+  ],
+  "partyRoles": [
+    "MAIN",
+    "CHECK",
+    "COORDINATE",
+    "INFORM"
+  ],
+  "stepStatuses": [
+    "WAITING_ANCHOR",
+    "OPEN",
+    "REPORTED",
+    "DONE",
+    "SKIPPED"
+  ],
+  "completionClasses": [
+    "DONE_ON_TIME",
+    "DONE_LATE",
+    "OPEN_IN_TIME",
+    "OPEN_OVERDUE"
+  ],
+  "calendarYearStatuses": [
+    "DRAFT",
+    "CONFIRMED"
+  ],
+  "calendarDayKinds": [
+    "OFF",
+    "WORKING"
+  ],
+  "errorCodes": [
+    "HOUR_ANCHOR_HAS_NO_TIME",
+    "DURATION_INVALID",
+    "ANCHOR_INVALID",
+    "THRESHOLDS_NOT_ASCENDING",
+    "PAUSE_INVALID",
+    "CALENDAR_HAS_NO_WORKING_DAY",
+    "REVISION_CONFLICT",
+    "CALENDAR_YEAR_NOT_FOUND",
+    "CALENDAR_YEAR_INVALID",
+    "CALENDAR_WEEKEND_INVALID",
+    "CALENDAR_DAY_INVALID",
+    "CALENDAR_YEAR_CONFIRMED",
+    "CALENDAR_YEAR_ALREADY_CONFIRMED",
+    "CALENDAR_YEAR_NOT_CONFIRMED"
+  ]
+}

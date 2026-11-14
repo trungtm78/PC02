@@ -45,14 +45,17 @@ export function caseSnapshot(row: CaseSnapshotRow): RecordSnapshot {
     isSuspended: laTamDinhChi('case', row.status),
     deadline: row.deadline,
     anchors: {
-      // Two columns say "received": the date on the minutes, else the date the case was taken in.
-      RECEIVED: dayAnchor(row.ngayTiepNhan ?? row.receiveDate),
+      // Two columns say "received". The schema documents `receiveDate` as the day the case was received and
+      // `ngayTiepNhan` as the date on the hand-over minutes: the received day first, the minutes only when it is empty.
+      RECEIVED: dayAnchor(row.receiveDate ?? row.ngayTiepNhan),
       PROPOSED: dayAnchor(row.ngayDeXuat),
       ASSIGNED_TO_UNIT: dayAnchor(row.ngayGiaoDonViGiaiQuyet),
       // "Ngày thụ lý": a case has no such column. Looked for `ngayThuLy` / `thu_ly`; `soHoSoCu` is the old system's
       // acceptance NUMBER, and `CaseStatistic.ngayPhanCongGiaiQuyetToGiac` is a statistics date of another table.
       ACCEPTED: NO_ANCHOR,
       PROSECUTED: dayAnchor(row.ngayKhoiTo),
+      // The date on the hand-over minutes itself, never replaced by the received day.
+      MINUTES_RECEIVED: dayAnchor(row.ngayTiepNhan),
     },
   };
 }

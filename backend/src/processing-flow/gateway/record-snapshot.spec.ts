@@ -54,6 +54,18 @@ const caseRow = (over: Partial<CaseSnapshotRow> = {}): CaseSnapshotRow => ({
 });
 
 describe('the anchors of a record', () => {
+  it('the dates read from a record, in a fixed order', () => {
+    expect([...ANCHOR_KEYS]).toEqual(['RECEIVED', 'PROPOSED', 'ASSIGNED_TO_UNIT', 'ACCEPTED', 'PROSECUTED', 'MINUTES_RECEIVED']);
+  });
+
+  it.each([
+    ['a petition', () => petitionSnapshot(petitionRow())],
+    ['an incident', () => incidentSnapshot(incidentRow())],
+    ['a case', () => caseSnapshot(caseRow())],
+  ])('%s answers every anchor key and no other', (_name, snapshot) => {
+    expect(Object.keys(snapshot().anchors).sort()).toEqual([...ANCHOR_KEYS].sort());
+  });
+
   it('a date column is a calendar day: the stored instant, and no time of day', () => {
     expect(dayAnchor(day('2026-01-05'))).toEqual({ at: day('2026-01-05'), hasTime: false });
   });
@@ -112,6 +124,11 @@ describe('a petition as a record', () => {
     expect(anchors.PROSECUTED).toEqual({ at: null, hasTime: false });
   });
 
+  it('minutes-received does not exist for a petition, whatever its dates', () => {
+    const { anchors } = petitionSnapshot(petitionRow({ gioTiepNhan: '09:30', ngayDeXuat: day('2026-01-06') }));
+    expect(anchors.MINUTES_RECEIVED).toEqual({ at: null, hasTime: false });
+  });
+
   it('a suspended petition is suspended and not finished', () => {
     expect(petitionSnapshot(petitionRow({ status: PetitionStatus.TAM_DINH_CHI }))).toMatchObject({ isFinished: false, isSuspended: true });
   });
@@ -137,6 +154,11 @@ describe('an incident as a record', () => {
     for (const key of ANCHOR_KEYS) expect(anchors[key]).toEqual({ at: null, hasTime: false });
   });
 
+  it('minutes-received does not exist for an incident, whatever its dates', () => {
+    const { anchors } = incidentSnapshot(incidentRow({ ngayTiepNhanNguonTin: day('2026-01-02'), ngayDeXuat: day('2026-01-05') }));
+    expect(anchors.MINUTES_RECEIVED).toEqual({ at: null, hasTime: false });
+  });
+
   it('assigned-to-unit comes from its own column', () => {
     expect(incidentSnapshot(incidentRow({ ngayGiaoDonViGiaiQuyet: day('2026-01-09') })).anchors.ASSIGNED_TO_UNIT.at).toEqual(day('2026-01-09'));
   });
@@ -148,17 +170,23 @@ describe('an incident as a record', () => {
 });
 
 describe('a case as a record', () => {
-  it('received = the date on the minutes when there is one', () => {
+  it('received = the day the case was received, even when the hand-over minutes carry another date', () => {
     const { anchors } = caseSnapshot(caseRow({ ngayTiepNhan: day('2026-01-03'), receiveDate: day('2026-01-08') }));
-    expect(anchors.RECEIVED).toEqual({ at: day('2026-01-03'), hasTime: false });
+    expect(anchors.RECEIVED).toEqual({ at: day('2026-01-08'), hasTime: false });
   });
 
-  it('received falls back to the date the case was taken in', () => {
-    expect(caseSnapshot(caseRow({ receiveDate: day('2026-01-08') })).anchors.RECEIVED).toEqual({ at: day('2026-01-08'), hasTime: false });
+  it('received falls back to the date on the hand-over minutes when no received day was entered', () => {
+    expect(caseSnapshot(caseRow({ ngayTiepNhan: day('2026-01-03') })).anchors.RECEIVED).toEqual({ at: day('2026-01-03'), hasTime: false });
   });
 
   it('with neither date the received anchor is empty', () => {
     expect(caseSnapshot(caseRow()).anchors.RECEIVED).toEqual({ at: null, hasTime: false });
+  });
+
+  it('minutes-received = the date on the hand-over minutes, and only that: the received day never stands in for it', () => {
+    const both = caseSnapshot(caseRow({ ngayTiepNhan: day('2026-01-03'), receiveDate: day('2026-01-08') }));
+    expect(both.anchors.MINUTES_RECEIVED).toEqual({ at: day('2026-01-03'), hasTime: false });
+    expect(caseSnapshot(caseRow({ receiveDate: day('2026-01-08') })).anchors.MINUTES_RECEIVED).toEqual({ at: null, hasTime: false });
   });
 
   it('prosecuted = the date of the prosecution decision; accepted does not exist', () => {
