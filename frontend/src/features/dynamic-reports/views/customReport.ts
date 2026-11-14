@@ -23,8 +23,14 @@ export function selectionForPayload(
   const picked = shownKeys.filter((k) => ticked.has(k));
   const shown = new Set(shownKeys);
   const absentSaved = (savedKeys ?? []).filter((k) => !shown.has(k));
+  const selection = [...picked, ...absentSaved];
+  // Unticked and ticked again: the report is what it was saved as. A subset that happens to cover everything this
+  // period shows stays a subset, or it would take in what other periods have.
+  if (savedKeys !== null && selection.length === savedKeys.length && savedKeys.every((k) => selection.includes(k))) {
+    return selection;
+  }
   if (picked.length === shownKeys.length && absentSaved.length === 0) return null;
-  return [...picked, ...absentSaved];
+  return selection;
 }
 
 /** One line of the team picker. */

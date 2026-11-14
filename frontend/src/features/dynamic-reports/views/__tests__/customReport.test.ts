@@ -9,6 +9,13 @@ import {
 import type { CellMark, CustomNote } from '../types';
 
 describe('selectionForPayload', () => {
+  it('a saved subset that covers everything this period shows stays that subset when unticked and ticked again', () => {
+    // Saved as [a] where the period had a and b; opened where only a exists.
+    expect(selectionForPayload(new Set(['a']), ['a'], ['a'])).toEqual(['a']);
+    // Ticking something MORE than was saved, up to everything shown, is a real change to "all".
+    expect(selectionForPayload(new Set(['a', 'b']), ['a', 'b'], ['a'])).toBeNull();
+  });
+
   it('everything on the screen ticked is null ("all"), never the list of today', () => {
     expect(selectionForPayload(new Set(['a', 'b']), ['a', 'b'])).toBeNull();
   });

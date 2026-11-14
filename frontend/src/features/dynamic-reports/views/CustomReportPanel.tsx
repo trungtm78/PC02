@@ -173,6 +173,7 @@ export default function CustomReportPanel({ reportId, periodId, mode, periodStat
               aria-label={t.renameLabel(view.name)}
               value={renaming.name}
               maxLength={120}
+              disabled={busy}
               onChange={(e) => setRenaming({ id: view.id, name: e.target.value })}
               className="flex-1 min-w-48 border border-slate-300 rounded px-2 py-1 text-sm"
             />

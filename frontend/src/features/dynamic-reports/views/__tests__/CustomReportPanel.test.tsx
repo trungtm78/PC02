@@ -1050,6 +1050,20 @@ describe('CustomReportPanel', () => {
       expect(screen.queryByTestId('custom-report-rename-box-v1')).not.toBeInTheDocument();
     });
 
+    it('the new name cannot be typed over while the rename is being saved', async () => {
+      vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
+      const saving = deferred<ReportViewDto>();
+      vi.mocked(reportViewsApi.update).mockReturnValue(saving.promise);
+      renderPanel();
+      fireEvent.click(await screen.findByTestId('custom-report-rename-v1'));
+      fireEvent.change(screen.getByTestId('custom-report-rename-input-v1'), { target: { value: 'Tên mới' } });
+      expect(screen.getByTestId('custom-report-rename-input-v1')).toBeEnabled();
+      fireEvent.click(screen.getByTestId('custom-report-rename-save-v1'));
+      await waitFor(() => expect(screen.getByTestId('custom-report-rename-input-v1')).toBeDisabled());
+      saving.resolve(view({ name: 'Tên mới', revision: 5 }));
+      expect(await screen.findByTestId('custom-report-notice')).toHaveTextContent(t.done.renamed('Tên mới'));
+    });
+
     it('a refusal on the list is told by its code and the list is read again', async () => {
       vi.mocked(reportViewsApi.list).mockResolvedValue([view()]);
       vi.mocked(reportViewsApi.update).mockRejectedValue(refusal(409, 'REVISION_CONFLICT'));
