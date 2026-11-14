@@ -548,6 +548,7 @@ export default function SubmissionInputPage() {
         <div className="mb-4" data-testid="grid-section">
           <GridViewer
             versionId={initial.versionId}
+            assignmentId={initial.assignmentId}
             fields={initial.fields}
             values={gridValues}
             entry={{

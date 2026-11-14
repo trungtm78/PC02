@@ -1222,6 +1222,95 @@ describe('SubmissionService', () => {
       expect(view.fields.map((f) => f.fieldKey)).toEqual(['Đội 3!C6']);
     });
 
+    it('the editor is not sent a figure once saved for a criterion the team no longer has; the stored row is not touched', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue({
+        ...subsetAssignment({ dueAt: new Date(Date.now() + 30 * 86_400_000) }),
+        submission: { ...draft({ 'Đội 3!C6': { t: 'NUM', v: '5' }, 'Đội 3!C7': { t: 'NUM', v: '999' } }), updatedAt: now },
+      });
+      tx.user.findUnique.mockResolvedValue({ isActive: true });
+      const { service } = buildService(tx);
+
+      const view = await service.getSubmission('assign1', 'u1');
+
+      expect(view.values).toEqual({ 'Đội 3!C6': { t: 'NUM', v: '5' } });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('a team without a subset is sent the stored values object itself (a legacy report reads as before)', async () => {
+      const tx = buildTx();
+      const stored = { 'Đội 3!C6': { t: 'NUM', v: '5' }, 'Đội 3!C7': { t: 'NUM', v: '999' } };
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue({
+        ...subsetAssignment({ dueAt: new Date(Date.now() + 30 * 86_400_000) }),
+        ownedFieldKeys: null,
+        submission: { ...draft(stored), updatedAt: now },
+      });
+      tx.user.findUnique.mockResolvedValue({ isActive: true });
+      const { service } = buildService(tx);
+
+      const view = await service.getSubmission('assign1', 'u1');
+
+      expect(view.values).toBe(stored);
+    });
+
+    /** The same report as a workbook the system generated from a list of criteria: one criterion per row. */
+    function criteriaAssignment(ownedFieldKeys: string[] | null) {
+      return {
+        ...baseAssignment({
+          ownedFieldKeys,
+          period: basePeriod({
+            version: { fields: [FIELD, OTHER], rules: [], selectedSheets: ['Đội 3'], sourceKind: 'CRITERIA' },
+          }),
+        }),
+        teamSnapshot: { name: 'Đội 3' },
+        submission: draft({ 'Đội 3!C6': { t: 'NUM', v: '5' } }),
+      };
+    }
+    /** The cells of the criteria the export is told the team was not given (the export service turns them into rows). */
+    const clearRowsOf = (templateExport: { buildTeamFile: jest.Mock }) =>
+      (
+        (templateExport.buildTeamFile.mock.calls[0][0] as { unownedCriteria?: Array<{ sheetKey: string; address: string }> })
+          .unownedCriteria ?? []
+      ).map((f) => ({ sheetKey: f.sheetKey, address: f.address }));
+
+    it('its own Excel file of a CRITERIA report has the rows of the criteria it was not given removed', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(criteriaAssignment(['Đội 3!C6']));
+      const { service, templateExport } = buildService(tx);
+      templateExport.buildTeamFile.mockResolvedValue(Buffer.from('PK'));
+
+      await service.exportOwnSubmission('assign1', 'u1');
+
+      expect(clearRowsOf(templateExport)).toEqual([{ sheetKey: 'Đội 3', address: 'C7' }]);
+    });
+
+    it('in an authored template a label cannot be tied to a field, so no row is removed (only the input cell is blanked)', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue({ ...subsetAssignment(), teamSnapshot: { name: 'Đội 3' } });
+      const { service, templateExport } = buildService(tx);
+      templateExport.buildTeamFile.mockResolvedValue(Buffer.from('PK'));
+
+      await service.exportOwnSubmission('assign1', 'u1');
+
+      expect(clearRowsOf(templateExport)).toEqual([]);
+    });
+
+    it('a team that reports everything gets its file with no row removed, CRITERIA report or not', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(criteriaAssignment(null));
+      const { service, templateExport } = buildService(tx);
+      templateExport.buildTeamFile.mockResolvedValue(Buffer.from('PK'));
+
+      await service.exportOwnSubmission('assign1', 'u1');
+
+      expect(clearRowsOf(templateExport)).toEqual([]);
+    });
+
     it('saving a cell that belongs to another team is refused for what it is, and nothing is written', async () => {
       const tx = buildTx();
       tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
@@ -3111,6 +3200,71 @@ describe('SubmissionService', () => {
           locked: false,
         },
       ]);
+    });
+
+    describe('a team that no longer reports one of the criteria', () => {
+      const comment = (id: string, fieldKey: string | null, authorId: string) => ({
+        id,
+        fieldKey,
+        body: `${id}: 999 vụ`,
+        createdAt: now,
+        authorId,
+        author: { firstName: '', lastName: '', username: authorId },
+      });
+      const COMMENTS = [
+        comment('on-own', 'Đội 3!C6', 'u1'),
+        comment('on-taken-away', 'Đội 3!C7', 'mgr1'),
+        comment('own-words-on-taken-away', 'Đội 3!C7', 'u1'),
+        comment('on-submission', null, 'mgr1'),
+      ];
+      const subset = (ownedFieldKeys: string[] | null) => ({ ...ASSIGNMENT, ownedFieldKeys });
+
+      it('(editor) is not sent the comments on the criterion taken away, not even their own; the others stay', async () => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(subset(['Đội 3!C6']));
+        tx.dynReportComment.findMany.mockResolvedValue(COMMENTS);
+        const { service } = buildService(tx);
+
+        const result = await service.listComments('assign1', 'u1', 'role1');
+
+        expect(result.map((c) => c.id)).toEqual(['on-own', 'on-submission']);
+        expect(JSON.stringify(result)).not.toContain('taken-away');
+      });
+
+      it('(manager of the report) still reads every comment', async () => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+        tx.dynReportAssignment.findUnique.mockResolvedValue(subset(['Đội 3!C6']));
+        tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+        tx.dynReportComment.findMany.mockResolvedValue(COMMENTS);
+        const { service } = buildService(tx);
+
+        const result = await service.listComments('assign1', 'mgr1', 'roleMgr');
+
+        expect(result.map((c) => c.id)).toEqual(COMMENTS.map((c) => c.id));
+      });
+
+      it('(editor who also manages the report) reads every comment: the manager\'s standing decides', async () => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(subset(['Đội 3!C6']));
+        tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+        tx.dynReportComment.findMany.mockResolvedValue(COMMENTS);
+        const { service } = buildService(tx);
+
+        expect(await service.listComments('assign1', 'u1', 'role1')).toHaveLength(COMMENTS.length);
+      });
+
+      it('(editor of a team that reports everything) reads every comment, as before', async () => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({ userId: 'u1' });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(subset(null));
+        tx.dynReportComment.findMany.mockResolvedValue(COMMENTS);
+        const { service } = buildService(tx);
+
+        expect((await service.listComments('assign1', 'u1', 'role1')).map((c) => c.id)).toEqual(COMMENTS.map((c) => c.id));
+      });
     });
 
     it('a manager can delete everybody\'s comments but edit only their own; a closed period locks them all', async () => {

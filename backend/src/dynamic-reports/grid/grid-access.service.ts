@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { enforcement } from '../../authz/enforcement';
+import { ownedKeys } from '../aggregate/contributors';
 
 /**
  * Who may read a report version's grid model.
@@ -37,10 +38,12 @@ export class GridAccessService {
 
   /**
    * What of a version's grid the caller may see. A manager, viewer or admin sees all of it. Someone who is only an
-   * editor sees what their team reports: every field when one of their assignments on this version has no subset,
-   * otherwise the union of the subsets of their assignments (the controller then removes the rest from the grid).
+   * editor sees what the team reports IN THE ASSIGNMENT THE GRID IS OPENED FOR (`assignmentId`, sent by the entry
+   * screen): a criterion taken away from the team in the running period is gone from that period's grid although the
+   * team still has it in periods that have not opened. With no assignment named the editor gets only what every one
+   * of their assignments on this version owns. The controller removes the rest from the grid.
    */
-  async readScope(userId: string, roleId: string, versionId: string): Promise<GridReadScope> {
+  async readScope(userId: string, roleId: string, versionId: string, assignmentId?: string): Promise<GridReadScope> {
     const version = await this.prisma.dynReportVersion.findUnique({
       where: { id: versionId },
       select: { id: true, reportId: true, status: true, sourceKind: true },
@@ -80,15 +83,23 @@ export class GridAccessService {
       where: {
         userId,
         isActive: true,
+        // The assignment the grid is opened for, when the caller names one: it must be theirs and of this version.
+        ...(assignmentId ? { assignmentId } : {}),
         assignment: { period: { versionId } },
       },
       select: { assignment: { select: { ownedFieldKeys: true } } },
     });
     if (editing.length === 0) return NONE;
-    const subsets = editing.map((e) => e.assignment.ownedFieldKeys);
-    if (subsets.some((keys) => !Array.isArray(keys))) return ALL;
+    // null = that assignment owns every field: it narrows nothing.
+    const subsets = editing.map((e) => ownedKeys(e.assignment)).filter((keys): keys is readonly string[] => keys !== null);
+    if (subsets.length === 0) return ALL;
 
-    const ownedFieldKeys = [...new Set(subsets.flatMap((keys) => keys as string[]))];
+    // Named: the one subset. Not named: what EVERY assignment of the caller owns, so the answer can never hold a
+    // criterion that one of their teams (or one of their periods) was not given.
+    const ownedFieldKeys = subsets.reduce<string[]>(
+      (common, keys) => common.filter((key) => keys.includes(key)),
+      [...new Set(subsets[0])],
+    );
     const fields = await this.prisma.dynReportField.findMany({
       where: { versionId },
       select: { sheetKey: true, address: true, fieldKey: true },

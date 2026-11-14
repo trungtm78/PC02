@@ -13,6 +13,9 @@ import {
 import { ReportConfigError } from './report-config.service';
 import { ReportConfigUpdateService } from './report-config-update.service';
 
+/** The file was taken out at a revision of the configuration that is no longer the current one. */
+export const MATRIX_FILE_STALE = 'MATRIX_FILE_STALE';
+
 /** Thrown when an uploaded matrix cannot be used; the screen lists `errors` by their codes. */
 export class CriteriaMatrixError extends Error {
   constructor(public readonly errors: MatrixError[]) {
@@ -42,7 +45,7 @@ export class CriteriaMatrixService {
     const state = await this.load(reportId);
     return {
       fileName: `${sanitizeFileNamePart(state.reportName)}-ma-tran-tieu-chi.xlsx`,
-      fileBuffer: await buildCriteriaMatrix(state.criteria, state.teams),
+      fileBuffer: await buildCriteriaMatrix(state.criteria, state.teams, state.configVersion),
     };
   }
 
@@ -58,6 +61,22 @@ export class CriteriaMatrixService {
     const state = await this.load(reportId);
     const parsed = await parseCriteriaMatrix(file, state.criteria, state.teams);
     if (parsed.errors.length > 0) throw new CriteriaMatrixError(parsed.errors);
+    // The screen that asks to apply was looking at an older revision: the answer it always got.
+    if (options.apply && options.expectedConfigVersion !== state.configVersion) {
+      throw new ReportConfigError(
+        'Cấu hình báo cáo vừa được người khác thay đổi. Hãy tải lại rồi nạp file lần nữa.',
+        'REVISION_CONFLICT',
+      );
+    }
+    // The FILE is of an older revision (or says nothing about its revision): its marks are what the report was then,
+    // so taking it, even only to show "what would change", would put back what somebody else has changed since.
+    if (parsed.configVersion === null) throw new CriteriaMatrixError([{ code: 'MATRIX_VERSION_MISSING' }]);
+    if (parsed.configVersion !== state.configVersion) {
+      throw new ReportConfigError(
+        'File ma trận này được tải về trước lần thay đổi cấu hình gần nhất. Hãy tải ma trận về lại rồi sửa trên file mới.',
+        MATRIX_FILE_STALE,
+      );
+    }
     if (!options.apply) return { applied: false, configVersion: state.configVersion, teams: parsed.teams };
 
     const wanted = new Map(parsed.teams.map((t) => [t.teamId, t.itemKeys]));

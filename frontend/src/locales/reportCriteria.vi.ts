@@ -194,6 +194,8 @@ export const reportCriteria = {
     errors: {
       MATRIX_NOT_RECOGNISED: 'Không nhận ra đây là file ma trận tiêu chí. Hãy tải ma trận về rồi sửa trên chính file đó.',
       MATRIX_TOO_LARGE: 'File quá lớn so với một ma trận tiêu chí. Hãy tải ma trận về rồi sửa trên chính file đó.',
+      MATRIX_VERSION_MISSING:
+        'File này không ghi nó được tải về ở lần cấu hình nào (file tải từ bản cũ của hệ thống). Hãy tải ma trận về lại rồi sửa trên file mới.',
       MATRIX_CRITERION_DUPLICATE: (row: number) => `Dòng ${row}: tiêu chí này đã có ở một dòng phía trên. Đừng chép thêm dòng tiêu chí.`,
       MATRIX_TEAM_DUPLICATE: (column: string) => `Cột ${column}: tổ này đã có ở một cột phía trước. Đừng chép thêm cột tổ.`,
       MATRIX_CELL_NOT_PLAIN: (cell: string) => `Ô ${cell}: chỉ gõ dấu "x" hoặc để trống, không dùng công thức và không gộp ô.`,
@@ -204,6 +206,8 @@ export const reportCriteria = {
       MATRIX_TEAM_EMPTY: (name: string) => `Tổ "${name}" chưa được tích tiêu chí nào. Mỗi tổ phải báo ít nhất một tiêu chí.`,
     },
     conflict: 'Cấu hình báo cáo vừa được người khác thay đổi. Hãy tải lại cấu hình mới nhất rồi nạp file lần nữa.',
+    fileStale:
+      'File ma trận này được tải về trước lần thay đổi cấu hình gần nhất nên không dùng được nữa. Hãy tải ma trận về lại rồi sửa trên file mới.',
     fileMissing: 'Chưa chọn file. Hãy chọn file ma trận (.xlsx).',
   },
   summary: {
@@ -235,6 +239,8 @@ export function matrixErrorText(error: CriteriaMatrixError, criterionName: (item
       return t.MATRIX_NOT_RECOGNISED;
     case 'MATRIX_TOO_LARGE':
       return t.MATRIX_TOO_LARGE;
+    case 'MATRIX_VERSION_MISSING':
+      return t.MATRIX_VERSION_MISSING;
     case 'MATRIX_CRITERION_DUPLICATE':
       return t.MATRIX_CRITERION_DUPLICATE(error.row);
     case 'MATRIX_TEAM_DUPLICATE':

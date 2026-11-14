@@ -22,7 +22,7 @@ async function edit(buffer: Buffer, change: (ws: ExcelJS.Worksheet) => void): Pr
 describe('criteria matrix as an Excel file', () => {
   it('writes one row per criterion and one column per team, with a mark where the team reports it', async () => {
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load((await buildCriteriaMatrix(fields, teams)) as never);
+    await wb.xlsx.load((await buildCriteriaMatrix(fields, teams, 7)) as never);
     const ws = wb.worksheets[0];
 
     expect([ws.getCell('B3').value, ws.getCell('C3').value, ws.getCell('D3').value, ws.getCell('E3').value]).toEqual([
@@ -37,7 +37,7 @@ describe('criteria matrix as an Excel file', () => {
   });
 
   it('round trip: a file that was not touched reads back as no change at all', async () => {
-    const parsed = await parseCriteriaMatrix(await buildCriteriaMatrix(fields, teams), fields, teams);
+    const parsed = await parseCriteriaMatrix(await buildCriteriaMatrix(fields, teams, 7), fields, teams);
 
     expect(parsed.errors).toEqual([]);
     expect(parsed.teams).toEqual([
@@ -46,8 +46,33 @@ describe('criteria matrix as an Excel file', () => {
     ]);
   });
 
+  it('carries the revision of the configuration it was taken out at, out of sight, and gives it back when read', async () => {
+    const file = await buildCriteriaMatrix(fields, teams, 7);
+
+    expect((await parseCriteriaMatrix(file, fields, teams)).configVersion).toBe(7);
+    // It survives an edit in a spreadsheet program (a load and a save), and sits in the hidden key row.
+    const saved = await edit(file, (ws) => {
+      ws.getCell('E5').value = 'x';
+      expect(ws.getRow(1).hidden).toBe(true);
+    });
+    expect((await parseCriteriaMatrix(saved, fields, teams)).configVersion).toBe(7);
+  });
+
+  it.each([null, '', 'abc', 7.5, -1, 0.5])(
+    'a file whose revision cell holds %j (an older build wrote none) reads as "no revision", never as a number',
+    async (value) => {
+      const file = await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
+        ws.getCell('B1').value = value;
+      });
+      const parsed = await parseCriteriaMatrix(file, fields, teams);
+
+      expect(parsed.errors).toEqual([]);
+      expect(parsed.configVersion).toBeNull();
+    },
+  );
+
   it('reads the marks the author changed, and says what each team gains and loses', async () => {
-    const file = await edit(await buildCriteriaMatrix(fields, teams), (ws) => {
+    const file = await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
       ws.getCell('D5').value = null; // Tổ 1 no longer reports tin-cu
       ws.getCell('E5').value = 'X'; // Tổ 2 now does (any mark counts, whatever the case)
       ws.getCell('E6').value = '  '; // blanks are not a mark: Tổ 2 loses khoi-to
@@ -63,7 +88,7 @@ describe('criteria matrix as an Excel file', () => {
   });
 
   it('a team marked for every criterion is "all" again', async () => {
-    const file = await edit(await buildCriteriaMatrix(fields, teams), (ws) => {
+    const file = await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
       ws.getCell('E5').value = 'x';
     });
     const parsed = await parseCriteriaMatrix(file, fields, teams);
@@ -71,12 +96,12 @@ describe('criteria matrix as an Excel file', () => {
   });
 
   it('refuses a file that would leave a team with nothing, or that is not the matrix of this report', async () => {
-    const empty = await edit(await buildCriteriaMatrix(fields, teams), (ws) => {
+    const empty = await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
       for (const r of [4, 5, 6]) ws.getCell(`E${r}`).value = null;
     });
     expect((await parseCriteriaMatrix(empty, fields, teams)).errors).toEqual([{ code: 'MATRIX_TEAM_EMPTY', teamId: 't2', name: 'Tổ 2' }]);
 
-    const foreign = await edit(await buildCriteriaMatrix(fields, teams), (ws) => {
+    const foreign = await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
       ws.getCell('A5').value = 'khong-co';
       ws.getCell('E1').value = 't9';
     });
@@ -100,7 +125,7 @@ describe('criteria matrix as an Excel file', () => {
 
   describe('a file that cannot be read as a yes or a no is refused, not guessed', () => {
     const errorsOf = async (change: (ws: ExcelJS.Worksheet) => void) =>
-      (await parseCriteriaMatrix(await edit(await buildCriteriaMatrix(fields, teams), change), fields, teams)).errors;
+      (await parseCriteriaMatrix(await edit(await buildCriteriaMatrix(fields, teams, 7), change), fields, teams)).errors;
 
     it('the same criterion on two rows: the second row is named, nothing is applied', async () => {
       const errors = await errorsOf((ws) => {
@@ -137,7 +162,7 @@ describe('criteria matrix as an Excel file', () => {
 
     it('rich text is read by its words: blanks are not a mark, a letter is', async () => {
       const parsed = await parseCriteriaMatrix(
-        await edit(await buildCriteriaMatrix(fields, teams), (ws) => {
+        await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
           ws.getCell('D5').value = { richText: [{ text: '  ' }, { text: ' ' }] };
           ws.getCell('E5').value = { richText: [{ font: { bold: true }, text: 'x' }] };
         }),
@@ -171,7 +196,7 @@ describe('criteria matrix as an Excel file', () => {
     });
 
     it('a matrix sheet stretched past the scan limits', async () => {
-      const far = await edit(await buildCriteriaMatrix(fields, teams), (ws) => {
+      const far = await edit(await buildCriteriaMatrix(fields, teams, 7), (ws) => {
         ws.getCell(MATRIX_LIMITS.MAX_ROWS + 1, 1).value = 'x';
       });
       expect((await parseCriteriaMatrix(far, fields, teams)).errors).toEqual([{ code: 'MATRIX_TOO_LARGE' }]);

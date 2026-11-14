@@ -156,7 +156,8 @@ run('GridAccessService on PostgreSQL', () => {
   const roleOf = (who: string) =>
     who === 'admin' ? roleAdmin : who === 'manage' ? roleManage : roleReader;
   const can = (who: string, versionId: string) => svc.canReadVersion(user[who], roleOf(who), versionId);
-  const SCOPE = (who: string, versionId: string) => svc.readScope(user[who], roleOf(who), versionId);
+  const SCOPE = (who: string, versionId: string, assignmentId?: string) =>
+    svc.readScope(user[who], roleOf(who), versionId, assignmentId);
 
   it('admin:DynamicReport reads any version, drafts included', async () => {
     expect(await can('admin', versionAPublished)).toBe(true);
@@ -217,6 +218,71 @@ run('GridAccessService on PostgreSQL', () => {
       expect((scope as { fields: unknown[] }).fields).toHaveLength(2);
       expect(await SCOPE('mgrA', versionAPublished)).toEqual({ kind: 'ALL' });
       expect(await SCOPE('stranger', versionAPublished)).toEqual({ kind: 'NONE' });
+    });
+
+    describe('the same person types for the same team in a second period of this version', () => {
+      let laterPeriod = '';
+      let laterAssignment = '';
+      const ownedOf = async (assignmentId?: string) => {
+        const scope = await SCOPE('editorA', versionAPublished, assignmentId);
+        return scope.kind === 'OWNED' ? [...scope.ownedFieldKeys].sort() : scope.kind;
+      };
+
+      beforeEach(async () => {
+        await db.dynReportField.createMany({
+          data: ['C2', 'C3', 'C4'].map((address) => ({
+            versionId: versionAPublished, sheetKey: 'S', address, fieldKey: `S!${address}`, label: address, type: 'NUM' as const,
+          })),
+        });
+        const assignment = await db.dynReportAssignment.findUniqueOrThrow({ where: { id: assignmentA } });
+        laterPeriod = (
+          await db.dynReportPeriod.create({
+            data: {
+              reportId: reportA, periodKey: `${tag}-P2`, startDate: new Date('2026-11-01'), endDate: new Date('2026-11-30'),
+              opensAt: farFuture, dueAt: farFuture, versionId: versionAPublished, scheduleSnapshot: {},
+            },
+          })
+        ).id;
+        laterAssignment = (
+          await db.dynReportAssignment.create({ data: { periodId: laterPeriod, teamId: assignment.teamId, teamSnapshot: {} } })
+        ).id;
+        await db.dynReportAssignmentEditor.create({ data: { assignmentId: laterAssignment, userId: user.editorA, isActive: true } });
+      });
+
+      afterEach(async () => {
+        await db.dynReportAssignmentEditor.deleteMany({ where: { assignmentId: laterAssignment } });
+        await db.dynReportAssignment.deleteMany({ where: { id: laterAssignment } });
+        await db.dynReportPeriod.deleteMany({ where: { id: laterPeriod } });
+      });
+
+      it('opened for ONE assignment the grid is what THAT assignment owns, whatever the other periods say', async () => {
+        // The running period lost a criterion; the period that has not opened still has everything.
+        await db.dynReportAssignment.update({ where: { id: assignmentA }, data: { ownedFieldKeys: ['S!C2', 'S!C3'] } });
+
+        expect(await ownedOf(assignmentA)).toEqual(['S!C2', 'S!C3']);
+        expect(await ownedOf(laterAssignment)).toBe('ALL');
+      });
+
+      it('with no assignment named, an editor gets only what EVERY one of their assignments owns, never the union', async () => {
+        await db.dynReportAssignment.update({ where: { id: assignmentA }, data: { ownedFieldKeys: ['S!C2', 'S!C3'] } });
+        // One assignment with everything does not widen the answer.
+        expect(await ownedOf()).toEqual(['S!C2', 'S!C3']);
+
+        await db.dynReportAssignment.update({ where: { id: laterAssignment }, data: { ownedFieldKeys: ['S!C3', 'S!C4'] } });
+        expect(await ownedOf()).toEqual(['S!C3']);
+      });
+
+      it('an assignment the caller does not type for, or of another version, opens nothing', async () => {
+        expect(await SCOPE('stranger', versionAPublished, assignmentA)).toEqual({ kind: 'NONE' });
+        expect(await SCOPE('oldEditorA', versionAPublished, assignmentA)).toEqual({ kind: 'NONE' });
+        expect(await SCOPE('editorA', versionB, assignmentA)).toEqual({ kind: 'NONE' });
+        expect(await SCOPE('editorA', versionAPublished, 'no-such-assignment')).toEqual({ kind: 'NONE' });
+      });
+
+      it('a manager of the report sees everything, with or without an assignment named', async () => {
+        await db.dynReportAssignment.update({ where: { id: assignmentA }, data: { ownedFieldKeys: ['S!C2'] } });
+        expect(await SCOPE('mgrA', versionAPublished, assignmentA)).toEqual({ kind: 'ALL' });
+      });
     });
   });
 

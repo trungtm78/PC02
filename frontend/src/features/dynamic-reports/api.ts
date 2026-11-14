@@ -227,9 +227,10 @@ export const dynamicReportsApi = {
    * ETag, which the browser uses to revalidate across sessions without
    * downloading the model again.
    */
-  getVersionGrid: (versionId: string) =>
+  getVersionGrid: (versionId: string, assignmentId?: string) =>
     api
-      .get<GridModel>(`/bao-cao-dong/versions/${versionId}/grid`)
+      // With an assignment (the entry screen): the server leaves out the criteria that team does not report in it.
+      .get<GridModel>(`/bao-cao-dong/versions/${versionId}/grid`, assignmentId ? { params: { assignmentId } } : undefined)
       .then((r) => r.data),
 
   getSubmission: (assignmentId: string) =>
