@@ -1,6 +1,7 @@
 import { HttpException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
+import { Client } from 'pg';
 import { AuditService } from '../../audit/audit.service';
 import { openScratchDatabase, type ScratchDatabase } from '../../common/testing/scratch-database';
 import { civilDayFromIso } from '../engine/civil-day';
@@ -13,8 +14,8 @@ import { WorkingCalendarService, type CalendarDayInput } from './working-calenda
  * confirmed year returning to DRAFT when its days change, the delete rules, the audit rows, and `load` as the deadline
  * engine reads it.
  *
- * Runs only when DYN_REPORTS_DATABASE_URL points at a scratch database. It works on ten years of its own, far in the
- * future (a random decade between 2200 and 8990), so that nothing collides with the seeded years or with another
+ * Runs only when DYN_REPORTS_DATABASE_URL points at a scratch database. It works on twenty years of its own, far in the
+ * future (a random run of twenty between 2200 and 8999), so that nothing collides with the seeded years or with another
  * suite; the rows of those years, its audit rows, its user and its role are removed at the end.
  */
 const url = process.env.DYN_REPORTS_DATABASE_URL;
@@ -32,12 +33,12 @@ run('WorkingCalendarService on PostgreSQL', () => {
   let scratch: ScratchDatabase;
   let calendars: WorkingCalendarService;
   const tag = `pwc-${randomUUID().slice(0, 8)}`;
-  const decade = 2200 + randomInt(0, 680) * 10;
-  const years = Array.from({ length: 10 }, (_, i) => decade + i);
+  const firstYear = 2200 + randomInt(0, 340) * 20;
+  const years = Array.from({ length: 20 }, (_, i) => firstYear + i);
   let next = 0;
   /** A year no other test of this suite has touched. */
   const freshYear = (): number => {
-    if (next >= years.length) throw new Error('this suite has only ten years');
+    if (next >= years.length - 1) throw new Error('this suite has only twenty years, the last one kept empty');
     return years[next++];
   };
   let actor = '';
@@ -76,7 +77,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
   beforeAll(async () => {
     scratch = await openScratchDatabase(url as string);
     const { db } = scratch;
-    // Left by a run that was killed: the decade is random, so this is almost always nothing.
+    // Left by a run that was killed: the years are random, so this is almost always nothing.
     await dropYears();
     const role = await db.role.create({ data: { name: `${tag}-role` } });
     roleId = role.id;
@@ -119,7 +120,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
             { date: `${year}-06-15`, kind: 'WORKING' },
           ],
           note: '  first entry ',
-          expectedRevision: null,
+          expected: null,
         },
         actor,
       );
@@ -149,13 +150,13 @@ run('WorkingCalendarService on PostgreSQL', () => {
 
     it('a year that exists is not created again, and a year that does not exist has no revision to match', async () => {
       const year = freshYear();
-      await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expectedRevision: null }, actor);
-      expect(await codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: [], expectedRevision: null }, other))).toEqual({
+      await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expected: null }, actor);
+      expect(await codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: [], expected: null }, other))).toEqual({
         status: 409,
         code: 'REVISION_CONFLICT',
       });
       const absent = freshYear();
-      expect(await codeOf(calendars.saveYear(absent, { weekendDays: [6, 0], days: [], expectedRevision: 1 }, actor))).toEqual({
+      expect(await codeOf(calendars.saveYear(absent, { weekendDays: [6, 0], days: [], expected: { id: 'no-such-row', revision: 1 } }, actor))).toEqual({
         status: 409,
         code: 'REVISION_CONFLICT',
       });
@@ -165,10 +166,10 @@ run('WorkingCalendarService on PostgreSQL', () => {
 
     it('saving again replaces ALL the days and goes up one revision; a stale revision is refused and changes nothing', async () => {
       const year = freshYear();
-      const first = await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expectedRevision: null }, actor);
+      const first = await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expected: null }, actor);
       const second = await calendars.saveYear(
         year,
-        { weekendDays: [0], days: [{ date: `${year}-09-02`, kind: 'OFF', label: 'National day' }], note: 'second', expectedRevision: first.revision },
+        { weekendDays: [0], days: [{ date: `${year}-09-02`, kind: 'OFF', label: 'National day' }], note: 'second', expected: { id: first.id, revision: first.revision } },
         other,
       );
       expect(second).toMatchObject({
@@ -182,7 +183,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
       });
       expect(await scratch.db.procWorkingCalendarDay.count({ where: { yearId: first.id } })).toBe(1);
 
-      expect(await codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: [], expectedRevision: first.revision }, actor))).toEqual({
+      expect(await codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: [], expected: { id: first.id, revision: first.revision } }, actor))).toEqual({
         status: 409,
         code: 'REVISION_CONFLICT',
       });
@@ -192,7 +193,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
     it('two people creating the same year at once: one is saved, the other is told the revision moved', async () => {
       const year = freshYear();
       const attempts = await Promise.all(
-        [actor, other].map((who) => codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expectedRevision: null }, who))),
+        [actor, other].map((who) => codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expected: null }, who))),
       );
       expect(attempts.filter((result) => result === 'RESOLVED')).toHaveLength(1);
       expect(attempts.filter((result) => result !== 'RESOLVED')).toEqual([{ status: 409, code: 'REVISION_CONFLICT' }]);
@@ -223,18 +224,18 @@ run('WorkingCalendarService on PostgreSQL', () => {
       ['a week with no working day', () => ({ weekendDays: [0, 1, 2, 3, 4, 5, 6], days: [] }), 'CALENDAR_WEEKEND_INVALID'],
     ])('%s is refused with its code and nothing is written', async (_name, input, code) => {
       const year = years[years.length - 1];
-      expect(await codeOf(calendars.saveYear(year, { ...input(year), expectedRevision: null }, actor))).toEqual({ status: 400, code });
+      expect(await codeOf(calendars.saveYear(year, { ...input(year), expected: null }, actor))).toEqual({ status: 400, code });
       expect(await calendars.getYear(year)).toBeNull();
       expect(await auditRows(year)).toEqual([]);
     });
 
     it.each([1899, 10_000, 2190.5, Number.NaN])('the year %p is not a year', async (year) => {
       const refused = { status: 400, code: 'CALENDAR_YEAR_INVALID' };
-      expect(await codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: [], expectedRevision: null }, actor))).toEqual(refused);
+      expect(await codeOf(calendars.saveYear(year, { weekendDays: [6, 0], days: [], expected: null }, actor))).toEqual(refused);
       expect(await codeOf(calendars.getYear(year))).toEqual(refused);
-      expect(await codeOf(calendars.confirmYear(year, 1, actor))).toEqual(refused);
-      expect(await codeOf(calendars.unconfirmYear(year, 1, actor))).toEqual(refused);
-      expect(await codeOf(calendars.deleteYear(year, 1, actor))).toEqual(refused);
+      expect(await codeOf(calendars.confirmYear(year, { id: 'no-such-row', revision: 1 }, actor))).toEqual(refused);
+      expect(await codeOf(calendars.unconfirmYear(year, { id: 'no-such-row', revision: 1 }, actor))).toEqual(refused);
+      expect(await codeOf(calendars.deleteYear(year, { id: 'no-such-row', revision: 1 }, actor))).toEqual(refused);
       expect(await codeOf(calendars.load(year, 2200))).toEqual(refused);
     });
 
@@ -242,7 +243,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
       const year = years[years.length - 1];
       const failing = { log: () => Promise.reject(new Error('audit down')) } as unknown as AuditService;
       const broken = new WorkingCalendarService(scratch.db as never, failing);
-      await expect(broken.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expectedRevision: null }, actor)).rejects.toThrow('audit down');
+      await expect(broken.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expected: null }, actor)).rejects.toThrow('audit down');
       expect(await calendars.getYear(year)).toBeNull();
       expect(await scratch.db.procWorkingCalendarDay.count({ where: { year: { year } } })).toBe(0);
     });
@@ -250,33 +251,36 @@ run('WorkingCalendarService on PostgreSQL', () => {
 
   describe('confirming a year, and the way back', () => {
     let year = 0;
+    let id = '';
     let revision = 0;
+    /** What a writer sends: the row it looked at and the revision it saw. */
+    const at = (seen = revision) => ({ id, revision: seen });
 
     beforeAll(async () => {
       year = freshYear();
-      revision = (await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), note: 'kept', expectedRevision: null }, actor)).revision;
+      ({ id, revision } = await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), note: 'kept', expected: null }, actor));
     });
 
     it('a year that has no row cannot be confirmed, unconfirmed or deleted', async () => {
       const absent = years[years.length - 1];
       const notFound = { status: 404, code: 'CALENDAR_YEAR_NOT_FOUND' };
-      expect(await codeOf(calendars.confirmYear(absent, 1, actor))).toEqual(notFound);
-      expect(await codeOf(calendars.unconfirmYear(absent, 1, actor))).toEqual(notFound);
-      expect(await codeOf(calendars.deleteYear(absent, 1, actor))).toEqual(notFound);
+      expect(await codeOf(calendars.confirmYear(absent, { id: 'no-such-row', revision: 1 }, actor))).toEqual(notFound);
+      expect(await codeOf(calendars.unconfirmYear(absent, { id: 'no-such-row', revision: 1 }, actor))).toEqual(notFound);
+      expect(await codeOf(calendars.deleteYear(absent, { id: 'no-such-row', revision: 1 }, actor))).toEqual(notFound);
     });
 
     it('a stale revision cannot confirm', async () => {
-      expect(await codeOf(calendars.confirmYear(year, revision + 5, actor))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
+      expect(await codeOf(calendars.confirmYear(year, at(revision + 5), actor))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
       expect((await calendars.getYear(year))?.status).toBe('DRAFT');
     });
 
     it('a draft cannot be unconfirmed', async () => {
-      expect(await codeOf(calendars.unconfirmYear(year, revision, actor))).toEqual({ status: 409, code: 'CALENDAR_YEAR_NOT_CONFIRMED' });
+      expect(await codeOf(calendars.unconfirmYear(year, at(), actor))).toEqual({ status: 409, code: 'CALENDAR_YEAR_NOT_CONFIRMED' });
     });
 
     it('confirming records who and when, keeps the days, and goes up one revision', async () => {
       const before = Date.now();
-      const confirmed = await calendars.confirmYear(year, revision, other);
+      const confirmed = await calendars.confirmYear(year, at(), other);
       expect(confirmed).toMatchObject({ status: 'CONFIRMED', revision: revision + 1, confirmedById: other, updatedById: other, note: 'kept' });
       expect(confirmed.days.map((day) => day.date)).toEqual([`${year}-01-01`, `${year}-04-30`]);
       expect(new Date(confirmed.confirmedAt as string).getTime()).toBeGreaterThanOrEqual(before - 1000);
@@ -285,11 +289,11 @@ run('WorkingCalendarService on PostgreSQL', () => {
     });
 
     it('a confirmed year is not confirmed twice', async () => {
-      expect(await codeOf(calendars.confirmYear(year, revision, actor))).toEqual({ status: 409, code: 'CALENDAR_YEAR_ALREADY_CONFIRMED' });
+      expect(await codeOf(calendars.confirmYear(year, at(), actor))).toEqual({ status: 409, code: 'CALENDAR_YEAR_ALREADY_CONFIRMED' });
     });
 
     it('a confirmed year cannot be deleted: it must be unconfirmed first', async () => {
-      expect(await codeOf(calendars.deleteYear(year, revision, actor))).toEqual({ status: 409, code: 'CALENDAR_YEAR_CONFIRMED' });
+      expect(await codeOf(calendars.deleteYear(year, at(), actor))).toEqual({ status: 409, code: 'CALENDAR_YEAR_CONFIRMED' });
       expect((await calendars.getYear(year))?.days).toHaveLength(2);
     });
 
@@ -298,7 +302,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
         { date: `${year}-01-01`, kind: 'OFF', label: 'Renamed' },
         { date: `${year}-04-30`, kind: 'OFF', label: 'Named' },
       ];
-      const saved = await calendars.saveYear(year, { weekendDays: [0, 6], days, note: 'reworded', expectedRevision: revision }, actor);
+      const saved = await calendars.saveYear(year, { weekendDays: [0, 6], days, note: 'reworded', expected: at() }, actor);
       expect(saved).toMatchObject({ status: 'CONFIRMED', confirmedById: other, revision: revision + 1, note: 'reworded' });
       expect(saved.days.map((day) => day.label)).toEqual(['Renamed', 'Named']);
       revision = saved.revision;
@@ -307,7 +311,7 @@ run('WorkingCalendarService on PostgreSQL', () => {
     it('changing its days sends it back to DRAFT, and nobody has confirmed it any more', async () => {
       const saved = await calendars.saveYear(
         year,
-        { weekendDays: [6, 0], days: [...holidays(year), { date: `${year}-05-01`, kind: 'OFF' }], note: 'reworded', expectedRevision: revision },
+        { weekendDays: [6, 0], days: [...holidays(year), { date: `${year}-05-01`, kind: 'OFF' }], note: 'reworded', expected: at() },
         actor,
       );
       expect(saved).toMatchObject({ status: 'DRAFT', confirmedById: null, confirmedAt: null, revision: revision + 1 });
@@ -317,45 +321,51 @@ run('WorkingCalendarService on PostgreSQL', () => {
     });
 
     it('changing the kind of one day, or the weekly days off, does the same', async () => {
-      revision = (await calendars.confirmYear(year, revision, actor)).revision;
+      revision = (await calendars.confirmYear(year, at(), actor)).revision;
       const kindChanged = holidays(year).map((day, i) => (i === 0 ? { ...day, kind: 'WORKING' as const } : day));
       const afterKind = await calendars.saveYear(
         year,
-        { weekendDays: [6, 0], days: [...kindChanged, { date: `${year}-05-01`, kind: 'OFF' }], expectedRevision: revision },
+        { weekendDays: [6, 0], days: [...kindChanged, { date: `${year}-05-01`, kind: 'OFF' }], expected: at() },
         actor,
       );
       expect(afterKind.status).toBe('DRAFT');
 
-      revision = (await calendars.confirmYear(year, afterKind.revision, actor)).revision;
-      const afterWeekend = await calendars.saveYear(year, { weekendDays: [0], days: afterKind.days, expectedRevision: revision }, actor);
+      revision = (await calendars.confirmYear(year, at(afterKind.revision), actor)).revision;
+      const afterWeekend = await calendars.saveYear(year, { weekendDays: [0], days: afterKind.days, expected: at() }, actor);
       expect(afterWeekend).toMatchObject({ status: 'DRAFT', confirmedById: null, confirmedAt: null, weekendDays: [0] });
       revision = afterWeekend.revision;
     });
 
     it('unconfirming is the way back: a draft again, the days untouched', async () => {
-      revision = (await calendars.confirmYear(year, revision, actor)).revision;
+      revision = (await calendars.confirmYear(year, at(), actor)).revision;
       const daysBefore = (await calendars.getYear(year))?.days;
-      expect(await codeOf(calendars.unconfirmYear(year, revision - 1, actor))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
-      const draft = await calendars.unconfirmYear(year, revision, other);
+      expect(await codeOf(calendars.unconfirmYear(year, at(revision - 1), actor))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
+      const draft = await calendars.unconfirmYear(year, at(), other);
       expect(draft).toMatchObject({ status: 'DRAFT', confirmedById: null, confirmedAt: null, revision: revision + 1, updatedById: other });
       expect(draft.days).toEqual(daysBefore);
       revision = draft.revision;
     });
 
     it('a draft is deleted with its days, only at the revision that was looked at', async () => {
-      const id = (await calendars.getYear(year))?.id as string;
-      expect(await codeOf(calendars.deleteYear(year, revision - 1, actor))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
+      expect(await codeOf(calendars.deleteYear(year, at(revision - 1), actor))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
       expect(await calendars.getYear(year)).not.toBeNull();
 
-      expect(await calendars.deleteYear(year, revision, actor)).toEqual({ deleted: true, year });
+      expect(await calendars.deleteYear(year, at(), actor)).toEqual({ deleted: true, year, id });
       expect(await calendars.getYear(year)).toBeNull();
       expect(await scratch.db.procWorkingCalendarDay.count({ where: { yearId: id } })).toBe(0);
-      expect(await codeOf(calendars.deleteYear(year, revision, actor))).toEqual({ status: 404, code: 'CALENDAR_YEAR_NOT_FOUND' });
+      expect(await codeOf(calendars.deleteYear(year, at(), actor))).toEqual({ status: 404, code: 'CALENDAR_YEAR_NOT_FOUND' });
     });
 
-    it('a deleted year can be entered again from nothing', async () => {
-      const again = await calendars.saveYear(year, { weekendDays: [6, 0], days: [], expectedRevision: null }, actor);
+    it('a deleted year can be entered again from nothing: a NEW row at revision 1, which the id of the old row no longer opens', async () => {
+      const again = await calendars.saveYear(year, { weekendDays: [6, 0], days: [], expected: null }, actor);
       expect(again).toMatchObject({ revision: 1, status: 'DRAFT', days: [] });
+      expect(again.id).not.toBe(id);
+      // Somebody still holding the first row at ITS revision 1 is told it moved, although the number is 1 again.
+      expect(await codeOf(calendars.saveYear(year, { weekendDays: [0], days: holidays(year), expected: { id, revision: 1 } }, other))).toEqual({
+        status: 409,
+        code: 'REVISION_CONFLICT',
+      });
+      expect(await calendars.getYear(year)).toEqual(again);
     });
 
     it('every write left one audit row, with metadata only; the refused ones left none', async () => {
@@ -409,12 +419,12 @@ run('WorkingCalendarService on PostgreSQL', () => {
             { date: `${confirmedYear}-12-30`, kind: 'OFF', label: 'a day off' },
             { date: `${confirmedYear}-12-31`, kind: 'OFF', label: 'a day off' },
           ],
-          expectedRevision: null,
+          expected: null,
         },
         actor,
       );
-      await calendars.confirmYear(confirmedYear, saved.revision, actor);
-      await calendars.saveYear(draftYear, { weekendDays: [0], days: [{ date: `${draftYear}-01-01`, kind: 'OFF' }], expectedRevision: null }, actor);
+      await calendars.confirmYear(confirmedYear, saved, actor);
+      await calendars.saveYear(draftYear, { weekendDays: [0], days: [{ date: `${draftYear}-01-01`, kind: 'OFF' }], expected: null }, actor);
     });
 
     it('holds both years: their days off, their weekends, which one is confirmed', async () => {
@@ -486,6 +496,215 @@ run('WorkingCalendarService on PostgreSQL', () => {
 
     it('a range that runs backwards is refused', async () => {
       expect(await codeOf(calendars.load(draftYear, confirmedYear))).toEqual({ status: 400, code: 'CALENDAR_YEAR_INVALID' });
+    });
+  });
+
+  describe('a year deleted and entered again is another generation', () => {
+    let year = 0;
+    /** The first row, as somebody saw it when it was a draft at revision 1, and when it was confirmed at revision 2. */
+    let first = { id: '', revision: 0 };
+    let replacement: Awaited<ReturnType<WorkingCalendarService['saveYear']>>;
+    const refused = { status: 409, code: 'REVISION_CONFLICT' };
+
+    beforeAll(async () => {
+      year = freshYear();
+      const created = await calendars.saveYear(year, { weekendDays: [6, 0], days: holidays(year), expected: null }, actor);
+      first = { id: created.id, revision: created.revision };
+      const confirmed = await calendars.confirmYear(year, created, actor);
+      const draft = await calendars.unconfirmYear(year, confirmed, actor);
+      await calendars.deleteYear(year, draft, actor);
+      replacement = await calendars.saveYear(year, { weekendDays: [6, 0], days: [{ date: `${year}-09-02`, kind: 'OFF' }], expected: null }, actor);
+    });
+
+    it('the replacement is a new row, and its revision starts again at the number the first row once had', () => {
+      expect(replacement.id).not.toBe(first.id);
+      expect({ first: first.revision, replacement: replacement.revision }).toEqual({ first: 1, replacement: 1 });
+    });
+
+    it('a save that looked at the deleted row does not overwrite the replacement', async () => {
+      const stale = calendars.saveYear(year, { weekendDays: [0], days: [], note: 'stale', expected: { id: first.id, revision: 1 } }, other);
+      expect(await codeOf(stale)).toEqual(refused);
+      expect(await calendars.getYear(year)).toEqual(replacement);
+    });
+
+    it('a confirmation that looked at the deleted row does not confirm the replacement', async () => {
+      expect(await codeOf(calendars.confirmYear(year, { id: first.id, revision: 1 }, other))).toEqual(refused);
+      expect(await calendars.getYear(year)).toEqual(replacement);
+    });
+
+    it('a deletion that looked at the deleted row does not delete the replacement', async () => {
+      expect(await codeOf(calendars.deleteYear(year, { id: first.id, revision: 1 }, other))).toEqual(refused);
+      expect(await calendars.getYear(year)).toEqual(replacement);
+    });
+
+    it('an unconfirmation that looked at the deleted row, confirmed at revision 2, leaves the replacement confirmed', async () => {
+      const current = await calendars.getYear(year);
+      if (!current) throw new Error('the replacement is gone');
+      const confirmed = await calendars.confirmYear(year, current, actor);
+      expect(confirmed).toMatchObject({ id: current.id, revision: 2, status: 'CONFIRMED' });
+      expect(await codeOf(calendars.unconfirmYear(year, { id: first.id, revision: 2 }, other))).toEqual(refused);
+      expect(await calendars.getYear(year)).toEqual(confirmed);
+    });
+
+    it('the right row at another revision is refused as well; the row and its revision together open it', async () => {
+      const current = await calendars.getYear(year);
+      if (!current) throw new Error('the replacement is gone');
+      expect(await codeOf(calendars.unconfirmYear(year, { id: current.id, revision: current.revision - 1 }, actor))).toEqual(refused);
+      expect(await codeOf(calendars.unconfirmYear(year, { id: '', revision: current.revision }, actor))).toEqual(refused);
+      const draft = await calendars.unconfirmYear(year, { id: current.id, revision: current.revision }, actor);
+      expect(draft).toMatchObject({ id: current.id, revision: current.revision + 1, status: 'DRAFT' });
+    });
+
+    it('none of the refused requests left an audit row', async () => {
+      expect((await auditRows(year)).filter((row) => row.userId === other)).toEqual([]);
+    });
+  });
+
+  describe('a reader never sees half of a save', () => {
+    const dayOfMonth = (year: number, month: number, weekday: number): string => {
+      const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+      return `${year}-${String(month).padStart(2, '0')}-${String(1 + ((weekday - first + 7) % 7)).padStart(2, '0')}`;
+    };
+    /** A Wednesday of the given month: a working day unless it is listed off. */
+    const wednesdayOf = (year: number, month: number): string => dayOfMonth(year, month, 3);
+    /** A Saturday: off under the default weekend, working when only Sunday is off. */
+    const saturdayOf = (year: number, month: number): string => dayOfMonth(year, month, 6);
+    const until = async (what: string, check: () => Promise<boolean>): Promise<void> => {
+      const giveUpAt = Date.now() + 20_000;
+      while (!(await check())) {
+        if (Date.now() > giveUpAt) throw new Error(`timed out waiting for ${what}`);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
+
+    /** The reader has connections of its own, named, so that the suite can see when THEY wait for a lock. */
+    let reader: ScratchDatabase;
+    let readerCalendars: WorkingCalendarService;
+    const readerName = `${tag}-reader`;
+
+    beforeAll(async () => {
+      const target = new URL(url as string);
+      target.searchParams.set('application_name', readerName);
+      reader = await openScratchDatabase(target.toString());
+      readerCalendars = new WorkingCalendarService(reader.db as never, new AuditService(reader.db as never));
+    });
+
+    afterAll(async () => {
+      await reader?.close();
+    });
+
+    interface Seen {
+      confirmed: boolean;
+      /** Which of the two days in play are days off. */
+      daysOff: string[];
+    }
+
+    const READERS: Array<[string, (year: number, days: string[]) => Promise<Seen>]> = [
+      [
+        'load',
+        async (year, days) => {
+          const calendar = await readerCalendars.load(year, year);
+          return { confirmed: calendar.isConfirmed(year), daysOff: days.filter((day) => !calendar.isWorkingDay(civilDayFromIso(day))) };
+        },
+      ],
+      [
+        "load inside the caller's transaction",
+        async (year, days) => {
+          const calendar = await reader.db.$transaction((tx: Prisma.TransactionClient) => readerCalendars.load(year, year, tx));
+          return { confirmed: calendar.isConfirmed(year), daysOff: days.filter((day) => !calendar.isWorkingDay(civilDayFromIso(day))) };
+        },
+      ],
+      [
+        'getYear',
+        async (year, days) => {
+          const stored = await readerCalendars.getYear(year);
+          return { confirmed: stored?.status === 'CONFIRMED', daysOff: days.filter((day) => stored?.days.some((d) => d.date === day)) };
+        },
+      ],
+    ];
+
+    it.each(READERS)(
+      '%s, held on the days while a save of other days commits: all of the old state or all of the new one, never the old CONFIRMED with the new days',
+      async (_name, read) => {
+        const year = freshYear();
+        const [oldDay, newDay] = [wednesdayOf(year, 3), wednesdayOf(year, 4)];
+        const saved = await calendars.saveYear(year, { weekendDays: [6, 0], days: [{ date: oldDay, kind: 'OFF' }], expected: null }, actor);
+        await calendars.confirmYear(year, saved, actor);
+        const oldState: Seen = { confirmed: true, daysOff: [oldDay] };
+        const newState: Seen = { confirmed: false, daysOff: [newDay] };
+
+        // A second session holds the days table: whoever reads the days waits, the years can still be read.
+        const writer = new Client({ connectionString: url });
+        await writer.connect();
+        let seen: Seen;
+        try {
+          await writer.query('BEGIN');
+          await writer.query('LOCK TABLE proc_working_calendar_days IN ACCESS EXCLUSIVE MODE');
+          const reading = read(year, [oldDay, newDay]);
+          // Kept from being an unhandled rejection while the suite is busy; it is awaited below.
+          reading.catch(() => undefined);
+          await until('the reader to wait for the days', async () => {
+            const waiting = await scratch.pg.query(
+              `SELECT 1 FROM pg_stat_activity WHERE application_name = $1 AND wait_event_type = 'Lock' AND state = 'active'`,
+              [readerName],
+            );
+            return waiting.rowCount === 1;
+          });
+          // The same row changes `saveYear` makes for other days on a confirmed year: back to DRAFT, days replaced.
+          await writer.query(
+            `UPDATE proc_working_calendar_years SET status = 'DRAFT', "confirmedById" = NULL, "confirmedAt" = NULL, revision = revision + 1, "updatedAt" = now() WHERE id = $1`,
+            [saved.id],
+          );
+          await writer.query(`DELETE FROM proc_working_calendar_days WHERE "yearId" = $1`, [saved.id]);
+          await writer.query(`INSERT INTO proc_working_calendar_days (id, "yearId", "date", kind) VALUES ($1, $2, $3::date, 'OFF')`, [
+            `${tag}-${year}-new`,
+            saved.id,
+            newDay,
+          ]);
+          await writer.query('COMMIT');
+          seen = await reading;
+        } finally {
+          // Nothing to undo after the COMMIT; after a failure this releases the table.
+          await writer.query('ROLLBACK').catch(() => undefined);
+          await writer.end();
+        }
+        expect([oldState, newState]).toContainEqual(seen);
+        // What is stored now is the new state, whole.
+        expect(await read(year, [oldDay, newDay])).toEqual(newState);
+      },
+    );
+
+    it('while real saves go back and forth between two states, every load is one of the two, whole', async () => {
+      const year = freshYear();
+      const [dayA, dayB, saturday] = [wednesdayOf(year, 3), wednesdayOf(year, 4), saturdayOf(year, 5)];
+      const stateA = { weekendDays: [6, 0], days: [{ date: dayA, kind: 'OFF' as const }] };
+      const stateB = { weekendDays: [0], days: [{ date: dayB, kind: 'OFF' as const }] };
+      let held = await calendars.saveYear(year, { ...stateA, expected: null }, actor);
+
+      let writing = true;
+      const mixed: string[] = [];
+      let reads = 0;
+      const readLoop = async (): Promise<void> => {
+        while (writing) {
+          const calendar = await readerCalendars.load(year, year);
+          const working = (day: string) => calendar.isWorkingDay(civilDayFromIso(day));
+          // The weekend comes from the year row, the days off from the day rows.
+          const seen = `saturday ${working(saturday) ? 'works' : 'off'}; off: ${[dayA, dayB].filter((day) => !working(day)).join(',')}`;
+          if (seen !== `saturday off; off: ${dayA}` && seen !== `saturday works; off: ${dayB}`) mixed.push(seen);
+          reads++;
+        }
+      };
+      const readers = [readLoop(), readLoop(), readLoop()];
+      try {
+        for (let round = 0; round < 30; round++) {
+          held = await calendars.saveYear(year, { ...(round % 2 === 0 ? stateB : stateA), expected: held }, actor);
+        }
+      } finally {
+        writing = false;
+        await Promise.all(readers);
+      }
+      expect(reads).toBeGreaterThan(0);
+      expect(mixed).toEqual([]);
     });
   });
 });
