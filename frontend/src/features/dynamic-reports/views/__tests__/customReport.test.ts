@@ -199,20 +199,22 @@ describe('the words of a custom report', () => {
     expect(Object.keys(reportCriteria.customReport.notes).sort()).toEqual(notes.map((n) => n.code).sort());
     expect(customReportNoteText(notes[0])).toContain('đã duyệt');
     expect(customReportNoteText(notes[1])).toContain('"I Tin báo"');
-    expect(customReportNoteText(notes[1])).toContain('2 tiêu chí không được liệt kê');
+    expect(customReportNoteText(notes[1])).toContain('kể cả những tiêu chí không được liệt kê');
+    // The reader of the report is not told how many criteria there are.
+    expect(customReportNoteText(notes[1])).not.toMatch(/\d/);
     expect(customReportNoteText(notes[2])).toContain('4 tiêu chí');
     expect(customReportNoteText(notes[3])).toContain('5 tổ');
   });
 
   it('the filter line names the teams when not all are in, and counts the criteria', () => {
     const line = reportCriteria.customReport.preview.filterLine;
-    expect(line({ teamNames: ['Tổ 1', 'Tổ 2'], teamsTotal: 2, criteriaSelected: 3, criteriaTotal: 3, mode: 'đã duyệt' })).toBe(
-      'Đơn vị: tất cả 2 tổ · Tiêu chí: 3/3 · Số liệu: đã duyệt',
+    expect(line({ teamNames: ['Tổ 1', 'Tổ 2'], teamsTotal: 2, mode: 'đã duyệt' })).toBe(
+      'Đơn vị: tất cả 2 tổ · Số liệu: đã duyệt',
     );
-    expect(line({ teamNames: ['Tổ 1'], teamsTotal: 4, criteriaSelected: 1, criteriaTotal: 3, mode: 'đã duyệt' })).toBe(
-      'Đơn vị: Tổ 1 (1/4 tổ) · Tiêu chí: 1/3 · Số liệu: đã duyệt',
+    expect(line({ teamNames: ['Tổ 1'], teamsTotal: 4, mode: 'đã duyệt' })).toBe(
+      'Đơn vị: Tổ 1 (1/4 tổ) · Số liệu: đã duyệt',
     );
     const many = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    expect(line({ teamNames: many, teamsTotal: 9, criteriaSelected: 1, criteriaTotal: 1, mode: 'x' })).toContain('A, B, C, D, E, F và 2 tổ khác (8/9 tổ)');
+    expect(line({ teamNames: many, teamsTotal: 9, mode: 'x' })).toContain('A, B, C, D, E, F và 2 tổ khác (8/9 tổ)');
   });
 });

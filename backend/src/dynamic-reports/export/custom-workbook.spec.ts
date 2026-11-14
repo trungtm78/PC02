@@ -66,7 +66,7 @@ describe('buildCustomWorkbook', () => {
 
     expect(sheet.name).toBe('Báo cáo');
     expect(sheet.getCell('A1').value).toBe('Báo cáo tháng — kỳ 2026-10');
-    expect(sheet.getCell('A2').value).toBe('Đơn vị: tất cả 3 tổ · Tiêu chí: 3/4 · Số liệu: đã nộp + đã duyệt');
+    expect(sheet.getCell('A2').value).toBe('Đơn vị: tất cả 3 tổ · Số liệu: đã nộp + đã duyệt');
     expect(rowValues(sheet, CUSTOM_HEADER_ROW, width)).toEqual(['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', 'Tổ A', 'Tổ B', 'Tổ C']);
 
     // Every row, every cell.
@@ -86,7 +86,7 @@ describe('buildCustomWorkbook', () => {
       '• Kỳ báo cáo chưa khoá sổ: số liệu là số tạm tính (đã nộp + đã duyệt) và còn có thể thay đổi.',
     );
     expect(sheet.getCell(afterTable + 3, 1).value).toBe(
-      '• Mục "1 Tin báo tội phạm" là tổng của cả 2 tiêu chí con, trong đó 1 tiêu chí không được liệt kê trong báo cáo này.',
+      '• Mục "1 Tin báo tội phạm" là tổng của mọi tiêu chí con, kể cả những tiêu chí không được liệt kê trong báo cáo này.',
     );
     expect(sheet.rowCount).toBe(afterTable + 3);
   });

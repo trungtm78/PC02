@@ -365,7 +365,7 @@ describe('CustomReportPanel', () => {
       const table = await screen.findByTestId('custom-report-preview-table');
       expect(screen.getByTestId('custom-report-preview-title')).toHaveTextContent('HSLN — kỳ 2026-06');
       expect(screen.getByTestId('custom-report-preview-filter-line')).toHaveTextContent(
-        'Đơn vị: Tổ 1, Tổ 2 (2/4 tổ) · Tiêu chí: 2/3 · Số liệu: đã nộp + đã duyệt',
+        'Đơn vị: Tổ 1, Tổ 2 (2/4 tổ) · Số liệu: đã nộp + đã duyệt',
       );
       expect(screen.getByTestId('custom-report-preview')).not.toHaveTextContent('the line of the file');
       expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', 'Tổ 1', 'Tổ 2']);

@@ -42,8 +42,6 @@ export default function CustomReportPreviewTable({ preview }: { preview: CustomR
           {p.filterLine({
             teamNames: preview.teams.map((team) => team.name),
             teamsTotal: preview.counts.teams.total,
-            criteriaSelected: preview.counts.criteria.selected,
-            criteriaTotal: preview.counts.criteria.total,
             mode: t.modes[preview.mode],
           })}
         </p>

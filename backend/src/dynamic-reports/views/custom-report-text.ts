@@ -33,8 +33,6 @@ export const CUSTOM_REPORT_TEXT = {
   filterLine(input: {
     teamNames: readonly string[];
     teamsTotal: number;
-    criteriaSelected: number;
-    criteriaTotal: number;
     mode: SummaryMode;
   }): string {
     const { teamNames, teamsTotal } = input;
@@ -46,7 +44,7 @@ export const CUSTOM_REPORT_TEXT = {
       const more = teamNames.length - FILTER_LINE_MAX_NAMES;
       units = `${shown}${more > 0 ? ` và ${more} tổ khác` : ''} (${teamNames.length}/${teamsTotal} tổ)`;
     }
-    return `Đơn vị: ${units} · Tiêu chí: ${input.criteriaSelected}/${input.criteriaTotal} · Số liệu: ${MODE[input.mode]}`;
+    return `Đơn vị: ${units} · Số liệu: ${MODE[input.mode]}`;
   },
 
   /** What a cell of the file shows for a mark. A blank stays an empty cell. */
@@ -70,7 +68,7 @@ export const CUSTOM_REPORT_TEXT = {
         return `Kỳ báo cáo chưa khoá sổ: số liệu là số tạm tính (${MODE[note.params.mode]}) và còn có thể thay đổi.`;
       case 'GROUP_INCLUDES_UNLISTED': {
         const name = [note.params.code, note.params.label].filter(Boolean).join(' ');
-        return `Mục "${name}" là tổng của cả ${note.params.total} tiêu chí con, trong đó ${note.params.total - note.params.listed} tiêu chí không được liệt kê trong báo cáo này.`;
+        return `Mục "${name}" là tổng của mọi tiêu chí con, kể cả những tiêu chí không được liệt kê trong báo cáo này.`;
       }
       case 'ITEM_KEYS_IGNORED':
         return `${note.params.count} tiêu chí đã chọn không còn trong mẫu của kỳ này nên không có trong báo cáo.`;

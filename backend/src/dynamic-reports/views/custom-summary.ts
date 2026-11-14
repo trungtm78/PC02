@@ -262,8 +262,6 @@ export function buildCustomSummary(input: CustomSummaryInput, options: CustomSum
       ? text.filterLine({
           teamNames: teams.map((t) => t.name),
           teamsTotal: counts.teams.total,
-          criteriaSelected: counts.criteria.selected,
-          criteriaTotal: counts.criteria.total,
           mode,
         })
       : null,

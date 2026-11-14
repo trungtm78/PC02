@@ -290,8 +290,6 @@ export const reportCriteria = {
       filterLine: (input: {
         teamNames: readonly string[];
         teamsTotal: number;
-        criteriaSelected: number;
-        criteriaTotal: number;
         mode: string;
       }) => {
         const shown = input.teamNames.slice(0, 6).join(', ');
@@ -300,7 +298,7 @@ export const reportCriteria = {
           input.teamNames.length === input.teamsTotal
             ? `tất cả ${input.teamsTotal} tổ`
             : `${shown}${more > 0 ? ` và ${more} tổ khác` : ''} (${input.teamNames.length}/${input.teamsTotal} tổ)`;
-        return `Đơn vị: ${units} · Tiêu chí: ${input.criteriaSelected}/${input.criteriaTotal} · Số liệu: ${input.mode}`;
+        return `Đơn vị: ${units} · Số liệu: ${input.mode}`;
       },
       ignoredTeams: (names: string) => `Các tổ sau đã được chọn nhưng không được giao báo cáo trong kỳ này nên không có trong báo cáo: ${names}.`,
       ignoredCriteria: (count: number) => `${count} tiêu chí đã chọn không còn trong mẫu của kỳ này nên không có trong báo cáo.`,
@@ -327,7 +325,7 @@ export const reportCriteria = {
     notes: {
       PERIOD_OPEN: (p: { mode: string }) => `Kỳ báo cáo chưa khoá sổ: số liệu là số tạm tính (${p.mode}) và còn có thể thay đổi.`,
       GROUP_INCLUDES_UNLISTED: (p: { name: string; listed: number; total: number }) =>
-        `Mục "${p.name}" là tổng của cả ${p.total} tiêu chí con, trong đó ${p.total - p.listed} tiêu chí không được liệt kê trong báo cáo này.`,
+        `Mục "${p.name}" là tổng của mọi tiêu chí con, kể cả những tiêu chí không được liệt kê trong báo cáo này.`,
       ITEM_KEYS_IGNORED: (p: { count: number }) => `${p.count} tiêu chí đã chọn không còn trong mẫu của kỳ này nên không có trong báo cáo.`,
       TEAMS_IGNORED: (p: { count: number }) => `${p.count} tổ đã chọn không được giao báo cáo trong kỳ này nên không có trong báo cáo.`,
     },

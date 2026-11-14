@@ -100,7 +100,7 @@ describe('buildCustomSummary', () => {
 
     it('the title is made from the report and the period, and the filter line says what is in the report', () => {
       expect(summary.title).toBe('Báo cáo tháng — kỳ 2026-10');
-      expect(summary.filterLine).toBe('Đơn vị: tất cả 3 tổ · Tiêu chí: 4/4 · Số liệu: đã nộp + đã duyệt');
+      expect(summary.filterLine).toBe('Đơn vị: tất cả 3 tổ · Số liệu: đã nộp + đã duyệt');
       expect(summary.counts).toEqual({ criteria: { selected: 4, total: 4 }, teams: { selected: 3, total: 3 } });
       expect(summary.ignored).toEqual({ itemKeys: [], teamIds: [], teams: [] });
       expect(summary.newCriteria).toBe(0);
@@ -167,7 +167,7 @@ describe('buildCustomSummary', () => {
       ]);
       expect(summary.columns.map((c) => c.key)).toEqual(['code', 'label', 'unit', 'total', 'team:A', 'team:B']);
       expect(summary.counts).toEqual({ criteria: { selected: 2, total: 4 }, teams: { selected: 2, total: 3 } });
-      expect(summary.filterLine).toBe('Đơn vị: Tổ A, Tổ B (2/3 tổ) · Tiêu chí: 2/4 · Số liệu: đã nộp + đã duyệt');
+      expect(summary.filterLine).toBe('Đơn vị: Tổ A, Tổ B (2/3 tổ) · Số liệu: đã nộp + đã duyệt');
     });
 
     it('the heading keeps the FULL sum of its criteria (1.2 is not listed but is in it), and a note says so', () => {
@@ -413,7 +413,7 @@ describe('buildCustomSummary', () => {
       const teams = Array.from({ length: 9 }, (_, i) => ({ ...TEAMS[1], teamId: `T${i + 1}`, name: `Tổ ${i + 1}` }));
       const summary = buildCustomSummary(input({ teams }, { teamIds: teams.slice(0, 8).map((t) => t.teamId) }));
       expect(summary.filterLine).toBe(
-        'Đơn vị: Tổ 1, Tổ 2, Tổ 3, Tổ 4, Tổ 5, Tổ 6 và 2 tổ khác (8/9 tổ) · Tiêu chí: 4/4 · Số liệu: đã nộp + đã duyệt',
+        'Đơn vị: Tổ 1, Tổ 2, Tổ 3, Tổ 4, Tổ 5, Tổ 6 và 2 tổ khác (8/9 tổ) · Số liệu: đã nộp + đã duyệt',
       );
     });
   });
