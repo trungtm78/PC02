@@ -5,6 +5,7 @@ import {
   dropOwnDeadlineRules,
   openScratchDatabase,
   ownActiveDeadlineRules,
+  replaceOwnDeadlineRule,
   type ScratchDatabase,
 } from '../common/testing/scratch-database';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
@@ -54,12 +55,13 @@ run('the deadline of an incident, on PostgreSQL', () => {
   beforeAll(async () => {
     scratch = await openScratchDatabase(url!);
     const { db } = scratch;
-    // The values of the law today (Điều 147 BLTTHS): 20 days to verify, two extensions of 60 days.
+    // On purpose NOT the values of the law today (20 days, two extensions of 60): a product that had those numbers
+    // written into it, instead of reading the active rule, must not pass.
     rules = await ownActiveDeadlineRules(scratch, tag, {
-      THOI_HAN_XAC_MINH: 20,
-      THOI_HAN_GIA_HAN_1: 60,
-      THOI_HAN_GIA_HAN_2: 60,
-      SO_LAN_GIA_HAN_TOI_DA: 2,
+      THOI_HAN_XAC_MINH: 17,
+      THOI_HAN_GIA_HAN_1: 41,
+      THOI_HAN_GIA_HAN_2: 53,
+      SO_LAN_GIA_HAN_TOI_DA: 3,
     });
 
     const role = await db.role.create({ data: { name: `${tag}-officer` } });
@@ -122,9 +124,9 @@ run('the deadline of an incident, on PostgreSQL', () => {
       expect(row.deadlineRuleVersionId).toBeNull();
     });
 
-    it('with a proposal date, the deadline is that date plus the days of the active verification rule (20)', async () => {
+    it('with a proposal date, the deadline is that date plus the days of the active verification rule (here 17)', async () => {
       const row = await stored(await create({ ngayDeXuat: '2026-01-05' }));
-      expect(iso(row.deadline)).toBe('2026-01-25T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-22T00:00:00.000Z');
     });
 
     it('it records which rule version gave the deadline', async () => {
@@ -135,12 +137,12 @@ run('the deadline of an incident, on PostgreSQL', () => {
     it('a proposal date given as a day is stored at 00:00 UTC, and so is the deadline', async () => {
       const row = await stored(await create({ ngayDeXuat: '2026-01-07' }));
       expect(iso(row.ngayDeXuat)).toBe('2026-01-07T00:00:00.000Z');
-      expect(iso(row.deadline)).toBe('2026-01-27T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-24T00:00:00.000Z');
     });
 
     it('a proposal date given with a time of day keeps that time of day in the deadline', async () => {
       const row = await stored(await create({ ngayDeXuat: '2026-01-08T09:30:00+07:00' }));
-      expect(iso(row.deadline)).toBe('2026-01-28T02:30:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-25T02:30:00.000Z');
     });
 
     it('the date the source report was received plays no part: without a proposal date there is still no deadline', async () => {
@@ -161,10 +163,10 @@ run('the deadline of an incident, on PostgreSQL', () => {
       expect(row.deadlineRuleVersionId).toBeNull();
     });
 
-    it('every new incident freezes the maximum number of extensions of that day, with or without a deadline', async () => {
-      expect((await stored(await create())).maxExtensionsSnapshot).toBe(2);
-      expect((await stored(await create({ ngayDeXuat: '2026-01-10' }))).maxExtensionsSnapshot).toBe(2);
-      expect((await stored(await create({ deadline: '2026-03-17' }))).maxExtensionsSnapshot).toBe(2);
+    it('every new incident freezes the maximum number of extensions of that day (here 3), with or without a deadline', async () => {
+      expect((await stored(await create())).maxExtensionsSnapshot).toBe(3);
+      expect((await stored(await create({ ngayDeXuat: '2026-01-10' }))).maxExtensionsSnapshot).toBe(3);
+      expect((await stored(await create({ deadline: '2026-03-17' }))).maxExtensionsSnapshot).toBe(3);
     });
 
     it('a new incident has not been extended', async () => {
@@ -174,12 +176,12 @@ run('the deadline of an incident, on PostgreSQL', () => {
   });
 
   describe('extending (POST /incidents/:id/extend)', () => {
-    it('the first extension adds the days of the first-extension rule (60) to the deadline', async () => {
+    it('the first extension adds the days of the first-extension rule (here 41) to the deadline', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       const before = new Date();
       const result = await incidents.extendDeadline(incidentId, id.officer);
       const row = await stored(incidentId);
-      expect(iso(row.deadline)).toBe('2026-03-26T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-03-04T00:00:00.000Z');
       expect(row.soLanGiaHan).toBe(1);
       expect(row.giaHan1RuleVersionId).toBe(rules.THOI_HAN_GIA_HAN_1.id);
       expect(row.giaHan2RuleVersionId).toBeNull();
@@ -189,15 +191,27 @@ run('the deadline of an incident, on PostgreSQL', () => {
       expect(result.message).toBe('Gia hạn lần 1 thành công');
     });
 
-    it('the second extension adds the days of the second-extension rule and records that rule version', async () => {
+    it('the second extension adds the days of the second-extension rule (here 53) and records that rule version', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       await incidents.extendDeadline(incidentId, id.officer);
       await incidents.extendDeadline(incidentId, id.officer);
       const row = await stored(incidentId);
-      expect(iso(row.deadline)).toBe('2026-05-25T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-04-26T00:00:00.000Z');
       expect(row.soLanGiaHan).toBe(2);
       expect(row.giaHan1RuleVersionId).toBe(rules.THOI_HAN_GIA_HAN_1.id);
       expect(row.giaHan2RuleVersionId).toBe(rules.THOI_HAN_GIA_HAN_2.id);
+    });
+
+    it('when the maximum allows a third extension, it uses the second-extension rule again', async () => {
+      const incidentId = await create({ ngayDeXuat: '2026-01-05' });
+      await incidents.extendDeadline(incidentId, id.officer);
+      await incidents.extendDeadline(incidentId, id.officer);
+      const result = await incidents.extendDeadline(incidentId, id.officer);
+      const row = await stored(incidentId);
+      expect(iso(row.deadline)).toBe('2026-06-18T00:00:00.000Z');
+      expect(row.soLanGiaHan).toBe(3);
+      expect(row.giaHan2RuleVersionId).toBe(rules.THOI_HAN_GIA_HAN_2.id);
+      expect(result.message).toBe('Gia hạn lần 3 thành công');
     });
 
     it('extending does not change the rule version of the first deadline', async () => {
@@ -206,40 +220,84 @@ run('the deadline of an incident, on PostgreSQL', () => {
       expect((await stored(incidentId)).deadlineRuleVersionId).toBe(rules.THOI_HAN_XAC_MINH.id);
     });
 
-    it('a third extension is refused, and nothing changes', async () => {
+    it('an extension past the frozen maximum is refused, and nothing changes', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
-      await incidents.extendDeadline(incidentId, id.officer);
-      await incidents.extendDeadline(incidentId, id.officer);
+      for (let i = 0; i < 3; i += 1) await incidents.extendDeadline(incidentId, id.officer);
       const before = await stored(incidentId);
       await expect(incidents.extendDeadline(incidentId, id.officer)).rejects.toMatchObject({
         status: 400,
-        message: 'Đã gia hạn tối đa 2 lần theo Điều 147 BLTTHS 2015',
+        message: 'Đã gia hạn tối đa 3 lần theo Điều 147 BLTTHS 2015',
       });
       const after = await stored(incidentId);
       expect({ deadline: iso(after.deadline), soLanGiaHan: after.soLanGiaHan, updatedAt: iso(after.updatedAt) }).toEqual({
         deadline: iso(before.deadline),
-        soLanGiaHan: 2,
+        soLanGiaHan: 3,
         updatedAt: iso(before.updatedAt),
       });
     });
 
-    it('the maximum is the one frozen on the incident, not the rule of today', async () => {
+    it('the days of an extension are those of the rule active WHEN it is granted: a rule changed between two extensions applies to the second', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
-      await scratch.db.incident.update({ where: { id: incidentId }, data: { maxExtensionsSnapshot: 1 } });
       await incidents.extendDeadline(incidentId, id.officer);
-      await expect(incidents.extendDeadline(incidentId, id.officer)).rejects.toMatchObject({
-        status: 400,
-        message: 'Đã gia hạn tối đa 1 lần theo Điều 147 BLTTHS 2015',
-      });
+      const changed = await replaceOwnDeadlineRule(scratch, tag, 'THOI_HAN_GIA_HAN_2', 29);
+      try {
+        await incidents.extendDeadline(incidentId, id.officer);
+        const row = await stored(incidentId);
+        // 5 Jan + 17 (verification) + 41 (first extension, old rule) + 29 (second extension, NEW rule).
+        expect(iso(row.deadline)).toBe('2026-04-02T00:00:00.000Z');
+        expect(row.giaHan1RuleVersionId).toBe(rules.THOI_HAN_GIA_HAN_1.id);
+        expect(row.giaHan2RuleVersionId).toBe(changed.id);
+      } finally {
+        await scratch.db.incident.update({ where: { id: incidentId }, data: { giaHan2RuleVersionId: null } });
+        await changed.undo();
+      }
+    });
+
+    it('the maximum stays what it was when the incident was created: lowering the rule afterwards does not take extensions away', async () => {
+      const incidentId = await create({ ngayDeXuat: '2026-01-05' });
+      const lowered = await replaceOwnDeadlineRule(scratch, tag, 'SO_LAN_GIA_HAN_TOI_DA', 1);
+      try {
+        await incidents.extendDeadline(incidentId, id.officer);
+        await incidents.extendDeadline(incidentId, id.officer);
+        const row = await stored(incidentId);
+        expect(row.maxExtensionsSnapshot).toBe(3);
+        expect(row.soLanGiaHan).toBe(2);
+        expect(iso(row.deadline)).toBe('2026-04-26T00:00:00.000Z');
+        // An incident created under the lowered rule freezes the lowered maximum, and gets one extension only.
+        const later = await create({ ngayDeXuat: '2026-01-05' });
+        expect((await stored(later)).maxExtensionsSnapshot).toBe(1);
+        await incidents.extendDeadline(later, id.officer);
+        await expect(incidents.extendDeadline(later, id.officer)).rejects.toMatchObject({
+          status: 400,
+          message: 'Đã gia hạn tối đa 1 lần theo Điều 147 BLTTHS 2015',
+        });
+      } finally {
+        await lowered.undo();
+      }
+    });
+
+    it('the days of the first deadline are those of the rule active when the incident is created: a changed rule applies to new incidents only', async () => {
+      const earlier = await create({ ngayDeXuat: '2026-01-05' });
+      const changed = await replaceOwnDeadlineRule(scratch, tag, 'THOI_HAN_XAC_MINH', 23);
+      let later: string | undefined;
+      try {
+        later = await create({ ngayDeXuat: '2026-01-05' });
+        const row = await stored(later);
+        expect(iso(row.deadline)).toBe('2026-01-28T00:00:00.000Z');
+        expect(row.deadlineRuleVersionId).toBe(changed.id);
+        expect(iso((await stored(earlier)).deadline)).toBe('2026-01-22T00:00:00.000Z');
+      } finally {
+        if (later) await scratch.db.incident.update({ where: { id: later }, data: { deadlineRuleVersionId: null } });
+        await changed.undo();
+      }
     });
 
     it('an incident with nothing frozen (created before the snapshot existed) takes the maximum of the active rule', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       await scratch.db.incident.update({ where: { id: incidentId }, data: { maxExtensionsSnapshot: null } });
-      await incidents.extendDeadline(incidentId, id.officer);
-      await incidents.extendDeadline(incidentId, id.officer);
+      for (let i = 0; i < 3; i += 1) await incidents.extendDeadline(incidentId, id.officer);
       await expect(incidents.extendDeadline(incidentId, id.officer)).rejects.toMatchObject({ status: 400 });
-      expect((await stored(incidentId)).soLanGiaHan).toBe(2);
+      expect((await stored(incidentId)).soLanGiaHan).toBe(3);
     });
 
     it('an incident without a deadline cannot be extended', async () => {
@@ -255,7 +313,7 @@ run('the deadline of an incident, on PostgreSQL', () => {
       const incidentId = await create({ deadline: '2026-03-15' });
       await incidents.extendDeadline(incidentId, id.officer);
       const row = await stored(incidentId);
-      expect(iso(row.deadline)).toBe('2026-05-14T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-04-25T00:00:00.000Z');
       expect(row.deadlineRuleVersionId).toBeNull();
       expect(row.giaHan1RuleVersionId).toBe(rules.THOI_HAN_GIA_HAN_1.id);
     });
@@ -263,7 +321,7 @@ run('the deadline of an incident, on PostgreSQL', () => {
     it('a deadline already past is extended from the old deadline, not from today', async () => {
       const incidentId = await create({ ngayDeXuat: '2020-01-05' });
       await incidents.extendDeadline(incidentId, id.officer);
-      expect(iso((await stored(incidentId)).deadline)).toBe('2020-03-25T00:00:00.000Z');
+      expect(iso((await stored(incidentId)).deadline)).toBe('2020-03-03T00:00:00.000Z');
     });
 
     it('an incident still waiting to be received by its unit cannot be extended', async () => {
@@ -289,10 +347,10 @@ run('the deadline of an incident, on PostgreSQL', () => {
       expect(refused.reason).toMatchObject({ status: 400 });
       const row = await stored(incidentId);
       expect(row.soLanGiaHan).toBe(1);
-      expect(iso(row.deadline)).toBe('2026-03-26T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-03-04T00:00:00.000Z');
     });
 
-    it('two extensions at the same moment, two left: the count and the deadline always agree with what was granted', async () => {
+    it('two extensions at the same moment, several left: the count and the deadline always agree with what was granted', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       const results = await Promise.allSettled([
         incidents.extendDeadline(incidentId, id.officer),
@@ -301,9 +359,9 @@ run('the deadline of an incident, on PostgreSQL', () => {
       const granted = results.filter((r) => r.status === 'fulfilled').length;
       expect(granted).toBeGreaterThanOrEqual(1);
       const row = await stored(incidentId);
-      // One granted: +60 days. Both granted (the second read after the first wrote): +120. Never a lost update.
+      // One granted: +41 days. Both granted (the second read after the first wrote): +41 +53. Never a lost update.
       expect(row.soLanGiaHan).toBe(granted);
-      expect(iso(row.deadline)).toBe(granted === 1 ? '2026-03-26T00:00:00.000Z' : '2026-05-25T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe(granted === 1 ? '2026-03-04T00:00:00.000Z' : '2026-04-26T00:00:00.000Z');
       expect(row.giaHan2RuleVersionId).toBe(granted === 2 ? rules.THOI_HAN_GIA_HAN_2.id : null);
     });
   });
@@ -332,7 +390,7 @@ run('the deadline of an incident, on PostgreSQL', () => {
     it('an edit that does not mention the deadline leaves it alone', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       await incidents.update(incidentId, { description: `${tag} sửa nội dung` } as never, id.officer);
-      expect(iso((await stored(incidentId)).deadline)).toBe('2026-01-25T00:00:00.000Z');
+      expect(iso((await stored(incidentId)).deadline)).toBe('2026-01-22T00:00:00.000Z');
     });
 
     it('changing the proposal date afterwards does NOT recompute the deadline', async () => {
@@ -340,7 +398,7 @@ run('the deadline of an incident, on PostgreSQL', () => {
       await incidents.update(incidentId, { ngayDeXuat: '2026-02-10' } as never, id.officer);
       const row = await stored(incidentId);
       expect(iso(row.ngayDeXuat)).toBe('2026-02-10T00:00:00.000Z');
-      expect(iso(row.deadline)).toBe('2026-01-25T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-22T00:00:00.000Z');
     });
 
     it('giving a proposal date to an incident that had none does NOT give it a deadline', async () => {
@@ -372,7 +430,7 @@ run('the deadline of an incident, on PostgreSQL', () => {
     it('an assignment without a deadline keeps the deadline the incident had', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       await incidents.assignInvestigator(incidentId, { assignedTeamId: id.team, investigatorId: id.investigator }, id.officer);
-      expect(iso((await stored(incidentId)).deadline)).toBe('2026-01-25T00:00:00.000Z');
+      expect(iso((await stored(incidentId)).deadline)).toBe('2026-01-22T00:00:00.000Z');
     });
 
     it('an assignment without a deadline gives none to an incident that had none', async () => {
@@ -392,7 +450,7 @@ run('the deadline of an incident, on PostgreSQL', () => {
     it('an assignment cannot clear a deadline: an empty one is read as "not sent"', async () => {
       const incidentId = await create({ ngayDeXuat: '2026-01-05' });
       await incidents.assignInvestigator(incidentId, { assignedTeamId: id.team, deadline: '' }, id.officer);
-      expect(iso((await stored(incidentId)).deadline)).toBe('2026-01-25T00:00:00.000Z');
+      expect(iso((await stored(incidentId)).deadline)).toBe('2026-01-22T00:00:00.000Z');
     });
   });
 });

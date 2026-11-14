@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { openScratchDatabase, type ScratchDatabase } from '../common/testing/scratch-database';
+import { ensurePermissions, openScratchDatabase, type EnsuredPermissions, type ScratchDatabase } from '../common/testing/scratch-database';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { CasesService } from './cases.service';
 import type { CreateCaseDto } from './dto/create-case.dto';
@@ -27,6 +27,7 @@ run('the deadline of a case, on PostgreSQL', () => {
   jest.setTimeout(60_000);
   let scratch: ScratchDatabase;
   let cases: CasesService;
+  let permissions: EnsuredPermissions;
   const tag = `cdl-${randomUUID().slice(0, 8)}`;
   const id: Record<string, string> = {};
   let n = 0;
@@ -44,11 +45,9 @@ run('the deadline of a case, on PostgreSQL', () => {
     scratch = await openScratchDatabase(url!);
     const { db } = scratch;
     // The case services ask the database what the actor may do: the role holds the case permissions.
-    const permissionIds: string[] = [];
-    for (const action of ['read', 'create', 'edit', 'write']) {
-      const where = { action_subject: { action, subject: 'Case' } };
-      permissionIds.push((await db.permission.upsert({ where, update: {}, create: { action, subject: 'Case' } })).id);
-    }
+    // Permission rows are the whole database's: the ones this suite has to create are taken back at the end.
+    permissions = await ensurePermissions(scratch, ['read:Case', 'create:Case', 'edit:Case', 'write:Case']);
+    const permissionIds = Object.values(permissions.ids);
     const role = await db.role.create({
       data: { name: `${tag}-officer`, permissions: { create: permissionIds.map((permissionId) => ({ permissionId })) } },
     });
@@ -86,6 +85,7 @@ run('the deadline of a case, on PostgreSQL', () => {
     await db.team.deleteMany({ where: { code: { startsWith: tag } } });
     await db.user.deleteMany({ where: { username: { startsWith: tag } } });
     await db.role.deleteMany({ where: { name: { startsWith: tag } } });
+    await permissions?.dropCreated();
     await scratch.close();
   });
 

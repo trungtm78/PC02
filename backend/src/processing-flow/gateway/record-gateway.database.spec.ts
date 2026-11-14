@@ -14,7 +14,7 @@ import { CasesService } from '../../cases/cases.service';
 import { ROLE_NAMES } from '../../common/constants/role.constants';
 import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
 import { installTriggerSection } from '../../common/testing/install-trigger-section';
-import { openScratchDatabase, type ScratchDatabase } from '../../common/testing/scratch-database';
+import { ensurePermissions, openScratchDatabase, type EnsuredPermissions, type ScratchDatabase } from '../../common/testing/scratch-database';
 import { takeTurnOnSharedRow } from '../../common/testing/shared-row-turn';
 import { IncidentsService } from '../../incidents/incidents.service';
 import { PetitionsService } from '../../petitions/petitions.service';
@@ -71,6 +71,7 @@ run('RecordGateway on PostgreSQL', () => {
   const deleted = {} as Record<RecordKind, string>;
   const grantedToAdmin: string[] = [];
   let createdAdminRole = false;
+  let permissions: EnsuredPermissions;
 
   /** The real client, except that the mode row says what this suite says. */
   const withMode = (client: PrismaClient): PrismaClient =>
@@ -137,11 +138,10 @@ run('RecordGateway on PostgreSQL', () => {
     const { db, pg } = scratch;
     await installTriggerSection(pg, '20261114100000_authz_foundation', 'authz_bump');
 
+    // Permission rows are the whole database's: the ones this suite has to create are taken back at the end.
+    permissions = await ensurePermissions(scratch, Object.values(SUBJECT).map((subject) => `read:${subject}`));
     const perm: Record<string, string> = {};
-    for (const subject of Object.values(SUBJECT)) {
-      const where = { action_subject: { action: 'read', subject } };
-      perm[subject] = (await db.permission.upsert({ where, update: {}, create: { action: 'read', subject } })).id;
-    }
+    for (const subject of Object.values(SUBJECT)) perm[subject] = permissions.ids[`read:${subject}`];
     const reads = Object.values(perm).map((permissionId) => ({ permissionId }));
     const officer = await db.role.create({ data: { name: `${tag}-officer`, permissions: { create: reads } } });
     const bare = await db.role.create({ data: { name: `${tag}-bare` } });
@@ -294,6 +294,7 @@ run('RecordGateway on PostgreSQL', () => {
       await db.rolePermission.deleteMany({ where: { roleId: admin.id, permissionId: { in: grantedToAdmin } } });
     }
     if (createdAdminRole) await db.role.deleteMany({ where: { name: ROLE_NAMES.ADMIN } });
+    await permissions?.dropCreated();
     await scratch.close();
   });
 

@@ -24,7 +24,13 @@ import { DeadlineScheduler } from './deadline.scheduler';
  *    its turn on it, sets it, and puts back what was there. The same for the role named ADMIN, which it creates only
  *    when the database has none.
  *
- * The scheduler reads the clock itself (`new Date()`), so dates are arranged around the moment of the run.
+ * The scheduler reads the clock itself (`new Date()`) and has no way to be handed one. So the clock of the process is
+ * held still for the whole suite: `Date` alone is replaced (every timer stays real, the database driver needs them),
+ * and the fixtures and every run of the scheduler see the same instant. The instant is 30 seconds before midnight on
+ * the last day of a month, where "today", "in 3 days" and "overdue" are easiest to get wrong; a run that started
+ * just before midnight and finished after it used to change what the fixtures meant.
+ * `DEADLINE_REMINDER_SPEC_NOW` (an ISO instant) holds the clock elsewhere. It must not be later than the real time:
+ * a row the database stamps itself (`notifiedAt DEFAULT now()`) would then look older than the frozen clock allows.
  */
 const url = process.env.DYN_REPORTS_DATABASE_URL;
 const run = url ? describe : describe.skip;
@@ -35,6 +41,26 @@ if (process.env.DYN_REPORTS_DATABASE_REQUIRED === '1') {
     expect(url).toBeTruthy();
   });
 }
+
+/** 31 October 2026, 23:59:30 in the time zone of the process (the scheduler counts days in that zone). */
+const FROZEN_NOW = process.env.DEADLINE_REMINDER_SPEC_NOW ? new Date(process.env.DEADLINE_REMINDER_SPEC_NOW) : new Date(2026, 9, 31, 23, 59, 30);
+/** Everything jest can replace except `Date`: timers, ticks and the performance clock stay real. */
+const STAY_REAL = [
+  'hrtime',
+  'nextTick',
+  'performance',
+  'queueMicrotask',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'requestIdleCallback',
+  'cancelIdleCallback',
+  'setImmediate',
+  'clearImmediate',
+  'setInterval',
+  'clearInterval',
+  'setTimeout',
+  'clearTimeout',
+] as const;
 
 const WARNING_KEY = 'CANH_BAO_SAP_HAN';
 /** Not the default (7): a record 6 days ahead tells the two apart. */
@@ -111,6 +137,8 @@ run('the daily deadline reminder, on PostgreSQL', () => {
     scratch.db.systemSetting.upsert({ where: { key: WARNING_KEY }, update: { value }, create: { key: WARNING_KEY, value, label: `${tag} spec` } });
 
   beforeAll(async () => {
+    if (Number.isNaN(FROZEN_NOW.getTime())) throw new Error('DEADLINE_REMINDER_SPEC_NOW is not an ISO instant');
+    jest.useFakeTimers({ doNotFake: [...STAY_REAL], now: FROZEN_NOW });
     scratch = await openScratchDatabase(url!);
     const { db } = scratch;
     await takeTurnOnSharedRow(scratch.pg, 'deadline-warning-days');
@@ -181,6 +209,7 @@ run('the daily deadline reminder, on PostgreSQL', () => {
     else await db.systemSetting.deleteMany({ where: { key: WARNING_KEY } });
     setEnforcement(null);
     await scratch.close();
+    jest.useRealTimers();
   });
 
   describe('one run over records of every kind', () => {
@@ -193,7 +222,7 @@ run('the daily deadline reminder, on PostgreSQL', () => {
       const noonIn = (days: number) => addDays(startOfDay(now), days).getTime() + 12 * 3_600_000;
 
       record.overdue = await incident('quá hạn', { ...open, status: 'DANG_XAC_MINH', deadline: subDays(now, 2) });
-      record.earlierToday = await incident('sớm hơn hôm nay', { investigatorId: id.u_loner, status: 'DANG_XAC_MINH', deadline: new Date(now.getTime() - 60_000) });
+      record.earlierToday = await incident('sớm hơn hôm nay', { investigatorId: id.u_loner, status: 'DANG_XAC_MINH', deadline: new Date(now.getTime() - 1000) });
       record.laterToday = await incident('cuối hôm nay', { investigatorId: id.u_loner, status: 'DANG_XAC_MINH', deadline: endOfDay(now) });
       record.inThree = await incident('còn ba ngày', { ...open, status: 'DANG_XAC_MINH', deadline: new Date(noonIn(3)) });
       record.inSix = await incident('còn sáu ngày', { ...open, status: 'DANG_XAC_MINH', deadline: new Date(noonIn(6)) });
@@ -219,6 +248,11 @@ run('the daily deadline reminder, on PostgreSQL', () => {
       for (const status of Object.values(PetitionStatus)) await petition(`trạng thái ${status}`, { enteredById: id.u_statusOwner, status, deadline: subDays(now, 3) });
 
       await scheduler.checkDeadlines();
+    });
+
+    it('the clock stood still from the first fixture to the end of the run', () => {
+      expect(new Date().getTime()).toBe(FROZEN_NOW.getTime());
+      expect(Date.now()).toBe(FROZEN_NOW.getTime());
     });
 
     describe('which records are picked', () => {

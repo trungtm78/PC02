@@ -17,7 +17,8 @@ import { PetitionsService } from './petitions.service';
  * These tests state what the code does, including what looks odd; they do not say it is right.
  *
  * The active rule versions are this suite's own (see `ownActiveDeadlineRules`), with four different numbers of days so
- * that a deadline says which rule produced it. Every petition is created with a number of its own (`stt`), which is
+ * that a deadline says which rule produced it, none of them the default (30 / 30 / 15 / 15): a product with the
+ * defaults written into it, instead of reading the active rule, must not pass. Every petition is created with a number of its own (`stt`), which is
  * the manual-number path of the service: no shared counter is advanced. The information types carry the suite's tag,
  * so no entry of the shared `LOAI_THONG_TIN` directory can match them and the rule "by name" decides.
  */
@@ -31,7 +32,7 @@ if (process.env.DYN_REPORTS_DATABASE_REQUIRED === '1') {
   });
 }
 
-const DAYS = { THOI_HAN_TO_CAO: 30, THOI_HAN_KHIEU_NAI: 45, THOI_HAN_KIEN_NGHI: 12, THOI_HAN_PHAN_ANH: 15 } as const;
+const DAYS = { THOI_HAN_TO_CAO: 33, THOI_HAN_KHIEU_NAI: 45, THOI_HAN_KIEN_NGHI: 12, THOI_HAN_PHAN_ANH: 19 } as const;
 
 run('the deadline of a petition, on PostgreSQL', () => {
   jest.setTimeout(60_000);
@@ -94,7 +95,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
     it('a denunciation (Tố cáo) is due the received date plus the days of THOI_HAN_TO_CAO', async () => {
       const row = await stored(await create({ loaiThongTin: `Tố cáo ${tag}` }));
       expect(row.petitionType).toBe('TO_CAO');
-      expect(iso(row.deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-02-07T00:00:00.000Z');
       expect(row.deadlineRuleVersionId).toBe(rules.THOI_HAN_TO_CAO.id);
     });
 
@@ -115,21 +116,21 @@ run('the deadline of a petition, on PostgreSQL', () => {
     it('any other information type (here "Trình báo") is due like a report (Phản ánh): THOI_HAN_PHAN_ANH', async () => {
       const row = await stored(await create({ loaiThongTin: `Trình báo ${tag}` }));
       expect(row.petitionType).toBe('PHAN_ANH');
-      expect(iso(row.deadline)).toBe('2026-01-20T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-24T00:00:00.000Z');
       expect(row.deadlineRuleVersionId).toBe(rules.THOI_HAN_PHAN_ANH.id);
     });
 
     it('"Đơn tố cáo" is a denunciation: a leading "Đơn" does not change the rule', async () => {
       const row = await stored(await create({ loaiThongTin: `Đơn tố cáo ${tag}` }));
       expect(row.petitionType).toBe('TO_CAO');
-      expect(iso(row.deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-02-07T00:00:00.000Z');
     });
 
     it('a petition with no information type and no type still gets a deadline: the one of a report (Phản ánh)', async () => {
       const row = await stored(await create());
       expect(row.petitionType).toBeNull();
       expect(row.loaiThongTin).toBeNull();
-      expect(iso(row.deadline)).toBe('2026-01-20T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-24T00:00:00.000Z');
       expect(row.deadlineRuleVersionId).toBe(rules.THOI_HAN_PHAN_ANH.id);
     });
 
@@ -151,19 +152,19 @@ run('the deadline of a petition, on PostgreSQL', () => {
     it('it is counted from the received date, at 00:00 UTC of the day it falls on', async () => {
       const row = await stored(await create({ receivedDate: '2026-03-01' }));
       expect(iso(row.receivedDate)).toBe('2026-03-01T00:00:00.000Z');
-      expect(iso(row.deadline)).toBe('2026-03-16T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-03-20T00:00:00.000Z');
     });
 
     it('the declared time of reception does not move the deadline', async () => {
       const row = await stored(await create({ gioTiepNhan: '16:45' }));
       expect(row.gioTiepNhan).toBe('16:45');
-      expect(iso(row.deadline)).toBe('2026-01-20T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-24T00:00:00.000Z');
     });
 
     it('the proposal date plays no part (unlike an incident)', async () => {
       const row = await stored(await create({ ngayDeXuat: '2026-01-09' } as never));
       expect(iso(row.ngayDeXuat)).toBe('2026-01-09T00:00:00.000Z');
-      expect(iso(row.deadline)).toBe('2026-01-20T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-01-24T00:00:00.000Z');
     });
 
     it('a deadline sent with the petition is stored as sent, and no rule version is recorded', async () => {
@@ -182,7 +183,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
       const row = await stored(petitionId);
       expect(row.petitionType).toBe('KHIEU_NAI');
       expect(row.loaiThongTin).toBe(`Khiếu nại ${tag}`);
-      expect(iso(row.deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-02-07T00:00:00.000Z');
       expect(row.deadlineRuleVersionId).toBe(rules.THOI_HAN_TO_CAO.id);
     });
 
@@ -191,7 +192,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
       await petitions.update(petitionId, { receivedDate: '2026-01-10' } as never, id.officer);
       const row = await stored(petitionId);
       expect(iso(row.receivedDate)).toBe('2026-01-10T00:00:00.000Z');
-      expect(iso(row.deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-02-07T00:00:00.000Z');
     });
 
     it('saving the same information type again changes nothing about the deadline', async () => {
@@ -199,7 +200,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
       await petitions.update(petitionId, { loaiThongTin: `Tố cáo ${tag}`, senderPhone: '0900000001' } as never, id.officer);
       const row = await stored(petitionId);
       expect(row.petitionType).toBe('TO_CAO');
-      expect(iso(row.deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-02-07T00:00:00.000Z');
       expect(row.deadlineRuleVersionId).toBe(rules.THOI_HAN_TO_CAO.id);
     });
 
@@ -208,7 +209,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
       await petitions.update(petitionId, { loaiThongTin: '' } as never, id.officer);
       const row = await stored(petitionId);
       expect(row.petitionType).toBe('TO_CAO');
-      expect(iso(row.deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso(row.deadline)).toBe('2026-02-07T00:00:00.000Z');
     });
 
     it('a deadline sent with an edit replaces the deadline as sent, and the rule version of the old one stays', async () => {
@@ -230,7 +231,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
     it('an edit that does not mention the deadline leaves it alone', async () => {
       const petitionId = await create({ loaiThongTin: `Tố cáo ${tag}` });
       await petitions.update(petitionId, { summary: `${tag} sửa tóm tắt` } as never, id.officer);
-      expect(iso((await stored(petitionId)).deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso((await stored(petitionId)).deadline)).toBe('2026-02-07T00:00:00.000Z');
     });
   });
 
@@ -248,7 +249,7 @@ run('the deadline of a petition, on PostgreSQL', () => {
     it('an assignment without a deadline keeps the deadline the petition had', async () => {
       const petitionId = await create({ loaiThongTin: `Tố cáo ${tag}` });
       await petitions.assignPetition(petitionId, { assignedTeamId: id.team } as never, id.officer);
-      expect(iso((await stored(petitionId)).deadline)).toBe('2026-02-04T00:00:00.000Z');
+      expect(iso((await stored(petitionId)).deadline)).toBe('2026-02-07T00:00:00.000Z');
     });
   });
 });
