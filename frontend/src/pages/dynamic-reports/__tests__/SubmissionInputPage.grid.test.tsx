@@ -128,7 +128,8 @@ describe('SubmissionInputPage — entry grid (G3c)', () => {
     expect(dynamicReportsApi.getVersionGrid).not.toHaveBeenCalled();
 
     await openGrid();
-    expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledWith('version1');
+    // The grid is asked for THIS assignment: the server answers with what the team reports in this period only.
+    expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledWith('version1', 'assign1');
     expect(screen.getByTestId('cell-C1')).toHaveTextContent('5'); // the saved value, formatted by the cell
     expect(screen.getByTestId('input-Đội 3!C1').closest('form')).toHaveAttribute('hidden');
   });

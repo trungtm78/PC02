@@ -742,6 +742,7 @@ export interface AssignmentCriteriaResult {
 export type CriteriaMatrixError =
   | { code: 'MATRIX_NOT_RECOGNISED' }
   | { code: 'MATRIX_TOO_LARGE' }
+  | { code: 'MATRIX_VERSION_MISSING' }
   | { code: 'MATRIX_CRITERION_DUPLICATE'; row: number }
   | { code: 'MATRIX_TEAM_DUPLICATE'; column: string }
   | { code: 'MATRIX_CELL_NOT_PLAIN'; cell: string }

@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ExcelJS from 'exceljs';
+import JSZip from 'jszip';
+import { buildCriteriaWorkbook } from '../template/criteria-workbook';
 import { TemplateExportService } from './template-export.service';
 import { computeFormulaResults } from './formula-results';
 import { META_SHEET_NAME, readExportMeta } from './template-export';
@@ -240,6 +242,109 @@ describe('TemplateExportService (real worker, real template)', () => {
       await expect(
         service.buildPeriodFile({ versionId: 'v1', fields: [], scopes: [], totalOutcomes: null, meta: {} }),
       ).rejects.toThrow('GRID_BUSY');
+    });
+  });
+
+  describe('the file of a team that reports only some criteria of a grouped list (real generator, real worker)', () => {
+    const OWNED_LEAF = 'Tin báo mới tiếp nhận';
+    const OWNED_GROUP = 'Nhóm tin báo';
+    const UNOWNED_SIBLING = 'Tin báo đã giải quyết';
+    const UNOWNED_GROUP = 'Nhóm án khởi tố';
+    const UNOWNED_LEAF = 'Số vụ khởi tố';
+    const UNOWNED_SUBGROUP = 'Phân nhóm bị can';
+    const UNOWNED_DEEP_LEAF = 'Số bị can tạm giam';
+    const UNOWNED_ALONE = 'Số vụ tạm đình chỉ';
+    const UNOWNED_UNIT = 'đơn-vị-riêng';
+    const criterion = (itemKey: string, code: string, name: string, parentItemKey: string | null, unit = 'vụ') => ({
+      itemKey, code, name, unit, parentItemKey, origin: 'FILE' as const, sourceRow: null,
+    });
+    const LIST = [
+      criterion('g1', '1', OWNED_GROUP, null),
+      criterion('k11', '1.1', OWNED_LEAF, 'g1'),
+      criterion('k12', '1.2', UNOWNED_SIBLING, 'g1'),
+      criterion('g2', '2', UNOWNED_GROUP, null),
+      criterion('k21', '2.1', UNOWNED_LEAF, 'g2', UNOWNED_UNIT),
+      criterion('g22', '2.2', UNOWNED_SUBGROUP, 'g2'),
+      criterion('k221', '2.2.1', UNOWNED_DEEP_LEAF, 'g22'),
+      criterion('k3', '3', UNOWNED_ALONE, null),
+    ];
+
+    async function teamFile(ownedItemKeys: string[]): Promise<Buffer> {
+      const built = await buildCriteriaWorkbook(LIST);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(built.buffer as unknown as ExcelJS.Buffer);
+      const criteriaModel = extractGridModel(wb, {
+        selectedSheets: [built.sheetName],
+        excludedSheets: [],
+        raw: await readRawGridInfo(built.buffer),
+      });
+      const prisma = {
+        dynReportVersion: {
+          findUnique: jest.fn(async (args: { select: Record<string, boolean> }) =>
+            args.select.fileBytes ? { fileBytes: built.buffer } : { selectedSheets: [built.sheetName] },
+          ),
+        },
+      };
+      const service = new TemplateExportService(
+        prisma as unknown as PrismaService,
+        { getForVersion: jest.fn(async () => ({ model: criteriaModel, etag: '"x"' })) } as unknown as GridModelService,
+      );
+      const refs = built.fields.map((f) => ({ ...input(f.address, built.sheetName), itemKey: f.itemKey }));
+      const owned = refs.filter((f) => ownedItemKeys.includes(f.itemKey));
+      return service.buildTeamFile({
+        versionId: 'v1',
+        fields: refs.map(({ sheetKey, address, fieldKey, type }) => ({ sheetKey, address, fieldKey, type })),
+        values: Object.fromEntries(refs.map((f) => [f.fieldKey, owned.includes(f) ? '5' : null])),
+        meta: { kind: 'TEAM' },
+        unownedCriteria: refs.filter((f) => !owned.includes(f)),
+      });
+    }
+    /** Everything a reader of the file could find: what exceljs shows, and the raw parts of the package themselves. */
+    async function everythingIn(file: Buffer): Promise<{ shown: string[]; raw: string }> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(file as unknown as ExcelJS.Buffer);
+      const shown: string[] = [];
+      for (const ws of wb.worksheets) ws.eachRow((row) => row.eachCell((cell) => shown.push(String(cell.text))));
+      const zip = await JSZip.loadAsync(file);
+      const parts = Object.keys(zip.files).filter(
+        (name) => !zip.files[name].dir && (name === 'xl/sharedStrings.xml' || name.startsWith('xl/worksheets/')),
+      );
+      expect(parts).toContain('xl/sharedStrings.xml');
+      const raw = (await Promise.all(parts.map((name) => (zip.file(name) as JSZip.JSZipObject).async('string')))).join('\n');
+      return { shown, raw };
+    }
+
+    it('holds its own criterion and that criterion\'s group; the name of a criterion or of a whole group it was not given is NOWHERE in the file', async () => {
+      const { shown, raw } = await everythingIn(await teamFile(['k11']));
+
+      for (const kept of [OWNED_LEAF, OWNED_GROUP]) {
+        expect(shown).toContain(kept);
+        expect(raw).toContain(kept);
+      }
+      for (const gone of [UNOWNED_SIBLING, UNOWNED_GROUP, UNOWNED_LEAF, UNOWNED_SUBGROUP, UNOWNED_DEEP_LEAF, UNOWNED_ALONE, UNOWNED_UNIT]) {
+        expect(shown).not.toContain(gone);
+        expect(raw).not.toContain(gone);
+      }
+    });
+
+    it('a group the team has one criterion of keeps its heading, and the heading adds up what the team has', async () => {
+      const file = await teamFile(['k11', 'k21']);
+      const { shown, raw } = await everythingIn(file);
+
+      for (const kept of [OWNED_LEAF, OWNED_GROUP, UNOWNED_LEAF, UNOWNED_GROUP]) expect(raw).toContain(kept);
+      for (const gone of [UNOWNED_SIBLING, UNOWNED_SUBGROUP, UNOWNED_DEEP_LEAF, UNOWNED_ALONE]) {
+        expect(shown).not.toContain(gone);
+        expect(raw).not.toContain(gone);
+      }
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(file as unknown as ExcelJS.Buffer);
+      // Row 2 is group "1" (= 1.1 + 1.2): the team typed 5 for 1.1 and has no 1.2, so the heading shows 5.
+      expect(wb.worksheets[0].getCell('C2').value).toMatchObject({ formula: 'SUM(C3,C4)', result: 5 });
+    });
+
+    it('a team that reports everything gets the whole list', async () => {
+      const { raw } = await everythingIn(await teamFile(LIST.map((c) => c.itemKey)));
+      for (const name of LIST.map((c) => c.name)) expect(raw).toContain(name);
     });
   });
 

@@ -41,6 +41,8 @@ interface Refusal {
 function toRefusal(err: unknown, criterionName: (itemKey: string) => string): Refusal {
   const e = extractApiError(err);
   if (e.code === 'REVISION_CONFLICT') return { reasons: [], message: t.conflict, conflict: true };
+  // The FILE is behind the report (taken out before its last change). The screen may be behind too: offer the reload.
+  if (e.code === 'MATRIX_FILE_STALE') return { reasons: [], message: t.fileStale, conflict: true };
   if (e.code === 'MATRIX_FILE_MISSING') return { reasons: [], message: t.fileMissing, conflict: false };
   if (e.code === 'CRITERIA_MATRIX_INVALID') {
     const known: CriteriaMatrixError[] = parseMatrixErrors(e.messages);

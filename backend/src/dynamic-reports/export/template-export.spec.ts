@@ -348,3 +348,50 @@ describe('the whole chain: submitted values → calculated results → file', ()
     }
   });
 });
+
+describe('rows a team was not given (a workbook generated from a list of criteria)', () => {
+  const SHEET = 'Chỉ tiêu';
+  async function criteriaTemplate(): Promise<Buffer> {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(SHEET);
+    ws.addRow(['Mã', 'Tiêu chí', 'Giá trị', 'ĐVT']);
+    ws.addRow(['1', 'Của tổ', '{NUM|#,##0.##|SUM}', 'vụ']);
+    ws.addRow(['2', 'Của tổ khác', '{NUM|#,##0.##|SUM}', 'người']);
+    return Buffer.from((await wb.xlsx.writeBuffer()) as ArrayBuffer);
+  }
+  const fields: ExportField[] = [
+    { sheetKey: SHEET, address: 'C2', fieldKey: `${SHEET}!C2`, type: 'NUM' },
+    { sheetKey: SHEET, address: 'C3', fieldKey: `${SHEET}!C3`, type: 'NUM' },
+  ];
+  const request = (clearRows?: TemplateExportRequest['clearRows']): TemplateExportRequest => ({
+    selectedSheets: [SHEET],
+    fields,
+    values: { [`${SHEET}!C2`]: '5', [`${SHEET}!C3`]: null },
+    meta: { kind: 'TEAM' },
+    ...(clearRows ? { clearRows } : {}),
+  });
+  async function read(buffer: Buffer): Promise<{ texts: string[]; hidden: boolean[] }> {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+    const ws = wb.getWorksheet(SHEET) as ExcelJS.Worksheet;
+    const texts: string[] = [];
+    ws.eachRow((row) => row.eachCell((cell) => texts.push(String(cell.value))));
+    return { texts, hidden: [1, 2, 3].map((r) => !!ws.getRow(r).hidden) };
+  }
+
+  it('the row of a criterion the team was not given is emptied (code, name, unit) and hidden; its own row stays', async () => {
+    const { buffer } = await buildTemplateWorkbook(await criteriaTemplate(), request([{ sheetKey: SHEET, row: 3 }]));
+
+    const { texts, hidden } = await read(buffer);
+    expect(texts).toEqual(['Mã', 'Tiêu chí', 'Giá trị', 'ĐVT', '1', 'Của tổ', '5', 'vụ']);
+    expect(hidden).toEqual([false, false, true]);
+  });
+
+  it('with no row named nothing is removed: the file is what it always was', async () => {
+    const { buffer } = await buildTemplateWorkbook(await criteriaTemplate(), request());
+
+    const { texts, hidden } = await read(buffer);
+    expect(texts).toEqual(['Mã', 'Tiêu chí', 'Giá trị', 'ĐVT', '1', 'Của tổ', '5', 'vụ', '2', 'Của tổ khác', 'người']);
+    expect(hidden).toEqual([false, false, false]);
+  });
+});

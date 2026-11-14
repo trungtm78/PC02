@@ -51,6 +51,11 @@ export interface TemplateExportRequest {
   formulaResults?: Record<string, FormulaResult>;
   /** Written to the hidden metadata sheet, so an import can recognise (and refuse) a foreign file. */
   meta: Record<string, string>;
+  /**
+   * Rows (1-based) whose content is removed and which are hidden: the criteria the team this file is for was not
+   * given, in a workbook where one row is one criterion. Absent or empty: nothing is removed.
+   */
+  clearRows?: Array<{ sheetKey: string; row: number }>;
 }
 
 export { META_SHEET_NAME };
@@ -233,6 +238,18 @@ export async function buildTemplateWorkbook(
     const ws = workbook.getWorksheet(field.sheetKey);
     if (!ws) continue;
     writeValue(ws.getCell(field.address), field, request.values[field.fieldKey] ?? null, date1904, outcome);
+  }
+
+  // What is not this team's is taken out of the file, not merely left unfilled: the code, the name and the unit of a
+  // criterion it was not given must not travel with its figures.
+  for (const { sheetKey, row } of request.clearRows ?? []) {
+    const ws = workbook.getWorksheet(sheetKey);
+    if (!ws) continue;
+    const target = ws.getRow(row);
+    target.eachCell({ includeEmpty: false }, (cell) => {
+      cell.value = null;
+    });
+    target.hidden = true;
   }
 
   const formulaResults =

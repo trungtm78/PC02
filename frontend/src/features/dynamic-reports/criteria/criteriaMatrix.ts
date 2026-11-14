@@ -13,6 +13,7 @@ function toMatrixError(value: unknown): CriteriaMatrixError | null {
   switch (v.code) {
     case 'MATRIX_NOT_RECOGNISED':
     case 'MATRIX_TOO_LARGE':
+    case 'MATRIX_VERSION_MISSING':
       return { code: v.code };
     case 'MATRIX_CELL_NOT_PLAIN':
       return isText(v.cell) ? { code: v.code, cell: v.cell } : null;

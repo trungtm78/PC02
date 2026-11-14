@@ -32,6 +32,28 @@ describe('GridViewer', () => {
     expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledWith('v1');
   });
 
+  it('opened for an assignment, it asks for that assignment, and asks again when the criteria of the team change', async () => {
+    vi.mocked(dynamicReportsApi.getVersionGrid).mockResolvedValue(makeGrid());
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const ui = (fields: typeof FIELDS) => (
+      <QueryClientProvider client={client}>
+        <GridViewer versionId="v1" assignmentId="assign1" fields={fields} values={VALUES} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(ui(FIELDS));
+    await waitFor(() => screen.getByTestId('grid-viewer'));
+    expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledTimes(1);
+    expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledWith('v1', 'assign1');
+
+    // The same fields again (a re-render, a save): the model in hand is still the right one.
+    rerender(ui([...FIELDS]));
+    expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledTimes(1);
+
+    // The manager took a criterion away: the submission now lists fewer fields, and the old model must not be reused.
+    rerender(ui(FIELDS.slice(0, 1)));
+    await waitFor(() => expect(dynamicReportsApi.getVersionGrid).toHaveBeenCalledTimes(2));
+  });
+
   it('a failed build is announced, and the page is told once so it can show the list', async () => {
     vi.mocked(dynamicReportsApi.getVersionGrid).mockRejectedValue({
       response: { status: 422, data: { code: 'GRID_UNAVAILABLE', message: 'Không dựng được lưới' } },

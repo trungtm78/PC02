@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GridModelService } from '../grid/grid-model.service';
+import { criteriaRowsOf } from '../grid/redact-grid';
 import type { FormulaOutcome, InputFieldRef } from '../engine/grid-workbook';
 import { exportPeriodInWorker, exportTemplateInWorker } from '../template/parse-in-worker';
 import type { TemplateExportRequest } from './template-export';
@@ -21,6 +22,12 @@ export interface TeamExportInput {
   values: Readonly<Record<string, string | null | undefined>>;
   /** Written to the hidden `__dr_meta` sheet. */
   meta: Record<string, string>;
+  /**
+   * The input cells of the criteria this team was not given, in a workbook the system made from a list of criteria
+   * (one criterion per row). Their rows, and the rows of the group headings the team then has nothing under, are
+   * emptied and hidden in the file: the same rows the entry grid leaves out. Absent or empty: nothing is removed.
+   */
+  unownedCriteria?: ReadonlyArray<{ sheetKey: string; address: string }>;
 }
 
 export interface PeriodExportInput {
@@ -61,6 +68,10 @@ export class TemplateExportService {
       values: Object.fromEntries(input.fields.map((f) => [f.fieldKey, input.values[f.fieldKey] ?? null])),
       grid: model,
       meta: input.meta,
+      // Left out entirely when there is none, so the request of a report without per-team criteria is what it was.
+      ...(input.unownedCriteria && input.unownedCriteria.length > 0
+        ? { clearRows: criteriaRowsOf(input.unownedCriteria, model) }
+        : {}),
     };
 
     return exportTemplateInWorker(

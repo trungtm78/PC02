@@ -122,6 +122,87 @@ run('CriteriaMatrixService on PostgreSQL', () => {
     expect(await subsetOf(id, 'a')).toBeNull();
   });
 
+  describe('a file taken out before somebody else changed the configuration', () => {
+    /** Somebody else gives team B every criterion through the edit screen, after the file was taken out. */
+    async function staleFile() {
+      const id = await report();
+      const file = await edited((await svc.export(id)).fileBuffer, (ws) => {
+        ws.getCell('D5').value = null; // team A stops reporting "tin-cu"
+      });
+      const before = await db.dynReport.findUniqueOrThrow({ where: { id }, select: { configVersion: true } });
+      await new ReportConfigUpdateService(db as never).updateConfig(id, {
+        expectedConfigVersion: before.configVersion,
+        targets: [
+          { teamId: team.a, editorUserIds: [userId] },
+          { teamId: team.b, editorUserIds: [userId], itemKeys: null },
+        ],
+      });
+      expect(await subsetOf(id, 'b')).toBeNull();
+      return { id, file };
+    }
+
+    it('is refused already when it is only READ (the preview), with a code of its own', async () => {
+      const { id, file } = await staleFile();
+
+      await expect(svc.import(id, file, { apply: false })).rejects.toMatchObject({ code: 'MATRIX_FILE_STALE' });
+    });
+
+    it('is refused when applied at the CURRENT revision too, and their change stands', async () => {
+      const { id, file } = await staleFile();
+      const now = await db.dynReport.findUniqueOrThrow({ where: { id }, select: { configVersion: true } });
+
+      await expect(svc.import(id, file, { apply: true, expectedConfigVersion: now.configVersion })).rejects.toMatchObject({
+        code: 'MATRIX_FILE_STALE',
+      });
+      // The file said "team B: tin-moi only" (what it was when taken out): that did not come back.
+      expect(await subsetOf(id, 'b')).toBeNull();
+      expect(await subsetOf(id, 'a')).toBeNull();
+    });
+
+    it('a fresh file of the same report is read and applied as usual', async () => {
+      const { id } = await staleFile();
+      const fresh = await edited((await svc.export(id)).fileBuffer, (ws) => {
+        ws.getCell('D5').value = null;
+      });
+
+      const preview = await svc.import(id, fresh, { apply: false });
+      await svc.import(id, fresh, { apply: true, expectedConfigVersion: preview.configVersion });
+
+      expect(await subsetOf(id, 'a')).toEqual(['tin-moi']);
+      expect(await subsetOf(id, 'b')).toBeNull();
+    });
+  });
+
+  it('a file that carries no revision (taken out by an older build) is refused with a reason that says to take it out again', async () => {
+    const id = await report();
+    const file = await edited((await svc.export(id)).fileBuffer, (ws) => {
+      ws.getCell('B1').value = null;
+      ws.getCell('D5').value = null;
+    });
+
+    const { configVersion } = await db.dynReport.findUniqueOrThrow({ where: { id }, select: { configVersion: true } });
+
+    for (const options of [{ apply: false as const }, { apply: true as const, expectedConfigVersion: configVersion }]) {
+      const error = await svc.import(id, file, options).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(CriteriaMatrixError);
+      expect((error as CriteriaMatrixError).errors).toEqual([{ code: 'MATRIX_VERSION_MISSING' }]);
+    }
+    expect(await subsetOf(id, 'a')).toBeNull();
+  });
+
+  it('a file that was not touched reads back as no change and applies as no change, any number of times', async () => {
+    const id = await report();
+    const file = (await svc.export(id)).fileBuffer;
+
+    for (let round = 0; round < 2; round += 1) {
+      const preview = await svc.import(id, file, { apply: false });
+      expect(preview.teams.map((t) => [t.added, t.removed])).toEqual([[[], []], [[], []]]);
+      await svc.import(id, file, { apply: true, expectedConfigVersion: preview.configVersion });
+    }
+    expect(await subsetOf(id, 'a')).toBeNull();
+    expect(await subsetOf(id, 'b')).toEqual(['tin-moi']);
+  });
+
   it('a file that would leave a team with nothing is refused with the reason', async () => {
     const id = await report();
     const file = await edited((await svc.export(id)).fileBuffer, (ws) => {

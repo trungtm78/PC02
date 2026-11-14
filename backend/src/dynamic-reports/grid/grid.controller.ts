@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
@@ -36,10 +36,18 @@ export class GridController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
+    /** The assignment the entry screen opens the grid for: an editor's answer is scoped by it. */
+    @Query('assignmentId') assignmentId?: unknown,
   ): Promise<GridModel | undefined> {
     // Authorise BEFORE touching the cache or the ETag: a caller outside the
     // report must not learn whether a version exists, nor get a 304 for it.
-    const scope = await this.access.readScope(user.id, user.roleId, versionId);
+    const scope = await this.access.readScope(
+      user.id,
+      user.roleId,
+      versionId,
+      // Anything but one plain id (repeated, empty) is "no assignment named": the narrowest answer, not an error.
+      typeof assignmentId === 'string' && assignmentId !== '' ? assignmentId : undefined,
+    );
     if (scope.kind === 'NONE') throw new NotFoundException('Không tìm thấy phiên bản mẫu này.');
 
     const whole = await this.grids.getForVersion(versionId);

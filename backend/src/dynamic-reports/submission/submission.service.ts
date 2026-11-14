@@ -39,7 +39,7 @@ import { applyTransition } from '../workflow/transitions';
 import { VersionFieldsCacheService } from '../template/version-fields-cache';
 import { TemplateExportService } from '../export/template-export.service';
 import { readExportMeta } from '../export/template-export';
-import { ownedView } from './owned-view';
+import { ownedComments, ownedValues, ownedView } from './owned-view';
 
 /** D07 — a manager-created grant's default window when no explicit expiresAt is given. */
 const DEFAULT_GRANT_HOURS = 3;
@@ -466,15 +466,20 @@ export class SubmissionService {
     roleId: string,
   ): Promise<CommentView[]> {
     const assignment = await this.resolveCommentAccess(this.prisma, assignmentId, userId, roleId);
-    const comments = await this.prisma.dynReportComment.findMany({
+    const stored = await this.prisma.dynReportComment.findMany({
       where: { assignmentId },
       include: { author: true },
       orderBy: { createdAt: 'asc' },
     });
     const locked = assignment.period.status === 'FINALIZED';
+    // Asked only when the answer changes something: there is a comment by somebody else (may the caller delete it?),
+    // or a comment on a field the team does not report (may the caller read it?).
+    const narrowed = ownedComments(assignment, stored);
     const manager =
-      comments.some((c) => c.authorId !== userId) &&
+      (stored.some((c) => c.authorId !== userId) || narrowed.length !== stored.length) &&
       (await this.resolveManagerRole(this.prisma, assignment.period.report.id, userId, roleId)) !== null;
+    // A manager of the report reads what is stored; an editor of the team reads what is the team's (see ownedComments).
+    const comments = manager ? stored : narrowed;
     return comments.map((c) => ({
       id: c.id,
       fieldKey: c.fieldKey,
@@ -1497,7 +1502,8 @@ export class SubmissionService {
       dueAt: period.dueAt.toISOString(),
       state: submission.state,
       revision: submission.currentRevision.toString(),
-      values: (submission.values as Record<string, TypedValue>) ?? {},
+      // Only the team's own: a figure once saved for a criterion taken away since is not sent (it stays stored).
+      values: ownedValues(assignment, (submission.values as Record<string, TypedValue>) ?? {}),
       fields: period.version.fields.map((f) => this.toFieldView(f)),
       editable: access.canEdit,
       effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
@@ -1558,6 +1564,11 @@ export class SubmissionService {
           ...period.version.fields.map((f) => [f.fieldKey, values[f.fieldKey]?.v ?? null] as const),
           ...period.version.foreignFields.map((f) => [f.fieldKey, null] as const),
         ]),
+        // In a workbook the system made from a list of criteria each criterion is one row: the rows of the criteria
+        // this team was not given are removed (code, name, unit) with the group headings left with nothing under them, the
+        // same rows the entry grid leaves out (the export service works them out from the grid). In an
+        // authored template a label cannot be tied to a field, so only the input cell is blanked (above).
+        unownedCriteria: period.version.sourceKind === 'CRITERIA' ? period.version.foreignFields : [],
         meta: {
           kind: 'TEAM',
           reportId: period.report.id,

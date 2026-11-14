@@ -155,6 +155,27 @@ describe('CriteriaMatrixExcel', () => {
     expect(screen.queryByTestId('matrix-error')).not.toBeInTheDocument();
   });
 
+  it('a file taken out before the configuration last changed is refused when read, in words that say to take it out again', async () => {
+    vi.mocked(dynamicReportsApi.uploadCriteriaMatrix).mockRejectedValue(refused(409, 'MATRIX_FILE_STALE', [], 'server words'));
+    const { onReload } = renderIt();
+    pick();
+
+    expect(await screen.findByTestId('matrix-error')).toHaveTextContent(t.fileStale);
+    expect(screen.queryByTestId('matrix-preview')).not.toBeInTheDocument();
+    // The screen may be behind as well: reading the report again is offered.
+    fireEvent.click(screen.getByTestId('btn-matrix-reload'));
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
+
+  it('a file that carries no revision (taken out by an older build) is told as a reason of the file', async () => {
+    vi.mocked(dynamicReportsApi.uploadCriteriaMatrix).mockRejectedValue(
+      refused(400, 'CRITERIA_MATRIX_INVALID', [{ code: 'MATRIX_VERSION_MISSING' }]),
+    );
+    renderIt();
+    pick();
+    expect(await screen.findByTestId('matrix-error-list')).toHaveTextContent(t.errors.MATRIX_VERSION_MISSING);
+  });
+
   it('is locked while another part of the screen is saving', () => {
     renderIt({ disabled: true });
     expect(screen.getByTestId('btn-matrix-download')).toBeDisabled();

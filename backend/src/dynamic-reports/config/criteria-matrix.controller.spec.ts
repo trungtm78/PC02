@@ -50,6 +50,8 @@ describe('CriteriaMatrixController', () => {
     });
     service.import.mockRejectedValueOnce(new ReportConfigError('moved', 'REVISION_CONFLICT'));
     await expect(controller.upload('r1', file, {})).rejects.toMatchObject({ status: 409, response: { code: 'REVISION_CONFLICT' } });
+    service.import.mockRejectedValueOnce(new ReportConfigError('old file', 'MATRIX_FILE_STALE'));
+    await expect(controller.upload('r1', file, {})).rejects.toMatchObject({ status: 409, response: { code: 'MATRIX_FILE_STALE' } });
     service.import.mockRejectedValueOnce(new ReportConfigError('none', 'REPORT_NOT_FOUND'));
     await expect(controller.upload('r1', file, {})).rejects.toMatchObject({ status: 404 });
     service.import.mockRejectedValueOnce(new ReportConfigError('empty', 'TARGET_SUBSET_EMPTY'));

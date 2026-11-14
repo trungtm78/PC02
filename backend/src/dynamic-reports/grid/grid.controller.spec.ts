@@ -58,7 +58,37 @@ describe('GridController', () => {
   it('asks the access service with the caller, their role and the requested version', async () => {
     const { controller, access, res, req } = setup();
     await controller.grid('v9', USER, req() as never, res as never);
-    expect(access.readScope).toHaveBeenCalledWith('u1', 'r1', 'v9');
+    expect(access.readScope).toHaveBeenCalledWith('u1', 'r1', 'v9', undefined);
+  });
+
+  it('hands over the assignment the grid is opened for, so the answer is scoped by it', async () => {
+    const { controller, access, res, req } = setup();
+    await controller.grid('v9', USER, req() as never, res as never, 'assign-7');
+    expect(access.readScope).toHaveBeenCalledWith('u1', 'r1', 'v9', 'assign-7');
+  });
+
+  it('a validator earned for one set of criteria does not earn a 304 once the team\'s set has changed', async () => {
+    const owned = (ownedFieldKeys: string[]) => ({
+      kind: 'OWNED',
+      ownedFieldKeys,
+      criteriaRows: true,
+      fields: [
+        { sheetKey: 'S', address: 'C1', fieldKey: 'S!C1' },
+        { sheetKey: 'S', address: 'C2', fieldKey: 'S!C2' },
+      ],
+    });
+    const model = { sheetOrder: ['S'], sheets: [] } as unknown as GridModel;
+    const before = setup({ scope: owned(['S!C1', 'S!C2']) });
+    before.grids.getForVersion.mockResolvedValue({ model, etag: ETAG });
+    await before.controller.grid('v1', USER, before.req() as never, before.res as never, 'assign-7');
+
+    const after = setup({ scope: owned(['S!C1']) });
+    after.grids.getForVersion.mockResolvedValue({ model, etag: ETAG });
+    const body = await after.controller.grid('v1', USER, after.req(before.headers['ETag']) as never, after.res as never, 'assign-7');
+
+    expect(after.headers['ETag']).not.toBe(before.headers['ETag']);
+    expect(body).toBeDefined();
+    expect(after.res.status).not.toHaveBeenCalled();
   });
 
   describe('an editor whose team reports only some of the criteria', () => {

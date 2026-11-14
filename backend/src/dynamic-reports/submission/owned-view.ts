@@ -11,6 +11,34 @@ import { collectRefs, parseFormula } from '../engine/expr';
  *
  * A team with no subset gets the same arrays back, untouched: reports made before subsets cost nothing extra.
  */
+/**
+ * The stored values an editor of this team is sent: those of the fields the team reports.
+ *
+ * A figure typed for a criterion that was later taken away from the team stays in the database (it is history, and
+ * the totals already leave it out), but it is no longer the team's to read. Only the answer is narrowed; nothing
+ * stored is touched. A team with no subset gets the very same object back.
+ */
+export function ownedValues<V>(assignment: { ownedFieldKeys?: unknown }, values: Record<string, V>): Record<string, V> {
+  const keys = ownedKeys(assignment);
+  if (keys === null) return values;
+  const owned = new Set(keys);
+  return Object.fromEntries(Object.entries(values).filter(([fieldKey]) => owned.has(fieldKey)));
+}
+
+/**
+ * The comments an editor of this team is sent: those on the whole submission and those on a field the team reports.
+ *
+ * A comment on a criterion that was taken away from the team may quote its figure, so it goes the way the figure
+ * does: it stays stored (a manager of the report still reads it) and is not the team's to read. A team with no subset
+ * gets the very same list back.
+ */
+export function ownedComments<C extends { fieldKey: string | null }>(assignment: { ownedFieldKeys?: unknown }, comments: C[]): C[] {
+  const keys = ownedKeys(assignment);
+  if (keys === null) return comments;
+  const owned = new Set(keys);
+  return comments.filter((c) => c.fieldKey === null || owned.has(c.fieldKey));
+}
+
 export function ownedView<F extends { fieldKey: string }, R extends { leftExpr: string; rightExpr: string }>(
   assignment: { ownedFieldKeys?: unknown },
   fields: F[],

@@ -14,6 +14,8 @@ export const MATRIX_MARK = 'x';
 export const MATRIX_SHEET = 'Ma trận';
 const SIGNATURE = 'PC02_CRITERIA_MATRIX';
 const KEY_ROW = 1;
+/** In the hidden key row: the revision of the configuration the file was taken out at. */
+const VERSION_COLUMN = 2;
 const HEADER_ROW = 3;
 const FIRST_DATA_ROW = 4;
 const FIRST_TEAM_COLUMN = 4;
@@ -38,6 +40,7 @@ export interface MatrixTeam {
 export type MatrixError =
   | { code: 'MATRIX_NOT_RECOGNISED' }
   | { code: 'MATRIX_TOO_LARGE' }
+  | { code: 'MATRIX_VERSION_MISSING' }
   | { code: 'MATRIX_CRITERION_DUPLICATE'; row: number }
   | { code: 'MATRIX_TEAM_DUPLICATE'; column: string }
   | { code: 'MATRIX_CELL_NOT_PLAIN'; cell: string }
@@ -73,10 +76,13 @@ const text = (value: ExcelJS.CellValue): string => plain(value) ?? '';
 export async function buildCriteriaMatrix(
   criteria: readonly MatrixCriterion[],
   teams: readonly MatrixTeam[],
+  /** The revision of the report's configuration these marks were read at: an import is only taken against it. */
+  configVersion: number,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(MATRIX_SHEET);
   sheet.getCell(KEY_ROW, 1).value = SIGNATURE;
+  sheet.getCell(KEY_ROW, VERSION_COLUMN).value = configVersion;
   sheet.getRow(KEY_ROW).hidden = true;
   sheet.getColumn(1).hidden = true;
   sheet.getCell(2, 2).value = `Đánh dấu "${MATRIX_MARK}" vào ô của tổ phải báo tiêu chí đó. Không sửa hàng và cột bị ẩn.`;
@@ -108,6 +114,26 @@ export async function buildCriteriaMatrix(
   return Buffer.from((await workbook.xlsx.writeBuffer()) as ArrayBuffer);
 }
 
+export interface ParsedMatrix {
+  teams: MatrixTeamResult[];
+  errors: MatrixError[];
+  /**
+   * The revision of the configuration the file was taken out at; null when the file carries none (taken out by a
+   * build that did not write it, or the cell was emptied). The caller refuses a file that is not of the revision the
+   * report has now: applying it would put back what somebody else has changed since.
+   */
+  configVersion: number | null;
+}
+
+const refused = (errors: MatrixError[]): ParsedMatrix => ({ teams: [], errors, configVersion: null });
+
+/** A whole number, written as a number or as its digits; anything else is "no revision". */
+function revisionOf(value: ExcelJS.CellValue): number | null {
+  const raw = plain(value);
+  if (raw === null || !/^\d{1,9}$/.test(raw)) return null;
+  return Number(raw);
+}
+
 /**
  * Reads a matrix back against the report as it is NOW. Every criterion and every team of the report must be in the
  * file, and nothing else: a file made for another report, or before a team or criterion was added, is refused with
@@ -117,7 +143,7 @@ export async function parseCriteriaMatrix(
   buffer: Buffer,
   criteria: readonly MatrixCriterion[],
   teams: readonly MatrixTeam[],
-): Promise<{ teams: MatrixTeamResult[]; errors: MatrixError[] }> {
+): Promise<ParsedMatrix> {
   // Refused before it is unpacked: the upload cap only bounds the COMPRESSED bytes.
   try {
     await assertMagicBytes(buffer);
@@ -125,22 +151,23 @@ export async function parseCriteriaMatrix(
   } catch (err) {
     if (!(err instanceof HostileXlsxError)) throw err;
     const tooLarge = err.code.startsWith('ZIP_BOMB');
-    return { teams: [], errors: [{ code: tooLarge ? 'MATRIX_TOO_LARGE' : 'MATRIX_NOT_RECOGNISED' }] };
+    return refused([{ code: tooLarge ? 'MATRIX_TOO_LARGE' : 'MATRIX_NOT_RECOGNISED' }]);
   }
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer as never);
   } catch {
-    return { teams: [], errors: [{ code: 'MATRIX_NOT_RECOGNISED' }] };
+    return refused([{ code: 'MATRIX_NOT_RECOGNISED' }]);
   }
   const sheet = workbook.getWorksheet(MATRIX_SHEET) ?? workbook.worksheets[0];
   if (!sheet || text(sheet.getCell(KEY_ROW, 1).value) !== SIGNATURE) {
-    return { teams: [], errors: [{ code: 'MATRIX_NOT_RECOGNISED' }] };
+    return refused([{ code: 'MATRIX_NOT_RECOGNISED' }]);
   }
   if (sheet.rowCount > MATRIX_LIMITS.MAX_ROWS || sheet.columnCount > MATRIX_LIMITS.MAX_COLUMNS) {
-    return { teams: [], errors: [{ code: 'MATRIX_TOO_LARGE' }] };
+    return refused([{ code: 'MATRIX_TOO_LARGE' }]);
   }
 
+  const configVersion = revisionOf(sheet.getCell(KEY_ROW, VERSION_COLUMN).value);
   const errors: MatrixError[] = [];
   const knownCriteria = new Set(criteria.map((c) => c.itemKey));
   const teamById = new Map(teams.map((t) => [t.teamId, t]));
@@ -169,7 +196,7 @@ export async function parseCriteriaMatrix(
   for (const criterion of criteria) {
     if (!rowOf.has(criterion.itemKey)) errors.push({ code: 'MATRIX_CRITERION_MISSING', itemKey: criterion.itemKey });
   }
-  if (errors.length > 0) return { teams: [], errors };
+  if (errors.length > 0) return { teams: [], errors, configVersion };
 
   // A mark is plain text in a cell of its own. A formula may show nothing and still be "something"; a merged cell
   // answers for its neighbours. Neither can be read as a yes or a no, so the file is refused, naming the cell.
@@ -196,7 +223,7 @@ export async function parseCriteriaMatrix(
     };
   });
   if (errors.some((e) => e.code === 'MATRIX_CELL_NOT_PLAIN')) {
-    return { teams: [], errors: errors.filter((e) => e.code === 'MATRIX_CELL_NOT_PLAIN') };
+    return { teams: [], errors: errors.filter((e) => e.code === 'MATRIX_CELL_NOT_PLAIN'), configVersion };
   }
-  return errors.length > 0 ? { teams: [], errors } : { teams: results, errors };
+  return errors.length > 0 ? { teams: [], errors, configVersion } : { teams: results, errors, configVersion };
 }

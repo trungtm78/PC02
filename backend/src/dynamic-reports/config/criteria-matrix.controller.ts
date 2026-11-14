@@ -24,7 +24,7 @@ import { FeatureFlag } from '../../feature-flags/decorators/feature-flag.decorat
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { attachmentDisposition } from '../attachment-disposition.util';
-import { CriteriaMatrixError, CriteriaMatrixService } from './criteria-matrix.service';
+import { CriteriaMatrixError, CriteriaMatrixService, MATRIX_FILE_STALE } from './criteria-matrix.service';
 import { ReportConfigError } from './report-config.service';
 
 /** A small workbook: a criteria matrix has no reason to be large. */
@@ -81,7 +81,10 @@ export class CriteriaMatrixController {
       }
       if (err instanceof ReportConfigError) {
         if (err.code === 'REPORT_NOT_FOUND') throw new NotFoundException(err.message);
-        if (err.code === 'REVISION_CONFLICT') throw new ConflictException({ code: err.code, message: err.message });
+        // Both mean "the report moved on": the screen is behind (reload), or the file is (take it out again).
+        if (err.code === 'REVISION_CONFLICT' || err.code === MATRIX_FILE_STALE) {
+          throw new ConflictException({ code: err.code, message: err.message });
+        }
         throw new BadRequestException({ code: err.code, message: err.message });
       }
       throw err;

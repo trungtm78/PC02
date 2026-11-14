@@ -64,6 +64,11 @@ export interface GridMarkBinding {
 
 export interface GridViewerProps {
   versionId: string;
+  /**
+   * The assignment the grid is opened for (the entry screen). The server then sends the grid of what the team
+   * reports in THAT assignment; the model is fetched again when the set of its fields changes.
+   */
+  assignmentId?: string;
   /** A model already in hand (the wizard's preview of a file not yet saved): shown as is, nothing is fetched. */
   grid?: GridModel;
   /** Present: the cells can be picked by dragging (see `GridMarkBinding`). */
@@ -121,6 +126,7 @@ function formulaSourceNote(aggregate: GridAggregateBinding): string {
 
 export default function GridViewer({
   versionId,
+  assignmentId,
   grid: preloaded,
   mark,
   fields = NO_FIELDS,
@@ -132,9 +138,15 @@ export default function GridViewer({
   selectedColumn,
   columnHeaderLabel,
 }: GridViewerProps) {
+  // What a team reports can change inside a running period: the model of one assignment is kept only for the set of
+  // fields it was fetched with, so a criterion taken away (or given back) is never drawn from an older answer.
+  const ownedSet = useMemo(
+    () => (assignmentId ? fields.map((f) => f.fieldKey).sort().join('\n') : null),
+    [assignmentId, fields],
+  );
   const fetched = useQuery({
-    queryKey: ['dynamic-reports', 'grid', versionId],
-    queryFn: () => dynamicReportsApi.getVersionGrid(versionId),
+    queryKey: assignmentId ? ['dynamic-reports', 'grid', versionId, assignmentId, ownedSet] : ['dynamic-reports', 'grid', versionId],
+    queryFn: () => (assignmentId ? dynamicReportsApi.getVersionGrid(versionId, assignmentId) : dynamicReportsApi.getVersionGrid(versionId)),
     // A version's file never changes, so neither does its model.
     staleTime: Infinity,
     retry: false,
