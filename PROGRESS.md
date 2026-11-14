@@ -1,6 +1,41 @@
 # PROGRESS
 
-# ACTIVE EPIC (13/11/2026): team permissions + team lifecycle + report criteria per team
+# ACTIVE EPIC (15/11/2026): processing flow and deadlines per information type ("Quy trình & hạn xử lý")
+Updated: 2026-11-15 | Milestone: M1/5 | Task: PR 1 of 16 (+ M0 mockup)
+Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md`, and inside it the section "SỬA ĐỔI SAU /plan-eng-review (15/11/2026)" WINS over anything above it (decisions C1–C16, R3–R11; the PR table "Trình tự mới" replaces the old one). Protocol = AUTONOMOUS EXECUTION PROTOCOL (pasted again by the owner 15/11: no questions; stop only for done + UAT 100%, a real blocker after two attempts, or an irreversible / security action). The owner's standing rule for this epic: deepest governance, best extensibility, never reduce scope, scope may grow.
+
+## Milestones
+- M1 = foundations: M0 mockup, PR 1 (Case form picker), PR 2 (regression contract of today's deadlines and reminders + `RecordGateway` adapters, read-only), PR 3 (pure engine + working calendar per year + shared code contract).
+- M2 = configuration: PR 4 (config backend, permission matrix), PR 5 (settings screen with Gantt, legal templates, legal verification).
+- M3 = records: PR 6 (command layer, state machine, instantiation through an outbox on every creation path), PR 7 (single deadline writer, extension, clock pause), PR 8 (read by step through the parent record's policy, leadership template, attachments, delegation), PR 9 (reports, proposals, opinions, approval), PR 10 (two tabs on the three forms).
+- M4 = oversight: PR 11 (tracking + alert column), PR 12 (backlog by unit + on-time rate + Excel), PR 13 (reminders through an outbox, escalation, nudge), PR 14 (CLI applying flows to open records, dry run first).
+- M5 = PR 15 (Flutter), PR 16 (UAT over HTTP, browser click-through, one monkey run, switch on/off contract; then switch on).
+
+## Đang làm dở
+- Task: PR 1 — Case form: Loại thông tin becomes a catalogue picker like the Petition and Incident forms. Branch `feat/case-loai-thong-tin-picker` from `origin/main` `2c7e1e25`.
+- BƯỚC TIẾP THEO: implement in `frontend/src/pages/cases/CaseFormPage/tabs.tsx` (`renderOverride` of `TabInfo`, as `IncidentFormPage.tsx:209-226` does with `FKSelect directoryType="LOAI_THONG_TIN"` + quick create) and the second writer `CaseFormTab1UyThac.tsx:99`; payload test; `npx tsc -b`; one Codex pass; PR; CI; merge; deploy by health buildId; `prod-lists-check.cjs` before/after.
+- M0 mockup: one HTML artifact of the 7 wireframes the owner accepted on 15/11 ("Không cần chỉnh"); built in the session scratchpad, not in the repository.
+
+## Quyết định kiến trúc (this epic)
+| Ngày | Quyết định | Lý do |
+|---|---|---|
+| 15/11 | New backend module `processing-flow` with ONE transactional command layer + `RecordGateway` adapters per record kind; no module writes `Proc*` tables directly | Codex: authorization, deadline ownership and state transitions need one owner |
+| 15/11 | Regulatory deadline changes only by Extension; the internal deadline may only be equal or earlier; the colour is the worse of the two | adjusting must not defeat the extension limit |
+| 15/11 | Instantiation and reminders go through a transactional outbox; a failure never blocks saving a record | blast radius: intake must keep working |
+| 15/11 | Steps of a seeded legal template show "tạm tính" and do not write the record's deadline until a person with `verifyLegal` confirms | figures came from secondary legal sources |
+| 15/11 | Feature key `processing_flow` (a key `workflow` already exists for transfer/guidance/exchange) | name clash |
+
+## Assumption đã tự quyết
+| Điểm mơ hồ | Diễn giải đã chọn |
+|---|---|
+| Case has two "received" columns | anchor = `ngayTiepNhan`, else `receiveDate` |
+| Unknown information type | state "chưa xác định quy trình": the default flow is proposed, the record holder confirms once |
+
+## Production state to remember
+- Build `2c7e1e25` (#667). **Permissions by team are ENFORCED on production since 14/11/2026 ~15:05** (owner's order; temporary approver account `tmp_duyet_bd7cc3` is switched off, not deleted). 0 permission templates configured.
+- Owner follow-ups, not blocking code: a legal officer to confirm the seeded legal figures; somebody to enter the lunar new year holidays each year.
+
+# PREVIOUS EPIC (13/11/2026, on production): team permissions + team lifecycle + report criteria per team
 Spec = plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md` (approved, ENG CLEARED). Protocol = AUTONOMOUS EXECUTION PROTOCOL (no questions; stop only for done / real blocker / irreversible-or-security action). Branch: `feat/team-lifecycle` from `origin/main` `74043fd6`. Commit trailer per session reminder; never `git add -A`, never `git stash -u`; `uat/` is untracked and must stay so.
 
 ## Đã hoàn thành

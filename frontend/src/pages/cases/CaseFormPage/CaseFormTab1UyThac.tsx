@@ -1,6 +1,7 @@
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { Card } from "@/components/shared";
 import type { TabProps } from "./types";
+import { LoaiThongTinPicker } from "./LoaiThongTinPicker";
 import { LOAI_UY_THAC_OPTIONS, TRANG_THAI_PHAN_HOI_LABEL, TRANG_THAI_PHAN_HOI_BADGE, type TrangThaiPhanHoi } from "@/shared/enums/status-labels";
 
 // ─── Section header with legal reference subtitle ─────────────────────────────
@@ -94,11 +95,11 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
             value={formData.utdt_thoiHanUyThac}
             onChange={(v) => update('utdt_thoiHanUyThac', v)}
           />
-          <FormInput
+          {/* Same picker as tab Info: one component, so the two mirrors cannot disagree. */}
+          <LoaiThongTinPicker
             label="Loại thông tin"
             value={formData.loaiThongTin}
-            onChange={(v) => update('loaiThongTin', v)}
-            placeholder="Tố giác, trình báo, đề nghị, kiến nghị, phản ánh, khiếu nại (hành vi tố tụng), ..."
+            onChange={(name) => update('loaiThongTin', name)}
           />
         </div>
       </Card>
