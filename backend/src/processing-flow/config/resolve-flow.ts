@@ -67,7 +67,16 @@ export function buildTypeIndex(entries: ReadonlyArray<{ id: string; name: string
  */
 export function resolveFlow(
   record: { recordKind: RecordKind; informationType: string | null | undefined },
-  config: { directoryIndex: TypeIndex; bindings: readonly ResolveBinding[]; flows: readonly ResolveFlowRow[] },
+  config: {
+    directoryIndex: TypeIndex;
+    bindings: readonly ResolveBinding[];
+    flows: readonly ResolveFlowRow[];
+    /**
+     * Every entry of the catalogue with its name TODAY. The index above keeps one entry per key, so an entry that
+     * merely reads like a bound one could hide it: after a rename two entries can share a key, one of them bound.
+     */
+    directoryNames?: ReadonlyArray<{ id: string; name: string }>;
+  },
 ): FlowResolution | null {
   const { recordKind } = record;
   const inUse = new Set(config.flows.filter((flow) => flow.status === 'ACTIVE' && flow.recordKind === recordKind).map((flow) => flow.id));
@@ -84,8 +93,14 @@ export function resolveFlow(
   }
 
   const entry = config.directoryIndex.get(typeKey);
+  // Every entry whose name reads like the text today, the indexed one first: a binding of ANY of them is the binding of
+  // the type. (Binding refuses two flows for entries that read alike, so there is at most one such flow.)
+  const alike = [
+    ...(entry ? [entry.id] : []),
+    ...(config.directoryNames ?? []).filter((candidate) => khoaLoaiThongTin(candidate.name) === typeKey && candidate.id !== entry?.id).map((candidate) => candidate.id),
+  ];
   const byType =
-    (entry && bindings.find((binding) => binding.directoryId === entry.id)) ??
+    alike.reduce<ResolveBinding | undefined>((found, id) => found ?? bindings.find((binding) => binding.directoryId === id), undefined) ??
     bindings.find((binding) => binding.directoryId !== null && binding.typeKey === typeKey);
   if (byType?.directoryId) return { match: 'TYPE', flowId: byType.flowId, directoryId: byType.directoryId, typeKey };
 

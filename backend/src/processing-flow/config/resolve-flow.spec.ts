@@ -121,6 +121,20 @@ describe('resolveFlow', () => {
     expect(result).toMatchObject({ match: 'TYPE', flowId: 'f-tocao', directoryId: 'd-tocao' });
   });
 
+  it('an unbound entry that merges to the same key must not hide a bound one that was renamed to it', () => {
+    // X was bound as "Alpha" and renamed "Beta" (its stored key stays "alpha"); Y, unbound and EARLIER in the
+    // catalogue, was renamed "Beta" too. The text "Beta" reaches X's flow, not the default one.
+    const x = { id: 'd-x', name: 'Beta', metadata: null };
+    const y = { id: 'd-y', name: 'Beta', metadata: null };
+    const index = buildTypeIndex([y, x]);
+    const renamedBinding: ResolveBinding = { flowId: 'f-tocao', recordKind: 'PETITION', directoryId: 'd-x', typeKey: khoaLoaiThongTin('Alpha'), deadlineGroup: null };
+    const result = resolveFlow(
+      { recordKind: 'PETITION', informationType: 'Beta' },
+      { directoryIndex: index, bindings: [renamedBinding], flows, directoryNames: [y, x] },
+    );
+    expect(result).toMatchObject({ match: 'TYPE', flowId: 'f-tocao', directoryId: 'd-x' });
+  });
+
   it('UNKNOWN_TYPE: raw legacy text and composite values match no entry; the default flow is only a proposal', () => {
     for (const text of ['Tố giác, Đề nghị', 'Đơn trình báo mất xe', 'Tố cáo/khiếu nại']) {
       expect(resolveFlow({ recordKind: 'PETITION', informationType: text }, config)).toEqual({

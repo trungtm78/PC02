@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Client } from 'pg';
 import { AuditService } from '../audit/audit.service';
 import { openScratchDatabase, type ScratchDatabase } from '../common/testing/scratch-database';
 import { takeTurnOnSharedRow } from '../common/testing/shared-row-turn';
@@ -139,6 +140,44 @@ run('DirectoryService and the flows bound to its entries on PostgreSQL', () => {
     await flows.setBindings(flow.id, actor, { directoryIds: [], deadlineGroups: [], expectedRevision: current.revision });
     await directory.remove(e.id);
     expect(await scratch.db.directory.count({ where: { id: e.id } })).toBe(0);
+  });
+
+  it('a rename that started before a flow bound the entry is still checked against that binding', async () => {
+    const mine = await entry('Mu');
+    const theirs = await entry('Nu');
+    const a = await flows.create(actor, { name: `${tag} I`, recordKind: 'PETITION' });
+    const b = await flows.create(actor, { name: `${tag} J`, recordKind: 'PETITION' });
+    await flows.setBindings(a.id, actor, { directoryIds: [theirs.id], deadlineGroups: [], expectedRevision: a.revision });
+
+    // The renaming session is parked right after it has looked at the entry: nothing is bound to it yet.
+    const holder = new Client({ connectionString: url });
+    await holder.connect();
+    try {
+      await holder.query('BEGIN');
+      // It holds the lock of the kind, as a writer of bindings does, so the rename has to wait for it.
+      await holder.query(`SELECT pg_advisory_xact_lock(7226010::int, 0::int)`);
+      const renaming = refusalOf(directory.update(mine.id, { name: `Nu ${tag}` }));
+      let waiting = false;
+      for (let attempt = 0; attempt < 100 && !waiting; attempt += 1) {
+        const rows = await scratch.pg.query(`SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`);
+        waiting = (rows.rowCount ?? 0) > 0;
+        if (!waiting) await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      expect(waiting).toBe(true);
+      // While the rename waits, flow B takes the entry (its own write goes through the other session's lock).
+      await holder.query(
+        `INSERT INTO proc_flow_bindings (id, "flowId", "recordKind", "directoryId", "typeKey", "createdAt") VALUES ($1, $2, 'PETITION', $3, $4, now())`,
+        [`${tag}-late`, b.id, mine.id, `mu ${tag}`.toLowerCase()],
+      );
+      await holder.query('COMMIT');
+
+      // The rename resumes, sees the binding that appeared meanwhile, and is refused: both flows would read "Nu".
+      expect(await renaming).toMatchObject({ status: 409, body: { code: 'TYPE_ALREADY_BOUND' } });
+      expect((await scratch.db.directory.findUniqueOrThrow({ where: { id: mine.id } })).name).toBe(`Mu ${tag}`);
+    } finally {
+      await holder.query('ROLLBACK').catch(() => undefined);
+      await holder.end();
+    }
   });
 
   it('two renames to the same name at the same moment: at most one entry of a kind of flows takes it', async () => {

@@ -656,6 +656,47 @@ run('ProcessingFlowsService on PostgreSQL', () => {
       }
     });
 
+    it('a publish caught in a lock cycle with a team merge is run again, not failed', async () => {
+      const flow = await make('PETITION');
+      // Three units A < B < C by id, B a child of A: what a merge of A into C does (locks A and C, then reparents B).
+      const [a, b, c] = (
+        await Promise.all(['A', 'B', 'C'].map((n) => scratch.db.team.create({ data: { name: `${tag} cyc ${n}`, code: `${tag}-cy${n}` } })))
+      ).sort((x, y) => (x.id < y.id ? -1 : 1));
+      await scratch.db.team.update({ where: { id: b.id }, data: { parentId: a.id } });
+      const saved = await flows.replaceSteps(flow.id, flow.draft!.id, actor, {
+        steps: [step({ parties: [{ partyKind: 'RECORD_TEAM', role: 'MAIN' }, { partyKind: 'TEAM', teamId: b.id, role: 'INFORM' }, { partyKind: 'TEAM', teamId: c.id, role: 'INFORM' }] })],
+        expectedRevision: 1,
+      });
+
+      const merge = new Client({ connectionString: url });
+      await merge.connect();
+      try {
+        await merge.query('BEGIN');
+        await merge.query(`SELECT id FROM teams WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`, [a.id, c.id]);
+        const publishing = refusal(flows.publish(flow.id, flow.draft!.id, actor, saved.flow.draft!.revision));
+        // The publish has taken B and waits for C.
+        let waiting = false;
+        for (let attempt = 0; attempt < 100 && !waiting; attempt += 1) {
+          const rows = await scratch.pg.query(`SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND state = 'active' AND query ILIKE '%FROM teams%FOR SHARE%'`);
+          waiting = (rows.rowCount ?? 0) > 0;
+          if (!waiting) await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        expect(waiting).toBe(true);
+        // The merge now reparents B: it waits for the publish, which waits for the merge. The database breaks the cycle.
+        const reparenting = merge.query(`UPDATE teams SET "parentId" = $1 WHERE id = $2`, [c.id, b.id]).catch((error: { code?: string }) => error.code);
+        const outcome = await reparenting;
+        await merge.query('COMMIT').catch(() => undefined);
+        // Whichever of the two the database chose, the publish ends as it would have without the cycle: published.
+        expect(['40P01', undefined]).toContain(outcome === undefined || typeof outcome === 'object' ? undefined : outcome);
+        expect(await publishing).toBe('RESOLVED');
+        expect((await flows.get(flow.id)).publishedVersionNo).toBe(1);
+      } finally {
+        await merge.query('ROLLBACK').catch(() => undefined);
+        await merge.end();
+        await scratch.db.team.updateMany({ where: { code: { startsWith: `${tag}-cy` } }, data: { parentId: null } });
+      }
+    });
+
     it('refuses a publish decided on an older revision of the version', async () => {
       const flow = await make('PETITION');
       await flows.replaceSteps(flow.id, flow.draft!.id, actor, { steps: [step()], expectedRevision: 1 });

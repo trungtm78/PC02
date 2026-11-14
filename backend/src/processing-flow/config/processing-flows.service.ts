@@ -305,7 +305,7 @@ export class ProcessingFlowsService {
         orderBy: { createdAt: 'asc' },
       }),
     ]);
-    const found = resolveFlow({ recordKind, informationType }, { directoryIndex: buildTypeIndex(entries), bindings, flows });
+    const found = resolveFlow({ recordKind, informationType }, { directoryIndex: buildTypeIndex(entries), bindings, flows, directoryNames: entries });
     if (!found) return { match: null, flowId: null };
     const flow = flows.find((candidate) => candidate.id === found.flowId);
     return { ...found, flowName: flow?.name, publishedVersionNo: flow?.versions[0]?.versionNo ?? null };
@@ -668,6 +668,30 @@ export class ProcessingFlowsService {
    */
   async publish(flowId: string, versionId: string, actorId: string, expectedRevision: number): Promise<FlowDetailDto> {
     this.assertRevisionGiven(expectedRevision);
+    await this.retryingOnDeadlock(() => this.publishOnce(flowId, versionId, actorId, expectedRevision));
+    return this.get(flowId);
+  }
+
+  /**
+   * A publish that the database picked to break a lock cycle with a team merge or switch-off (they lock units and
+   * then reparent their children) wrote nothing: it is run again from the start, a few times, and only then told to
+   * the caller as a conflict.
+   */
+  private async retryingOnDeadlock(work: () => Promise<void>): Promise<void> {
+    const attempts = 3;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await work();
+      } catch (error) {
+        const failure = error as { code?: string; meta?: { code?: string }; message?: string };
+        const deadlock = failure.code === 'P2034' || (failure.code === 'P2010' && failure.meta?.code === '40P01') || /deadlock detected/i.test(failure.message ?? '');
+        if (!deadlock) throw error;
+        if (attempt >= attempts) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
+      }
+    }
+  }
+
+  private async publishOnce(flowId: string, versionId: string, actorId: string, expectedRevision: number): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const flow = await this.lockedFlow(tx, flowId);
       const version = await this.versionOf(tx, flowId, versionId);
@@ -703,7 +727,6 @@ export class ProcessingFlowsService {
       });
       await this.logVersion(tx, 'PROC_FLOW_VERSION_PUBLISH', actorId, updated, { steps: steps.length, supersededVersionNo: previous?.versionNo ?? null });
     });
-    return this.get(flowId);
   }
 
   /**

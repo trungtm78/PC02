@@ -330,11 +330,11 @@ export class DirectoryService {
     if (!renamed) return this.prisma.directory.update({ where: { id }, data });
 
     return this.prisma.$transaction(async (tx) => {
-      const kinds = await tx.procFlowBinding.findMany({ where: { directoryId: id }, select: { recordKind: true }, distinct: ['recordKind'] });
-      // One order for every writer (the order of `RECORD_KINDS`), so two renames never wait for each other in a ring.
-      const ordered = RECORD_KINDS.filter((kind) => kinds.some((held) => held.recordKind === kind));
-      for (const kind of ordered) await lockFlowKind(tx, kind);
-      const refusal = ordered.length > 0 ? await assertRenameKeepsBindingsApart(tx, id, dto.name as string) : null;
+      // Every record kind, in one order (the order of `RECORD_KINDS`), BEFORE anything is read: a flow that binds this
+      // entry while the rename is deciding is waited for, so what is checked below is what will be there at the commit.
+      // The same order everywhere means two writers never wait for each other in a ring.
+      for (const kind of RECORD_KINDS) await lockFlowKind(tx, kind);
+      const refusal = await assertRenameKeepsBindingsApart(tx, id, dto.name as string);
       if (refusal) throw new ConflictException({ code: refusal.code, details: refusal.details });
       return tx.directory.update({ where: { id }, data });
     });
