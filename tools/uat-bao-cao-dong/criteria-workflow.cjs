@@ -658,7 +658,7 @@ async function workflow(pg) {
     const TITLE = `Báo cáo gửi cấp trên (${RUN})`;
     const PICKED_TEAMS = ['A', 'B'];
     const definition = { title: TITLE, itemKeys: [K11, K3].map((n) => itemKey[n]), teamIds: PICKED_TEAMS.map((t) => teamId[t]) };
-    const FILTER_LINE = `Đơn vị: ${teamName.A}, ${teamName.B} (2/3 tổ) · Số liệu: đã nộp + đã duyệt`;
+    const FILTER_LINE = `Đơn vị: ${teamName.A}, ${teamName.B} · Số liệu: đã nộp + đã duyệt`;
     const some = await previewOf(periodId, { definition, mode: 'SUBMITTED' });
     check(
       'CUSTOM REPORT: with two criteria and two teams ticked the preview has the heading and those two criteria as rows, and those two teams as columns',

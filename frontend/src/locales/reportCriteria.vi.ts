@@ -296,8 +296,8 @@ export const reportCriteria = {
         const more = input.teamNames.length - 6;
         const units =
           input.teamNames.length === input.teamsTotal
-            ? `tất cả ${input.teamsTotal} tổ`
-            : `${shown}${more > 0 ? ` và ${more} tổ khác` : ''} (${input.teamNames.length}/${input.teamsTotal} tổ)`;
+            ? `tất cả các tổ`
+            : `${shown}${more > 0 ? ` và ${more} tổ khác` : ''}`;
         return `Đơn vị: ${units} · Số liệu: ${input.mode}`;
       },
       ignoredTeams: (names: string) => `Các tổ sau đã được chọn nhưng không được giao báo cáo trong kỳ này nên không có trong báo cáo: ${names}.`,

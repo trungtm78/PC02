@@ -38,11 +38,11 @@ export const CUSTOM_REPORT_TEXT = {
     const { teamNames, teamsTotal } = input;
     let units: string;
     if (teamNames.length === teamsTotal) {
-      units = `tất cả ${teamsTotal} tổ`;
+      units = `tất cả các tổ`;
     } else {
       const shown = teamNames.slice(0, FILTER_LINE_MAX_NAMES).join(', ');
       const more = teamNames.length - FILTER_LINE_MAX_NAMES;
-      units = `${shown}${more > 0 ? ` và ${more} tổ khác` : ''} (${teamNames.length}/${teamsTotal} tổ)`;
+      units = `${shown}${more > 0 ? ` và ${more} tổ khác` : ''}`;
     }
     return `Đơn vị: ${units} · Số liệu: ${MODE[input.mode]}`;
   },

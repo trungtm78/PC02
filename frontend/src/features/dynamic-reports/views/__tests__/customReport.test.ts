@@ -209,12 +209,12 @@ describe('the words of a custom report', () => {
   it('the filter line names the teams when not all are in, and counts the criteria', () => {
     const line = reportCriteria.customReport.preview.filterLine;
     expect(line({ teamNames: ['Tổ 1', 'Tổ 2'], teamsTotal: 2, mode: 'đã duyệt' })).toBe(
-      'Đơn vị: tất cả 2 tổ · Số liệu: đã duyệt',
+      'Đơn vị: tất cả các tổ · Số liệu: đã duyệt',
     );
     expect(line({ teamNames: ['Tổ 1'], teamsTotal: 4, mode: 'đã duyệt' })).toBe(
-      'Đơn vị: Tổ 1 (1/4 tổ) · Số liệu: đã duyệt',
+      'Đơn vị: Tổ 1 · Số liệu: đã duyệt',
     );
     const many = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    expect(line({ teamNames: many, teamsTotal: 9, mode: 'x' })).toContain('A, B, C, D, E, F và 2 tổ khác (8/9 tổ)');
+    expect(line({ teamNames: many, teamsTotal: 9, mode: 'x' })).toContain('A, B, C, D, E, F và 2 tổ khác');
   });
 });

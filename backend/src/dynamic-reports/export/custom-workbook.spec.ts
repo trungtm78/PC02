@@ -66,7 +66,7 @@ describe('buildCustomWorkbook', () => {
 
     expect(sheet.name).toBe('Báo cáo');
     expect(sheet.getCell('A1').value).toBe('Báo cáo tháng — kỳ 2026-10');
-    expect(sheet.getCell('A2').value).toBe('Đơn vị: tất cả 3 tổ · Số liệu: đã nộp + đã duyệt');
+    expect(sheet.getCell('A2').value).toBe('Đơn vị: tất cả các tổ · Số liệu: đã nộp + đã duyệt');
     expect(rowValues(sheet, CUSTOM_HEADER_ROW, width)).toEqual(['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', 'Tổ A', 'Tổ B', 'Tổ C']);
 
     // Every row, every cell.
