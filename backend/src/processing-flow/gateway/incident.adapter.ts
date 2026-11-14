@@ -51,6 +51,8 @@ export function incidentSnapshot(row: IncidentSnapshotRow): RecordSnapshot {
       ACCEPTED: NO_ANCHOR,
       // Prosecuting an incident creates a case; the date of that decision lives on the case (`Case.ngayKhoiTo`).
       PROSECUTED: NO_ANCHOR,
+      // Hand-over minutes belong to a case.
+      MINUTES_RECEIVED: NO_ANCHOR,
     },
   };
 }

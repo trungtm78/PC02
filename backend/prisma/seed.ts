@@ -15,6 +15,7 @@ import { seedCrimes } from './seed-crimes-blhs2015';
 import { seedTestCapUser } from './seed-test-cap-user'; // v0.35a dev-only
 import { seedMasterClasses } from './seed-master-classes';
 import { seedDeadlineRules } from './seed-deadline-rules';
+import { seedWorkingCalendar } from './seed-working-calendar';
 import { seedEventCategories } from './seed-event-categories';
 import { seedVnEvents } from './seed-vn-events';
 import { SEED_PERMISSIONS } from './seed-permissions';
@@ -148,6 +149,10 @@ async function main() {
   // ── Seed initial DeadlineRuleVersion rows (idempotent) ─────────────────────
   const deadlineSeedResult = await seedDeadlineRules(prisma);
   console.log(`DeadlineRules seeded: ${deadlineSeedResult.created} created, ${deadlineSeedResult.skipped} skipped`);
+
+  // ── Seed the working calendar: 2026 and 2027 with the fixed solar holidays (idempotent, never overwrites) ──
+  const workingCalendarSeedResult = await seedWorkingCalendar(prisma);
+  console.log(`Working calendar seeded: ${workingCalendarSeedResult.created} years created, ${workingCalendarSeedResult.skipped} skipped`);
 
   // ── Seed admin user ────────────────────────────────────────────────────────
   // Password MUST come from env var (never hardcoded)

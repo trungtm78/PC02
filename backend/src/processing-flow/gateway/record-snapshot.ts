@@ -6,8 +6,12 @@ import { laGioPhutHopLe } from '../../common/utils/thoi-gian-vn.util';
 export const RECORD_KINDS = ['PETITION', 'INCIDENT', 'CASE'] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
-/** The dates of a record that a deadline can be counted from. */
-export const ANCHOR_KEYS = ['RECEIVED', 'PROPOSED', 'ASSIGNED_TO_UNIT', 'ACCEPTED', 'PROSECUTED'] as const;
+/**
+ * The dates of a record that a deadline can be counted from. `MINUTES_RECEIVED` (the date on the hand-over minutes)
+ * exists for a case only. Each is an anchor kind of the shared contract (`contract/processing-codes.ts`), which has
+ * one more that is not a date of the record: the completion of the previous step.
+ */
+export const ANCHOR_KEYS = ['RECEIVED', 'PROPOSED', 'ASSIGNED_TO_UNIT', 'ACCEPTED', 'PROSECUTED', 'MINUTES_RECEIVED'] as const;
 export type AnchorKey = (typeof ANCHOR_KEYS)[number];
 
 export interface Anchor {

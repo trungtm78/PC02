@@ -24,6 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { seedWorkingCalendar } from '../../../prisma/seed-working-calendar';
 
 const GOC = path.resolve(__dirname, '../../..');
 const THU_MUC_MIGRATION = path.join(GOC, 'prisma', 'migrations');
@@ -57,6 +58,15 @@ async function daCoBang(): Promise<boolean> {
   }
 }
 
+/**
+ * The rows that migrations INSERT, for a database on which no migration ever ran. `db push` builds the tables and
+ * `migrate resolve --applied` only marks the migrations: their data never arrives, so each such seed is repeated here.
+ * Idempotent, and it never overwrites what is already there.
+ */
+export async function seedDataOfMigrations(prisma: PrismaClient): Promise<{ workingCalendar: { created: number; skipped: number } }> {
+  return { workingCalendar: await seedWorkingCalendar(prisma) };
+}
+
 async function main(): Promise<void> {
   const force = process.argv.includes('--force');
 
@@ -77,12 +87,23 @@ async function main(): Promise<void> {
   const ds = danhSachMigration(THU_MUC_MIGRATION);
   console.log(`Tìm thấy ${ds.length} migration.`);
 
-  console.log('\n[1/2] Dựng lược đồ thẳng từ schema.prisma…');
+  console.log('\n[1/3] Dựng lược đồ thẳng từ schema.prisma…');
   chayPrisma(['db', 'push', '--schema=prisma/schema.prisma', '--accept-data-loss']);
 
-  console.log('\n[2/2] Đánh dấu toàn bộ migration là đã áp…');
+  console.log('\n[2/3] Đánh dấu toàn bộ migration là đã áp…');
   for (const ten of ds) {
     chayPrisma(['migrate', 'resolve', '--applied', ten, '--schema=prisma/schema.prisma']);
+  }
+
+  console.log('\n[3/3] Nạp dữ liệu mà các migration vừa đánh dấu lẽ ra đã chèn…');
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+  });
+  try {
+    const { workingCalendar } = await seedDataOfMigrations(prisma);
+    console.log(`Lịch làm việc: tạo ${workingCalendar.created} năm, bỏ qua ${workingCalendar.skipped} năm đã có.`);
+  } finally {
+    await prisma.$disconnect();
   }
 
   console.log('\nXONG. Kiểm lại bằng: prisma migrate status (phải báo không còn migration chờ).');
