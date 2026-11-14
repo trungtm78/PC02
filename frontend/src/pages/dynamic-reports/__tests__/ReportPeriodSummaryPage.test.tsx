@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportPeriodSummaryPage from '../ReportPeriodSummaryPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
+import { reportViewsApi } from '@/features/dynamic-reports/views/api';
 import type { OfficialFileView, PeriodSummaryView } from '@/features/dynamic-reports/types';
 import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
 import { FeatureFlagsContext } from '@/lib/features/featureFlagsContextObject';
@@ -23,7 +24,13 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     listOfficialFiles: vi.fn(),
     remakeOfficialFile: vi.fn(),
     downloadOfficialFile: vi.fn(),
+    loadPeriodCriteria: vi.fn(),
+    listAssignments: vi.fn(),
   },
+}));
+vi.mock('@/features/dynamic-reports/views/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/dynamic-reports/views/api')>()),
+  reportViewsApi: { list: vi.fn(), preview: vi.fn(), listTeamDirectory: vi.fn() },
 }));
 
 function renderPage() {
@@ -93,6 +100,43 @@ describe('ReportPeriodSummaryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([]);
+    // Like a viewer: the custom-report section is for managers only and stays out of sight.
+    vi.mocked(reportViewsApi.list).mockRejectedValue({ isAxiosError: true, response: { status: 404, data: { error: { code: 'REPORT_NOT_FOUND' } } } });
+  });
+
+  it('shows no custom-report section to somebody who does not manage the report', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    renderPage();
+    await waitFor(() => screen.getByTestId('kpi-completed'));
+    await waitFor(() => expect(reportViewsApi.list).toHaveBeenCalledWith('report1'));
+    expect(screen.queryByTestId('custom-report-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-export')).toBeInTheDocument();
+  });
+
+  it('a manager gets the custom-report section, and its preview follows the mode chosen on the page', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(reportViewsApi.list).mockResolvedValue([]);
+    vi.mocked(reportViewsApi.listTeamDirectory).mockResolvedValue([]);
+    vi.mocked(reportViewsApi.preview).mockRejectedValue(new Error('not under test'));
+    vi.mocked(dynamicReportsApi.loadPeriodCriteria).mockResolvedValue({
+      criteria: [{ itemKey: 'k1', fieldKey: 'S!C2', code: null, label: 'Số vụ mới', unit: null, parentItemKey: null }],
+      groups: [],
+      assignments: [],
+    });
+    vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue([
+      { assignmentId: 'a1', teamId: 't1', teamName: 'Đội 3', obligation: 'REQUIRED', state: 'SUBMITTED', editors: [], addedMidPeriod: false, removable: false },
+    ]);
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('custom-report-create'));
+    // The page's own export button is still there, untouched.
+    expect(screen.getByTestId('btn-export')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('mode-select'), { target: { value: 'APPROVED' } });
+    await waitFor(() =>
+      expect(reportViewsApi.preview).toHaveBeenCalledWith('period1', expect.objectContaining({ mode: 'APPROVED' })),
+    );
+    // Changing the mode does not tear the page down: the report being built is still open.
+    expect(screen.getByTestId('custom-report-builder')).toBeInTheDocument();
   });
 
   it('links to the add-team/exempt-team page (S30)', async () => {

@@ -37,6 +37,7 @@ import { useGridLayout } from '@/features/dynamic-reports/grid/useGridLayout';
 import { officialFilesKey } from '@/features/dynamic-reports/officialFile';
 import PeriodDeleteDialog from './PeriodDeleteDialog';
 import OfficialFilePanel from './OfficialFilePanel';
+import CustomReportPanel from '@/features/dynamic-reports/views/CustomReportPanel';
 
 const MODE_LABEL: Record<SummaryMode, string> = {
   SUBMITTED: 'Đã nộp + đã duyệt',
@@ -57,6 +58,9 @@ export default function ReportPeriodSummaryPage() {
     queryKey: ['dynamic-reports', 'period-summary', periodId, mode],
     queryFn: () => dynamicReportsApi.getPeriodSummary(periodId as string, mode),
     enabled: !!periodId,
+    // Changing the mode keeps the same period on the screen while the new totals load: the page (and a custom
+    // report being built on it) is not torn down and drawn again. Another period starts from nothing.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === periodId ? previous : undefined),
   });
 
   const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'working' | 'error'>('idle');
@@ -317,6 +321,9 @@ Vẫn chốt kỳ với số liệu như trên?`)) {
       </div>
 
       {view.status === 'FINALIZED' && <OfficialFilePanel key={view.periodId} periodId={view.periodId} />}
+
+      {/* Managers and admins of the report only: for anybody else the panel draws nothing. */}
+      <CustomReportPanel key={`custom-${view.periodId}`} reportId={view.reportId} periodId={view.periodId} mode={mode} />
 
       {gridUnavailable && (
         <p className="text-sm text-amber-700 mb-3" data-testid="grid-fallback-note">
