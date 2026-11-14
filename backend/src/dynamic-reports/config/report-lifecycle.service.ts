@@ -198,6 +198,8 @@ export class ReportLifecycleService {
     await tx.dynReportTarget.deleteMany({ where: { reportId } });
     await tx.dynReportRole.deleteMany({ where: { reportId } });
     await tx.dynReportSchedule.deleteMany({ where: { reportId } });
+    // The custom reports saved on it (in use and archived): Restrict, like everything else under a report.
+    await tx.dynReportView.deleteMany({ where: { reportId } });
     await tx.dynReport.delete({ where: { id: reportId } });
   }
 

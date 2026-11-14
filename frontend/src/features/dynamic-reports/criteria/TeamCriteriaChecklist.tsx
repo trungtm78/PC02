@@ -25,6 +25,35 @@ interface Props {
   onApplyToAll: () => void;
   /** True where the checklist is the whole point of the panel it sits in: it starts unfolded. */
   defaultOpen?: boolean;
+  /** The heading, when the checklist is not about what one team reports (default: "Tiêu chí tổ này phải báo"). */
+  sectionLabel?: string;
+  /** The counter beside the heading (default: "<team>: 3/8 tiêu chí"). */
+  countLabel?: (ticked: number, total: number) => string;
+  /**
+   * Test ids of a checklist that is not a team's: every id is `<prefix>-<part>` (`<prefix>-item-<key>`). Without it
+   * the ids are the team checklist's own (`team-criteria-item-<teamId>-<key>`, `btn-team-criteria-all-<teamId>`).
+   */
+  testIdPrefix?: string;
+  /** True while the ticks must not change (a save of them is on its way): every box and bulk button is off. */
+  disabled?: boolean;
+}
+
+/** The test ids of one checklist: the team checklist's historical ones, or `<prefix>-…` for another use. */
+function testIdsFor(teamId: string, prefix: string | undefined) {
+  if (prefix) {
+    return {
+      root: prefix,
+      part: (name: string) => `${prefix}-${name}`,
+      button: (name: string) => `${prefix}-${name}`,
+      keyed: (name: string, key: string) => `${prefix}-${name}-${key}`,
+    };
+  }
+  return {
+    root: `team-criteria-${teamId}`,
+    part: (name: string) => `team-criteria-${name}-${teamId}`,
+    button: (name: string) => `btn-team-criteria-${name}-${teamId}`,
+    keyed: (name: string, key: string) => `team-criteria-${name}-${teamId}-${key}`,
+  };
 }
 
 export default function TeamCriteriaChecklist({
@@ -38,43 +67,48 @@ export default function TeamCriteriaChecklist({
   onCopyFrom,
   onApplyToAll,
   defaultOpen = false,
+  sectionLabel,
+  countLabel,
+  testIdPrefix,
+  disabled = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
   const shown = filterGroups(groups, query);
   const shownKeys = shown.flatMap((g) => g.items.map((i) => i.key));
   const filtering = query.trim() !== '';
-  const panelId = `team-criteria-panel-${teamId}`;
+  const ids = testIdsFor(teamId, testIdPrefix);
+  const panelId = ids.part('panel');
   const smallButton = `px-2 py-1 border border-slate-300 text-slate-700 text-xs rounded hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`;
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-2" data-testid={`team-criteria-${teamId}`}>
+    <div className="mt-3 border-t border-slate-100 pt-2" data-testid={ids.root}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
-          data-testid={`btn-team-criteria-toggle-${teamId}`}
+          data-testid={ids.button('toggle')}
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
           className={`flex items-center gap-1 text-sm font-medium text-slate-700 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
         >
           {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          {t.section}
+          {sectionLabel ?? t.section}
         </button>
         <span
           className={`text-xs ${ticked.size === 0 ? 'text-red-700 font-semibold' : 'text-slate-600'}`}
-          data-testid={`team-criteria-count-${teamId}`}
+          data-testid={ids.part('count')}
         >
-          {t.count(teamName, ticked.size, total)}
+          {countLabel ? countLabel(ticked.size, total) : t.count(teamName, ticked.size, total)}
         </span>
       </div>
 
       {open && (
-        <div id={panelId} className="mt-2" data-testid={`team-criteria-panel-${teamId}`}>
+        <div id={panelId} className="mt-2" data-testid={panelId}>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <input
               type="search"
-              data-testid={`team-criteria-search-${teamId}`}
+              data-testid={ids.part('search')}
               aria-label={t.search}
               placeholder={t.search}
               value={query}
@@ -83,7 +117,8 @@ export default function TeamCriteriaChecklist({
             />
             <button
               type="button"
-              data-testid={`btn-team-criteria-all-${teamId}`}
+              data-testid={ids.button('all')}
+              disabled={disabled}
               onClick={() => onChange(tickAll(ticked, shownKeys))}
               className={smallButton}
             >
@@ -91,7 +126,8 @@ export default function TeamCriteriaChecklist({
             </button>
             <button
               type="button"
-              data-testid={`btn-team-criteria-none-${teamId}`}
+              data-testid={ids.button('none')}
+              disabled={disabled}
               onClick={() => onChange(untickAll(ticked, shownKeys))}
               className={smallButton}
             >
@@ -99,7 +135,8 @@ export default function TeamCriteriaChecklist({
             </button>
             <button
               type="button"
-              data-testid={`btn-team-criteria-invert-${teamId}`}
+              data-testid={ids.button('invert')}
+              disabled={disabled}
               onClick={() => onChange(invertTicks(ticked, shownKeys))}
               className={smallButton}
             >
@@ -109,7 +146,7 @@ export default function TeamCriteriaChecklist({
           {filtering && shownKeys.length > 0 && <p className="text-xs text-slate-500 mb-2">{t.filteredNote(shownKeys.length)}</p>}
 
           {shown.length === 0 ? (
-            <p className="text-sm text-slate-500" data-testid={`team-criteria-nomatch-${teamId}`}>
+            <p className="text-sm text-slate-500" data-testid={ids.part('nomatch')}>
               {t.noMatch}
             </p>
           ) : (
@@ -118,9 +155,10 @@ export default function TeamCriteriaChecklist({
                 <div key={g.key ?? '__none__'} className="px-2 py-1.5">
                   {g.key !== null && (
                     <GroupBox
-                      testId={`team-criteria-group-${teamId}-${g.key}`}
+                      testId={ids.keyed('group', g.key)}
                       label={g.label ?? g.key}
                       state={groupState(ticked, g)}
+                      disabled={disabled}
                       onToggle={(on) => {
                         const keys = g.items.map((i) => i.key);
                         onChange(on ? tickAll(ticked, keys) : untickAll(ticked, keys));
@@ -133,8 +171,9 @@ export default function TeamCriteriaChecklist({
                         <label className="flex items-center gap-2 py-0.5 text-sm cursor-pointer">
                           <input
                             type="checkbox"
-                            data-testid={`team-criteria-item-${teamId}-${item.key}`}
+                            data-testid={ids.keyed('item', item.key)}
                             checked={ticked.has(item.key)}
+                            disabled={disabled}
                             onChange={() => onChange(toggleTick(ticked, item.key))}
                           />
                           <span>{item.label}</span>
@@ -153,7 +192,7 @@ export default function TeamCriteriaChecklist({
               <label className="flex items-center gap-1 text-xs text-slate-700">
                 {t.copyFrom}
                 <select
-                  data-testid={`team-criteria-copy-${teamId}`}
+                  data-testid={ids.part('copy')}
                   value=""
                   onChange={(e) => {
                     if (e.target.value) onCopyFrom(e.target.value);
@@ -172,7 +211,7 @@ export default function TeamCriteriaChecklist({
             {otherTeams.length > 0 && (
               <button
                 type="button"
-                data-testid={`btn-team-criteria-apply-all-${teamId}`}
+                data-testid={ids.button('apply-all')}
                 onClick={onApplyToAll}
                 className={smallButton}
               >
@@ -190,11 +229,13 @@ function GroupBox({
   testId,
   label,
   state,
+  disabled,
   onToggle,
 }: {
   testId: string;
   label: string;
   state: 'all' | 'some' | 'none';
+  disabled: boolean;
   onToggle: (on: boolean) => void;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
@@ -210,6 +251,7 @@ function GroupBox({
         data-testid={testId}
         aria-label={t.groupOf(label)}
         checked={state === 'all'}
+        disabled={disabled}
         onChange={(e) => onToggle(e.target.checked)}
       />
       <span>{label}</span>

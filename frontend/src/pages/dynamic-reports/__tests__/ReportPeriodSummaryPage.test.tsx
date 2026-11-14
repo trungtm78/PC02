@@ -4,10 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ReportPeriodSummaryPage from '../ReportPeriodSummaryPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
+import { reportViewsApi } from '@/features/dynamic-reports/views/api';
 import type { OfficialFileView, PeriodSummaryView } from '@/features/dynamic-reports/types';
 import { makeGrid } from '@/features/dynamic-reports/grid/__tests__/fixtures';
 import { FeatureFlagsContext } from '@/lib/features/featureFlagsContextObject';
 import { GRID_FLAG } from '@/features/dynamic-reports/grid/useGridLayout';
+import { reportCriteria } from '@/locales/reportCriteria.vi';
+import type { CustomReportPreview } from '@/features/dynamic-reports/views/types';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
@@ -23,7 +26,13 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     listOfficialFiles: vi.fn(),
     remakeOfficialFile: vi.fn(),
     downloadOfficialFile: vi.fn(),
+    loadPeriodCriteria: vi.fn(),
+    listAssignments: vi.fn(),
   },
+}));
+vi.mock('@/features/dynamic-reports/views/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/dynamic-reports/views/api')>()),
+  reportViewsApi: { list: vi.fn(), preview: vi.fn(), listTeamDirectory: vi.fn() },
 }));
 
 function renderPage() {
@@ -89,10 +98,185 @@ const VIEW: PeriodSummaryView = {
   serverTime: '2026-06-15T10:00:00.000Z',
 };
 
+/** The same period under "Chỉ số đã duyệt": other figures than VIEW, so a test can tell which answer is on the screen. */
+const APPROVED_VIEW: PeriodSummaryView = {
+  ...VIEW,
+  mode: 'APPROVED',
+  kpi: { ...VIEW.kpi, completionRateLabel: '1/3', dataCoverageLabel: '1/3' },
+  fields: [{ ...VIEW.fields[0], value: '20', countNonBlank: 1 }],
+};
+
+/** A promise settled by the test: what is on the screen while the server has not answered yet. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+const CUSTOM_PREVIEW: CustomReportPreview = {
+  periodId: 'period1',
+  reportId: 'report1',
+  viewId: null,
+  title: 'HSLN — kỳ 2026-06',
+  mode: 'SUBMITTED',
+  periodStatus: 'OPEN',
+  filterLine: null,
+  columns: [],
+  teams: [{ teamId: 't1', name: 'Đội 3' }],
+  rows: [
+    { kind: 'CRITERION', itemKey: 'k1', code: null, label: 'Số vụ mới', unit: null, depth: 0, type: 'NUM', total: '30', totalMark: null, cells: [{ value: '30', mark: null }] },
+  ],
+  notes: [],
+  ignored: { itemKeys: [], teamIds: [], teams: [] },
+  newCriteria: 0,
+  counts: { criteria: { selected: 1, total: 1 }, teams: { selected: 1, total: 1 } },
+};
+
+/** What a manager's custom-report section needs to open its builder. */
+function asManager() {
+  vi.mocked(reportViewsApi.list).mockResolvedValue([]);
+  vi.mocked(reportViewsApi.listTeamDirectory).mockResolvedValue([]);
+  vi.mocked(reportViewsApi.preview).mockResolvedValue(CUSTOM_PREVIEW);
+  vi.mocked(dynamicReportsApi.loadPeriodCriteria).mockResolvedValue({
+    criteria: [{ itemKey: 'k1', fieldKey: 'S!C2', code: null, label: 'Số vụ mới', unit: null, parentItemKey: null }],
+    groups: [],
+    assignments: [],
+  });
+  vi.mocked(dynamicReportsApi.listAssignments).mockResolvedValue([
+    { assignmentId: 'a1', teamId: 't1', teamName: 'Đội 3', obligation: 'REQUIRED', state: 'SUBMITTED', editors: [], addedMidPeriod: false, removable: false },
+  ]);
+}
+
 describe('ReportPeriodSummaryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(dynamicReportsApi.listOfficialFiles).mockResolvedValue([]);
+    // Like a viewer: the custom-report section is for managers only and stays out of sight.
+    vi.mocked(reportViewsApi.list).mockRejectedValue({ isAxiosError: true, response: { status: 404, data: { error: { code: 'REPORT_NOT_FOUND' } } } });
+  });
+
+  it('shows no custom-report section to somebody who does not manage the report', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    renderPage();
+    await waitFor(() => screen.getByTestId('kpi-completed'));
+    await waitFor(() => expect(reportViewsApi.list).toHaveBeenCalledWith('report1'));
+    expect(screen.queryByTestId('custom-report-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-export')).toBeInTheDocument();
+  });
+
+  it('a manager gets the custom-report section, and its preview follows the mode chosen on the page', async () => {
+    // Each mode has its own figures: the test can tell the answer of one from the answer of the other.
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockImplementation(async (_periodId, mode) => (mode === 'APPROVED' ? APPROVED_VIEW : VIEW));
+    asManager();
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('custom-report-create'));
+    // The page's own export button is still there, untouched.
+    expect(screen.getByTestId('btn-export')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-completed')).toHaveTextContent('2/3');
+    const builder = screen.getByTestId('custom-report-builder');
+    fireEvent.change(screen.getByTestId('custom-report-name'), { target: { value: 'Đang soạn dở' } });
+
+    fireEvent.change(screen.getByTestId('mode-select'), { target: { value: 'APPROVED' } });
+    await waitFor(() =>
+      expect(reportViewsApi.preview).toHaveBeenCalledWith('period1', expect.objectContaining({ mode: 'APPROVED' })),
+    );
+    // The figures of the new mode replace those of the old one.
+    await waitFor(() => expect(screen.getByTestId('kpi-completed')).toHaveTextContent('1/3'));
+    expect(screen.getByTestId('field-row-Đội 3!C6')).toHaveTextContent('20');
+    // Changing the mode does not tear the page down: the report being built is the same one, with what was typed.
+    expect(screen.getByTestId('custom-report-builder')).toBe(builder);
+    expect(screen.getByTestId('custom-report-name')).toHaveValue('Đang soạn dở');
+  });
+
+  it('while the figures of a newly chosen mode are on their way: the old ones are marked as such, export and closing wait', async () => {
+    const next = deferred<PeriodSummaryView>();
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockImplementation((_periodId, mode) =>
+      mode === 'APPROVED' ? next.promise : Promise.resolve(VIEW),
+    );
+    renderPage();
+    await waitFor(() => screen.getByTestId('kpi-completed'));
+    expect(screen.queryByTestId('summary-refreshing')).not.toBeInTheDocument();
+    expect(screen.getByTestId('summary-figures')).not.toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByTestId('btn-export')).toBeEnabled();
+    expect(screen.getByTestId('btn-finalize')).toBeEnabled();
+
+    fireEvent.change(screen.getByTestId('mode-select'), { target: { value: 'APPROVED' } });
+    await waitFor(() => expect(dynamicReportsApi.getPeriodSummary).toHaveBeenCalledWith('period1', 'APPROVED'));
+    // Still the figures of the old mode, and the screen says so.
+    expect(screen.getByTestId('kpi-completed')).toHaveTextContent('2/3');
+    expect(screen.getByTestId('summary-refreshing')).toHaveTextContent(reportCriteria.customReport.page.refreshing);
+    expect(screen.getByTestId('summary-figures')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByTestId('summary-figures').className).toContain('opacity-60');
+    expect(screen.getByTestId('btn-export')).toBeDisabled();
+    expect(screen.getByTestId('btn-export')).toHaveAttribute('title', reportCriteria.customReport.page.waitForFigures);
+    expect(screen.getByTestId('btn-finalize')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('btn-export'));
+    fireEvent.click(screen.getByTestId('btn-finalize'));
+    expect(dynamicReportsApi.exportPeriod).not.toHaveBeenCalled();
+    expect(dynamicReportsApi.finalizePeriod).not.toHaveBeenCalled();
+
+    next.resolve(APPROVED_VIEW);
+    await waitFor(() => expect(screen.getByTestId('kpi-completed')).toHaveTextContent('1/3'));
+    expect(screen.queryByTestId('summary-refreshing')).not.toBeInTheDocument();
+    expect(screen.getByTestId('summary-figures')).not.toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByTestId('summary-figures').className).not.toContain('opacity-60');
+    expect(screen.getByTestId('btn-export')).toBeEnabled();
+    expect(screen.getByTestId('btn-finalize')).toBeEnabled();
+  });
+
+  it('"Mở chốt" of a closed period waits for the figures of a newly chosen mode too', async () => {
+    const next = deferred<PeriodSummaryView>();
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockImplementation((_periodId, mode) =>
+      mode === 'APPROVED' ? next.promise : Promise.resolve({ ...VIEW, status: 'FINALIZED' }),
+    );
+    renderPage();
+    expect(await screen.findByTestId('btn-reopen')).toBeEnabled();
+    fireEvent.change(screen.getByTestId('mode-select'), { target: { value: 'APPROVED' } });
+    await waitFor(() => expect(screen.getByTestId('btn-reopen')).toBeDisabled());
+    next.resolve({ ...APPROVED_VIEW, status: 'FINALIZED' });
+    await waitFor(() => expect(screen.getByTestId('btn-reopen')).toBeEnabled());
+  });
+
+  it('closing the period asks for the custom-report preview again: it must not keep the figures from before', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValueOnce(VIEW).mockResolvedValue({ ...VIEW, status: 'FINALIZED' });
+    vi.mocked(dynamicReportsApi.finalizePeriod).mockResolvedValue({
+      periodId: 'period1',
+      status: 'FINALIZED',
+      finalizedAt: '2026-06-15T10:00:00.000Z',
+      snapshotId: 'snapshot1',
+    });
+    asManager();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+    fireEvent.click(await screen.findByTestId('custom-report-create'));
+    await waitFor(() => expect(screen.getByTestId('custom-report-export')).toBeEnabled());
+    const askedBefore = vi.mocked(reportViewsApi.preview).mock.calls.length;
+
+    fireEvent.click(screen.getByTestId('btn-finalize'));
+    await waitFor(() => screen.getByTestId('finalized-badge'));
+    await waitFor(() => expect(vi.mocked(reportViewsApi.preview).mock.calls.length).toBeGreaterThan(askedBefore));
+    // The builder was not closed by the closing of the period.
+    expect(screen.getByTestId('custom-report-builder')).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('opening the period again asks for the custom-report preview again', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValueOnce({ ...VIEW, status: 'FINALIZED' }).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.reopenPeriod).mockResolvedValue({ periodId: 'period1', status: 'OPEN' });
+    asManager();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Sai số liệu');
+    renderPage();
+    fireEvent.click(await screen.findByTestId('custom-report-create'));
+    await waitFor(() => expect(screen.getByTestId('custom-report-export')).toBeEnabled());
+    const askedBefore = vi.mocked(reportViewsApi.preview).mock.calls.length;
+
+    fireEvent.click(screen.getByTestId('btn-reopen'));
+    await waitFor(() => screen.getByTestId('btn-finalize'));
+    await waitFor(() => expect(vi.mocked(reportViewsApi.preview).mock.calls.length).toBeGreaterThan(askedBefore));
+    promptSpy.mockRestore();
   });
 
   it('links to the add-team/exempt-team page (S30)', async () => {

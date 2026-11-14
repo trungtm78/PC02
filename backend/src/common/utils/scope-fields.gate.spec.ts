@@ -65,6 +65,8 @@ const OTHER_OBJECTS = [
   'reports/tdac/tdac.controller.ts::const teamIds = this.parseTeamIds(query.teamIds, req);',
   // `CreateDraftDto`: the teams asked for (then checked against the write scope).
   'reports/tdac/tdac.controller.ts::dto.teamIds ?? [],',
+  // A custom report ("view") of a dynamic report: the teams it names. The one accessor every reader of it goes through.
+  'dynamic-reports/views/report-view.ts::return view.teamIds;',
   // `ApplyTeamsDto` of the permission screen: the teams a configuration is applied to.
   'authz/admin/authz-admin.controller.ts::const teamIds = [...new Set(body.teamIds)];',
 ];

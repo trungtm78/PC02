@@ -26,6 +26,7 @@ import {
 } from './contributors';
 import { normaliseTargetSubset, TargetSubsetError } from '../config/target-subsets';
 import { criteriaGroupsOf } from '../config/report-config.service';
+import { teamIdsOf } from '../views/report-view';
 import type { SummaryMode } from './contributors';
 import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
@@ -1867,8 +1868,16 @@ export class AggregateService {
     return { exportId: exportRow.id, fileName, format };
   }
 
+  /**
+   * What identifies the set of teams a file was made from, under a mode: stored with an export and worked out again
+   * when it is downloaded. For sibling services that store exports of their own (the custom report).
+   */
+  contributorSetHashOf(period: Parameters<AggregateService['computeApprovedSnapshot']>[0], mode: SummaryMode): string {
+    return this.computeApprovedSnapshot(period, mode).contributorSetHash;
+  }
+
   /** The assignments in the order of the team tree (parents before their children, siblings by `order`, then name). */
-  private async assignmentsInTeamOrder<T extends { teamId: string }>(assignments: T[]): Promise<T[]> {
+  async assignmentsInTeamOrder<T extends { teamId: string }>(assignments: T[]): Promise<T[]> {
     const teams = await this.prisma.team.findMany({
       select: { id: true, name: true, parentId: true, order: true },
     });
@@ -2000,7 +2009,7 @@ export class AggregateService {
     if (!row || !row.fileBytes || !row.fileName) {
       throw new NotFoundException('Không tìm thấy file xuất này.');
     }
-    const scope = row.scope as { periodId: string; reportId: string; mode?: SummaryMode };
+    const scope = row.scope as { periodId: string; reportId: string; mode?: SummaryMode; teamIds?: unknown };
     const actorRole = await this.resolveManagerRole(
       this.prisma,
       scope.reportId,
@@ -2025,8 +2034,14 @@ export class AggregateService {
       },
     });
     if (period) {
+      // A custom report is made from the teams it names: only a change among THOSE makes the file stale.
+      const madeFromTeams = teamIdsOf(scope);
+      const onlyTeams = Array.isArray(madeFromTeams) ? new Set(madeFromTeams as unknown[]) : null;
+      const madeFrom = onlyTeams
+        ? { ...period, assignments: period.assignments.filter((a) => onlyTeams.has(a.teamId)) }
+        : period;
       // Files made before the mode existed were the approved teams'.
-      const { contributorSetHash } = this.computeApprovedSnapshot(period, scope.mode ?? 'APPROVED');
+      const { contributorSetHash } = this.computeApprovedSnapshot(madeFrom, scope.mode ?? 'APPROVED');
       if (
         row.contributorSetHash &&
         row.contributorSetHash !== contributorSetHash

@@ -6,6 +6,8 @@
  * submit, the manager takes one criterion away from team C in the running period, approves, closes the period, reads
  * the official file, and finally takes the team-by-criterion matrix out as Excel and puts it back. A report made the
  * old way (no criteria per team) is run next to it to show nothing changed for it.
+ * Before the approval the manager also makes a CUSTOM REPORT from the aggregate screen (some criteria of some teams):
+ * previews it, exports it, saves it, uses it on another period, renames, archives, restores and deletes it.
  *
  * Every expected value is worked out here from what this script typed (the cells of the Excel file, the figures each
  * team saved), never read from one endpoint of the product and compared with another.
@@ -213,6 +215,7 @@ async function cleanUp(pg) {
     [`DELETE FROM "dyn_report_target_editors" WHERE "targetId" = ANY($1)`, [targets]],
     [`DELETE FROM "dyn_report_targets" WHERE "id" = ANY($1)`, [targets]],
     [`DELETE FROM "dyn_report_roles" WHERE "reportId" = ANY($1)`, [reports]],
+    [`DELETE FROM "dyn_report_views" WHERE "reportId" = ANY($1)`, [reports]],
     [`DELETE FROM "dyn_report_schedules" WHERE "reportId" = ANY($1)`, [reports]],
     [`DELETE FROM "dyn_report_fields" WHERE "versionId" = ANY($1)`, [versions]],
     [`DELETE FROM "dyn_report_validation_rules" WHERE "versionId" = ANY($1)`, [versions]],
@@ -608,6 +611,239 @@ async function workflow(pg) {
   );
   const sub11 = await summaryField('SUBMITTED', K11);
   check(`TOTAL: counting submitted teams only, criterion 1.1 is ${sumOf(K11, ['A', 'B'])} (A and B; C has not submitted)`, Number(sub11.value) === sumOf(K11, ['A', 'B']) && sub11.countTotal === 2, sub11);
+
+  // ── a custom report made from the aggregate screen: pick criteria and teams, preview, export, save, reuse ───
+  // At this point: teams A and B have submitted, team C has a draft; the period is open.
+  await customReportChecks();
+
+  async function customReportChecks() {
+    const previewOf = (period, body, who = admin) => http(who, 'POST', `/bao-cao-dong/periods/${period}/custom-preview`, body);
+    const exportOf = (period, body, who = admin) => http(who, 'POST', `/bao-cao-dong/periods/${period}/custom-export`, body);
+    const viewsUrl = `/bao-cao-dong/reports/${reportId}/views`;
+    const listViews = async (archivedToo) => {
+      const list = await http(admin, 'GET', `${viewsUrl}${archivedToo ? '?includeArchived=true' : ''}`);
+      return Array.isArray(list.body) ? list.body : [`status ${list.status}`];
+    };
+    const rowOfLabel = (summary, label) => (summary?.rows ?? []).find((r) => r.label === label) ?? {};
+    const cellsShown = (row) => (row.cells ?? []).map((c) => c.mark ?? c.value);
+    const periodKey = (await pg.query(`SELECT "periodKey" FROM "dyn_report_periods" WHERE "id" = $1`, [periodId])).rows[0]?.periodKey;
+    const SUBMITTED = ['A', 'B'];
+    const parentSum = (teams) => sumOf(K11, teams) + sumOf(K12, teams);
+
+    // Nothing unticked: every criterion, every team.
+    const all = await previewOf(periodId, {});
+    check(
+      'CUSTOM REPORT: with nothing unticked the preview lists the heading "1" and all five criteria, one column per team (A, B, C), under the title "<report> — kỳ <period>"',
+      all.status === 200 &&
+        sameList((all.body?.rows ?? []).map((r) => `${r.kind}|${r.code}|${r.label}`), [`GROUP|1|${PARENT}`, ...SOURCE_ROWS.filter((r) => r.name !== PARENT).map((r) => `CRITERION|${r.code}|${r.name}`)]) &&
+        sameList((all.body?.columns ?? []).map((c) => c.label), ['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', teamName.A, teamName.B, teamName.C]) &&
+        all.body?.title === `UAT ${RUN} TC — kỳ ${periodKey}` &&
+        all.body?.counts?.criteria?.selected === 5 && all.body?.counts?.criteria?.total === 5 && all.body?.counts?.teams?.selected === 3 && all.body?.counts?.teams?.total === 3,
+      [all.status, all.body?.title, all.body?.columns, (all.body?.rows ?? []).map((r) => [r.kind, r.code, r.label]), all.body?.counts],
+    );
+    check(
+      `CUSTOM REPORT: its totals are the totals of the period: the teams that submitted (A + B) for each criterion (112, 114, 220, 300, 400), and the heading "1" is 1.1 + 1.2 (${parentSum(SUBMITTED)})`,
+      LEAVES.every((n) => Number(rowOfLabel(all.body, n).total) === sumOf(n, SUBMITTED)) && Number(rowOfLabel(all.body, PARENT).total) === parentSum(SUBMITTED) && all.body?.mode === 'SUBMITTED',
+      (all.body?.rows ?? []).map((r) => [r.label, r.total]),
+    );
+    const allSaved = await previewOf(periodId, { mode: 'ALL_SAVED' });
+    const screen = await Promise.all(LEAVES.map((n) => summaryField('ALL_SAVED', n)));
+    check(
+      'CUSTOM REPORT: under "everything saved" its totals are what all three teams saved (team C\'s draft included, its figure for the criterion taken away excluded), the same figures the aggregate screen shows',
+      allSaved.status === 200 && LEAVES.every((n, i) => Number(rowOfLabel(allSaved.body, n).total) === sumOf(n, TEAMS) && rowOfLabel(allSaved.body, n).total === screen[i].value),
+      [(allSaved.body?.rows ?? []).map((r) => [r.label, r.total]), screen.map((f) => f.value)],
+    );
+
+    // Two criteria (1.1 and 3) of two of the three teams (A and B). Team A was not given criterion 3.
+    const TITLE = `Báo cáo gửi cấp trên (${RUN})`;
+    const PICKED_TEAMS = ['A', 'B'];
+    const definition = { title: TITLE, itemKeys: [K11, K3].map((n) => itemKey[n]), teamIds: PICKED_TEAMS.map((t) => teamId[t]) };
+    const FILTER_LINE = `Đơn vị: ${teamName.A}, ${teamName.B} · Số liệu: đã nộp + đã duyệt`;
+    const some = await previewOf(periodId, { definition, mode: 'SUBMITTED' });
+    check(
+      'CUSTOM REPORT: with two criteria and two teams ticked the preview has the heading and those two criteria as rows, and those two teams as columns',
+      some.status === 200 &&
+        sameList((some.body?.rows ?? []).map((r) => r.label), [PARENT, K11, K3]) &&
+        sameList((some.body?.columns ?? []).map((c) => c.label), ['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', teamName.A, teamName.B]) &&
+        some.body?.title === TITLE && some.body?.filterLine === FILTER_LINE,
+      [some.status, some.body?.title, some.body?.filterLine, some.body?.columns, (some.body?.rows ?? []).map((r) => r.label)],
+    );
+    check(
+      `CUSTOM REPORT: the totals are the sums of what the two ticked teams submitted (1.1: ${TYPED.A[K11]} + ${TYPED.B[K11]} = ${sumOf(K11, PICKED_TEAMS)}; 3: ${sumOf(K3, PICKED_TEAMS)}, team B alone), and under each team stands its own figure`,
+      Number(rowOfLabel(some.body, K11).total) === sumOf(K11, PICKED_TEAMS) &&
+        Number(rowOfLabel(some.body, K3).total) === sumOf(K3, PICKED_TEAMS) &&
+        sameList(cellsShown(rowOfLabel(some.body, K11)), [String(TYPED.A[K11]), String(TYPED.B[K11])]) &&
+        sameList(cellsShown(rowOfLabel(some.body, K3)), ['NOT_ASSIGNED', String(TYPED.B[K3])]),
+      (some.body?.rows ?? []).map((r) => [r.label, r.total, cellsShown(r)]),
+    );
+    check(
+      `CUSTOM REPORT: the heading "1" keeps the full sum of its criteria for the ticked teams (${parentSum(PICKED_TEAMS)}: 1.2 is in it although it is not listed), is marked as such, and a note says so`,
+      Number(rowOfLabel(some.body, PARENT).total) === parentSum(PICKED_TEAMS) && rowOfLabel(some.body, PARENT).partial === true && (some.body?.notes ?? []).some((n) => n.code === 'GROUP_INCLUDES_UNLISTED' && n.params?.listed === 1 && n.params?.total === 2),
+      [rowOfLabel(some.body, PARENT), some.body?.notes],
+    );
+
+    // The Excel file of the same request.
+    const made = await exportOf(periodId, { definition, mode: 'SUBMITTED' });
+    const file = made.body?.exportId ? await download(admin, `/bao-cao-dong/exports/${made.body.exportId}/download`) : { status: 0 };
+    check('CUSTOM REPORT: it is exported to an .xlsx file that downloads through the export download', ok2xx(made) && /\.xlsx$/.test(made.body?.fileName ?? '') && file.status === 200 && file.buffer.length > 0, [made.status, made.body, file.status]);
+    if (file.status === 200) {
+      const workbook = await loadWorkbook(file.buffer);
+      const sheet = workbook.worksheets[0];
+      const cells = cellsOf(sheet);
+      const at = (row, col) => cells.find((c) => c.row === row && c.col === col)?.text ?? '';
+      const line = (row) => [1, 2, 3, 4, 5, 6, 7].map((col) => at(row, col));
+      const HEADER = 4;
+      check('CUSTOM REPORT FILE: one sheet, the title in A1 and the generated filter line in A2', workbook.worksheets.length === 1 && at(1, 1) === TITLE && at(2, 1) === FILTER_LINE, [workbook.worksheets.map((s) => s.name), at(1, 1), at(2, 1)]);
+      check('CUSTOM REPORT FILE: the table has the columns Mã, Tiêu chí, ĐVT, Tổng and one per ticked team, no other', sameList(line(HEADER), ['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', teamName.A, teamName.B, '']), line(HEADER));
+      const expectedLines = [
+        ['1', PARENT, '', String(parentSum(PICKED_TEAMS)), String(TYPED.A[K11] + TYPED.A[K12]), String(TYPED.B[K11] + TYPED.B[K12]), ''],
+        ['1.1', K11, 'tin', String(sumOf(K11, PICKED_TEAMS)), String(TYPED.A[K11]), String(TYPED.B[K11]), ''],
+        ['3', K3, 'người', String(sumOf(K3, PICKED_TEAMS)), '—', String(TYPED.B[K3]), ''],
+      ];
+      const actualLines = expectedLines.map((_, i) => line(HEADER + 1 + i));
+      check(
+        'CUSTOM REPORT FILE: its rows are the heading and the two ticked criteria with code, name, unit, the total of the two ticked teams and each team\'s own figure ("—" where team A was not given criterion 3)',
+        expectedLines.every((want, i) => sameList(actualLines[i], want)) && line(HEADER + 1 + expectedLines.length).every((text) => text === ''),
+        actualLines,
+      );
+      const texts = cells.map((c) => c.text);
+      check(
+        'CUSTOM REPORT FILE: nothing of what was unticked is in it: not team C, not criteria 1.2, 2 and 4, not a figure of team C',
+        !texts.includes(teamName.C) && [K12, K2, K4].every((n) => !texts.includes(n)) && !texts.includes(String(TYPED.C[K11])) && !texts.includes(String(TYPED.C[K2])),
+        texts,
+      );
+      const under = cells.filter((c) => c.row > HEADER + expectedLines.length);
+      check('CUSTOM REPORT FILE: under the table a note says the heading "1" includes a criterion that is not listed', under.some((c) => c.text.includes(`"1 ${PARENT}"`) && c.text.includes('không được liệt kê')), under);
+      let formulas = 0;
+      sheet.eachRow((row) => row.eachCell((cell) => { if (cell.type === ExcelJS.ValueType.Formula) formulas += 1; }));
+      check('CUSTOM REPORT FILE: it holds plain values, no formula', formulas === 0, formulas);
+    }
+
+    // Saved under a name, listed, used again on ANOTHER period of the same report.
+    const NAME = `Gửi cấp trên ${RUN}`;
+    const saved = await http(admin, 'POST', viewsUrl, { name: NAME, ...definition });
+    const viewId = saved.body?.id;
+    check(
+      'SAVED VIEW: the custom report is saved under a name with its title, its two criteria and its two teams',
+      saved.status === 201 && saved.body?.name === NAME && saved.body?.title === TITLE && saved.body?.revision === 1 && sameList(saved.body?.itemKeys ?? [], definition.itemKeys) && sameList(saved.body?.teamIds ?? [], definition.teamIds),
+      [saved.status, saved.body],
+    );
+    if (!viewId) throw new Error('the view was not saved, cannot go on');
+    let listed = await listViews(false);
+    check('SAVED VIEW: it is listed among the custom reports of the report', listed.length === 1 && listed[0].id === viewId && listed[0].name === NAME, listed);
+
+    // The next period of the report exists but is not open yet. It is opened for the time of this check, teams A and B
+    // enter and submit other figures in it through the entry screen's own calls, and it is put back as it was.
+    const next = (await pg.query(`SELECT "id", "periodKey", "opensAt" FROM "dyn_report_periods" WHERE "reportId" = $1 AND "id" <> $2 ORDER BY "startDate" LIMIT 1`, [reportId, periodId])).rows[0];
+    check('the report has another period (the next one, generated ahead)', !!next, next);
+    if (next) {
+      const TYPED_NEXT = { A: { [K11]: 5, [K12]: 6, [K2]: 7 }, B: { [K11]: 50, [K12]: 60, [K2]: 70, [K3]: 80, [K4]: 90 } };
+      // The column holds UTC without a zone: "an hour ago" has to be said in UTC, not in the session's time zone.
+      await pg.query(`UPDATE "dyn_report_periods" SET "opensAt" = (now() AT TIME ZONE 'UTC') - interval '1 hour' WHERE "id" = $1`, [next.id]);
+      try {
+        const entered = [];
+        for (const team of PICKED_TEAMS) {
+          const assignmentId = (await pg.query(`SELECT "id" FROM "dyn_report_assignments" WHERE "periodId" = $1 AND "teamId" = $2`, [next.id, teamId[team]])).rows[0]?.id;
+          const url = `/bao-cao-dong/submissions/${assignmentId}`;
+          const opened = await http(token[team], 'GET', url);
+          const stored2 = await http(token[team], 'PATCH', `${url}/values`, {
+            values: Object.fromEntries(Object.entries(TYPED_NEXT[team]).map(([name, v]) => [fieldKey[name], String(v)])),
+            expectedRevision: opened.body?.revision,
+            idempotencyKey: randomUUID(),
+          });
+          const sent = await http(token[team], 'POST', `${url}/submit`, { expectedRevision: stored2.body?.revision });
+          entered.push([team, opened.status, stored2.status, sent.status, ok2xx(stored2) ? null : stored2.body, ok2xx(sent) ? null : sent.body]);
+        }
+        check('in the next period teams A and B enter and submit other figures', entered.every((e) => e[1] === 200 && e[2] === 200 && (e[3] === 200 || e[3] === 201)), entered);
+        const reused = await previewOf(next.id, { viewId });
+        const sumNext = (name) => PICKED_TEAMS.filter((t) => OWNED[t].includes(name)).reduce((sum, t) => sum + (TYPED_NEXT[t][name] ?? 0), 0);
+        check(
+          `SAVED VIEW: used on the next period it gives the same rows and columns with THAT period's figures (1.1: ${sumNext(K11)}; 3: ${sumNext(K3)}; heading "1": ${sumNext(K11) + sumNext(K12)})`,
+          reused.status === 200 &&
+            reused.body?.periodId === next.id && reused.body?.viewId === viewId && reused.body?.title === TITLE &&
+            sameList((reused.body?.rows ?? []).map((r) => r.label), [PARENT, K11, K3]) &&
+            sameList((reused.body?.columns ?? []).map((c) => c.label), ['Mã', 'Tiêu chí', 'ĐVT', 'Tổng', teamName.A, teamName.B]) &&
+            Number(rowOfLabel(reused.body, K11).total) === sumNext(K11) && Number(rowOfLabel(reused.body, K3).total) === sumNext(K3) && Number(rowOfLabel(reused.body, PARENT).total) === sumNext(K11) + sumNext(K12),
+          [reused.status, (reused.body?.rows ?? []).map((r) => [r.label, r.total, cellsShown(r)]), reused.body?.columns],
+        );
+        const madeNext = await exportOf(next.id, { viewId });
+        check('SAVED VIEW: exported on the next period, the file is named after the view and that period', ok2xx(madeNext) && String(madeNext.body?.fileName ?? '').endsWith(`-${next.periodKey}.xlsx`) && String(madeNext.body?.fileName ?? '').includes(RUN), [madeNext.status, madeNext.body]);
+      } finally {
+        await pg.query(`UPDATE "dyn_report_periods" SET "opensAt" = $2 WHERE "id" = $1`, [next.id, next.opensAt]);
+      }
+    }
+
+    // Edit, with the guard against two people overwriting each other.
+    const RENAMED_VIEW = `Gửi Bộ ${RUN}`;
+    const renamed = await http(admin, 'PATCH', `/bao-cao-dong/views/${viewId}`, { expectedRevision: 1, name: RENAMED_VIEW });
+    check('SAVED VIEW: it is renamed; its selection stays and its revision moves on', renamed.status === 200 && renamed.body?.name === RENAMED_VIEW && renamed.body?.revision === 2 && sameList(renamed.body?.itemKeys ?? [], definition.itemKeys), [renamed.status, renamed.body]);
+    const stale = await http(admin, 'PATCH', `/bao-cao-dong/views/${viewId}`, { expectedRevision: 1, name: `Đè ${RUN}` });
+    listed = await listViews(false);
+    check('SAVED VIEW: an edit made from the revision before the rename is refused with REVISION_CONFLICT and changes nothing', stale.status === 409 && codeOf(stale) === 'REVISION_CONFLICT' && listed.length === 1 && listed[0].name === RENAMED_VIEW && listed[0].revision === 2, [stale.status, stale.body, listed]);
+    const duplicate = await http(admin, 'POST', viewsUrl, { name: RENAMED_VIEW });
+    check('SAVED VIEW: a second custom report with the same name is refused with VIEW_NAME_TAKEN', duplicate.status === 409 && codeOf(duplicate) === 'VIEW_NAME_TAKEN' && (await listViews(true)).length === 1, [duplicate.status, duplicate.body]);
+    const emptySave = await http(admin, 'POST', viewsUrl, { name: `Rỗng ${RUN}`, itemKeys: [] });
+    const emptyExport = await exportOf(periodId, { definition: { teamIds: [] } });
+    check(
+      'CUSTOM REPORT: with every criterion unticked it cannot be saved (VIEW_SELECTION_EMPTY); with every team unticked it cannot be exported (VIEW_TEAMS_EMPTY)',
+      emptySave.status === 400 && codeOf(emptySave) === 'VIEW_SELECTION_EMPTY' && emptyExport.status === 400 && codeOf(emptyExport) === 'VIEW_TEAMS_EMPTY',
+      [emptySave.status, emptySave.body, emptyExport.status, emptyExport.body],
+    );
+
+    // Somebody who only enters figures (an editor of team A) has no part in any of it.
+    const asEditor = [
+      await http(token.A, 'GET', viewsUrl),
+      await http(token.A, 'POST', viewsUrl, { name: `Lén ${RUN}` }),
+      await http(token.A, 'PATCH', `/bao-cao-dong/views/${viewId}`, { expectedRevision: 2, name: `Lén ${RUN}` }),
+      await http(token.A, 'POST', `/bao-cao-dong/views/${viewId}/archive`),
+      await http(token.A, 'POST', `/bao-cao-dong/views/${viewId}/restore`),
+      await http(token.A, 'DELETE', `/bao-cao-dong/views/${viewId}`),
+      await previewOf(periodId, {}, token.A),
+      await exportOf(periodId, {}, token.A),
+      made.body?.exportId ? await http(token.A, 'GET', `/bao-cao-dong/exports/${made.body.exportId}/download`) : { status: 0 },
+    ];
+    listed = await listViews(true);
+    check(
+      'WHO MAY: an editor of a team (not a manager of the report) is answered 404 on every route of the custom reports (list, save, edit, archive, restore, delete, preview, export, download), and nothing changed',
+      asEditor.every((r) => r.status === 404) && listed.length === 1 && listed[0].name === RENAMED_VIEW && listed[0].revision === 2 && listed[0].archivedAt === null,
+      [asEditor.map((r) => r.status), listed],
+    );
+
+    // Archive and its way back, then delete.
+    const archived = await http(admin, 'POST', `/bao-cao-dong/views/${viewId}/archive`);
+    const inUse = await listViews(false);
+    const withArchived = await listViews(true);
+    check(
+      'SAVED VIEW: archived, it leaves the working list and is still there when the archived ones are asked for',
+      archived.status === 200 && !!archived.body?.archivedAt && inUse.length === 0 && withArchived.length === 1 && withArchived[0].id === viewId,
+      [archived.status, archived.body, inUse, withArchived],
+    );
+    const sameName = await http(admin, 'POST', viewsUrl, { name: RENAMED_VIEW });
+    const blocked = await http(admin, 'POST', `/bao-cao-dong/views/${viewId}/restore`);
+    check(
+      'SAVED VIEW: archiving freed its name (another one takes it), and restoring it while the name is in use is refused with VIEW_NAME_TAKEN',
+      sameName.status === 201 && blocked.status === 409 && codeOf(blocked) === 'VIEW_NAME_TAKEN',
+      [sameName.status, sameName.body, blocked.status, blocked.body],
+    );
+    const removedOther = sameName.body?.id ? await http(admin, 'DELETE', `/bao-cao-dong/views/${sameName.body.id}`) : { status: 0 };
+    const restored = await http(admin, 'POST', `/bao-cao-dong/views/${viewId}/restore`);
+    const backInUse = await listViews(false);
+    check(
+      'SAVED VIEW: once the other one is deleted it is restored, back in the working list under its name',
+      removedOther.status === 200 && restored.status === 200 && restored.body?.archivedAt === null && backInUse.length === 1 && backInUse[0].id === viewId && backInUse[0].name === RENAMED_VIEW,
+      [removedOther.status, restored.status, restored.body, backInUse],
+    );
+    const deleted = await http(admin, 'DELETE', `/bao-cao-dong/views/${viewId}?expectedRevision=${restored.body?.revision}`);
+    const left = (await pg.query(`SELECT count(*)::int AS n FROM "dyn_report_views" WHERE "reportId" = $1`, [reportId])).rows[0].n;
+    check('SAVED VIEW: it is deleted for good: no custom report of the report is left, in use or archived', deleted.status === 200 && (await listViews(true)).length === 0 && left === 0, [deleted.status, deleted.body, left]);
+
+    const actions = (await pg.query(`SELECT DISTINCT "action" FROM "audit_logs" WHERE "userId" = $1 AND "action" LIKE 'DYN_REPORT_VIEW_%'`, [adminId])).rows.map((r) => r.action);
+    check(
+      'AUDIT: saving, editing, archiving, restoring, deleting and exporting a custom report each left a line in the audit log',
+      sameSet(actions, ['DYN_REPORT_VIEW_CREATE', 'DYN_REPORT_VIEW_UPDATE', 'DYN_REPORT_VIEW_ARCHIVE', 'DYN_REPORT_VIEW_RESTORE', 'DYN_REPORT_VIEW_DELETE', 'DYN_REPORT_VIEW_EXPORT']),
+      actions,
+    );
+  }
 
   // ── approve, close the period ───────────────────────────────────────────────────────────────────────────────
   for (const team of ['A', 'B']) {

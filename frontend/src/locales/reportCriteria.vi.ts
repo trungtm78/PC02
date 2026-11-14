@@ -1,5 +1,6 @@
 /** Vietnamese labels for "criteria picked from an Excel file" in the dynamic-report wizard, and the per-team checklist. */
-import type { CriteriaMatrixError } from '@/features/dynamic-reports/types';
+import type { CriteriaMatrixError, SummaryMode } from '@/features/dynamic-reports/types';
+import type { CellMark, CustomNote } from '@/features/dynamic-reports/views/types';
 
 export const reportCriteria = {
   start: {
@@ -210,6 +211,163 @@ export const reportCriteria = {
       'File ma trận này được tải về trước lần thay đổi cấu hình gần nhất nên không dùng được nữa. Hãy tải ma trận về lại rồi sửa trên file mới.',
     fileMissing: 'Chưa chọn file. Hãy chọn file ma trận (.xlsx).',
   },
+  customReport: {
+    heading: 'Báo cáo tuỳ chọn',
+    help: 'Chọn tiêu chí và tổ cần đưa vào báo cáo gửi cấp trên, xem trước trên màn hình rồi xuất Excel. Có thể lưu lại để dùng cho các kỳ sau.',
+    create: 'Tạo báo cáo tuỳ chọn',
+    loadError: 'Không tải được danh sách báo cáo tuỳ chọn.',
+    retry: 'Thử lại',
+    empty: 'Chưa có báo cáo tuỳ chọn nào được lưu. Bấm "Tạo báo cáo tuỳ chọn" để bắt đầu.',
+    savedHeading: 'Báo cáo đã lưu',
+    savedNote: 'Dùng chung cho những người quản lý báo cáo này.',
+    changedBy: (name: string | null, time: string) => (name ? `Sửa lần cuối: ${name}, ${time}` : `Sửa lần cuối: ${time}`),
+    viewSummary: (criteria: number | null, teams: number | null) =>
+      `${criteria === null ? 'Tất cả tiêu chí' : `${criteria} tiêu chí`} · ${teams === null ? 'Tất cả tổ' : `${teams} tổ`}`,
+    open: 'Mở',
+    openTitle: 'Xem trước, sửa lựa chọn hoặc xuất báo cáo này',
+    export: 'Xuất Excel',
+    exporting: 'Đang xuất…',
+    rename: 'Đổi tên',
+    renameLabel: (name: string) => `Tên mới của báo cáo "${name}"`,
+    renameSave: 'Lưu tên',
+    archive: 'Lưu trữ',
+    restore: 'Khôi phục',
+    remove: 'Xoá',
+    cancel: 'Huỷ',
+    showArchived: (count: number) => `Xem ${count} báo cáo đã lưu trữ`,
+    hideArchived: 'Ẩn báo cáo đã lưu trữ',
+    archivedHeading: 'Đã lưu trữ',
+    archivedTag: 'Đã lưu trữ',
+    confirmDelete: (name: string) => `Xoá hẳn báo cáo tuỳ chọn "${name}"? Việc này không hoàn tác được. Nếu chỉ muốn cất đi, hãy dùng "Lưu trữ".`,
+    confirmDeleteYes: 'Xoá hẳn',
+    builder: {
+      newHeading: 'Báo cáo tuỳ chọn mới',
+      editHeading: (name: string) => `Báo cáo tuỳ chọn: ${name}`,
+      name: 'Tên báo cáo',
+      nameHint: 'Chỉ cần khi muốn lưu lại để dùng lần sau.',
+      namePlaceholder: 'Ví dụ: Báo cáo gửi Ban Giám đốc',
+      title: 'Tiêu đề',
+      titleHint: 'Để trống thì hệ thống tự đặt tiêu đề.',
+      autoTitleFallback: 'Hệ thống tự đặt theo tên báo cáo và kỳ',
+      showFilterLine: 'Thêm dòng mô tả điều kiện lọc',
+      teamColumns: 'Mỗi tổ một cột',
+      loading: 'Đang tải danh sách tiêu chí và tổ…',
+      listsError: 'Không tải được danh sách tiêu chí hoặc danh sách tổ của kỳ này.',
+      criteriaSection: 'Tiêu chí đưa vào báo cáo',
+      criteriaCount: (ticked: number, total: number) => `Đã chọn ${ticked}/${total}`,
+      teamsSection: 'Tổ đưa vào báo cáo',
+      teamsCount: (ticked: number, total: number) => `Đã chọn ${ticked}/${total} tổ`,
+      teamSearch: 'Tìm tổ',
+      teamAll: 'Chọn hết',
+      teamNone: 'Bỏ hết',
+      teamNoMatch: 'Không có tổ nào khớp.',
+      teamFilteredNote: (shown: number) => `Đang lọc: hai nút trên chỉ áp cho ${shown} tổ đang hiện.`,
+      teamGroupOf: (name: string) => `${name} và các tổ trực thuộc`,
+      noCriteriaTicked: 'Chưa chọn tiêu chí nào. Hãy tích ít nhất một tiêu chí để xem trước, xuất hoặc lưu.',
+      noTeamsTicked: 'Chưa chọn tổ nào. Hãy tích ít nhất một tổ để xem trước, xuất hoặc lưu.',
+      nameNeeded: 'Hãy đặt tên báo cáo trước khi lưu.',
+      archivedReason: 'Báo cáo này đang được lưu trữ. Hãy khôi phục trước khi sửa.',
+      save: 'Lưu',
+      saving: 'Đang lưu…',
+      saveAsNew: 'Lưu thành bản mới',
+      saveAsNewName: 'Tên của bản mới',
+      saveAsNewConfirm: 'Lưu bản mới',
+      copyName: (name: string) => `${name} (bản sao)`,
+      close: 'Đóng',
+      unsaved: 'Có thay đổi chưa lưu.',
+      exportWaitsPreview: 'Đang tính lại phần xem trước. Nút "Xuất Excel" dùng được ngay khi phần xem trước cập nhật xong.',
+      exportNeedsPreview: 'Chưa xem trước được nên chưa xuất được. Hãy bấm "Thử lại" ở phần xem trước, hoặc đổi lựa chọn.',
+      exportNothingLeft: 'Chưa xuất được vì lựa chọn đã lưu không còn gì có trong kỳ này. Hãy tích thêm ở danh sách bên trên.',
+    },
+    preview: {
+      heading: 'Xem trước',
+      auto: 'Tự cập nhật sau mỗi lần đổi lựa chọn. File Excel xuất ra có đúng các số này.',
+      loading: 'Đang tính số liệu…',
+      error: 'Chưa xem trước được.',
+      columns: { code: 'Mã', label: 'Tiêu chí', unit: 'ĐVT', total: 'Tổng' },
+      partialTag: 'gồm cả tiêu chí không liệt kê',
+      notesHeading: 'Ghi chú (sẽ in trong file):',
+      filterLine: (input: {
+        teamNames: readonly string[];
+        teamsTotal: number;
+        mode: string;
+      }) => {
+        const shown = input.teamNames.slice(0, 6).join(', ');
+        const more = input.teamNames.length - 6;
+        const units =
+          input.teamNames.length === input.teamsTotal
+            ? `tất cả các tổ`
+            : `${shown}${more > 0 ? ` và ${more} tổ khác` : ''}`;
+        return `Đơn vị: ${units} · Số liệu: ${input.mode}`;
+      },
+      ignoredTeams: (names: string) => `Các tổ sau đã được chọn nhưng không được giao báo cáo trong kỳ này nên không có trong báo cáo: ${names}.`,
+      ignoredCriteria: (count: number) => `${count} tiêu chí đã chọn không còn trong mẫu của kỳ này nên không có trong báo cáo.`,
+      unknownTeam: 'tổ không còn trong hệ thống',
+      savedCriteriaGone:
+        'Không tiêu chí nào đã lưu trong báo cáo này còn trong mẫu của kỳ này. Hãy tích những tiêu chí muốn đưa vào báo cáo ở danh sách tiêu chí bên trên.',
+      savedTeamsGone: (names: string) =>
+        `Không tổ nào đã lưu trong báo cáo này được giao báo cáo trong kỳ này${names ? ` (${names})` : ''}. Hãy tích những tổ muốn đưa vào báo cáo ở danh sách tổ bên trên.`,
+      newCriteria: (count: number) => `Có ${count} tiêu chí mới chưa được chọn. Muốn đưa vào báo cáo, hãy tích thêm ở danh sách tiêu chí rồi lưu.`,
+    },
+    modes: {
+      SUBMITTED: 'đã nộp + đã duyệt',
+      APPROVED: 'đã duyệt',
+      ALL_SAVED: 'mọi số đã lưu (kể cả chưa nộp)',
+    } as Record<SummaryMode, string>,
+    /** What a cell without a figure shows; the same words as the Excel file. */
+    marks: {
+      NOT_ASSIGNED: () => '—',
+      EXEMPT: () => 'miễn nộp',
+      NOT_COUNTED: (mode: SummaryMode) => (mode === 'APPROVED' ? 'chưa duyệt' : 'chưa nộp'),
+      BLANK: () => '',
+      NOT_AGGREGATED: () => '',
+    } as Record<CellMark, (mode: SummaryMode) => string>,
+    notes: {
+      PERIOD_OPEN: (p: { mode: string }) => `Kỳ báo cáo chưa khoá sổ: số liệu là số tạm tính (${p.mode}) và còn có thể thay đổi.`,
+      GROUP_INCLUDES_UNLISTED: (p: { name: string; listed: number; total: number }) =>
+        `Mục "${p.name}" là tổng của mọi tiêu chí con, kể cả những tiêu chí không được liệt kê trong báo cáo này.`,
+      ITEM_KEYS_IGNORED: (p: { count: number }) => `${p.count} tiêu chí đã chọn không còn trong mẫu của kỳ này nên không có trong báo cáo.`,
+      TEAMS_IGNORED: (p: { count: number }) => `${p.count} tổ đã chọn không được giao báo cáo trong kỳ này nên không có trong báo cáo.`,
+    },
+    done: {
+      created: (name: string) => `Đã lưu báo cáo tuỳ chọn "${name}".`,
+      updated: (name: string) => `Đã lưu thay đổi của "${name}".`,
+      renamed: (name: string) => `Đã đổi tên thành "${name}".`,
+      archived: (name: string) => `Đã lưu trữ "${name}". Có thể khôi phục bất cứ lúc nào.`,
+      restored: (name: string) => `Đã khôi phục "${name}".`,
+      deleted: (name: string) => `Đã xoá "${name}".`,
+      exported: (fileName: string) => `Đã xuất file ${fileName}.`,
+    },
+    conflictReloaded:
+      'Người khác vừa sửa báo cáo này. Đã tải bản mới nhất; các lựa chọn trên màn hình vẫn được giữ nguyên. Kiểm tra lại rồi bấm "Lưu" lần nữa nếu vẫn muốn ghi.',
+    conflictReloadedRetry:
+      'Người khác vừa sửa báo cáo này nên thao tác chưa được thực hiện. Đã tải bản mới nhất; những gì bạn đã sửa trên màn hình vẫn được giữ nguyên. Kiểm tra lại rồi bấm lần nữa nếu vẫn muốn làm.',
+    conflictGone: 'Báo cáo này vừa bị người khác xoá. Các lựa chọn trên màn hình vẫn còn: bấm "Lưu" để lưu thành báo cáo mới.',
+    errors: {
+      VIEW_NAME_REQUIRED: 'Hãy đặt tên báo cáo trước khi lưu.',
+      VIEW_NAME_TOO_LONG: 'Tên báo cáo quá dài (tối đa 120 ký tự).',
+      VIEW_TITLE_TOO_LONG: 'Tiêu đề quá dài (tối đa 300 ký tự).',
+      VIEW_SELECTION_EMPTY: 'Chưa chọn tiêu chí nào, hoặc không tiêu chí nào đã chọn còn trong mẫu của kỳ này. Hãy tích ít nhất một tiêu chí.',
+      VIEW_TEAMS_EMPTY: 'Chưa chọn tổ nào, hoặc không tổ nào đã chọn có trong kỳ này. Hãy tích ít nhất một tổ.',
+      VIEW_ITEM_KEY_UNKNOWN: 'Có tiêu chí đã chọn không còn trong báo cáo. Hãy đóng bảng này, mở lại rồi chọn lại.',
+      VIEW_TEAM_UNKNOWN: 'Có tổ đã chọn không còn trong hệ thống. Hãy đóng bảng này, mở lại rồi chọn lại.',
+      CUSTOM_REPORT_TOO_LARGE: 'Báo cáo quá lớn để xuất ra một file Excel. Hãy bỏ bớt tiêu chí hoặc tổ, hoặc tắt "Mỗi tổ một cột".',
+      REPORT_NOT_FOUND: 'Không tìm thấy báo cáo này, hoặc bạn không quản lý báo cáo này.',
+      VIEW_NOT_FOUND: 'Báo cáo tuỳ chọn này không còn nữa (có thể người khác vừa xoá). Hãy tải lại trang.',
+      PERIOD_NOT_FOUND: 'Không tìm thấy kỳ báo cáo này, hoặc bạn không quản lý báo cáo này.',
+      VIEW_NAME_TAKEN: 'Đã có một báo cáo tuỳ chọn mang tên này. Hãy đặt tên khác.',
+      REVISION_CONFLICT: 'Người khác vừa sửa báo cáo này. Danh sách đã được tải lại, hãy thử lại.',
+      VIEW_ARCHIVED: 'Báo cáo này đang được lưu trữ. Hãy khôi phục trước khi sửa.',
+      VIEW_ALREADY_ARCHIVED: 'Báo cáo này đã được lưu trữ từ trước.',
+      VIEW_NOT_ARCHIVED: 'Báo cáo này đang được dùng, không cần khôi phục.',
+      PERIOD_TEAMS_CHANGED: 'Danh sách tổ của kỳ vừa thay đổi trong lúc xuất. Hãy bấm "Xuất Excel" lần nữa.',
+    } as Record<string, string>,
+    /** The aggregate screen itself, around the custom reports. */
+    page: {
+      refreshing: 'Đang tính lại theo chế độ vừa chọn. Các số bên dưới vẫn là số của chế độ trước.',
+      waitForFigures: 'Đang tính lại theo chế độ vừa chọn. Hãy chờ số liệu mới hiện ra.',
+    },
+  },
   summary: {
     source: 'Nguồn mẫu',
     sourceCriteria: 'Sinh từ danh sách tiêu chí',
@@ -257,6 +415,38 @@ export function matrixErrorText(error: CriteriaMatrixError, criterionName: (item
       return t.MATRIX_TEAM_MISSING(error.name);
     case 'MATRIX_TEAM_EMPTY':
       return t.MATRIX_TEAM_EMPTY(error.name);
+  }
+}
+
+/** The message for a refused custom-report request: by the server's code when known, else what the server said. */
+export function customReportErrorText(code: string | undefined, serverMessage: string): string {
+  const known = reportCriteria.customReport.errors;
+  if (code && Object.prototype.hasOwnProperty.call(known, code)) return known[code];
+  // The server sends codes, not sentences: a code this screen does not know is never shown raw.
+  return serverMessage && serverMessage !== code ? serverMessage : reportCriteria.errorFallback;
+}
+
+/** What a cell of a custom report shows when it has no figure (the words of the Excel file). */
+export function customReportMarkText(mark: CellMark, mode: SummaryMode): string {
+  return reportCriteria.customReport.marks[mark](mode);
+}
+
+/** One footnote of a custom report, in plain words. */
+export function customReportNoteText(note: CustomNote): string {
+  const t = reportCriteria.customReport;
+  switch (note.code) {
+    case 'PERIOD_OPEN':
+      return t.notes.PERIOD_OPEN({ mode: t.modes[note.params.mode] });
+    case 'GROUP_INCLUDES_UNLISTED':
+      return t.notes.GROUP_INCLUDES_UNLISTED({
+        name: [note.params.code, note.params.label].filter(Boolean).join(' '),
+        listed: note.params.listed,
+        total: note.params.total,
+      });
+    case 'ITEM_KEYS_IGNORED':
+      return t.notes.ITEM_KEYS_IGNORED(note.params);
+    case 'TEAMS_IGNORED':
+      return t.notes.TEAMS_IGNORED(note.params);
   }
 }
 
