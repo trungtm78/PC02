@@ -28,4 +28,11 @@ export interface FeatureManifest {
   domain: string;
   /** Permissions this module owns — used by seed script + admin UI. */
   permissions?: PermissionDeclaration[];
+  /**
+   * Whether the feature is ON when nothing has been decided about it yet. Default (omitted) is ON, as for every
+   * feature so far. `false` = the seed creates its row disabled and a missing row reads as disabled, so a database
+   * built without migrations (`prisma db push` + seed) does not expose a half-built feature.
+   * An existing row always decides: the seed never changes `enabled`.
+   */
+  defaultEnabled?: boolean;
 }

@@ -75,7 +75,13 @@ export function resolveFlow(
   const defaultFlow = config.flows.find((flow) => inUse.has(flow.id) && flow.isDefault);
 
   const typeKey = khoaLoaiThongTin(record.informationType);
-  if (!typeKey) return defaultFlow ? { match: 'DEFAULT', flowId: defaultFlow.id } : null;
+  if (!typeKey) {
+    // Nothing written is "no information type". Text that is written but means nothing once merged (";") is not: it
+    // is a value nobody can recognise, and it must not be taken for the absence of one.
+    const written = typeof record.informationType === 'string' && record.informationType.trim() !== '';
+    if (written) return defaultFlow ? { match: 'UNKNOWN_TYPE', flowId: defaultFlow.id } : null;
+    return defaultFlow ? { match: 'DEFAULT', flowId: defaultFlow.id } : null;
+  }
 
   const entry = config.directoryIndex.get(typeKey);
   const byType =

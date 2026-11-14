@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { LoaiDon, Prisma } from '@prisma/client';
+import { Prisma, type LoaiDon } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../../audit/audit.service';
 import { LOAI_DANH_MUC_LOAI_THONG_TIN, khoaLoaiThongTin } from '../../common/utils/khoa-loai-thong-tin.util';
@@ -22,17 +22,12 @@ import {
 } from './flow-steps';
 import { legalTemplate, LEGAL_TEMPLATES, type LegalTemplate } from './legal-templates';
 import { previewSchedule, type SampleAnchors, type SampleConditions } from './preview-schedule';
+import { findBindingConflicts, lockFlowKind } from './binding-conflicts';
 import { buildTypeIndex, resolveFlow } from './resolve-flow';
 import { validateSteps, type StepIssue } from './validate-steps';
 
 export const MAX_FLOW_NAME = 200;
 const MAX_FLOW_TEXT = 4_000;
-
-/**
- * The first number of the advisory lock every writer of the flows of one record kind takes (the second number is the
- * position of the kind in `RECORD_KINDS`). The two-number form has a key space of its own.
- */
-const FLOW_KIND_LOCK = 7_226_010;
 
 // ---- what the routes answer
 
@@ -599,6 +594,21 @@ export class ProcessingFlowsService {
       if (version.revision !== input.expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       if (flow.status === 'ARCHIVED') throw refuse.conflict(PROCESSING_ERROR.FLOW_ARCHIVED);
 
+      // Two variants for one condition cannot be stored (one row per condition of a step): said as a bad request here,
+      // before any write, and not as the database's refusal of the unique index.
+      const duplicates = steps.flatMap((step, stepIndex) => {
+        const seen = new Set<string>();
+        return step.variants.flatMap((variant, variantIndex) => {
+          const condition = `${variant.conditionKey}=${variant.conditionValue}`;
+          if (!seen.has(condition)) {
+            seen.add(condition);
+            return [];
+          }
+          return [{ stepIndex, field: `variants.${variantIndex}.conditionValue` }];
+        });
+      });
+      if (duplicates.length > 0) throw refuse.bad(PROCESSING_ERROR.STEPS_INVALID, duplicates);
+
       const teamIds = unique(steps.flatMap((step) => step.parties.flatMap((party) => (party.teamId ? [party.teamId] : []))));
       const teams = teamIds.length ? await tx.team.findMany({ where: { id: { in: teamIds } }, select: { id: true } }) : [];
       const unknownTeams = teamIds.filter((teamId) => !teams.some((team) => team.id === teamId));
@@ -633,14 +643,17 @@ export class ProcessingFlowsService {
     return { flow: await this.get(flowId), warnings };
   }
 
-  /** Throws a draft away. `expectedRevision` (optional): refuse when the draft changed since it was looked at. */
-  async deleteDraft(flowId: string, versionId: string, actorId: string, expectedRevision?: number): Promise<FlowDetailDto> {
-    if (expectedRevision !== undefined) this.assertRevisionGiven(expectedRevision);
+  /**
+   * Throws a draft away. `expectedRevision` is the revision of the draft the person looked at: a draft somebody saved
+   * since is not thrown away under them (`REVISION_CONFLICT`).
+   */
+  async deleteDraft(flowId: string, versionId: string, actorId: string, expectedRevision: number): Promise<FlowDetailDto> {
+    this.assertRevisionGiven(expectedRevision);
     await this.prisma.$transaction(async (tx) => {
       await this.lockedFlow(tx, flowId);
       const version = await this.versionOf(tx, flowId, versionId);
       if (version.status !== 'DRAFT') throw refuse.conflict(PROCESSING_ERROR.VERSION_IMMUTABLE);
-      if (expectedRevision !== undefined && version.revision !== expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
+      if (version.revision !== expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       const steps = await this.deleteStepsOf(tx, [versionId]);
       await tx.procFlowVersion.delete({ where: { id: versionId } });
       await this.logVersion(tx, 'PROC_FLOW_VERSION_DELETE', actorId, version, { steps });
@@ -667,8 +680,17 @@ export class ProcessingFlowsService {
       const issues = validateSteps(steps, flow.recordKind);
       if (issues.length > 0) throw refuse.bad(PROCESSING_ERROR.FLOW_INVALID, issues);
 
+      // The units are locked, in one order, and their status is read AFTER the lock: a unit that is being switched off
+      // or merged (both take the row FOR UPDATE) is waited for, and a publish never rests on a status that has moved on.
+      const unitIds = unique(rows.flatMap((row) => row.parties.flatMap((party) => (party.teamId ? [party.teamId] : [])))).sort();
+      const statusOf = new Map<string, string>();
+      if (unitIds.length > 0) {
+        const locked = await tx.$queryRaw<Array<{ id: string; status: string }>>`
+          SELECT id, status::text AS status FROM teams WHERE id IN (${Prisma.join(unitIds)}) ORDER BY id FOR SHARE`;
+        for (const unit of locked) statusOf.set(unit.id, unit.status);
+      }
       const idle = rows.flatMap((row, stepIndex) =>
-        row.parties.flatMap((party) => (party.teamId && party.team?.status !== 'ACTIVE' ? [{ stepIndex, stepKey: row.stepKey, teamId: party.teamId }] : [])),
+        row.parties.flatMap((party) => (party.teamId && statusOf.get(party.teamId) !== 'ACTIVE' ? [{ stepIndex, stepKey: row.stepKey, teamId: party.teamId }] : [])),
       );
       if (idle.length > 0) throw refuse.bad(PROCESSING_ERROR.TEAM_NOT_ACTIVE, idle);
 
@@ -688,20 +710,27 @@ export class ProcessingFlowsService {
    * A person compared the figures of a step with the source text. Allowed on a published version too: it records a
    * human check, it does not change the rule.
    */
-  verifyLegal(flowId: string, versionId: string, stepKey: string, actorId: string): Promise<FlowDetailDto> {
-    return this.stampLegal(flowId, versionId, stepKey, actorId, true);
+  verifyLegal(flowId: string, versionId: string, stepKey: string, actorId: string, expectedRevision: number): Promise<FlowDetailDto> {
+    return this.stampLegal(flowId, versionId, stepKey, actorId, true, expectedRevision);
   }
 
   /** The way back from `verifyLegal`. */
-  unverifyLegal(flowId: string, versionId: string, stepKey: string, actorId: string): Promise<FlowDetailDto> {
-    return this.stampLegal(flowId, versionId, stepKey, actorId, false);
+  unverifyLegal(flowId: string, versionId: string, stepKey: string, actorId: string, expectedRevision: number): Promise<FlowDetailDto> {
+    return this.stampLegal(flowId, versionId, stepKey, actorId, false, expectedRevision);
   }
 
-  private async stampLegal(flowId: string, versionId: string, stepKey: string, actorId: string, verified: boolean): Promise<FlowDetailDto> {
+  /**
+   * `expectedRevision` is the revision of the version the person compared with the source text. The stamp says "these
+   * figures were checked": figures saved after that look are not the ones that were checked, so a stale revision is
+   * refused instead of stamped.
+   */
+  private async stampLegal(flowId: string, versionId: string, stepKey: string, actorId: string, verified: boolean, expectedRevision: number): Promise<FlowDetailDto> {
+    this.assertRevisionGiven(expectedRevision);
     await this.prisma.$transaction(async (tx) => {
       const flow = await this.lockedFlow(tx, flowId);
       const version = await this.versionOf(tx, flowId, versionId);
       if (flow.status === 'ARCHIVED') throw refuse.conflict(PROCESSING_ERROR.FLOW_ARCHIVED);
+      if (version.revision !== expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       // A superseded version is history: nothing follows it any more, and nothing about it is restated.
       if (version.status === 'SUPERSEDED') throw refuse.conflict(PROCESSING_ERROR.VERSION_IMMUTABLE);
       const step = await tx.procFlowStep.findUnique({ where: { versionId_stepKey: { versionId, stepKey } } });
@@ -758,7 +787,7 @@ export class ProcessingFlowsService {
 
   /** Held to the end of the transaction: one writer at a time for the flows of this record kind. */
   private async lockKind(tx: Tx, recordKind: RecordKind): Promise<void> {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${FLOW_KIND_LOCK}::int, ${RECORD_KINDS.indexOf(recordKind)}::int)`;
+    await lockFlowKind(tx, recordKind);
   }
 
   /** The flow as it is NOW, under a row lock held to the end of the transaction. */
@@ -791,9 +820,8 @@ export class ProcessingFlowsService {
   }
 
   /**
-   * None of these types and groups is held by ANOTHER flow in use of the record kind. A type is the same type when it
-   * is the same catalogue entry, or when its key is the key another flow bound: two entries that read alike must not
-   * send the same text to two flows.
+   * None of these types and groups is held by ANOTHER flow in use of the record kind (see `findBindingConflicts`:
+   * the same entry, the same key at binding time, or the same key today after a rename).
    */
   private async assertBindingsFree(
     tx: Tx,
@@ -802,28 +830,7 @@ export class ProcessingFlowsService {
     types: ReadonlyArray<{ directoryId: string; typeKey: string | null }>,
     groups: readonly string[],
   ): Promise<void> {
-    if (types.length === 0 && groups.length === 0) return;
-    const keys = types.flatMap((type) => (type.typeKey ? [type.typeKey] : []));
-    const others = await tx.procFlowBinding.findMany({
-      where: {
-        recordKind,
-        flowId: { not: flowId },
-        flow: { status: 'ACTIVE' },
-        OR: [{ directoryId: { in: types.map((type) => type.directoryId) } }, { typeKey: { in: keys } }, { deadlineGroup: { in: groups as LoaiDon[] } }],
-      },
-      select: { directoryId: true, typeKey: true, deadlineGroup: true, flow: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'asc' },
-    });
-    const conflicts = [
-      ...types.flatMap((type) => {
-        const holder = others.find((other) => other.directoryId === type.directoryId || (type.typeKey !== null && other.directoryId !== null && other.typeKey === type.typeKey));
-        return holder ? [{ directoryId: type.directoryId, flowId: holder.flow.id, flowName: holder.flow.name }] : [];
-      }),
-      ...groups.flatMap((group) => {
-        const holder = others.find((other) => other.deadlineGroup === group);
-        return holder ? [{ deadlineGroup: group, flowId: holder.flow.id, flowName: holder.flow.name }] : [];
-      }),
-    ];
+    const conflicts = await findBindingConflicts(tx, recordKind, flowId, types, groups);
     if (conflicts.length > 0) throw refuse.conflict(PROCESSING_ERROR.TYPE_ALREADY_BOUND, conflicts);
   }
 

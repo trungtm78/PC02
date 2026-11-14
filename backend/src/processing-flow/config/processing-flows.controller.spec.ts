@@ -29,10 +29,10 @@ const ROUTES: Array<[Method, string, object | undefined, string, string]> = [
   ['delete', '/processing-flows/f1?expectedRevision=1&confirmName=A', undefined, 'delete:ProcessingFlow', 'remove'],
   ['post', '/processing-flows/f1/versions', undefined, 'edit:ProcessingFlow', 'createDraft'],
   ['put', '/processing-flows/f1/versions/v1/steps', { steps: [], expectedRevision: 1 }, 'edit:ProcessingFlow', 'replaceSteps'],
-  ['delete', '/processing-flows/f1/versions/v1', undefined, 'edit:ProcessingFlow', 'deleteDraft'],
+  ['delete', '/processing-flows/f1/versions/v1?expectedRevision=1', undefined, 'edit:ProcessingFlow', 'deleteDraft'],
   ['post', '/processing-flows/f1/versions/v1/publish', { expectedRevision: 1 }, 'publish:ProcessingFlow', 'publish'],
-  ['post', '/processing-flows/f1/versions/v1/steps/k1/verify-legal', undefined, 'verify:ProcessingFlow', 'verifyLegal'],
-  ['post', '/processing-flows/f1/versions/v1/steps/k1/unverify-legal', undefined, 'verify:ProcessingFlow', 'unverifyLegal'],
+  ['post', '/processing-flows/f1/versions/v1/steps/k1/verify-legal', { expectedRevision: 1 }, 'verify:ProcessingFlow', 'verifyLegal'],
+  ['post', '/processing-flows/f1/versions/v1/steps/k1/unverify-legal', { expectedRevision: 1 }, 'verify:ProcessingFlow', 'unverifyLegal'],
 ];
 
 describe('ProcessingFlowsController (HTTP, real guards)', () => {
@@ -203,22 +203,28 @@ describe('ProcessingFlowsController (HTTP, real guards)', () => {
       expect(service.remove).toHaveBeenCalledTimes(2);
     });
 
-    it('throwing a draft away takes the revision when one is sent', async () => {
-      await call('delete', '/processing-flows/f1/versions/v1').expect(200);
+    it('throwing a draft away names the revision that was looked at; without it nothing is thrown away', async () => {
       await call('delete', '/processing-flows/f1/versions/v1?expectedRevision=3').expect(200);
-      expect(service.deleteDraft.mock.calls).toEqual([
-        ['f1', 'v1', 'admin-1', undefined],
-        ['f1', 'v1', 'admin-1', 3],
-      ]);
-      const response = await call('delete', '/processing-flows/f1/versions/v1?expectedRevision=x').expect(400);
-      expect(response.body).toMatchObject({ code: 'EXPECTED_REVISION_INVALID' });
+      expect(service.deleteDraft.mock.calls).toEqual([['f1', 'v1', 'admin-1', 3]]);
+      for (const bad of ['', '?expectedRevision=', '?expectedRevision=x', '?expectedRevision=0', '?expectedRevision=1.5']) {
+        const response = await call('delete', `/processing-flows/f1/versions/v1${bad}`).expect(400);
+        expect(response.body).toMatchObject({ code: 'EXPECTED_REVISION_INVALID' });
+      }
+      expect(service.deleteDraft).toHaveBeenCalledTimes(1);
     });
 
-    it('confirming a legal basis names the flow, the version and the step', async () => {
-      await call('post', '/processing-flows/f1/versions/v1/steps/k1/verify-legal').expect(200);
-      await call('post', '/processing-flows/f1/versions/v1/steps/k1/unverify-legal').expect(200);
-      expect(service.verifyLegal).toHaveBeenCalledWith('f1', 'v1', 'k1', 'admin-1');
-      expect(service.unverifyLegal).toHaveBeenCalledWith('f1', 'v1', 'k1', 'admin-1');
+    it('confirming a legal basis names the flow, the version, the step and the revision that was compared', async () => {
+      await call('post', '/processing-flows/f1/versions/v1/steps/k1/verify-legal', { expectedRevision: 4 }).expect(200);
+      await call('post', '/processing-flows/f1/versions/v1/steps/k1/unverify-legal', { expectedRevision: 5 }).expect(200);
+      expect(service.verifyLegal).toHaveBeenCalledWith('f1', 'v1', 'k1', 'admin-1', 4);
+      expect(service.unverifyLegal).toHaveBeenCalledWith('f1', 'v1', 'k1', 'admin-1', 5);
+      // A confirmation that does not say what it compared is not a confirmation.
+      for (const path of ['verify-legal', 'unverify-legal']) {
+        await call('post', `/processing-flows/f1/versions/v1/steps/k1/${path}`).expect(400);
+        await call('post', `/processing-flows/f1/versions/v1/steps/k1/${path}`, { expectedRevision: 0 }).expect(400);
+      }
+      expect(service.verifyLegal).toHaveBeenCalledTimes(1);
+      expect(service.unverifyLegal).toHaveBeenCalledTimes(1);
     });
 
     it('resolve and the preview hand over what was asked', async () => {

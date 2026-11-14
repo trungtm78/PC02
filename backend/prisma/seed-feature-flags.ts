@@ -32,7 +32,8 @@ export async function seedFeatureFlags(prisma: PrismaClient): Promise<number> {
         label: m.label,
         description: m.description ?? null,
         domain: m.domain,
-        enabled: true,
+        // A feature that starts OFF is created OFF; everything else is created ON, as before.
+        enabled: m.defaultEnabled !== false,
       },
     });
   }

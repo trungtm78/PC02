@@ -105,7 +105,7 @@ export class FeatureFlagsService implements OnModuleInit {
     }
     await this.ensureFresh();
     const flag = this.cache.get(key);
-    if (!flag) return true; // default-allow unseeded features
+    if (!flag) return this.startsEnabled(key); // default-allow unseeded features, except those that start OFF
     return flag.enabled;
   }
 
@@ -138,13 +138,18 @@ export class FeatureFlagsService implements OnModuleInit {
           key: manifest.key,
           label: manifest.label,
           description: manifest.description ?? null,
-          enabled: true,
+          enabled: manifest.defaultEnabled !== false,
           domain: manifest.domain,
           rolloutPct: 100,
         });
       }
     }
     return result;
+  }
+
+  /** What a feature with no row reads as: ON, unless its manifest says it starts OFF. */
+  private startsEnabled(key: string): boolean {
+    return FEATURE_REGISTRY.find((manifest) => manifest.key === key)?.defaultEnabled !== false;
   }
 
   async setEnabled(key: string, enabled: boolean): Promise<FeatureFlagDto> {

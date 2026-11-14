@@ -10,4 +10,5 @@ export const PROCESSING_FLOW_REMINDERS_MANIFEST: FeatureManifest = {
   label: 'Nhắc hạn theo quy trình',
   description: 'Nhắc hạn và báo cáo vượt cấp theo từng bước của quy trình xử lý',
   domain: 'workflow-domain',
+  defaultEnabled: false,
 };

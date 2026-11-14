@@ -104,6 +104,23 @@ describe('resolveFlow', () => {
     }
   });
 
+  it('UNKNOWN_TYPE: text that is there but means nothing once merged (punctuation only) is not "no information type"', () => {
+    for (const text of [';', ' , ', '.', ';;', '...']) {
+      expect(khoaLoaiThongTin(text)).toBeFalsy();
+      expect(resolveFlow({ recordKind: 'PETITION', informationType: text }, config)).toEqual({ match: 'UNKNOWN_TYPE', flowId: 'f-default-petition' });
+    }
+    expect(resolveFlow({ recordKind: 'INCIDENT', informationType: ';' }, config)).toBeNull();
+  });
+
+  it('a binding of the very entry wins over a binding that only holds the same key', () => {
+    // Two entries whose names merge to one key, bound to two flows: the row the text resolves to decides, never the order.
+    const twin = { id: 'd-tocao-twin', name: 'Tố  Cáo', metadata: null };
+    const index = buildTypeIndex([...catalogue, twin]);
+    const both = [typeBinding('f-other', 'PETITION', 'd-tocao-twin', 'Tố cáo'), typeBinding('f-tocao', 'PETITION', 'd-tocao', 'Tố cáo')];
+    const result = resolveFlow({ recordKind: 'PETITION', informationType: 'Tố cáo' }, { directoryIndex: index, bindings: both, flows: [...flows, flow('f-other', 'PETITION')] });
+    expect(result).toMatchObject({ match: 'TYPE', flowId: 'f-tocao', directoryId: 'd-tocao' });
+  });
+
   it('UNKNOWN_TYPE: raw legacy text and composite values match no entry; the default flow is only a proposal', () => {
     for (const text of ['Tố giác, Đề nghị', 'Đơn trình báo mất xe', 'Tố cáo/khiếu nại']) {
       expect(resolveFlow({ recordKind: 'PETITION', informationType: text }, config)).toEqual({

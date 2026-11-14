@@ -131,7 +131,7 @@ export class ProcessingFlowsController {
     return this.flows.replaceSteps(id, versionId, user.id, { steps: body.steps, expectedRevision: body.expectedRevision });
   }
 
-  /** A draft only. `expectedRevision` (optional): refuse when the draft changed since it was looked at. */
+  /** A draft only. `expectedRevision` (required): the revision of the draft that was looked at. */
   @Delete(':id/versions/:versionId')
   @RequirePermissions({ action: 'edit', subject: 'ProcessingFlow' })
   deleteDraft(
@@ -140,7 +140,7 @@ export class ProcessingFlowsController {
     @Query('expectedRevision') expectedRevision: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.flows.deleteDraft(id, versionId, user.id, expectedRevision === undefined ? undefined : revisionOf(expectedRevision));
+    return this.flows.deleteDraft(id, versionId, user.id, revisionOf(expectedRevision));
   }
 
   @Post(':id/versions/:versionId/publish')
@@ -150,19 +150,34 @@ export class ProcessingFlowsController {
     return this.flows.publish(id, versionId, user.id, body.expectedRevision);
   }
 
-  /** A person compared the figures of the step with the source text. Allowed on a published version too. */
+  /**
+   * A person compared the figures of the step with the source text. Allowed on a published version too.
+   * `expectedRevision`: the revision of the version that was compared; figures saved since are not stamped.
+   */
   @Post(':id/versions/:versionId/steps/:stepKey/verify-legal')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'verify', subject: 'ProcessingFlow' })
-  verifyLegal(@Param('id') id: string, @Param('versionId') versionId: string, @Param('stepKey') stepKey: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.flows.verifyLegal(id, versionId, stepKey, user.id);
+  verifyLegal(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Param('stepKey') stepKey: string,
+    @Body() body: ExpectedRevisionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.flows.verifyLegal(id, versionId, stepKey, user.id, body.expectedRevision);
   }
 
   /** The way back from `verify-legal`. */
   @Post(':id/versions/:versionId/steps/:stepKey/unverify-legal')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'verify', subject: 'ProcessingFlow' })
-  unverifyLegal(@Param('id') id: string, @Param('versionId') versionId: string, @Param('stepKey') stepKey: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.flows.unverifyLegal(id, versionId, stepKey, user.id);
+  unverifyLegal(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @Param('stepKey') stepKey: string,
+    @Body() body: ExpectedRevisionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.flows.unverifyLegal(id, versionId, stepKey, user.id, body.expectedRevision);
   }
 }

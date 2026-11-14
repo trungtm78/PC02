@@ -1,5 +1,6 @@
 import { HttpException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { Client } from 'pg';
 import { AuditService } from '../../audit/audit.service';
 import { openScratchDatabase, type ScratchDatabase } from '../../common/testing/scratch-database';
 import { takeTurnOnSharedRow } from '../../common/testing/shared-row-turn';
@@ -222,7 +223,7 @@ run('ProcessingFlowsService on PostgreSQL', () => {
     it('as a copy: the steps of the latest version of the source, under NEW step keys, none verified', async () => {
       const source = await published('PETITION', [step({ name: 'One' }), step({ name: 'Two', anchor: 'PREVIOUS_STEP_DONE', parties: [{ partyKind: 'RECORD_TEAM', role: 'MAIN' }, { partyKind: 'TEAM', teamId: teamA, role: 'CHECK', note: 'look' }] })]);
       const sourceKeys = source.published!.steps.map((s) => s.stepKey);
-      await flows.verifyLegal(source.id, source.published!.id, sourceKeys[0], actor);
+      await flows.verifyLegal(source.id, source.published!.id, sourceKeys[0], actor, source.published!.revision);
 
       const copy = await flows.create(other, { name: fresh(), recordKind: 'PETITION', copyFromFlowId: source.id });
 
@@ -396,6 +397,34 @@ run('ProcessingFlowsService on PostgreSQL', () => {
       await flows.setBindings(incident.id, actor, { directoryIds: [], deadlineGroups: [], expectedRevision: 2 });
     });
 
+    it('a type renamed after it was bound cannot be taken again under its new name by a second flow', async () => {
+      const old = await scratch.db.directory.create({ data: { type: LOAI_DANH_MUC_LOAI_THONG_TIN, code: `${tag}-RA`, name: `Cũ ${tag}` } });
+      const twin = await scratch.db.directory.create({ data: { type: LOAI_DANH_MUC_LOAI_THONG_TIN, code: `${tag}-RB`, name: `Mới ${tag}` } });
+      const a = await make('PETITION');
+      const b = await make('PETITION');
+      await flows.setBindings(a.id, actor, { directoryIds: [old.id], deadlineGroups: [], expectedRevision: a.revision });
+      // The entry is renamed (straight in the table: what the catalogue does is tested below) to read like the twin.
+      await scratch.db.directory.update({ where: { id: old.id }, data: { name: `Mới ${tag}` } });
+
+      expect(await codeOf(flows.setBindings(b.id, actor, { directoryIds: [twin.id], deadlineGroups: [], expectedRevision: b.revision }))).toBe('409 TYPE_ALREADY_BOUND');
+      expect((await flows.get(b.id)).boundTypes).toEqual([]);
+    });
+
+    it('restoring a flow is refused when another flow now holds an entry that reads like one of its own', async () => {
+      const first = await scratch.db.directory.create({ data: { type: LOAI_DANH_MUC_LOAI_THONG_TIN, code: `${tag}-RC`, name: `Một ${tag}` } });
+      const second = await scratch.db.directory.create({ data: { type: LOAI_DANH_MUC_LOAI_THONG_TIN, code: `${tag}-RD`, name: `Hai ${tag}` } });
+      const a = await make('PETITION');
+      const b = await make('PETITION');
+      const bound = await flows.setBindings(a.id, actor, { directoryIds: [first.id], deadlineGroups: [], expectedRevision: a.revision });
+      await flows.archive(a.id, actor, bound.revision);
+      await flows.setBindings(b.id, actor, { directoryIds: [second.id], deadlineGroups: [], expectedRevision: b.revision });
+      // While A is archived the entry of B is renamed to read like A's.
+      await scratch.db.directory.update({ where: { id: second.id }, data: { name: `Một ${tag}` } });
+
+      const archived = await flows.get(a.id);
+      expect(await codeOf(flows.restore(a.id, actor, archived.revision))).toBe('409 TYPE_ALREADY_BOUND');
+    });
+
     it('two flows taking the same type at the same moment: exactly one holds it', async () => {
       const [a, b] = [await make('CASE'), await make('CASE')];
       const results = await Promise.allSettled([
@@ -517,6 +546,16 @@ run('ProcessingFlowsService on PostgreSQL', () => {
       expect((await flows.get(flow.id)).draft).toMatchObject({ revision: 1, steps: [] });
     });
 
+    it('two variants of one step with the same condition are refused as a bad request, not as a database error', async () => {
+      const flow = await make('CASE');
+      const variant = (durationValue: number) => ({ conditionKey: 'CRIME_GRAVITY', conditionValue: 'NGHIEM_TRONG', durationValue, durationUnit: 'MONTH' });
+      const result = await refusal(
+        flows.replaceSteps(flow.id, flow.draft!.id, actor, { steps: [step({ anchor: 'PROSECUTED', variants: [variant(3), variant(4)] })], expectedRevision: 1 }),
+      );
+      expect(result).toMatchObject({ status: 400, code: 'STEPS_INVALID', details: [{ stepIndex: 0, field: 'variants.1.conditionValue' }] });
+      expect((await flows.get(flow.id)).draft).toMatchObject({ revision: 1, steps: [] });
+    });
+
     it('refuses steps saved from an older revision of the version, and a version of another flow', async () => {
       const flow = await make('PETITION');
       const elsewhere = await make('PETITION');
@@ -534,6 +573,9 @@ run('ProcessingFlowsService on PostgreSQL', () => {
         expectedRevision: 1,
       });
 
+      // The revision is part of the request: a delete that does not say what it looked at throws nothing away.
+      expect(await codeOf(flows.deleteDraft(flow.id, flow.draft!.id, actor, undefined as unknown as number))).toBe('400 EXPECTED_REVISION_INVALID');
+      expect(await scratch.db.procFlowVersion.count({ where: { id: flow.draft!.id } })).toBe(1);
       expect(await codeOf(flows.deleteDraft(flow.id, flow.draft!.id, actor, 1))).toBe('409 REVISION_CONFLICT');
       const without = await flows.deleteDraft(flow.id, flow.draft!.id, actor, 2);
       expect(without).toMatchObject({ draft: null, draftVersionNo: null, versions: [] });
@@ -580,6 +622,40 @@ run('ProcessingFlowsService on PostgreSQL', () => {
       });
     });
 
+    it('a unit that is switched off while the publish is deciding is seen: the publish waits for it and is refused', async () => {
+      const flow = await make('PETITION');
+      const unit = await scratch.db.team.create({ data: { name: `${tag} team racing`, code: `${tag}-R` } });
+      const saved = await flows.replaceSteps(flow.id, flow.draft!.id, actor, {
+        steps: [step({ parties: [{ partyKind: 'RECORD_TEAM', role: 'MAIN' }, { partyKind: 'TEAM', teamId: unit.id, role: 'INFORM' }] })],
+        expectedRevision: 1,
+      });
+
+      // Another session holds the unit's row (as the team lifecycle does while it switches a unit off).
+      const lifecycle = new Client({ connectionString: url });
+      await lifecycle.connect();
+      try {
+        await lifecycle.query('BEGIN');
+        await lifecycle.query(`SELECT id FROM teams WHERE id = $1 FOR UPDATE`, [unit.id]);
+        const publishing = refusal(flows.publish(flow.id, flow.draft!.id, actor, saved.flow.draft!.revision));
+        // The publish must be waiting for the unit, not already past it.
+        let waiting = false;
+        for (let attempt = 0; attempt < 100 && !waiting; attempt += 1) {
+          const rows = await scratch.pg.query(`SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND state = 'active' AND query ILIKE '%FROM teams%'`);
+          waiting = (rows.rowCount ?? 0) > 0;
+          if (!waiting) await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        expect(waiting).toBe(true);
+        await lifecycle.query(`UPDATE teams SET status = 'INACTIVE' WHERE id = $1`, [unit.id]);
+        await lifecycle.query('COMMIT');
+
+        expect(await publishing).toMatchObject({ status: 400, code: 'TEAM_NOT_ACTIVE', details: [{ teamId: unit.id }] });
+        expect((await flows.get(flow.id)).draft).not.toBeNull();
+      } finally {
+        await lifecycle.query('ROLLBACK').catch(() => undefined);
+        await lifecycle.end();
+      }
+    });
+
     it('refuses a publish decided on an older revision of the version', async () => {
       const flow = await make('PETITION');
       await flows.replaceSteps(flow.id, flow.draft!.id, actor, { steps: [step()], expectedRevision: 1 });
@@ -614,7 +690,7 @@ run('ProcessingFlowsService on PostgreSQL', () => {
         step({ name: 'Two', anchor: 'PREVIOUS_STEP_DONE' }),
       ]);
       const keys = flow.published!.steps.map((s) => s.stepKey);
-      const verified = await flows.verifyLegal(flow.id, flow.published!.id, keys[0], other);
+      const verified = await flows.verifyLegal(flow.id, flow.published!.id, keys[0], other, flow.published!.revision);
 
       const next = await flows.createDraft(flow.id, other);
 
@@ -678,18 +754,38 @@ run('ProcessingFlowsService on PostgreSQL', () => {
       const key = flow.published!.steps[0].stepKey;
       const revision = flow.published!.revision;
 
-      const verified = await flows.verifyLegal(flow.id, flow.published!.id, key, other);
+      const verified = await flows.verifyLegal(flow.id, flow.published!.id, key, other, revision);
       expect(verified.published!.steps[0].legalVerifiedById).toBe(other);
       expect(typeof verified.published!.steps[0].legalVerifiedAt).toBe('string');
       expect(verified.published).toMatchObject({ status: 'PUBLISHED', revision: revision + 1 });
-      expect(await codeOf(flows.verifyLegal(flow.id, flow.published!.id, key, actor))).toBe('409 LEGAL_ALREADY_VERIFIED');
+      expect(await codeOf(flows.verifyLegal(flow.id, flow.published!.id, key, actor, revision + 1))).toBe('409 LEGAL_ALREADY_VERIFIED');
 
-      const cleared = await flows.unverifyLegal(flow.id, flow.published!.id, key, actor);
+      const cleared = await flows.unverifyLegal(flow.id, flow.published!.id, key, actor, revision + 1);
       expect(cleared.published!.steps[0]).toMatchObject({ legalVerifiedById: null, legalVerifiedAt: null });
-      expect(await codeOf(flows.unverifyLegal(flow.id, flow.published!.id, key, actor))).toBe('409 LEGAL_NOT_VERIFIED');
+      expect(await codeOf(flows.unverifyLegal(flow.id, flow.published!.id, key, actor, revision + 2))).toBe('409 LEGAL_NOT_VERIFIED');
 
       const draft = await flows.createDraft(flow.id, actor);
-      expect((await flows.verifyLegal(flow.id, draft.draft!.id, key, actor)).draft!.steps[0].legalVerifiedById).toBe(actor);
+      expect((await flows.verifyLegal(flow.id, draft.draft!.id, key, actor, draft.draft!.revision)).draft!.steps[0].legalVerifiedById).toBe(actor);
+    });
+
+    it('a confirmation names the revision the person read: figures saved in between are never stamped', async () => {
+      const flow = await make('PETITION');
+      const saved = await flows.replaceSteps(flow.id, flow.draft!.id, actor, { steps: [step({ durationValue: 10 })], expectedRevision: 1 });
+      const key = saved.flow.draft!.steps[0].stepKey;
+      const readAt = saved.flow.draft!.revision;
+      // Somebody saves 99 days after the verifier looked at 10.
+      await flows.replaceSteps(flow.id, flow.draft!.id, other, { steps: [step({ stepKey: key, durationValue: 99 })], expectedRevision: readAt });
+
+      expect(await codeOf(flows.verifyLegal(flow.id, flow.draft!.id, key, actor, readAt))).toBe('409 REVISION_CONFLICT');
+      const after = (await flows.get(flow.id)).draft!;
+      expect(after.steps[0]).toMatchObject({ durationValue: 99, legalVerifiedAt: null, legalVerifiedById: null });
+
+      // The right revision stamps; the way back needs the new one too.
+      const verified = await flows.verifyLegal(flow.id, flow.draft!.id, key, actor, after.revision);
+      expect(verified.draft!.steps[0].legalVerifiedById).toBe(actor);
+      expect(await codeOf(flows.unverifyLegal(flow.id, flow.draft!.id, key, actor, after.revision))).toBe('409 REVISION_CONFLICT');
+      expect(await codeOf(flows.unverifyLegal(flow.id, flow.draft!.id, key, actor, 0))).toBe('400 EXPECTED_REVISION_INVALID');
+      expect((await flows.unverifyLegal(flow.id, flow.draft!.id, key, actor, verified.draft!.revision)).draft!.steps[0].legalVerifiedById).toBeNull();
     });
 
     it('refuses a step that does not exist, and one that names no legal basis to confirm', async () => {
@@ -697,17 +793,18 @@ run('ProcessingFlowsService on PostgreSQL', () => {
       const saved = await flows.replaceSteps(flow.id, flow.draft!.id, actor, { steps: [step({ legalBasis: null })], expectedRevision: 1 });
       const key = saved.flow.draft!.steps[0].stepKey;
 
-      expect(await codeOf(flows.verifyLegal(flow.id, flow.draft!.id, 'no-such-step', actor))).toBe('404 FLOW_STEP_NOT_FOUND');
-      expect(await codeOf(flows.verifyLegal(flow.id, flow.draft!.id, key, actor))).toBe('400 LEGAL_BASIS_REQUIRED');
-      expect(await codeOf(flows.verifyLegal(flow.id, 'no-such-version', key, actor))).toBe('404 FLOW_VERSION_NOT_FOUND');
+      const at = saved.flow.draft!.revision;
+      expect(await codeOf(flows.verifyLegal(flow.id, flow.draft!.id, 'no-such-step', actor, at))).toBe('404 FLOW_STEP_NOT_FOUND');
+      expect(await codeOf(flows.verifyLegal(flow.id, flow.draft!.id, key, actor, at))).toBe('400 LEGAL_BASIS_REQUIRED');
+      expect(await codeOf(flows.verifyLegal(flow.id, 'no-such-version', key, actor, at))).toBe('404 FLOW_VERSION_NOT_FOUND');
     });
 
     it('editing a draft keeps the confirmation while the legal figures are the same, and drops it when they change', async () => {
       const flow = await make('PETITION');
       const saved = await flows.replaceSteps(flow.id, flow.draft!.id, actor, { steps: [step({ name: 'A' }), step({ name: 'B', anchor: 'PREVIOUS_STEP_DONE' })], expectedRevision: 1 });
       const [a, b] = saved.flow.draft!.steps.map((s) => s.stepKey);
-      await flows.verifyLegal(flow.id, flow.draft!.id, a, other);
-      const both = await flows.verifyLegal(flow.id, flow.draft!.id, b, other);
+      await flows.verifyLegal(flow.id, flow.draft!.id, a, other, saved.flow.draft!.revision);
+      const both = await flows.verifyLegal(flow.id, flow.draft!.id, b, other, saved.flow.draft!.revision + 1);
 
       const edited = await flows.replaceSteps(flow.id, flow.draft!.id, actor, {
         steps: [
@@ -861,11 +958,11 @@ run('ProcessingFlowsService on PostgreSQL', () => {
         expectedRevision: 1,
       });
       const key = saved.flow.draft!.steps[0].stepKey;
-      await flows.verifyLegal(flow.id, flow.draft!.id, key, other);
-      await flows.unverifyLegal(flow.id, flow.draft!.id, key, other);
+      await flows.verifyLegal(flow.id, flow.draft!.id, key, other, saved.flow.draft!.revision);
+      await flows.unverifyLegal(flow.id, flow.draft!.id, key, other, saved.flow.draft!.revision + 1);
       await flows.publish(flow.id, flow.draft!.id, actor, 4);
       const next = await flows.createDraft(flow.id, actor);
-      await flows.deleteDraft(flow.id, next.draft!.id, actor);
+      await flows.deleteDraft(flow.id, next.draft!.id, actor, next.draft!.revision);
       await flows.setBindings(flow.id, actor, { directoryIds: [], deadlineGroups: [], expectedRevision: 3 });
       await flows.archive(flow.id, actor, 4);
       await flows.restore(flow.id, actor, 5);

@@ -13,6 +13,7 @@ export const PROCESSING_FLOW_MANIFEST: FeatureManifest = {
   label: 'Quy trình & hạn xử lý',
   description: 'Thiết lập quy trình xử lý và thời hạn theo loại thông tin; lịch làm việc để tính hạn',
   domain: 'workflow-domain',
+  defaultEnabled: false,
   permissions: [
     { action: 'read', subject: 'ProcessingFlow' },
     { action: 'create', subject: 'ProcessingFlow' },

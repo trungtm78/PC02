@@ -10,4 +10,5 @@ export const PROCESSING_FLOW_RECORDS_MANIFEST: FeatureManifest = {
   label: 'Quy trình xử lý trên hồ sơ',
   description: 'Các bước xử lý, hạn từng bước và thao tác theo quy trình trên từng đơn thư, vụ việc, vụ án',
   domain: 'workflow-domain',
+  defaultEnabled: false,
 };

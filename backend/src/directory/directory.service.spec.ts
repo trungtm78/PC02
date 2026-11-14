@@ -21,6 +21,10 @@ const mockPrisma = {
     upsert: jest.fn(),
     groupBy: jest.fn(),
   },
+  // What a processing flow is bound to: nothing, unless a test says so.
+  procFlowBinding: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -269,6 +273,17 @@ describe('DirectoryService', () => {
 
       const result = await service.remove('d1');
       expect(result.message).toContain('xóa');
+    });
+
+    it('an entry a processing flow is bound to is not deleted: DIRECTORY_BOUND_TO_FLOW names the flow', async () => {
+      mockPrisma.directory.findUnique.mockResolvedValue({ id: 'd1', name: 'Tố cáo' });
+      mockPrisma.directory.count.mockResolvedValue(0);
+      mockPrisma.procFlowBinding.findMany.mockResolvedValueOnce([{ flow: { id: 'f1', name: 'Tố cáo', status: 'ACTIVE' } }]);
+
+      await expect(service.remove('d1')).rejects.toMatchObject({
+        response: { code: 'DIRECTORY_BOUND_TO_FLOW', details: [{ flowId: 'f1', flowName: 'Tố cáo', flowStatus: 'ACTIVE' }] },
+      });
+      expect(mockPrisma.directory.delete).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when directory not found', async () => {
