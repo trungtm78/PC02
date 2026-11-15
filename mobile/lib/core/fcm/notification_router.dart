@@ -16,6 +16,19 @@ class NotificationRouter {
   /// screen per record, so the `/edit` of a case is dropped; the steps tab is
   /// kept so the detail opens on the steps.
   static String? resolve(Object? rawLink) {
+    try {
+      return _resolve(rawLink);
+    } on FormatException {
+      // `/petitions/%FF`, `?tab=%FF`: the link parses, but a path segment or
+      // the query cannot be decoded. A bad link opens nothing; it must not
+      // throw out of a notification tap.
+      return null;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  static String? _resolve(Object? rawLink) {
     if (rawLink is! String) return null;
     final link = rawLink.trim();
     if (!link.startsWith('/') || link.startsWith('//')) return null;

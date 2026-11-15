@@ -106,8 +106,9 @@ String writeFailureMessage(ProcessingWriteFailure failure) {
       return 'Hồ sơ vừa được người khác thay đổi. Nội dung đã nhập vẫn được giữ. '
           'Bấm "Tải lại" để lấy bản mới rồi gửi lại.';
     case ProcessingWriteFailureKind.retryable:
-      return 'Chưa gửi được (mất kết nối hoặc máy chủ đang lỗi). Nội dung đã nhập '
-          'vẫn được giữ. Bấm gửi lại, hệ thống không ghi trùng.';
+      return 'Chưa rõ kết quả lần gửi vừa rồi (mất kết nối hoặc máy chủ đang lỗi). '
+          'Nội dung đã nhập vẫn được giữ. Bấm "Gửi lại" để hoàn tất, hệ thống '
+          'không ghi trùng.';
     case ProcessingWriteFailureKind.notAllowed:
       return 'Bạn không có quyền thực hiện thao tác này.';
     case ProcessingWriteFailureKind.refused:

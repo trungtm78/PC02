@@ -49,18 +49,7 @@ class AppDrawer extends ConsumerWidget {
               subtitle: _roleChip(user?['role']),
             ),
             const Divider(),
-            // Only once the summary call answered: the feature is behind a
-            // switch on the server and a permission.
-            if (ref.watch(myWorkSummaryProvider).valueOrNull != null)
-              ListTile(
-                key: const Key('drawer-my-work'),
-                leading: const Icon(Icons.assignment_outlined),
-                title: const Text('Việc của tôi'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  context.push('/my-work');
-                },
-              ),
+            const MyWorkDrawerEntry(),
             const Spacer(),
             const Divider(),
             ListTile(

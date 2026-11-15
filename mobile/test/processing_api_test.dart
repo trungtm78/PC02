@@ -324,26 +324,7 @@ void main() {
     });
   });
 
-  group('IdempotencyKeys', () {
-    test('the same content gets the same key until the server answers', () {
-      var n = 0;
-      final keys = IdempotencyKeys(generate: () => 'key-${++n}');
-
-      expect(keys.keyFor('a'), 'key-1');
-      expect(keys.keyFor('a'), 'key-1');
-      keys.settle();
-      expect(keys.keyFor('a'), 'key-2');
-    });
-
-    test('changed content is a new write with a new key', () {
-      var n = 0;
-      final keys = IdempotencyKeys(generate: () => 'key-${++n}');
-
-      expect(keys.keyFor('a'), 'key-1');
-      expect(keys.keyFor('b'), 'key-2');
-      expect(keys.keyFor('b'), 'key-2');
-    });
-
+  group('newIdempotencyKey', () {
     test('generated keys are distinct and fit the server limit', () {
       final seen = {for (var i = 0; i < 200; i++) newIdempotencyKey()};
       expect(seen.length, 200);

@@ -52,6 +52,19 @@ void main() {
       }
     });
 
+    test('a link whose percent-encoding cannot be decoded opens nothing', () {
+      // These pass `Uri.tryParse` and only throw when a segment or the query
+      // is decoded: a thrown error here would be an uncaught one on a tap.
+      for (final link in [
+        '/petitions/%FF',
+        '/petitions/p1?tab=%FF',
+        '/cases/%E0%A4%A/edit?tab=phan-cong-xu-ly',
+        '/incidents/i1?%FF=phan-cong-xu-ly',
+      ]) {
+        expect(NotificationRouter.resolve(link), isNull, reason: link);
+      }
+    });
+
     test('an id is passed on encoded, never as a second path', () {
       expect(NotificationRouter.resolve('/petitions/a%2Fb'),
           '/petitions/a%2Fb');

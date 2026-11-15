@@ -10,16 +10,13 @@ import '../../shared/widgets/empty_state.dart';
 import 'processing_labels.dart';
 
 /// The counts of my work. `null` = the feature is not there for this person
-/// (switch off, no permission, or the call failed): the home card and the
-/// drawer entry then do not show at all.
-final myWorkSummaryProvider =
-    FutureProvider.autoDispose<TrackingSummary?>((ref) async {
-  try {
-    return await ref.read(processingApiProvider).getMySummary();
-  } catch (_) {
-    return null;
-  }
-});
+/// (the API turns 404 = switch off and 403 = no permission into `null`): the
+/// home card and the drawer entry then do not show at all. Any other failure
+/// (5xx, no network) stays an ERROR: the feature exists, it just did not
+/// load, and the person gets a retry instead of a vanished entry.
+final myWorkSummaryProvider = FutureProvider.autoDispose<TrackingSummary?>(
+  (ref) => ref.read(processingApiProvider).getMySummary(),
+);
 
 /// "Việc của tôi": the four counts and the steps I work, worst first.
 class MyWorkScreen extends ConsumerStatefulWidget {
@@ -42,6 +39,9 @@ class _MyWorkScreenState extends ConsumerState<MyWorkScreen> {
   bool _unavailable = false;
   bool _failed = false;
 
+  /// Counts the loads; see [_load].
+  int _generation = 0;
+
   @override
   void initState() {
     super.initState();
@@ -50,10 +50,18 @@ class _MyWorkScreenState extends ConsumerState<MyWorkScreen> {
 
   /// The counts first, then the first page AT THE SAME CLOCK (`asOf`), so the
   /// rows are the ones the counts counted.
+  ///
+  /// Every load is a new generation. An answer that belongs to an older one
+  /// (a filter picked before, a page that was still on its way) is dropped:
+  /// it would put rows of another filter, or of another clock, into the list.
   Future<void> _load() async {
+    final generation = ++_generation;
+    final band = _band;
     setState(() {
       _loading = true;
       _failed = false;
+      // A page still on its way belongs to the list being replaced.
+      _loadingMore = false;
     });
     final api = ref.read(processingApiProvider);
     try {
@@ -61,8 +69,8 @@ class _MyWorkScreenState extends ConsumerState<MyWorkScreen> {
       final page = summary == null
           ? null
           : await api.getMyItems(
-              asOf: summary.asOf, band: _band, page: 1, pageSize: _pageSize);
-      if (!mounted) return;
+              asOf: summary.asOf, band: band, page: 1, pageSize: _pageSize);
+      if (!mounted || generation != _generation) return;
       setState(() {
         _unavailable = summary == null || page == null;
         _summary = summary;
@@ -73,35 +81,46 @@ class _MyWorkScreenState extends ConsumerState<MyWorkScreen> {
         _page = 1;
       });
     } catch (_) {
-      if (mounted) setState(() => _failed = true);
+      if (mounted && generation == _generation) {
+        setState(() => _failed = true);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+      }
     }
   }
 
+  /// The next page of the list ON SCREEN: same clock, same filter. It does
+  /// not start a generation; a refresh or a filter change that happens while
+  /// it is on its way makes its answer obsolete.
   Future<void> _loadMore() async {
     final summary = _summary;
-    if (summary == null || _loadingMore) return;
+    if (summary == null || _loadingMore || _loading) return;
+    final generation = _generation;
+    final nextPage = _page + 1;
     setState(() => _loadingMore = true);
     try {
       final page = await ref.read(processingApiProvider).getMyItems(
           asOf: summary.asOf,
           band: _band,
-          page: _page + 1,
+          page: nextPage,
           pageSize: _pageSize);
-      if (!mounted || page == null) return;
+      if (!mounted || generation != _generation || page == null) return;
       setState(() {
         _items.addAll(page.items);
         _total = page.total;
-        _page += 1;
+        _page = nextPage;
       });
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Không tải thêm được, hãy thử lại')));
       }
     } finally {
-      if (mounted) setState(() => _loadingMore = false);
+      if (mounted && generation == _generation) {
+        setState(() => _loadingMore = false);
+      }
     }
   }
 
@@ -298,14 +317,57 @@ class _WorkCard extends StatelessWidget {
   }
 }
 
+/// The entry in the drawer. Absent while the summary loads and when the
+/// feature is off (404 / 403); present once the summary answered, and also
+/// when it FAILED: the screen behind it has its own error and retry.
+class MyWorkDrawerEntry extends ConsumerWidget {
+  const MyWorkDrawerEntry({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summary = ref.watch(myWorkSummaryProvider);
+    if (!summary.hasError && summary.valueOrNull == null) {
+      return const SizedBox.shrink();
+    }
+    return ListTile(
+      key: const Key('drawer-my-work'),
+      leading: const Icon(Icons.assignment_outlined),
+      title: const Text('Việc của tôi'),
+      onTap: () {
+        Navigator.of(context).pop();
+        context.push('/my-work');
+      },
+    );
+  }
+}
+
 /// The card on the home screen. Not there at all while the summary is
-/// loading, failed, or the feature is off.
+/// loading or the feature is off (404 / 403). A summary that failed for any
+/// other reason shows a small error with a retry: it is not "feature off".
 class MyWorkHomeCard extends ConsumerWidget {
   const MyWorkHomeCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final summary = ref.watch(myWorkSummaryProvider).valueOrNull;
+    final async = ref.watch(myWorkSummaryProvider);
+    if (async.hasError) {
+      return Card(
+        key: const Key('my-work-home-error'),
+        margin: const EdgeInsets.only(bottom: 16),
+        child: ListTile(
+          leading: const Icon(Icons.error_outline, color: AppColors.slate),
+          title: const Text('Việc của tôi'),
+          subtitle: const Text('Không tải được số liệu'),
+          trailing: TextButton(
+            onPressed: async.isLoading
+                ? null
+                : () => ref.invalidate(myWorkSummaryProvider),
+            child: const Text('Thử lại'),
+          ),
+        ),
+      );
+    }
+    final summary = async.valueOrNull;
     if (summary == null) return const SizedBox.shrink();
     return Card(
       key: const Key('my-work-home-card'),

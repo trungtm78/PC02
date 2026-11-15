@@ -7,15 +7,33 @@ import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/band_chip.dart';
 import 'processing_labels.dart';
 
+/// One write as it was sent: its key and everything in its body. A write
+/// whose outcome is unknown is sent again EXACTLY like this.
+typedef _Write = ({
+  bool isReport,
+  String key,
+  int revision,
+  String reportKind,
+  String doneWork,
+  String findings,
+  String difficulties,
+});
+
 /// Report on a step and mark it done: the first business write of the app.
 ///
 /// Rules the screen keeps:
-///  - what the person typed stays in the fields on EVERY failure;
-///  - a write whose answer never came (no connection, 5xx) is sent again with
-///    the same idempotency key, so it cannot be written twice; a new action
-///    gets a new key;
+///  - what the person typed stays in the fields on EVERY failure, and the
+///    fields are read-only while a write is on its way;
+///  - a write whose answer never came (no connection, 5xx) may have reached
+///    the server. It stays pending, with its key and its whole body, until
+///    the server gives a definite answer: the only thing the screen offers
+///    meanwhile is sending that same request again. No other write may go
+///    around it, and neither a reload nor a new revision gives it a new key
+///    (a new key would write it a second time);
 ///  - 409 `REVISION_CONFLICT`: the text stays, the person reloads the flow and
-///    sends again against the new revision.
+///    sends again against the new revision (a new action, a new key);
+///  - a reload that finds the feature gone (404 / 403) takes the actions away
+///    quietly and leaves the draft on screen.
 ///
 /// Pops `true` once a write went through.
 class StepActionScreen extends StatefulWidget {
@@ -42,14 +60,19 @@ class _StepActionScreenState extends State<StepActionScreen> {
   final _doneWork = TextEditingController();
   final _findings = TextEditingController();
   final _difficulties = TextEditingController();
-  final _reportKeys = IdempotencyKeys();
-  final _completeKeys = IdempotencyKeys();
 
   late int _revision = widget.revision;
   late RecordStep _step = widget.step;
   String _reportKind = ProcReportKind.progress;
   bool _busy = false;
   bool _conflict = false;
+
+  /// The feature is no longer there for this person (switch off, access
+  /// revoked): nothing can be sent from here any more.
+  bool _unavailable = false;
+
+  /// The write whose outcome is not known yet.
+  _Write? _pending;
   String? _message;
   String? _doneWorkError;
 
@@ -61,52 +84,75 @@ class _StepActionScreenState extends State<StepActionScreen> {
     super.dispose();
   }
 
-  void _failed(ProcessingWriteFailure failure, IdempotencyKeys keys) {
-    // A definite answer ends the attempt; an unknown outcome keeps its key.
-    if (!failure.isRetryable) keys.settle();
-    setState(() {
-      _conflict = failure.isConflict;
-      _message = writeFailureMessage(failure);
-    });
-  }
-
-  Future<void> _submitReport() async {
-    final doneWork = _doneWork.text.trim();
-    if (doneWork.isEmpty) {
-      setState(() => _doneWorkError = 'Phải nhập công việc đã thực hiện');
-      return;
-    }
-    final findings = _findings.text.trim();
-    final difficulties = _difficulties.text.trim();
-    final key = _reportKeys.keyFor(
-        [_revision, _reportKind, doneWork, findings, difficulties].join('\u0001'));
+  /// Sends [write], which becomes the pending one until the server answers.
+  Future<void> _send(_Write write) async {
+    if (_busy) return;
     setState(() {
       _busy = true;
+      _pending = write;
       _message = null;
       _doneWorkError = null;
     });
     try {
-      await widget.api.submitReport(
-        kind: widget.kind,
-        recordId: widget.recordId,
-        stepKey: _step.stepKey,
-        expectedRevision: _revision,
-        idempotencyKey: key,
-        reportKind: _reportKind,
-        doneWork: doneWork,
-        findings: findings,
-        difficulties: difficulties,
-      );
-      _reportKeys.settle();
+      if (write.isReport) {
+        await widget.api.submitReport(
+          kind: widget.kind,
+          recordId: widget.recordId,
+          stepKey: _step.stepKey,
+          expectedRevision: write.revision,
+          idempotencyKey: write.key,
+          reportKind: write.reportKind,
+          doneWork: write.doneWork,
+          findings: write.findings,
+          difficulties: write.difficulties,
+        );
+      } else {
+        await widget.api.completeStep(
+          kind: widget.kind,
+          recordId: widget.recordId,
+          stepKey: _step.stepKey,
+          expectedRevision: write.revision,
+          idempotencyKey: write.key,
+        );
+      }
+      _pending = null;
       if (mounted) Navigator.of(context).pop(true);
     } on ProcessingWriteFailure catch (failure) {
-      if (mounted) _failed(failure, _reportKeys);
+      if (!mounted) return;
+      setState(() {
+        // A definite answer ends the attempt; an unknown outcome keeps it.
+        if (!failure.isRetryable) _pending = null;
+        _conflict = failure.isConflict;
+        _message = writeFailureMessage(failure);
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// `true` while nothing new may be sent.
+  bool get _held => _busy || _conflict || _pending != null || _unavailable;
+
+  Future<void> _submitReport() async {
+    if (_held) return;
+    final doneWork = _doneWork.text.trim();
+    if (doneWork.isEmpty) {
+      setState(() => _doneWorkError = 'Phải nhập công việc đã thực hiện');
+      return;
+    }
+    await _send((
+      isReport: true,
+      key: newIdempotencyKey(),
+      revision: _revision,
+      reportKind: _reportKind,
+      doneWork: doneWork,
+      findings: _findings.text.trim(),
+      difficulties: _difficulties.text.trim(),
+    ));
+  }
+
   Future<void> _complete() async {
+    if (_held) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -124,42 +170,41 @@ class _StepActionScreenState extends State<StepActionScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
-    final key = _completeKeys.keyFor('$_revision');
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-    try {
-      await widget.api.completeStep(
-        kind: widget.kind,
-        recordId: widget.recordId,
-        stepKey: _step.stepKey,
-        expectedRevision: _revision,
-        idempotencyKey: key,
-      );
-      _completeKeys.settle();
-      if (mounted) Navigator.of(context).pop(true);
-    } on ProcessingWriteFailure catch (failure) {
-      if (mounted) _failed(failure, _completeKeys);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    if (confirmed != true || !mounted || _held) return;
+    await _send((
+      isReport: false,
+      key: newIdempotencyKey(),
+      revision: _revision,
+      reportKind: '',
+      doneWork: '',
+      findings: '',
+      difficulties: '',
+    ));
+  }
+
+  Future<void> _retryPending() async {
+    final pending = _pending;
+    if (pending != null) await _send(pending);
   }
 
   /// After a conflict: take the new revision and the new state of the step.
   /// The typed text is not touched.
   Future<void> _reload() async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       final flow =
           await widget.api.getRecordFlow(widget.kind, widget.recordId);
       if (!mounted) return;
-      if (flow == null) {
-        setState(() => _message = 'Không tải lại được quy trình của hồ sơ.');
-        return;
-      }
       setState(() {
+        if (flow == null) {
+          // 404 / 403: switched off or no longer permitted. Not an error to
+          // retry: the actions go, the draft stays readable.
+          _unavailable = true;
+          _conflict = false;
+          _message = null;
+          return;
+        }
         _revision = flow.revision;
         _step = flow.stepOf(_step.stepKey) ?? _step;
         _conflict = false;
@@ -178,6 +223,10 @@ class _StepActionScreenState extends State<StepActionScreen> {
   @override
   Widget build(BuildContext context) {
     final due = _step.dueAt;
+    final message = _message;
+    // Nothing may be typed over a write on its way or one still pending: what
+    // is on screen is what was sent.
+    final frozen = _busy || _pending != null || _unavailable;
     return Scaffold(
       appBar: AppBar(title: const Text('Báo cáo kết quả bước')),
       body: ListView(
@@ -203,7 +252,17 @@ class _StepActionScreenState extends State<StepActionScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (_message != null)
+          if (_unavailable)
+            const Padding(
+              key: Key('step-action-unavailable'),
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Hiện không gửi được báo cáo cho bước này từ ứng dụng. '
+                'Nội dung đã nhập vẫn hiển thị bên dưới.',
+                style: TextStyle(color: AppColors.slate),
+              ),
+            ),
+          if (message != null && !_unavailable)
             Container(
               key: const Key('step-action-message'),
               margin: const EdgeInsets.only(bottom: 12),
@@ -216,7 +275,14 @@ class _StepActionScreenState extends State<StepActionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_message!),
+                  Text(message),
+                  if (_pending != null)
+                    TextButton.icon(
+                      key: const Key('step-action-retry'),
+                      onPressed: _busy ? null : _retryPending,
+                      icon: const Icon(Icons.send),
+                      label: const Text('Gửi lại'),
+                    ),
                   if (_conflict)
                     TextButton.icon(
                       key: const Key('step-action-reload'),
@@ -227,23 +293,27 @@ class _StepActionScreenState extends State<StepActionScreen> {
                 ],
               ),
             ),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                  value: ProcReportKind.progress,
-                  label: Text('Báo cáo tiến độ')),
-              ButtonSegment(
-                  value: ProcReportKind.result, label: Text('Báo cáo kết quả')),
-            ],
-            selected: {_reportKind},
-            onSelectionChanged: _busy
-                ? null
-                : (value) => setState(() => _reportKind = value.first),
-          ),
-          const SizedBox(height: 12),
+          if (!_unavailable) ...[
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                    value: ProcReportKind.progress,
+                    label: Text('Báo cáo tiến độ')),
+                ButtonSegment(
+                    value: ProcReportKind.result,
+                    label: Text('Báo cáo kết quả')),
+              ],
+              selected: {_reportKind},
+              onSelectionChanged: frozen
+                  ? null
+                  : (value) => setState(() => _reportKind = value.first),
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             key: const Key('step-action-done-work'),
             controller: _doneWork,
+            readOnly: frozen,
             minLines: 3,
             maxLines: 8,
             decoration: InputDecoration(
@@ -256,6 +326,7 @@ class _StepActionScreenState extends State<StepActionScreen> {
           TextField(
             key: const Key('step-action-findings'),
             controller: _findings,
+            readOnly: frozen,
             minLines: 2,
             maxLines: 6,
             decoration: const InputDecoration(
@@ -267,6 +338,7 @@ class _StepActionScreenState extends State<StepActionScreen> {
           TextField(
             key: const Key('step-action-difficulties'),
             controller: _difficulties,
+            readOnly: frozen,
             minLines: 2,
             maxLines: 6,
             decoration: const InputDecoration(
@@ -274,20 +346,22 @@ class _StepActionScreenState extends State<StepActionScreen> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            key: const Key('step-action-submit'),
-            onPressed: _busy || _conflict ? null : _submitReport,
-            icon: const Icon(Icons.send),
-            label: const Text('Gửi báo cáo'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const Key('step-action-complete'),
-            onPressed: _busy || _conflict ? null : _complete,
-            icon: const Icon(Icons.check_circle_outline),
-            label: const Text('Hoàn thành bước'),
-          ),
+          if (!_unavailable) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              key: const Key('step-action-submit'),
+              onPressed: _held ? null : _submitReport,
+              icon: const Icon(Icons.send),
+              label: const Text('Gửi báo cáo'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('step-action-complete'),
+              onPressed: _held ? null : _complete,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Hoàn thành bước'),
+            ),
+          ],
           if (_busy)
             const Padding(
               padding: EdgeInsets.only(top: 16),
