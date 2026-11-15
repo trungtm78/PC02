@@ -6,6 +6,8 @@ import type { Band, CompletionClass, StepStatus } from '../engine/types';
 export const RECORD_FLOW_INCLUDE = {
   flow: { select: { id: true, name: true } },
   version: { select: { id: true, versionNo: true } },
+  /** The open pause, if any: the clock of the record stands still while it is suspended. */
+  pauses: { where: { to: null }, select: { from: true } },
   steps: {
     orderBy: { order: 'asc' },
     include: {
@@ -52,6 +54,8 @@ export interface RecordStepDto {
   provisional: boolean;
   problem: string | null;
   deadlineRevision: number;
+  /** How many times the regulatory deadline was extended. */
+  extensionsUsed: number;
   upstreamReopened: boolean;
   doneAt: string | null;
   skippedAt: string | null;
@@ -71,6 +75,10 @@ export interface RecordFlowDto {
   /** `false`: the flow is only a proposal (the information type matched nothing); no legal deadline is asserted yet. */
   confirmed: boolean;
   acceptedAt: string | null;
+  /** When the clock stopped, while the record is suspended; `null` otherwise. No colour is shown while it is set. */
+  pausedSince: string | null;
+  /** The record is suspended (its clock stands still, or is about to). */
+  suspended: boolean;
   revision: number;
   steps: RecordStepDto[];
 }
@@ -79,8 +87,12 @@ const iso = (value: Date | null): string | null => (value ? value.toISOString() 
 
 const earlier = (a: Date | null, b: Date | null): Date | null => (a && b ? (a.getTime() <= b.getTime() ? a : b) : (a ?? b));
 
-/** The flow of a record as the tab shows it. `now` decides the colours; nothing else here reads a clock. */
-export function toRecordFlowDto(row: RecordFlowRow, now: Date): RecordFlowDto {
+/**
+ * The flow of a record as the tab shows it. `now` decides the colours; nothing else here reads a clock. `suspended`: the
+ * record is suspended right now, whether or not the worker has opened the pause yet: no colour is shown for a clock that
+ * is about to stand still.
+ */
+export function toRecordFlowDto(row: RecordFlowRow, now: Date, suspended = false): RecordFlowDto {
   return {
     id: row.id,
     recordKind: row.recordKind,
@@ -91,10 +103,13 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date): RecordFlowDto {
     match: row.match,
     confirmed: row.confirmed,
     acceptedAt: iso(row.acceptedAt),
+    pausedSince: iso(row.pauses[0]?.from ?? null),
+    suspended: suspended || row.pauses.length > 0,
     revision: row.revision,
     steps: row.steps.map((step) => {
       const due = earlier(step.regulatoryDueAt, step.internalDueAt);
-      const working = step.status === 'OPEN' || step.status === 'REPORTED';
+      // A deadline that is about to move (the record is suspended) has no colour: it would be wrong the moment it resumes.
+      const working = (step.status === 'OPEN' || step.status === 'REPORTED') && row.pauses.length === 0 && !suspended;
       const thresholds = { redDays: step.step.redDays, yellowDays: step.step.yellowDays, greenDays: step.step.greenDays };
       return {
         stepKey: step.stepKey,
@@ -116,6 +131,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date): RecordFlowDto {
         provisional: step.provisional,
         problem: step.problem,
         deadlineRevision: step.deadlineRevision,
+        extensionsUsed: step.extensionsUsed,
         upstreamReopened: step.upstreamReopened,
         doneAt: iso(step.doneAt),
         skippedAt: iso(step.skippedAt),

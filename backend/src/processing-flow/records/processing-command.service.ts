@@ -78,7 +78,7 @@ export class ProcessingCommandService {
   async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now());
+    return toRecordFlowDto(row, this.now(), await this.suspended(this.prisma, kind, recordId));
   }
 
   // ---- the flow of the record
@@ -111,11 +111,12 @@ export class ProcessingCommandService {
   async reapplyFlow(actorId: string, kind: RecordKind, recordId: string, input: CommandInput & { flowId?: string }): Promise<{ outcome: ApplyOutcome; flow: RecordFlowDto | null }> {
     this.checkRevision(input.expectedRevision);
     return this.keyed(kind, recordId, actorId, 'REAPPLY_FLOW', input.idempotencyKey, async (tx) => {
-      const flow = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: { steps: { select: { status: true } } } });
+      const flow = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: { steps: { select: { status: true } }, _count: { select: { pauses: true } } } });
       if (!flow) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
       if (flow.revision !== input.expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       if (flow.confirmed) throw refuse.conflict(PROCESSING_ERROR.FLOW_ALREADY_CONFIRMED);
-      if (flow.acceptedAt || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
+      // A clock that has been paused moved deadlines: a flow made from scratch would forget that, so the flow stays.
+      if (flow.acceptedAt || flow._count.pauses > 0 || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
 
       // The teams the old steps name are locked before their rows are touched, in the order a team merge takes them
       // (a merge locks a unit and then repoints its parties): a cycle between the two cannot form.
@@ -228,7 +229,7 @@ export class ProcessingCommandService {
   // ---- how a write runs
 
   /** A write on the flow of a record: the lock, the key, the revision the person saw, the work, the answer. */
-  private async write(kind: RecordKind, recordId: string, actorId: string, command: string, input: CommandInput, job: (tx: Tx, flow: RecordFlowRow) => Promise<void>): Promise<RecordFlowDto> {
+  async write(kind: RecordKind, recordId: string, actorId: string, command: string, input: CommandInput, job: (tx: Tx, flow: RecordFlowRow) => Promise<void>): Promise<RecordFlowDto> {
     this.checkRevision(input.expectedRevision);
     return this.keyed(kind, recordId, actorId, command, input.idempotencyKey, async (tx) => {
       const flow = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
@@ -252,12 +253,12 @@ export class ProcessingCommandService {
   }
 
   /** A write on one step: the same, with the step looked up by its key. */
-  private writeStep(
+  writeStep(
     kind: RecordKind,
     recordId: string,
     actorId: string,
     stepKey: string,
-    command: StepEvent,
+    command: string,
     input: CommandInput,
     job: (tx: Tx, flow: RecordFlowRow, step: StepRow) => Promise<void>,
   ): Promise<RecordFlowDto> {
@@ -312,9 +313,15 @@ export class ProcessingCommandService {
     if (!Number.isInteger(value) || (value as number) < 1) throw refuse.bad(PROCESSING_ERROR.EXPECTED_REVISION_INVALID);
   }
 
-  private async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
+  /** Whether the record says it is suspended now (a record that is finished or gone is not). */
+  private async suspended(db: Tx | PrismaService, kind: RecordKind, recordId: string): Promise<boolean> {
+    const snapshot = await this.gateway.load(kind, recordId, db);
+    return snapshot !== null && snapshot.isSuspended && !snapshot.isFinished;
+  }
+
+  async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now()) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.suspended(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
   }
 
   private transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {
@@ -394,13 +401,13 @@ export class ProcessingCommandService {
     return anchorsOf(snapshot, flow.acceptedAt)[kind] ?? null;
   }
 
-  private async calendarFor(tx: Tx, instants: Date[]): Promise<WorkingCalendar> {
+  async calendarFor(tx: Tx, instants: Date[]): Promise<WorkingCalendar> {
     const years = instants.map((at) => civilYearOf(civilDayOf(at)));
     if (years.length === 0) return buildWorkingCalendar([]);
     return this.calendars.load(Math.min(...years), Math.min(Math.max(...years) + CALENDAR_YEARS_AHEAD, MAX_CALENDAR_YEAR), tx);
   }
 
-  private change(tx: Tx, flow: RecordFlowRow, stepKey: string | null, action: string, from: unknown, to: unknown, reason: string | null, actorId: string | null) {
+  change(tx: Tx, flow: RecordFlowRow, stepKey: string | null, action: string, from: unknown, to: unknown, reason: string | null, actorId: string | null) {
     return tx.procStepChange.create({
       data: {
         recordFlowId: flow.id,

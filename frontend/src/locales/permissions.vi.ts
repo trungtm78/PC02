@@ -106,6 +106,8 @@ export const permissions = {
     completeStep: 'Hoàn thành bước',
     reopenStep: 'Mở lại bước',
     skipStep: 'Bỏ qua bước',
+    adjustDue: 'Đặt hạn xử lý của đơn vị',
+    extendStep: 'Gia hạn bước',
   } as Record<string, string>,
   reaches: {
     OWN: 'Chỉ của mình',

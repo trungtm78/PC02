@@ -5463,7 +5463,8 @@ model ProcRecordFlow {
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
-  steps ProcRecordStep[]
+  steps  ProcRecordStep[]
+  pauses ProcRecordPause[]
 
   @@unique([recordKind, recordId])
   @@index([flowId])
@@ -5508,6 +5509,8 @@ model ProcRecordStep {
   problem          String?
   /// Goes up by one every time a deadline of the step changes: a reminder names the number it was sent for.
   deadlineRevision Int             @default(1)
+  /// How many times the regulatory deadline was extended: the flow says how many are allowed.
+  extensionsUsed   Int             @default(0)
   /// The step before it was reopened after this one had started.
   upstreamReopened Boolean         @default(false)
   doneAt           DateTime?
@@ -5603,4 +5606,20 @@ model ProcCommandKey {
 
   @@index([createdAt])
   @@map("proc_command_keys")
+}
+
+/// A stretch during which the clock of a record stood still (the record was suspended). Open while `to` is NULL. When a
+/// pause ends, the deadlines of the steps being worked move later by its whole length. A flow has at most one open pause.
+model ProcRecordPause {
+  id           String         @id @default(cuid())
+  recordFlowId String
+  recordFlow   ProcRecordFlow @relation(fields: [recordFlowId], references: [id], onDelete: Restrict)
+  from         DateTime
+  to           DateTime?
+  /// Why the clock stopped: SUSPENDED.
+  reason       String
+  createdAt    DateTime       @default(now())
+
+  @@index([recordFlowId, to])
+  @@map("proc_record_pauses")
 }
