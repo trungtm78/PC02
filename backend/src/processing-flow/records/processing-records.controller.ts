@@ -8,7 +8,8 @@ import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard'
 import { PROCESSING_ERROR } from '../contract/processing-codes';
 import { RecordGateway } from '../gateway/record-gateway';
 import { RECORD_KINDS, type RecordKind } from '../gateway/record-snapshot';
-import { DecisionDto, OpinionDto, ReportFieldsDto, SubmitReportDto, AcceptedDateDto, AdjustDueDto, ApplyFlowDto, ExtendStepDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
+import { AssignPartyDto, DecisionDto, OpinionDto, ReportFieldsDto, SubmitReportDto, AcceptedDateDto, AdjustDueDto, ApplyFlowDto, ExtendStepDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
+import { ProcessingAssignmentService } from './processing-assignment.service';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingResultsService } from './processing-results.service';
@@ -41,7 +42,12 @@ export class ProcessingRecordsController {
     private readonly deadlines: ProcessingDeadlineService,
     private readonly results_: ProcessingResultsService,
     private readonly gateway: RecordGateway,
+    private readonly assignments: ProcessingAssignmentService,
   ) {}
+
+  private gatewayUser(user: AuthenticatedUser) {
+    return { id: user.id, role: roleName(user), canDispatch: user.canDispatch ?? false };
+  }
 
   /** The record kind in the path, and the record behind it, readable by this person; else the same 404 as a missing one. */
   private async readable(kind: string, recordId: string, user: AuthenticatedUser, viaStep = false): Promise<RecordKind> {
@@ -120,6 +126,27 @@ export class ProcessingRecordsController {
   @RequirePermissions({ action: 'extend', subject: 'ProcessingStep' })
   async extend(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: ExtendStepDto, @CurrentUser() user: AuthenticatedUser) {
     return this.deadlines.extendStep(user.id, await this.readable(kind, id, user), id, stepKey, body);
+  }
+
+  // ---- who answers for a party of a step
+
+  /**
+   * Names the person who answers for a party (or nobody: the heads of the unit). The route asks only for `read`: a
+   * member of the unit who takes the work themself holds no `assign`. WHO may name whom is the service's rule
+   * (`ProcessingAssignmentService`): `assign:ProcessingStep` with the record in scope, a head of the unit, or a member
+   * taking it for themself.
+   */
+  @Post(':kind/:id/steps/:stepKey/parties/:partyId/assignee')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
+  async assignParty(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Param('partyId') partyId: string, @Body() body: AssignPartyDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.assignments.assign(this.gatewayUser(user), await this.readable(kind, id, user, true), id, stepKey, partyId, body);
+  }
+
+  @Get(':kind/:id/steps/:stepKey/parties/:partyId/candidates')
+  @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
+  async candidates(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Param('partyId') partyId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.assignments.candidates(this.gatewayUser(user), await this.readable(kind, id, user, true), id, stepKey, partyId);
   }
 
   // ---- the results of a step: reports, opinions, the leader's decision

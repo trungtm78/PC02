@@ -15,7 +15,7 @@ import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService, RECORD_FLOW_LOCK, anchorsOf, type ApplyOutcome } from './flow-application.service';
 import { refreshRecordAlert } from './record-alert';
-import { RECORD_FLOW_INCLUDE, toRecordFlowDto, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
+import { RECORD_FLOW_INCLUDE, loadFlowPeople, toRecordFlowDto, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
 import { scheduleStep, type AnchorInstant, type RecordConditions } from './schedule-step';
 
 type Tx = Prisma.TransactionClient;
@@ -81,7 +81,7 @@ export class ProcessingCommandService {
   async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId));
+    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row));
   }
 
   // ---- the flow of the record
@@ -343,7 +343,7 @@ export class ProcessingCommandService {
 
   async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row)) : (null as unknown as RecordFlowDto);
   }
 
   transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {

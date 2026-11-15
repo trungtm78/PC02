@@ -54,7 +54,7 @@ export function waitingNote(step: RecordStepDto): string | null {
 /** The unit and its role, then the person if one is named. */
 export function partyLine(party: RecordStepPartyDto, personName: (userId: string) => string | null): string {
   const unit = party.teamName ?? (party.partyKind === 'RECORD_TEAM' ? L.recordTeam : L.common.none);
-  const person = party.assigneeUserId ? (personName(party.assigneeUserId) ?? null) : null;
+  const person = party.assigneeUserId ? (party.assigneeName ?? personName(party.assigneeUserId) ?? null) : null;
   return R.unitAndPerson(unit, L.roles[party.role] ?? party.role, person);
 }
 

@@ -189,6 +189,10 @@ export const PROCESSING_ERROR_CODES = [
   'VARIANT_NOT_AVAILABLE_FOR_KIND',
   // the schedule preview
   'ANCHOR_DATE_MISSING',
+  'PARTY_NOT_FOUND',
+  'STEP_CLOSED',
+  'ASSIGNEE_NOT_ELIGIBLE',
+  'ASSIGN_NOT_ALLOWED',
 ] as const;
 
 export type ProcessingErrorCode = (typeof PROCESSING_ERROR_CODES)[number];

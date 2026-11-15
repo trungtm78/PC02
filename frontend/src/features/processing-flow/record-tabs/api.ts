@@ -2,6 +2,8 @@ import { api } from '@/lib/api';
 import { ApplyNotDone } from '../errors';
 import type {
   AdjustDueBody,
+  AssignPartyBody,
+  CandidateDto,
   DecisionBody,
   EditReportBody,
   OpinionBody,
@@ -48,6 +50,12 @@ export const processingRecordApi = {
   /** The unit's own deadline; `date: null` takes it back to the regulatory one. */
   due: (kind: RecordKind, id: string, stepKey: string, body: AdjustDueBody) => post(`${stepPath(kind, id, stepKey)}/due`, body),
   extend: (kind: RecordKind, id: string, stepKey: string, body: WriteBase & { reason: string }) => post(`${stepPath(kind, id, stepKey)}/extend`, body),
+
+  /** Names the person who answers for a party of a step (`userId: null`: the heads of the unit again). */
+  assignParty: (kind: RecordKind, id: string, stepKey: string, partyId: string, body: AssignPartyBody) =>
+    post(`${stepPath(kind, id, stepKey)}/parties/${part(partyId)}/assignee`, body),
+  candidates: (kind: RecordKind, id: string, stepKey: string, partyId: string) =>
+    api.get<CandidateDto[]>(`${stepPath(kind, id, stepKey)}/parties/${part(partyId)}/candidates`).then(data),
 
   results: (kind: RecordKind, id: string, stepKey: string) => api.get<ResultsDto>(`${stepPath(kind, id, stepKey)}/results`).then(data),
   submitReport: (kind: RecordKind, id: string, stepKey: string, body: SubmitReportBody) => post(`${stepPath(kind, id, stepKey)}/reports`, body),

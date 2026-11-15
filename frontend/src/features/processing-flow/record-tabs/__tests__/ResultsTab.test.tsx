@@ -5,7 +5,7 @@ import { ResultsTab } from '../ResultsTab';
 import { processingRecordApi } from '../api';
 import { processingFlow as L, errorText } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
-import { ALL_STEP_PERMISSIONS, book, opinion, recFlow, recStep, report } from './fixtures';
+import { ALL_STEP_PERMISSIONS, book, opinion, party, recFlow, recStep, report } from './fixtures';
 
 vi.mock('../api', () => ({
   processingRecordApi: {
@@ -294,8 +294,8 @@ describe('opinions', () => {
       recFlow({}, [
         OPEN({
           parties: [
-            { partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: null },
-            { partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null },
+            party({ id: 'pr-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: null }),
+            party({ id: 'pr-2', partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null }),
           ],
         }),
       ]),
@@ -313,7 +313,7 @@ describe('opinions', () => {
   });
 
   it('a check can pass a result with no words', async () => {
-    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties: [{ partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null }] })]));
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties: [party({ id: 'pr-3', partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null })] })]));
     api.addOpinion.mockResolvedValue(recFlow({ revision: 6 }, [OPEN()]));
     renderTab();
     fireEvent.click(await screen.findByTestId('opinion-open'));

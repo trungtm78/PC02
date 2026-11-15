@@ -12,7 +12,19 @@ export const RECORD_FLOW_INCLUDE = {
     orderBy: { order: 'asc' },
     include: {
       step: true,
-      parties: { orderBy: { order: 'asc' }, include: { team: { select: { name: true } } } },
+      parties: {
+        orderBy: { order: 'asc' },
+        include: {
+          team: {
+            select: {
+              name: true,
+              status: true,
+              /** The heads of the unit: they answer for the step while nobody is named. */
+              members: { where: { isLeader: true, user: { isActive: true } }, select: { userId: true, user: { select: { firstName: true, lastName: true, username: true } } }, orderBy: { userId: 'asc' } },
+            },
+          },
+        },
+      },
       /** The newest report and opinion that are still standing: the one-line summary of a step. */
       reports: { where: { withdrawnAt: null }, orderBy: { createdAt: 'desc' }, take: 1 },
       opinions: { where: { withdrawnAt: null }, orderBy: { createdAt: 'desc' }, take: 1 },
@@ -22,12 +34,51 @@ export const RECORD_FLOW_INCLUDE = {
 
 export type RecordFlowRow = Prisma.ProcRecordFlowGetPayload<{ include: typeof RECORD_FLOW_INCLUDE }>;
 
+/** One person who answers for a party of a step. */
+export interface ResponsiblePersonDto {
+  userId: string;
+  name: string;
+}
+
 export interface RecordStepPartyDto {
+  /** The row of the party: what the assignment routes name. */
+  id: string;
   partyKind: string;
   teamId: string | null;
   teamName: string | null;
   role: string;
   assigneeUserId: string | null;
+  /** The name of the person named on the party; `null` when nobody is (or the person is gone). */
+  assigneeName: string | null;
+  /** Who answers for the party: the person named, otherwise the heads of its (active) unit. */
+  responsible: ResponsiblePersonDto[];
+  note: string | null;
+}
+
+/** What the DTO shows of people and is not on the rows of the flow: the names of the persons named on a party. */
+export interface FlowPeople {
+  names: Map<string, string>;
+}
+
+const NOBODY: FlowPeople = { names: new Map() };
+
+interface NamedUser {
+  firstName: string | null;
+  lastName: string | null;
+  username: string;
+}
+
+/** The name a person is shown by. */
+export function displayNameOf(user: NamedUser): string {
+  return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username;
+}
+
+/** Reads the people a flow names and its rows do not carry. One query. */
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user'>, row: RecordFlowRow): Promise<FlowPeople> {
+  const ids = [...new Set(row.steps.flatMap((step) => step.parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : []))))];
+  if (ids.length === 0) return NOBODY;
+  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, username: true } });
+  return { names: new Map(users.map((user) => [user.id, displayNameOf(user)])) };
 }
 
 export interface RecordStepDto {
@@ -118,7 +169,7 @@ const RUNNING: RecordClock = { suspended: false, finished: false };
  * step and the stored alert of the record (`refreshRecordAlert`) follow the same rule: none while the record is
  * suspended or finished, or its clock is paused.
  */
-export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordClock = RUNNING): RecordFlowDto {
+export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordClock = RUNNING, people: FlowPeople = NOBODY): RecordFlowDto {
   const { suspended, finished } = clock;
   return {
     id: row.id,
@@ -171,13 +222,21 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
         revision: step.revision,
         latestReport: step.reports[0] ? { kind: step.reports[0].kind, summary: step.reports[0].doneWork.slice(0, 200), at: step.reports[0].createdAt.toISOString(), revision: step.reports[0].revision } : null,
         latestOpinion: step.opinions[0] ? { kind: step.opinions[0].kind, verdict: step.opinions[0].verdict, at: step.opinions[0].createdAt.toISOString() } : null,
-        parties: step.parties.map((party) => ({
-          partyKind: party.partyKind,
-          teamId: party.teamId,
-          teamName: party.team?.name ?? null,
-          role: party.role,
-          assigneeUserId: party.assigneeUserId,
-        })),
+        parties: step.parties.map((party) => {
+          const assigneeName = party.assigneeUserId ? (people.names.get(party.assigneeUserId) ?? null) : null;
+          const heads = party.team?.status === 'ACTIVE' ? party.team.members.map((member) => ({ userId: member.userId, name: displayNameOf(member.user) })) : [];
+          return {
+            id: party.id,
+            partyKind: party.partyKind,
+            teamId: party.teamId,
+            teamName: party.team?.name ?? null,
+            role: party.role,
+            assigneeUserId: party.assigneeUserId,
+            assigneeName,
+            responsible: party.assigneeUserId ? [{ userId: party.assigneeUserId, name: assigneeName ?? '' }] : heads,
+            note: party.note,
+          };
+        }),
       };
     }),
   };

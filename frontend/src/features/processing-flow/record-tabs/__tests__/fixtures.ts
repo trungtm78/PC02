@@ -1,4 +1,17 @@
-import type { OpinionDto, RecordFlowDto, RecordStepDto, ReportDto, ResultsDto } from '../types';
+import type { OpinionDto, RecordFlowDto, RecordStepDto, RecordStepPartyDto, ReportDto, ResultsDto } from '../types';
+
+export const party = (over: Partial<RecordStepPartyDto> = {}): RecordStepPartyDto => ({
+  id: 'party-1',
+  partyKind: 'TEAM',
+  teamId: 't3',
+  teamName: 'Tổ 3',
+  role: 'MAIN',
+  assigneeUserId: null,
+  assigneeName: null,
+  responsible: [],
+  note: null,
+  ...over,
+});
 
 export const recStep = (over: Partial<RecordStepDto> = {}): RecordStepDto => ({
   stepKey: 's1',
@@ -31,7 +44,7 @@ export const recStep = (over: Partial<RecordStepDto> = {}): RecordStepDto => ({
   skippedAt: null,
   skippedFrom: null,
   revision: 1,
-  parties: [{ partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: null }],
+  parties: [party()],
   latestReport: null,
   latestOpinion: null,
   ...over,

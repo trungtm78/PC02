@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { OPINION_KINDS } from '../../contract/processing-codes';
 
 /**
@@ -19,6 +19,11 @@ export class ApplyFlowDto {
 export class RevisionCommandDto {
   @IsInt() @Min(1) expectedRevision!: number;
   @IsOptional() @IsString() @MaxLength(MAX_KEY) idempotencyKey?: string;
+}
+
+/** Names the person who answers for a party of a step; `null` gives it back to the heads of the unit. */
+export class AssignPartyDto extends RevisionCommandDto {
+  @ValidateIf((body: AssignPartyDto) => body.userId !== null) @IsString() @MaxLength(MAX_ID) userId!: string | null;
 }
 
 export class ReapplyFlowDto extends RevisionCommandDto {

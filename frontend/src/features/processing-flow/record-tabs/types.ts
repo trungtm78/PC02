@@ -16,12 +16,31 @@ export type OpinionKind = 'SUPERVISOR' | 'COORDINATE' | 'CHECK' | 'APPROVAL';
 export type SpeakingKind = Exclude<OpinionKind, 'APPROVAL'>;
 export type DecisionVerdict = 'AGREE' | 'DISAGREE' | 'OTHER_DIRECTION';
 
+/** One person who answers for a party of a step. */
+export interface ResponsiblePersonDto {
+  userId: string;
+  name: string;
+}
+
 export interface RecordStepPartyDto {
+  /** The row of the party: what the assignment routes name. */
+  id: string;
   partyKind: string;
   teamId: string | null;
   teamName: string | null;
   role: string;
   assigneeUserId: string | null;
+  assigneeName: string | null;
+  /** Who answers for the party: the person named, otherwise the heads of its unit. */
+  responsible: ResponsiblePersonDto[];
+  note: string | null;
+}
+
+/** A person who may be named on a party: an active member of its unit. */
+export interface CandidateDto {
+  userId: string;
+  name: string;
+  isLeader: boolean;
 }
 
 export interface RecordStepDto {
@@ -147,5 +166,7 @@ export type SubmitReportBody = WriteBase & ReportFields & { kind: ReportKind };
 export type EditReportBody = WriteBase & ReportFields;
 export type OpinionBody = WriteBase & { kind: SpeakingKind; verdict?: string; content?: string };
 export type DecisionBody = WriteBase & { verdict: DecisionVerdict; content?: string };
+/** `userId: null` gives the party back to the heads of its unit. */
+export type AssignPartyBody = WriteBase & { userId: string | null };
 export type ReasonBody = WriteBase & { reason?: string };
 export type AdjustDueBody = WriteBase & { date: string | null; reason?: string };

@@ -20,6 +20,7 @@ const WRITING_METHODS = new Set(['create', 'createMany', 'createManyAndReturn', 
 
 /** Files (relative to `src`) whose writes run inside a job of the command layer, which refreshes when the job ends. */
 const INSIDE_COMMAND_LAYER: Record<string, string> = {
+  'processing-flow/records/processing-assignment.service.ts': 'Naming the person of a party is a job of `commands.writeStep` (it bumps the revision of the step).',
   'processing-flow/records/processing-deadline.service.ts': 'Adjusting and extending a deadline are jobs of `commands.writeStep`.',
 };
 
@@ -71,6 +72,7 @@ describe('gate: every writer of a record flow refreshes the stored alert', () =>
   it('the scan sees the writers that exist today', () => {
     expect(writers.map((entry) => entry.file).sort()).toEqual([
       'processing-flow/records/flow-application.service.ts',
+      'processing-flow/records/processing-assignment.service.ts',
       'processing-flow/records/processing-command.service.ts',
       'processing-flow/records/processing-deadline.service.ts',
       'processing-flow/records/processing-pause.service.ts',
