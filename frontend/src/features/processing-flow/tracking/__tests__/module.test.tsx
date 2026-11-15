@@ -4,7 +4,7 @@ import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import { useMenuSections } from '@/lib/features/useMenuSections';
 import { FEATURE_MODULES, getFeatureModule } from '@/lib/features/featureRegistry';
 import type { FeatureFlag } from '@/lib/features/types';
-import { processingRecordsMenu, TRACKING_PATH } from '@/features/processing-records/menu';
+import { DELEGATION_PATH, processingRecordsMenu, TRACKING_PATH } from '@/features/processing-records/menu';
 import { RECORDS_FEATURE_KEY } from '../../record-tabs/tabAvailability';
 import { PERMISSION } from '../../usePermissions';
 
@@ -40,11 +40,18 @@ describe('the module of the screens that need the records switch', () => {
     expect(RECORDS_FEATURE_KEY).toBe('processing_flow_records');
     expect(feature).toBeDefined();
     expect(feature).not.toBe(getFeatureModule('processing_flow'));
-    expect(feature?.renderRoutes().map((r) => (r.props as { path: string }).path)).toEqual([TRACKING_PATH]);
+    expect(feature?.renderRoutes().map((r) => (r.props as { path: string }).path)).toEqual([TRACKING_PATH, DELEGATION_PATH]);
   });
 
-  it('has one entry, "Theo dõi xử lý", gated by the permission its first request needs', () => {
-    expect(processingRecordsMenu).toHaveLength(1);
+  it('has two entries, "Theo dõi xử lý" first, each gated by the permission its first request needs', () => {
+    expect(processingRecordsMenu).toHaveLength(2);
+    expect(processingRecordsMenu[1]).toMatchObject({
+      section: 'workflow',
+      id: 'processing-delegation',
+      label: 'Uỷ quyền xử lý',
+      path: '/uy-quyen-xu-ly',
+      quyen: [PERMISSION.stepRead],
+    });
     expect(processingRecordsMenu[0]).toMatchObject({
       section: 'workflow',
       id: 'processing-tracking',

@@ -20,6 +20,10 @@ export type DecisionVerdict = 'AGREE' | 'DISAGREE' | 'OTHER_DIRECTION';
 export interface ResponsiblePersonDto {
   userId: string;
   name: string;
+  /** The person who acts for them right now (a delegation in force), and until when. Absent when nobody does. */
+  delegateUserId?: string;
+  delegateName?: string;
+  delegatedUntil?: string;
 }
 
 export interface RecordStepPartyDto {

@@ -2,6 +2,7 @@ import type { FeatureMenuEntry } from '@/lib/features/moduleTypes';
 import { processingFlow } from '@/locales/processingFlow.vi';
 
 export const TRACKING_PATH = '/theo-doi-xu-ly';
+export const DELEGATION_PATH = '/uy-quyen-xu-ly';
 
 export const processingRecordsMenu: FeatureMenuEntry[] = [
   {
@@ -14,5 +15,15 @@ export const processingRecordsMenu: FeatureMenuEntry[] = [
     icon: 'Activity',
     // Above the other entries of the section: this is where a day's work starts.
     order: 10,
+  },
+  {
+    section: 'workflow',
+    id: 'processing-delegation',
+    label: processingFlow.delegation.menu,
+    path: DELEGATION_PATH,
+    // GET /processing/delegations is `read:ProcessingStep`.
+    quyen: ['read:ProcessingStep'],
+    icon: 'ArrowRightLeft',
+    order: 11,
   },
 ];
