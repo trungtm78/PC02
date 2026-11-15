@@ -40,6 +40,8 @@ const NO_ALERT = { alertDueAt: null, alertRedFrom: null, alertYellowFrom: null, 
  * The ONE writer of the stored alert of a record (`alertDueAt`, `alertRedFrom`, `alertYellowFrom`, `alertGreenFrom` on
  * `ProcRecordFlow`): the earliest of each instant over the steps being worked, or nothing when no colour is shown:
  *
+ *   - the flow is only a PROPOSAL (`confirmed = false`: the information type of the record matched nothing). It asserts
+ *     no deadline until a person confirms it (decision C10), so it has no alert either, or
  *   - the record is gone, finished or suspended (what the record says NOW), or
  *   - the clock of the record stands still (an open pause), or
  *   - no step that is OPEN or REPORTED has a deadline.
@@ -54,6 +56,7 @@ export async function refreshRecordAlert(tx: Tx, gateway: RecordGateway, kind: R
     where: { recordKind_recordId: { recordKind: kind, recordId } },
     select: {
       id: true,
+      confirmed: true,
       alertDueAt: true,
       alertRedFrom: true,
       alertYellowFrom: true,
@@ -65,7 +68,7 @@ export async function refreshRecordAlert(tx: Tx, gateway: RecordGateway, kind: R
   if (!flow) return 'NO_FLOW';
 
   const snapshot = await gateway.load(kind, recordId, tx);
-  const running = snapshot !== null && !snapshot.isFinished && !snapshot.isSuspended && flow.pauses.length === 0;
+  const running = flow.confirmed && snapshot !== null && !snapshot.isFinished && !snapshot.isSuspended && flow.pauses.length === 0;
   const rows: BandRow[] = [];
   if (running) {
     for (const step of flow.steps) {
@@ -87,8 +90,9 @@ export async function refreshRecordAlert(tx: Tx, gateway: RecordGateway, kind: R
  * delete a record) without telling the flow, and they do not have to: the worker of the clock looks, as it does for a
  * suspension.
  *
- *   stale    an alert is stored, but the record is gone, deleted, finished or suspended
- *   missing  no alert is stored, the record is alive and at work, its clock is not paused, and a step counts
+ *   stale    an alert is stored, but the record is gone, deleted, finished or suspended, or the flow is only a proposal
+ *   missing  no alert is stored, the flow is confirmed, the record is alive and at work, its clock is not paused, and a
+ *            step counts
  */
 export async function alertDriftCandidates(prisma: PrismaService, limit: number): Promise<Array<{ kind: RecordKind; recordId: string }>> {
   const found: Array<{ kind: RecordKind; recordId: string }> = [];
@@ -100,9 +104,11 @@ export async function alertDriftCandidates(prisma: PrismaService, limit: number)
       where: {
         recordKind: kind,
         OR: [
-          { alertDueAt: { not: null }, OR: [{ [relation]: { is: null } }, { [relation]: { is: clockless } }] },
+          { alertDueAt: { not: null }, OR: [{ confirmed: false }, { [relation]: { is: null } }, { [relation]: { is: clockless } }] },
           {
             alertDueAt: null,
+            // A proposal has no alert, and `refreshRecordAlert` leaves it so.
+            confirmed: true,
             pauses: { none: { to: null } },
             // Exactly the steps `refreshRecordAlert` counts: a candidate it would leave unchanged would come back for ever.
             steps: { some: { status: { in: [...COUNTED_STEP_STATUSES] }, regulatoryDueAt: { not: null }, redFrom: { not: null }, yellowFrom: { not: null }, greenFrom: { not: null } } },

@@ -343,7 +343,7 @@ run('The tracking screen on PostgreSQL', () => {
 
     it('a person whose role holds no read permission of any kind finds nothing, even in the unit that holds the records', async () => {
       expect(mine(await allItems('unpermitted'))).toEqual([]);
-      expect(await tracking.summary(user('unpermitted'), {})).toEqual({ asOf: NOW.toISOString(), counts: { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 } });
+      expect(await tracking.summary(user('unpermitted'), {})).toEqual({ asOf: NOW.toISOString(), counts: { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 }, unconfirmed: 0 });
     });
 
     it('a member of the unit that holds the records finds its work, and nothing of another unit', async () => {
@@ -491,6 +491,68 @@ run('The tracking screen on PostgreSQL', () => {
         expect(await seen()).toBe(false);
         expect(await overdue()).toBe(before - 1);
       }
+    });
+
+    describe('a flow that is only a proposal (decision C10)', () => {
+      const confirm = (recordId: string, confirmed: boolean) => scratch.db.procRecordFlow.updateMany({ where: { recordId }, data: { confirmed } });
+      const summaryOf = (who: Who, filter: Record<string, unknown> = {}) => tracking.summary(user(who), { asOf: NOW.toISOString(), ...filter });
+      const seenBy = async (who: Who, recordId: string, filter: Record<string, unknown> = {}) => (await allItems(who, filter)).filter((item) => item.recordId === recordId).length;
+
+      it('its work is in no card and on no list, at once; the record is counted apart, and comes back when the flow is confirmed', async () => {
+        const recordId = await record('PETITION');
+        // One record, two pieces of work (two MAIN parties) and a second step: still ONE record that waits for a flow.
+        await flowOn('PETITION', recordId, [{ due: DUE.OVERDUE, parties: [{ teamId: id.T }, { teamId: id.U }] }, { due: DUE.RED, parties: [{ teamId: id.T }] }]);
+        const filter = { kind: 'PETITION' as const, teamId: id.T };
+        const before = await summaryOf('admin', filter);
+        expect(await seenBy('admin', recordId)).toBe(3);
+
+        // Nothing refreshes the stored alert here: the screen asks the flow itself.
+        await confirm(recordId, false);
+        expect((await scratch.db.procRecordFlow.findFirstOrThrow({ where: { recordId } })).alertDueAt).not.toBeNull();
+        expect(await seenBy('admin', recordId)).toBe(0);
+        for (const band of TRACKED_BANDS) expect(await seenBy('admin', recordId, { band })).toBe(0);
+        const proposed = await summaryOf('admin', filter);
+        expect(proposed.counts).toEqual({ ...before.counts, OVERDUE: before.counts.OVERDUE - 1, RED: before.counts.RED - 1 });
+        expect(proposed.unconfirmed).toBe(before.unconfirmed + 1);
+        // The cards still count exactly the list.
+        const any = await tracking.items(user('admin'), { asOf: NOW.toISOString(), pageSize: 1, ...filter });
+        expect(any.total).toBe(TRACKED_BANDS.reduce((sum, band) => sum + proposed.counts[band], 0));
+
+        await confirm(recordId, true);
+        expect(await seenBy('admin', recordId)).toBe(3);
+        expect(await summaryOf('admin', filter)).toEqual(before);
+      });
+
+      it('the number counted apart follows the reach of the person and the filters, as the cards do', async () => {
+        const base = {
+          adminT: (await summaryOf('admin', { teamId: id.T })).unconfirmed,
+          adminIncident: (await summaryOf('admin', { kind: 'INCIDENT' })).unconfirmed,
+          adminU: (await summaryOf('admin', { teamId: id.U })).unconfirmed,
+          member: (await summaryOf('member')).unconfirmed,
+          memberMine: (await summaryOf('member', { mine: true })).unconfirmed,
+          other: (await summaryOf('other')).unconfirmed,
+        };
+        expect(base.adminT).toEqual(expect.any(Number));
+        // A petition of unit T, worked by T, with the member named on it: a proposal.
+        const recordId = await record('PETITION');
+        await flowOn('PETITION', recordId, [{ due: DUE.YELLOW, parties: [{ teamId: id.T, assigneeUserId: id.member }] }]);
+        await confirm(recordId, false);
+
+        expect((await summaryOf('admin', { teamId: id.T })).unconfirmed).toBe(base.adminT + 1);
+        expect((await summaryOf('admin', { kind: 'PETITION' })).unconfirmed).toBeGreaterThanOrEqual(1);
+        expect((await summaryOf('admin', { kind: 'INCIDENT' })).unconfirmed).toBe(base.adminIncident);
+        expect((await summaryOf('admin', { teamId: id.U })).unconfirmed).toBe(base.adminU);
+        expect((await summaryOf('member')).unconfirmed).toBe(base.member + 1);
+        expect((await summaryOf('member', { mine: true })).unconfirmed).toBe(base.memberMine + 1);
+        expect((await summaryOf('leader', { mine: true })).unconfirmed).toBe(0);
+        // A person of another unit, whom no step of the record names, does not learn that it exists.
+        expect((await summaryOf('other')).unconfirmed).toBe(base.other);
+        expect(await summaryOf('unpermitted')).toMatchObject({ unconfirmed: 0 });
+
+        // A proposal on a record that is finished waits for nobody.
+        await scratch.db.petition.update({ where: { id: recordId }, data: { status: 'DA_GIAI_QUYET' } });
+        expect((await summaryOf('member')).unconfirmed).toBe(base.member);
+      });
     });
 
     it('an open pause stops the work at once, even while the stored alert has not followed', async () => {

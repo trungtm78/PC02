@@ -23,7 +23,10 @@ const MAX_WARN_DAYS = 3_650;
 
 /** The alert of one record on a list. */
 export interface RecordAlert {
-  /** `FLOW`: from the steps of the record's flow. `RECORD_DEADLINE`: the record has no flow; from its own deadline. */
+  /**
+   * `FLOW`: from the steps of the record's flow. `RECORD_DEADLINE`: from the record's own deadline; it has no flow, or
+   * only a proposed one.
+   */
   source: AlertSource;
   band: Band;
   /** Civil days left (Vietnam); 0 on the due day, negative after it. */
@@ -40,6 +43,7 @@ const FACTS = {
   deadline: true,
   procFlow: {
     select: {
+      confirmed: true,
       alertDueAt: true,
       alertRedFrom: true,
       alertYellowFrom: true,
@@ -58,6 +62,7 @@ interface Facts {
   status: string;
   deadline: Date | null;
   procFlow: {
+    confirmed: boolean;
     alertDueAt: Date | null;
     alertRedFrom: Date | null;
     alertYellowFrom: Date | null;
@@ -76,6 +81,8 @@ interface Facts {
  *   A record WITHOUT a flow  its own deadline, a calendar day: overdue after that day, RED on the day, YELLOW within the
  *                            system's warning threshold (`CANH_BAO_SAP_HAN`, the days the old reminder warns ahead)
  *                            (`RECORD_DEADLINE`); none without a deadline.
+ *   A record whose flow is only a PROPOSAL (`confirmed = false`, decision C10) is a record without a flow here: the
+ *   proposal asserts no deadline, so the record shows its own, whatever the stored alert of the proposal still says.
  *   A record that is finished or suspended has no alert, whatever its flow says (the row's own status decides, so the
  *   list never waits for the worker that reconciles the stored alert).
  *
@@ -141,8 +148,8 @@ export class RecordListAlertService implements OnModuleInit {
   /** The records of a kind whose alert is in `band` at `at`: a condition for the list's own `where`. */
   where(kind: RecordKind, band: Band, at: Date): Record<string, unknown> {
     const day = deadlineDayWhere(band, at, this.thresholds());
-    const sources: Record<string, unknown>[] = [{ procFlow: { is: bandConditions(band, at).flow } }];
-    if (day) sources.push({ procFlow: { is: null }, deadline: day });
+    const sources: Record<string, unknown>[] = [{ procFlow: { is: { confirmed: true, ...bandConditions(band, at).flow } } }];
+    if (day) sources.push({ OR: [{ procFlow: { is: null } }, { procFlow: { is: { confirmed: false } } }], deadline: day });
     return { AND: [{ status: { notIn: clocklessStatuses(kind) } }, { OR: sources }] };
   }
 
@@ -181,7 +188,8 @@ export class RecordListAlertService implements OnModuleInit {
 
   private alertOf(row: Facts, at: Date): RecordAlert | null {
     const flow = row.procFlow;
-    if (!flow) {
+    // No flow, or one nobody has confirmed: the record's own deadline.
+    if (!flow || !flow.confirmed) {
       if (!row.deadline) return null;
       const dueAt = endOfCivilDay(civilDayOf(row.deadline));
       return { source: ALERT_SOURCE.RECORD_DEADLINE, band: deadlineDayBand(at, row.deadline, this.thresholds()), remainingDays: remainingDays(at, dueAt), stepName: null, dueAt: dueAt.toISOString() };
