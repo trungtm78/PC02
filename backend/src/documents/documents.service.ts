@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { uploadedFileName } from './document-upload-policy';
 import { AuditService } from '../audit/audit.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -48,6 +49,17 @@ function chaTrongPhamVi(kiem: () => void): boolean {
   } catch {
     return false;
   }
+}
+
+/** The caller's own rule for the bytes of an attachment of a step report; it throws to refuse. Asked before AND after the bytes are read. */
+export interface StepAttachmentRead {
+  authorize(document: {
+    id: string;
+    caseId: string | null;
+    incidentId: string | null;
+    petitionId: string | null;
+    procStepReportId: string | null;
+  }): Promise<void>;
 }
 
 @Injectable()
@@ -174,7 +186,9 @@ export class DocumentsService {
       dieuKien.push({
         OR: [
           caseScope ? { case: caseScope } : { caseId: { not: null } },
-          incidentScope ? { incident: incidentScope } : { incidentId: { not: null } },
+          incidentScope
+            ? { incident: incidentScope }
+            : { incidentId: { not: null } },
           // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
           // from scope queries — chain-of-custody bleeding prevention.
           petitionScope
@@ -457,9 +471,7 @@ export class DocumentsService {
     // Configurable qua env MAX_DOCUMENTS_PER_ENTITY (0 hoặc unset = no limit).
     // Fail-closed cho malformed env (vd typo "abc"): parseInt → NaN, fallback về default 50
     // thay vì silently disable quota (review fix).
-    const rawMax = process.env.MAX_DOCUMENTS_PER_ENTITY;
-    const parsed = rawMax !== undefined ? Number.parseInt(rawMax, 10) : 50;
-    const maxPerEntity = Number.isFinite(parsed) && parsed >= 0 ? parsed : 50;
+    const maxPerEntity = this.maxDocumentsPerEntity();
     if (maxPerEntity > 0) {
       const entityFilter: Prisma.DocumentWhereInput = { deletedAt: null };
       if (dto.caseId) entityFilter.caseId = dto.caseId;
@@ -682,6 +694,11 @@ export class DocumentsService {
             (dto.caseId || null) !== existing.caseId) ||
           (dto.incidentId !== undefined &&
             (dto.incidentId || null) !== existing.incidentId);
+        // A file attached to the report of a processing step belongs to that report's record: it is not moved.
+        if (changesParent && current.procStepReportId)
+          throw new ConflictException(
+            'An attachment of a step report stays with its record',
+          );
         if (
           changesParent &&
           existing.caseId &&
@@ -811,6 +828,14 @@ export class DocumentsService {
           actorId,
           tx,
         );
+        // A file attached to the report of a processing step is removed by the report's author through the step, while
+        // the step is open: write access to the record does not let another person take it away here.
+        if (
+          (existing as { procStepReportId?: string | null }).procStepReportId
+        )
+          throw new ConflictException(
+            'An attachment of a step report is removed through its step',
+          );
         if (existing.caseId) {
           await tx.$queryRaw(
             Prisma.sql`SELECT id FROM cases WHERE id = ${existing.caseId} FOR UPDATE`,
@@ -822,40 +847,7 @@ export class DocumentsService {
             dataScope,
           );
         }
-        const registered = await tx.caseAssetVersion.findUnique({
-          where: { documentId: id },
-        });
-        if (
-          await tx.caseDecision.findFirst({ where: { sourceDocumentId: id } })
-        )
-          throw new ConflictException(
-            'Legal decision source must be preserved',
-          );
-        if (
-          await tx.caseCustodyEvent.findFirst({
-            where: { sourceDocumentId: id },
-          })
-        )
-          throw new ConflictException(
-            'Custody source receipt must be preserved',
-          );
-        if (
-          await tx.caseDispositionRequest.findFirst({
-            where: { receiptDocumentId: id },
-          })
-        )
-          throw new ConflictException(
-            'Disposition receipt source must be preserved',
-          );
-        if (registered)
-          throw new ConflictException('Registered original must be preserved');
-        if (
-          existing.caseId &&
-          (await tx.caseEvidenceHold.findFirst({
-            where: { caseId: existing.caseId, releasedAt: null },
-          }))
-        )
-          throw new ConflictException('Active hold protects document');
+        await this.assertRemovable(tx, id, existing.caseId);
         if (existing.petitionId && !existing.caseId && !existing.incidentId) {
           assertPetitionParentInScope(existing.petition, dataScope, 'write');
         } else {
@@ -898,6 +890,167 @@ export class DocumentsService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+  }
+
+  /** What keeps a document from being removed whoever asks: it is the source of something that must be preserved. */
+  private async assertRemovable(
+    tx: Prisma.TransactionClient,
+    id: string,
+    caseId: string | null,
+  ): Promise<void> {
+    const existing = { caseId };
+    const registered = await tx.caseAssetVersion.findUnique({
+      where: { documentId: id },
+    });
+    if (await tx.caseDecision.findFirst({ where: { sourceDocumentId: id } }))
+      throw new ConflictException('Legal decision source must be preserved');
+    if (
+      await tx.caseCustodyEvent.findFirst({
+        where: { sourceDocumentId: id },
+      })
+    )
+      throw new ConflictException('Custody source receipt must be preserved');
+    if (
+      await tx.caseDispositionRequest.findFirst({
+        where: { receiptDocumentId: id },
+      })
+    )
+      throw new ConflictException(
+        'Disposition receipt source must be preserved',
+      );
+    if (registered)
+      throw new ConflictException('Registered original must be preserved');
+    if (
+      existing.caseId &&
+      (await tx.caseEvidenceHold.findFirst({
+        where: { caseId: existing.caseId, releasedAt: null },
+      }))
+    )
+      throw new ConflictException('Active hold protects document');
+  }
+
+  // ─────────────────────────────────────────────
+  // ATTACHMENTS OF A STEP REPORT (processing flow, C4)
+  // ─────────────────────────────────────────────
+  /**
+   * The file a unit attaches to ITS OWN report of a step. A deliberate second write path: it does NOT ask for write on
+   * the record (a unit that coordinates has none). WHO may do it is the caller's question, answered from the step
+   * (`ProcessingAttachmentsService`), inside the transaction it passes; this writes the row of the record's document
+   * store (the record's own foreign key), under the same quota and file-name rules, and the same audit, as `create`.
+   */
+  async createStepAttachment(
+    tx: Prisma.TransactionClient,
+    input: {
+      parent: { caseId?: string; incidentId?: string; petitionId?: string };
+      procStepReportId: string;
+      file: {
+        filename: string;
+        originalname: string;
+        mimetype: string;
+        size: number;
+      };
+      actorId: string;
+      meta?: { ipAddress?: string; userAgent?: string };
+    },
+  ) {
+    const { parent, file } = input;
+    if (
+      /[\\/:]/.test(file.filename) ||
+      file.filename.includes('\0') ||
+      file.filename === '.' ||
+      file.filename === '..'
+    )
+      throw new BadRequestException('Invalid server filename');
+    const maxPerEntity = this.maxDocumentsPerEntity();
+    if (
+      maxPerEntity > 0 &&
+      (await tx.document.count({ where: { deletedAt: null, ...parent } })) >=
+        maxPerEntity
+    )
+      throw new BadRequestException(
+        `Vượt giới hạn ${maxPerEntity} tài liệu/đối tượng. Xoá tài liệu cũ trước khi tải mới.`,
+      );
+    const givenName = uploadedFileName(file.originalname);
+    const record = await tx.document.create({
+      data: {
+        title: givenName.slice(0, 255),
+        fileName: file.filename,
+        originalName: givenName,
+        mimeType: file.mimetype,
+        size: file.size,
+        filePath: path.join(this.uploadDir, file.filename),
+        documentType: 'VAN_BAN',
+        caseId: parent.caseId ?? null,
+        incidentId: parent.incidentId ?? null,
+        petitionId: parent.petitionId ?? null,
+        procStepReportId: input.procStepReportId,
+        uploadedById: input.actorId,
+      },
+    });
+    await this.audit.log(
+      {
+        userId: input.actorId,
+        action: 'DOCUMENT_CREATED',
+        subject: 'Document',
+        subjectId: record.id,
+        metadata: {
+          title: record.title,
+          originalName: record.originalName,
+          size: record.size,
+          caseId: record.caseId,
+          incidentId: record.incidentId,
+          petitionId: record.petitionId,
+          procStepReportId: record.procStepReportId,
+        },
+        ipAddress: input.meta?.ipAddress,
+        userAgent: input.meta?.userAgent,
+      },
+      tx,
+    );
+    return record;
+  }
+
+  /** Soft delete of an attachment of a step report, by the caller's rule; what must be preserved still is. */
+  async deleteStepAttachment(
+    tx: Prisma.TransactionClient,
+    document: {
+      id: string;
+      caseId: string | null;
+      title: string;
+      originalName: string;
+    },
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<void> {
+    await this.assertRemovable(tx, document.id, document.caseId);
+    await tx.document.update({
+      where: { id: document.id },
+      data: { deletedAt: new Date() },
+    });
+    await this.audit.log(
+      {
+        userId: actorId,
+        action: 'DOCUMENT_DELETED',
+        subject: 'Document',
+        subjectId: document.id,
+        metadata: {
+          title: document.title,
+          originalName: document.originalName,
+          softDelete: true,
+          stepAttachment: true,
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      },
+      tx,
+    );
+  }
+
+  /** MAX_DOCUMENTS_PER_ENTITY: 0 = no limit; unset or malformed = 50 (fail closed). */
+  private maxDocumentsPerEntity(): number {
+    const rawMax = process.env.MAX_DOCUMENTS_PER_ENTITY;
+    const parsed = rawMax !== undefined ? Number.parseInt(rawMax, 10) : 50;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 50;
   }
 
   // ─────────────────────────────────────────────
@@ -984,11 +1137,21 @@ export class DocumentsService {
     id: string,
     actorId: string,
     dataScope?: DataScope | null,
+    stepAttachment?: StepAttachmentRead,
   ) {
     const record = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
     });
     if (!record) throw new NotFoundException('Document not found');
+    if (stepAttachment)
+      return {
+        record,
+        principal: await this.stepAttachmentPrincipal(
+          record,
+          actorId,
+          stepAttachment,
+        ),
+      };
     const registered = await this.prisma.caseAssetVersion.findUnique({
       where: { documentId: id },
     });
@@ -1047,13 +1210,69 @@ export class DocumentsService {
     }
     return { record, principal };
   }
+  /**
+   * Who may have the bytes of an attachment of a step report. The record is opened by the STEP, not by the reader's
+   * scope over it, so the two scope questions of the ordinary path (`authorizeLegacyDocumentRead`, `getById`) are
+   * replaced by the caller's rule (`authorize`: the step read rule and that the document belongs to a report of that
+   * step). Everything else stays: a document of a CASE still passes the evidence governance of the case
+   * (`authorizeDocumentDownload`: the access principal, the byte policy, the case's own download capability with its
+   * scope, sensitivity and representation rules, a registered original its asset rule); any other needs an INTERNAL
+   * principal.
+   */
+  private async stepAttachmentPrincipal(
+    record: {
+      id: string;
+      caseId: string | null;
+      incidentId: string | null;
+      petitionId: string | null;
+      procStepReportId: string | null;
+    },
+    actorId: string,
+    stepAttachment: StepAttachmentRead,
+  ): Promise<{ mode: string; revision: number }> {
+    if (!record.procStepReportId)
+      throw new NotFoundException('Document not found');
+    await stepAttachment.authorize(record);
+    if (record.caseId) {
+      const principal = await this.evidenceGovernance.authorizeDocumentDownload(
+        this.prisma,
+        record.caseId,
+        record.id,
+        { actorId },
+      );
+      const registered = await this.prisma.caseAssetVersion.findUnique({
+        where: { documentId: record.id },
+      });
+      if (registered)
+        await this.evidenceGovernance.authorizeAsset(
+          this.prisma,
+          registered.caseId,
+          registered.id,
+          { actorId },
+          'download',
+        );
+      return principal;
+    }
+    const profile = await this.governance.accessProfile(this.prisma, {
+      actorId,
+    });
+    if (profile.caseAccessMode !== 'INTERNAL')
+      throw new ForbiddenException(
+        'Representation bytes require exact approved registered disclosure',
+      );
+    return {
+      mode: profile.caseAccessMode,
+      revision: profile.caseAccessRevision,
+    };
+  }
   async openDownload(
     id: string,
     actor: { userId: string; ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
+    stepAttachment?: StepAttachmentRead,
   ) {
     const { record: before, principal: beforePrincipal } =
-      await this.downloadRecord(id, actor.userId, dataScope);
+      await this.downloadRecord(id, actor.userId, dataScope, stepAttachment);
     const asset = await this.prisma.caseAssetVersion.findUnique({
       where: { documentId: id },
     });
@@ -1082,7 +1301,7 @@ export class DocumentsService {
           'Document integrity changed during hydration',
         );
       const { record: after, principal: afterPrincipal } =
-        await this.downloadRecord(id, actor.userId, dataScope);
+        await this.downloadRecord(id, actor.userId, dataScope, stepAttachment);
       if (
         after.updatedAt.getTime() !== before.updatedAt.getTime() ||
         after.caseId !== before.caseId ||

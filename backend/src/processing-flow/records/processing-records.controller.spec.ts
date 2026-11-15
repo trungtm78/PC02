@@ -5,6 +5,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecordGateway } from '../gateway/record-gateway';
+import { ProcessingAssignmentService } from './processing-assignment.service';
+import { ProcessingAttachmentsService } from './processing-attachments.service';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingResultsService } from './processing-results.service';
@@ -37,16 +39,18 @@ const ROUTES: Array<[Method, string, object | undefined, string, string]> = [
   ['post', '/processing/records/PETITION/r1/steps/k1/opinions', { expectedRevision: 2, kind: 'CHECK', verdict: 'PASS' }, 'opine:ProcessingStep', 'addOpinion'],
   ['post', '/processing/records/PETITION/r1/steps/k1/opinions/op1/withdraw', { expectedRevision: 2 }, 'opine:ProcessingStep', 'withdrawOpinion'],
   ['post', '/processing/records/PETITION/r1/steps/k1/decision', { expectedRevision: 2, verdict: 'AGREE' }, 'approve:ProcessingStep', 'decide'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/parties/p1/assignee', { expectedRevision: 2, userId: null }, 'read:ProcessingStep', 'assign'],
+  ['get', '/processing/records/PETITION/r1/steps/k1/parties/p1/candidates', undefined, 'read:ProcessingStep', 'candidates'],
   ['post', '/processing/records/PETITION/r1/steps/k1/skip', { expectedRevision: 2, reason: 'x' }, 'skip:ProcessingStep', 'skipStep'],
   ['post', '/processing/records/PETITION/r1/steps/k1/unskip', { expectedRevision: 2 }, 'skip:ProcessingStep', 'unskipStep'],
 ];
 
 /** The commands that open the record BY the step: they read, or they are authorised by being a party of the step. */
-const stepRoutes = new Set(['get', 'results', 'submitReport', 'editReport', 'withdrawReport', 'addOpinion', 'withdrawOpinion']);
+const stepRoutes = new Set(['assign', 'candidates', 'get', 'results', 'submitReport', 'editReport', 'withdrawReport', 'addOpinion', 'withdrawOpinion']);
 
 describe('ProcessingRecordsController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const commands = Object.fromEntries(['results', 'submitReport', 'editReport', 'withdrawReport', 'addOpinion', 'withdrawOpinion', 'decide', 'adjustDue', 'extendStep', 'get', 'apply', 'reapplyFlow', 'confirmFlow', 'recordAccepted', 'completeStep', 'reopenStep', 'skipStep', 'unskipStep'].map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
+  const commands = Object.fromEntries(['assign', 'candidates', 'results', 'submitReport', 'editReport', 'withdrawReport', 'addOpinion', 'withdrawOpinion', 'decide', 'adjustDue', 'extendStep', 'get', 'apply', 'reapplyFlow', 'confirmFlow', 'recordAccepted', 'completeStep', 'reopenStep', 'skipStep', 'unskipStep'].map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
   const gateway = { canRead: jest.fn() };
   let switchedOn = true;
   let held: string[] = ALL;
@@ -64,6 +68,8 @@ describe('ProcessingRecordsController (HTTP, real guards)', () => {
         { provide: ProcessingCommandService, useValue: commands },
         { provide: ProcessingDeadlineService, useValue: commands },
         { provide: ProcessingResultsService, useValue: commands },
+        { provide: ProcessingAssignmentService, useValue: commands },
+        { provide: ProcessingAttachmentsService, useValue: commands },
         { provide: RecordGateway, useValue: gateway },
         {
           provide: FeatureFlagsService,

@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssignmentTab } from '../AssignmentTab';
+import type { StepViewerDto } from '../types';
+import { RecordNotices } from '../RecordNotices';
 import { processingRecordApi } from '../api';
 import { processingFlow as L, errorText } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
-import { ALL_STEP_PERMISSIONS, recFlow, recStep } from './fixtures';
+import { ALL_STEP_PERMISSIONS, party, recFlow, recStep } from './fixtures';
 
 vi.mock('../api', () => ({
   processingRecordApi: {
@@ -20,11 +22,12 @@ vi.mock('../api', () => ({
     unskip: vi.fn(),
     due: vi.fn(),
     extend: vi.fn(),
+    assignParty: vi.fn(),
+    candidates: vi.fn(),
   },
 }));
-vi.mock('@/hooks/useOfficerOptions', () => ({
-  useOfficerOptions: () => ({ data: [{ value: 'u7', label: 'Trần B', teams: [] }] }),
-}));
+const me = vi.hoisted(() => ({ value: null as string | null }));
+vi.mock('../useCurrentUserId', () => ({ useCurrentUserId: () => me.value }));
 const held = vi.hoisted(() => ({ value: null as string[] | null }));
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ permissions: held.value }) }));
 
@@ -43,6 +46,7 @@ function renderTab() {
 beforeEach(() => {
   vi.resetAllMocks();
   held.value = ALL_STEP_PERMISSIONS;
+  me.value = null;
 });
 
 describe('a record with no flow yet', () => {
@@ -131,8 +135,8 @@ describe('the rows', () => {
         dueAt: '2026-12-16T00:00:00.000Z',
         extensionsUsed: 1,
         parties: [
-          { partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: 'u7' },
-          { partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'COORDINATE', assigneeUserId: null },
+          party({ id: 'pa-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: 'u7', assigneeName: 'Trần B' }),
+          party({ id: 'pa-2', partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'COORDINATE', assigneeUserId: null }),
         ],
         latestReport: { kind: 'PROGRESS', summary: 'Đã lấy lời khai hai người làm chứng', at: '2026-12-05T01:00:00.000Z', revision: 1 },
         latestOpinion: { kind: 'SUPERVISOR', verdict: 'NOTE', at: '2026-12-06T01:00:00.000Z' },
@@ -396,5 +400,219 @@ describe('loading and failing', () => {
     api.get.mockRejectedValue(apiError(404, null));
     renderTab();
     expect(await screen.findByTestId('assignment-off')).toHaveTextContent(R.off);
+  });
+});
+
+describe('the person who answers for a party', () => {
+  const heads = [{ userId: 'u1', name: 'Lê A' }];
+  const oneParty = (over: Parameters<typeof party>[0] = {}, step: Parameters<typeof recStep>[0] = {}) =>
+    recFlow({}, [recStep({ stepKey: 'b', parties: [party({ id: 'pm', responsible: heads, ...over })], ...(viewer ? { viewer } : {}), ...step })]);
+  /** What the server says of the person on the step: a member (or the head) of the unit of party `pm`. */
+  let viewer: StepViewerDto | undefined;
+  const memberOf = (isLeader: boolean) => {
+    me.value = 'u7';
+    viewer = { canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: ['pm'], leaderOfPartyIds: isLeader ? ['pm'] : [] };
+  };
+  beforeEach(() => {
+    viewer = undefined;
+  });
+
+  it('with nobody named, shows the heads of the unit as the ones who answer', async () => {
+    api.get.mockResolvedValue(oneParty());
+    renderTab();
+    expect(await screen.findByTestId('party-pm-responsible')).toHaveTextContent(R.assignee.heads('Lê A'));
+  });
+
+  it('says who acts for a responsible person under a delegation, and until which day (Vietnam); nothing when nobody does', async () => {
+    api.get.mockResolvedValue(oneParty({ responsible: [{ userId: 'u1', name: 'Lê A', delegateUserId: 'u7', delegateName: 'Trần B', delegatedUntil: '2026-12-10T16:59:59.999Z' }] }));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-delegated-u1')).toHaveTextContent('Lê A (uỷ quyền cho Trần B đến 10/12)');
+  });
+
+  it('shows no delegation line for a responsible person nobody acts for', async () => {
+    api.get.mockResolvedValue(oneParty());
+    renderTab();
+    await screen.findByTestId('party-pm-responsible');
+    expect(screen.queryByTestId('party-pm-delegated-u1')).toBeNull();
+  });
+
+  it('a person who may assign picks among the members the server lists, and the command carries the revision and a key', async () => {
+    api.get.mockResolvedValue(oneParty());
+    api.candidates.mockResolvedValue([
+      { userId: 'u1', name: 'Lê A', isLeader: true },
+      { userId: 'u7', name: 'Trần B', isLeader: false },
+    ]);
+    api.assignParty.mockResolvedValue(oneParty({ assigneeUserId: 'u7', assigneeName: 'Trần B', responsible: [{ userId: 'u7', name: 'Trần B' }] }));
+    renderTab();
+    fireEvent.click(await screen.findByTestId('party-pm-assign'));
+    const select = await screen.findByTestId('assignee-select');
+    expect(api.candidates).toHaveBeenCalledWith('PETITION', 'r1', 'b', 'pm');
+    expect(select).toHaveTextContent(R.assignee.leader('Lê A'));
+    // Nothing chosen: nothing is sent, and the reason is said.
+    fireEvent.click(screen.getByTestId('assignee-submit'));
+    expect(api.assignParty).not.toHaveBeenCalled();
+    expect(screen.getByTestId('assignment-error')).toHaveTextContent(errorText('ASSIGNEE_NOT_ELIGIBLE'));
+    fireEvent.change(select, { target: { value: 'u7' } });
+    fireEvent.click(screen.getByTestId('assignee-submit'));
+    await waitFor(() => expect(api.assignParty).toHaveBeenCalledWith('PETITION', 'r1', 'b', 'pm', { expectedRevision: 5, idempotencyKey: KEY, userId: 'u7' }));
+    await waitFor(() => expect(screen.queryByTestId('assignee-panel')).toBeNull());
+    expect(screen.getByTestId('party-pm')).toHaveTextContent('Tổ 3 · xử lý chính · Trần B');
+    expect(screen.getByTestId('assignment-message')).toHaveTextContent(R.done.assigned);
+  });
+
+  it('a list of members that did not load says so and offers a retry, never an empty unit', async () => {
+    api.get.mockResolvedValue(oneParty());
+    api.candidates.mockRejectedValue(apiError(500, 'X'));
+    renderTab();
+    fireEvent.click(await screen.findByTestId('party-pm-assign'));
+    expect(await screen.findByTestId('assignee-load-error')).toHaveTextContent(R.assignee.loadFailed);
+    expect(screen.queryByTestId('assignee-empty')).toBeNull();
+    expect(screen.getByTestId('assignee-submit')).toBeDisabled();
+  });
+
+  it('"Bỏ chỉ định" gives the party back to the heads of the unit', async () => {
+    api.get.mockResolvedValue(oneParty({ assigneeUserId: 'u7', assigneeName: 'Trần B' }));
+    api.assignParty.mockResolvedValue(oneParty());
+    renderTab();
+    fireEvent.click(await screen.findByTestId('party-pm-unassign'));
+    await waitFor(() => expect(api.assignParty).toHaveBeenCalledWith('PETITION', 'r1', 'b', 'pm', { expectedRevision: 5, idempotencyKey: KEY, userId: null }));
+    expect(await screen.findByTestId('party-pm-responsible')).toBeInTheDocument();
+  });
+
+  it('a member of the unit without `assign` is offered "Nhận việc" only, and takes the work themself', async () => {
+    held.value = ['read:ProcessingStep'];
+    memberOf(false);
+    api.get.mockResolvedValue(oneParty());
+    api.assignParty.mockResolvedValue(oneParty({ assigneeUserId: 'u7', assigneeName: 'Trần B' }));
+    renderTab();
+    fireEvent.click(await screen.findByTestId('party-pm-take'));
+    expect(screen.queryByTestId('party-pm-assign')).toBeNull();
+    await waitFor(() => expect(api.assignParty).toHaveBeenCalledWith('PETITION', 'r1', 'b', 'pm', { expectedRevision: 5, idempotencyKey: KEY, userId: 'u7' }));
+    // What they took they can give back; they cannot take what a colleague holds.
+    expect(await screen.findByTestId('party-pm-unassign')).toBeInTheDocument();
+    expect(screen.queryByTestId('party-pm-take')).toBeNull();
+  });
+
+  it('a head of the unit names a member without `assign`; a stranger and a finished step are offered nothing', async () => {
+    held.value = ['read:ProcessingStep'];
+    memberOf(true);
+    api.get.mockResolvedValue(
+      recFlow({}, [
+        recStep({ stepKey: 'b', viewer, parties: [party({ id: 'pm' }), party({ id: 'po', teamId: 't9', teamName: 'Tổ 9', role: 'COORDINATE' })] }),
+        recStep({ stepKey: 'd', status: 'DONE', viewer: { ...viewer!, memberOfPartyIds: ['pd'], leaderOfPartyIds: ['pd'] }, parties: [party({ id: 'pd' })] }),
+      ]),
+    );
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toBeInTheDocument();
+    expect(screen.queryByTestId('party-po-assign')).toBeNull();
+    expect(screen.queryByTestId('party-po-take')).toBeNull();
+    expect(screen.queryByTestId('party-pd-assign')).toBeNull();
+  });
+
+  it('a conflict locks the assignment actions like every other action', async () => {
+    api.get.mockResolvedValue(oneParty({ assigneeUserId: 'u7', assigneeName: 'Trần B' }));
+    api.assignParty.mockRejectedValue(apiError(409, 'REVISION_CONFLICT'));
+    renderTab();
+    fireEvent.click(await screen.findByTestId('party-pm-unassign'));
+    await waitFor(() => expect(screen.getByTestId('party-pm-unassign')).toBeDisabled());
+    expect(screen.getByTestId('party-pm-assign')).toBeDisabled();
+  });
+});
+
+describe('"Gia hạn" when no extension is left', () => {
+  it('is not offered once every extension was used, nor on a step that allows none', async () => {
+    api.get.mockResolvedValue(
+      recFlow({}, [
+        recStep({ stepKey: 'left', extensionsAllowed: 2, extensionsUsed: 1 }),
+        recStep({ stepKey: 'used', extensionsAllowed: 2, extensionsUsed: 2 }),
+        recStep({ stepKey: 'none', extensionsAllowed: 0, extensionsUsed: 0 }),
+      ]),
+    );
+    renderTab();
+    expect(await screen.findByTestId('step-left-extend')).toBeInTheDocument();
+    expect(screen.queryByTestId('step-used-extend')).toBeNull();
+    expect(screen.queryByTestId('step-none-extend')).toBeNull();
+  });
+});
+
+describe('the sentence of a conflict on the record tabs', () => {
+  it('says the typed text is kept, not lost', () => {
+    render(<RecordNotices testPrefix="assignment" message={null} error={null} conflict refreshing={false} refreshFailed={false} onTakeNewer={() => undefined} />);
+    const notice = screen.getByTestId('assignment-conflict');
+    expect(notice).toHaveTextContent(L.conflict.bodyKeepsText);
+    expect(notice).not.toHaveTextContent('sẽ mất');
+    expect(L.conflict.bodyKeepsText).toContain('giữ lại');
+  });
+});
+
+describe('an officer who may not read the list of users', () => {
+  it('reads the names from the flow and never asks for the users of the office', async () => {
+    held.value = ['read:ProcessingStep'];
+    me.value = 'u7';
+    api.get.mockResolvedValue(
+      recFlow({}, [
+        recStep({
+          stepKey: 'b',
+          viewer: { canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: ['pm'], leaderOfPartyIds: [] },
+          parties: [party({ id: 'pm' }), party({ id: 'pn', teamId: 't9', teamName: 'Tổ 9', role: 'CHECK', assigneeUserId: 'u2', assigneeName: 'Ngô C' })],
+        }),
+      ]),
+    );
+    renderTab();
+    expect(await screen.findByTestId('party-pm-take')).toBeInTheDocument();
+    expect(screen.getByTestId('party-pn')).toHaveTextContent('Ngô C');
+    expect(screen.queryByTestId('party-pn-take')).toBeNull();
+  });
+
+  it('an answer without viewer offers "Nhận việc" to nobody (the server would have to be asked)', async () => {
+    held.value = ['read:ProcessingStep'];
+    me.value = 'u7';
+    api.get.mockResolvedValue(recFlow({}, [recStep({ stepKey: 'b', parties: [party({ id: 'pm' })] })]));
+    renderTab();
+    await screen.findByTestId('party-pm');
+    expect(screen.queryByTestId('party-pm-take')).toBeNull();
+  });
+});
+
+describe('assignment by permission needs the record in the person own scope', () => {
+  const base = { canReport: false, opinionKinds: [], canApprove: false, memberOfPartyIds: [], leaderOfPartyIds: [] };
+  const flowFor = (viewer: StepViewerDto | undefined) =>
+    recFlow({}, [
+      recStep({
+        stepKey: 'b',
+        ...(viewer ? { viewer } : {}),
+        parties: [party({ id: 'pm' }), party({ id: 'pn', teamId: 't9', teamName: 'Tổ 9', role: 'COORDINATE', assigneeUserId: 'u2', assigneeName: 'Ngô C' })],
+      }),
+    ]);
+
+  it('a holder of `assign` who opened the record only through a step is offered no naming, changing or unassigning', async () => {
+    api.get.mockResolvedValue(flowFor({ ...base, canAssignByScope: false }));
+    renderTab();
+    await screen.findByTestId('party-pm');
+    expect(screen.queryByTestId('party-pm-assign')).toBeNull();
+    expect(screen.queryByTestId('party-pn-assign')).toBeNull();
+    expect(screen.queryByTestId('party-pn-unassign')).toBeNull();
+  });
+
+  it('heading the unit of a party still names its people there, and only there', async () => {
+    api.get.mockResolvedValue(flowFor({ ...base, canAssignByScope: false, memberOfPartyIds: ['pm'], leaderOfPartyIds: ['pm'] }));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toBeInTheDocument();
+    expect(screen.queryByTestId('party-pn-assign')).toBeNull();
+  });
+
+  it('with the record in scope the permission names, changes and unassigns on every party', async () => {
+    api.get.mockResolvedValue(flowFor({ ...base, canAssignByScope: true }));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toHaveTextContent(R.actions.assign);
+    expect(screen.getByTestId('party-pn-assign')).toHaveTextContent(R.actions.changeAssignee);
+    expect(screen.getByTestId('party-pn-unassign')).toBeInTheDocument();
+  });
+
+  it('an answer without the field (an older server) leaves the permission alone to decide', async () => {
+    api.get.mockResolvedValue(flowFor(base));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toBeInTheDocument();
+    api.get.mockResolvedValue(flowFor(undefined));
   });
 });

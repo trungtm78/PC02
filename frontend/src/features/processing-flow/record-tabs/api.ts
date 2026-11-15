@@ -2,12 +2,15 @@ import { api } from '@/lib/api';
 import { ApplyNotDone } from '../errors';
 import type {
   AdjustDueBody,
+  AssignPartyBody,
+  CandidateDto,
   DecisionBody,
   EditReportBody,
   OpinionBody,
   ReasonBody,
   RecordFlowDto,
   RecordKind,
+  ReportAttachmentDto,
   ResultsDto,
   SubmitReportBody,
   WriteBase,
@@ -49,12 +52,35 @@ export const processingRecordApi = {
   due: (kind: RecordKind, id: string, stepKey: string, body: AdjustDueBody) => post(`${stepPath(kind, id, stepKey)}/due`, body),
   extend: (kind: RecordKind, id: string, stepKey: string, body: WriteBase & { reason: string }) => post(`${stepPath(kind, id, stepKey)}/extend`, body),
 
+  /** Names the person who answers for a party of a step (`userId: null`: the heads of the unit again). */
+  assignParty: (kind: RecordKind, id: string, stepKey: string, partyId: string, body: AssignPartyBody) =>
+    post(`${stepPath(kind, id, stepKey)}/parties/${part(partyId)}/assignee`, body),
+  candidates: (kind: RecordKind, id: string, stepKey: string, partyId: string) =>
+    api.get<CandidateDto[]>(`${stepPath(kind, id, stepKey)}/parties/${part(partyId)}/candidates`).then(data),
+
   results: (kind: RecordKind, id: string, stepKey: string) => api.get<ResultsDto>(`${stepPath(kind, id, stepKey)}/results`).then(data),
   submitReport: (kind: RecordKind, id: string, stepKey: string, body: SubmitReportBody) => post(`${stepPath(kind, id, stepKey)}/reports`, body),
   editReport: (kind: RecordKind, id: string, stepKey: string, reportId: string, body: EditReportBody) =>
     post(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/edit`, body),
   withdrawReport: (kind: RecordKind, id: string, stepKey: string, reportId: string, body: WriteBase) =>
     post(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/withdraw`, body),
+  /**
+   * The files of a report. Not commands on the flow: they answer the file (or its id), never a new flow, and carry no
+   * revision. One file per call.
+   */
+  attach: (kind: RecordKind, id: string, stepKey: string, reportId: string, file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    // The shared client defaults to JSON, which would turn the form into `{"file":{}}`: a file goes as multipart.
+    return api
+      .post<ReportAttachmentDto>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments`, body, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then(data);
+  },
+  removeAttachment: (kind: RecordKind, id: string, stepKey: string, reportId: string, documentId: string) =>
+    api.delete<{ id: string }>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments/${part(documentId)}`).then(data),
+  /** The whole response: the name of the file is in its Content-Disposition header. */
+  downloadAttachment: (kind: RecordKind, id: string, stepKey: string, reportId: string, documentId: string) =>
+    api.get<Blob>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments/${part(documentId)}/download`, { responseType: 'blob' }),
   addOpinion: (kind: RecordKind, id: string, stepKey: string, body: OpinionBody) => post(`${stepPath(kind, id, stepKey)}/opinions`, body),
   withdrawOpinion: (kind: RecordKind, id: string, stepKey: string, opinionId: string, body: WriteBase) =>
     post(`${stepPath(kind, id, stepKey)}/opinions/${part(opinionId)}/withdraw`, body),

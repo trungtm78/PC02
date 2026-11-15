@@ -5,7 +5,7 @@ import { ResultsTab } from '../ResultsTab';
 import { processingRecordApi } from '../api';
 import { processingFlow as L, errorText } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
-import { ALL_STEP_PERMISSIONS, book, opinion, recFlow, recStep, report } from './fixtures';
+import { ALL_STEP_PERMISSIONS, book, opinion, party, recFlow, recStep, report } from './fixtures';
 
 vi.mock('../api', () => ({
   processingRecordApi: {
@@ -294,8 +294,8 @@ describe('opinions', () => {
       recFlow({}, [
         OPEN({
           parties: [
-            { partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: null },
-            { partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null },
+            party({ id: 'pr-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: null }),
+            party({ id: 'pr-2', partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null }),
           ],
         }),
       ]),
@@ -313,7 +313,7 @@ describe('opinions', () => {
   });
 
   it('a check can pass a result with no words', async () => {
-    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties: [{ partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null }] })]));
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties: [party({ id: 'pr-3', partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'CHECK', assigneeUserId: null })] })]));
     api.addOpinion.mockResolvedValue(recFlow({ revision: 6 }, [OPEN()]));
     renderTab();
     fireEvent.click(await screen.findByTestId('opinion-open'));
@@ -411,5 +411,77 @@ describe('"Kết luận chung"', () => {
     renderTab();
     await screen.findByTestId('results-step-k');
     expect(screen.queryByTestId('results-conclusion')).toBeNull();
+  });
+});
+
+describe('the role of the person on the step (viewer)', () => {
+  const VIEWER = { canReport: false, opinionKinds: [], canApprove: false, memberOfPartyIds: [], leaderOfPartyIds: [] };
+  const parties = [party({ id: 'm', role: 'MAIN' }), party({ id: 'c', role: 'CHECK', teamId: 't4' })];
+
+  it('a person with every permission and no part in the step is offered no report form and no opinion', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties, viewer: VIEWER })]));
+    renderTab();
+    await screen.findByTestId('book-b');
+    expect(screen.queryByTestId('report-form')).toBeNull();
+    expect(screen.queryByTestId('opinion-open')).toBeNull();
+  });
+
+  it('a member of the unit that checks is offered only the opinion of a check, and no report form', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties, viewer: { ...VIEWER, opinionKinds: ['CHECK'] } })]));
+    renderTab();
+    fireEvent.click(await screen.findByTestId('opinion-open'));
+    expect(screen.queryByTestId('report-form')).toBeNull();
+    // One role only: there is nothing to choose, the kind is not asked.
+    const kind = screen.queryByTestId('opinion-kind');
+    if (kind) expect(within(kind).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['CHECK']);
+  });
+
+  it('a member of the unit that works the step is offered the report form', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties, viewer: { ...VIEWER, canReport: true } })]));
+    renderTab();
+    expect(await screen.findByTestId('report-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('opinion-open')).toBeNull();
+  });
+
+  it('the decision is offered only when the role allows it too; the author of a report who left the unit gets no buttons on it', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: VIEWER })]));
+    api.results.mockResolvedValue(book([report({ id: 'mine', kind: 'RESULT', authorId: 'u7' })]));
+    renderTab();
+    await screen.findByTestId('report-mine');
+    expect(screen.queryByTestId('decision-form')).toBeNull();
+    expect(screen.queryByTestId('report-mine-withdraw')).toBeNull();
+  });
+
+  it('a holder of `approve` who opened the record only through a step (canApprove false) may still report, and is offered no decision', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: { ...VIEWER, canReport: true, opinionKinds: ['CHECK'], canAssignByScope: false } })]));
+    renderTab();
+    await screen.findByTestId('book-b');
+    expect(screen.queryByTestId('decision-form')).toBeNull();
+    expect(screen.queryByTestId('decision-agree')).toBeNull();
+  });
+
+  it('the decision is offered when the permission and the role both allow it', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: { ...VIEWER, canApprove: true } })]));
+    renderTab();
+    expect(await screen.findByTestId('decision-form')).toBeInTheDocument();
+  });
+
+  it('an answer without viewer (an older server) offers what the permissions allow, as before', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties })]));
+    renderTab();
+    expect(await screen.findByTestId('report-form')).toBeInTheDocument();
+    // The opinion is offered (the button, or the form a draft of an earlier visit left open).
+    expect(await screen.findByTestId(/^opinion-(open|form)$/)).toBeInTheDocument();
+  });
+});
+
+describe('the required mark of "Việc đã thực hiện"', () => {
+  it('sits in the same inline element as the label, so the flex column cannot push it onto its own line', async () => {
+    renderTab();
+    const field = (await screen.findByTestId('report-done-work')).closest('label')!;
+    const mark = within(field).getByText('*');
+    expect(mark.parentElement).not.toBe(field);
+    expect(mark.parentElement?.tagName).toBe('SPAN');
+    expect(mark.parentElement).toHaveTextContent(`${R.results.form.doneWork} *`);
   });
 });

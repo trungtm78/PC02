@@ -16,12 +16,35 @@ export type OpinionKind = 'SUPERVISOR' | 'COORDINATE' | 'CHECK' | 'APPROVAL' | '
 export type SpeakingKind = Exclude<OpinionKind, 'APPROVAL' | 'NUDGE'>;
 export type DecisionVerdict = 'AGREE' | 'DISAGREE' | 'OTHER_DIRECTION';
 
+/** One person who answers for a party of a step. */
+export interface ResponsiblePersonDto {
+  userId: string;
+  name: string;
+  /** The person who acts for them right now (a delegation in force), and until when. Absent when nobody does. */
+  delegateUserId?: string;
+  delegateName?: string;
+  delegatedUntil?: string;
+}
+
 export interface RecordStepPartyDto {
+  /** The row of the party: what the assignment routes name. */
+  id: string;
   partyKind: string;
   teamId: string | null;
   teamName: string | null;
   role: string;
   assigneeUserId: string | null;
+  assigneeName: string | null;
+  /** Who answers for the party: the person named, otherwise the heads of its unit. */
+  responsible: ResponsiblePersonDto[];
+  note: string | null;
+}
+
+/** A person who may be named on a party: an active member of its unit. */
+export interface CandidateDto {
+  userId: string;
+  name: string;
+  isLeader: boolean;
 }
 
 export interface RecordStepDto {
@@ -60,6 +83,27 @@ export interface RecordStepDto {
   parties: RecordStepPartyDto[];
   latestReport: { kind: string; summary: string; at: string; revision: number } | null;
   latestOpinion: { kind: string; verdict: string; at: string } | null;
+  /**
+   * What the person looking may do on the step BY THEIR ROLE on it (the rules the write routes refuse with). A form is
+   * offered only when the permission AND this allow it. Absent in an answer of an older server: permissions alone decide.
+   */
+  viewer?: StepViewerDto;
+}
+
+export interface StepViewerDto {
+  canReport: boolean;
+  opinionKinds: SpeakingKind[];
+  /** The record is in the person's OWN scope (not only opened through a step): the decision route will take them. */
+  canApprove: boolean;
+  /**
+   * The same fact for naming a person by the permission `assign:ProcessingStep`. Absent in an answer of an older server:
+   * the permission alone decides, as before.
+   */
+  canAssignByScope?: boolean;
+  /** The parties of the step whose (active) unit the person belongs to: where they may take the work themself. */
+  memberOfPartyIds: string[];
+  /** The parties of the step whose (active) unit the person heads: there they may name anybody of the unit. */
+  leaderOfPartyIds: string[];
 }
 
 export interface RecordFlowDto {
@@ -85,6 +129,15 @@ export interface DocumentRef {
   date?: string;
 }
 
+/** A file attached to a report: a document of the record, listed under the report it was attached to. */
+export interface ReportAttachmentDto {
+  id: string;
+  fileName: string;
+  size: number;
+  uploadedAt: string;
+  uploaderName: string | null;
+}
+
 export interface ReportDto {
   id: string;
   kind: string;
@@ -104,6 +157,8 @@ export interface ReportDto {
   createdAt: string;
   /** Somebody has given an opinion on it: it can no longer be edited or taken back. */
   answered: boolean;
+  /** Its files, oldest first (removed ones are not listed). */
+  attachments: ReportAttachmentDto[];
 }
 
 export interface OpinionDto {
@@ -147,5 +202,7 @@ export type SubmitReportBody = WriteBase & ReportFields & { kind: ReportKind };
 export type EditReportBody = WriteBase & ReportFields;
 export type OpinionBody = WriteBase & { kind: SpeakingKind; verdict?: string; content?: string };
 export type DecisionBody = WriteBase & { verdict: DecisionVerdict; content?: string };
+/** `userId: null` gives the party back to the heads of its unit. */
+export type AssignPartyBody = WriteBase & { userId: string | null };
 export type ReasonBody = WriteBase & { reason?: string };
 export type AdjustDueBody = WriteBase & { date: string | null; reason?: string };

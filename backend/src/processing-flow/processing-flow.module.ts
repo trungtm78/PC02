@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AuthModule } from '../auth/auth.module';
 import { UnitScopeService } from '../auth/services/unit-scope.service';
@@ -16,7 +16,12 @@ import { ProcessingCommandService } from './records/processing-command.service';
 import { ProcessingDeadlineService } from './records/processing-deadline.service';
 import { ProcessingOutboxService } from './records/processing-outbox.service';
 import { ProcessingPauseService } from './records/processing-pause.service';
+import { ProcessingAssignmentService } from './records/processing-assignment.service';
+import { ProcessingDelegationService } from './records/processing-delegation.service';
+import { ProcessingDelegationsController } from './records/processing-delegations.controller';
 import { ProcessingResultsService } from './records/processing-results.service';
+import { ProcessingAttachmentsService } from './records/processing-attachments.service';
+import { DocumentsModule } from '../documents/documents.module';
 import { RecordDeadlineWriter } from './records/record-deadline-writer.service';
 import { RecordStepAccessService } from './records/record-step-access.service';
 import { ProcessingRecordsController } from './records/processing-records.controller';
@@ -35,9 +40,10 @@ import { RecordListAlertService } from './tracking/record-list-alert.service';
 @Module({
   // UnitScopeService resolves the scope a request would carry; it needs the team tree. The services audit their writes.
   // AuthModule: the guards of the routes.
-  imports: [TeamsModule, AuditModule, AuthModule],
-  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingTrackingController, ProcessingBacklogController],
-  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, ProcessingBacklogService, RecordListAlertService],
+  // DocumentsModule: the attachments of a step report are documents of the record (storage, audit, evidence governance).
+  imports: [TeamsModule, AuditModule, AuthModule, forwardRef(() => DocumentsModule)],
+  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingDelegationsController, ProcessingTrackingController, ProcessingBacklogController],
+  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingBacklogService, ProcessingAttachmentsService, ProcessingAssignmentService, ProcessingDelegationService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, RecordListAlertService],
   // ProcessingOutboxService: the services that save a petition, an incident or a case write one request in their own
   // transaction (`enqueue`); nothing else of this module is theirs to call.
   // RecordListAlertService: the alert column of the three lists.

@@ -3,6 +3,7 @@ import { processingFlow } from '@/locales/processingFlow.vi';
 
 export const TRACKING_PATH = '/theo-doi-xu-ly';
 export const BACKLOG_PATH = '/ton-dong-theo-don-vi';
+export const DELEGATION_PATH = '/uy-quyen-xu-ly';
 
 export const processingRecordsMenu: FeatureMenuEntry[] = [
   {
@@ -26,5 +27,16 @@ export const processingRecordsMenu: FeatureMenuEntry[] = [
     icon: 'Table2',
     // Right under "Theo dõi xử lý".
     order: 11,
+  },
+  {
+    section: 'workflow',
+    id: 'processing-delegation',
+    label: processingFlow.delegation.menu,
+    path: DELEGATION_PATH,
+    // GET /processing/delegations is `read:ProcessingStep`.
+    quyen: ['read:ProcessingStep'],
+    icon: 'ArrowRightLeft',
+    // After the two screens of the work itself.
+    order: 12,
   },
 ];

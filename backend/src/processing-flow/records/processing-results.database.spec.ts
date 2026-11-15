@@ -482,4 +482,47 @@ run('Results of a step on PostgreSQL', () => {
       expect(last).toMatchObject({ verdict: 'AGREE', reportId: reports[1].id });
     });
   });
+
+  describe('what the person looking may do on a step by their role (viewer)', () => {
+    it('says for each person what the write routes would answer: the working unit, its head, the checker, the coordinator, an outsider, the leader', async () => {
+      const { recordId, key } = await withFlow([step()]);
+      const viewerOf = async (who: string) => (await commands.get('PETITION', recordId, user[who])).steps[0].viewer;
+      const parties = (await commands.get('PETITION', recordId)).steps[0].parties;
+      const partyOf = (role: string) => parties.find((p) => p.role === role)!.id;
+
+      expect(await viewerOf('worker')).toEqual({ canReport: true, opinionKinds: [], canApprove: false, canAssignByScope: false, memberOfPartyIds: [partyOf('MAIN')], leaderOfPartyIds: [] });
+      expect(await viewerOf('head')).toEqual({ canReport: true, opinionKinds: ['SUPERVISOR'], canApprove: false, canAssignByScope: false, memberOfPartyIds: [partyOf('MAIN')], leaderOfPartyIds: [partyOf('MAIN')] });
+      expect(await viewerOf('checker')).toEqual({ canReport: false, opinionKinds: ['CHECK'], canApprove: false, canAssignByScope: false, memberOfPartyIds: [partyOf('CHECK')], leaderOfPartyIds: [] });
+      expect(await viewerOf('coordinator')).toEqual({ canReport: true, opinionKinds: ['COORDINATE'], canApprove: false, canAssignByScope: false, memberOfPartyIds: [partyOf('COORDINATE')], leaderOfPartyIds: [] });
+      // A person with no part in the step: no report, no opinion. Nobody here holds `read:Petition`, so the record is in
+      // nobody's own scope: no decision and no assignment by permission either (the scope side: processing-assignment spec).
+      for (const who of ['outsider', 'admin', 'approver']) expect(await viewerOf(who)).toEqual({ canReport: false, opinionKinds: [], canApprove: false, canAssignByScope: false, memberOfPartyIds: [], leaderOfPartyIds: [] });
+
+      // The answers are the ones the write routes give.
+      const stepKey = await key();
+      const { revision } = await commands.get('PETITION', recordId);
+      expect(await failure(results.submitReport(user.outsider, 'PETITION', recordId, stepKey, { expectedRevision: revision, ...report() }))).toEqual({ status: 403, code: 'NOT_A_PARTY_OF_STEP' });
+      expect(await failure(results.addOpinion(user.worker, 'PETITION', recordId, stepKey, { expectedRevision: revision, kind: 'SUPERVISOR', verdict: 'NOTE', content: 'x' }))).toEqual({ status: 403, code: 'OPINION_NOT_ALLOWED' });
+    });
+
+    it('an answer for nobody carries no viewer, and the answer of a write is the actor’s', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      const before = await get();
+      expect(before.steps[0]).not.toHaveProperty('viewer');
+      const after = await results.submitReport(user.worker, 'PETITION', recordId, await key(), { expectedRevision: before.revision, ...report() });
+      expect(after.steps[0].viewer).toMatchObject({ canReport: true, opinionKinds: [] });
+    });
+
+    it('a person only NAMED on a party reports but is not a member of it; a stopped unit gives nothing', async () => {
+      const { recordId } = await withFlow([step()]);
+      await scratch.db.procRecordStepParty.updateMany({ where: { recordStep: { recordId }, role: 'COORDINATE' }, data: { teamId: null, partyKind: 'RECORD_TEAM', assigneeUserId: user.outsider } });
+      expect((await commands.get('PETITION', recordId, user.outsider)).steps[0].viewer).toEqual({ canReport: true, opinionKinds: ['COORDINATE'], canApprove: false, canAssignByScope: false, memberOfPartyIds: [], leaderOfPartyIds: [] });
+      await scratch.db.team.update({ where: { id: team.A }, data: { status: 'INACTIVE' } });
+      try {
+        expect((await commands.get('PETITION', recordId, user.head)).steps[0].viewer).toEqual({ canReport: false, opinionKinds: [], canApprove: false, canAssignByScope: false, memberOfPartyIds: [], leaderOfPartyIds: [] });
+      } finally {
+        await scratch.db.team.update({ where: { id: team.A }, data: { status: 'ACTIVE' } });
+      }
+    });
+  });
 });

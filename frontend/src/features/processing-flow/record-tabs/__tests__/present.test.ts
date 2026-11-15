@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { isAdjusted, lastActivity, partyLine, proposalLabel, speakingKinds, stepBadge } from '../present';
-import { recFlow, recStep } from './fixtures';
+import { party, recFlow, recStep } from './fixtures';
 
 const R = L.recordTabs;
 const flow = recFlow();
@@ -34,10 +34,10 @@ describe('the badge of a step', () => {
 
 describe('the other words of a step', () => {
   it('writes a unit with its role and the person named', () => {
-    const party = { partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'CHECK', assigneeUserId: 'u7' };
-    expect(partyLine(party, () => 'Trần B')).toBe('Tổ 3 · kiểm tra · Trần B');
-    expect(partyLine(party, () => null)).toBe('Tổ 3 · kiểm tra');
-    expect(partyLine({ ...party, partyKind: 'RECORD_TEAM', teamId: null, teamName: null, assigneeUserId: null }, () => null)).toBe(`${L.recordTeam} · kiểm tra`);
+    const row = party({ id: 'pp-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'CHECK', assigneeUserId: 'u7' });
+    expect(partyLine({ ...row, assigneeName: 'Trần B' })).toBe('Tổ 3 · kiểm tra · Trần B');
+    expect(partyLine(row)).toBe('Tổ 3 · kiểm tra');
+    expect(partyLine({ ...row, partyKind: 'RECORD_TEAM', teamId: null, teamName: null, assigneeUserId: null })).toBe(`${L.recordTeam} · kiểm tra`);
   });
 
   it('the own target counts as adjusted only when it is earlier than the regulatory deadline', () => {
@@ -47,7 +47,7 @@ describe('the other words of a step', () => {
   });
 
   it('offers an opinion only in the roles the step holds', () => {
-    const parties = (...roles: string[]) => ({ parties: roles.map((role) => ({ partyKind: 'TEAM', teamId: 't', teamName: 'T', role, assigneeUserId: null })) });
+    const parties = (...roles: string[]) => ({ parties: roles.map((role) => party({ teamId: 't', teamName: 'T', role })) });
     expect(speakingKinds(parties('MAIN', 'INFORM'))).toEqual(['SUPERVISOR']);
     expect(speakingKinds(parties('CHECK', 'COORDINATE', 'MAIN'))).toEqual(['SUPERVISOR', 'COORDINATE', 'CHECK']);
     expect(speakingKinds(parties('INFORM'))).toEqual([]);

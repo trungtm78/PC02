@@ -290,3 +290,16 @@ describe('when the backend switch is off', () => {
     expect(await screen.findByTestId('flow-name-p1')).toBeInTheDocument();
   });
 });
+
+describe('a person without read:ProcessingFlow', () => {
+  it('sees the plain "no permission" state in Vietnamese, with no frame, no raw message and no retry', async () => {
+    api.list.mockRejectedValue(apiError(403, null));
+    renderPage();
+    const state = await screen.findByTestId('processing-flow-forbidden');
+    expect(state).toHaveTextContent(L.common.forbiddenTitle);
+    expect(screen.queryByTestId('flow-list-load-error')).toBeNull();
+    expect(screen.queryByTestId('flow-list-retry')).toBeNull();
+    expect(screen.queryByTestId('flow-new')).toBeNull();
+    expect(document.body).not.toHaveTextContent(/Insufficient permissions/i);
+  });
+});

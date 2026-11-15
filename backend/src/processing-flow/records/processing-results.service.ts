@@ -5,6 +5,7 @@ import { OPINION_KINDS, PROCESSING_ERROR, PROPOSAL_KINDS, type ProcessingErrorCo
 import type { RecordKind } from '../gateway/record-snapshot';
 import { ProcessingCommandService, type CommandInput } from './processing-command.service';
 import type { RecordFlowDto } from './record-flow.dto';
+import { REPORTING_ROLES, loadRolePartiesAt, mayGiveOpinion, mayReport, opinionNeedsHead, roleOfOpinion, stepRolesOf, type StepRoles } from './step-roles';
 
 type Tx = Prisma.TransactionClient;
 
@@ -36,8 +37,17 @@ export interface SubmitReportInput extends CommandInput, ReportInput {
 export type OpinionKind = (typeof OPINION_KINDS)[number];
 
 export interface ResultsDto {
-  reports: Array<ReportInput & { id: string; kind: string; authorId: string; authorName: string | null; authorTeamId: string | null; revision: number; withdrawnAt: string | null; supersededAt: string | null; createdAt: string; answered: boolean }>;
+  reports: Array<ReportInput & { id: string; kind: string; authorId: string; authorName: string | null; authorTeamId: string | null; revision: number; withdrawnAt: string | null; supersededAt: string | null; createdAt: string; answered: boolean; attachments: ReportAttachment[] }>;
   opinions: Array<{ id: string; kind: string; verdict: string; content: string | null; reportId: string | null; reportRevision: number | null; authorId: string; authorName: string | null; authorTeamId: string | null; withdrawnAt: string | null; createdAt: string }>;
+}
+
+/** A file attached to a report (a `Document` of the record), as the book of a step lists it. */
+export interface ReportAttachment {
+  id: string;
+  fileName: string;
+  size: number;
+  uploadedAt: string;
+  uploaderName: string | null;
 }
 
 const iso = (value: Date | null): string | null => (value ? value.toISOString() : null);
@@ -75,6 +85,7 @@ export class ProcessingResultsService {
     ]);
     const answeredIds = new Set(answered.map((row) => row.reportId));
     const names = await this.namesOf([...reports.map((r) => r.authorId), ...opinions.map((o) => o.authorId)]);
+    const attachments = await this.attachmentsOf(this.prisma, reports.map((r) => r.id));
     return {
       reports: reports.map((r) => ({
         id: r.id,
@@ -94,6 +105,7 @@ export class ProcessingResultsService {
         supersededAt: iso(r.supersededAt),
         createdAt: r.createdAt.toISOString(),
         answered: answeredIds.has(r.id),
+        attachments: attachments[reports.indexOf(r)],
       })),
       opinions: opinions.map((o) => ({
         id: o.id,
@@ -111,6 +123,27 @@ export class ProcessingResultsService {
     };
   }
 
+  /** The files attached to each of these reports (not deleted), oldest first; one list per report, in the order asked. */
+  async attachmentsOf(db: Tx | PrismaService, reportIds: string[]): Promise<ReportAttachment[][]> {
+    if (reportIds.length === 0) return [];
+    const rows = await db.document.findMany({
+      where: { procStepReportId: { in: reportIds }, deletedAt: null },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true, originalName: true, size: true, createdAt: true, procStepReportId: true, uploadedBy: { select: { firstName: true, lastName: true, username: true } } },
+    });
+    return reportIds.map((reportId) =>
+      rows
+        .filter((row) => row.procStepReportId === reportId)
+        .map((row) => ({
+          id: row.id,
+          fileName: row.originalName,
+          size: row.size,
+          uploadedAt: row.createdAt.toISOString(),
+          uploaderName: [row.uploadedBy.firstName, row.uploadedBy.lastName].filter(Boolean).join(' ').trim() || row.uploadedBy.username,
+        })),
+    );
+  }
+
   private async namesOf(ids: string[]): Promise<Map<string, string>> {
     const users = await this.prisma.user.findMany({ where: { id: { in: [...new Set(ids)] } }, select: { id: true, firstName: true, lastName: true, username: true } });
     return new Map(users.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.username]));
@@ -124,11 +157,12 @@ export class ProcessingResultsService {
     if (input.kind !== 'PROGRESS' && input.kind !== 'RESULT') throw refuse.bad(PROCESSING_ERROR.REPORT_TEXT_REQUIRED);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'REPORT', input, async (tx, flow, step) => {
       const roles = await this.rolesOf(tx, step.id, actorId);
-      if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+      if (!mayReport(roles)) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+      this.commands.actOnBehalf(tx, roles.onBehalfOf(REPORTING_ROLES));
       if (step.status !== 'OPEN') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
       // Only ONE result stands: an earlier one (after a disagreement or a request for rework) stays in the book, superseded.
       if (input.kind === 'RESULT') await tx.procStepReport.updateMany({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, data: { supersededAt: this.commands.now() } });
-      const report = await tx.procStepReport.create({ data: { recordStepId: step.id, recordKind: kind, recordId, kind: input.kind, ...fields, authorId: actorId, authorTeamId: roles.teamOf() } });
+      const report = await tx.procStepReport.create({ data: { recordStepId: step.id, recordKind: kind, recordId, kind: input.kind, ...fields, authorId: actorId, authorTeamId: roles.teamOf(REPORTING_ROLES) } });
       await this.commands.change(tx, flow, step.stepKey, input.kind === 'RESULT' ? 'RESULT_REPORTED' : 'PROGRESS_REPORTED', null, { reportId: report.id, hasProposal: fields.proposalKind !== null }, null, actorId);
       if (input.kind !== 'RESULT') return;
       // The result of the step: it waits for the leader, or finishes the step.
@@ -166,13 +200,14 @@ export class ProcessingResultsService {
   }
 
   /** The caller must still be a unit that works the step (or coordinates it): leaving the unit ends the right to touch what it wrote. */
-  private async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
+  async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
     const roles = await this.rolesOf(tx, stepId, actorId);
-    if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+    if (!mayReport(roles)) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+    this.commands.actOnBehalf(tx, roles.onBehalfOf(REPORTING_ROLES));
   }
 
   /** The report of the caller, standing (not withdrawn, not replaced) and unanswered. */
-  private async ownReport(tx: Tx, stepId: string, reportId: string, actorId: string) {
+  async ownReport(tx: Tx, stepId: string, reportId: string, actorId: string) {
     const report = await tx.procStepReport.findFirst({ where: { id: reportId, recordStepId: stepId } });
     if (!report || report.withdrawnAt || report.supersededAt) throw refuse.notFound(PROCESSING_ERROR.REPORT_NOT_FOUND);
     if (report.authorId !== actorId) throw refuse.forbidden(PROCESSING_ERROR.REPORT_NOT_YOURS);
@@ -200,8 +235,9 @@ export class ProcessingResultsService {
 
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'OPINION', input, async (tx, flow, step) => {
       const roles = await this.rolesOf(tx, step.id, actorId);
-      const role = input.kind === 'SUPERVISOR' ? 'MAIN' : input.kind;
-      if (!roles.has(role) || (input.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      const role = roleOfOpinion(input.kind);
+      if (!mayGiveOpinion(roles, input.kind)) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      this.commands.actOnBehalf(tx, roles.onBehalfOf([role], opinionNeedsHead(input.kind)));
       if (step.status === 'WAITING_ANCHOR' || step.status === 'SKIPPED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
 
       // An opinion about the result names the exact report (and its revision) it was given on.
@@ -221,7 +257,7 @@ export class ProcessingResultsService {
           reportId: about?.id ?? null,
           reportRevision: about?.revision ?? null,
           authorId: actorId,
-          authorTeamId: roles.teamOf(role),
+          authorTeamId: roles.teamOf([role], opinionNeedsHead(input.kind)),
         },
       });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_GIVEN', null, { kind: input.kind, verdict }, null, actorId);
@@ -242,8 +278,8 @@ export class ProcessingResultsService {
       // A nudge cannot be taken back either: the people it pressed have been told, and the words they were told stay.
       if (opinion.kind === 'APPROVAL' || opinion.kind === 'NUDGE') throw refuse.conflict(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       const roles = await this.rolesOf(tx, step.id, actorId);
-      const role = opinion.kind === 'SUPERVISOR' ? 'MAIN' : opinion.kind;
-      if (!roles.has(role) || (opinion.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      if (!mayGiveOpinion(roles, opinion.kind)) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      this.commands.actOnBehalf(tx, roles.onBehalfOf([roleOfOpinion(opinion.kind)], opinionNeedsHead(opinion.kind)));
       if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null, kind: { not: 'NUDGE' } } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
       await tx.procStepOpinion.update({ where: { id: opinion.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_WITHDRAWN', { opinionId: opinion.id }, null, null, actorId);
@@ -260,6 +296,8 @@ export class ProcessingResultsService {
     if (!['AGREE', 'DISAGREE', 'OTHER_DIRECTION'].includes(input.verdict)) throw refuse.bad(PROCESSING_ERROR.VERDICT_INVALID);
     if (input.verdict !== 'AGREE' && !content) throw refuse.bad(PROCESSING_ERROR.REPORT_TEXT_REQUIRED);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'DECIDE', input, async (tx, flow, step) => {
+      // WHO decides is asked before this runs: the route's permission and the record in the person's own scope
+      // (`mayDecide` in step-roles.ts tells the screen that same answer).
       if (step.status !== 'REPORTED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_REPORTED);
       const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, orderBy: { createdAt: 'desc' } });
       if (!result) throw refuse.conflict(PROCESSING_ERROR.NO_RESULT_REPORT);
@@ -276,20 +314,11 @@ export class ProcessingResultsService {
   // ---- who the person is on this step
 
   /**
-   * The roles the person has on ONE step, through the active units they belong to (or by being named): MAIN, CHECK,
-   * COORDINATE, INFORM. `leads(role)`: they head a unit that holds that role. `teamOf(role)`: the unit they act through.
+   * The roles the person has on ONE step, a delegation in force at the clock of the command included: the rules live in
+   * `step-roles.ts`, shared with the DTO's `viewer`.
    */
-  private async rolesOf(tx: Tx, stepId: string, userId: string) {
-    const parties = await tx.procRecordStepParty.findMany({
-      where: { recordStepId: stepId, OR: [{ assigneeUserId: userId }, { team: { status: 'ACTIVE', members: { some: { userId } } } }] },
-      select: { role: true, teamId: true, assigneeUserId: true, team: { select: { members: { where: { userId }, select: { isLeader: true } } } } },
-    });
-    return {
-      has: (role: string) => parties.some((p) => p.role === role),
-      // Heading a unit is being its leader in the ACTIVE unit that holds the role; being named only makes a participant.
-      leads: (role: string) => parties.some((p) => p.role === role && p.team?.members.some((m) => m.isLeader) === true),
-      teamOf: (role?: string) => parties.find((p) => !role || p.role === role)?.teamId ?? null,
-    };
+  private async rolesOf(tx: Tx, stepId: string, userId: string): Promise<StepRoles> {
+    return stepRolesOf(await loadRolePartiesAt(tx, [stepId], userId, this.commands.now()));
   }
 }
 

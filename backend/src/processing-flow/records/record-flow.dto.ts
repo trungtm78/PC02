@@ -1,6 +1,8 @@
 import type { Prisma } from '@prisma/client';
 import { bandOf, completionClass, remainingDays } from '../engine/bands';
 import type { Band, CompletionClass, StepStatus } from '../engine/types';
+import { delegatesOf } from './processing-delegation';
+import { loadStepViewers, type StepViewerDto } from './step-roles';
 
 /** The flow of a record with everything the tab shows, read in one query. */
 export const RECORD_FLOW_INCLUDE = {
@@ -12,7 +14,19 @@ export const RECORD_FLOW_INCLUDE = {
     orderBy: { order: 'asc' },
     include: {
       step: true,
-      parties: { orderBy: { order: 'asc' }, include: { team: { select: { name: true } } } },
+      parties: {
+        orderBy: { order: 'asc' },
+        include: {
+          team: {
+            select: {
+              name: true,
+              status: true,
+              /** The heads of the unit: they answer for the step while nobody is named. */
+              members: { where: { isLeader: true, user: { isActive: true } }, select: { userId: true, user: { select: { firstName: true, lastName: true, username: true } } }, orderBy: { userId: 'asc' } },
+            },
+          },
+        },
+      },
       /** The newest report and opinion that are still standing: the one-line summary of a step. */
       reports: { where: { withdrawnAt: null }, orderBy: { createdAt: 'desc' }, take: 1 },
       opinions: { where: { withdrawnAt: null }, orderBy: { createdAt: 'desc' }, take: 1 },
@@ -22,12 +36,76 @@ export const RECORD_FLOW_INCLUDE = {
 
 export type RecordFlowRow = Prisma.ProcRecordFlowGetPayload<{ include: typeof RECORD_FLOW_INCLUDE }>;
 
+/** One person who answers for a party of a step. */
+export interface ResponsiblePersonDto {
+  userId: string;
+  name: string;
+  /** The person who acts for them right now (a delegation in force), and until when. Absent when nobody does. */
+  delegateUserId?: string;
+  delegateName?: string;
+  delegatedUntil?: string;
+}
+
 export interface RecordStepPartyDto {
+  /** The row of the party: what the assignment routes name. */
+  id: string;
   partyKind: string;
   teamId: string | null;
   teamName: string | null;
   role: string;
   assigneeUserId: string | null;
+  /** The name of the person named on the party; `null` when nobody is (or the person is gone). */
+  assigneeName: string | null;
+  /** Who answers for the party: the person named, otherwise the heads of its (active) unit. */
+  responsible: ResponsiblePersonDto[];
+  note: string | null;
+}
+
+/** What the DTO shows of people and is not on the rows of the flow: the names of the persons named on a party. */
+export interface FlowPeople {
+  names: Map<string, string>;
+  /** By from-user: the person who acts for them now. */
+  delegates: Map<string, { toUserId: string; name: string; until: Date }>;
+  /** What the person the answer is for may do on each step by their role, keyed by the step's row. Absent: nobody is looking. */
+  viewers?: Map<string, StepViewerDto>;
+}
+
+const NOBODY: FlowPeople = { names: new Map(), delegates: new Map() };
+
+interface NamedUser {
+  firstName: string | null;
+  lastName: string | null;
+  username: string;
+}
+
+/** The name a person is shown by. */
+export function displayNameOf(user: NamedUser): string {
+  return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username;
+}
+
+/** The person an answer is for, and whether the RECORD is in their own scope (asked once per record by the caller). */
+export interface FlowViewer {
+  id: string;
+  inOwnScope: boolean;
+}
+
+/**
+ * Reads the people a flow names and its rows do not carry: the names of the persons named on a party, who acts for each
+ * responsible person at `now` (the application clock) and, when the answer is for a person, what that person may do on
+ * each step by their role, a delegation included (`step-roles.ts`).
+ */
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam' | 'procRecordStepParty'>, row: RecordFlowRow, now: Date, viewer?: FlowViewer): Promise<FlowPeople> {
+  const parties = row.steps.flatMap((step) => step.parties);
+  const named = [...new Set(parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : [])))];
+  const heads = parties.flatMap((party) => (party.team?.status === 'ACTIVE' ? party.team.members.map((member) => member.userId) : []));
+  const given = await delegatesOf(db, [...named, ...heads], now);
+  const wanted = [...new Set([...named, ...[...given.values()].map((delegate) => delegate.toUserId)])];
+  const users = wanted.length === 0 ? [] : await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, firstName: true, lastName: true, username: true } });
+  const names = new Map(users.map((user) => [user.id, displayNameOf(user)]));
+  // Who counts as a substitute is the resolver's answer (`delegatesOf`), the same one that lets the delegate act.
+  const delegates = new Map([...given].map(([fromUserId, delegate]) => [fromUserId, { toUserId: delegate.toUserId, name: names.get(delegate.toUserId) ?? '', until: delegate.until }]));
+  if (viewer === undefined) return { names, delegates };
+  return { names, delegates, viewers: await loadStepViewers(db, row.steps.map((step) => step.id), viewer.id, now, viewer.inOwnScope) };
 }
 
 export interface RecordStepDto {
@@ -76,6 +154,11 @@ export interface RecordStepDto {
   /** The newest report still standing, cut short, and the newest opinion: the summary line of the step. */
   latestReport: { kind: string; summary: string; at: string; revision: number } | null;
   latestOpinion: { kind: string; verdict: string; at: string } | null;
+  /**
+   * What the person this answer is for may do on the step BY THEIR ROLE on it (the same rules the write routes refuse
+   * with). The screen offers a form only when the permission AND this allow it. Absent when the answer is for nobody.
+   */
+  viewer?: StepViewerDto;
 }
 
 export interface RecordFlowDto {
@@ -120,7 +203,7 @@ const RUNNING: RecordClock = { suspended: false, finished: false };
  * suspended or finished, or its clock is paused, or the flow is only a proposal (`confirmed = false`, decision C10): the
  * dates of a proposal are shown as what the flow WOULD set, and nothing is said to be near, overdue or late by them.
  */
-export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordClock = RUNNING): RecordFlowDto {
+export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordClock = RUNNING, people: FlowPeople = NOBODY): RecordFlowDto {
   const { suspended, finished } = clock;
   return {
     id: row.id,
@@ -173,13 +256,26 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
         revision: step.revision,
         latestReport: step.reports[0] ? { kind: step.reports[0].kind, summary: step.reports[0].doneWork.slice(0, 200), at: step.reports[0].createdAt.toISOString(), revision: step.reports[0].revision } : null,
         latestOpinion: step.opinions[0] ? { kind: step.opinions[0].kind, verdict: step.opinions[0].verdict, at: step.opinions[0].createdAt.toISOString() } : null,
-        parties: step.parties.map((party) => ({
-          partyKind: party.partyKind,
-          teamId: party.teamId,
-          teamName: party.team?.name ?? null,
-          role: party.role,
-          assigneeUserId: party.assigneeUserId,
-        })),
+        ...(people.viewers ? { viewer: people.viewers.get(step.id) } : {}),
+        parties: step.parties.map((party) => {
+          const assigneeName = party.assigneeUserId ? (people.names.get(party.assigneeUserId) ?? null) : null;
+          const person = (userId: string, name: string): ResponsiblePersonDto => {
+            const delegate = people.delegates.get(userId);
+            return delegate ? { userId, name, delegateUserId: delegate.toUserId, delegateName: delegate.name, delegatedUntil: delegate.until.toISOString() } : { userId, name };
+          };
+          const heads = party.team?.status === 'ACTIVE' ? party.team.members.map((member) => person(member.userId, displayNameOf(member.user))) : [];
+          return {
+            id: party.id,
+            partyKind: party.partyKind,
+            teamId: party.teamId,
+            teamName: party.team?.name ?? null,
+            role: party.role,
+            assigneeUserId: party.assigneeUserId,
+            assigneeName,
+            responsible: party.assigneeUserId ? [person(party.assigneeUserId, assigneeName ?? '')] : heads,
+            note: party.note,
+          };
+        }),
       };
     }),
   };

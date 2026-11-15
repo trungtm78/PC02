@@ -5,19 +5,21 @@
  * the person's commands with the revision it read.
  */
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { BTN_PRIMARY, BTN_SECONDARY } from '@/constants/styles';
-import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { formatVNDate, today, toDateInput } from '@/lib/dates';
 import { errorText, processingFlow as L } from '@/locales/processingFlow.vi';
 import { GanttChart } from '../components/GanttChart';
 import { processingRecordApi } from './api';
 import { recordGantt } from './ganttRows';
 import { isAdjusted, partyLine, problemText, recordDeadlineStep, stepBadge, TONE_CLASS, waitingNote } from './present';
+import { RECORD_QUERY_KEYS } from './queryKeys';
 import { RecordNotices } from './RecordNotices';
 import { StepPanel, type PanelState, type PanelType } from './StepPanel';
-import { FIELD_BOX, FIELD_LABEL, LINK_BUTTON, SMALL_PRIMARY } from './styles';
-import type { RecordFlowDto, RecordKind, RecordStepDto } from './types';
+import { FIELD_BOX, FIELD_LABEL, LINK_BUTTON, SMALL_PRIMARY, SMALL_SECONDARY } from './styles';
+import type { RecordFlowDto, RecordKind, RecordStepDto, RecordStepPartyDto } from './types';
+import { useCurrentUserId } from './useCurrentUserId';
 import { useRecordFlow, type RecordFlowHandle } from './useRecordFlow';
 import { useRecordWrite } from './useRecordWrite';
 import { useStepPermissions } from '../usePermissions';
@@ -67,11 +69,12 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
   const flow = handle.flow;
   const perms = useStepPermissions();
   const write = useRecordWrite(kind, recordId, handle);
-  const officersQ = useOfficerOptions();
-  const officers = officersQ.data ?? [];
-  const personName = (userId: string): string | null => officers.find((o) => o.value === userId)?.label ?? null;
+
+  const me = useCurrentUserId();
 
   const [panel, setPanel] = useState<PanelState | null>(null);
+  /** The party a person is being chosen for, with the person picked so far. */
+  const [assigning, setAssigning] = useState<{ stepKey: string; partyId: string; userId: string } | null>(null);
   const [acceptedDate, setAcceptedDate] = useState(() => today());
   const gantt = useMemo(() => (flow ? recordGantt(flow) : null), [flow]);
 
@@ -190,6 +193,23 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
     );
   };
 
+  /** Names the person who answers for a party; `null` gives it back to the heads of the unit. */
+  const assignParty = async (step: RecordStepDto, party: RecordStepPartyDto, userId: string | null, done: string) => {
+    const ok = await write.run(
+      JSON.stringify(['assignee', step.stepKey, party.id, userId]),
+      (key) => processingRecordApi.assignParty(kind, recordId, step.stepKey, party.id, { expectedRevision: revision, idempotencyKey: key, userId }),
+      done,
+    );
+    if (ok) setAssigning(null);
+  };
+  const openAssigning = (step: RecordStepDto, party: RecordStepPartyDto) => {
+    write.setError(null);
+    setPanel(null);
+    setAssigning({ stepKey: step.stepKey, partyId: party.id, userId: party.assigneeUserId ?? '' });
+  };
+  const assigningStep = assigning ? flow.steps.find((s) => s.stepKey === assigning.stepKey) : undefined;
+  const assigningParty = assigning ? assigningStep?.parties.find((p) => p.id === assigning.partyId) : undefined;
+
   const panelStep = panel ? flow.steps.find((s) => s.stepKey === panel.stepKey) : undefined;
 
   return (
@@ -239,7 +259,12 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
         conflict={write.conflict}
         refreshing={handle.refreshing}
         refreshFailed={handle.refreshFailed}
-        onTakeNewer={() => write.takeNewer(() => setPanel(null))}
+        onTakeNewer={() =>
+          write.takeNewer(() => {
+            setPanel(null);
+            setAssigning(null);
+          })
+        }
       />
 
       {waitingForAccepted && perms.canAssign && (
@@ -314,7 +339,10 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
                 step={step}
                 flow={flow}
                 position={index + 1}
-                personName={personName}
+                me={me}
+                onAssign={openAssigning}
+                onTake={(s, p) => void (me && assignParty(s, p, me, R.done.taken))}
+                onUnassign={(s, p) => void assignParty(s, p, null, R.done.unassigned)}
                 locked={write.locked}
                 perms={perms}
                 onOpen={openPanel}
@@ -339,8 +367,94 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
         />
       )}
 
+      {assigning && assigningStep && assigningParty && (
+        <AssigneePanel
+          kind={kind}
+          recordId={recordId}
+          step={assigningStep}
+          party={assigningParty}
+          position={flow.steps.indexOf(assigningStep) + 1}
+          locked={write.locked}
+          value={assigning.userId}
+          onChange={(userId) => setAssigning({ ...assigning, userId })}
+          onSubmit={() => {
+            if (!requireText(assigning.userId, 'ASSIGNEE_NOT_ELIGIBLE')) return;
+            void assignParty(assigningStep, assigningParty, assigning.userId, R.done.assigned);
+          }}
+          onClose={() => setAssigning(null)}
+        />
+      )}
+
       <p className="text-xs text-slate-500">{R.footnote}</p>
     </div>
+  );
+}
+
+interface AssigneePanelProps {
+  kind: RecordKind;
+  recordId: string;
+  step: RecordStepDto;
+  party: RecordStepPartyDto;
+  position: number;
+  locked: boolean;
+  value: string;
+  onChange: (userId: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}
+
+/** Picks the person who answers for one party, among the active members of its unit (asked of the server). */
+function AssigneePanel({ kind, recordId, step, party, position, locked, value, onChange, onSubmit, onClose }: AssigneePanelProps) {
+  const A = R.assignee;
+  const candidatesQ = useQuery({
+    queryKey: RECORD_QUERY_KEYS.candidates(kind, recordId, step.stepKey, party.id),
+    queryFn: () => processingRecordApi.candidates(kind, recordId, step.stepKey, party.id),
+    retry: false,
+  });
+  const candidates = candidatesQ.data ?? [];
+  const unit = party.teamName ?? (party.partyKind === 'RECORD_TEAM' ? L.recordTeam : L.common.none);
+
+  return (
+    <section data-testid="assignee-panel" className="flex flex-col gap-2 rounded-lg border border-blue-300 bg-slate-50 p-3">
+      <b className="text-sm text-slate-800">{A.title(position, step.name, unit)}</b>
+      <span className="text-sm text-slate-600">{A.hint}</span>
+      {candidatesQ.isLoading ? (
+        <p role="status" data-testid="assignee-loading" className="text-sm text-slate-500">
+          {A.loading}
+        </p>
+      ) : candidatesQ.isError ? (
+        <div role="alert" data-testid="assignee-load-error" className="flex flex-wrap items-center gap-3 text-sm text-red-700">
+          <span>{A.loadFailed}</span>
+          <button type="button" className={SMALL_SECONDARY} onClick={() => void candidatesQ.refetch()}>
+            {L.common.retry}
+          </button>
+        </div>
+      ) : candidates.length === 0 ? (
+        <p data-testid="assignee-empty" className="text-sm text-slate-600">
+          {A.empty}
+        </p>
+      ) : (
+        <label className={`${FIELD_LABEL} max-w-md`}>
+          {A.person}
+          <select data-testid="assignee-select" className={FIELD_BOX} value={value} disabled={locked} onChange={(e) => onChange(e.target.value)}>
+            <option value="">{A.choose}</option>
+            {candidates.map((c) => (
+              <option key={c.userId} value={c.userId}>
+                {c.isLeader ? A.leader(c.name) : c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div className="flex gap-2">
+        <button type="button" data-testid="assignee-submit" className={SMALL_PRIMARY} disabled={locked || candidates.length === 0} onClick={onSubmit}>
+          {A.submit}
+        </button>
+        <button type="button" data-testid="assignee-close" className={SMALL_SECONDARY} onClick={onClose}>
+          {R.actions.close}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -348,7 +462,11 @@ interface RowProps {
   step: RecordStepDto;
   flow: RecordFlowDto;
   position: number;
-  personName: (userId: string) => string | null;
+  /** The signed-in person and the units they belong to: what decides which assignment actions are offered. */
+  me: string | null;
+  onAssign: (step: RecordStepDto, party: RecordStepPartyDto) => void;
+  onTake: (step: RecordStepDto, party: RecordStepPartyDto) => void;
+  onUnassign: (step: RecordStepDto, party: RecordStepPartyDto) => void;
   locked: boolean;
   perms: ReturnType<typeof useStepPermissions>;
   onOpen: (type: PanelType, step: RecordStepDto) => void;
@@ -357,7 +475,7 @@ interface RowProps {
   onBackToRegulatory: (step: RecordStepDto) => void;
 }
 
-function StepRow({ step, flow, position, personName, locked, perms, onOpen, onComplete, onUnskip, onBackToRegulatory }: RowProps) {
+function StepRow({ step, flow, position, me, onAssign, onTake, onUnassign, locked, perms, onOpen, onComplete, onUnskip, onBackToRegulatory }: RowProps) {
   const key = step.stepKey;
   const worked = step.status === 'OPEN' || step.status === 'REPORTED';
   const badge = stepBadge(step, flow);
@@ -369,7 +487,8 @@ function StepRow({ step, flow, position, personName, locked, perms, onOpen, onCo
   const canReopen = perms.canReopen && step.status === 'DONE';
   const canSkip = perms.canSkip && (step.status === 'WAITING_ANCHOR' || step.status === 'OPEN');
   const canUnskip = perms.canSkip && step.status === 'SKIPPED';
-  const canExtend = perms.canExtend && worked && step.dueAt !== null;
+  // No extension left (or the step allows none): the server would refuse, the button is not offered.
+  const canExtend = perms.canExtend && worked && step.dueAt !== null && step.extensionsUsed < step.extensionsAllowed;
   const canAdjust = perms.canAdjustDue && worked && step.dueAt !== null;
 
   const icon =
@@ -423,9 +542,57 @@ function StepRow({ step, flow, position, personName, locked, perms, onOpen, onCo
         </div>
       </td>
       <td className="px-2.5 py-2" data-testid={`step-${key}-units`}>
-        {step.parties.map((p, i) => (
-          <div key={`${p.teamId ?? p.partyKind}-${p.role}-${i}`}>{partyLine(p, personName)}</div>
-        ))}
+        {step.parties.map((p) => {
+          // The server decides; the screen only offers what the rule can allow: the permission, heading the unit, or
+          // a member taking the work themself (and giving back what they took).
+          // Who the person is on the party comes with the flow itself (`viewer`): the list of the office's users is not
+          // asked, so an officer who may not read it is still offered "Nhận việc".
+          const member = step.viewer?.memberOfPartyIds.includes(p.id) === true;
+          const leads = step.viewer?.leaderOfPartyIds.includes(p.id) === true;
+          const open = step.status !== 'DONE' && step.status !== 'SKIPPED';
+          // The permission names a person only on a record in the person's OWN scope (the server refuses one opened
+          // through a step alone); heading the party's unit needs no scope.
+          const byPermission = perms.canAssign && (step.viewer?.canAssignByScope ?? true);
+          const names = open && (byPermission || leads);
+          const canTake = open && !names && member && me !== null && p.assigneeUserId === null;
+          const canUnassign = open && p.assigneeUserId !== null && (names || p.assigneeUserId === me);
+          return (
+            <div key={p.id} data-testid={`party-${p.id}`} className="mb-1 last:mb-0">
+              <div>{partyLine(p)}</div>
+              {!p.assigneeUserId && (
+                <div data-testid={`party-${p.id}-responsible`} className="text-xs text-slate-500">
+                  {p.responsible.length > 0 ? R.assignee.heads(p.responsible.map((r) => r.name).join(', ')) : R.assignee.nobody}
+                </div>
+              )}
+              {p.responsible
+                .filter((r) => r.delegateName && r.delegatedUntil)
+                .map((r) => (
+                  <div key={r.userId} data-testid={`party-${p.id}-delegated-${r.userId}`} className="text-xs text-amber-800">
+                    {R.assignee.delegated(r.name, r.delegateName ?? '', formatVNDate(r.delegatedUntil).slice(0, 5))}
+                  </div>
+                ))}
+              {(names || canTake || canUnassign) && (
+                <div className="flex flex-wrap gap-x-3 text-xs">
+                  {names && (
+                    <button type="button" data-testid={`party-${p.id}-assign`} className={LINK_BUTTON} disabled={locked} onClick={() => onAssign(step, p)}>
+                      {p.assigneeUserId ? R.actions.changeAssignee : R.actions.assign}
+                    </button>
+                  )}
+                  {canTake && (
+                    <button type="button" data-testid={`party-${p.id}-take`} className={LINK_BUTTON} disabled={locked} onClick={() => onTake(step, p)}>
+                      {R.actions.take}
+                    </button>
+                  )}
+                  {canUnassign && (
+                    <button type="button" data-testid={`party-${p.id}-unassign`} className={LINK_BUTTON} disabled={locked} onClick={() => onUnassign(step, p)}>
+                      {R.actions.unassign}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </td>
       <td className="whitespace-nowrap px-2.5 py-2" data-testid={`step-${key}-regulatory`}>
         {step.regulatoryDueAt ? formatVNDate(step.regulatoryDueAt) : L.common.none}

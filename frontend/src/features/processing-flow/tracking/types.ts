@@ -44,6 +44,8 @@ export interface TrackingItemDto {
   teamName: string | null;
   assigneeUserId: string | null;
   responsibleName: string | null;
+  /** Who acts for the responsible person(s) right now under a delegation; absent or `null` when nobody does. */
+  delegateName?: string | null;
   dueAt: string;
   band: string;
   remainingDays: number;
@@ -56,4 +58,11 @@ export interface TrackingItemsDto {
   total: number;
   page: number;
   pageSize: number;
+}
+
+/** A unit the filter offers (`GET /processing/tracking/teams`). */
+export interface TrackingTeamDto {
+  id: string;
+  name: string;
+  parentTeamId: string | null;
 }

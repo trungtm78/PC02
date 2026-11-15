@@ -60,6 +60,16 @@ export function isFeatureOff(err: unknown): boolean {
   return !code || !ERROR_CODES.includes(code);
 }
 
+/**
+ * The person does not hold the permission of the route (403 with no code of the contract). Asking again changes nothing:
+ * the screen says so in plain words instead of an error banner with a retry button.
+ */
+export function isForbidden(err: unknown): boolean {
+  if (!axios.isAxiosError(err) || err.response?.status !== 403) return false;
+  const { code } = extractApiError(err, '');
+  return !code || !ERROR_CODES.includes(code);
+}
+
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** `FLOW_INVALID` details: one issue per problem, by step. */

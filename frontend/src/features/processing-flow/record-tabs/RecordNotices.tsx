@@ -32,7 +32,7 @@ export function RecordNotices({ testPrefix, message, error, conflict, refreshing
           className="flex flex-wrap items-center gap-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
         >
           <div className="min-w-0 flex-1">
-            <b>{L.conflict.title}</b> {L.conflict.body}
+            <b>{L.conflict.title}</b> {L.conflict.bodyKeepsText}
           </div>
           <button type="button" data-testid={`${testPrefix}-conflict-reload`} className={BTN_SECONDARY} disabled={refreshing} onClick={onTakeNewer}>
             {refreshing ? L.conflict.reloading : refreshFailed ? L.common.retry : L.conflict.reload}

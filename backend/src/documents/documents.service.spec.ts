@@ -824,6 +824,22 @@ describe('DocumentsService', () => {
   });
 
   describe('delete', () => {
+    it('refuses a file attached to the report of a processing step: it is removed through its step (found by Codex)', async () => {
+      mockPrismaService.document.findFirst.mockResolvedValue({
+        id: 'doc-att',
+        title: 'Attached',
+        originalName: 'a.pdf',
+        deletedAt: null,
+        procStepReportId: 'report-1',
+      });
+      mockPrismaService.document.update.mockClear();
+
+      await expect(service.delete('doc-att', 'user-1')).rejects.toThrow(
+        'An attachment of a step report is removed through its step',
+      );
+      expect(mockPrismaService.document.update).not.toHaveBeenCalled();
+    });
+
     it('should soft delete document successfully', async () => {
       const existingDoc = {
         id: 'doc-1',

@@ -15,7 +15,7 @@ import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService, RECORD_FLOW_LOCK, anchorsOf, type ApplyOutcome } from './flow-application.service';
 import { refreshRecordAlert } from './record-alert';
-import { RECORD_FLOW_INCLUDE, toRecordFlowDto, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
+import { RECORD_FLOW_INCLUDE, loadFlowPeople, toRecordFlowDto, type FlowViewer, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
 import { scheduleStep, type AnchorInstant, type RecordConditions } from './schedule-step';
 
 type Tx = Prisma.TransactionClient;
@@ -77,11 +77,11 @@ export class ProcessingCommandService {
 
   // ---- reading
 
-  /** The flow of a record as the tab shows it. */
-  async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
+  /** The flow of a record as the tab shows it; with `viewerId`, each step says what that person may do on it by their role. */
+  async get(kind: RecordKind, recordId: string, viewerId?: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId));
+    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row, this.now(), await this.viewerOf(this.prisma, kind, recordId, viewerId)));
   }
 
   // ---- the flow of the record
@@ -90,7 +90,7 @@ export class ProcessingCommandService {
   async apply(actorId: string, kind: RecordKind, recordId: string, input: { flowId?: string; idempotencyKey?: string }): Promise<{ outcome: ApplyOutcome; flow: RecordFlowDto | null }> {
     return this.keyed(kind, recordId, actorId, 'APPLY', input.idempotencyKey, async (tx) => {
       const outcome = await this.applier.applyIn(tx, { kind, recordId, reason: 'REAPPLY', actorId, flowId: input.flowId });
-      const flow = await this.read(tx, kind, recordId);
+      const flow = await this.read(tx, kind, recordId, actorId);
       return { outcome, flow };
     });
   }
@@ -147,7 +147,7 @@ export class ProcessingCommandService {
           actorId,
         },
       });
-      return { outcome, flow: await this.read(tx, kind, recordId) };
+      return { outcome, flow: await this.read(tx, kind, recordId, actorId) };
     });
   }
 
@@ -270,7 +270,8 @@ export class ProcessingCommandService {
         },
         tx,
       );
-      return this.read(tx, kind, recordId);
+      // The answer is the actor's: it says what THEY may do next on each step.
+      return this.read(tx, kind, recordId, actorId);
     });
   }
 
@@ -341,9 +342,22 @@ export class ProcessingCommandService {
     return { suspended: snapshot !== null && snapshot.isSuspended && !snapshot.isFinished, finished: snapshot !== null && snapshot.isFinished };
   }
 
-  async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
+  /**
+   * The person an answer is for, with the ONE fact about the record the steps cannot tell: whether it is in the person's
+   * OWN scope (the gateway's `canRead` without the step rule), which the decision route and assignment by permission
+   * require. Asked once per record. The person is read as the request would carry them (role, dispatch right).
+   */
+  private async viewerOf(db: Tx | PrismaService, kind: RecordKind, recordId: string, viewerId: string | undefined): Promise<FlowViewer | undefined> {
+    if (viewerId === undefined) return undefined;
+    const person = await db.user.findUnique({ where: { id: viewerId }, select: { isActive: true, canDispatch: true, role: { select: { name: true } } } });
+    if (!person?.isActive) return { id: viewerId, inOwnScope: false };
+    const inOwnScope = await this.gateway.canRead(kind, recordId, { id: viewerId, role: person.role.name, canDispatch: person.canDispatch }, { viaStep: false });
+    return { id: viewerId, inOwnScope };
+  }
+
+  async read(tx: Tx, kind: RecordKind, recordId: string, viewerId?: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row, this.now(), await this.viewerOf(tx, kind, recordId, viewerId))) : (null as unknown as RecordFlowDto);
   }
 
   transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {
@@ -429,7 +443,20 @@ export class ProcessingCommandService {
     return this.calendars.load(Math.min(...years), Math.min(Math.max(...years) + CALENDAR_YEARS_AHEAD, MAX_CALENDAR_YEAR), tx);
   }
 
+  /**
+   * The person a write is made FOR, per transaction: a delegate who acts only because of a delegation. Every history row
+   * the transaction writes afterwards for a person carries it (`onBehalfOfUserId`, in the row's `toValue`).
+   */
+  private readonly onBehalf = new WeakMap<object, string>();
+
+  /** Marks the rest of this transaction as done by a delegate for `fromUserId`. */
+  actOnBehalf(tx: Tx, fromUserId: string | null): void {
+    if (fromUserId) this.onBehalf.set(tx, fromUserId);
+  }
+
   change(tx: Tx, flow: RecordFlowRow, stepKey: string | null, action: string, from: unknown, to: unknown, reason: string | null, actorId: string | null) {
+    const onBehalfOfUserId = actorId ? this.onBehalf.get(tx) : undefined;
+    if (onBehalfOfUserId) to = typeof to === 'object' && to !== null && !Array.isArray(to) ? { ...to, onBehalfOfUserId } : to === null || to === undefined ? { onBehalfOfUserId } : { value: to, onBehalfOfUserId };
     return tx.procStepChange.create({
       data: {
         recordFlowId: flow.id,

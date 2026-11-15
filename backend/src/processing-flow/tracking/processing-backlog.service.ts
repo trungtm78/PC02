@@ -130,7 +130,9 @@ export class ProcessingBacklogService {
   async units(user: GatewayUser, filter: BacklogFilter): Promise<BacklogUnits> {
     const asOf = this.tracking.instant(filter.asOf);
     const empty: BacklogUnits = { asOf: asOf.toISOString(), rows: [], totals: { ...zeroBands(), holding: 0 } };
-    const reach = await this.tracking.reach(user, filter.kind);
+    // The same reach as the tracking list a cell opens: the steps a delegation gives the person count here too.
+    const acting = await this.tracking.acting(user);
+    const reach = await this.tracking.reach(user, filter.kind, acting);
     if (!reach) return empty;
 
     const rows = new Map<string, BacklogUnitRow>();
@@ -146,13 +148,13 @@ export class ProcessingBacklogService {
 
     // The band columns: the count of the SAME condition the list of a cell uses, grouped by unit.
     for (const band of BANDS) {
-      const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [this.tracking.workWhere(user, filter, reach, band, asOf), ofAUnit] }, _count: { _all: true } });
+      const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [this.tracking.workWhere(user, filter, reach, band, asOf, acting), ofAUnit] }, _count: { _all: true } });
       for (const group of groups) if (group.teamId) row(group.teamId)[band] = group._count._all;
     }
 
     // "Holding" and the oldest deadline: every piece of work of the unit, whatever its band. Both are computed by
     // PostgreSQL, per unit: no row of work is read here, so the table costs the same whatever the size of the backlog.
-    const everyWork: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, filter, reach, ANY_WORK, asOf), ofAUnit] };
+    const everyWork: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, filter, reach, ANY_WORK, asOf, acting), ofAUnit] };
     const working = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: everyWork, _count: { _all: true } });
     for (const group of working) if (group.teamId) row(group.teamId);
     const workOf = (teamId: string): Prisma.ProcRecordStepPartyWhereInput => ({ AND: [everyWork, { teamId }] });
@@ -206,14 +208,16 @@ export class ProcessingBacklogService {
     const period = periodOf(filter.from, filter.to);
     const zero = () => ({ doneOnTime: 0, doneLate: 0, openInTime: 0, openOverdue: 0, onTimeRate: null as number | null, averageDays: null as number | null });
     const report: OnTimeReport = { asOf: asOf.toISOString(), from: period?.gte?.toISOString() ?? null, to: period?.lte?.toISOString() ?? null, rows: [], totals: zero() };
-    const reach = await this.tracking.reach(user, filter.kind);
+    // The same reach as the tracking list a cell opens: the steps a delegation gives the person count here too.
+    const acting = await this.tracking.acting(user);
+    const reach = await this.tracking.reach(user, filter.kind, acting);
     if (!reach) return report;
 
     const kind: { recordKind?: RecordKind } = filter.kind ? { recordKind: filter.kind } : {};
     const role: WorkRole = filter.role ?? 'MAIN';
     const done: Prisma.ProcRecordStepPartyWhereInput = { AND: [{ role, teamId: { not: null } }, { recordStep: { status: 'DONE', doneAt: period ?? { not: null }, ...kind } }, reach] };
     // Still open: the work of the backlog table, started no later than the end of the period.
-    const open: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, { kind: filter.kind, role, to: filter.to }, reach, ANY_WORK, asOf), { teamId: { not: null } }] };
+    const open: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, { kind: filter.kind, role, to: filter.to }, reach, ANY_WORK, asOf, acting), { teamId: { not: null } }] };
 
     // `completionClass` against the EARLIER of the two deadlines, written as conditions PostgreSQL judges: "not after the
     // earlier" is "not after either that exists". Written without NOT: a missing deadline is NULL, and NOT of NULL drops the row.
