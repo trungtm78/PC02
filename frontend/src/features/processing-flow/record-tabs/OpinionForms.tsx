@@ -56,15 +56,7 @@ export function OpinionForm({ kinds, locked, onSubmit }: OpinionFormProps) {
   };
 
   return (
-    <form
-      data-testid="opinion-form"
-      className="flex flex-col gap-2 rounded-lg border border-blue-300 bg-slate-50 p-3"
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-    >
+    <div data-testid="opinion-form" role="group" className="flex flex-col gap-2 rounded-lg border border-blue-300 bg-slate-50 p-3">
       <h4 className="text-sm font-semibold text-slate-800">{O.opinionForm.title}</h4>
       <div className="flex flex-wrap gap-3">
         {kinds.length > 1 && (
@@ -102,14 +94,14 @@ export function OpinionForm({ kinds, locked, onSubmit }: OpinionFormProps) {
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" data-testid="opinion-submit" className={SMALL_PRIMARY} disabled={locked}>
+        <button type="button" data-testid="opinion-submit" onClick={() => void submit()} className={SMALL_PRIMARY} disabled={locked}>
           {O.opinionForm.submit}
         </button>
         <button type="button" className={SMALL_SECONDARY} onClick={() => setOpen(false)}>
           {L.common.cancel}
         </button>
       </div>
-    </form>
+    </div>
   );
 }
 

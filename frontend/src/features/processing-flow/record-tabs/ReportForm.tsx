@@ -50,15 +50,9 @@ export function ReportForm({ recordKind, requiresApproval, editing, locked, onSu
         : F.submitResult;
 
   return (
-    <form
-      data-testid={editing ? 'report-edit-form' : 'report-form'}
-      className="flex flex-col gap-3 rounded-lg border border-blue-300 bg-slate-50 p-3"
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-    >
+    // Not a <form>: the tab sits inside the record's own form, and a form inside a form is invalid HTML (the inner one is
+    // dropped and Enter would save the whole record).
+    <div data-testid={editing ? 'report-edit-form' : 'report-form'} role="group" className="flex flex-col gap-3 rounded-lg border border-blue-300 bg-slate-50 p-3">
       <h4 className="text-sm font-semibold text-slate-800">{editing ? F.editTitle : F.title}</h4>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {!editing && (
@@ -142,7 +136,7 @@ export function ReportForm({ recordKind, requiresApproval, editing, locked, onSu
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" data-testid="report-submit" className={SMALL_PRIMARY} disabled={locked}>
+        <button type="button" data-testid="report-submit" className={SMALL_PRIMARY} disabled={locked} onClick={() => void submit()}>
           {submitLabel}
         </button>
         {onCancel && (
@@ -151,6 +145,6 @@ export function ReportForm({ recordKind, requiresApproval, editing, locked, onSu
           </button>
         )}
       </div>
-    </form>
+    </div>
   );
 }

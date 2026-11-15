@@ -3,6 +3,7 @@
  * bars. They are NOT among the ten tabs of the old form: they come after them, and the body switches on a separate id,
  * so the form's own tab state and its unsaved edits are never touched by them.
  */
+import type { ReactNode } from 'react';
 import { AssignmentTab } from './AssignmentTab';
 import { RECORD_TAB_IDS, RECORD_TAB_LABEL, type RecordTabId } from './tabAvailability';
 import { ResultsTab } from './ResultsTab';
@@ -36,6 +37,23 @@ export function RecordTabButtons({ active, onSelect, testIdPrefix = 'tab-nut-' }
   );
 }
 
+/**
+ * The tabs sit inside the record's own <form>. Pressing Enter in a text box of a tab must not submit THAT form (it would
+ * save the record): the tab's own buttons are the only way to act.
+ */
+export function StopEnterSubmit({ children }: { children: ReactNode }) {
+  return (
+    <div
+      onKeyDown={(event) => {
+        const target = event.target as HTMLElement;
+        if (event.key === 'Enter' && target.tagName === 'INPUT' && (target as HTMLInputElement).type !== 'button') event.preventDefault();
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 interface BodyProps {
   kind: RecordKind;
   recordId: string;
@@ -44,7 +62,7 @@ interface BodyProps {
 
 /** The body of the open tab; nothing while no record tab is open. Keyed by the record so it never shows another's flow. */
 export function RecordTabBody({ kind, recordId, active }: BodyProps) {
-  if (active === 'phan-cong-xu-ly') return <AssignmentTab key={`${kind}:${recordId}`} kind={kind} recordId={recordId} />;
-  if (active === 'ket-qua-xu-ly') return <ResultsTab key={`${kind}:${recordId}`} kind={kind} recordId={recordId} />;
+  if (active === 'phan-cong-xu-ly') return <StopEnterSubmit><AssignmentTab key={`${kind}:${recordId}`} kind={kind} recordId={recordId} /></StopEnterSubmit>;
+  if (active === 'ket-qua-xu-ly') return <StopEnterSubmit><ResultsTab key={`${kind}:${recordId}`} kind={kind} recordId={recordId} /></StopEnterSubmit>;
   return null;
 }
