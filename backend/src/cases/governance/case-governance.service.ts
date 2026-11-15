@@ -1005,7 +1005,16 @@ export class CaseGovernanceService {
   async readableCaseWhere(
     tx: Tx,
     actor: ActorContext,
-    options?: { includeDeleted?: boolean; representationCapability?: string },
+    options?: {
+      includeDeleted?: boolean;
+      representationCapability?: string;
+      /**
+       * Leaves the reader's own SCOPE out and keeps every other rule (active actor, `read:Case`, deleted, sensitivity,
+       * representation). For the one caller that has another reason to reach the case: a step being worked on it names
+       * a unit of the reader (`assertCaseReadable` with `stepAssignee`). That caller adds its own condition.
+       */
+      withoutScope?: boolean;
+    },
   ): Promise<Prisma.CaseWhereInput> {
     const user = await this.activeActor(tx, actor.actorId);
     if (!this.permission(user, 'Case', 'read'))
@@ -1053,8 +1062,10 @@ export class CaseGovernanceService {
       AND: [
         ...(options?.includeDeleted ? [] : [{ deletedAt: null }]),
         { id: { notIn: unknown } },
-        (buildScopeFilter(scope, 'read', 'Case') ??
-          {}) as Prisma.CaseWhereInput,
+        (options?.withoutScope
+          ? {}
+          : (buildScopeFilter(scope, 'read', 'Case') ??
+            {})) as Prisma.CaseWhereInput,
         sensitivity,
         this.representationWhere(
           user,

@@ -20,6 +20,9 @@ import { ProcessingResultsService } from './records/processing-results.service';
 import { RecordDeadlineWriter } from './records/record-deadline-writer.service';
 import { RecordStepAccessService } from './records/record-step-access.service';
 import { ProcessingRecordsController } from './records/processing-records.controller';
+import { ProcessingTrackingController } from './tracking/processing-tracking.controller';
+import { ProcessingTrackingService } from './tracking/processing-tracking.service';
+import { RecordListAlertService } from './tracking/record-list-alert.service';
 
 /**
  * Processing flow and deadlines per information type: the read-only gateway to the three record kinds, the working
@@ -31,10 +34,11 @@ import { ProcessingRecordsController } from './records/processing-records.contro
   // UnitScopeService resolves the scope a request would carry; it needs the team tree. The services audit their writes.
   // AuthModule: the guards of the routes.
   imports: [TeamsModule, AuditModule, AuthModule],
-  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController],
-  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService],
+  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingTrackingController],
+  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, RecordListAlertService],
   // ProcessingOutboxService: the services that save a petition, an incident or a case write one request in their own
   // transaction (`enqueue`); nothing else of this module is theirs to call.
-  exports: [RecordGateway, WorkingCalendarService, ProcessingFlowsService, ProcessingOutboxService, RecordDeadlineWriter, RecordStepAccessService],
+  // RecordListAlertService: the alert column of the three lists.
+  exports: [RecordGateway, WorkingCalendarService, ProcessingFlowsService, ProcessingOutboxService, RecordDeadlineWriter, RecordStepAccessService, RecordListAlertService],
 })
 export class ProcessingFlowModule {}

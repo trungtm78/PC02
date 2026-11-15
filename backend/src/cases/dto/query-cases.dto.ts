@@ -9,6 +9,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { BANDS } from '../../processing-flow/contract/processing-codes';
 import { Transform, Type } from 'class-transformer';
 import {
   CaseStatus,
@@ -206,6 +207,18 @@ export class QueryCasesDto {
   @IsOptional()
   @Transform(({ value }) => (value === 'asc' ? 'asc' : 'desc'))
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  // ── The alert column (processing flow). Read only while the switch `processing_flow_records` is on. ──
+  /** Only the records whose alert is in this band. */
+  @IsOptional()
+  @IsIn([...BANDS])
+  alertBand?: (typeof BANDS)[number];
+
+  /** The instant the alerts are judged at: the `alertAsOf` an earlier answer of this list gave (ISO 8601). */
+  @IsOptional()
+  @IsNgayThat()
+  @MaxLength(40)
+  alertAsOf?: string;
 
   // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ─────────────────────────────────────
   // Cán bộ quen bảng lọc của hệ cũ; ba ô dưới đây là phần hệ mới còn thiếu.

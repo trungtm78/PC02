@@ -606,6 +606,8 @@ enum CaseStatus {
 }
 
 model Case {
+  /// Processing flow: the flow applied to this record, if any (the alert column of the list reads it).
+  procFlow ProcRecordFlow?
   fieldDefinitionVersionId String?
   fieldDefinitionVersion CaseFieldDefinitionVersion? @relation("PinnedCaseFields", fields: [fieldDefinitionVersionId], references: [id], onDelete: Restrict)
   intakeStage                  CaseIntakeStage?
@@ -1152,6 +1154,8 @@ enum HuongXuLyDon {
 }
 
 model Petition {
+  /// Processing flow: the flow applied to this record, if any (the alert column of the list reads it).
+  procFlow ProcRecordFlow?
   id               String         @id @default(cuid())
   // Số tiếp nhận — duy nhất, format: DT-{YEAR}-{SEQ}
   stt              String         @unique
@@ -1473,6 +1477,8 @@ enum IncidentHandoffState {
 }
 
 model Incident {
+  /// Processing flow: the flow applied to this record, if any (the alert column of the list reads it).
+  procFlow ProcRecordFlow?
   id                String               @id @default(cuid())
   code              String               @unique // VV-{YEAR}-{SEQ}
   name              String
@@ -5460,6 +5466,24 @@ model ProcRecordFlow {
   appliedById   String?
   /// Goes up by one with every write of the flow of the record or of its steps.
   revision      Int                 @default(1)
+  /// The record itself, by its kind: `recordId` again in the one column of its kind, so that a query can go from a
+  /// record to its flow and back (a list filtered or sorted by alert, the tracking screen checking the read policy of
+  /// the record). Written once, when the flow is applied; NULL after the record row is deleted for good.
+  petitionId    String?             @unique
+  petition      Petition?           @relation(fields: [petitionId], references: [id], onDelete: SetNull)
+  incidentId    String?             @unique
+  incident      Incident?           @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  caseId        String?             @unique
+  case          Case?               @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  /// The alert of the record, stored: each is the EARLIEST of that instant over the steps being worked (OPEN or
+  /// REPORTED, with a deadline). At an instant T the worst colour of the record is: OVERDUE when T > alertDueAt, RED when
+  /// T >= alertRedFrom, YELLOW when T >= alertYellowFrom, GREEN when T >= alertGreenFrom. All four are NULL when no step
+  /// counts, while the clock of the record stands still (suspended), and once the record is finished or gone.
+  /// Written only by `refreshRecordAlert` (records/record-alert.ts).
+  alertDueAt      DateTime?
+  alertRedFrom    DateTime?
+  alertYellowFrom DateTime?
+  alertGreenFrom  DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -5469,6 +5493,7 @@ model ProcRecordFlow {
   @@unique([recordKind, recordId])
   @@index([flowId])
   @@index([versionId])
+  @@index([recordKind, alertDueAt])
   @@map("proc_record_flows")
 }
 

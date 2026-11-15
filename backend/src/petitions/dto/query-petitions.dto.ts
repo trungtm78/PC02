@@ -7,7 +7,9 @@ import {
   IsEnum,
   IsIn,
   IsBoolean,
+  MaxLength,
 } from 'class-validator';
+import { BANDS } from '../../processing-flow/contract/processing-codes';
 import { Transform, Type } from 'class-transformer';
 import { LoaiDon } from '@prisma/client';
 import { PetitionStatus } from './create-petition.dto';
@@ -82,6 +84,18 @@ export class QueryPetitionsDto {
   @IsOptional()
   @Transform(({ value }) => (value === 'asc' ? 'asc' : 'desc'))
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  // ── The alert column (processing flow). Read only while the switch `processing_flow_records` is on. ──
+  /** Only the records whose alert is in this band. */
+  @IsOptional()
+  @IsIn([...BANDS])
+  alertBand?: (typeof BANDS)[number];
+
+  /** The instant the alerts are judged at: the `alertAsOf` an earlier answer of this list gave (ISO 8601). */
+  @IsOptional()
+  @IsNgayThat()
+  @MaxLength(40)
+  alertAsOf?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

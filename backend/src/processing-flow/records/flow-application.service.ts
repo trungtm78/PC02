@@ -10,6 +10,7 @@ import { civilDayOf, civilYearOf } from '../engine/civil-day';
 import { buildWorkingCalendar, MAX_CALENDAR_YEAR } from '../engine/working-calendar';
 import { ANCHOR_KEYS, type RecordKind, type RecordSnapshot } from '../gateway/record-snapshot';
 import { RecordGateway } from '../gateway/record-gateway';
+import { recordLink, refreshRecordAlert } from './record-alert';
 import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import { planRecordSteps, type RecordAnchors } from './schedule-step';
 
@@ -109,6 +110,7 @@ export class FlowApplicationService {
       data: {
         recordKind: kind,
         recordId,
+        ...recordLink(kind, recordId),
         flowId: flow.id,
         versionId: version.id,
         match: match as Prisma.ProcRecordFlowCreateInput['match'],
@@ -180,6 +182,8 @@ export class FlowApplicationService {
     );
     // A flow that keeps the deadline of the record writes it now (a proposed or unverified one does not).
     await this.deadlineWriter.sync(tx, kind, recordId);
+    // The alert of the record, from the steps just made.
+    await refreshRecordAlert(tx, this.gateway, kind, recordId);
     return { outcome: 'APPLIED', recordFlowId: recordFlow.id, flowId: flow.id, versionId: version.id, match, confirmed: !unknown, steps: plan.length };
   }
 

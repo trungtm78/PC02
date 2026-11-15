@@ -2,6 +2,7 @@ import { CaseOperationsService } from './governance/case-operations.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
+import { ALERT_SORT, RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
 import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
@@ -382,6 +383,7 @@ export class CasesService {
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
     @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
     @Optional() private readonly stepAccess?: RecordStepAccessService,
+    @Optional() private readonly listAlerts?: RecordListAlertService,
   ) {}
 
   private async lockCase(tx: PrismaTx, id: string): Promise<void> {
@@ -755,7 +757,13 @@ export class CasesService {
       boTrangThai = false,
       now = new Date(),
       actorId,
-    }: { boTrangThai?: boolean; now?: Date; actorId?: string } = {},
+      alertAt,
+    }: {
+      boTrangThai?: boolean;
+      now?: Date;
+      actorId?: string;
+      alertAt?: Date | null;
+    } = {},
   ) {
     await this.fieldSchema.assertQueryReadable(
       this.prisma,
@@ -947,7 +955,54 @@ export class CasesService {
     );
     if (Object.keys(governanceFilter).length)
       noiVaoWhere(where as Record<string, unknown>, [governanceFilter]);
+
+    // The alert column: only while the switch is on (`clock` answers null otherwise) and a band is asked for. A band
+    // tells how near the deadline of a case is, so it is filtered only over the cases whose `deadline` and `status`
+    // this reader may read: the same guard as the overdue filter above.
+    const q = query as QueryCasesDto;
+    const judgedAt =
+      alertAt === undefined
+        ? (this.listAlerts?.clock(q.alertAsOf) ?? null)
+        : alertAt;
+    if (judgedAt && q.alertBand && this.listAlerts) {
+      noiVaoWhere(where as Record<string, unknown>, [
+        await this.deadlineReadableWhere(actorId),
+        this.listAlerts.where('CASE', q.alertBand, judgedAt),
+      ]);
+    }
     return { where, ky: kyThongKe };
+  }
+
+  /** The cases whose `deadline` and `status` this reader may read (the field policy of each case's schema). */
+  /**
+   * The order of the list by alert. It is an order by deadline AND by status (a finished or suspended case has no alert
+   * and sorts last), so it is refused to a reader who may not sort by either field.
+   */
+  private async thuTuTheoCanhBao(
+    sortOrder: 'asc' | 'desc',
+    actorId: string | undefined,
+  ): Promise<Prisma.CaseOrderByWithRelationInput[]> {
+    for (const field of ['deadline', 'status']) {
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId: actorId ?? '' },
+        { sortBy: field },
+      );
+    }
+    return (this.listAlerts as RecordListAlertService).orderBy(
+      sortOrder,
+    ) as Prisma.CaseOrderByWithRelationInput[];
+  }
+
+  private async deadlineReadableWhere(
+    actorId?: string,
+  ): Promise<Prisma.CaseWhereInput> {
+    return this.fieldSchema.readableNativeWhere(
+      this.prisma,
+      { actorId: actorId ?? '' },
+      ['deadline', 'status'],
+      await this.visibilityWhere(actorId),
+    );
   }
 
   /** Thứ tự danh sách Vụ án — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
@@ -1026,16 +1081,26 @@ export class CasesService {
       sortOrder = 'desc',
     } = query;
 
+    // One instant for the filter, the order and the colour of every row; `null` while the switch is off.
+    const alertAt = this.listAlerts?.clock(query.alertAsOf) ?? null;
     const { where } = await this.dungWhereDanhSach(query, dataScope, {
       now,
       actorId,
+      alertAt,
     });
 
-    const orderBy = await this.thuTuDanhSach(
+    let orderBy = await this.thuTuDanhSach(
       sortBy,
       sortOrder as ListSortOrder,
       actorId,
     );
+    if (alertAt && this.listAlerts && sortBy === ALERT_SORT) {
+      orderBy = await this.thuTuTheoCanhBao(sortOrder, actorId);
+    }
+    // The alert of each row, read apart from the rows and only for the cases whose deadline this reader may read.
+    const alertVisible = alertAt
+      ? await this.deadlineReadableWhere(actorId)
+      : null;
 
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({
@@ -1056,8 +1121,18 @@ export class CasesService {
         : data[index];
       data[index] = await this.serializeCase(visible, actorId);
     }
+    const alerts =
+      alertAt && alertVisible && this.listAlerts
+        ? await this.listAlerts.forRecords(
+            'CASE',
+            data.map((item) => item.id),
+            alertAt,
+            alertVisible as Record<string, unknown>,
+          )
+        : null;
     return {
       success: true,
+      ...(alertAt && { alertAsOf: alertAt.toISOString() }),
       data: data.map((item) => {
         const quyenGhi =
           (item as unknown as { quyenGhi?: boolean }).quyenGhi === false
@@ -1070,14 +1145,16 @@ export class CasesService {
                 },
                 dataScope,
               );
+        const alert = alerts ? { alert: alerts.get(item.id) ?? null } : {};
         return item.caseType === CaseType.UY_THAC_DIEU_TRA
           ? {
               ...item,
+              ...alert,
               quyenGhi,
               trangThaiPhanHoi: computeTrangThaiPhanHoi(item, now),
               utdtReplyConflict: hasUtdtReplyConflict(item),
             }
-          : { ...item, quyenGhi };
+          : { ...item, ...alert, quyenGhi };
       }),
       total,
       page: Math.floor(offset / limit) + 1,

@@ -1,5 +1,5 @@
 import { BANDS, PROCESSING_ERROR } from '../contract/processing-codes';
-import { civilDayOf, startOfCivilDay } from './civil-day';
+import { civilDayOf, endOfCivilDay, startOfCivilDay } from './civil-day';
 import { ProcessingEngineError } from './errors';
 import type { Band, CompletionClass } from './types';
 
@@ -102,6 +102,69 @@ export function bandWhere(band: Band, now: Date): BandWhere {
       return { dueAt: { gte: now }, yellowFrom: { gt: now }, greenFrom: { lte: now } };
     case 'NONE':
       return { dueAt: { gte: now }, greenFrom: { gt: now } };
+  }
+}
+
+/**
+ * The rows that have a colour at `now` (OVERDUE, RED, YELLOW or GREEN): everything but NONE. One comparison, because the
+ * green band starts first and an overdue row started it long ago.
+ */
+export function colouredWhere(now: Date): BandWhere {
+  return { greenFrom: { lte: now } };
+}
+
+/** The band of a row at `now`, read off its stored instants. Agrees with `bandOf` and with `bandWhere`. */
+export function bandAt(now: Date, row: BandRow): Band {
+  const at = now.getTime();
+  if (at > row.dueAt.getTime()) return 'OVERDUE';
+  if (at >= row.redFrom.getTime()) return 'RED';
+  if (at >= row.yellowFrom.getTime()) return 'YELLOW';
+  if (at >= row.greenFrom.getTime()) return 'GREEN';
+  return 'NONE';
+}
+
+/**
+ * The earliest of each instant over several deadlines, each on its own (they may come from different rows). Read as
+ * ONE row by `bandAt` / `bandWhere`, it gives the WORST band of the rows at any instant: some row is overdue exactly
+ * when now is past the earliest deadline, some row is red or worse exactly from the earliest `redFrom`, and so on.
+ * `null` when there is no row.
+ */
+export function earliestInstants(rows: readonly BandRow[]): BandRow | null {
+  if (rows.length === 0) return null;
+  const earliest = (field: keyof BandRow) => new Date(Math.min(...rows.map((row) => row[field].getTime())));
+  return { dueAt: earliest('dueAt'), redFrom: earliest('redFrom'), yellowFrom: earliest('yellowFrom'), greenFrom: earliest('greenFrom') };
+}
+
+/**
+ * The band of a deadline that is a CALENDAR DAY (the `deadline` column of a record: a day stored at some instant of
+ * it): it counts to the end of that civil day in Vietnam.
+ */
+export function deadlineDayBand(now: Date, deadline: Date, t: Thresholds): Band {
+  return bandOf(now, endOfCivilDay(civilDayOf(deadline)), t);
+}
+
+/**
+ * The calendar-day deadlines that are in `band` at `now`, as ONE comparison over the column itself (no stored
+ * instants: the day boundaries are computed from `now`). `null`: no day can be in that band (two thresholds are equal).
+ * The five answers partition every deadline and agree with `deadlineDayBand`.
+ */
+export function deadlineDayWhere(band: Band, now: Date, t: Thresholds): InstantComparison | null {
+  validateThresholds(t);
+  const today = civilDayOf(now);
+  /** The first instant of the day that is more than `days` away. */
+  const beyond = (days: number) => startOfCivilDay(today + days + 1);
+  const between = (from: Date, to: Date): InstantComparison | null => (from.getTime() < to.getTime() ? { gte: from, lt: to } : null);
+  switch (band) {
+    case 'OVERDUE':
+      return { lt: startOfCivilDay(today) };
+    case 'RED':
+      return between(startOfCivilDay(today), beyond(t.redDays));
+    case 'YELLOW':
+      return between(beyond(t.redDays), beyond(t.yellowDays));
+    case 'GREEN':
+      return between(beyond(t.yellowDays), beyond(t.greenDays));
+    case 'NONE':
+      return { gte: beyond(t.greenDays) };
   }
 }
 

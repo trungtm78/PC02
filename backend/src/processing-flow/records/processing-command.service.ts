@@ -14,7 +14,8 @@ import { RecordGateway } from '../gateway/record-gateway';
 import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService, RECORD_FLOW_LOCK, anchorsOf, type ApplyOutcome } from './flow-application.service';
-import { RECORD_FLOW_INCLUDE, toRecordFlowDto, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
+import { refreshRecordAlert } from './record-alert';
+import { RECORD_FLOW_INCLUDE, toRecordFlowDto, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
 import { scheduleStep, type AnchorInstant, type RecordConditions } from './schedule-step';
 
 type Tx = Prisma.TransactionClient;
@@ -80,7 +81,7 @@ export class ProcessingCommandService {
   async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now(), await this.suspended(this.prisma, kind, recordId));
+    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId));
   }
 
   // ---- the flow of the record
@@ -256,6 +257,8 @@ export class ProcessingCommandService {
       await tx.procRecordFlow.update({ where: { id: flow.id }, data: { revision: { increment: 1 } } });
       // The record's own deadline column follows the step that keeps it, in the same transaction.
       await this.deadlineWriter.sync(tx, kind, recordId);
+      // So does the stored alert of the record: whatever the command did to a step, it is recomputed from the steps.
+      await refreshRecordAlert(tx, this.gateway, kind, recordId);
       await this.audit.log(
         {
           userId: actorId,
@@ -332,15 +335,15 @@ export class ProcessingCommandService {
     if (!Number.isInteger(value) || (value as number) < 1) throw refuse.bad(PROCESSING_ERROR.EXPECTED_REVISION_INVALID);
   }
 
-  /** Whether the record says it is suspended now (a record that is finished or gone is not). */
-  private async suspended(db: Tx | PrismaService, kind: RecordKind, recordId: string): Promise<boolean> {
+  /** What the record says now: suspended (a record that is finished or gone is not), or finished. */
+  private async clockOf(db: Tx | PrismaService, kind: RecordKind, recordId: string): Promise<RecordClock> {
     const snapshot = await this.gateway.load(kind, recordId, db);
-    return snapshot !== null && snapshot.isSuspended && !snapshot.isFinished;
+    return { suspended: snapshot !== null && snapshot.isSuspended && !snapshot.isFinished, finished: snapshot !== null && snapshot.isFinished };
   }
 
   async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now(), await this.suspended(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
   }
 
   transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {
