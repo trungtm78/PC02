@@ -71,7 +71,7 @@ export const COMPLETION_CLASSES = ['DONE_ON_TIME', 'DONE_LATE', 'OPEN_IN_TIME', 
 export const REPORT_KINDS = ['PROGRESS', 'RESULT'] as const;
 
 /** Who is speaking in an opinion on a step. */
-export const OPINION_KINDS = ['SUPERVISOR', 'COORDINATE', 'CHECK', 'APPROVAL'] as const;
+export const OPINION_KINDS = ['SUPERVISOR', 'COORDINATE', 'CHECK', 'APPROVAL', 'NUDGE'] as const;
 
 /** What an opinion decides, if anything (`NOTE`: nothing). CHECK uses PASS / REQUEST_REWORK, APPROVAL uses AGREE / DISAGREE / OTHER_DIRECTION. */
 export const OPINION_VERDICTS = ['NOTE', 'PASS', 'REQUEST_REWORK', 'AGREE', 'DISAGREE', 'OTHER_DIRECTION'] as const;
@@ -131,6 +131,7 @@ export const PROCESSING_ERROR_CODES = [
   'ACCEPTED_DATE_INVALID',
   'ACCEPTED_ALREADY_RECORDED',
   'STEP_REASON_REQUIRED',
+  'NUDGE_TOO_SOON',
   'IDEMPOTENCY_KEY_INVALID',
   'IDEMPOTENCY_KEY_REUSED',
   // the working calendar

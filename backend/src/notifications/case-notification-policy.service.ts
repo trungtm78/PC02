@@ -10,10 +10,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CaseGovernanceService } from '../cases/governance/case-governance.service';
 import { CaseFieldSchemaService } from '../cases/governance/case-field-schema.service';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+import { partyNamesUser } from '../processing-flow/records/record-step-access.service';
 
 type Notice = Omit<Partial<Notification>, 'metadata'> & { metadata?: unknown };
+
+/** The tab of the case form that shows the steps of its processing flow: where a reminder about a step leads. */
+const CASE_STEP_TAB = /^\/cases\/([^/?#]+)\/edit\?tab=phan-cong-xu-ly$/;
+
+/**
+ * The link a notice about a case keeps once the person is known to be allowed to read the case: the tab of the
+ * processing flow when the notice pointed exactly there AND at this case (a reminder about a step is useless without
+ * it), otherwise the case itself. Nothing else of the link survives: it carries the case id and a fixed tab name.
+ */
+export function caseNoticeLink(caseId: string, link: string | null | undefined): string {
+  return link && CASE_STEP_TAB.exec(link)?.[1] === caseId ? link : `/cases/${caseId}`;
+}
 @Injectable()
 export class CaseNotificationPolicyService {
+  /** The row of `feature_flags` that lets a step open a record. Another row only in the specs (the real one is shared). */
+  recordsSwitchKey = 'processing_flow_records';
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly evidence?: CaseEvidenceGovernanceService,
@@ -47,6 +62,37 @@ export class CaseNotificationPolicyService {
     }
     return { caseId: undefined, packetId: undefined };
   }
+  /**
+   * Whether a step being worked on this case names the person (or an active unit of theirs): the reason by which the
+   * route of the processing flow of the case opens the case to them, read-only. Asked ONLY for a notice that points at
+   * the assignment tab of exactly this case (a reminder about a step), and only when the scope of the person does not
+   * reach the case. The switch of the records is read from its row: with it off, a step opens nothing.
+   */
+  private async namedByStep(
+    caseId: string,
+    actorId: string,
+    notice: Notice,
+  ): Promise<boolean> {
+    if (!notice.link || CASE_STEP_TAB.exec(notice.link)?.[1] !== caseId)
+      return false;
+    const records = await this.prisma.featureFlag.findUnique({
+      where: { key: this.recordsSwitchKey },
+      select: { enabled: true },
+    });
+    if (!records?.enabled) return false;
+    const party = await this.prisma.procRecordStepParty.findFirst({
+      where: {
+        recordStep: {
+          recordKind: 'CASE',
+          recordId: caseId,
+          status: { in: ['OPEN', 'REPORTED'] },
+        },
+        ...partyNamesUser(actorId),
+      },
+      select: { id: true },
+    });
+    return party !== null;
+  }
   async serialize<T extends Notice>(
     actorId: string,
     notice: T,
@@ -60,9 +106,40 @@ export class CaseNotificationPolicyService {
         throw new ForbiddenException(
           'Case notification provenance unavailable',
         );
-      const record = await core.assertCaseReadable(this.prisma, caseId, {
-        actorId,
-      });
+      let viaStep = false;
+      const record = await core.assertCaseReadable(
+        this.prisma,
+        caseId,
+        { actorId },
+        undefined,
+        {
+          stepAssignee: async () =>
+            (viaStep = await this.namedByStep(caseId, actorId, notice)),
+        },
+      );
+      if (viaStep) {
+        // Reached by the step alone: the sensitivity and representation rules ran above and run again here as a
+        // condition (without the scope the step lifts). Nothing of the case is told, not even its code: the notice
+        // is the fixed words and the way to the tab.
+        const policyOnly = await core.readableCaseWhere(
+          this.prisma,
+          { actorId },
+          { representationCapability: 'view', withoutScope: true },
+        );
+        if (
+          !(await this.prisma.case.count({
+            where: { AND: [policyOnly, { id: caseId }] },
+          }))
+        )
+          throw new ForbiddenException('Case notification is protected');
+        return {
+          ...notice,
+          title: 'Cập nhật hồ sơ',
+          message: 'Hồ sơ có cập nhật',
+          link: caseNoticeLink(caseId, notice.link),
+          metadata: { caseId },
+        } as T;
+      }
       const fields = new CaseFieldSchemaService(this.prisma, core);
       const eligible = await fields.readableNativeWhere(
         this.prisma,
@@ -87,7 +164,7 @@ export class CaseNotificationPolicyService {
         message: identity.caseCode
           ? `Hồ sơ ${identity.caseCode} có cập nhật`
           : 'Hồ sơ có cập nhật',
-        link: `/cases/${caseId}`,
+        link: caseNoticeLink(caseId, notice.link),
         metadata: { caseId },
       } as T;
     } catch (error) {

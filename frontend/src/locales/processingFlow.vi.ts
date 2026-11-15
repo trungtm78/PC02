@@ -574,6 +574,7 @@ export const processingFlow = {
         COORDINATE: 'Đơn vị phối hợp',
         CHECK: 'Đơn vị kiểm tra',
         APPROVAL: 'Lãnh đạo',
+        NUDGE: 'Đôn đốc',
       } as Record<string, string>,
       opinionVerdicts: {
         NOTE: 'Ý kiến',
@@ -832,6 +833,7 @@ export const processingFlow = {
     ACCEPTED_DATE_INVALID: 'Ngày thụ lý không hợp lệ.',
     ACCEPTED_ALREADY_RECORDED: 'Hồ sơ này đã có ngày thụ lý. Muốn sửa, hãy dùng thao tác điều chỉnh hạn có ghi lý do.',
     STEP_REASON_REQUIRED: 'Cần ghi lý do.',
+    NUDGE_TOO_SOON: 'Bạn vừa đôn đốc bước này. Hãy chờ ít nhất 30 phút trước khi đôn đốc lại.',
     IDEMPOTENCY_KEY_INVALID: 'Mã chống gửi trùng không hợp lệ.',
     IDEMPOTENCY_KEY_REUSED: 'Mã chống gửi trùng này đã được dùng cho một thao tác khác.',
     STEP_DEPENDENT_STARTED: 'Bước sau đã được báo cáo hoặc hoàn thành. Hãy rút lại bước sau trước khi mở lại bước này.',

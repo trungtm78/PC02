@@ -189,5 +189,6 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'report', subject: 'ProcessingStep', description: 'Ghi báo cáo tiến độ, kết quả và đề xuất của đơn vị mình ở một bước' },
   { action: 'opine', subject: 'ProcessingStep', description: 'Cho ý kiến ở một bước (tổ trưởng, đơn vị phối hợp, đơn vị kiểm tra)' },
   { action: 'approve', subject: 'ProcessingStep', description: 'Phê duyệt hoặc trả lại kết quả của một bước cần lãnh đạo duyệt' },
+  { action: 'nudge', subject: 'ProcessingStep', description: 'Đôn đốc đơn vị xử lý một bước, kèm lời nhắn' },
   { action: 'skip', subject: 'ProcessingStep', description: 'Bỏ qua một bước (có lý do) và bỏ bỏ qua' },
 ];

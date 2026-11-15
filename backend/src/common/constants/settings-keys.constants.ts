@@ -64,6 +64,11 @@ export const SETTINGS_KEY = {
   // Permissions by team: OFF (roles decide, as before) | SHADOW (both computed, differences reported) | ENFORCE.
   // Read by `authz/authz.service.ts`; anything that is not one of the three words is OFF.
   QUYEN_THEO_TO_CHE_DO: 'QUYEN_THEO_TO_CHE_DO',
+
+  // Reminders of the processing flow: after how many civil days overdue a step is told to the heads of the parent
+  // unit, and to the leadership, when the step of the flow does not say (defaults 3 and 7; 0 or empty = never).
+  NHAC_VIEC_DON_DOC_CAP_TREN_NGAY: 'NHAC_VIEC_DON_DOC_CAP_TREN_NGAY',
+  NHAC_VIEC_DON_DOC_LANH_DAO_NGAY: 'NHAC_VIEC_DON_DOC_LANH_DAO_NGAY',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];

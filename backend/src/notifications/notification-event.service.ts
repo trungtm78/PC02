@@ -25,6 +25,20 @@ import {
   UydtAssignedEvent,
 } from './events/notification.events';
 
+export interface InAppNotice {
+  toUserId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PreparedNotice {
+  notice: InAppNotice;
+  push: boolean;
+}
+
 @Injectable()
 export class NotificationEventService {
   private readonly logger = new Logger(NotificationEventService.name);
@@ -279,36 +293,66 @@ export class NotificationEventService {
 
   // ── Shared helper ──────────────────────────────────────────────────────
 
-  private async sendInApp(payload: {
-    toUserId: string;
-    type: NotificationType;
-    title: string;
-    message: string;
-    link: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<void> {
+  private async sendInApp(payload: InAppNotice): Promise<void> {
+    if (await this.deliverInApp(payload)) this.ringBell(payload.toUserId);
+  }
+
+  /** Tells the open screens of a person that their notifications changed. */
+  ringBell(userId: string): void {
+    this.sse.notifyUser(userId);
+  }
+
+  /**
+   * The ONE way a notice reaches a person: the case policy (a notice about a case the person may not read is
+   * dropped), the person's own preferences, the row of the bell, and the push queue (held back outside work hours).
+   *
+   * `db`: the client the row is written on. A caller that must write the notice together with something else (the
+   * reminders of the processing flow mark their outbox row done in the same transaction) passes its transaction and
+   * rings the bell itself AFTER the commit (`ringBell`). Answers whether a notice was written.
+   */
+  async deliverInApp(
+    payload: InAppNotice,
+    db: Pick<Prisma.TransactionClient, 'notification'> = this.prisma,
+  ): Promise<boolean> {
+    const prepared = await this.prepareInApp(payload);
+    if (!prepared) return false;
+    await this.writeInApp(prepared, db);
+    return true;
+  }
+
+  /**
+   * Everything of a delivery that only READS (the case policy, the preferences of the person), on the root client: a
+   * caller that writes the notice inside a transaction does this BEFORE opening it, so the transaction never waits
+   * for a second connection. `null`: no notice (the person may not read the case, or switched the notice off).
+   */
+  async prepareInApp(payload: InAppNotice): Promise<PreparedNotice | null> {
     const policy =
       this.casePolicy ?? new CaseNotificationPolicyService(this.prisma);
     const allowed = await policy.serialize(payload.toUserId, payload);
-    if (!allowed) return;
-    payload = allowed;
-    const pref = await this.getPref(payload.toUserId, payload.type);
-    if (!pref.inApp) return;
+    if (!allowed) return null;
+    const pref = await this.getPref(allowed.toUserId, allowed.type);
+    if (!pref.inApp) return null;
+    return { notice: allowed, push: pref.push };
+  }
 
-    await this.prisma.notification.create({
+  /** The write of a prepared notice, and nothing else: one statement on the client given. */
+  async writeInApp(
+    prepared: PreparedNotice,
+    db: Pick<Prisma.TransactionClient, 'notification'> = this.prisma,
+  ): Promise<void> {
+    const { notice } = prepared;
+    await db.notification.create({
       data: {
-        userId: payload.toUserId,
-        type: payload.type,
-        title: payload.title,
-        message: payload.message,
-        link: payload.link,
-        metadata: (payload.metadata ?? Prisma.JsonNull) as any,
-        pushNextRetryAt: pref.push ? nextWorkHoursTime() : null,
+        userId: notice.toUserId,
+        type: notice.type,
+        title: notice.title,
+        message: notice.message,
+        link: notice.link,
+        metadata: (notice.metadata ?? Prisma.JsonNull) as any,
+        pushNextRetryAt: prepared.push ? nextWorkHoursTime() : null,
         pushMaxRetries: 3,
       },
     });
-
-    this.sse.notifyUser(payload.toUserId);
   }
 
   private async getPref(userId: string, type: NotificationType) {
