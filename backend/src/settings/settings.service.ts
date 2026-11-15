@@ -201,6 +201,8 @@ export class SettingsService {
     const defaults = [
       { key: SETTINGS_KEY.TWO_FA_ENABLED, value: 'false', label: 'Bật xác thực 2 lớp (2FA)', unit: null, legalBasis: null },
       { key: SETTINGS_KEY.CANH_BAO_SAP_HAN, value: '7', label: 'Ngưỡng cảnh báo sắp đến hạn (app mobile)', unit: 'ngày', legalBasis: null },
+      { key: SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY, value: '3', label: 'Bước xử lý quá hạn bao nhiêu ngày thì báo trưởng đơn vị cấp trên (0 = không báo; bước của quy trình có thể đặt riêng)', unit: 'ngày', legalBasis: null },
+      { key: SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY, value: '7', label: 'Bước xử lý quá hạn bao nhiêu ngày thì báo nhóm lãnh đạo (0 = không báo; bước của quy trình có thể đặt riêng)', unit: 'ngày', legalBasis: null },
       { key: SETTINGS_KEY.THOI_HAN_XOA_VU_VIEC, value: '180', label: 'Số ngày giữ vụ việc đã xóa mềm', unit: 'ngày', legalBasis: 'Quy chế nội bộ' },
       // v0.31.0.2: số giờ creator có thể tự xóa vụ án (status=TIEP_NHAN). Ngoài window → chỉ ADMIN.
       { key: SETTINGS_KEY.THOI_HAN_XOA_VU_AN, value: '72', label: 'Số giờ creator được tự xóa vụ án sau khi tạo', unit: 'giờ', legalBasis: 'Quy chế nội bộ' },

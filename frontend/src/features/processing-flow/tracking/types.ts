@@ -21,6 +21,11 @@ export interface TrackingSummaryDto {
   /** The instant the counts were judged at: passed back as `asOf` with every list call, so the two agree. */
   asOf: string;
   counts: Record<TrackedBand, number>;
+  /**
+   * The records within the same reach and filters whose flow is only a proposal (nobody confirmed it): their work
+   * asserts no deadline, so it is in none of the four counts. Absent in the answer of an older server.
+   */
+  unconfirmed?: number;
 }
 
 export interface TrackingItemDto {

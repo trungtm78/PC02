@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/models/case.dart';
+import '../../shared/widgets/band_chip.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/offline_banner.dart';
@@ -179,7 +180,12 @@ class _CaseCard extends StatelessWidget {
                   StatusChip(status: c.status),
                 ],
               ),
-              if (c.deadline != null) ...[
+              // The alert the server computed wins; the local deadline badge is
+              // only for a row that carries none (the switch is off).
+              if (c.alert != null) ...[
+                const SizedBox(height: 8),
+                BandChip.forAlert(c.alert),
+              ] else if (c.deadline != null) ...[
                 const SizedBox(height: 8),
                 DeadlineBadge(deadline: c.deadline),
               ],

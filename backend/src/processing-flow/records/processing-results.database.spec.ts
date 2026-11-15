@@ -405,6 +405,32 @@ run('Results of a step on PostgreSQL', () => {
     });
   });
 
+  describe('a nudge in the book', () => {
+    it('is never filed through the opinion route, by anybody: only the nudge command writes one', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      const flow = await get();
+      const key_ = await key();
+      for (const who of [user.head, user.coordinator, user.worker]) {
+        expect(await failure(results.addOpinion(who, 'PETITION', recordId, key_, { expectedRevision: flow.revision, kind: 'NUDGE', verdict: 'NOTE', content: 'Hurry' }))).toEqual({ status: 400, code: 'OPINION_NOT_ALLOWED' });
+      }
+      expect((await results.results('PETITION', recordId, key_)).opinions).toEqual([]);
+    });
+
+    it('cannot be taken back by its author, and does not stop the author of an earlier opinion from taking theirs back', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      let flow = await get();
+      const key_ = await key();
+      flow = await results.addOpinion(user.head, 'PETITION', recordId, key_, { expectedRevision: flow.revision, kind: 'SUPERVISOR', verdict: 'NOTE', content: 'First' });
+      // As the nudge command writes it: after the opinion, by the head themselves.
+      const stepRow = await scratch.db.procRecordStep.findFirstOrThrow({ where: { recordId, stepKey: key_ } });
+      const nudge = await scratch.db.procStepOpinion.create({ data: { recordStepId: stepRow.id, recordKind: 'PETITION', recordId, kind: 'NUDGE', verdict: 'NOTE', content: 'Hurry', authorId: user.head, createdAt: new Date(Date.now() + 60_000) } });
+      expect(await failure(results.withdrawOpinion(user.head, 'PETITION', recordId, key_, nudge.id, { expectedRevision: flow.revision }))).toEqual({ status: 409, code: 'OPINION_NOT_ALLOWED' });
+      const [first] = (await results.results('PETITION', recordId, key_)).opinions;
+      await results.withdrawOpinion(user.head, 'PETITION', recordId, key_, first.id, { expectedRevision: flow.revision });
+      expect((await results.results('PETITION', recordId, key_)).opinions.map((o) => [o.kind, o.withdrawnAt !== null])).toEqual([['SUPERVISOR', true], ['NUDGE', false]]);
+    });
+  });
+
   describe('the leader\'s decision', () => {
     const reportedResult = async (steps: unknown[] = [step()]) => {
       const base = await withFlow(steps);

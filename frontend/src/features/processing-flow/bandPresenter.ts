@@ -46,7 +46,7 @@ export function bandText(band: string, days: number | null): string {
 
 /** The alert of one record on a list, as `GET /petitions|/incidents|/cases` answers it while the records switch is on. */
 export interface RecordAlertDto {
-  /** `FLOW`: from the steps of the record's flow. `RECORD_DEADLINE`: the record has no flow; from its own deadline. */
+  /** `FLOW`: from the steps of the record's flow. `RECORD_DEADLINE`: from its own deadline (no flow, or only a proposed one). */
   source: string;
   band: string;
   remainingDays: number;

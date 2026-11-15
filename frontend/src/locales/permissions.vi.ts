@@ -111,6 +111,7 @@ export const permissions = {
     opineStep: 'Cho ý kiến ở bước',
     approveStep: 'Duyệt kết quả bước',
     extendStep: 'Gia hạn bước',
+    nudgeStep: 'Đôn đốc bước',
   } as Record<string, string>,
   reaches: {
     OWN: 'Chỉ của mình',
