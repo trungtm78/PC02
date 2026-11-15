@@ -13,6 +13,9 @@ export const RECORD_FLOW_INCLUDE = {
     include: {
       step: true,
       parties: { orderBy: { order: 'asc' }, include: { team: { select: { name: true } } } },
+      /** The newest report and opinion that are still standing: the one-line summary of a step. */
+      reports: { where: { withdrawnAt: null }, orderBy: { createdAt: 'desc' }, take: 1 },
+      opinions: { where: { withdrawnAt: null }, orderBy: { createdAt: 'desc' }, take: 1 },
     },
   },
 } satisfies Prisma.ProcRecordFlowInclude;
@@ -62,6 +65,9 @@ export interface RecordStepDto {
   skippedFrom: StepStatus | null;
   revision: number;
   parties: RecordStepPartyDto[];
+  /** The newest report still standing, cut short, and the newest opinion: the summary line of the step. */
+  latestReport: { kind: string; summary: string; at: string; revision: number } | null;
+  latestOpinion: { kind: string; verdict: string; at: string } | null;
 }
 
 export interface RecordFlowDto {
@@ -137,6 +143,8 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, suspended = false
         skippedAt: iso(step.skippedAt),
         skippedFrom: step.skippedFrom,
         revision: step.revision,
+        latestReport: step.reports[0] ? { kind: step.reports[0].kind, summary: step.reports[0].doneWork.slice(0, 200), at: step.reports[0].createdAt.toISOString(), revision: step.reports[0].revision } : null,
+        latestOpinion: step.opinions[0] ? { kind: step.opinions[0].kind, verdict: step.opinions[0].verdict, at: step.opinions[0].createdAt.toISOString() } : null,
         parties: step.parties.map((party) => ({
           partyKind: party.partyKind,
           teamId: party.teamId,

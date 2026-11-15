@@ -175,13 +175,26 @@ export class ProcessingCommandService {
 
   /** A step that asks for no approval is done. */
   completeStep(actorId: string, kind: RecordKind, recordId: string, stepKey: string, input: CommandInput): Promise<RecordFlowDto> {
-    return this.writeStep(kind, recordId, actorId, stepKey, 'COMPLETE', input, async (tx, flow, step) => {
-      const at = this.now();
-      const moved = this.transition(step, 'COMPLETE');
-      await tx.procRecordStep.update({ where: { id: step.id }, data: { status: moved.status, doneAt: at, doneById: actorId, revision: { increment: 1 } } });
-      await this.change(tx, flow, step.stepKey, 'STEP_COMPLETED', { status: step.status }, { status: moved.status }, null, actorId);
-      await this.startFollower(tx, flow, step, at, actorId);
-    });
+    return this.writeStep(kind, recordId, actorId, stepKey, 'COMPLETE', input, (tx, flow, step) => this.finishStep(tx, flow, step, 'COMPLETE', actorId));
+  }
+
+  /**
+   * A step is finished: by `COMPLETE` (a step that asks for no approval) or by `APPROVE` (the leader agreed the result of
+   * one that does). The step after it, counted from this completion, starts now.
+   */
+  async finishStep(tx: Tx, flow: RecordFlowRow, step: StepRow, event: 'COMPLETE' | 'APPROVE', actorId: string): Promise<void> {
+    const at = this.now();
+    const moved = this.transition(step, event);
+    await tx.procRecordStep.update({ where: { id: step.id }, data: { status: moved.status, doneAt: at, doneById: actorId, revision: { increment: 1 } } });
+    await this.change(tx, flow, step.stepKey, 'STEP_COMPLETED', { status: step.status }, { status: moved.status, via: event }, null, actorId);
+    await this.startFollower(tx, flow, step, at, actorId);
+  }
+
+  /** A step moves between OPEN and REPORTED (a result is reported, withdrawn, returned); nothing else changes. */
+  async moveStep(tx: Tx, flow: RecordFlowRow, step: StepRow, event: 'REPORT' | 'RETURN', reason: string | null, actorId: string): Promise<void> {
+    const moved = this.transition(step, event);
+    await tx.procRecordStep.update({ where: { id: step.id }, data: { status: moved.status, revision: { increment: 1 } } });
+    await this.change(tx, flow, step.stepKey, event === 'REPORT' ? 'STEP_REPORTED' : 'STEP_RETURNED', { status: step.status }, { status: moved.status }, reason, actorId);
   }
 
   /** A finished step is worked again. The step after it, if already at work, keeps its deadline and is flagged. */
@@ -328,7 +341,7 @@ export class ProcessingCommandService {
     return row ? toRecordFlowDto(row, this.now(), await this.suspended(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
   }
 
-  private transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {
+  transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {
     return this.guard(() =>
       nextStep({ status: step.status, requiresApproval: step.step.requiresApproval, skippedFrom: step.skippedFrom as 'WAITING_ANCHOR' | 'OPEN' | null }, event, context),
     );
@@ -349,7 +362,7 @@ export class ProcessingCommandService {
   }
 
   /** `step` is done or set aside at `at`: the step counted from it starts counting from there. */
-  private async startFollower(tx: Tx, flow: RecordFlowRow, step: StepRow, at: Date, actorId: string): Promise<void> {
+  async startFollower(tx: Tx, flow: RecordFlowRow, step: StepRow, at: Date, actorId: string): Promise<void> {
     const follower = this.followerOf(flow, step);
     if (!follower) return;
     if (follower.status === 'WAITING_ANCHOR') {

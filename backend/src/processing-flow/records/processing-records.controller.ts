@@ -8,9 +8,10 @@ import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard'
 import { PROCESSING_ERROR } from '../contract/processing-codes';
 import { RecordGateway } from '../gateway/record-gateway';
 import { RECORD_KINDS, type RecordKind } from '../gateway/record-snapshot';
-import { AcceptedDateDto, AdjustDueDto, ApplyFlowDto, ExtendStepDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
+import { DecisionDto, OpinionDto, ReportFieldsDto, SubmitReportDto, AcceptedDateDto, AdjustDueDto, ApplyFlowDto, ExtendStepDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
+import { ProcessingResultsService } from './processing-results.service';
 
 interface AuthenticatedUser {
   id: string;
@@ -38,6 +39,7 @@ export class ProcessingRecordsController {
   constructor(
     private readonly commands: ProcessingCommandService,
     private readonly deadlines: ProcessingDeadlineService,
+    private readonly results_: ProcessingResultsService,
     private readonly gateway: RecordGateway,
   ) {}
 
@@ -118,6 +120,60 @@ export class ProcessingRecordsController {
   @RequirePermissions({ action: 'extend', subject: 'ProcessingStep' })
   async extend(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: ExtendStepDto, @CurrentUser() user: AuthenticatedUser) {
     return this.deadlines.extendStep(user.id, await this.readable(kind, id, user), id, stepKey, body);
+  }
+
+  // ---- the results of a step: reports, opinions, the leader's decision
+
+  /** The book of a step. Readable by anybody who may read the flow of the record, including a unit named in a step. */
+  @Get(':kind/:id/steps/:stepKey/results')
+  @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
+  async results(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.results(await this.readable(kind, id, user, true), id, stepKey);
+  }
+
+  // The routes of a unit that works a step open the record BY the step (`viaStep`): what authorises the write is being a
+  // party of THIS step, which the service checks; the unit's scope over the record is not what it rests on.
+  @Post(':kind/:id/steps/:stepKey/reports')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'report', subject: 'ProcessingStep' })
+  async report(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: SubmitReportDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.submitReport(user.id, await this.readable(kind, id, user, true), id, stepKey, body);
+  }
+
+  @Post(':kind/:id/steps/:stepKey/reports/:reportId/edit')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'report', subject: 'ProcessingStep' })
+  async editReport(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Param('reportId') reportId: string, @Body() body: ReportFieldsDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.editReport(user.id, await this.readable(kind, id, user, true), id, stepKey, reportId, body);
+  }
+
+  @Post(':kind/:id/steps/:stepKey/reports/:reportId/withdraw')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'report', subject: 'ProcessingStep' })
+  async withdrawReport(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Param('reportId') reportId: string, @Body() body: RevisionCommandDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.withdrawReport(user.id, await this.readable(kind, id, user, true), id, stepKey, reportId, body);
+  }
+
+  @Post(':kind/:id/steps/:stepKey/opinions')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'opine', subject: 'ProcessingStep' })
+  async opinion(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: OpinionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.addOpinion(user.id, await this.readable(kind, id, user, true), id, stepKey, body);
+  }
+
+  @Post(':kind/:id/steps/:stepKey/opinions/:opinionId/withdraw')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'opine', subject: 'ProcessingStep' })
+  async withdrawOpinion(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Param('opinionId') opinionId: string, @Body() body: RevisionCommandDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.withdrawOpinion(user.id, await this.readable(kind, id, user, true), id, stepKey, opinionId, body);
+  }
+
+  /** The leader's decision: it asks for the record's OWN scope (the leadership template reaches all), never the step. */
+  @Post(':kind/:id/steps/:stepKey/decision')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'approve', subject: 'ProcessingStep' })
+  async decide(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: DecisionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.results_.decide(user.id, await this.readable(kind, id, user), id, stepKey, body);
   }
 
   @Post(':kind/:id/steps/:stepKey/unskip')

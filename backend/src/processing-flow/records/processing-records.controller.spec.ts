@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RecordGateway } from '../gateway/record-gateway';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
+import { ProcessingResultsService } from './processing-results.service';
 import { ProcessingRecordsController } from './processing-records.controller';
 
 /**
@@ -15,7 +16,7 @@ import { ProcessingRecordsController } from './processing-records.controller';
  * held, answered only for a record the record's OWN read policy shows that person (otherwise exactly the 404 of a
  * record that does not exist).
  */
-const ALL = ['read', 'assign', 'complete', 'reopen', 'skip', 'adjustDue', 'extend'].map((action) => `${action}:ProcessingStep`);
+const ALL = ['read', 'assign', 'complete', 'reopen', 'skip', 'adjustDue', 'extend', 'report', 'opine', 'approve'].map((action) => `${action}:ProcessingStep`);
 
 type Method = 'get' | 'post';
 /** [method, path, body, the permission it needs, the command it reaches] */
@@ -29,13 +30,23 @@ const ROUTES: Array<[Method, string, object | undefined, string, string]> = [
   ['post', '/processing/records/PETITION/r1/steps/k1/reopen', { expectedRevision: 2, reason: 'x' }, 'reopen:ProcessingStep', 'reopenStep'],
   ['post', '/processing/records/PETITION/r1/steps/k1/due', { expectedRevision: 2, date: '2026-12-20' }, 'adjustDue:ProcessingStep', 'adjustDue'],
   ['post', '/processing/records/PETITION/r1/steps/k1/extend', { expectedRevision: 2, reason: 'More time' }, 'extend:ProcessingStep', 'extendStep'],
+  ['get', '/processing/records/PETITION/r1/steps/k1/results', undefined, 'read:ProcessingStep', 'results'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/reports', { expectedRevision: 2, kind: 'RESULT', doneWork: 'Done' }, 'report:ProcessingStep', 'submitReport'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/reports/rp1/edit', { expectedRevision: 2, doneWork: 'Done again' }, 'report:ProcessingStep', 'editReport'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/reports/rp1/withdraw', { expectedRevision: 2 }, 'report:ProcessingStep', 'withdrawReport'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/opinions', { expectedRevision: 2, kind: 'CHECK', verdict: 'PASS' }, 'opine:ProcessingStep', 'addOpinion'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/opinions/op1/withdraw', { expectedRevision: 2 }, 'opine:ProcessingStep', 'withdrawOpinion'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/decision', { expectedRevision: 2, verdict: 'AGREE' }, 'approve:ProcessingStep', 'decide'],
   ['post', '/processing/records/PETITION/r1/steps/k1/skip', { expectedRevision: 2, reason: 'x' }, 'skip:ProcessingStep', 'skipStep'],
   ['post', '/processing/records/PETITION/r1/steps/k1/unskip', { expectedRevision: 2 }, 'skip:ProcessingStep', 'unskipStep'],
 ];
 
+/** The commands that open the record BY the step: they read, or they are authorised by being a party of the step. */
+const stepRoutes = new Set(['get', 'results', 'submitReport', 'editReport', 'withdrawReport', 'addOpinion', 'withdrawOpinion']);
+
 describe('ProcessingRecordsController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const commands = Object.fromEntries(['adjustDue', 'extendStep', 'get', 'apply', 'reapplyFlow', 'confirmFlow', 'recordAccepted', 'completeStep', 'reopenStep', 'skipStep', 'unskipStep'].map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
+  const commands = Object.fromEntries(['results', 'submitReport', 'editReport', 'withdrawReport', 'addOpinion', 'withdrawOpinion', 'decide', 'adjustDue', 'extendStep', 'get', 'apply', 'reapplyFlow', 'confirmFlow', 'recordAccepted', 'completeStep', 'reopenStep', 'skipStep', 'unskipStep'].map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
   const gateway = { canRead: jest.fn() };
   let switchedOn = true;
   let held: string[] = ALL;
@@ -52,6 +63,7 @@ describe('ProcessingRecordsController (HTTP, real guards)', () => {
       providers: [
         { provide: ProcessingCommandService, useValue: commands },
         { provide: ProcessingDeadlineService, useValue: commands },
+        { provide: ProcessingResultsService, useValue: commands },
         { provide: RecordGateway, useValue: gateway },
         {
           provide: FeatureFlagsService,
@@ -127,7 +139,7 @@ describe('ProcessingRecordsController (HTTP, real guards)', () => {
     expect(response.status).toBeLessThan(300);
     expect(commands[reached]).toHaveBeenCalledTimes(1);
     // Only the GET may open a record by a step alone; every write keeps the record's own scope check.
-    expect(gateway.canRead).toHaveBeenCalledWith('PETITION', 'r1', { id: 'officer-1', role: 'OFFICER', canDispatch: false }, { viaStep: method === 'get' });
+    expect(gateway.canRead).toHaveBeenCalledWith('PETITION', 'r1', { id: 'officer-1', role: 'OFFICER', canDispatch: false }, { viaStep: stepRoutes.has(reached) });
   });
 
   it.each(ROUTES)('%s %s answers a record the person may not read as a record that is not there', async (method, path, body) => {
