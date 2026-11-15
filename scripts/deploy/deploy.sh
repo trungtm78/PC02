@@ -340,6 +340,37 @@ elif [ "$KIEM_COT_BONG" != "0" ]; then
     COT_BONG_LOI=1
 fi
 
+# 9c-bis. Housekeeping, BEFORE the step below that may end the script red.
+#
+# It used to come after it, and since the day the search shadow columns needed a backfill every deploy ended red at 9d:
+# the prune never ran. Measured on production 15/11/2026: 60 releases and 447 pre-deploy backups, the disk at 84%.
+# The code is live and healthy at this point whatever 9d says, so the housekeeping belongs here.
+#
+# Releases: keep the newest 5 (the running one is always among them).
+KEEP=5
+TOTAL=$(ls -1d "$RELEASES_DIR"/*/ 2>/dev/null | wc -l)
+if [ "$TOTAL" -gt "$KEEP" ]; then
+    PRUNE=$((TOTAL - KEEP))
+    log "Pruning $PRUNE old releases (keeping $KEEP)"
+    ls -1dt "$RELEASES_DIR"/*/ | tail -n "$PRUNE" | grep -v "/$RELEASE_SHA/\$" | xargs -r rm -rf
+fi
+
+# Pre-deploy backups: keep the newest 30 and the FIRST of every day (the owner's rule, 15/11/2026); nothing else in
+# the directory is touched. The name carries the time, so the order does not depend on file dates.
+BACKUP_DIR="$(dirname "$BACKUP_FILE")"
+BACKUP_LIST="$(ls -1 "$BACKUP_DIR" 2>/dev/null | grep -E '^pre-deploy-[0-9a-f]+-[0-9]{8}_[0-9]{6}\.sql\.gz$' | sed -E 's/^pre-deploy-[0-9a-f]+-([0-9]{8}_[0-9]{6})\.sql\.gz$/\1 &/' | sort)"
+BACKUP_KEEP="$( { printf '%s\n' "$BACKUP_LIST" | tail -n 30; printf '%s\n' "$BACKUP_LIST" | awk '{d=substr($1,1,8); if (!(d in seen)) { seen[d]=1; print }}'; } | cut -d' ' -f2 | sort -u)"
+BACKUP_PRUNED=0
+for OLD_BACKUP in $(printf '%s\n' "$BACKUP_LIST" | cut -d' ' -f2); do
+    if ! printf '%s\n' "$BACKUP_KEEP" | grep -qxF "$OLD_BACKUP"; then
+        rm -f -- "$BACKUP_DIR/$OLD_BACKUP" && BACKUP_PRUNED=$((BACKUP_PRUNED + 1))
+    fi
+done
+[ "$BACKUP_PRUNED" -gt 0 ] && log "Pruned $BACKUP_PRUNED old pre-deploy backups (kept the newest 30 and the first of every day)"
+
+# The tarball of this release is NOT removed here: a deploy that ends red below must be re-runnable with the same
+# tarball (gates `cong-service-worker`, `cong-nap-cot-bong-sau-deploy`). It is removed at the very end of a green run.
+
 # 9d. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
 #
 # Báo cảnh báo suông giữ nguyên đúng kiểu hỏng cần chặn: triển khai xanh trong khi cán bộ không
@@ -368,15 +399,6 @@ if [ "${CANH_LECH:-0}" = "1" ] || [ "${COT_BONG_LECH:-0}" = "1" ] || [ "${COT_BO
     log "Đánh dấu ĐỎ để không ai nhầm đây là lần triển khai sạch."
     log "=========================================="
     exit 1
-fi
-
-# 10. Prune old releases (keep latest 5)
-KEEP=5
-TOTAL=$(ls -1d "$RELEASES_DIR"/*/ 2>/dev/null | wc -l)
-if [ "$TOTAL" -gt "$KEEP" ]; then
-    PRUNE=$((TOTAL - KEEP))
-    log "Pruning $PRUNE old releases (keeping $KEEP)"
-    ls -1dt "$RELEASES_DIR"/*/ | tail -n "$PRUNE" | xargs -r rm -rf
 fi
 
 # 11. Cleanup tarball
