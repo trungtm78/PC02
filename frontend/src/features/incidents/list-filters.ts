@@ -1,4 +1,5 @@
 import { createListFilterRegistry } from "@/features/_shared/list-filters/registry";
+import { alertBandFilterField } from "@/features/processing-flow/alerts/listAlert";
 
 /**
  * v0.64 PR2 — Incidents advanced filter fields registration.
@@ -31,6 +32,8 @@ export interface IncidentFilterValue {
   toDateRange?: string;
   /** Tạm đổi kỳ thống kê tính theo ngày nào; rỗng = theo cấu hình hệ thống. */
   thongKeTruongNgay?: string;
+  /** The alert band of the processing flow; the box is offered only while the server answers alerts. */
+  alertBand?: string;
 }
 
 const incidents = createListFilterRegistry<IncidentFilterValue>();
@@ -155,5 +158,9 @@ incidents.registerMany([
     ],
   },
 ]);
+
+// The alert column of the processing flow (PR 11): one more field of THIS registry, not a second filter panel. The page
+// hides the box while the server answers no alerts (`<Filters hiddenKeys>`).
+incidents.register(alertBandFilterField());
 
 export const incidentsListFilters = incidents;
