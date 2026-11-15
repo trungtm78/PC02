@@ -129,7 +129,9 @@ export class ProcessingPauseService {
 
         let moved = 0;
         if (alive) moved = await this.shiftDeadlines(tx, flowId, open.from, to);
-        if (moved > 0) await this.deadlineWriter.sync(tx, kind, recordId);
+        // Also when no step moved: the job after a legal verification leaves a suspended record to this moment, and
+        // the write is one that changes nothing when the column already agrees.
+        if (alive) await this.deadlineWriter.sync(tx, kind, recordId);
         await tx.procStepChange.create({
           data: { recordFlowId: flowId, recordKind: kind, recordId, action: 'CLOCK_RESUMED', fromValue: { from: open.from.toISOString() }, toValue: { to: to.toISOString(), stepsMoved: moved, recordAlive: alive }, actorId: null },
         });

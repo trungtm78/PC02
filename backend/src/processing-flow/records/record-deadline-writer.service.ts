@@ -104,8 +104,11 @@ export class RecordDeadlineWriter implements OnModuleInit {
     return flows.map((flow) => flow.recordId);
   }
 
-  /** Copies the managed deadline into the record's column when it differs. Returns what it did. */
-  async sync(tx: Prisma.TransactionClient, kind: RecordKind, recordId: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED'> {
+  /**
+   * Copies the managed deadline into the record's column when it differs. Returns what it did. `reason` goes into the
+   * history row of a write, for a caller that is not a command a person gave (the job after a legal verification).
+   */
+  async sync(tx: Prisma.TransactionClient, kind: RecordKind, recordId: string, reason?: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED'> {
     const managed = await this.managedDeadline(tx, kind, recordId);
     if (!managed) return 'NOT_MANAGED';
     const snapshot = await this.gateway.load(kind, recordId, tx);
@@ -121,6 +124,7 @@ export class RecordDeadlineWriter implements OnModuleInit {
         action: 'RECORD_DEADLINE_WRITTEN',
         fromValue: { deadline: snapshot.deadline ? snapshot.deadline.toISOString() : null },
         toValue: { deadline: managed.toISOString() },
+        reason: reason ?? null,
         actorId: null,
       },
     });

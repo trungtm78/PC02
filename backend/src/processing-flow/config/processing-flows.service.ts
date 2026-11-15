@@ -9,6 +9,7 @@ import { CRIME_GRAVITIES, DEADLINE_GROUPS, PROCESSING_ERROR, RECORD_KINDS, type 
 import { civilDayFromIso, civilDayOf, civilYearOf } from '../engine/civil-day';
 import { buildWorkingCalendar, MAX_CALENDAR_YEAR, MIN_CALENDAR_YEAR } from '../engine/working-calendar';
 import { ANCHOR_KEYS, type AnchorKey, type RecordKind } from '../gateway/record-snapshot';
+import { enqueueDeadlineResync } from '../records/deadline-resync';
 import {
   FlowShapeError,
   legalFingerprint,
@@ -749,6 +750,15 @@ export class ProcessingFlowsService {
       // The revision moves on: somebody editing this draft meanwhile is told, instead of saving over the stamp.
       const updated = await tx.procFlowVersion.update({ where: { id: versionId }, data: { revision: { increment: 1 } } });
       await this.logVersion(tx, verified ? 'PROC_FLOW_STEP_LEGAL_VERIFY' : 'PROC_FLOW_STEP_LEGAL_UNVERIFY', actorId, updated, { stepKey });
+
+      // Records already following this version: from now on the flow keeps their deadline (when this is the step that
+      // sets it), so their column is brought in line, by the outbox worker and not in this transaction. Only a
+      // PUBLISHED version has records; a draft's stamp reaches records when they get the version, at application.
+      //
+      // Taking a verification back writes NO job: an unverified step stops writing the deadline of a record, and a
+      // deadline already written is not taken back silently (the value it replaced may be older than what people have
+      // done since). The column keeps what it holds and can be typed again, as for any record the flow does not keep.
+      if (verified && version.status === 'PUBLISHED' && step.setsRecordDeadline) await enqueueDeadlineResync(tx, flow.recordKind, versionId);
     });
     return this.get(flowId);
   }

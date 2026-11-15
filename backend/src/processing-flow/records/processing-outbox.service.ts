@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { RecordKind } from '../gateway/record-snapshot';
+import { DEADLINE_RESYNC_BATCH, DEADLINE_RESYNC_DONE, DEADLINE_RESYNC_REASON, LEGAL_VERIFIED_REASON, resyncCursor } from './deadline-resync';
 import { FlowApplicationService, type ApplyReason } from './flow-application.service';
 import { RECORDS_SWITCH } from './record-deadline-writer.service';
 
@@ -109,6 +110,10 @@ export class ProcessingOutboxService implements OnModuleInit {
       const row = await this.claim();
       if (!row) break;
       try {
+        if (row.reason === DEADLINE_RESYNC_REASON) {
+          if (await this.resyncBatch(row)) result.done += 1;
+          continue;
+        }
         const outcome = await this.applier.apply({ kind: row.recordKind, recordId: row.recordId, reason: asReason(row.reason), actorId: null });
         await this.prisma.procOutbox.update({ where: { id: row.id }, data: { status: 'DONE', processedAt: new Date(), outcome: outcome.outcome, lastError: null } });
         result.done += 1;
@@ -122,11 +127,57 @@ export class ProcessingOutboxService implements OnModuleInit {
   }
 
   /**
+   * One pass of the job "bring the records of a flow version in line with its verified deadline step" (the row holds
+   * the VERSION in `recordId`): the next `DEADLINE_RESYNC_BATCH` records after where the job stopped, each in a
+   * transaction of its own under the record's flow lock (`FlowApplicationService.resyncDeadline`), never all of them
+   * in one. Returns whether the job is finished; when it is not, the row stays PENDING, due at once, with where it
+   * stopped in `outcome`, and the attempts start again (a pass that worked is not a failed attempt).
+   *
+   * Idempotent and resumable: a record already in line is left as it is, so a pass done twice (the process died before
+   * the mark) writes nothing twice. The switch is asked before every record: turned off mid-way, the job stops where
+   * it is and waits. A record that fails throws: the row is retried later from the same place, like any other row.
+   */
+  private async resyncBatch(row: { id: string; recordKind: RecordKind; recordId: string; outcome: string | null }): Promise<boolean> {
+    const after = resyncCursor.read(row.outcome);
+    const flows = await this.prisma.procRecordFlow.findMany({
+      where: { versionId: row.recordId, recordKind: row.recordKind, ...(after ? { id: { gt: after } } : {}) },
+      select: { id: true, recordId: true },
+      orderBy: { id: 'asc' },
+      take: DEADLINE_RESYNC_BATCH,
+    });
+    let last: string | null = null;
+    let stopped = false;
+    for (const flow of flows) {
+      if (!(await this.flags.isEnabled(RECORDS_SWITCH))) {
+        stopped = true;
+        break;
+      }
+      try {
+        await this.applier.resyncDeadline(row.recordKind, flow.recordId, LEGAL_VERIFIED_REASON);
+      } catch (error) {
+        // What was done so far is kept, so the retry starts at the record that failed.
+        if (last) await this.prisma.procOutbox.update({ where: { id: row.id }, data: { outcome: resyncCursor.write(last) } });
+        throw error;
+      }
+      last = flow.id;
+    }
+    if (!stopped && flows.length < DEADLINE_RESYNC_BATCH) {
+      await this.prisma.procOutbox.update({ where: { id: row.id }, data: { status: 'DONE', processedAt: new Date(), outcome: DEADLINE_RESYNC_DONE, lastError: null } });
+      return true;
+    }
+    await this.prisma.procOutbox.update({
+      where: { id: row.id },
+      data: { availableAt: new Date(), attempts: 0, lastError: null, ...(last ? { outcome: resyncCursor.write(last) } : {}) },
+    });
+    return false;
+  }
+
+  /**
    * One waiting row, leased: nobody else takes it until the lease runs out. "Now" is the application's clock handed in
    * as a parameter, never the database's `NOW()`: the column is a timestamp without a time zone that Prisma writes in
    * UTC, and comparing it with a time-zone-aware `NOW()` shifts it by the session's offset.
    */
-  private claim(): Promise<{ id: string; recordKind: RecordKind; recordId: string; reason: string; attempts: number } | null> {
+  private claim(): Promise<{ id: string; recordKind: RecordKind; recordId: string; reason: string; attempts: number; outcome: string | null } | null> {
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "proc_outbox"
@@ -138,7 +189,7 @@ export class ProcessingOutboxService implements OnModuleInit {
       return tx.procOutbox.update({
         where: { id: rows[0].id },
         data: { attempts: { increment: 1 }, availableAt: new Date(Date.now() + LEASE_MS) },
-        select: { id: true, recordKind: true, recordId: true, reason: true, attempts: true },
+        select: { id: true, recordKind: true, recordId: true, reason: true, attempts: true, outcome: true },
       });
     });
   }
