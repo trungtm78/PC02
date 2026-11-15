@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsNgayThat } from '../../../common/validators/is-ngay-that.validator';
 import { RECORD_KINDS } from '../../contract/processing-codes';
 import { TRACKED_BANDS, type TrackedBand } from '../band-conditions';
 
@@ -15,7 +16,7 @@ export class TrackingQueryDto {
    * The instant the colours are judged at (ISO 8601 with a time zone). Left out, the server uses its clock and SAYS which
    * instant that was; the screen passes it back when it opens the list of a card, so the two agree.
    */
-  @IsOptional() @IsISO8601({ strict: true }) @MaxLength(40) asOf?: string;
+  @IsOptional() @IsNgayThat() @MaxLength(40) asOf?: string;
   /** Only the work this person answers for: named on it, or heading the unit when nobody is named. */
   @IsOptional() @Transform(asBoolean) @IsBoolean() mine?: boolean;
   @IsOptional() @IsString() @MaxLength(MAX_ID) teamId?: string;

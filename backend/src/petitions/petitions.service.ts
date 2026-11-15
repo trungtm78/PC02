@@ -5,6 +5,7 @@ import { CaseSourceCreationService } from '../case-child-access/case-source-crea
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
+import { ALERT_SORT, RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
 import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
@@ -331,6 +332,7 @@ export class PetitionsService {
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
     @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
     @Optional() private readonly stepAccess?: RecordStepAccessService,
+    @Optional() private readonly listAlerts?: RecordListAlertService,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -363,7 +365,10 @@ export class PetitionsService {
   async dungWhereDanhSach(
     query: QueryPetitionsDto | QueryPetitionsStatsDto,
     dataScope?: DataScope | null,
-    { boTrangThai = false }: { boTrangThai?: boolean } = {},
+    {
+      boTrangThai = false,
+      alertAt,
+    }: { boTrangThai?: boolean; alertAt?: Date | null } = {},
   ) {
     const q = query as QueryPetitionsDto;
     const where: Prisma.PetitionWhereInput = {
@@ -452,6 +457,17 @@ export class PetitionsService {
       ]);
     }
 
+    // The alert column: only while the switch is on (`clock` answers null otherwise) and a band is asked for.
+    const judgedAt =
+      alertAt === undefined
+        ? (this.listAlerts?.clock(q.alertAsOf) ?? null)
+        : alertAt;
+    if (judgedAt && q.alertBand && this.listAlerts) {
+      noiVaoWhere(where as Record<string, unknown>, [
+        this.listAlerts.where('PETITION', q.alertBand, judgedAt),
+      ]);
+    }
+
     return { where, ky };
   }
 
@@ -530,9 +546,18 @@ export class PetitionsService {
       sortOrder = 'desc',
     } = query;
 
-    const { where } = await this.dungWhereDanhSach(query, dataScope);
+    // One instant for the filter, the order and the colour of every row; `null` while the switch is off.
+    const alertAt = this.listAlerts?.clock(query.alertAsOf) ?? null;
+    const { where } = await this.dungWhereDanhSach(query, dataScope, {
+      alertAt,
+    });
 
-    const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
+    const orderBy =
+      alertAt && this.listAlerts && sortBy === ALERT_SORT
+        ? (this.listAlerts.orderBy(
+            sortOrder,
+          ) as Prisma.PetitionOrderByWithRelationInput[])
+        : this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
 
     const [rows, total] = await Promise.all([
       this.prisma.petition.findMany({
@@ -544,12 +569,17 @@ export class PetitionsService {
       }),
       this.prisma.petition.count({ where }),
     ]);
-    const data = await this.gonTruongKhoiTo(rows);
+    const plain = await this.gonTruongKhoiTo(rows);
+    const data =
+      alertAt && this.listAlerts
+        ? await this.listAlerts.decorate('PETITION', plain, alertAt)
+        : plain;
 
     return {
       success: true,
       data,
       total,
+      ...(alertAt && { alertAsOf: alertAt.toISOString() }),
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
     };

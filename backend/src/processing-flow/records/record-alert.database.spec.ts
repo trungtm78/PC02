@@ -312,7 +312,7 @@ run('The stored alert of a record on PostgreSQL', () => {
       await reconcileAt('2026-12-03T03:00:00.000Z');
       flow = await commands.completeStep(actor, 'PETITION', recordId, flow.steps[0].stepKey, { expectedRevision: flow.revision });
       expect((await stored(recordId)).alertDueAt).toBeNull();
-      flow = await commands.completeStep(actor, 'PETITION', recordId, flow.steps[1].stepKey, { expectedRevision: flow.revision });
+      await commands.completeStep(actor, 'PETITION', recordId, flow.steps[1].stepKey, { expectedRevision: flow.revision });
       await reconcileAt('2026-12-04T03:00:00.000Z');
       expect((await stored(recordId)).alertDueAt).toBeNull();
       expect(await expectAlertAgrees(recordId)).toEqual(['NONE']);

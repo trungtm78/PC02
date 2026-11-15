@@ -385,7 +385,6 @@ run('The tracking screen on PostgreSQL', () => {
       expect(row).toMatchObject({
         recordKind: 'PETITION',
         recordId: single['P-named-green'].id,
-        recordLabel: expect.stringContaining(`${tag} sender`),
         stepKey: 'k1',
         stepName: `${tag} Verify`,
         teamId: id.T,
@@ -401,7 +400,9 @@ run('The tracking screen on PostgreSQL', () => {
       expect(headed).toMatchObject({ assigneeUserId: null, responsibleName: 'Trần Bình', band: 'OVERDUE', remainingDays: -2 });
       // A case shows its code and not its name.
       const [aCase] = mine(await allItems('member', { kind: 'CASE', band: 'OVERDUE' }));
-      expect(aCase).toMatchObject({ recordKind: 'CASE', recordLabel: null, recordCode: expect.stringContaining(`${tag}-c`) });
+      expect(aCase).toMatchObject({ recordKind: 'CASE', recordLabel: null });
+      expect(aCase.recordCode).toContain(`${tag}-c`);
+      expect(row.recordLabel).toContain(`${tag} sender`);
     });
 
     it('filters by band, by kind, by unit', async () => {
