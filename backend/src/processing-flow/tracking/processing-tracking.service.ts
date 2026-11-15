@@ -274,7 +274,7 @@ export function mineWhere(userId: string): WorkWhere {
 }
 
 /** The flow of a record that is alive and at work, with no pause open: the only flows whose steps count down. */
-function clockRuns(): Prisma.ProcRecordFlowWhereInput {
+export function clockRuns(): Prisma.ProcRecordFlowWhereInput {
   const atWork = (kind: RecordKind) => ({ [RECORD_LINK[kind].relation]: { is: { deletedAt: null, status: { notIn: clocklessStatuses(kind) } } } });
   return { pauses: { none: { to: null } }, OR: RECORD_KINDS.map(atWork) } as Prisma.ProcRecordFlowWhereInput;
 }

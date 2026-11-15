@@ -12,6 +12,18 @@ import { CaseFieldSchemaService } from '../cases/governance/case-field-schema.se
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 
 type Notice = Omit<Partial<Notification>, 'metadata'> & { metadata?: unknown };
+
+/** The tab of the case form that shows the steps of its processing flow: where a reminder about a step leads. */
+const CASE_STEP_TAB = /^\/cases\/([^/?#]+)\/edit\?tab=phan-cong-xu-ly$/;
+
+/**
+ * The link a notice about a case keeps once the person is known to be allowed to read the case: the tab of the
+ * processing flow when the notice pointed exactly there AND at this case (a reminder about a step is useless without
+ * it), otherwise the case itself. Nothing else of the link survives: it carries the case id and a fixed tab name.
+ */
+export function caseNoticeLink(caseId: string, link: string | null | undefined): string {
+  return link && CASE_STEP_TAB.exec(link)?.[1] === caseId ? link : `/cases/${caseId}`;
+}
 @Injectable()
 export class CaseNotificationPolicyService {
   constructor(
@@ -87,7 +99,7 @@ export class CaseNotificationPolicyService {
         message: identity.caseCode
           ? `Hồ sơ ${identity.caseCode} có cập nhật`
           : 'Hồ sơ có cập nhật',
-        link: `/cases/${caseId}`,
+        link: caseNoticeLink(caseId, notice.link),
         metadata: { caseId },
       } as T;
     } catch (error) {

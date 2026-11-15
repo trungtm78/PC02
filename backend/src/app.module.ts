@@ -62,6 +62,7 @@ import { DocumentNumbersModule } from './document-numbers/document-numbers.modul
 import { DocumentTemplatesModule } from './document-templates/document-templates.module';
 import { DynamicReportsModule } from './dynamic-reports/dynamic-reports.module';
 import { ProcessingFlowModule } from './processing-flow/processing-flow.module';
+import { ProcessingRemindersModule } from './processing-flow/reminders/processing-reminders.module';
 import { CrimesModule } from './crimes/crimes.module';
 import { LegacyMigrationModule } from './legacy-migration/legacy-migration.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -135,6 +136,7 @@ import { CatalogModule } from './catalog/catalog.module';
     DocumentTemplatesModule,
     DynamicReportsModule, // PR2
     ProcessingFlowModule,
+    ProcessingRemindersModule,
     // Conditional: only registers when E2E_TEST_MODE=true.
     TestFixturesModule.forRoot(),
   ],

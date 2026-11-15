@@ -34,6 +34,7 @@ import { PushModule } from '../push/push.module';
     RecipientResolverService,
     SseJwtGuard,
   ],
-  exports: [NotificationsService, NotificationSseService],
+  // NotificationEventService: the reminders of the processing flow deliver through its `deliverInApp`.
+  exports: [NotificationsService, NotificationSseService, NotificationEventService],
 })
 export class NotificationsModule {}
