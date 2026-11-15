@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { formatVNDate, formatVNDateTime } from '@/lib/dates';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { processingRecordApi } from './api';
+import { draftKeys, hasDraft } from './draftStore';
 import { DecisionForm, OpinionForm } from './OpinionForms';
 import { proposalLabel, speakingKinds } from './present';
 import { ReportForm } from './ReportForm';
@@ -93,9 +94,12 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
   const reports = [...results.data.reports].reverse();
   const opinions = [...results.data.opinions].reverse();
   const worked = step.status === 'OPEN';
-  const canWriteReport = perms.canReport && worked;
+  const drafts = draftKeys(kind, recordId, key);
+  // While the screen is locked by a conflict, a form with typed text stays in view even if the refresh no longer offers it.
+  const keepIfDraft = (draftKey: string) => write.conflict && hasDraft(draftKey);
+  const canWriteReport = (perms.canReport && worked) || keepIfDraft(drafts.report);
   const kinds = speakingKinds(step);
-  const canOpine = perms.canOpine && kinds.length > 0 && step.status !== 'WAITING_ANCHOR' && step.status !== 'SKIPPED';
+  const canOpine = (perms.canOpine && kinds.length > 0 && step.status !== 'WAITING_ANCHOR' && step.status !== 'SKIPPED') || keepIfDraft(drafts.opinion);
 
   const standing = (r: ReportDto) => !r.withdrawnAt && !r.supersededAt && !r.answered && r.authorId === userId && perms.canReport;
   const canEdit = (r: ReportDto) => standing(r) && step.status === 'OPEN';
@@ -128,6 +132,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
                 recordKind={kind}
                 requiresApproval={step.requiresApproval}
                 editing={r}
+                draftKey={drafts.editReport(r.id)}
                 locked={write.locked}
                 onCancel={() => setEditingId(null)}
                 onSubmit={async (_kind, fields) => {
@@ -194,6 +199,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
           recordKind={kind}
           requiresApproval={step.requiresApproval}
           editing={null}
+          draftKey={drafts.report}
           locked={write.locked}
           onSubmit={(reportKind, fields) =>
             write.run(
@@ -240,6 +246,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
         {canOpine && (
           <OpinionForm
             kinds={kinds}
+            draftKey={drafts.opinion}
             locked={write.locked}
             onSubmit={(body) =>
               write.run(
@@ -252,8 +259,9 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
         )}
       </div>
 
-      {perms.canApprove && step.status === 'REPORTED' && (
+      {((perms.canApprove && step.status === 'REPORTED') || keepIfDraft(drafts.decision)) && (
         <DecisionForm
+          draftKey={drafts.decision}
           locked={write.locked}
           onSubmit={(body) =>
             write.run(

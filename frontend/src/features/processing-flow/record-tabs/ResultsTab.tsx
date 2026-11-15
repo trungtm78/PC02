@@ -13,6 +13,7 @@ import { RecordNotices } from './RecordNotices';
 import { ReportField, StepBook } from './StepBook';
 import type { RecordFlowDto, RecordKind, RecordStepDto } from './types';
 import { useCurrentUserId } from './useCurrentUserId';
+import { stepHasDraft } from './draftStore';
 import { useRecordFlow } from './useRecordFlow';
 import { useRecordWrite } from './useRecordWrite';
 import { useStepResults } from './useStepResults';
@@ -102,7 +103,8 @@ function ResultsBody({ kind, recordId, flow, handle }: Props & { flow: RecordFlo
       {byActivity(flow.steps).map((step) => {
         const position = flow.steps.indexOf(step) + 1;
         const hasBook = step.status !== 'WAITING_ANCHOR' && step.status !== 'SKIPPED';
-        const open = toggled[step.stepKey] ?? (step.status === 'OPEN' || step.status === 'REPORTED');
+        // A step whose forms hold typed text stays open while the screen waits for the person to take the newer data.
+        const open = toggled[step.stepKey] ?? (step.status === 'OPEN' || step.status === 'REPORTED' || (write.conflict && stepHasDraft(kind, recordId, step.stepKey)));
         const mains = step.parties.filter((p) => p.role === 'MAIN').map((p) => p.teamName ?? L.recordTeam);
         return (
           <section key={step.stepKey} data-testid={`results-step-${step.stepKey}`} className="rounded-lg border border-slate-200 bg-white">

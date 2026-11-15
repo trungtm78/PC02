@@ -38,7 +38,13 @@ export function useRecordFlow(kind: RecordKind, recordId: string): RecordFlowHan
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: RECORD_QUERY_KEYS.flow(kind, recordId),
-    queryFn: () => processingRecordApi.get(kind, recordId),
+    queryFn: async () => {
+      const read = await processingRecordApi.get(kind, recordId);
+      // A read that started before a write can answer after it. Revisions only grow within one flow, so an older answer
+      // for the same flow is stale and the cache keeps what it has (a different flow id is a flow made anew: taken).
+      const held = queryClient.getQueryData<RecordFlowDto>(RECORD_QUERY_KEYS.flow(kind, recordId));
+      return held && held.id === read.id && read.revision < held.revision ? held : read;
+    },
     enabled: recordId !== '',
     retry: false,
     refetchOnWindowFocus: false,

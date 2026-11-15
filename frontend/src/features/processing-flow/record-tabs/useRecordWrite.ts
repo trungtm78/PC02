@@ -7,11 +7,12 @@
  *   - a 409 REVISION_CONFLICT LOCKS the screen: the contents on it are of an older revision, the refresh has already
  *     moved the cache on under it, so nothing may be written until the person has taken the newer data.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { randomUUID } from '@/lib/uuid';
 import { explainError } from '../errors';
 import { RECORD_QUERY_KEYS } from './queryKeys';
+import { failedKeyOf, patchSlot, readSlot, rememberFailedKey, slotKeyOf, useWriteSlot } from './recordWriteSlot';
 import type { RecordFlowHandle } from './useRecordFlow';
 import type { RecordFlowDto, RecordKind } from './types';
 
@@ -31,25 +32,27 @@ export interface RecordWrite {
 
 export function useRecordWrite(kind: RecordKind, recordId: string, handle: RecordFlowHandle): RecordWrite {
   const queryClient = useQueryClient();
-  const [busy, setBusy] = useState(false);
+  // The lock and the running write belong to the RECORD, not to the tab that started them (see recordWriteSlot).
+  const slotKey = slotKeyOf(kind, recordId);
+  const { running: busy, conflict } = useWriteSlot(slotKey);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [conflict, setConflict] = useState(false);
-  const running = useRef(false);
-  const failedKey = useRef<{ signature: string; key: string } | null>(null);
   const { setFlow, refetch, refreshFailed } = handle;
 
   const run = useCallback<RecordWrite['run']>(
     async (signature, job, doneMessage) => {
-      if (running.current || conflict) return false;
-      running.current = true;
-      setBusy(true);
+      const now = readSlot(slotKey);
+      if (now.running || now.conflict) return false;
+      patchSlot(slotKey, { running: true });
       setError(null);
       setMessage(null);
-      const key = failedKey.current?.signature === signature ? failedKey.current.key : randomUUID();
+      const failed = failedKeyOf(slotKey);
+      const key = failed?.signature === signature ? failed.key : randomUUID();
       try {
+        // A read already on its way would answer the revision from before this write.
+        await queryClient.cancelQueries({ queryKey: RECORD_QUERY_KEYS.flow(kind, recordId) });
         const next = await job(key);
-        failedKey.current = null;
+        rememberFailedKey(slotKey, null);
         setFlow(next);
         void queryClient.invalidateQueries({ queryKey: RECORD_QUERY_KEYS.allResults(kind, recordId) });
         setMessage(doneMessage ?? null);
@@ -57,9 +60,9 @@ export function useRecordWrite(kind: RecordKind, recordId: string, handle: Recor
       } catch (err) {
         const e = explainError(err);
         // No answer at all (status 0 / none) or a server fault: the write may have landed, so a retry reuses the key.
-        failedKey.current = !e.status || e.status >= 500 ? { signature, key } : null;
+        rememberFailedKey(slotKey, !e.status || e.status >= 500 ? { signature, key } : null);
         if (e.conflict) {
-          setConflict(true);
+          patchSlot(slotKey, { conflict: true });
           void refetch();
           void queryClient.invalidateQueries({ queryKey: RECORD_QUERY_KEYS.allResults(kind, recordId) });
         } else {
@@ -67,11 +70,10 @@ export function useRecordWrite(kind: RecordKind, recordId: string, handle: Recor
         }
         return false;
       } finally {
-        running.current = false;
-        setBusy(false);
+        patchSlot(slotKey, { running: false });
       }
     },
-    [conflict, kind, recordId, queryClient, refetch, setFlow],
+    [slotKey, kind, recordId, queryClient, refetch, setFlow],
   );
 
   const takeNewer = useCallback(
@@ -80,11 +82,11 @@ export function useRecordWrite(kind: RecordKind, recordId: string, handle: Recor
         void refetch();
         return;
       }
-      setConflict(false);
+      patchSlot(slotKey, { conflict: false });
       setError(null);
       onTaken?.();
     },
-    [refreshFailed, refetch],
+    [slotKey, refreshFailed, refetch],
   );
 
   return { busy, locked: busy || conflict, error, message, conflict, setError, run, takeNewer };

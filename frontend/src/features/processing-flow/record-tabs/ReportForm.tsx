@@ -4,6 +4,7 @@
  * it is cleared only when the write went through.
  */
 import { useState } from 'react';
+import { useDraft } from './draftStore';
 import { errorText, processingFlow as L } from '@/locales/processingFlow.vi';
 import { PROPOSAL_KINDS } from './codes';
 import { EMPTY_REPORT, reportFieldsOf, reportStateOf, type DocRow, type ReportFormState } from './reportFields';
@@ -19,13 +20,15 @@ interface Props {
   /** A report being corrected; `null` for a new one. */
   editing: ReportDto | null;
   locked: boolean;
+  /** Where the typed text is kept while it is not sent (see draftStore). */
+  draftKey: string;
   /** Send it. Answers `true` when the write went through (the form then clears or closes). */
   onSubmit: (kind: ReportKind, fields: ReportFields) => Promise<boolean>;
   onCancel?: () => void;
 }
 
-export function ReportForm({ recordKind, requiresApproval, editing, locked, onSubmit, onCancel }: Props) {
-  const [state, setState] = useState<ReportFormState>(() => (editing ? reportStateOf(editing) : EMPTY_REPORT));
+export function ReportForm({ recordKind, requiresApproval, editing, locked, draftKey, onSubmit, onCancel }: Props) {
+  const [state, setState, clearDraft] = useDraft<ReportFormState>(draftKey, () => (editing ? reportStateOf(editing) : EMPTY_REPORT));
   const [error, setError] = useState<string | null>(null);
   const patch = (next: Partial<ReportFormState>) => setState((prev) => ({ ...prev, ...next }));
   const proposals = PROPOSAL_KINDS[recordKind] ?? [];
@@ -37,7 +40,7 @@ export function ReportForm({ recordKind, requiresApproval, editing, locked, onSu
     }
     setError(null);
     const ok = await onSubmit(state.kind, reportFieldsOf(state, editing !== null));
-    if (ok && !editing) setState(EMPTY_REPORT);
+    if (ok) clearDraft();
   };
 
   const setDoc = (index: number, next: Partial<DocRow>) => patch({ documents: state.documents.map((d, i) => (i === index ? { ...d, ...next } : d)) });
@@ -140,7 +143,10 @@ export function ReportForm({ recordKind, requiresApproval, editing, locked, onSu
           {submitLabel}
         </button>
         {onCancel && (
-          <button type="button" data-testid="report-cancel" className={SMALL_SECONDARY} onClick={onCancel}>
+          <button type="button" data-testid="report-cancel" className={SMALL_SECONDARY} onClick={() => {
+              clearDraft();
+              onCancel();
+            }}>
             {L.common.cancel}
           </button>
         )}

@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { ApplyNotDone } from '../errors';
 import type {
   AdjustDueBody,
   DecisionBody,
@@ -19,6 +20,14 @@ const stepPath = (kind: RecordKind, id: string, stepKey: string): string => `${r
 
 const post = <B>(url: string, body: B) => api.post<RecordFlowDto>(url, body).then(data);
 
+/** `apply` and `reapply` answer `{ outcome, flow }`: the cache holds the flow, and an outcome without one is a refusal. */
+const postApply = <B>(url: string, body: B): Promise<RecordFlowDto> =>
+  api.post<{ outcome: string; flow: RecordFlowDto | null }>(url, body).then((r) => {
+    const { outcome, flow } = r.data;
+    if (!flow) throw new ApplyNotDone(outcome);
+    return flow;
+  });
+
 /**
  * Every call of the two record tabs. The server answers 404 while the switch `processing_flow_records` is off, and
  * 404 `RECORD_FLOW_NOT_FOUND` for a record that has no flow (or that the person may not read). Every write answers the
@@ -27,8 +36,8 @@ const post = <B>(url: string, body: B) => api.post<RecordFlowDto>(url, body).the
 export const processingRecordApi = {
   get: (kind: RecordKind, id: string) => api.get<RecordFlowDto>(recordPath(kind, id)).then(data),
 
-  apply: (kind: RecordKind, id: string, body: { flowId?: string; idempotencyKey?: string } = {}) => post(`${recordPath(kind, id)}/apply`, body),
-  reapply: (kind: RecordKind, id: string, body: WriteBase & { flowId?: string }) => post(`${recordPath(kind, id)}/reapply`, body),
+  apply: (kind: RecordKind, id: string, body: { flowId?: string; idempotencyKey?: string } = {}) => postApply(`${recordPath(kind, id)}/apply`, body),
+  reapply: (kind: RecordKind, id: string, body: WriteBase & { flowId?: string }) => postApply(`${recordPath(kind, id)}/reapply`, body),
   confirm: (kind: RecordKind, id: string, body: WriteBase) => post(`${recordPath(kind, id)}/confirm`, body),
   accepted: (kind: RecordKind, id: string, body: WriteBase & { date: string }) => post(`${recordPath(kind, id)}/accepted`, body),
 

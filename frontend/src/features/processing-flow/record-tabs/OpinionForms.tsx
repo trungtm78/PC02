@@ -4,6 +4,7 @@
  * the server; the form only offers the roles the step's own units hold.
  */
 import { useState } from 'react';
+import { useDraft } from './draftStore';
 import { errorText, processingFlow as L } from '@/locales/processingFlow.vi';
 import { FIELD_BOX, FIELD_LABEL, SMALL_DANGER, SMALL_PRIMARY, SMALL_SECONDARY } from './styles';
 import type { DecisionVerdict, SpeakingKind } from './types';
@@ -13,15 +14,29 @@ const O = L.recordTabs.results;
 interface OpinionFormProps {
   kinds: SpeakingKind[];
   locked: boolean;
+  /** Where the typed text is kept while it is not sent (see draftStore). */
+  draftKey: string;
   onSubmit: (body: { kind: SpeakingKind; verdict?: string; content?: string }) => Promise<boolean>;
 }
 
-export function OpinionForm({ kinds, locked, onSubmit }: OpinionFormProps) {
-  const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<SpeakingKind>(kinds[0] ?? 'SUPERVISOR');
-  const [verdict, setVerdict] = useState('NOTE');
-  const [content, setContent] = useState('');
+interface OpinionDraft {
+  open: boolean;
+  kind: SpeakingKind | null;
+  verdict: string;
+  content: string;
+}
+
+const EMPTY_OPINION: OpinionDraft = { open: false, kind: null, verdict: 'NOTE', content: '' };
+
+export function OpinionForm({ kinds, locked, draftKey, onSubmit }: OpinionFormProps) {
+  const [draft, setDraft, clearDraft] = useDraft<OpinionDraft>(draftKey, () => EMPTY_OPINION);
   const [error, setError] = useState<string | null>(null);
+  const { open, verdict, content } = draft;
+  const kind: SpeakingKind = draft.kind ?? kinds[0] ?? 'SUPERVISOR';
+  const setOpen = (value: boolean) => setDraft((prev) => ({ ...prev, open: value }));
+  const setKind = (value: SpeakingKind) => setDraft((prev) => ({ ...prev, kind: value }));
+  const setVerdict = (value: string) => setDraft((prev) => ({ ...prev, verdict: value }));
+  const setContent = (value: string) => setDraft((prev) => ({ ...prev, content: value }));
 
   if (!open) {
     return (
@@ -48,11 +63,7 @@ export function OpinionForm({ kinds, locked, onSubmit }: OpinionFormProps) {
       ...(effectiveKind === 'CHECK' ? { verdict: effectiveVerdict } : {}),
       ...(content.trim() ? { content: content.trim() } : {}),
     });
-    if (ok) {
-      setContent('');
-      setVerdict('NOTE');
-      setOpen(false);
-    }
+    if (ok) clearDraft();
   };
 
   return (
@@ -97,7 +108,7 @@ export function OpinionForm({ kinds, locked, onSubmit }: OpinionFormProps) {
         <button type="button" data-testid="opinion-submit" onClick={() => void submit()} className={SMALL_PRIMARY} disabled={locked}>
           {O.opinionForm.submit}
         </button>
-        <button type="button" className={SMALL_SECONDARY} onClick={() => setOpen(false)}>
+        <button type="button" className={SMALL_SECONDARY} onClick={clearDraft}>
           {L.common.cancel}
         </button>
       </div>
@@ -107,12 +118,14 @@ export function OpinionForm({ kinds, locked, onSubmit }: OpinionFormProps) {
 
 interface DecisionFormProps {
   locked: boolean;
+  /** Where the typed text is kept while it is not sent (see draftStore). */
+  draftKey: string;
   onSubmit: (body: { verdict: DecisionVerdict; content?: string }) => Promise<boolean>;
 }
 
 /** The leader's decision on the result that waits for approval: three buttons and one box of words. */
-export function DecisionForm({ locked, onSubmit }: DecisionFormProps) {
-  const [content, setContent] = useState('');
+export function DecisionForm({ locked, draftKey, onSubmit }: DecisionFormProps) {
+  const [content, setContent, clearDraft] = useDraft<string>(draftKey, () => '');
   const [error, setError] = useState<string | null>(null);
 
   const decide = async (verdict: DecisionVerdict) => {
@@ -123,7 +136,7 @@ export function DecisionForm({ locked, onSubmit }: DecisionFormProps) {
     }
     setError(null);
     const ok = await onSubmit({ verdict, ...(text ? { content: text } : {}) });
-    if (ok) setContent('');
+    if (ok) clearDraft();
   };
 
   return (
