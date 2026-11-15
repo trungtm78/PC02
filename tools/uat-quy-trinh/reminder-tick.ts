@@ -7,6 +7,7 @@
  * Use (cwd = backend, DATABASE_URL set explicitly):
  *   TS_NODE_PROJECT=tsconfig.json npx ts-node --transpile-only ../tools/uat-quy-trinh/reminder-tick.ts <recordId> <iso> [<iso> ...]
  * Prints one JSON line per instant: `{ now, result }`. Only the given record is planned (`onlyRecordIds`).
+ * With `--legacy` instead of a record: runs the legacy `DeadlineScheduler.checkDeadlines()` once, at the real clock.
  */
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { join } from 'node:path';
@@ -19,7 +20,8 @@ async function main(): Promise<void> {
   const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
   if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) throw new Error('REFUSED: DATABASE_URL must be a local database');
   const [recordId, ...instants] = process.argv.slice(2);
-  if (!recordId || instants.length === 0) throw new Error('usage: reminder-tick.ts <recordId> <iso> [<iso> ...]');
+  const legacy = recordId === '--legacy';
+  if (!recordId || (!legacy && instants.length === 0)) throw new Error('usage: reminder-tick.ts <recordId> <iso> [<iso> ...]  |  reminder-tick.ts --legacy');
 
   const { PrismaClient } = require(join(BACKEND, 'node_modules/@prisma/client'));
   const { PrismaPg } = require(join(BACKEND, 'node_modules/@prisma/adapter-pg'));
@@ -43,6 +45,17 @@ async function main(): Promise<void> {
     const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
     // No open screens in this process: the bell has nobody to ring.
     const notifications = new NotificationEventService(prisma, { notifyUser: () => undefined } as never, new RecipientResolverService(prisma));
+    if (legacy) {
+      // The legacy deadline reminder (`DeadlineScheduler.checkDeadlines`, 07:00 every day), once, at the real clock. No push is sent from here.
+      const { DeadlineScheduler } = src('scheduler/deadline.scheduler');
+      const { RecordDeadlineWriter } = src('processing-flow/records/record-deadline-writer.service');
+      const flags = new FeatureFlagsService(prisma);
+      const writer = new RecordDeadlineWriter(prisma, gateway, flags);
+      await writer.refreshSwitch();
+      await new DeadlineScheduler(prisma, { sendToUser: async () => undefined } as never, flags, writer).checkDeadlines();
+      console.log('LEGACY done');
+      return;
+    }
     const reminders = new ProcessingReminderService(prisma, new FeatureFlagsService(prisma), gateway, notifications);
     reminders.onlyRecordIds = [recordId];
     for (const iso of instants) {

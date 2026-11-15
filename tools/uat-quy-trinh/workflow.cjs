@@ -149,6 +149,12 @@ async function seed(pg) {
     await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [id, team]);
   }
   await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [`${TAG}-uy`, TD]);
+  await pg.query(`INSERT INTO "roles" ("id","name","updatedAt") VALUES ($1,$2,now())`, [`${TAG}-plus-role`, `${TAG}-PLUS`]);
+  await pg.query(`INSERT INTO "role_permissions" ("roleId","permissionId") SELECT $1, "id" FROM "permissions" WHERE "action" || ':' || "subject" = ANY($2)`, [`${TAG}-plus-role`, [...OFFICER_KEYS, 'assign:ProcessingStep', 'approve:ProcessingStep']]);
+  for (const [id, team] of [[`${TAG}-uv`, TY], [`${TAG}-uw`, TX]]) {
+    await pg.query(`INSERT INTO "users" ("id","username","email","passwordHash","roleId","isActive","twoFaSetupRequired","updatedAt") VALUES ($1,$1,$2,$3,$4,true,false,now())`, [id, `${id}@local.test`, hash, `${TAG}-plus-role`]);
+    await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [id, team]);
+  }
   // The leadership person also belongs to an ordinary team (decision C3: rights are the union of the teams).
   await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [`${TAG}-ul`, TZ]);
   CRIME_ID = (await pg.query(`SELECT "id" FROM "crimes" ORDER BY "id" LIMIT 1`)).rows[0]?.id ?? null;
@@ -480,15 +486,27 @@ async function workflow(pg) {
   const adminReport = await cmd(admin, `/steps/${keys[1]}/reports`, { kind: 'PROGRESS', doneWork: 'Quản trị không thuộc bước' });
   check('VIEWER', 'DTO: người của đơn vị xử lý chính có canReport = true', vMain?.canReport === true, vMain);
   check('VIEWER', 'DTO: quản trị có mọi quyền nhưng không thuộc bước có canReport = false, và ghi thử thì bị 403', vAdmin?.canReport === false && adminReport.status === 403, [vAdmin, adminReport.status, adminReport.body?.code]);
+  const uv = await login(`${TAG}-uv`);
+  const uw = await login(`${TAG}-uw`);
+  const vStep = step((await getFlow(uv)).body, 3).viewer;
+  const vScope = step((await getFlow(uw)).body, 3).viewer;
+  const stepDecision = await cmd(uv, `/steps/${keys[3]}/decision`, { verdict: 'AGREE' });
+  const stepAssign = await cmd(uv, assignUrl, { userId: `${TAG}-ux2` });
+  check('VIEWER', 'người có quyền assign + approve nhưng chỉ tới hồ sơ QUA MỘT BƯỚC: canApprove = false, canAssignByScope = false, và gọi duyệt / chỉ định theo quyền đều bị từ chối (hai bên khớp)', vStep?.canApprove === false && vStep?.canAssignByScope === false && [403, 404].includes(stepDecision.status) && [403, 404].includes(stepAssign.status) && (await partyNow())?.assigneeUserId === null, [vStep, stepDecision.status, stepDecision.body?.code, stepAssign.status, stepAssign.body?.code]);
+  const scopeAssign = await cmd(uw, assignUrl, { userId: `${TAG}-ux2` });
+  const scopeAssigned = (await partyNow())?.assigneeUserId;
+  await cmd(uw, assignUrl, { userId: null });
+  check('VIEWER', 'cùng quyền đó với hồ sơ TRONG phạm vi của mình: canApprove = true, canAssignByScope = true, và chỉ định theo quyền được nhận (không phải tổ trưởng, không tự nhận)', vScope?.canApprove === true && vScope?.canAssignByScope === true && scopeAssign.status === 200 && scopeAssigned === `${TAG}-ux2`, [vScope, scopeAssign.status, scopeAssign.body?.code, scopeAssigned]);
   const teamsList = await call(ux, 'GET', '/processing/tracking/teams');
   check('TRACK-TEAMS', 'cán bộ không có quyền read:User vẫn lấy được danh sách đơn vị để lọc màn Theo dõi', teamsList.status === 200 && JSON.stringify(teamsList.body).includes(TX), [teamsList.status, teamsList.body]);
 
   // ── C4: a file n_attached to the unit's own report ──────────────────────────────────────────────────────────────
   const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n', 'latin1');
+  const FILE_NAME = 'Báo cáo xác minh.pdf';
   const upload = async (token, url, fields = {}) => {
     const form = new FormData();
     for (const [k, v] of Object.entries(fields)) form.append(k, v);
-    form.append('file', new Blob([PDF], { type: 'application/pdf' }), `uat-${RUN}.pdf`);
+    form.append('file', new Blob([PDF], { type: 'application/pdf' }), FILE_NAME);
     const res = await fetch(`${BASE}${url}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
@@ -504,6 +522,11 @@ async function workflow(pg) {
   check('C4', 'người của đơn vị phối hợp (không có quyền ghi hồ sơ) đính kèm được tệp vào báo cáo của chính mình và thấy nó trong kết quả', n_attached.status === 200 && !!docId, [n_attached.status, n_attached.body, att]);
   const dl = await fetch(`${BASE}${attUrl}/${docId}/download`, { headers: { Authorization: `Bearer ${uy}` } });
   const dlBytes = Buffer.from(await dl.arrayBuffer());
+  const disposition = dl.headers.get('content-disposition') ?? '';
+  const starred = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  check('C4', `tệp giữ đúng tên tiếng Việt "${FILE_NAME}": trong danh sách kết quả và trong Content-Disposition của bản tải xuống`, Object.values(att ?? {}).includes(FILE_NAME) && !!starred && decodeURIComponent(starred[1]) === FILE_NAME, [att, disposition]);
+  const plainDelete = await call(admin, 'DELETE', `/documents/${docId}`);
+  check('C4', 'xoá tệp đính kèm của bước qua đường thông thường DELETE /documents/:id bị từ chối 409 (kể cả người có quyền ghi hồ sơ và delete:Document); tệp vẫn còn', plainDelete.status === 409 && (await attOf()).length === 1, [plainDelete.status, plainDelete.body]);
   check('C4', 'tải xuống trả đúng các byte đã gửi', dl.status === 200 && dlBytes.equals(PDF), [dl.status, dlBytes.length, PDF.length]);
   const n_foreign = await upload(ux, attUrl);
   check('C4', 'đơn vị khác không đính kèm được vào báo cáo đó', n_foreign.status >= 400 && n_foreign.status < 500 && (await attOf()).length === 1, [n_foreign.status, n_foreign.body]);
@@ -594,9 +617,9 @@ async function workflow(pg) {
   check('C8-REWORK', '"Yêu cầu bổ sung" mở lại bước (OPEN)', resultB.status === 200 && rework.status === 200 && step(rf, 3).status === 'OPEN', [resultB.status, rework.status, rework.body, step(rf, 3).status]);
   const result2 = await cmd(ux, `/steps/${keys[3]}/reports`, { kind: 'RESULT', doneWork: 'Đã bổ sung và kết luận' });
   const report2 = await standing();
-  const agree = await cmd(admin, `/steps/${keys[3]}/decision`, { verdict: 'AGREE' });
+  const agree = await cmd(uw, `/steps/${keys[3]}/decision`, { verdict: 'AGREE' }); // approve + the record in the person's own scope
   rf = (await getFlow()).body;
-  check('C8-APPROVE', 'lãnh đạo đồng ý báo cáo mới nhất → bước DONE', result2.status === 200 && agree.status === 200 && step(rf, 3).status === 'DONE', [result2.status, agree.status, agree.body, step(rf, 3).status]);
+  check('C8-APPROVE', 'người có quyền approve với hồ sơ trong phạm vi của mình đồng ý báo cáo mới nhất → bước DONE', result2.status === 200 && agree.status === 200 && step(rf, 3).status === 'DONE', [result2.status, agree.status, agree.body, step(rf, 3).status]);
   const book = (await call(admin, 'GET', `${rec}/steps/${keys[3]}/results`)).body;
   const approval = (book?.opinions ?? []).filter((o) => o.kind === 'APPROVAL' && o.verdict === 'AGREE').pop();
   check('C8-APPROVE', 'ý kiến phê duyệt ghi đúng MÃ và PHIÊN BẢN của báo cáo được duyệt', !!report2 && approval?.reportId === report2.id && approval?.reportRevision === report2.revision, [report2?.id, report2?.revision, approval]);
@@ -949,7 +972,35 @@ async function workflow(pg) {
     check('C12', 'đổi hạn rồi r_tick lại trong CÙNG ngày 11/05: nhắc thêm đúng một lần cho hạn mới', r_changed.status === 200 && r_second.ok && forX(r_rows2, 'OVERDUE') === 3, [r_changed.status, r_changed.body?.code, r_second.out.slice(-200), r_rows2.filter((r) => r.band === 'OVERDUE')]);
     const bellAfter = await r_bell();
     check('C12', 'người nhận thấy các lời nhắc trong thông báo của mình (GET /notifications)', bellCount(bellAfter) > 0 && bellCount(bellAfter) >= bellBefore, [bellBefore, bellCount(bellAfter), r_rows2.map((r) => [r.band, r.status, r.outcome])]);
+    // C13: where a reminder leads. The recipient reads it through GET /notifications.
+    const linksOf = async (token) => rowsOf((await call(token, 'GET', '/notifications?limit=100')).body).map((n) => n.link);
+    const runner = (...args) => spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['ts-node', '--transpile-only', path.join(__dirname, 'reminder-tick.ts'), ...args], { cwd: BACKEND, env: { ...process.env, DATABASE_URL: DB_URL, TS_NODE_PROJECT: path.join(BACKEND, 'tsconfig.json') }, encoding: 'utf8', shell: process.platform === 'win32', timeout: 170_000 });
+    const caseForLink = openCase ? idOf(openCase) : null;
+    const tIncident = incId ? runner(incId, r_at('2026-05-20', 9)) : null;
+    const tCase = caseForLink ? runner(caseForLink, r_at('2026-05-28', 9)) : null;
+    const xLinks = await linksOf(ux);
+    const TAB = '?tab=phan-cong-xu-ly';
+    check('C13', 'lời nhắc của Đơn thư dẫn tới form của hồ sơ, tab Phân công xử lý', xLinks.includes(`/petitions/${remId}${TAB}`), xLinks.filter((l) => String(l).includes(remId)));
+    if (!tIncident || tIncident.status !== 0) notRun('C13', 'lời nhắc của Vụ việc dẫn tới tab Phân công xử lý', `NOT RUN: the runner did not complete for the incident (${short(`${tIncident?.stdout ?? ''}${tIncident?.stderr ?? ''}`.slice(-300))})`);
+    else check('C13', 'lời nhắc của Vụ việc dẫn tới form của hồ sơ, tab Phân công xử lý', xLinks.includes(`/incidents/${incId}${TAB}`), xLinks.filter((l) => String(l).includes(incId)));
+    if (!tCase || tCase.status !== 0) notRun('C13', 'lời nhắc của Vụ án dẫn tới tab Phân công xử lý', `NOT RUN: the runner did not complete for the case (${short(`${tCase?.stdout ?? ''}${tCase?.stderr ?? ''}`.slice(-300))})`);
+    else check('C13', 'lời nhắc của Vụ án (người nhận được đọc Vụ án) dẫn tới /cases/:id/edit, tab Phân công xử lý', xLinks.includes(`/cases/${caseForLink}/edit${TAB}`), xLinks.filter((l) => String(l).includes(caseForLink)));
+
+    // C16, the legacy part: the old deadline reminder (07:00 every day) is called once by hand, at the real clock.
+    // The main petition is managed by its flow and overdue today; the petition of team Y has no flow.
+    const legacyAbout = async (id) => rowsOf((await call(admin, 'GET', '/notifications?limit=100')).body).filter((n) => n.link === `/petitions/${id}` && /OVERDUE|DEADLINE/.test(String(n.type))).length;
+    const legacyOn = runner('--legacy');
+    const onManaged = await legacyAbout(petId);
+    // The control is a petition with NO flow at all. (The petition created before the legal check does not serve: once the step is verified its flow counts as managing the deadline, so the legacy reminder skips it too.)
+    const onUnmanaged = await legacyAbout(idOf(ownOfY));
     await pg.query(`UPDATE "feature_flags" SET "enabled" = false WHERE "key" = 'processing_flow_reminders'`);
+    const legacyOff = runner('--legacy');
+    const offManaged = await legacyAbout(petId);
+    if (legacyOn.status !== 0 || legacyOff.status !== 0) notRun('C16-LEGACY', 'bộ nhắc hạn cũ bỏ qua hồ sơ do quy trình giữ hạn chỉ khi bộ nhắc mới bật', `NOT RUN: the legacy scheduler could not be driven in process (${short(`${legacyOn.stdout ?? ''}${legacyOn.stderr ?? ''}${legacyOff.stderr ?? ''}`.slice(-400))})`);
+    else {
+      check('C16-LEGACY', 'bộ nhắc mới BẬT: bộ nhắc hạn cũ bỏ qua hồ sơ do quy trình giữ hạn, vẫn nhắc hồ sơ không do quy trình giữ hạn (đối chứng)', onManaged === 0 && onUnmanaged >= 1, [onManaged, onUnmanaged]);
+      check('C16-LEGACY', 'bộ nhắc mới TẮT: bộ nhắc hạn cũ nhắc lại chính hồ sơ đó', offManaged >= 1, [onManaged, offManaged]);
+    }
     const r_off = r_tick(r_at('2026-05-12', 9));
     const r_rows3 = await r_sent();
     await pg.query(`UPDATE "feature_flags" SET "enabled" = true WHERE "key" = 'processing_flow_reminders'`);
