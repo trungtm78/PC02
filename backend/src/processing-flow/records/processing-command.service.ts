@@ -78,7 +78,7 @@ export class ProcessingCommandService {
   async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now());
+    return toRecordFlowDto(row, this.now(), await this.suspended(this.prisma, kind, recordId));
   }
 
   // ---- the flow of the record
@@ -111,11 +111,12 @@ export class ProcessingCommandService {
   async reapplyFlow(actorId: string, kind: RecordKind, recordId: string, input: CommandInput & { flowId?: string }): Promise<{ outcome: ApplyOutcome; flow: RecordFlowDto | null }> {
     this.checkRevision(input.expectedRevision);
     return this.keyed(kind, recordId, actorId, 'REAPPLY_FLOW', input.idempotencyKey, async (tx) => {
-      const flow = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: { steps: { select: { status: true } } } });
+      const flow = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: { steps: { select: { status: true } }, _count: { select: { pauses: true } } } });
       if (!flow) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
       if (flow.revision !== input.expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       if (flow.confirmed) throw refuse.conflict(PROCESSING_ERROR.FLOW_ALREADY_CONFIRMED);
-      if (flow.acceptedAt || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
+      // A clock that has been paused moved deadlines: a flow made from scratch would forget that, so the flow stays.
+      if (flow.acceptedAt || flow._count.pauses > 0 || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
 
       // The teams the old steps name are locked before their rows are touched, in the order a team merge takes them
       // (a merge locks a unit and then repoints its parties): a cycle between the two cannot form.
@@ -312,9 +313,15 @@ export class ProcessingCommandService {
     if (!Number.isInteger(value) || (value as number) < 1) throw refuse.bad(PROCESSING_ERROR.EXPECTED_REVISION_INVALID);
   }
 
+  /** Whether the record says it is suspended now (a record that is finished or gone is not). */
+  private async suspended(db: Tx | PrismaService, kind: RecordKind, recordId: string): Promise<boolean> {
+    const snapshot = await this.gateway.load(kind, recordId, db);
+    return snapshot !== null && snapshot.isSuspended && !snapshot.isFinished;
+  }
+
   async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now()) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.suspended(tx, kind, recordId)) : (null as unknown as RecordFlowDto);
   }
 
   private transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {

@@ -299,6 +299,47 @@ run('Deadline commands and the pause of the clock on PostgreSQL', () => {
       expect((await get()).steps[0].regulatoryDueAt).toBe(before.steps[0].regulatoryDueAt);
     });
 
+    it('stops its pause when the last step is completed while the record is still suspended, and starts a new one when a step is reopened (found by Codex)', async () => {
+      const { recordId, get } = await withFlow([step()]);
+      let flow = await get();
+      await setStatus(recordId, 'TAM_DINH_CHI');
+      await reconcileFor(recordId, '2026-12-03T03:00:00.000Z');
+      expect(await scratch.db.procRecordPause.count({ where: { recordFlow: { recordId }, to: null } })).toBe(1);
+      commands.now = () => new Date('2026-12-04T03:00:00.000Z');
+      flow = await commands.completeStep(actor, 'PETITION', recordId, flow.steps[0].stepKey, { expectedRevision: flow.revision });
+      await reconcileFor(recordId, '2026-12-05T03:00:00.000Z');
+      // Nothing was being worked: the pause is closed, and the days that follow are not credited to anything.
+      expect(await scratch.db.procRecordPause.count({ where: { recordFlow: { recordId }, to: null } })).toBe(0);
+      await commands.reopenStep(actor, 'PETITION', recordId, flow.steps[0].stepKey, { expectedRevision: flow.revision });
+      await reconcileFor(recordId, '2026-12-09T03:00:00.000Z');
+      const pauses = await scratch.db.procRecordPause.findMany({ where: { recordFlow: { recordId } }, orderBy: { from: 'asc' } });
+      expect(pauses.map((p) => [p.from.toISOString(), p.to?.toISOString() ?? null])).toEqual([
+        ['2026-12-03T03:00:00.000Z', '2026-12-05T03:00:00.000Z'],
+        ['2026-12-09T03:00:00.000Z', null],
+      ]);
+    });
+
+    it('shows no colour for a suspended record before the worker has noticed (found by Codex)', async () => {
+      const { recordId, get } = await withFlow([step()]);
+      commands.now = () => new Date('2026-12-10T03:00:00.000Z'); // one day before the deadline: red
+      expect((await get()).steps[0].band).toBe('RED');
+      await setStatus(recordId, 'TAM_DINH_CHI');
+      const flow = await get();
+      expect(flow).toMatchObject({ suspended: true, pausedSince: null });
+      expect(flow.steps[0]).toMatchObject({ band: 'NONE', remainingDays: null });
+    });
+
+    it('a flow whose clock was ever paused is not replaced by a new one: its deadlines moved (found by Codex)', async () => {
+      const { recordId, get } = await withFlow([step()]);
+      await setStatus(recordId, 'TAM_DINH_CHI');
+      await reconcileFor(recordId, '2026-12-03T03:00:00.000Z');
+      await setStatus(recordId, 'DANG_XU_LY');
+      await reconcileFor(recordId, '2026-12-04T03:00:00.000Z');
+      await scratch.db.procRecordFlow.updateMany({ where: { recordId }, data: { confirmed: false } });
+      const flow = await get();
+      expect(await failure(commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: flow.revision }))).toEqual({ status: 409, code: 'FLOW_HAS_PROGRESS' });
+    });
+
     it('does nothing while the switch is off', async () => {
       const { recordId } = await withFlow([step()]);
       await setStatus(recordId, 'TAM_DINH_CHI');
