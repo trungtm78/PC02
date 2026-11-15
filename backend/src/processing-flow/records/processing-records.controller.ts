@@ -1,8 +1,13 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import type { Request, Response } from 'express';
+import * as fs from 'fs';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { assertUploadedDocument, documentUploadOptions } from '../../documents/document-upload-policy';
 import { FeatureFlag } from '../../feature-flags/decorators/feature-flag.decorator';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
 import { PROCESSING_ERROR } from '../contract/processing-codes';
@@ -10,6 +15,7 @@ import { RecordGateway } from '../gateway/record-gateway';
 import { RECORD_KINDS, type RecordKind } from '../gateway/record-snapshot';
 import { AssignPartyDto, DecisionDto, OpinionDto, ReportFieldsDto, SubmitReportDto, AcceptedDateDto, AdjustDueDto, ApplyFlowDto, ExtendStepDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
 import { ProcessingAssignmentService } from './processing-assignment.service';
+import { ProcessingAttachmentsService } from './processing-attachments.service';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingResultsService } from './processing-results.service';
@@ -43,6 +49,7 @@ export class ProcessingRecordsController {
     private readonly results_: ProcessingResultsService,
     private readonly gateway: RecordGateway,
     private readonly assignments: ProcessingAssignmentService,
+    private readonly attachments: ProcessingAttachmentsService,
   ) {}
 
   private gatewayUser(user: AuthenticatedUser) {
@@ -179,6 +186,75 @@ export class ProcessingRecordsController {
   @RequirePermissions({ action: 'report', subject: 'ProcessingStep' })
   async withdrawReport(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Param('reportId') reportId: string, @Body() body: RevisionCommandDto, @CurrentUser() user: AuthenticatedUser) {
     return this.results_.withdrawReport(user.id, await this.readable(kind, id, user, true), id, stepKey, reportId, body);
+  }
+
+  // ---- the files of a report (C4)
+
+  /**
+   * The author attaches a file to their own report while the step is open. A write path of its own: it asks for
+   * `report`, the record opened BY the step (the case policy still decides for a RESTRICTED case), never for write on
+   * the record. One file per call; the same reception and the same check of the file as `POST /documents`.
+   */
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Post(':kind/:id/steps/:stepKey/reports/:reportId/attachments')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file', documentUploadOptions()))
+  @RequirePermissions({ action: 'report', subject: 'ProcessingStep' })
+  async attach(
+    @Param('kind') kind: string,
+    @Param('id') id: string,
+    @Param('stepKey') stepKey: string,
+    @Param('reportId') reportId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    await assertUploadedDocument(file, undefined);
+    // The file is on the disk before anybody is asked anything: whatever refuses below takes it away again.
+    try {
+      return await this.attachments.attach(user.id, await this.readable(kind, id, user, true), id, stepKey, reportId, file, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    } catch (error) {
+      fs.rmSync(file.path, { force: true });
+      throw error;
+    }
+  }
+
+  @Delete(':kind/:id/steps/:stepKey/reports/:reportId/attachments/:documentId')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'report', subject: 'ProcessingStep' })
+  async removeAttachment(
+    @Param('kind') kind: string,
+    @Param('id') id: string,
+    @Param('stepKey') stepKey: string,
+    @Param('reportId') reportId: string,
+    @Param('documentId') documentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.attachments.remove(user.id, await this.readable(kind, id, user, true), id, stepKey, reportId, documentId, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  }
+
+  /** The bytes: whoever may read the results of the step; the document must be a file of a report of THIS step. */
+  @Get(':kind/:id/steps/:stepKey/reports/:reportId/attachments/:documentId/download')
+  @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
+  async downloadAttachment(
+    @Param('kind') kind: string,
+    @Param('id') id: string,
+    @Param('stepKey') stepKey: string,
+    @Param('reportId') reportId: string,
+    @Param('documentId') documentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const recordKind = await this.readable(kind, id, user, true);
+    const result = await this.attachments.openDownload(this.gatewayUser(user), recordKind, id, stepKey, reportId, documentId, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    const { stream, originalName, mimeType } = result.data;
+    res.setHeader('Content-Type', mimeType);
+    // RFC 5987: the name with its accents travels in `filename*`; the plain one is an ASCII stand-in (no header injection).
+    const ascii = originalName.replace(/[^\x20-\x7E]|["\\]/g, '_');
+    res.setHeader('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(originalName)}`);
+    stream.pipe(res);
   }
 
   @Post(':kind/:id/steps/:stepKey/opinions')

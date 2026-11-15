@@ -6,6 +6,7 @@ import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecordGateway } from '../gateway/record-gateway';
 import { ProcessingAssignmentService } from './processing-assignment.service';
+import { ProcessingAttachmentsService } from './processing-attachments.service';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingResultsService } from './processing-results.service';
@@ -68,6 +69,7 @@ describe('ProcessingRecordsController (HTTP, real guards)', () => {
         { provide: ProcessingDeadlineService, useValue: commands },
         { provide: ProcessingResultsService, useValue: commands },
         { provide: ProcessingAssignmentService, useValue: commands },
+        { provide: ProcessingAttachmentsService, useValue: commands },
         { provide: RecordGateway, useValue: gateway },
         {
           provide: FeatureFlagsService,

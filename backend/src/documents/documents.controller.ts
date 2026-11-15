@@ -14,7 +14,6 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
@@ -29,18 +28,11 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
 import * as fs from 'fs';
-import { immutableDocumentStorage } from './document-immutable-storage';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import {
-  ALLOWED_UPLOAD_MIMES,
-  MAX_MEDIA_BYTES,
-  validateUploadedDocument,
+  assertUploadedDocument,
+  documentUploadOptions,
 } from './document-upload-policy';
-
-// Sprint 2 / S2.2 — Magic-byte MIME map cho file-type lib. file-type không
-// detect được text/plain (no magic bytes), nên text/plain bypass magic-byte
-// check (vẫn pass Content-Type whitelist + ext check).
-const MAGIC_BYTE_BYPASS = new Set(['text/plain']);
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -75,21 +67,7 @@ export class DocumentsController {
   // global throttler — không cần UserThrottlerGuard riêng.
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   @Post()
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: immutableDocumentStorage(),
-      limits: {
-        fileSize: MAX_MEDIA_BYTES,
-      },
-      fileFilter: (req, file, cb) => {
-        if (ALLOWED_UPLOAD_MIMES.has(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('Loại file không được hỗ trợ'), false);
-        }
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', documentUploadOptions()))
   @RequirePermissions({ action: 'write', subject: 'Document' })
   async create(
     @UploadedFile() file: Express.Multer.File,
@@ -97,21 +75,8 @@ export class DocumentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    if (!file) {
-      throw new BadRequestException('File upload là bắt buộc');
-    }
-
-    // Sprint 2 / S2.2 — Magic-byte validation: Content-Type header attacker-controlled.
-    // file-type đọc magic bytes thật, kháng MIME spoofing attack.
-    try {
-      const detected = MAGIC_BYTE_BYPASS.has(file.mimetype)
-        ? undefined
-        : await (await import('file-type')).fileTypeFromFile(file.path);
-      validateUploadedDocument(file, detected?.mime, dto.documentType);
-    } catch (error) {
-      fs.rmSync(file.path, { force: true });
-      throw error;
-    }
+    // Magic bytes, extension, type and size: the one check every upload route shares.
+    await assertUploadedDocument(file, dto.documentType);
 
     // Populate file info from multer
     const documentDto: CreateDocumentDto = {

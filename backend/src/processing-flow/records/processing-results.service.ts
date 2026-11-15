@@ -36,8 +36,17 @@ export interface SubmitReportInput extends CommandInput, ReportInput {
 export type OpinionKind = (typeof OPINION_KINDS)[number];
 
 export interface ResultsDto {
-  reports: Array<ReportInput & { id: string; kind: string; authorId: string; authorName: string | null; authorTeamId: string | null; revision: number; withdrawnAt: string | null; supersededAt: string | null; createdAt: string; answered: boolean }>;
+  reports: Array<ReportInput & { id: string; kind: string; authorId: string; authorName: string | null; authorTeamId: string | null; revision: number; withdrawnAt: string | null; supersededAt: string | null; createdAt: string; answered: boolean; attachments: ReportAttachment[] }>;
   opinions: Array<{ id: string; kind: string; verdict: string; content: string | null; reportId: string | null; reportRevision: number | null; authorId: string; authorName: string | null; authorTeamId: string | null; withdrawnAt: string | null; createdAt: string }>;
+}
+
+/** A file attached to a report (a `Document` of the record), as the book of a step lists it. */
+export interface ReportAttachment {
+  id: string;
+  fileName: string;
+  size: number;
+  uploadedAt: string;
+  uploaderName: string | null;
 }
 
 const iso = (value: Date | null): string | null => (value ? value.toISOString() : null);
@@ -75,6 +84,7 @@ export class ProcessingResultsService {
     ]);
     const answeredIds = new Set(answered.map((row) => row.reportId));
     const names = await this.namesOf([...reports.map((r) => r.authorId), ...opinions.map((o) => o.authorId)]);
+    const attachments = await this.attachmentsOf(this.prisma, reports.map((r) => r.id));
     return {
       reports: reports.map((r) => ({
         id: r.id,
@@ -94,6 +104,7 @@ export class ProcessingResultsService {
         supersededAt: iso(r.supersededAt),
         createdAt: r.createdAt.toISOString(),
         answered: answeredIds.has(r.id),
+        attachments: attachments[reports.indexOf(r)],
       })),
       opinions: opinions.map((o) => ({
         id: o.id,
@@ -109,6 +120,27 @@ export class ProcessingResultsService {
         createdAt: o.createdAt.toISOString(),
       })),
     };
+  }
+
+  /** The files attached to each of these reports (not deleted), oldest first; one list per report, in the order asked. */
+  async attachmentsOf(db: Tx | PrismaService, reportIds: string[]): Promise<ReportAttachment[][]> {
+    if (reportIds.length === 0) return [];
+    const rows = await db.document.findMany({
+      where: { procStepReportId: { in: reportIds }, deletedAt: null },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true, originalName: true, size: true, createdAt: true, procStepReportId: true, uploadedBy: { select: { firstName: true, lastName: true, username: true } } },
+    });
+    return reportIds.map((reportId) =>
+      rows
+        .filter((row) => row.procStepReportId === reportId)
+        .map((row) => ({
+          id: row.id,
+          fileName: row.originalName,
+          size: row.size,
+          uploadedAt: row.createdAt.toISOString(),
+          uploaderName: [row.uploadedBy.firstName, row.uploadedBy.lastName].filter(Boolean).join(' ').trim() || row.uploadedBy.username,
+        })),
+    );
   }
 
   private async namesOf(ids: string[]): Promise<Map<string, string>> {
@@ -166,13 +198,13 @@ export class ProcessingResultsService {
   }
 
   /** The caller must still be a unit that works the step (or coordinates it): leaving the unit ends the right to touch what it wrote. */
-  private async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
+  async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
     const roles = await this.rolesOf(tx, stepId, actorId);
     if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
   }
 
   /** The report of the caller, standing (not withdrawn, not replaced) and unanswered. */
-  private async ownReport(tx: Tx, stepId: string, reportId: string, actorId: string) {
+  async ownReport(tx: Tx, stepId: string, reportId: string, actorId: string) {
     const report = await tx.procStepReport.findFirst({ where: { id: reportId, recordStepId: stepId } });
     if (!report || report.withdrawnAt || report.supersededAt) throw refuse.notFound(PROCESSING_ERROR.REPORT_NOT_FOUND);
     if (report.authorId !== actorId) throw refuse.forbidden(PROCESSING_ERROR.REPORT_NOT_YOURS);
