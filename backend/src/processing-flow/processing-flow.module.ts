@@ -17,6 +17,8 @@ import { ProcessingDeadlineService } from './records/processing-deadline.service
 import { ProcessingOutboxService } from './records/processing-outbox.service';
 import { ProcessingPauseService } from './records/processing-pause.service';
 import { ProcessingAssignmentService } from './records/processing-assignment.service';
+import { ProcessingDelegationService } from './records/processing-delegation.service';
+import { ProcessingDelegationsController } from './records/processing-delegations.controller';
 import { ProcessingResultsService } from './records/processing-results.service';
 import { RecordDeadlineWriter } from './records/record-deadline-writer.service';
 import { RecordStepAccessService } from './records/record-step-access.service';
@@ -35,8 +37,8 @@ import { RecordListAlertService } from './tracking/record-list-alert.service';
   // UnitScopeService resolves the scope a request would carry; it needs the team tree. The services audit their writes.
   // AuthModule: the guards of the routes.
   imports: [TeamsModule, AuditModule, AuthModule],
-  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingTrackingController],
-  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingAssignmentService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, RecordListAlertService],
+  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingDelegationsController, ProcessingTrackingController],
+  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingAssignmentService, ProcessingDelegationService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, RecordListAlertService],
   // ProcessingOutboxService: the services that save a petition, an incident or a case write one request in their own
   // transaction (`enqueue`); nothing else of this module is theirs to call.
   // RecordListAlertService: the alert column of the three lists.

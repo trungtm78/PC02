@@ -81,7 +81,7 @@ export class ProcessingCommandService {
   async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row));
+    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row, this.now()));
   }
 
   // ---- the flow of the record
@@ -343,7 +343,7 @@ export class ProcessingCommandService {
 
   async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row)) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row, this.now())) : (null as unknown as RecordFlowDto);
   }
 
   transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {
@@ -429,7 +429,20 @@ export class ProcessingCommandService {
     return this.calendars.load(Math.min(...years), Math.min(Math.max(...years) + CALENDAR_YEARS_AHEAD, MAX_CALENDAR_YEAR), tx);
   }
 
+  /**
+   * The person a write is made FOR, per transaction: a delegate who acts only because of a delegation. Every history row
+   * the transaction writes afterwards for a person carries it (`onBehalfOfUserId`, in the row's `toValue`).
+   */
+  private readonly onBehalf = new WeakMap<object, string>();
+
+  /** Marks the rest of this transaction as done by a delegate for `fromUserId`. */
+  actOnBehalf(tx: Tx, fromUserId: string | null): void {
+    if (fromUserId) this.onBehalf.set(tx, fromUserId);
+  }
+
   change(tx: Tx, flow: RecordFlowRow, stepKey: string | null, action: string, from: unknown, to: unknown, reason: string | null, actorId: string | null) {
+    const onBehalfOfUserId = actorId ? this.onBehalf.get(tx) : undefined;
+    if (onBehalfOfUserId) to = typeof to === 'object' && to !== null && !Array.isArray(to) ? { ...to, onBehalfOfUserId } : to === null || to === undefined ? { onBehalfOfUserId } : { value: to, onBehalfOfUserId };
     return tx.procStepChange.create({
       data: {
         recordFlowId: flow.id,

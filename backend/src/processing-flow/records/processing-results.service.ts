@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { OPINION_KINDS, PROCESSING_ERROR, PROPOSAL_KINDS, type ProcessingErrorCode } from '../contract/processing-codes';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { ProcessingCommandService, type CommandInput } from './processing-command.service';
+import { actingForIds } from './processing-delegation';
 import type { RecordFlowDto } from './record-flow.dto';
 
 type Tx = Prisma.TransactionClient;
@@ -125,6 +126,7 @@ export class ProcessingResultsService {
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'REPORT', input, async (tx, flow, step) => {
       const roles = await this.rolesOf(tx, step.id, actorId);
       if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+      this.commands.actOnBehalf(tx, roles.onBehalfOf(roles.has('MAIN') ? 'MAIN' : 'COORDINATE'));
       if (step.status !== 'OPEN') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
       // Only ONE result stands: an earlier one (after a disagreement or a request for rework) stays in the book, superseded.
       if (input.kind === 'RESULT') await tx.procStepReport.updateMany({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, data: { supersededAt: this.commands.now() } });
@@ -169,6 +171,7 @@ export class ProcessingResultsService {
   private async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
     const roles = await this.rolesOf(tx, stepId, actorId);
     if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+    this.commands.actOnBehalf(tx, roles.onBehalfOf(roles.has('MAIN') ? 'MAIN' : 'COORDINATE'));
   }
 
   /** The report of the caller, standing (not withdrawn, not replaced) and unanswered. */
@@ -201,6 +204,7 @@ export class ProcessingResultsService {
       const roles = await this.rolesOf(tx, step.id, actorId);
       const role = input.kind === 'SUPERVISOR' ? 'MAIN' : input.kind;
       if (!roles.has(role) || (input.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      this.commands.actOnBehalf(tx, roles.onBehalfOf(role, input.kind === 'SUPERVISOR'));
       if (step.status === 'WAITING_ANCHOR' || step.status === 'SKIPPED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
 
       // An opinion about the result names the exact report (and its revision) it was given on.
@@ -239,6 +243,7 @@ export class ProcessingResultsService {
       const roles = await this.rolesOf(tx, step.id, actorId);
       const role = opinion.kind === 'SUPERVISOR' ? 'MAIN' : opinion.kind;
       if (!roles.has(role) || (opinion.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      this.commands.actOnBehalf(tx, roles.onBehalfOf(role, opinion.kind === 'SUPERVISOR'));
       if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
       await tx.procStepOpinion.update({ where: { id: opinion.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_WITHDRAWN', { opinionId: opinion.id }, null, null, actorId);
@@ -273,17 +278,33 @@ export class ProcessingResultsService {
   /**
    * The roles the person has on ONE step, through the active units they belong to (or by being named): MAIN, CHECK,
    * COORDINATE, INFORM. `leads(role)`: they head a unit that holds that role. `teamOf(role)`: the unit they act through.
+   *
+   * A delegate counts wherever a person they act for counts (a delegation in force at the clock of the command), on
+   * this step and by this rule only. `onBehalfOf(role, asHead)`: the person the role is held FOR, when the caller does
+   * not hold it themself; `null` when they do.
    */
   private async rolesOf(tx: Tx, stepId: string, userId: string) {
+    const acting = await actingForIds(tx, userId, this.commands.now());
+    const ids = [userId, ...acting];
     const parties = await tx.procRecordStepParty.findMany({
-      where: { recordStepId: stepId, OR: [{ assigneeUserId: userId }, { team: { status: 'ACTIVE', members: { some: { userId } } } }] },
-      select: { role: true, teamId: true, assigneeUserId: true, team: { select: { members: { where: { userId }, select: { isLeader: true } } } } },
+      where: { recordStepId: stepId, OR: [{ assigneeUserId: { in: ids } }, { team: { status: 'ACTIVE', members: { some: { userId: { in: ids } } } } }] },
+      select: { role: true, teamId: true, assigneeUserId: true, team: { select: { members: { where: { userId: { in: ids } }, select: { userId: true, isLeader: true } } } } },
+      orderBy: { order: 'asc' },
     });
+    /** The people (the caller, or those they act for) through whom the caller holds `role`; heads only when `asHead`. */
+    const holders = (role: string, asHead: boolean): string[] =>
+      parties
+        .filter((p) => p.role === role)
+        .flatMap((p) => [...(!asHead && p.assigneeUserId && ids.includes(p.assigneeUserId) ? [p.assigneeUserId] : []), ...(p.team?.members ?? []).filter((m) => !asHead || m.isLeader).map((m) => m.userId)]);
     return {
       has: (role: string) => parties.some((p) => p.role === role),
       // Heading a unit is being its leader in the ACTIVE unit that holds the role; being named only makes a participant.
-      leads: (role: string) => parties.some((p) => p.role === role && p.team?.members.some((m) => m.isLeader) === true),
+      leads: (role: string) => holders(role, true).length > 0,
       teamOf: (role?: string) => parties.find((p) => !role || p.role === role)?.teamId ?? null,
+      onBehalfOf: (role: string, asHead = false): string | null => {
+        const through = holders(role, asHead);
+        return through.length === 0 || through.includes(userId) ? null : through[0];
+      },
     };
   }
 }
