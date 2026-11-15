@@ -6,6 +6,8 @@ import comprehensiveRaw from '../cases/ComprehensiveListPageShell.tsx?raw';
 import objectsRaw from '../objects/ObjectListPageShell.tsx?raw';
 import lawyersRaw from '../lawyers/LawyerListPageShell.tsx?raw';
 import deadlineRaw from '../admin/deadline-rules/DeadlineRulesListPage.tsx?raw';
+import processingFlowRaw from '../admin/processing-flow/ProcessingFlowListPage.tsx?raw';
+import processingCalendarRaw from '../admin/processing-flow/ProcessingCalendarListPage.tsx?raw';
 
 /**
  * CỔNG: mọi màn DANH SÁCH đều dùng bảng chung và bật cá nhân hoá cột.
@@ -25,6 +27,8 @@ const MAN_DANH_SACH: Array<[string, string]> = [
   ['objects/ObjectListPageShell.tsx', objectsRaw],
   ['lawyers/LawyerListPageShell.tsx', lawyersRaw],
   ['admin/deadline-rules/DeadlineRulesListPage.tsx', deadlineRaw],
+  ['admin/processing-flow/ProcessingFlowListPage.tsx', processingFlowRaw],
+  ['admin/processing-flow/ProcessingCalendarListPage.tsx', processingCalendarRaw],
 ];
 
 /**
