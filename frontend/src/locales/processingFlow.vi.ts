@@ -419,6 +419,7 @@ export const processingFlow = {
     STEP_HAS_NO_DEADLINE: 'Bước này chưa có hạn (đang chờ ngày làm mốc, đã xong hoặc đã bỏ qua).',
     DUE_DATE_INVALID: 'Ngày hạn không hợp lệ.',
     INTERNAL_DUE_AFTER_REGULATORY: 'Hạn xử lý của đơn vị không được muộn hơn hạn quy định. Muốn muộn hơn phải gia hạn.',
+    DEADLINE_MANAGED_BY_FLOW: 'Hạn của hồ sơ này do quy trình xử lý quản lý, không sửa tay được. Muốn đổi hãy gia hạn bước tương ứng trong tab Phân công xử lý.',
     EXTENSION_NOT_ALLOWED: 'Bước này không được gia hạn thêm (đã hết số lần, hoặc quy trình không cho gia hạn).',
     NO_FLOW_FOR_RECORD: 'Không có quy trình nào phù hợp với hồ sơ này. Quy trình hiện tại được giữ nguyên.',
     ACCEPTED_DATE_INVALID: 'Ngày thụ lý không hợp lệ.',

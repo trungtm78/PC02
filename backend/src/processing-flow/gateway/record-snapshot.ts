@@ -75,6 +75,11 @@ export interface RecordAdapter {
   load(id: string, tx?: Reader): Promise<RecordSnapshot | null>;
   /** Whether the record's own detail route would show this record to this person. */
   canRead(id: string, user: GatewayUser): Promise<boolean>;
+  /**
+   * Writes the `deadline` column of the record, and nothing else. The ONE write the gateway does, made only by
+   * `RecordDeadlineWriter` for a record whose flow keeps its deadline.
+   */
+  writeDeadline(id: string, at: Date, tx: Prisma.TransactionClient): Promise<void>;
 }
 
 /** A date column that holds a calendar day. */

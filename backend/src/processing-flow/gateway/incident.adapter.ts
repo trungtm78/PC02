@@ -72,6 +72,10 @@ export class IncidentAdapter implements RecordAdapter {
     return row ? incidentSnapshot(row) : null;
   }
 
+  async writeDeadline(id: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.incident.update({ where: { id }, data: { deadline: at } });
+  }
+
   /** `GET /incidents/:id`: the guard's `read:Incident`, then `IncidentsService.getById` (exists, within the scope). */
   async canRead(id: string, user: GatewayUser): Promise<boolean> {
     if (!(await holdsReadPermission(this.prisma, user.id, 'Incident'))) return false;

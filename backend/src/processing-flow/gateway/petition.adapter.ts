@@ -75,6 +75,10 @@ export class PetitionAdapter implements RecordAdapter {
     return row ? petitionSnapshot(row) : null;
   }
 
+  async writeDeadline(id: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.petition.update({ where: { id }, data: { deadline: at } });
+  }
+
   /** `GET /petitions/:id`: the guard's `read:Petition`, then `PetitionsService.getById` (exists, within the scope). */
   async canRead(id: string, user: GatewayUser): Promise<boolean> {
     if (!(await holdsReadPermission(this.prisma, user.id, 'Petition'))) return false;

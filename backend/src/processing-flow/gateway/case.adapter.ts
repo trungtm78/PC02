@@ -80,6 +80,10 @@ export class CaseAdapter implements RecordAdapter {
    * `GET /cases/:id` (`CasesService.getById` with the actor): the case governance policy first (active actor,
    * `read:Case`, representation, the actor's own scope, sensitivity), then the scope the request carries.
    */
+  async writeDeadline(id: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.case.update({ where: { id }, data: { deadline: at } });
+  }
+
   async canRead(id: string, user: GatewayUser): Promise<boolean> {
     let record: Case;
     try {
