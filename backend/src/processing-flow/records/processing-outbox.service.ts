@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { Prisma } from '@prisma/client';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
@@ -39,11 +39,18 @@ export interface DrainResult {
  * same one and a process that dies mid-way only delays it: applying a flow is idempotent.
  */
 @Injectable()
-export class ProcessingOutboxService {
+export class ProcessingOutboxService implements OnModuleInit {
   private readonly logger = new Logger(ProcessingOutboxService.name);
   private nudge: NodeJS.Timeout | null = null;
   /** Switched off by the specs, which drain by hand and must not have a timer do it in between. */
   nudgeEnabled = true;
+  /**
+   * The switch as it was last read. `enqueue` runs INSIDE the transaction of a record being saved and must not wait
+   * for anything else (a refresh of the flag cache takes another connection, and a pool full of saves waiting for it
+   * would stall them all): it reads this, and the worker's tick keeps it current. A switch turned ON reaches the saves
+   * within one tick; records saved in between are left to the CLI that applies flows to open records.
+   */
+  private recordsOn = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -51,12 +58,22 @@ export class ProcessingOutboxService {
     private readonly applier: FlowApplicationService,
   ) {}
 
+  async onModuleInit(): Promise<void> {
+    await this.refreshSwitch().catch((error: unknown) => this.logger.warn(`Reading the switch failed: ${String(error)}`));
+  }
+
+  /** Reads the switch (outside any transaction) and remembers it for `enqueue`. */
+  async refreshSwitch(): Promise<boolean> {
+    this.recordsOn = await this.flags.isEnabled(RECORDS_SWITCH);
+    return this.recordsOn;
+  }
+
   /**
    * Called inside the transaction that saves (or converts) a record. Writes nothing while the switch is off; when a
    * request for the same record is already waiting there is nothing to add.
    */
   async enqueue(tx: Tx, kind: RecordKind, recordId: string, reason: ApplyReason): Promise<void> {
-    if (!(await this.flags.isEnabled(RECORDS_SWITCH))) return;
+    if (!this.recordsOn) return;
     const waiting = await tx.procOutbox.findFirst({ where: { recordKind: kind, recordId, status: 'PENDING' }, select: { id: true } });
     if (!waiting) await tx.procOutbox.create({ data: { recordKind: kind, recordId, reason } });
     this.scheduleNudge();
@@ -74,8 +91,8 @@ export class ProcessingOutboxService {
 
   @Interval(OUTBOX_TICK_MS)
   async tick(): Promise<void> {
-    if (!(await this.flags.isEnabled(RECORDS_SWITCH))) return;
     try {
+      if (!(await this.refreshSwitch())) return;
       await this.drain();
     } catch (error) {
       this.logger.warn(`Draining the outbox failed: ${String(error)}`);
@@ -86,6 +103,8 @@ export class ProcessingOutboxService {
   async drain(max = 25): Promise<DrainResult> {
     const result: DrainResult = { done: 0, retried: 0, dead: 0 };
     for (let n = 0; n < max; n++) {
+      // Checked before EVERY claim: a switch turned off while a batch runs (or before a nudge fires) stops the work.
+      if (!(await this.flags.isEnabled(RECORDS_SWITCH))) break;
       const row = await this.claim();
       if (!row) break;
       try {

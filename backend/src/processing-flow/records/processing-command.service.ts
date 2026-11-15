@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../../audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WorkingCalendarService } from '../calendar/working-calendar.service';
@@ -30,6 +30,12 @@ export interface CommandInput {
 const KEY_PATTERN = /^[A-Za-z0-9._:-]{8,100}$/;
 const CALENDAR_YEARS_AHEAD = 3;
 const MAX_REASON_LENGTH = 500;
+const DEADLOCK_ATTEMPTS = 3;
+
+function isDeadlock(error: unknown): boolean {
+  const failure = error as { code?: string; meta?: { code?: string }; message?: string; response?: unknown };
+  return failure.code === 'P2034' || (failure.code === 'P2010' && failure.meta?.code === '40P01') || /deadlock detected/i.test(failure.message ?? '');
+}
 
 const refuse = {
   bad: (code: ProcessingErrorCode) => new BadRequestException({ code }),
@@ -111,12 +117,19 @@ export class ProcessingCommandService {
       if (flow.confirmed) throw refuse.conflict(PROCESSING_ERROR.FLOW_ALREADY_CONFIRMED);
       if (flow.acceptedAt || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
 
+      // The teams the old steps name are locked before their rows are touched, in the order a team merge takes them
+      // (a merge locks a unit and then repoints its parties): a cycle between the two cannot form.
+      const named = await tx.procRecordStepParty.findMany({ where: { recordStep: { recordFlowId: flow.id }, teamId: { not: null } }, select: { teamId: true } });
+      const teamIds = [...new Set(named.map((party) => party.teamId as string))].sort();
+      if (teamIds.length > 0) await tx.$queryRaw`SELECT id FROM "teams" WHERE id IN (${Prisma.join(teamIds)}) ORDER BY id FOR SHARE`;
       await tx.procRecordStepParty.deleteMany({ where: { recordStep: { recordFlowId: flow.id } } });
       await tx.procRecordStep.deleteMany({ where: { recordFlowId: flow.id } });
       await tx.procRecordFlow.delete({ where: { id: flow.id } });
       const outcome = await this.applier.applyIn(tx, { kind, recordId, reason: 'REAPPLY', actorId, flowId: input.flowId });
       // Nothing fits any more: the transaction is undone, the proposal stays.
       if (outcome.outcome !== 'APPLIED') throw refuse.conflict(PROCESSING_ERROR.NO_FLOW_FOR_RECORD);
+      // The replacement carries on counting where the proposal stopped: a request that looked at the old revision is stale.
+      await tx.procRecordFlow.update({ where: { id: outcome.recordFlowId }, data: { revision: flow.revision + 1 } });
       await tx.procStepChange.create({
         data: {
           recordFlowId: outcome.recordFlowId,
@@ -199,13 +212,14 @@ export class ProcessingCommandService {
       const follower = this.followerOf(flow, step);
       const { flagFollower } = this.guard(() => guardReopen(follower?.status ?? null));
 
-      const anchor = await this.anchorOf(tx, flow, step);
-      const moved = this.transition(step, 'UNSKIP', { anchorAvailable: anchor !== null });
+      // It goes back to exactly where it was. A step that was waiting for its date opens below, only if it can be scheduled:
+      // a date that exists but cannot be counted from (an hour-long duration on a day with no time) leaves it waiting.
+      const moved = this.transition(step, 'UNSKIP');
       await tx.procRecordStep.update({ where: { id: step.id }, data: { status: moved.status, skippedFrom: null, skippedAt: null, revision: { increment: 1 } } });
       await this.change(tx, flow, step.stepKey, 'STEP_UNSKIPPED', { status: step.status }, { status: moved.status }, null, actorId);
-      if (moved.status === 'OPEN' && step.startAt === null && anchor) {
-        // It was set aside before it ever had a date: it starts now that it has one.
-        await this.open(tx, flow, { ...step, status: 'WAITING_ANCHOR' }, anchor, await this.calendarFor(tx, [anchor.at]), actorId, false);
+      if (moved.status === 'WAITING_ANCHOR') {
+        const anchor = await this.anchorOf(tx, flow, step);
+        if (anchor) await this.open(tx, flow, { ...step, status: 'WAITING_ANCHOR' }, anchor, await this.calendarFor(tx, [anchor.at]), actorId);
       }
       if (follower && flagFollower) await tx.procRecordStep.update({ where: { id: follower.id }, data: { upstreamReopened: true, revision: { increment: 1 } } });
     });
@@ -257,6 +271,19 @@ export class ProcessingCommandService {
   /** One transaction under the record's lock, with the idempotency key kept next to the answer. */
   private async keyed<T extends object>(kind: RecordKind, recordId: string, actorId: string, command: string, key: string | undefined, job: (tx: Tx) => Promise<T>): Promise<T> {
     if (key !== undefined && !KEY_PATTERN.test(key)) throw refuse.bad(PROCESSING_ERROR.IDEMPOTENCY_KEY_INVALID);
+    // A transaction the database picked to break a lock cycle (with a team merge, say) wrote nothing: it is run again
+    // from the start, a few times, and only then told to the caller as a conflict.
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.keyedOnce(kind, recordId, actorId, command, key, job);
+      } catch (error) {
+        if (!isDeadlock(error)) throw error;
+        if (attempt >= DEADLOCK_ATTEMPTS) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
+      }
+    }
+  }
+
+  private keyedOnce<T extends object>(kind: RecordKind, recordId: string, actorId: string, command: string, key: string | undefined, job: (tx: Tx) => Promise<T>): Promise<T> {
     return this.prisma
       .$transaction(
         async (tx) => {
@@ -323,7 +350,7 @@ export class ProcessingCommandService {
   }
 
   /** A waiting step gets its date and its deadline and opens. A step the engine cannot schedule keeps waiting, saying why. */
-  private async open(tx: Tx, flow: RecordFlowRow, step: StepRow, anchor: AnchorInstant, calendar: WorkingCalendar, actorId: string, event = true): Promise<void> {
+  private async open(tx: Tx, flow: RecordFlowRow, step: StepRow, anchor: AnchorInstant, calendar: WorkingCalendar, actorId: string): Promise<void> {
     const config = await tx.procFlowStep.findUniqueOrThrow({ where: { id: step.stepId }, include: STEP_INCLUDE });
     const conditions = (flow.conditions ?? {}) as RecordConditions;
     const scheduled = scheduleStep(toFlowStep(config), anchor, conditions, calendar);
@@ -331,7 +358,7 @@ export class ProcessingCommandService {
       await tx.procRecordStep.update({ where: { id: step.id }, data: { problem: scheduled.problem, revision: { increment: 1 } } });
       return;
     }
-    const moved = event ? this.transition(step, 'ANCHOR_REACHED') : { status: 'OPEN' as StepStatus };
+    const moved = this.transition(step, 'ANCHOR_REACHED');
     await tx.procRecordStep.update({
       where: { id: step.id },
       data: {

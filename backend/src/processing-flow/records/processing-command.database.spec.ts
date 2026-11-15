@@ -315,6 +315,19 @@ run('ProcessingCommandService on PostgreSQL', () => {
       expect(await failure(commands.skipStep(actor, 'PETITION', recordId, stepOf(flow, 1).stepKey, { expectedRevision: flow.revision, reason: 'again' }))).toEqual({ status: 409, code: 'STEP_TRANSITION_INVALID' });
     });
 
+    it('a step set aside while waiting stays waiting when it is brought back and cannot be scheduled (found by Codex)', async () => {
+      // An hour-long duration counted from a day that carries no time of day cannot be scheduled.
+      const { recordId, get } = await withFlow([step({ name: 'Hours', durationUnit: 'HOUR', durationValue: 48 })]);
+      let flow = await get();
+      expect(stepOf(flow, 0)).toMatchObject({ status: 'WAITING_ANCHOR', problem: 'HOUR_ANCHOR_HAS_NO_TIME' });
+      const key = stepOf(flow, 0).stepKey;
+      flow = await commands.skipStep(actor, 'PETITION', recordId, key, { expectedRevision: flow.revision, reason: 'Not now' });
+      flow = await commands.unskipStep(actor, 'PETITION', recordId, key, { expectedRevision: flow.revision });
+      expect(stepOf(flow, 0)).toMatchObject({ status: 'WAITING_ANCHOR', startAt: null, dueAt: null });
+      // And it cannot be completed: it never opened.
+      expect(await failure(commands.completeStep(actor, 'PETITION', recordId, key, { expectedRevision: flow.revision }))).toEqual({ status: 409, code: 'STEP_TRANSITION_INVALID' });
+    });
+
     it('a step set aside while it was still waiting for its date opens, when un-skipped, if the date exists by then', async () => {
       const { recordId, get } = await withFlow([step({ anchor: 'ACCEPTED' })]);
       let flow = await get();
@@ -382,6 +395,7 @@ run('ProcessingCommandService on PostgreSQL', () => {
       const recordId = await petition({ loaiThongTin: 'Một văn bản lạ' });
       let flow = (await commands.apply(actor, 'PETITION', recordId, {})).flow!;
       expect(flow).toMatchObject({ match: 'UNKNOWN_TYPE', confirmed: false });
+      const proposalRevision = flow.revision;
 
       await scratch.db.petition.update({ where: { id: recordId }, data: { loaiThongTin: entry.name } });
       const result = await commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: flow.revision });
@@ -392,6 +406,10 @@ run('ProcessingCommandService on PostgreSQL', () => {
       expect(await scratch.db.procRecordStep.count({ where: { recordId } })).toBe(1);
       const history = await scratch.db.procStepChange.findMany({ where: { recordId }, orderBy: { at: 'asc' } });
       expect(history.map((row) => row.action)).toEqual(['FLOW_APPLIED', 'FLOW_APPLIED', 'FLOW_REPLACED']);
+      // The replacement carries on counting revisions (found by Codex): a request that looked at the proposal is stale.
+      expect(flow.revision).toBeGreaterThan(proposalRevision);
+      expect(await failure(commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: proposalRevision }))).toMatchObject({ status: 409 });
+      expect(await failure(commands.recordAccepted(actor, 'PETITION', recordId, { expectedRevision: proposalRevision, date: '2026-12-09' }))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
     });
 
     it('is refused when the flow was confirmed, when a step has moved, or when the revision is not the current one', async () => {

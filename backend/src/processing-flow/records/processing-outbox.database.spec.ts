@@ -137,17 +137,32 @@ run('ProcessingOutboxService on PostgreSQL', () => {
     await scratch.close();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     switchOn = true;
     failure = null;
+    await outbox.refreshSwitch();
+    await failing.refreshSwitch();
   });
 
   describe('writing the request', () => {
     it('writes nothing while the switch is off: records are saved exactly as before', async () => {
       switchOn = false;
+      await outbox.refreshSwitch();
       const recordId = await petition();
       await enqueue(recordId);
       expect(await rowsOf(recordId)).toHaveLength(0);
+    });
+
+    it('never waits for anything but its own write: the switch is not read while the record is being saved (found by Codex)', async () => {
+      const recordId = await petition();
+      let reads = 0;
+      const counting = new ProcessingOutboxService(scratch.db as never, { isEnabled: () => { reads += 1; return Promise.resolve(true); } } as never, applier);
+      counting.nudgeEnabled = false;
+      await counting.refreshSwitch();
+      const before = reads;
+      await scratch.db.$transaction((tx) => counting.enqueue(tx, 'PETITION', recordId, 'CREATED'));
+      expect(reads).toBe(before);
+      expect(await rowsOf(recordId)).toHaveLength(1);
     });
 
     it('writes one PENDING row, and a second request for the same record while it waits adds nothing', async () => {
@@ -194,6 +209,15 @@ run('ProcessingOutboxService on PostgreSQL', () => {
         expect(await rowsOf(id)).toMatchObject([{ status: 'DONE', outcome: 'APPLIED', attempts: 1 }]);
         expect(await scratch.db.procRecordFlow.count({ where: { recordId: id } })).toBe(1);
       }
+    });
+
+    it('a switch turned off after the request was written stops the work: nothing is claimed, nothing applied (found by Codex)', async () => {
+      const recordId = await petition();
+      await enqueue(recordId);
+      switchOn = false;
+      expect(await outbox.drain()).toEqual({ done: 0, retried: 0, dead: 0 });
+      expect(await rowsOf(recordId)).toMatchObject([{ status: 'PENDING', attempts: 0 }]);
+      expect(await scratch.db.procRecordFlow.count({ where: { recordId } })).toBe(0);
     });
 
     it('a row that is not due yet is left alone', async () => {
