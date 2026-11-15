@@ -36,6 +36,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentsService } from './incidents.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { IncidentStatus, LoaiNguonTin, Prisma } from '@prisma/client';
@@ -216,6 +217,9 @@ const mockDeadlineRules = {
 // Scan-intake binder: a stand-in, its own behaviour is tested on PostgreSQL in ocr-import/binding.
 const mockOcrBinder = { bindIfRequested: jest.fn().mockResolvedValue(undefined) };
 
+// Processing-flow outbox: a stand-in; the row it writes is tested on PostgreSQL in processing-flow/records.
+const mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
 describe('IncidentsService', () => {
   let service: IncidentsService;
 
@@ -230,6 +234,7 @@ describe('IncidentsService', () => {
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         { provide: OcrBinder, useValue: mockOcrBinder },
+        { provide: ProcessingOutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -965,6 +970,25 @@ describe('IncidentsService', () => {
         expect.objectContaining({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' }),
         { entity: 'INCIDENT', recordId: 'inc-new', userId: 'actor-001' },
       );
+    });
+
+    it('asks for the processing flow inside the same transaction as the new incident', async () => {
+      mockPrisma.incident.create.mockResolvedValue({ ...mockIncident, id: 'inc-new' });
+
+      await service.create({ name: 'Vu viec test', incidentType: 'Hinh su' } as any, 'actor-001');
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledTimes(1);
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(expect.anything(), 'INCIDENT', 'inc-new', 'CREATED');
+    });
+
+    it('does not report success when the outbox row cannot be written', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+      mockOutbox.enqueue.mockRejectedValueOnce(new Error('OUTBOX_DOWN'));
+
+      await expect(
+        service.create({ name: 'Vu viec test', incidentType: 'Hinh su' } as any, 'actor-001'),
+      ).rejects.toThrow('OUTBOX_DOWN');
+      expect(mockAudit.log).not.toHaveBeenCalled();
     });
 
     it('does not report success when the session cannot be bound', async () => {

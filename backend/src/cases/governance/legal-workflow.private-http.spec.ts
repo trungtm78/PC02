@@ -9,6 +9,18 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+
+// CaseGovernanceModule now reaches AuthModule through ProcessingFlowModule, which pulls the 2FA chain (otplib, qrcode:
+// ESM only). The shapes are exactly those of `app.bootstrap.spec.ts` / `permission-resources.gate.spec.ts`.
+jest.mock('otplib', () => ({
+  generateSecret: jest.fn().mockReturnValue('JBSWY3DPEHPK3PXP'),
+  generateURI: jest
+    .fn()
+    .mockReturnValue('otpauth://totp/PC02:user@test.com?secret=JBSWY3DPEHPK3PXP&issuer=PC02'),
+  verify: jest.fn().mockResolvedValue({ valid: true }),
+  generate: jest.fn().mockResolvedValue('123456'),
+}));
+jest.mock('qrcode', () => ({ toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,fake') }));
 const connection = process.env.CASE_GOVERNANCE_UAT_DATABASE_URL;
 if (connection) {
   const u = new URL(connection);

@@ -62,6 +62,7 @@ export const permissions = {
     deadlineRules: 'Quy tắc thời hạn',
     processingFlows: 'Quy trình & hạn xử lý',
     processingCalendar: 'Lịch làm việc',
+    processingSteps: 'Các bước xử lý trên hồ sơ',
     users: 'Người dùng',
     roles: 'Vai trò & phân quyền',
     teams: 'Tổ & đơn vị',
@@ -101,6 +102,10 @@ export const permissions = {
     publishFlow: 'Ban hành quy trình',
     verifyLegal: 'Xác nhận căn cứ pháp lý',
     confirmYear: 'Xác nhận lịch năm',
+    assignFlow: 'Áp dụng quy trình cho hồ sơ',
+    completeStep: 'Hoàn thành bước',
+    reopenStep: 'Mở lại bước',
+    skipStep: 'Bỏ qua bước',
   } as Record<string, string>,
   reaches: {
     OWN: 'Chỉ của mình',

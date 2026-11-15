@@ -28,6 +28,7 @@ export const CASE_SNAPSHOT_SELECT = {
   ngayDeXuat: true,
   ngayGiaoDonViGiaiQuyet: true,
   ngayKhoiTo: true,
+  capDoToiPham: true,
 } satisfies Prisma.CaseSelect;
 
 export type CaseSnapshotRow = Prisma.CaseGetPayload<{ select: typeof CASE_SNAPSHOT_SELECT }>;
@@ -57,6 +58,7 @@ export function caseSnapshot(row: CaseSnapshotRow): RecordSnapshot {
       // The date on the hand-over minutes itself, never replaced by the received day.
       MINUTES_RECEIVED: dayAnchor(row.ngayTiepNhan),
     },
+    conditions: row.capDoToiPham ? { CRIME_GRAVITY: row.capDoToiPham } : {},
   };
 }
 

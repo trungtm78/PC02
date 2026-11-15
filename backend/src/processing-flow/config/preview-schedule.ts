@@ -1,9 +1,7 @@
 import { PROCESSING_ERROR, type ProcessingErrorCode } from '../contract/processing-codes';
-import { bandInstants } from '../engine/bands';
-import { computeDue } from '../engine/compute-due';
-import { ProcessingEngineError } from '../engine/errors';
 import type { WorkingCalendar } from '../engine/working-calendar';
 import type { AnchorKey } from '../gateway/record-snapshot';
+import { scheduleStep } from '../records/schedule-step';
 import type { ConditionKey, FlowStep } from './flow-steps';
 
 /** The dates of an imagined record: only the ones given exist. */
@@ -54,7 +52,6 @@ export function previewSchedule(
   let previousDue: Date | null = null;
 
   steps.forEach((step, stepIndex) => {
-    const variant = step.variants.find((candidate) => conditions[candidate.conditionKey] === candidate.conditionValue) ?? null;
     const row: PreviewRow = {
       stepIndex,
       stepKey: step.stepKey,
@@ -64,7 +61,7 @@ export function previewSchedule(
       greenFrom: null,
       yellowFrom: null,
       redFrom: null,
-      variant: variant?.conditionValue ?? null,
+      variant: step.variants.find((candidate) => conditions[candidate.conditionKey] === candidate.conditionValue)?.conditionValue ?? null,
       problem: null,
     };
     rows.push(row);
@@ -75,21 +72,14 @@ export function previewSchedule(
       row.problem = PROCESSING_ERROR.ANCHOR_DATE_MISSING;
       return;
     }
-    try {
-      const due = computeDue({
-        anchor,
-        value: variant?.durationValue ?? step.durationValue,
-        unit: variant?.durationUnit ?? step.durationUnit,
-        rollToWorkingDay: step.rollToWorkingDay,
-        calendar,
-      });
-      const bands = bandInstants(due.dueAt, step);
-      Object.assign(row, { startAt: anchor.at, dueAt: due.dueAt, provisional: due.provisional, ...bands });
-      previousDue = due.dueAt;
-    } catch (error) {
-      if (!(error instanceof ProcessingEngineError)) throw error;
-      row.problem = error.code;
+    const scheduled = scheduleStep(step, anchor, conditions, calendar);
+    if (!scheduled.ok) {
+      row.problem = scheduled.problem;
+      return;
     }
+    const { dueAt, provisional, greenFrom, yellowFrom, redFrom } = scheduled;
+    Object.assign(row, { startAt: anchor.at, dueAt, provisional, greenFrom, yellowFrom, redFrom });
+    previousDue = dueAt;
   });
 
   const deadlineStep = steps.findIndex((step) => step.setsRecordDeadline);

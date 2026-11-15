@@ -3,7 +3,6 @@ import { Prisma, type LoaiDon } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../../audit/audit.service';
 import { LOAI_DANH_MUC_LOAI_THONG_TIN, khoaLoaiThongTin } from '../../common/utils/khoa-loai-thong-tin.util';
-import { TRUY_VAN_DANH_MUC_LOAI_THONG_TIN } from '../../petitions/loai-thong-tin.rule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WorkingCalendarService } from '../calendar/working-calendar.service';
 import { CRIME_GRAVITIES, DEADLINE_GROUPS, PROCESSING_ERROR, RECORD_KINDS, type ProcessingErrorCode } from '../contract/processing-codes';
@@ -23,7 +22,8 @@ import {
 import { legalTemplate, LEGAL_TEMPLATES, type LegalTemplate } from './legal-templates';
 import { previewSchedule, type SampleAnchors, type SampleConditions } from './preview-schedule';
 import { findBindingConflicts, lockFlowKind } from './binding-conflicts';
-import { buildTypeIndex, resolveFlow } from './resolve-flow';
+import { readResolveConfig, STEP_INCLUDE, toFlowStep, type StepRow } from './flow-reader';
+import { resolveFlow } from './resolve-flow';
 import { validateSteps, type StepIssue } from './validate-steps';
 
 export const MAX_FLOW_NAME = 200;
@@ -197,14 +197,8 @@ const SUMMARY_INCLUDE = {
   },
 } satisfies Prisma.ProcFlowInclude;
 
-const STEP_INCLUDE = {
-  parties: { orderBy: { order: 'asc' }, include: { team: { select: { name: true, status: true } } } },
-  variants: true,
-} satisfies Prisma.ProcFlowStepInclude;
-
 type FlowRow = Prisma.ProcFlowGetPayload<object>;
 type SummaryRow = Prisma.ProcFlowGetPayload<{ include: typeof SUMMARY_INCLUDE }>;
-type StepRow = Prisma.ProcFlowStepGetPayload<{ include: typeof STEP_INCLUDE }>;
 type VersionRow = Prisma.ProcFlowVersionGetPayload<object>;
 
 /** A step ready to be written: complete, with its key and its confirmation. */
@@ -289,25 +283,10 @@ export class ProcessingFlowsService {
   /** The flow a record of this kind and information type follows, as the configuration stands now. */
   async resolve(recordKind: unknown, informationType: string | null | undefined): Promise<FlowResolutionDto> {
     if (!isRecordKind(recordKind)) throw refuse.bad(PROCESSING_ERROR.RECORD_KIND_INVALID);
-    const [entries, flows, bindings] = await Promise.all([
-      this.prisma.directory.findMany({
-        where: TRUY_VAN_DANH_MUC_LOAI_THONG_TIN.where,
-        orderBy: TRUY_VAN_DANH_MUC_LOAI_THONG_TIN.orderBy,
-        select: { id: true, name: true, metadata: true },
-      }),
-      this.prisma.procFlow.findMany({
-        where: { recordKind, status: 'ACTIVE' },
-        select: { id: true, name: true, recordKind: true, isDefault: true, status: true, versions: { where: { status: 'PUBLISHED' }, select: { versionNo: true } } },
-      }),
-      this.prisma.procFlowBinding.findMany({
-        where: { recordKind, flow: { status: 'ACTIVE' } },
-        select: { flowId: true, recordKind: true, directoryId: true, typeKey: true, deadlineGroup: true },
-        orderBy: { createdAt: 'asc' },
-      }),
-    ]);
-    const found = resolveFlow({ recordKind, informationType }, { directoryIndex: buildTypeIndex(entries), bindings, flows, directoryNames: entries });
+    const config = await readResolveConfig(this.prisma, recordKind);
+    const found = resolveFlow({ recordKind, informationType }, config);
     if (!found) return { match: null, flowId: null };
-    const flow = flows.find((candidate) => candidate.id === found.flowId);
+    const flow = config.flows.find((candidate) => candidate.id === found.flowId);
     return { ...found, flowName: flow?.name, publishedVersionNo: flow?.versions[0]?.versionNo ?? null };
   }
 
@@ -1001,45 +980,6 @@ function toSummary(row: SummaryRow): FlowSummaryDto {
     stepCount: (published ?? draft)?._count.steps ?? 0,
     publishedVersionNo: published?.versionNo ?? null,
     draftVersionNo: draft?.versionNo ?? null,
-  };
-}
-
-/** The step as the pure layer reads it (no row ids, no confirmation). Variants in the order of the gravity scale. */
-function toFlowStep(row: StepRow): FlowStep {
-  const rank = (value: string): number => (CRIME_GRAVITIES as readonly string[]).indexOf(value);
-  return {
-    stepKey: row.stepKey,
-    name: row.name,
-    description: row.description,
-    durationValue: row.durationValue,
-    durationUnit: row.durationUnit,
-    anchor: row.anchor,
-    rollToWorkingDay: row.rollToWorkingDay,
-    redDays: row.redDays,
-    yellowDays: row.yellowDays,
-    greenDays: row.greenDays,
-    legalBasis: row.legalBasis,
-    legalDocNumber: row.legalDocNumber,
-    legalDocUrl: row.legalDocUrl,
-    setsRecordDeadline: row.setsRecordDeadline,
-    requiresApproval: row.requiresApproval,
-    maxExtensions: row.maxExtensions,
-    extensionValue: row.extensionValue,
-    extensionUnit: row.extensionUnit,
-    escalateAfterDays: row.escalateAfterDays,
-    escalateLeadershipAfterDays: row.escalateLeadershipAfterDays,
-    parties: row.parties.map((party) => ({ partyKind: party.partyKind, teamId: party.teamId, role: party.role, note: party.note })),
-    variants: [...row.variants]
-      .sort((a, b) => a.conditionKey.localeCompare(b.conditionKey) || rank(a.conditionValue) - rank(b.conditionValue) || a.conditionValue.localeCompare(b.conditionValue))
-      .map((variant) => ({
-        conditionKey: variant.conditionKey,
-        conditionValue: variant.conditionValue,
-        durationValue: variant.durationValue,
-        durationUnit: variant.durationUnit,
-        maxExtensions: variant.maxExtensions,
-        extensionValue: variant.extensionValue,
-        extensionUnit: variant.extensionUnit,
-      })),
   };
 }
 

@@ -50,6 +50,7 @@ const caseRow = (over: Partial<CaseSnapshotRow> = {}): CaseSnapshotRow => ({
   ngayDeXuat: null,
   ngayGiaoDonViGiaiQuyet: null,
   ngayKhoiTo: null,
+  capDoToiPham: null,
   ...over,
 });
 
@@ -241,5 +242,14 @@ describe('the gateway chooses the adapter by kind', () => {
     expect(incidents.canRead).toHaveBeenCalledWith('i1', user);
     expect(petitions.canRead).toHaveBeenCalledWith('p1', user);
     expect(cases.canRead).not.toHaveBeenCalled();
+  });
+});
+
+describe('the facts of a record that pick another duration', () => {
+  it('a case carries the gravity of its crime; a case without one, a petition and an incident carry none', () => {
+    expect(caseSnapshot(caseRow({ capDoToiPham: 'NGHIEM_TRONG' })).conditions).toEqual({ CRIME_GRAVITY: 'NGHIEM_TRONG' });
+    expect(caseSnapshot(caseRow()).conditions).toEqual({});
+    expect(petitionSnapshot(petitionRow()).conditions).toEqual({});
+    expect(incidentSnapshot(incidentRow()).conditions).toEqual({});
   });
 });

@@ -37,6 +37,9 @@ const STRATEGY: Record<string, Strategy> = {
   // A step of a flow version keeps the unit it names: a published version never changes (D09), and a draft that still
   // names the merged-away unit is refused at publish (TEAM_NOT_ACTIVE) until a person picks the unit that replaces it.
   'proc_flow_step_parties.teamId': 'history',
+  // The unit that works a step of a record: live work, not history. A merge moves it with the record it belongs to
+  // (the unit holding a record moves to the target like `cases.assignedTeamId` does).
+  'proc_record_step_parties.teamId': 'repoint',
   // What a team gives its people is that team's own setting: the people who move get what the target gives.
   'team_permission_configs.teamId': 'own-settings',
 };

@@ -3,6 +3,7 @@ import { CaseChildAccessService } from '../case-child-access/case-child-access.s
 import type { Petition } from '@prisma/client';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import {
   Injectable,
@@ -323,6 +324,7 @@ export class PetitionsService {
     private readonly caseBoundary: CaseChildAccessService,
     private readonly caseEvidence: CaseEvidenceGovernanceService,
     @Optional() private readonly ocrBinder?: OcrBinder,
+    @Optional() private readonly processingOutbox?: ProcessingOutboxService,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -937,6 +939,8 @@ export class PetitionsService {
     };
     const record = await this.prisma.$transaction(async (tx: any) => {
       const created = await createRecord(tx);
+      // One outbox row in the same transaction: the flow is applied after the record is saved, never inside it.
+      await this.processingOutbox?.enqueue(tx, 'PETITION', created.id, 'CREATED');
       // Same transaction as the record: it is saved together with its link to the scans it was filled from, or not at all.
       await this.ocrBinder?.bindIfRequested(tx, dto, {
         entity: 'PETITION',
@@ -1475,8 +1479,8 @@ export class PetitionsService {
     const incidentCode = `VV-${year}-${String(count + 1).padStart(5, '0')}`;
 
     // Create Incident and update Petition atomically
-    const [incident] = await this.prisma.$transaction([
-      this.prisma.incident.create({
+    const [incident] = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.incident.create({
         data: {
           code: incidentCode,
           name: dto.incidentName,
@@ -1489,8 +1493,10 @@ export class PetitionsService {
           createdById: actorId,
           canBoNhapId: actorId,
         },
-      }),
-    ]);
+      });
+      await this.processingOutbox?.enqueue(tx, 'INCIDENT', created.id, 'CONVERTED');
+      return [created];
+    });
 
     // Update petition: link + update status
     try {
@@ -1625,6 +1631,7 @@ export class PetitionsService {
             where: { id: caseCodeLogId },
             data: { documentId: newCase.id },
           });
+          await this.processingOutbox?.enqueue(tx, 'CASE', newCase.id, 'CONVERTED');
 
           await tx.petition.update({
             where: {

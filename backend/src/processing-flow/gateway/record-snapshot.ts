@@ -1,11 +1,12 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { laGioPhutHopLe } from '../../common/utils/thoi-gian-vn.util';
-import { RECORD_KINDS } from '../contract/processing-codes';
+import { RECORD_KINDS, type CONDITION_KEYS } from '../contract/processing-codes';
 
 /** The three kinds of record a processing flow can be attached to: the list of the shared contract. */
 export { RECORD_KINDS };
 export type RecordKind = (typeof RECORD_KINDS)[number];
+export type ConditionKey = (typeof CONDITION_KEYS)[number];
 
 /**
  * The dates of a record that a deadline can be counted from. `MINUTES_RECEIVED` (the date on the hand-over minutes)
@@ -49,6 +50,11 @@ export interface RecordSnapshot {
   isSuspended: boolean;
   deadline: Date | null;
   anchors: Record<AnchorKey, Anchor>;
+  /**
+   * Facts of the record that pick another duration for a step (`CRIME_GRAVITY` of a case). A fact the record does not
+   * carry is absent.
+   */
+  conditions: Partial<Record<ConditionKey, string>>;
 }
 
 /** Who asks to read a record: what the request carries about its user. */

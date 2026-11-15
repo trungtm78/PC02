@@ -11,6 +11,10 @@ import { CaseAdapter } from './gateway/case.adapter';
 import { IncidentAdapter } from './gateway/incident.adapter';
 import { PetitionAdapter } from './gateway/petition.adapter';
 import { RecordGateway } from './gateway/record-gateway';
+import { FlowApplicationService } from './records/flow-application.service';
+import { ProcessingCommandService } from './records/processing-command.service';
+import { ProcessingOutboxService } from './records/processing-outbox.service';
+import { ProcessingRecordsController } from './records/processing-records.controller';
 
 /**
  * Processing flow and deadlines per information type: the read-only gateway to the three record kinds, the working
@@ -22,8 +26,10 @@ import { RecordGateway } from './gateway/record-gateway';
   // UnitScopeService resolves the scope a request would carry; it needs the team tree. The services audit their writes.
   // AuthModule: the guards of the routes.
   imports: [TeamsModule, AuditModule, AuthModule],
-  controllers: [ProcessingFlowsController, WorkingCalendarController],
-  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService],
-  exports: [RecordGateway, WorkingCalendarService, ProcessingFlowsService],
+  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController],
+  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService],
+  // ProcessingOutboxService: the services that save a petition, an incident or a case write one request in their own
+  // transaction (`enqueue`); nothing else of this module is theirs to call.
+  exports: [RecordGateway, WorkingCalendarService, ProcessingFlowsService, ProcessingOutboxService],
 })
 export class ProcessingFlowModule {}

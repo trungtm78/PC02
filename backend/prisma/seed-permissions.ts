@@ -176,4 +176,13 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'read', subject: 'ProcessingCalendar', description: 'Xem lịch làm việc dùng để tính hạn' },
   { action: 'edit', subject: 'ProcessingCalendar', description: 'Sửa, xoá ngày nghỉ và ngày làm bù của một năm' },
   { action: 'confirm', subject: 'ProcessingCalendar', description: 'Xác nhận lịch làm việc của một năm đã đầy đủ, và bỏ xác nhận' },
+
+  // ── Processing flow on a record: the steps of ONE petition, incident or case ──
+  // ADMIN receives these through the grant-all block of `seed-quyen.ts`; no other role is given any of them. Holding one
+  // opens the route only: the record's own read policy still decides whether the person may see that record at all.
+  { action: 'read', subject: 'ProcessingStep', description: 'Xem các bước xử lý, hạn và màu cảnh báo của một hồ sơ' },
+  { action: 'assign', subject: 'ProcessingStep', description: 'Áp dụng quy trình cho hồ sơ, xác nhận quy trình đề xuất, ghi ngày thụ lý' },
+  { action: 'complete', subject: 'ProcessingStep', description: 'Hoàn thành một bước xử lý không cần lãnh đạo duyệt' },
+  { action: 'reopen', subject: 'ProcessingStep', description: 'Mở lại một bước đã hoàn thành' },
+  { action: 'skip', subject: 'ProcessingStep', description: 'Bỏ qua một bước (có lý do) và bỏ bỏ qua' },
 ];

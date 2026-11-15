@@ -1,6 +1,7 @@
 import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import {
   Injectable,
   Optional,
@@ -233,6 +234,7 @@ export class IncidentsService {
     private readonly caseCreation: CaseSourceCreationService,
     private readonly caseBoundary: CaseChildAccessService,
     @Optional() private readonly ocrBinder?: OcrBinder,
+    @Optional() private readonly processingOutbox?: ProcessingOutboxService,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1195,6 +1197,8 @@ export class IncidentsService {
             where: { id: logId },
             data: { documentId: rec.id },
           });
+          // One outbox row in the same transaction: the flow is applied after the record is saved, never inside it.
+          await this.processingOutbox?.enqueue(tx, 'INCIDENT', rec.id, 'CREATED');
           // Same transaction as the record: saved together with its link to the scans it was filled from, or not at all.
           await this.ocrBinder?.bindIfRequested(tx, dto, {
             entity: 'INCIDENT',
@@ -2575,6 +2579,7 @@ export class IncidentsService {
             where: { id: caseCodeLogId },
             data: { documentId: caseRecord.id },
           });
+          await this.processingOutbox?.enqueue(tx, 'CASE', caseRecord.id, 'CONVERTED');
 
           await tx.incident.update({
             where: {

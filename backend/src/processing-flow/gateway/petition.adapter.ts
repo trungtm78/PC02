@@ -57,6 +57,7 @@ export function petitionSnapshot(row: PetitionSnapshotRow): RecordSnapshot {
       // Hand-over minutes belong to a case.
       MINUTES_RECEIVED: NO_ANCHOR,
     },
+    conditions: {},
   };
 }
 

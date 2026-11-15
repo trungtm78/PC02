@@ -19,8 +19,10 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { CaseProvenance } from '@prisma/client';
 import {
@@ -71,7 +73,10 @@ export interface DryRunResult {
 export class XlsxImportCommitService {
   private readonly logger = new Logger(XlsxImportCommitService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+  ) {}
 
   private requireAdmin(actor: ActorContext) {
     if (actor.role !== ROLE_NAMES.ADMIN) {
@@ -444,7 +449,7 @@ export class XlsxImportCommitService {
             });
           }
           if (detectedType === 'Case') {
-            await tx.case.create({
+            const createdCase = await tx.case.create({
               data: {
                 name: skel.name,
                 // PR6 review P1-3 — use Prisma enum, not string cast.
@@ -461,9 +466,11 @@ export class XlsxImportCommitService {
                 importLogId: logId,
               },
             });
+            // One outbox row in the same transaction as the imported record.
+            await this.processingOutbox?.enqueue(tx, 'CASE', createdCase.id, 'CREATED');
             materialisedCases++;
           } else if (detectedType === 'Incident') {
-            await tx.incident.create({
+            const createdIncident = await tx.incident.create({
               data: {
                 name: skel.name,
                 code: skel.code,
@@ -477,6 +484,7 @@ export class XlsxImportCommitService {
                 importLogId: logId,
               },
             });
+            await this.processingOutbox?.enqueue(tx, 'INCIDENT', createdIncident.id, 'CREATED');
             materialisedIncidents++;
           }
         }

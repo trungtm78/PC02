@@ -3,6 +3,7 @@ import { CaseGovernanceController } from './case-governance.controller';
 import { CaseGovernanceFoundationModule } from './case-governance-foundation.module';
 import { CaseEvidenceGovernanceModule } from '../evidence-governance/evidence-governance.module';
 import { DocumentNumbersModule } from '../../document-numbers/document-numbers.module';
+import { ProcessingFlowModule } from '../../processing-flow/processing-flow.module';
 import { LegalWorkflowService } from './legal-workflow.service';
 import { CaseConfigurationService } from './case-configuration.service';
 import { CaseFieldPolicyModule } from './case-field-policy.module';
@@ -19,6 +20,7 @@ import { CasePrincipalAccessController } from './case-principal-access.controlle
 import { CaseGlobalCapabilitiesController } from './case-global-capabilities.controller';
 @Module({
   imports: [
+    ProcessingFlowModule,
     DocumentNumbersModule,
     CaseGovernanceFoundationModule,
     CaseEvidenceGovernanceModule,
