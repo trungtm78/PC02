@@ -6,6 +6,10 @@ import type { Band } from '../engine/types';
 export const TRACKED_BANDS = ['OVERDUE', 'RED', 'YELLOW', 'GREEN'] as const;
 export type TrackedBand = (typeof TRACKED_BANDS)[number];
 
+/** The roles that make a party of a step a piece of work. INFORM (told only, no deadline) is not one. */
+export const WORK_ROLES = ['MAIN', 'CHECK', 'COORDINATE'] as const;
+export type WorkRole = (typeof WORK_ROLES)[number];
+
 /**
  * The column each stored instant lives in. A step counts down to the EARLIER of its two deadlines, and the unit's own
  * (`internalDueAt`) is never later than the regulatory one, so it IS that deadline whenever the step has one.
