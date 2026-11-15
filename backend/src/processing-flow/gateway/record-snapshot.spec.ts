@@ -239,9 +239,12 @@ describe('the gateway chooses the adapter by kind', () => {
 
     expect(await gateway.canRead('INCIDENT', 'i1', user)).toBe(true);
     expect(await gateway.canRead('PETITION', 'p1', user)).toBe(false);
-    expect(incidents.canRead).toHaveBeenCalledWith('i1', user);
-    expect(petitions.canRead).toHaveBeenCalledWith('p1', user);
-    expect(cases.canRead).not.toHaveBeenCalled();
+    expect(incidents.canRead).toHaveBeenCalledWith('i1', user, undefined);
+    expect(petitions.canRead).toHaveBeenCalledWith('p1', user, undefined);
+    // The option of a read-only route is handed on as it is.
+    await gateway.canRead('CASE', 'c1', user, { viaStep: true });
+    expect(cases.canRead).toHaveBeenCalledWith('c1', user, { viaStep: true });
+    expect(cases.canRead).toHaveBeenCalledTimes(1);
   });
 });
 

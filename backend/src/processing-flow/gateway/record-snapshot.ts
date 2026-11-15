@@ -68,13 +68,21 @@ export interface GatewayUser {
 /** The client a read runs on: the service itself, or the transaction of the caller. */
 export type Reader = PrismaService | Prisma.TransactionClient;
 
+/**
+ * `viaStep`: a step being worked that names the person's unit also lets them OPEN the record, read-only. Asked by the
+ * routes that only READ the record's flow, never by a route that writes: a write keeps the record's own scope check.
+ */
+export interface CanReadOptions {
+  viaStep?: boolean;
+}
+
 /** What each kind must answer. Read-only: an adapter never writes. */
 export interface RecordAdapter {
   readonly kind: RecordKind;
   /** The record that is not deleted, or `null`. */
   load(id: string, tx?: Reader): Promise<RecordSnapshot | null>;
   /** Whether the record's own detail route would show this record to this person. */
-  canRead(id: string, user: GatewayUser): Promise<boolean>;
+  canRead(id: string, user: GatewayUser, options?: CanReadOptions): Promise<boolean>;
   /**
    * Writes the `deadline` column of the record, and nothing else. The ONE write the gateway does, made only by
    * `RecordDeadlineWriter` for a record whose flow keeps its deadline.

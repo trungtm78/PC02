@@ -127,8 +127,10 @@ run('RecordGateway on PostgreSQL', () => {
   };
 
   /** One line per person: what the gateway says for the petition, the incident and the case. */
-  const answers = async (who: Who, ids: Record<RecordKind, string> = record) =>
-    Object.fromEntries(await Promise.all(KINDS.map(async (kind) => [kind, await gateway.canRead(kind, ids[kind], user(who))]))) as Record<RecordKind, boolean>;
+  const answers = async (who: Who, ids: Record<RecordKind, string> = record, options?: { viaStep?: boolean }) =>
+    Object.fromEntries(await Promise.all(KINDS.map(async (kind) => [kind, await gateway.canRead(kind, ids[kind], user(who), options)]))) as Record<RecordKind, boolean>;
+  /** What a route that only READS the flow of a record asks: the record's own scope, or a step being worked. */
+  const readAnswers = (who: Who) => answers(who, record, { viaStep: true });
   const routeAnswers = async (who: Who, ids: Record<RecordKind, string> = record) => {
     const out = {} as Record<RecordKind, boolean>;
     for (const kind of KINDS) out[kind] = await detailRouteShows(kind, ids[kind], who);
@@ -354,9 +356,11 @@ run('RecordGateway on PostgreSQL', () => {
     });
 
     it('a step being worked that names the reader\'s unit hands them the record, the gateway and the detail route agree, and it stays read-only', async () => {
-      expect(await answers('other')).toEqual(all(false));
+      expect(await readAnswers('other')).toEqual(all(false));
       await handingToU('OPEN');
-      expect(await answers('other')).toEqual(all(true));
+      expect(await readAnswers('other')).toEqual(all(true));
+      // A route that WRITES asks without the step: the record's own scope still decides.
+      expect(await answers('other')).toEqual(all(false));
       expect(await routeAnswers('other')).toEqual(all(true));
       // Read-only: the petition's detail answer says the person may not write it.
       const scope = await scopes.resolveScope(id.other, roleOf.other.name, false);
@@ -369,6 +373,7 @@ run('RecordGateway on PostgreSQL', () => {
       await handingToU('OPEN');
       expect(await answers('member')).toEqual(before.member);
       expect(await answers('unpermitted')).toEqual(before.unpermitted);
+      expect(await readAnswers('unpermitted')).toEqual(before.unpermitted);
       expect(await routeAnswers('member')).toEqual(before.routeMember);
       expect(await routeAnswers('unpermitted')).toEqual(before.routeUnpermitted);
     });
@@ -376,7 +381,7 @@ run('RecordGateway on PostgreSQL', () => {
     it('it ends with the step: done, skipped or still waiting for its date hand over nothing', async () => {
       for (const status of ['DONE', 'SKIPPED', 'WAITING_ANCHOR'] as const) {
         await handingToU(status);
-        expect(await answers('other')).toEqual(all(false));
+        expect(await readAnswers('other')).toEqual(all(false));
         expect(await routeAnswers('other')).toEqual(all(false));
         await withdrawFromU();
       }
@@ -385,16 +390,48 @@ run('RecordGateway on PostgreSQL', () => {
     it('a person NAMED on the step, whatever their unit, reads it too', async () => {
       await handingToU('OPEN');
       await scratch.db.procRecordStepParty.updateMany({ where: { recordStep: { recordId: { in: Object.values(record) } } }, data: { teamId: null, partyKind: 'RECORD_TEAM', assigneeUserId: id.other } });
-      expect(await answers('other')).toEqual(all(true));
-      expect(await answers('assignee')).toEqual(all(false));
+      expect(await readAnswers('other')).toEqual(all(true));
+      expect(await readAnswers('assignee')).toEqual(all(false));
     });
 
     it('does nothing while the switch is off', async () => {
       await handingToU('OPEN');
       recordsSwitch = false;
       await stepAccess.refreshSwitch();
-      expect(await answers('other')).toEqual(all(false));
+      expect(await readAnswers('other')).toEqual(all(false));
       expect(await routeAnswers('other')).toEqual(all(false));
+    });
+
+    it('a unit that has been stopped or archived hands over nothing, whatever the membership says (found by Codex)', async () => {
+      await handingToU('OPEN');
+      expect(await readAnswers('other')).toEqual(all(true));
+      await scratch.db.team.update({ where: { id: id.U }, data: { status: 'INACTIVE' } });
+      try {
+        expect(await readAnswers('other')).toEqual(all(false));
+        expect(await routeAnswers('other')).toEqual(all(false));
+      } finally {
+        await scratch.db.team.update({ where: { id: id.U }, data: { status: 'ACTIVE' } });
+      }
+    });
+
+    it('what the reader receives is the record without what hangs on it: no linked case, no petitions, no history, no subjects (found by Codex)', async () => {
+      await handingToU('OPEN');
+      const scope = await scopes.resolveScope(id.other, roleOf.other.name, false);
+      const petition = (await petitions.getById(record.PETITION, scope, id.other)) as { data: Record<string, unknown> };
+      const incident = (await incidents.getById(record.INCIDENT, scope, id.other)) as { data: Record<string, unknown> };
+      const aCase = (await cases.getById(record.CASE, scope, id.other, 'read', true)) as { data: Record<string, unknown> };
+      for (const key of ['linkedCase', 'linkedIncident']) expect(petition.data).not.toHaveProperty(key);
+      for (const key of ['petitions', 'statusHistory', 'linkedCase', 'mergedInto']) expect(incident.data).not.toHaveProperty(key);
+      for (const key of ['subjects', 'petitions', 'statistic']) expect(aCase.data).not.toHaveProperty(key);
+      expect(aCase.data.autoLinkedIncident).toBeNull();
+      // The record itself is there.
+      expect(petition.data.id).toBe(record.PETITION);
+      expect(incident.data.id).toBe(record.INCIDENT);
+      expect(aCase.data.id).toBe(record.CASE);
+      // A reader who is in scope still gets everything.
+      const ownerScope = await scopes.resolveScope(id.owner, roleOf.owner.name, false);
+      const full = (await incidents.getById(record.INCIDENT, ownerScope, id.owner)) as { data: Record<string, unknown> };
+      expect(full.data).toHaveProperty('statusHistory');
     });
 
     it('never reaches what hangs on the record: the access is the detail route only (a write check still looks at the reader\'s own scope)', async () => {

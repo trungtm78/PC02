@@ -54,7 +54,7 @@ export class RecordStepAccessService implements OnModuleInit {
     const party = await this.prisma.procRecordStepParty.findFirst({
       where: {
         recordStep: { recordKind: kind, recordId, status: { in: [...WORKED] } },
-        OR: [{ assigneeUserId: userId }, { team: { members: { some: { userId } } } }],
+        OR: [{ assigneeUserId: userId }, { team: { status: 'ACTIVE', members: { some: { userId } } } }],
       },
       select: { id: true },
     });

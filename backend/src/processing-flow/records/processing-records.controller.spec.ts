@@ -126,7 +126,8 @@ describe('ProcessingRecordsController (HTTP, real guards)', () => {
     const response = await call(method, path, body);
     expect(response.status).toBeLessThan(300);
     expect(commands[reached]).toHaveBeenCalledTimes(1);
-    expect(gateway.canRead).toHaveBeenCalledWith('PETITION', 'r1', { id: 'officer-1', role: 'OFFICER', canDispatch: false });
+    // Only the GET may open a record by a step alone; every write keeps the record's own scope check.
+    expect(gateway.canRead).toHaveBeenCalledWith('PETITION', 'r1', { id: 'officer-1', role: 'OFFICER', canDispatch: false }, { viaStep: method === 'get' });
   });
 
   it.each(ROUTES)('%s %s answers a record the person may not read as a record that is not there', async (method, path, body) => {

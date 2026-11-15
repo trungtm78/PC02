@@ -9,6 +9,7 @@ import { holdsReadPermission, requestScopeOf } from './read-access';
 import {
   NO_ANCHOR,
   dayAnchor,
+  type CanReadOptions,
   type GatewayUser,
   type Reader,
   type RecordAdapter,
@@ -79,7 +80,7 @@ export class IncidentAdapter implements RecordAdapter {
   }
 
   /** `GET /incidents/:id`: the guard's `read:Incident`, then `IncidentsService.getById` (exists, within the scope). */
-  async canRead(id: string, user: GatewayUser): Promise<boolean> {
+  async canRead(id: string, user: GatewayUser, options?: CanReadOptions): Promise<boolean> {
     if (!(await holdsReadPermission(this.prisma, user.id, 'Incident'))) return false;
     const row = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
@@ -88,6 +89,7 @@ export class IncidentAdapter implements RecordAdapter {
     if (!row) return false;
     if (recordReadable('Incident', row, await requestScopeOf(this.scopes, user))) return true;
     // Not in the reader's scope: a step being worked on the record may still hand it to their unit (read-only).
+    if (!options?.viaStep) return false;
     return (await this.stepAccess?.mayOpen('INCIDENT', id, user.id)) ?? false;
   }
 }

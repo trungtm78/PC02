@@ -10,6 +10,7 @@ import { requestScopeOf } from './read-access';
 import {
   NO_ANCHOR,
   dayAnchor,
+  type CanReadOptions,
   type GatewayUser,
   type Reader,
   type RecordAdapter,
@@ -86,12 +87,13 @@ export class CaseAdapter implements RecordAdapter {
     await tx.case.update({ where: { id }, data: { deadline: at } });
   }
 
-  async canRead(id: string, user: GatewayUser): Promise<boolean> {
+  async canRead(id: string, user: GatewayUser, options?: CanReadOptions): Promise<boolean> {
     let record: Case;
     try {
       // Built by hand exactly as `CasesService` does: it holds no state, and asks the process's enforcement itself.
       record = await new CaseGovernanceService(this.prisma).assertCaseReadable(this.prisma, id, { actorId: user.id }, undefined, {
-        stepAssignee: async () => (await this.stepAccess?.mayOpen('CASE', id, user.id)) ?? false,
+        // Only for a route that reads: a write keeps the case's own scope check.
+        stepAssignee: async () => (options?.viaStep ? ((await this.stepAccess?.mayOpen('CASE', id, user.id)) ?? false) : false),
       });
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof NotFoundException) return false;
@@ -99,6 +101,7 @@ export class CaseAdapter implements RecordAdapter {
     }
     if (recordReadable('Case', record, await requestScopeOf(this.scopes, user))) return true;
     // Not in the reader's scope: a step being worked on the case may still hand it to their unit (read-only).
+    if (!options?.viaStep) return false;
     return (await this.stepAccess?.mayOpen('CASE', id, user.id)) ?? false;
   }
 }

@@ -10,6 +10,7 @@ import {
   NO_ANCHOR,
   dayAnchor,
   dayWithVietnamTime,
+  type CanReadOptions,
   type GatewayUser,
   type Reader,
   type RecordAdapter,
@@ -82,7 +83,7 @@ export class PetitionAdapter implements RecordAdapter {
   }
 
   /** `GET /petitions/:id`: the guard's `read:Petition`, then `PetitionsService.getById` (exists, within the scope). */
-  async canRead(id: string, user: GatewayUser): Promise<boolean> {
+  async canRead(id: string, user: GatewayUser, options?: CanReadOptions): Promise<boolean> {
     if (!(await holdsReadPermission(this.prisma, user.id, 'Petition'))) return false;
     const row = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
@@ -91,6 +92,7 @@ export class PetitionAdapter implements RecordAdapter {
     if (!row) return false;
     if (recordReadable('Petition', row, await requestScopeOf(this.scopes, user))) return true;
     // Not in the reader's scope: a step being worked on the record may still hand it to their unit (read-only).
+    if (!options?.viaStep) return false;
     return (await this.stepAccess?.mayOpen('PETITION', id, user.id)) ?? false;
   }
 }

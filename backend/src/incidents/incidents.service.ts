@@ -3,6 +3,7 @@ import { CaseSourceCreationService } from '../case-child-access/case-source-crea
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
+import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import {
   assertDeadlineNotManaged,
@@ -738,11 +739,12 @@ export class IncidentsService {
     record: { id: string; investigatorId?: string | null; assignedTeamId?: string | null },
     dataScope: DataScope | null | undefined,
     stepReaderId?: string,
-  ) {
+  ): Promise<boolean> {
     try {
       this.checkRecordInScope(record, dataScope);
+      return false;
     } catch (error) {
-      if (error instanceof ForbiddenException && stepReaderId && (await this.stepAccess?.mayOpen('INCIDENT', record.id, stepReaderId))) return;
+      if (error instanceof ForbiddenException && stepReaderId && (await this.stepAccess?.mayOpen('INCIDENT', record.id, stepReaderId))) return true;
       throw error;
     }
   }
@@ -922,12 +924,14 @@ export class IncidentsService {
       throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
     }
 
-    await this.checkRecordOrStepAccess(record, dataScope, stepReaderId);
+    const viaStep = await this.checkRecordOrStepAccess(record, dataScope, stepReaderId);
+    // Opened only because a step names the reader's unit: the record, without its petitions, history and links.
+    const shown = viaStep ? withoutKeys(record, STEP_ONLY_WITHHELD.INCIDENT) : record;
 
     return {
       success: true,
       // Giao diện ẩn nút ghi khi false — cùng luật với checkWriteScope (máy chủ vẫn chặn ghi như cũ).
-      data: { ...record, quyenGhi: this.coQuyenGhi(record, dataScope) },
+      data: { ...shown, quyenGhi: this.coQuyenGhi(record, dataScope) },
     };
   }
 
