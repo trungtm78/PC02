@@ -5,7 +5,7 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 25 expected features', () => {
+  it('auto-discovers all 26 expected features', () => {
     const expected = [
       'admin',
       'admin-units', // v0.34.0.0 — read-only browser cho Tỉnh/Phường
@@ -26,6 +26,7 @@ describe('FEATURE_MODULES registry', () => {
       'lawyers',
       'master-class',
       'petitions',
+      'processing_flow', // Quy trình & hạn xử lý — settings screens, behind the backend switch (off by default)
       'reports',
       'settings',
       'subjects',
