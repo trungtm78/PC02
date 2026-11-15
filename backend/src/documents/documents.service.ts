@@ -60,7 +60,14 @@ export interface StepAttachmentRead {
     petitionId: string | null;
     procStepReportId: string | null;
   }): Promise<void>;
+  /**
+   * Whether the step rule lets the reader open the record the document belongs to. For a CASE outside the reader's
+   * own scope this is what the evidence governance asks instead of the scope (`StepAttachmentCapability`).
+   */
+  mayReadByStep(): Promise<boolean>;
 }
+
+type DownloadPrincipal = { mode: string; revision: number; viaStep?: true };
 
 @Injectable()
 export class DocumentsService {
@@ -1155,7 +1162,7 @@ export class DocumentsService {
     const registered = await this.prisma.caseAssetVersion.findUnique({
       where: { documentId: id },
     });
-    let principal: { mode: string; revision: number };
+    let principal: DownloadPrincipal;
     if (registered)
       principal = await this.evidenceGovernance.authorizeDocumentDownload(
         this.prisma,
@@ -1216,8 +1223,10 @@ export class DocumentsService {
    * replaced by the caller's rule (`authorize`: the step read rule and that the document belongs to a report of that
    * step). Everything else stays: a document of a CASE still passes the evidence governance of the case
    * (`authorizeDocumentDownload`: the access principal, the byte policy, the case's own download capability with its
-   * scope, sensitivity and representation rules, a registered original its asset rule); any other needs an INTERNAL
-   * principal.
+   * sensitivity and representation rules, a registered original its asset rule); any other needs an INTERNAL
+   * principal. The case's SCOPE requirement alone gives way to the step rule (`stepAttachment: { mayReadByStep }`):
+   * this is the ONLY place that hands that capability to the evidence governance, and only after `authorize` has
+   * passed (the document is a file of a report of that step of that record, and the step rule lets the reader in).
    */
   private async stepAttachmentPrincipal(
     record: {
@@ -1229,7 +1238,7 @@ export class DocumentsService {
     },
     actorId: string,
     stepAttachment: StepAttachmentRead,
-  ): Promise<{ mode: string; revision: number }> {
+  ): Promise<DownloadPrincipal> {
     if (!record.procStepReportId)
       throw new NotFoundException('Document not found');
     await stepAttachment.authorize(record);
@@ -1239,6 +1248,11 @@ export class DocumentsService {
         record.caseId,
         record.id,
         { actorId },
+        {
+          stepAttachment: {
+            mayReadByStep: () => stepAttachment.mayReadByStep(),
+          },
+        },
       );
       const registered = await this.prisma.caseAssetVersion.findUnique({
         where: { documentId: record.id },
@@ -1309,7 +1323,8 @@ export class DocumentsService {
         after.petitionId !== before.petitionId ||
         after.fileName !== before.fileName ||
         afterPrincipal.mode !== beforePrincipal.mode ||
-        afterPrincipal.revision !== beforePrincipal.revision
+        afterPrincipal.revision !== beforePrincipal.revision ||
+        afterPrincipal.viaStep !== beforePrincipal.viaStep
       )
         throw new ConflictException('Document authorization snapshot changed');
       if (asset)
@@ -1329,6 +1344,8 @@ export class DocumentsService {
           assetVersionId: asset?.id ?? null,
           sha256: file.sha256,
           size: byteLength,
+          // The case was outside the reader's own scope: a step being worked handed them this file.
+          ...(afterPrincipal.viaStep ? { accessVia: 'STEP' } : {}),
         },
         ipAddress: actor.ipAddress,
         userAgent: actor.userAgent,

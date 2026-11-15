@@ -47,7 +47,8 @@ interface RequestMeta {
  *     withdrawn, not replaced, not answered), the record neither gone nor finished. Under the record's lock.
  *   - download: whoever may read the results of the step (the caller's `readable`, asked again here around the bytes),
  *     and the document must be a file of a report of THAT step of THAT record; a case's evidence governance still
- *     decides for its bytes (`DocumentsService.openDownload`).
+ *     decides for its bytes (`DocumentsService.openDownload`), except that a case outside the reader's own scope is
+ *     opened by the step rule (`mayReadByStep`): the scope alone gives way, sensitivity and representation do not.
  *
  * The route adds its permission and the record's read rule opened by the step (the case policy for a RESTRICTED case).
  * The file is a `Document` of the record (its own foreign key), so it is also in the record's document store.
@@ -97,7 +98,10 @@ export class ProcessingAttachmentsService {
       if (!report) throw missing();
     };
     try {
-      return await this.documents.openDownload(documentId, { userId: user.id, ...meta }, undefined, { authorize });
+      // `mayReadByStep`: for a CASE outside the reader's own scope, what the case's evidence governance asks in place
+      // of the scope (and nothing else of the case policy). The same step rule as `authorize`, asked again there.
+      const mayReadByStep = () => this.gateway.canRead(kind, recordId, user, { viaStep: true });
+      return await this.documents.openDownload(documentId, { userId: user.id, ...meta }, undefined, { authorize, mayReadByStep });
     } catch (error) {
       // A document that is gone (or never was an attachment) answers with the code of this module.
       if (error instanceof NotFoundException && !(error.getResponse() as { code?: unknown }).code) throw missing();
