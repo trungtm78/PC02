@@ -338,6 +338,20 @@ run('The stored alert of a record on PostgreSQL', () => {
       expect((await stored(recordId)).alertDueAt).toBeNull();
     });
 
+    it('one look puts right a bounded number of records, the next look the rest; two looks at once do not both work (found by Codex)', async () => {
+      await pauses.reconcileAlerts();
+      const ids: string[] = [];
+      for (let n = 0; n < 3; n += 1) ids.push((await withFlow([step()])).recordId);
+      for (const recordId of ids) await setStatus(recordId, 'DA_GIAI_QUYET');
+      expect(await pauses.reconcileAlerts(2)).toBe(2);
+      expect(await pauses.reconcileAlerts(2)).toBe(1);
+      expect(await pauses.reconcileAlerts(2)).toBe(0);
+
+      for (const recordId of ids) await setStatus(recordId, 'DANG_XU_LY');
+      const [first, second] = await Promise.all([pauses.reconcileAlerts(), pauses.reconcileAlerts()]);
+      expect([first, second].sort()).toEqual([0, 3]);
+    });
+
     it('reconciling changes nothing for a record whose alert is already right', async () => {
       const { recordId } = await withFlow([step()]);
       // Whatever another suite left behind in the shared scratch database is settled first.

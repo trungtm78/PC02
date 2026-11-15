@@ -13,6 +13,8 @@ import { RECORDS_SWITCH } from './processing-outbox.service';
 
 export const PAUSE_TICK_MS = 60_000;
 const CHUNK = 500;
+/** How many stored alerts one look puts right: a bulk change of thousands of records is worked off over several ticks. */
+export const ALERT_RECONCILE_BATCH = 500;
 
 export interface ReconcileResult {
   opened: number;
@@ -41,6 +43,7 @@ export class ProcessingPauseService {
   private readonly logger = new Logger(ProcessingPauseService.name);
   /** The clock, replaceable by a spec. */
   now: () => Date = () => new Date();
+  private reconcilingAlerts = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -142,16 +145,23 @@ export class ProcessingPauseService {
    * The stored alert of the records whose STATUS changed without a word to the flow (finished, worked again, deleted):
    * each is recomputed under the record's lock from what is true at that moment. Answers how many were rewritten.
    */
-  async reconcileAlerts(): Promise<number> {
-    let written = 0;
-    for (const { kind, recordId } of await alertDriftCandidates(this.prisma)) {
-      const done = await this.prisma.$transaction(async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
-        return refreshRecordAlert(tx, this.gateway, kind, recordId);
-      });
-      if (done === 'WRITTEN') written += 1;
+  async reconcileAlerts(limit = ALERT_RECONCILE_BATCH): Promise<number> {
+    // One look at a time in this process: a look that outlasts the tick is not joined by the next one.
+    if (this.reconcilingAlerts) return 0;
+    this.reconcilingAlerts = true;
+    try {
+      let written = 0;
+      for (const { kind, recordId } of await alertDriftCandidates(this.prisma, limit)) {
+        const done = await this.prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
+          return refreshRecordAlert(tx, this.gateway, kind, recordId);
+        });
+        if (done === 'WRITTEN') written += 1;
+      }
+      return written;
+    } finally {
+      this.reconcilingAlerts = false;
     }
-    return written;
   }
 
   /** The steps being worked lose the time spent paused: both deadlines move later, the bands follow. */

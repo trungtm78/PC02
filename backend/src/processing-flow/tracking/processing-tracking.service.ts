@@ -8,7 +8,7 @@ import { bandAt, remainingDays } from '../engine/bands';
 import type { Band } from '../engine/types';
 import { holdsReadPermission, requestScopeOf } from '../gateway/read-access';
 import { RECORD_KINDS, type GatewayUser, type RecordKind } from '../gateway/record-snapshot';
-import { COUNTED_STEP_STATUSES, RECORD_LINK } from '../records/record-alert';
+import { clocklessStatuses, COUNTED_STEP_STATUSES, RECORD_LINK } from '../records/record-alert';
 import { partyNamesUser } from '../records/record-step-access.service';
 import { bandConditions, TRACKED_BANDS, type TrackedBand } from './band-conditions';
 import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
@@ -171,8 +171,10 @@ export class ProcessingTrackingService {
   workWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere, band: Band | null, asOf: Date): WorkWhere {
     const parts: WorkWhere[] = [
       { role: 'MAIN' },
-      // A step being worked, of a record whose clock runs (a stored alert exists only then).
-      { recordStep: { status: { in: [...COUNTED_STEP_STATUSES] }, recordFlow: { alertDueAt: { not: null } }, ...(filter.kind ? { recordKind: filter.kind } : {}) } },
+      // A step being worked, of a record whose clock runs. Asked of the record and its pauses as they are NOW, not of the
+      // stored alert: a record's own service finishes, suspends or deletes it without telling the flow, and the stored
+      // alert follows only at the worker's next look.
+      { recordStep: { status: { in: [...COUNTED_STEP_STATUSES] }, recordFlow: clockRuns(), ...(filter.kind ? { recordKind: filter.kind } : {}) } },
       { recordStep: bandConditions(band, asOf).step },
       reach,
     ];
@@ -269,4 +271,10 @@ export class ProcessingTrackingService {
  */
 export function mineWhere(userId: string): WorkWhere {
   return { OR: [{ assigneeUserId: userId }, { assigneeUserId: null, team: { status: 'ACTIVE', members: { some: { userId, isLeader: true } } } }] };
+}
+
+/** The flow of a record that is alive and at work, with no pause open: the only flows whose steps count down. */
+function clockRuns(): Prisma.ProcRecordFlowWhereInput {
+  const atWork = (kind: RecordKind) => ({ [RECORD_LINK[kind].relation]: { is: { deletedAt: null, status: { notIn: clocklessStatuses(kind) } } } });
+  return { pauses: { none: { to: null } }, OR: RECORD_KINDS.map(atWork) } as Prisma.ProcRecordFlowWhereInput;
 }

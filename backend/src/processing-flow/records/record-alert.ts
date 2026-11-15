@@ -90,7 +90,7 @@ export async function refreshRecordAlert(tx: Tx, gateway: RecordGateway, kind: R
  *   stale    an alert is stored, but the record is gone, deleted, finished or suspended
  *   missing  no alert is stored, the record is alive and at work, its clock is not paused, and a step counts
  */
-export async function alertDriftCandidates(prisma: PrismaService): Promise<Array<{ kind: RecordKind; recordId: string }>> {
+export async function alertDriftCandidates(prisma: PrismaService, limit: number): Promise<Array<{ kind: RecordKind; recordId: string }>> {
   const found: Array<{ kind: RecordKind; recordId: string }> = [];
   for (const kind of Object.keys(RECORD_LINK) as RecordKind[]) {
     const { relation } = RECORD_LINK[kind];
@@ -104,14 +104,19 @@ export async function alertDriftCandidates(prisma: PrismaService): Promise<Array
           {
             alertDueAt: null,
             pauses: { none: { to: null } },
-            steps: { some: { status: { in: [...COUNTED_STEP_STATUSES] }, regulatoryDueAt: { not: null } } },
+            // Exactly the steps `refreshRecordAlert` counts: a candidate it would leave unchanged would come back for ever.
+            steps: { some: { status: { in: [...COUNTED_STEP_STATUSES] }, regulatoryDueAt: { not: null }, redFrom: { not: null }, yellowFrom: { not: null }, greenFrom: { not: null } } },
             [relation]: { is: atWork },
           },
         ],
       } as Prisma.ProcRecordFlowWhereInput,
       select: { recordId: true },
+      // A bounded look: every candidate is put right by the refresh, so the next look starts where this one stopped.
+      orderBy: { id: 'asc' },
+      take: limit - found.length,
     });
     for (const flow of flows) found.push({ kind, recordId: flow.recordId });
+    if (found.length >= limit) break;
   }
   return found;
 }

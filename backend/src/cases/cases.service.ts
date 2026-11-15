@@ -974,6 +974,26 @@ export class CasesService {
   }
 
   /** The cases whose `deadline` and `status` this reader may read (the field policy of each case's schema). */
+  /**
+   * The order of the list by alert. It is an order by deadline AND by status (a finished or suspended case has no alert
+   * and sorts last), so it is refused to a reader who may not sort by either field.
+   */
+  private async thuTuTheoCanhBao(
+    sortOrder: 'asc' | 'desc',
+    actorId: string | undefined,
+  ): Promise<Prisma.CaseOrderByWithRelationInput[]> {
+    for (const field of ['deadline', 'status']) {
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId: actorId ?? '' },
+        { sortBy: field },
+      );
+    }
+    return (this.listAlerts as RecordListAlertService).orderBy(
+      sortOrder,
+    ) as Prisma.CaseOrderByWithRelationInput[];
+  }
+
   private async deadlineReadableWhere(
     actorId?: string,
   ): Promise<Prisma.CaseWhereInput> {
@@ -1075,15 +1095,7 @@ export class CasesService {
       actorId,
     );
     if (alertAt && this.listAlerts && sortBy === ALERT_SORT) {
-      // An order by alert is an order by deadline: refused to a reader who may not sort by that field.
-      await this.fieldSchema.assertQueryReadable(
-        this.prisma,
-        { actorId: actorId ?? '' },
-        { sortBy: 'deadline' },
-      );
-      orderBy = this.listAlerts.orderBy(
-        sortOrder,
-      ) as Prisma.CaseOrderByWithRelationInput[];
+      orderBy = await this.thuTuTheoCanhBao(sortOrder, actorId);
     }
     // The alert of each row, read apart from the rows and only for the cases whose deadline this reader may read.
     const alertVisible = alertAt

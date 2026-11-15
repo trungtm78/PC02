@@ -464,5 +464,35 @@ run('The tracking screen on PostgreSQL', () => {
       await scratch.db.$transaction((tx) => refreshRecordAlert(tx, gateway, 'INCIDENT', recordId));
       expect(await seen()).toBe(false);
     });
+    it('a record finished, suspended or deleted a moment ago has no work at once, before any worker has looked (found by Codex)', async () => {
+      const cases: Array<[RecordKind, Record<string, unknown>]> = [
+        ['PETITION', { status: 'DA_GIAI_QUYET' }],
+        ['INCIDENT', { status: 'TAM_DINH_CHI' }],
+        ['CASE', { status: 'DINH_CHI' }],
+        ['PETITION', { deletedAt: new Date() }],
+      ];
+      for (const [kind, change] of cases) {
+        const recordId = await record(kind);
+        await flowOn(kind, recordId, [{ due: DUE.OVERDUE, parties: [{}] }]);
+        const seen = async () => (await allItems('admin', { kind })).some((item) => item.recordId === recordId);
+        const overdue = async () => (await tracking.summary(user('admin'), { asOf: NOW.toISOString(), kind })).counts.OVERDUE;
+        expect(await seen()).toBe(true);
+        const before = await overdue();
+        // The record's own service changes the status and tells the flow nothing: the stored alert is still there.
+        const model = kind === 'PETITION' ? scratch.db.petition : kind === 'INCIDENT' ? scratch.db.incident : scratch.db.case;
+        await (model as unknown as { update(args: unknown): Promise<unknown> }).update({ where: { id: recordId }, data: change });
+        expect((await scratch.db.procRecordFlow.findFirstOrThrow({ where: { recordId } })).alertDueAt).not.toBeNull();
+        expect(await seen()).toBe(false);
+        expect(await overdue()).toBe(before - 1);
+      }
+    });
+
+    it('an open pause stops the work at once, even while the stored alert has not followed', async () => {
+      const recordId = await record('INCIDENT');
+      await flowOn('INCIDENT', recordId, [{ due: DUE.RED, parties: [{}] }]);
+      const flow = await scratch.db.procRecordFlow.findFirstOrThrow({ where: { recordId } });
+      await scratch.db.procRecordPause.create({ data: { recordFlowId: flow.id, from: NOW, reason: 'SUSPENDED' } });
+      expect((await allItems('admin', { kind: 'INCIDENT' })).some((item) => item.recordId === recordId)).toBe(false);
+    });
   });
 });
