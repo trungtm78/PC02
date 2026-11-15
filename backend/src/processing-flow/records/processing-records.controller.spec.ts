@@ -6,6 +6,7 @@ import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecordGateway } from '../gateway/record-gateway';
 import { ProcessingCommandService } from './processing-command.service';
+import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingRecordsController } from './processing-records.controller';
 
 /**
@@ -14,7 +15,7 @@ import { ProcessingRecordsController } from './processing-records.controller';
  * held, answered only for a record the record's OWN read policy shows that person (otherwise exactly the 404 of a
  * record that does not exist).
  */
-const ALL = ['read', 'assign', 'complete', 'reopen', 'skip'].map((action) => `${action}:ProcessingStep`);
+const ALL = ['read', 'assign', 'complete', 'reopen', 'skip', 'adjustDue', 'extend'].map((action) => `${action}:ProcessingStep`);
 
 type Method = 'get' | 'post';
 /** [method, path, body, the permission it needs, the command it reaches] */
@@ -26,13 +27,15 @@ const ROUTES: Array<[Method, string, object | undefined, string, string]> = [
   ['post', '/processing/records/PETITION/r1/accepted', { expectedRevision: 2, date: '2026-12-05' }, 'assign:ProcessingStep', 'recordAccepted'],
   ['post', '/processing/records/PETITION/r1/steps/k1/complete', { expectedRevision: 2 }, 'complete:ProcessingStep', 'completeStep'],
   ['post', '/processing/records/PETITION/r1/steps/k1/reopen', { expectedRevision: 2, reason: 'x' }, 'reopen:ProcessingStep', 'reopenStep'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/due', { expectedRevision: 2, date: '2026-12-20' }, 'adjustDue:ProcessingStep', 'adjustDue'],
+  ['post', '/processing/records/PETITION/r1/steps/k1/extend', { expectedRevision: 2, reason: 'More time' }, 'extend:ProcessingStep', 'extendStep'],
   ['post', '/processing/records/PETITION/r1/steps/k1/skip', { expectedRevision: 2, reason: 'x' }, 'skip:ProcessingStep', 'skipStep'],
   ['post', '/processing/records/PETITION/r1/steps/k1/unskip', { expectedRevision: 2 }, 'skip:ProcessingStep', 'unskipStep'],
 ];
 
 describe('ProcessingRecordsController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const commands = Object.fromEntries(['get', 'apply', 'reapplyFlow', 'confirmFlow', 'recordAccepted', 'completeStep', 'reopenStep', 'skipStep', 'unskipStep'].map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
+  const commands = Object.fromEntries(['adjustDue', 'extendStep', 'get', 'apply', 'reapplyFlow', 'confirmFlow', 'recordAccepted', 'completeStep', 'reopenStep', 'skipStep', 'unskipStep'].map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
   const gateway = { canRead: jest.fn() };
   let switchedOn = true;
   let held: string[] = ALL;
@@ -48,6 +51,7 @@ describe('ProcessingRecordsController (HTTP, real guards)', () => {
       controllers: [ProcessingRecordsController],
       providers: [
         { provide: ProcessingCommandService, useValue: commands },
+        { provide: ProcessingDeadlineService, useValue: commands },
         { provide: RecordGateway, useValue: gateway },
         {
           provide: FeatureFlagsService,

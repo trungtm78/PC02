@@ -31,3 +31,13 @@ export class AcceptedDateDto extends RevisionCommandDto {
 export class ReasonedCommandDto extends RevisionCommandDto {
   @IsOptional() @IsString() @MaxLength(MAX_REASON) reason?: string;
 }
+
+export class AdjustDueDto extends RevisionCommandDto {
+  /** `YYYY-MM-DD`, the unit's own deadline; `null` takes it back to the regulatory one. */
+  @IsOptional() @IsString() @MaxLength(10) date?: string | null;
+  @IsOptional() @IsString() @MaxLength(MAX_REASON) reason?: string;
+}
+
+export class ExtendStepDto extends RevisionCommandDto {
+  @IsString() @MaxLength(MAX_REASON) reason!: string;
+}

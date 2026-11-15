@@ -6,6 +6,8 @@ import type { Band, CompletionClass, StepStatus } from '../engine/types';
 export const RECORD_FLOW_INCLUDE = {
   flow: { select: { id: true, name: true } },
   version: { select: { id: true, versionNo: true } },
+  /** The open pause, if any: the clock of the record stands still while it is suspended. */
+  pauses: { where: { to: null }, select: { from: true } },
   steps: {
     orderBy: { order: 'asc' },
     include: {
@@ -52,6 +54,8 @@ export interface RecordStepDto {
   provisional: boolean;
   problem: string | null;
   deadlineRevision: number;
+  /** How many times the regulatory deadline was extended. */
+  extensionsUsed: number;
   upstreamReopened: boolean;
   doneAt: string | null;
   skippedAt: string | null;
@@ -71,6 +75,8 @@ export interface RecordFlowDto {
   /** `false`: the flow is only a proposal (the information type matched nothing); no legal deadline is asserted yet. */
   confirmed: boolean;
   acceptedAt: string | null;
+  /** When the clock stopped, while the record is suspended; `null` otherwise. No colour is shown while it is set. */
+  pausedSince: string | null;
   revision: number;
   steps: RecordStepDto[];
 }
@@ -91,10 +97,12 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date): RecordFlowDto {
     match: row.match,
     confirmed: row.confirmed,
     acceptedAt: iso(row.acceptedAt),
+    pausedSince: iso(row.pauses[0]?.from ?? null),
     revision: row.revision,
     steps: row.steps.map((step) => {
       const due = earlier(step.regulatoryDueAt, step.internalDueAt);
-      const working = step.status === 'OPEN' || step.status === 'REPORTED';
+      // A deadline that is about to move (the record is suspended) has no colour: it would be wrong the moment it resumes.
+      const working = (step.status === 'OPEN' || step.status === 'REPORTED') && row.pauses.length === 0;
       const thresholds = { redDays: step.step.redDays, yellowDays: step.step.yellowDays, greenDays: step.step.greenDays };
       return {
         stepKey: step.stepKey,
@@ -116,6 +124,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date): RecordFlowDto {
         provisional: step.provisional,
         problem: step.problem,
         deadlineRevision: step.deadlineRevision,
+        extensionsUsed: step.extensionsUsed,
         upstreamReopened: step.upstreamReopened,
         doneAt: iso(step.doneAt),
         skippedAt: iso(step.skippedAt),

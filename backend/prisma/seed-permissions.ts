@@ -184,5 +184,7 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'assign', subject: 'ProcessingStep', description: 'Áp dụng quy trình cho hồ sơ, xác nhận quy trình đề xuất, ghi ngày thụ lý' },
   { action: 'complete', subject: 'ProcessingStep', description: 'Hoàn thành một bước xử lý không cần lãnh đạo duyệt' },
   { action: 'reopen', subject: 'ProcessingStep', description: 'Mở lại một bước đã hoàn thành' },
+  { action: 'adjustDue', subject: 'ProcessingStep', description: 'Đặt hạn xử lý riêng của đơn vị cho một bước (sớm hơn hoặc bằng hạn quy định)' },
+  { action: 'extend', subject: 'ProcessingStep', description: 'Gia hạn hạn quy định của một bước, theo số lần quy trình cho phép' },
   { action: 'skip', subject: 'ProcessingStep', description: 'Bỏ qua một bước (có lý do) và bỏ bỏ qua' },
 ];

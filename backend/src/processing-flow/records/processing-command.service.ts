@@ -228,7 +228,7 @@ export class ProcessingCommandService {
   // ---- how a write runs
 
   /** A write on the flow of a record: the lock, the key, the revision the person saw, the work, the answer. */
-  private async write(kind: RecordKind, recordId: string, actorId: string, command: string, input: CommandInput, job: (tx: Tx, flow: RecordFlowRow) => Promise<void>): Promise<RecordFlowDto> {
+  async write(kind: RecordKind, recordId: string, actorId: string, command: string, input: CommandInput, job: (tx: Tx, flow: RecordFlowRow) => Promise<void>): Promise<RecordFlowDto> {
     this.checkRevision(input.expectedRevision);
     return this.keyed(kind, recordId, actorId, command, input.idempotencyKey, async (tx) => {
       const flow = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
@@ -252,12 +252,12 @@ export class ProcessingCommandService {
   }
 
   /** A write on one step: the same, with the step looked up by its key. */
-  private writeStep(
+  writeStep(
     kind: RecordKind,
     recordId: string,
     actorId: string,
     stepKey: string,
-    command: StepEvent,
+    command: string,
     input: CommandInput,
     job: (tx: Tx, flow: RecordFlowRow, step: StepRow) => Promise<void>,
   ): Promise<RecordFlowDto> {
@@ -312,7 +312,7 @@ export class ProcessingCommandService {
     if (!Number.isInteger(value) || (value as number) < 1) throw refuse.bad(PROCESSING_ERROR.EXPECTED_REVISION_INVALID);
   }
 
-  private async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
+  async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     return row ? toRecordFlowDto(row, this.now()) : (null as unknown as RecordFlowDto);
   }
@@ -394,13 +394,13 @@ export class ProcessingCommandService {
     return anchorsOf(snapshot, flow.acceptedAt)[kind] ?? null;
   }
 
-  private async calendarFor(tx: Tx, instants: Date[]): Promise<WorkingCalendar> {
+  async calendarFor(tx: Tx, instants: Date[]): Promise<WorkingCalendar> {
     const years = instants.map((at) => civilYearOf(civilDayOf(at)));
     if (years.length === 0) return buildWorkingCalendar([]);
     return this.calendars.load(Math.min(...years), Math.min(Math.max(...years) + CALENDAR_YEARS_AHEAD, MAX_CALENDAR_YEAR), tx);
   }
 
-  private change(tx: Tx, flow: RecordFlowRow, stepKey: string | null, action: string, from: unknown, to: unknown, reason: string | null, actorId: string | null) {
+  change(tx: Tx, flow: RecordFlowRow, stepKey: string | null, action: string, from: unknown, to: unknown, reason: string | null, actorId: string | null) {
     return tx.procStepChange.create({
       data: {
         recordFlowId: flow.id,

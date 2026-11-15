@@ -8,8 +8,9 @@ import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard'
 import { PROCESSING_ERROR } from '../contract/processing-codes';
 import { RecordGateway } from '../gateway/record-gateway';
 import { RECORD_KINDS, type RecordKind } from '../gateway/record-snapshot';
-import { AcceptedDateDto, ApplyFlowDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
+import { AcceptedDateDto, AdjustDueDto, ApplyFlowDto, ExtendStepDto, ReapplyFlowDto, ReasonedCommandDto, RevisionCommandDto } from './dto/record-flow.dto';
 import { ProcessingCommandService } from './processing-command.service';
+import { ProcessingDeadlineService } from './processing-deadline.service';
 
 interface AuthenticatedUser {
   id: string;
@@ -36,6 +37,7 @@ const roleName = (user: AuthenticatedUser): string => (typeof user.role === 'str
 export class ProcessingRecordsController {
   constructor(
     private readonly commands: ProcessingCommandService,
+    private readonly deadlines: ProcessingDeadlineService,
     private readonly gateway: RecordGateway,
   ) {}
 
@@ -101,6 +103,20 @@ export class ProcessingRecordsController {
   @RequirePermissions({ action: 'skip', subject: 'ProcessingStep' })
   async skip(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: ReasonedCommandDto, @CurrentUser() user: AuthenticatedUser) {
     return this.commands.skipStep(user.id, await this.readable(kind, id, user), id, stepKey, { ...body, reason: body.reason ?? '' });
+  }
+
+  @Post(':kind/:id/steps/:stepKey/due')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'adjustDue', subject: 'ProcessingStep' })
+  async adjustDue(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: AdjustDueDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.deadlines.adjustDue(user.id, await this.readable(kind, id, user), id, stepKey, { ...body, date: body.date ?? null });
+  }
+
+  @Post(':kind/:id/steps/:stepKey/extend')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'extend', subject: 'ProcessingStep' })
+  async extend(@Param('kind') kind: string, @Param('id') id: string, @Param('stepKey') stepKey: string, @Body() body: ExtendStepDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.deadlines.extendStep(user.id, await this.readable(kind, id, user), id, stepKey, body);
   }
 
   @Post(':kind/:id/steps/:stepKey/unskip')
