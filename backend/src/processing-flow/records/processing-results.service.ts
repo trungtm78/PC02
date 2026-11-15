@@ -223,7 +223,8 @@ export class ProcessingResultsService {
     input: CommandInput & { kind: OpinionKind; verdict?: string; content?: string | null },
   ): Promise<RecordFlowDto> {
     const content = cleanText(input.content);
-    if (input.kind === 'APPROVAL' || !OPINION_KINDS.includes(input.kind)) throw refuse.bad(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+    // APPROVAL is written by the decision of the leader, NUDGE by the nudge command: neither is an opinion a person files here.
+    if (input.kind === 'APPROVAL' || input.kind === 'NUDGE' || !OPINION_KINDS.includes(input.kind)) throw refuse.bad(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
     const verdict = input.verdict ?? 'NOTE';
     const allowed = input.kind === 'CHECK' ? ['NOTE', 'PASS', 'REQUEST_REWORK'] : ['NOTE'];
     if (!allowed.includes(verdict)) throw refuse.bad(PROCESSING_ERROR.VERDICT_INVALID);
@@ -261,17 +262,21 @@ export class ProcessingResultsService {
     });
   }
 
-  /** The author takes an opinion back while nobody has spoken after it. A decision of the leader cannot be taken back. */
+  /**
+   * The author takes an opinion back while nobody has spoken after it. A decision of the leader cannot be taken back.
+   * A nudge that came after it answers nobody: it does not stop the author.
+   */
   async withdrawOpinion(actorId: string, kind: RecordKind, recordId: string, stepKey: string, opinionId: string, input: CommandInput): Promise<RecordFlowDto> {
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'WITHDRAW_OPINION', input, async (tx, flow, step) => {
       const opinion = await tx.procStepOpinion.findFirst({ where: { id: opinionId, recordStepId: step.id } });
       if (!opinion || opinion.withdrawnAt) throw refuse.notFound(PROCESSING_ERROR.OPINION_NOT_FOUND);
       if (opinion.authorId !== actorId) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_YOURS);
-      if (opinion.kind === 'APPROVAL') throw refuse.conflict(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      // A nudge cannot be taken back either: the people it pressed have been told, and the words they were told stay.
+      if (opinion.kind === 'APPROVAL' || opinion.kind === 'NUDGE') throw refuse.conflict(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       const roles = await this.rolesOf(tx, step.id, actorId);
       const role = opinion.kind === 'SUPERVISOR' ? 'MAIN' : opinion.kind;
       if (!roles.has(role) || (opinion.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
-      if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
+      if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null, kind: { not: 'NUDGE' } } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
       await tx.procStepOpinion.update({ where: { id: opinion.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_WITHDRAWN', { opinionId: opinion.id }, null, null, actorId);
     });

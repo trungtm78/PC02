@@ -107,11 +107,11 @@ export interface RecordStepDto {
   thresholds: { redDays: number; yellowDays: number; greenDays: number };
   /** The flow allows this many extensions, of this length (the step's own figures; a variant may differ). */
   extensionsAllowed: number;
-  /** The alert colour now, for a step being worked. `NONE` for every other step. */
+  /** The alert colour now, for a step being worked. `NONE` for every other step, and for every step of a proposal. */
   band: Band;
   /** Civil days left (negative once past); `null` when the step has no deadline or is not being worked. */
   remainingDays: number | null;
-  /** For a step that has a deadline: done on time / late, or still open in time / overdue. */
+  /** For a step that has a deadline: done on time / late, or still open in time / overdue. `null` under a proposal. */
   completion: CompletionClass | null;
   provisional: boolean;
   problem: string | null;
@@ -150,7 +150,8 @@ export interface RecordFlowDto {
 
 const iso = (value: Date | null): string | null => (value ? value.toISOString() : null);
 
-const earlier = (a: Date | null, b: Date | null): Date | null => (a && b ? (a.getTime() <= b.getTime() ? a : b) : (a ?? b));
+/** The deadline a step is judged against: the earlier of the regulatory one and the unit's own. */
+export const earlier = (a: Date | null, b: Date | null): Date | null => (a && b ? (a.getTime() <= b.getTime() ? a : b) : (a ?? b));
 
 /**
  * What the record itself says about its clock right now. `suspended`: whether or not the worker has opened the pause
@@ -167,7 +168,8 @@ const RUNNING: RecordClock = { suspended: false, finished: false };
 /**
  * The flow of a record as the tab shows it. `now` decides the colours; nothing else here reads a clock. The colour of a
  * step and the stored alert of the record (`refreshRecordAlert`) follow the same rule: none while the record is
- * suspended or finished, or its clock is paused.
+ * suspended or finished, or its clock is paused, or the flow is only a proposal (`confirmed = false`, decision C10): the
+ * dates of a proposal are shown as what the flow WOULD set, and nothing is said to be near, overdue or late by them.
  */
 export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordClock = RUNNING, people: FlowPeople = NOBODY): RecordFlowDto {
   const { suspended, finished } = clock;
@@ -187,7 +189,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
     steps: row.steps.map((step) => {
       const due = earlier(step.regulatoryDueAt, step.internalDueAt);
       // A deadline that is about to move (the record is suspended) has no colour: it would be wrong the moment it resumes.
-      const working = (step.status === 'OPEN' || step.status === 'REPORTED') && row.pauses.length === 0 && !suspended && !finished;
+      const working = row.confirmed && (step.status === 'OPEN' || step.status === 'REPORTED') && row.pauses.length === 0 && !suspended && !finished;
       const thresholds = { redDays: step.step.redDays, yellowDays: step.step.yellowDays, greenDays: step.step.greenDays };
       return {
         stepKey: step.stepKey,
@@ -210,7 +212,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
         extensionsAllowed: step.step.maxExtensions,
         band: working && due ? bandOf(now, due, thresholds) : 'NONE',
         remainingDays: working && due ? remainingDays(now, due) : null,
-        completion: due && step.status !== 'SKIPPED' && step.status !== 'WAITING_ANCHOR' ? completionClass(step.doneAt, due, now) : null,
+        completion: row.confirmed && due && step.status !== 'SKIPPED' && step.status !== 'WAITING_ANCHOR' ? completionClass(step.doneAt, due, now) : null,
         provisional: step.provisional,
         problem: step.problem,
         deadlineRevision: step.deadlineRevision,

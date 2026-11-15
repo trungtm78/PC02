@@ -11,9 +11,9 @@ export type StepStatus = 'WAITING_ANCHOR' | 'OPEN' | 'REPORTED' | 'DONE' | 'SKIP
 export type Band = 'OVERDUE' | 'RED' | 'YELLOW' | 'GREEN' | 'NONE';
 export type CompletionClass = 'DONE_ON_TIME' | 'DONE_LATE' | 'OPEN_IN_TIME' | 'OPEN_OVERDUE';
 export type ReportKind = 'PROGRESS' | 'RESULT';
-export type OpinionKind = 'SUPERVISOR' | 'COORDINATE' | 'CHECK' | 'APPROVAL';
+export type OpinionKind = 'SUPERVISOR' | 'COORDINATE' | 'CHECK' | 'APPROVAL' | 'NUDGE';
 /** The roles a person can give an opinion in (the leader decides through `decision`, not an opinion). */
-export type SpeakingKind = Exclude<OpinionKind, 'APPROVAL'>;
+export type SpeakingKind = Exclude<OpinionKind, 'APPROVAL' | 'NUDGE'>;
 export type DecisionVerdict = 'AGREE' | 'DISAGREE' | 'OTHER_DIRECTION';
 
 /** One person who answers for a party of a step. */
