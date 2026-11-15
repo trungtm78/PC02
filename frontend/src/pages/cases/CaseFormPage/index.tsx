@@ -78,6 +78,8 @@ import {
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
 import { formatVNDateTime, today } from "@/lib/dates";
+import { RecordTabBody } from "@/features/processing-flow/record-tabs/RecordTabs";
+import { recordTabItems, useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -130,7 +132,8 @@ function CaseFormPage() {
   const returnPath = searchParams.get('returnPath');
   const safeReturn = ['/uy-thac-dieu-tra', '/cases'].includes(returnPath ?? '') ? returnPath! : '/cases';
 
-  const [activeTab, setActiveTab] = useState<TabId>("info");
+  // Hai tab "Phân công xử lý" / "Kết quả xử lý" đứng SAU các tab của form, cùng thanh, id riêng (không thuộc TabId).
+  const [activeTab, setActiveTab] = useState<TabId | RecordTabId>("info");
   const [manualCaseCodeState, setManualCaseCodeState] = useState({ routeKey: location.key, manual: false });
   const manualCaseCode = manualCaseCodeState.routeKey === location.key && manualCaseCodeState.manual;
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -743,6 +746,15 @@ function CaseFormPage() {
     }
   }, [visibleTabs, activeTab]);
 
+  const recordIdSaved = id ?? createdId;
+  const coTabQuyTrinh = useRecordTabsAvailable(recordIdSaved);
+  const barTabs: TabItem<TabId | RecordTabId>[] = useMemo(
+    // Right after "Thông tin" (the first tab), before the other tabs.
+    () => (coTabQuyTrinh ? [visibleTabs[0], ...recordTabItems(), ...visibleTabs.slice(1)] : visibleTabs),
+    [coTabQuyTrinh, visibleTabs],
+  );
+  const activeRecordTab: RecordTabId | null = coTabQuyTrinh && (activeTab === 'phan-cong-xu-ly' || activeTab === 'ket-qua-xu-ly') ? activeTab : null;
+
   // ─── Shared tab props ──────────────────────────────────────────────────
 
   const readableFormData = { ...INITIAL_FORM_DATA, ...omitDeniedNativeFields(formData as unknown as Record<string, unknown>, nativePolicies, 'readable') } as CaseFormData;
@@ -855,7 +867,7 @@ function CaseFormPage() {
       </div>
 
       {/* Tabs */}
-      <TabBar tabs={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabBar tabs={barTabs} activeTab={activeTab} onTabChange={setActiveTab} />
       {!chiXem && <div className="px-6 pt-4">
         <RecordDuplicateReview
           ref={duplicateReviewRef}
@@ -950,6 +962,8 @@ function CaseFormPage() {
             />
           )}
           </fieldset>
+          {/* Ngoài <fieldset disabled={chiXem}>: hai tab này có nút thao tác riêng, quyền do máy chủ xét, không theo cờ chỉ-xem của form. */}
+          {recordIdSaved && <RecordTabBody kind="CASE" recordId={recordIdSaved} active={activeRecordTab} />}
           {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
           {(isEditMode || !!cloneInput || Object.keys(parityState).length > 0) && (
             <LegacyParityFields

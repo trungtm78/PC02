@@ -11,6 +11,16 @@ export const PERMISSION = {
   calendarRead: 'read:ProcessingCalendar',
   calendarEdit: 'edit:ProcessingCalendar',
   calendarConfirm: 'confirm:ProcessingCalendar',
+  stepRead: 'read:ProcessingStep',
+  stepAssign: 'assign:ProcessingStep',
+  stepComplete: 'complete:ProcessingStep',
+  stepReopen: 'reopen:ProcessingStep',
+  stepSkip: 'skip:ProcessingStep',
+  stepAdjustDue: 'adjustDue:ProcessingStep',
+  stepExtend: 'extend:ProcessingStep',
+  stepReport: 'report:ProcessingStep',
+  stepOpine: 'opine:ProcessingStep',
+  stepApprove: 'approve:ProcessingStep',
 } as const;
 
 export interface ProcessingPermissions {
@@ -38,5 +48,37 @@ export function useProcessingPermissions(): ProcessingPermissions {
     canVerify: has(PERMISSION.flowVerify),
     canEditCalendar: has(PERMISSION.calendarEdit),
     canConfirmCalendar: has(PERMISSION.calendarConfirm),
+  };
+}
+
+/** What this account may do on the steps of a record (the subject `ProcessingStep`). */
+export interface StepPermissions {
+  canRead: boolean;
+  canAssign: boolean;
+  canComplete: boolean;
+  canReopen: boolean;
+  canSkip: boolean;
+  canAdjustDue: boolean;
+  canExtend: boolean;
+  canReport: boolean;
+  canOpine: boolean;
+  canApprove: boolean;
+}
+
+/** Same rule as `useProcessingPermissions`: a profile not loaded yet lets a control show; the server still refuses. */
+export function useStepPermissions(): StepPermissions {
+  const { permissions } = usePermission();
+  const has = (key: string): boolean => permissions === null || permissions.includes(key);
+  return {
+    canRead: has(PERMISSION.stepRead),
+    canAssign: has(PERMISSION.stepAssign),
+    canComplete: has(PERMISSION.stepComplete),
+    canReopen: has(PERMISSION.stepReopen),
+    canSkip: has(PERMISSION.stepSkip),
+    canAdjustDue: has(PERMISSION.stepAdjustDue),
+    canExtend: has(PERMISSION.stepExtend),
+    canReport: has(PERMISSION.stepReport),
+    canOpine: has(PERMISSION.stepOpine),
+    canApprove: has(PERMISSION.stepApprove),
   };
 }

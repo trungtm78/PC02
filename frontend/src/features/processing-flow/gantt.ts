@@ -114,6 +114,13 @@ export function buildGantt(rows: readonly SchedulePreviewRow[], recordDeadline: 
   return { bars, ticks, originMs, totalDays, recordDeadlinePct: deadline === null ? null : pct(deadline) };
 }
 
+/** Where an instant falls on the axis of a built model, as a share of it; `null` when the model has no axis or the instant is unreadable. */
+export function axisPct(model: Pick<GanttModel, 'originMs' | 'totalDays'>, iso: string | null): number | null {
+  const t = ms(iso);
+  if (t === null || model.totalDays === 0) return null;
+  return ((t - model.originMs) / (model.totalDays * DAY)) * 100;
+}
+
 function emptyBar(r: SchedulePreviewRow): GanttBar {
   return {
     stepIndex: r.stepIndex,

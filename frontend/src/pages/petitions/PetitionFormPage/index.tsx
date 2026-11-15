@@ -26,9 +26,11 @@ import { useOcrFormIntake } from "@/features/ocr-import/useOcrFormIntake";
 import { PETITION_OCR_ACCESS } from "./petitionOcrAccess";
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
+import { RecordTabBody, RecordTabButtons } from "@/features/processing-flow/record-tabs/RecordTabs";
+import { useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -151,6 +153,11 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   const [errors, setErrors] = useState<string[]>([]);
   // Tab đang mở. Hệ cũ dùng đúng bộ 10 tab này cho cả Đơn thư, Vụ việc và Vụ án.
   const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
+  // Hai tab "Phân công xử lý" / "Kết quả xử lý" nằm NGOÀI bộ 10 tab của hệ cũ: trạng thái riêng, không đụng tabDangMo.
+  const [tabQuyTrinh, setTabQuyTrinh] = useState<RecordTabId | null>(null);
+  const idHoSoDaLuu = id ?? createdId;
+  const coTabQuyTrinh = useRecordTabsAvailable(idHoSoDaLuu);
+  const tabQuyTrinhDangMo = coTabQuyTrinh ? tabQuyTrinh : null;
   // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
   const { data: teamOptions = [] } = useTeamOptions();
   // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
@@ -489,6 +496,7 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
       // lỗi nằm trong khối ẩn — cán bộ thấy thông báo mà không thấy ô nào để sửa. Nhảy về
       // trước, rồi mới đưa con trỏ vào ô.
       setTabDangMo("info");
+      setTabQuyTrinh(null);
       // Focus ô lỗi đầu tiên (thay vì chỉ scroll top) — YC3. Chờ một nhịp để tab kịp hiện.
       setTimeout(() => {
         if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1131,23 +1139,31 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
         {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự. */}
         <div className="flex flex-wrap gap-1 border-b border-slate-200" data-testid="thanh-tab-don-thu">
           {(Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]).map((t) => (
+            <Fragment key={t}>
             <button
-              key={t}
               type="button"
-              onClick={() => setTabDangMo(t)}
+              onClick={() => {
+                setTabDangMo(t);
+                setTabQuyTrinh(null);
+              }}
               data-testid={`tab-nut-${t}`}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                tabDangMo === t
+                tabQuyTrinhDangMo === null && tabDangMo === t
                   ? "border-blue-600 text-blue-700"
                   : "border-transparent text-slate-600 hover:text-slate-900"
               }`}
             >
               {LEGACY_TAB_LABEL[t]}
             </button>
+            {/* The two flow tabs come right after "Thông tin", before the other legacy tabs. */}
+            {t === "info" && coTabQuyTrinh && <RecordTabButtons active={tabQuyTrinhDangMo} onSelect={setTabQuyTrinh} />}
+            </Fragment>
           ))}
         </div>
 
-        {tabDangMo !== "info" && (
+        {coTabQuyTrinh && idHoSoDaLuu && <RecordTabBody kind="PETITION" recordId={idHoSoDaLuu} active={tabQuyTrinhDangMo} />}
+
+        {tabQuyTrinhDangMo === null && tabDangMo !== "info" && (
           <LegacyTabBody
             spec={PETITION_LEGACY_SPEC}
             tabId={tabDangMo}
@@ -1163,7 +1179,7 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
 
         {/* Tab Thông tin luôn ở trong cây — ẩn bằng CSS chứ không tháo, để trạng thái ô nhập
             và ô tải tệp không bị dựng lại mỗi lần đổi tab. */}
-        <div className={tabDangMo === "info" ? "space-y-6" : "hidden"}>
+        <div className={tabQuyTrinhDangMo === null && tabDangMo === "info" ? "space-y-6" : "hidden"}>
           <LegacyTabBody
             spec={PETITION_LEGACY_SPEC}
             tabId="info"

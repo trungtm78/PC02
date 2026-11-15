@@ -23,7 +23,23 @@ function detailsOf(err: unknown): unknown[] {
   return Array.isArray(details) ? details : [];
 }
 
+/**
+ * `apply` / `reapply` answer 200 with `{ outcome, flow: null }` when nothing was applied (no flow fits the record, it is
+ * finished, or it is gone). That is a refusal for the screen: nothing changed, and retrying with the same key is pointless.
+ */
+export class ApplyNotDone extends Error {
+  readonly outcome: string;
+  constructor(outcome: string) {
+    super(`processing flow not applied: ${outcome}`);
+    this.name = 'ApplyNotDone';
+    this.outcome = outcome;
+  }
+}
+
 export function explainError(err: unknown): ExplainedError {
+  if (err instanceof ApplyNotDone) {
+    return { status: 409, code: 'NO_FLOW_FOR_RECORD', message: errorText('NO_FLOW_FOR_RECORD', ''), details: [], conflict: false };
+  }
   const { code, message, status } = extractApiError(err, '');
   return {
     status,
