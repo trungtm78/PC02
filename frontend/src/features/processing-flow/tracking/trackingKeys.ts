@@ -11,8 +11,8 @@ export const TRACKING_QUERY_KEYS = {
   all: ['processing-tracking'] as const,
   teams: ['processing-tracking', 'teams'] as const,
   summary: (filters: TrackingFilters) => ['processing-tracking', 'summary', filters] as const,
-  items: (filters: TrackingFilters, band: TrackedBand | null, page: number, asOf: string) =>
-    ['processing-tracking', 'items', filters, band, page, asOf] as const,
+  items: (filters: TrackingFilters, band: TrackedBand | null, awaiting: boolean, page: number, asOf: string) =>
+    ['processing-tracking', 'items', filters, band, awaiting, page, asOf] as const,
 };
 
 /** The hour a deadline that is the end of a civil day falls on in Vietnam: such a deadline is shown as its day alone. */

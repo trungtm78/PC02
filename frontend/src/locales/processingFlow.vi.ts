@@ -679,10 +679,26 @@ export const processingFlow = {
     filters: {
       kind: 'Loại hồ sơ',
       team: 'Đơn vị',
+      role: 'Vai trò',
       all: 'Tất cả',
       unknownTeam: 'Đơn vị đang lọc',
       clear: 'Xóa lọc',
     },
+    roles: {
+      MAIN: 'Xử lý chính',
+      CHECK: 'Kiểm tra',
+      COORDINATE: 'Phối hợp',
+    } as Record<string, string>,
+    search: {
+      label: 'Tìm',
+      placeholder: 'số hồ sơ, tên trên hồ sơ',
+      tooShort: 'Gõ ít nhất 2 ký tự để tìm.',
+    },
+    awaiting: {
+      card: 'Chờ tôi duyệt',
+      count: (rows: number) => `${rows.toLocaleString('vi-VN')} dòng · các bước đang chờ tôi duyệt`,
+    },
+    noDeadline: 'Chưa có hạn',
     count: (rows: number) => `${rows.toLocaleString('vi-VN')} dòng`,
     countByCard: (rows: number, card: string) => `${rows.toLocaleString('vi-VN')} dòng · đang lọc theo thẻ ${card}`,
     clearCard: 'Bỏ lọc theo thẻ',

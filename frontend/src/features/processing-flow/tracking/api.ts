@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { TrackedBand, TrackingFilters, TrackingItemsDto, TrackingSummaryDto, TrackingTeamDto } from './types';
+import { DEFAULT_TRACKING_ROLE, type TrackedBand, type TrackingFilters, type TrackingItemsDto, type TrackingSummaryDto, type TrackingTeamDto } from './types';
 
 const data = <T>(r: { data: T }): T => r.data;
 
@@ -10,11 +10,15 @@ const filterParams = (filters: TrackingFilters): Record<string, string | boolean
   ...(filters.mine ? { mine: true } : {}),
   ...(filters.teamId ? { teamId: filters.teamId } : {}),
   ...(filters.kind ? { kind: filters.kind } : {}),
+  ...(filters.role !== DEFAULT_TRACKING_ROLE ? { role: filters.role } : {}),
+  ...(filters.q ? { q: filters.q } : {}),
 });
 
 export interface TrackingItemsQuery extends TrackingFilters {
   /** The card that was clicked; `null`: every colour. */
   band: TrackedBand | null;
+  /** The card "Chờ tôi duyệt" was clicked: the list is the work waiting for this person's decision, whatever its band. */
+  awaiting: boolean;
   /** The `asOf` the summary answered: the list is judged at the instant the cards were. */
   asOf: string;
   page: number;
@@ -37,7 +41,8 @@ export const trackingApi = {
       .get<TrackingItemsDto>(`${BASE}/items`, {
         params: {
           ...filterParams(query),
-          ...(query.band ? { band: query.band } : {}),
+          // The two are exclusive: the server does not read a band on the list of work waiting for a decision.
+          ...(query.awaiting ? { awaiting: 'approval' } : query.band ? { band: query.band } : {}),
           asOf: query.asOf,
           page: query.page,
           pageSize: query.pageSize,

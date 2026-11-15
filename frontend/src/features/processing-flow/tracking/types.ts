@@ -10,11 +10,24 @@ export type TrackedBand = 'OVERDUE' | 'RED' | 'YELLOW' | 'GREEN';
 /** The bands that have a card: every colour of the contract. `NONE` (not near its deadline yet) has none. */
 export const TRACKED_BANDS = raw.bands.filter((band) => band !== 'NONE') as readonly TrackedBand[];
 
+/** The part a unit plays in a step that makes the step its work (INFORM is never work). */
+export type TrackingRole = 'MAIN' | 'CHECK' | 'COORDINATE';
+export const TRACKING_ROLES: readonly TrackingRole[] = ['MAIN', 'CHECK', 'COORDINATE'];
+/** What the server uses when no role is sent; never written to the address. */
+export const DEFAULT_TRACKING_ROLE: TrackingRole = 'MAIN';
+
+/** The shortest and the longest text the search box sends: the server refuses anything else. */
+export const SEARCH_MIN = 2;
+export const SEARCH_MAX = 100;
+
 /** The filters the cards and the list share. */
 export interface TrackingFilters {
   mine: boolean;
   teamId: string | null;
   kind: RecordKind | null;
+  role: TrackingRole;
+  /** The search, trimmed, of at least `SEARCH_MIN` characters; `null`: no search. */
+  q: string | null;
 }
 
 export interface TrackingSummaryDto {
@@ -26,6 +39,11 @@ export interface TrackingSummaryDto {
    * asserts no deadline, so it is in none of the four counts. Absent in the answer of an older server.
    */
   unconfirmed?: number;
+  /**
+   * The work that waits for THIS person's decision, for the same filters: the rows the list answers with
+   * `awaiting=approval`. 0 for a person who may not approve. Absent in the answer of an older server.
+   */
+  awaitingMyApproval?: number;
 }
 
 export interface TrackingItemDto {
@@ -46,9 +64,10 @@ export interface TrackingItemDto {
   responsibleName: string | null;
   /** Who acts for the responsible person(s) right now under a delegation; absent or `null` when nobody does. */
   delegateName?: string | null;
-  dueAt: string;
+  /** `null` only on the list of work waiting for a decision: a step with no deadline still waits. */
+  dueAt: string | null;
   band: string;
-  remainingDays: number;
+  remainingDays: number | null;
 }
 
 export interface TrackingItemsDto {

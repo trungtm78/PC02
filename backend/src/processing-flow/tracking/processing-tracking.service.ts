@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
 import { CaseGovernanceService } from '../../cases/governance/case-governance.service';
+import { userHoldingPermission } from '../../authz/enforcement';
 import { buildPetitionScopeFilter, buildScopeFilter } from '../../common/utils/scope-filter.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { bandAt, remainingDays } from '../engine/bands';
@@ -13,7 +14,7 @@ import { clocklessStatuses, COUNTED_STEP_STATUSES, finishedStatuses, RECORD_LINK
 import { actingForIds, delegatesOf } from '../records/processing-delegation';
 import { partyNamesUser } from '../records/record-step-access.service';
 import { bandConditions, TRACKED_BANDS, type TrackedBand, type WorkRole } from './band-conditions';
-import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
+import { AWAITING_APPROVAL, TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE, TRACKING_SEARCH_MAX, TRACKING_SEARCH_MIN } from './dto/tracking.dto';
 
 type WorkWhere = Prisma.ProcRecordStepPartyWhereInput;
 
@@ -27,6 +28,8 @@ export interface TrackingFilter {
   /** Only steps that started in this period (`startAt`). A bare day (YYYY-MM-DD) is that civil day in Vietnam. */
   from?: string;
   to?: string;
+  /** The search box: a part of the record's code or of its label (`searchWhere`). Shorter than two characters: no search. */
+  q?: string;
 }
 
 /** For `workWhere`: every piece of work, whatever its band, even one whose step has no deadline. */
@@ -43,6 +46,11 @@ export interface TrackingSummary {
    * apart, in records and not in pieces of work.
    */
   unconfirmed: number;
+  /**
+   * The work that waits for THIS person's decision (`awaitingWhere`): the rows `items` lists with `awaiting=approval`
+   * for the same filters. 0 for a person who does not hold `approve:ProcessingStep`.
+   */
+  awaitingMyApproval: number;
 }
 
 export interface TrackingItem {
@@ -68,10 +76,11 @@ export interface TrackingItem {
   responsibleName: string | null;
   /** Who acts for the responsible person(s) right now under a delegation; `null` when nobody does. */
   delegateName: string | null;
-  dueAt: string;
+  /** `null` only on the list of `awaiting=approval`: a step with no deadline still waits for a decision. */
+  dueAt: string | null;
   band: Band;
-  /** Civil days left (Vietnam); 0 on the due day, negative after it. */
-  remainingDays: number;
+  /** Civil days left (Vietnam); 0 on the due day, negative after it. `null` with `dueAt`. */
+  remainingDays: number | null;
 }
 
 export interface TrackingItems {
@@ -116,6 +125,13 @@ export const displayName = (user: { firstName: string | null; lastName: string |
  *     this work names the person or an active unit of theirs (the rule by which that unit opens the record read-only), and
  *   - for a case, the governance rules as well (sensitivity, representation), which the step never lifts.
  */
+/** What a person reaches of the records of one kind: see `ProcessingTrackingService.recordScopes`. */
+export interface RecordScope {
+  inScope: object;
+  viaStep: object | null;
+  onList: object;
+}
+
 /** A unit of the filter of the tracking screen. */
 export interface TrackingTeam {
   id: string;
@@ -142,25 +158,36 @@ export class ProcessingTrackingService {
     const reach = await this.reach(user, filter.kind, acting);
     const counts = { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 };
     let unconfirmed = 0;
+    // Its own reach (the record's scope alone), so it is asked whether or not the cards have anything.
+    const awaiting = await this.awaitingWhere(user, filter);
+    const awaitingMyApproval = awaiting ? await this.prisma.procRecordStepParty.count({ where: awaiting }) : 0;
     if (reach) {
       for (const band of TRACKED_BANDS) counts[band] = await this.prisma.procRecordStepParty.count({ where: this.workWhere(user, filter, reach, band, asOf, acting) });
       // The flows nobody has confirmed, whatever their steps and dates say: counted by record.
       unconfirmed = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: this.proposalWhere(user, filter, reach, acting) } } } } });
     }
-    return { asOf: asOf.toISOString(), counts, unconfirmed };
+    return { asOf: asOf.toISOString(), counts, unconfirmed, awaitingMyApproval };
   }
 
-  async items(user: GatewayUser, filter: TrackingFilter & { band?: Band; page?: number; pageSize?: number }): Promise<TrackingItems> {
+  async items(user: GatewayUser, filter: TrackingFilter & { band?: Band; awaiting?: typeof AWAITING_APPROVAL; page?: number; pageSize?: number }): Promise<TrackingItems> {
     const asOf = this.instant(filter.asOf);
     const page = Math.max(filter.page ?? 1, 1);
     const pageSize = Math.min(Math.max(filter.pageSize ?? TRACKING_DEFAULT_PAGE_SIZE, 1), TRACKING_MAX_PAGE_SIZE);
-    const band = filter.band ?? null;
+    const awaiting = filter.awaiting === AWAITING_APPROVAL;
+    // The list of the card "waiting for my approval" has no band: a step waits whatever its colour.
+    const band = awaiting ? null : (filter.band ?? null);
     const empty: TrackingItems = { asOf: asOf.toISOString(), band, items: [], total: 0, page, pageSize };
-    const acting = await this.acting(user);
-    const reach = await this.reach(user, filter.kind, acting);
-    if (!reach) return empty;
-
-    const where = this.workWhere(user, filter, reach, band, asOf, acting);
+    let where: WorkWhere;
+    if (awaiting) {
+      const waiting = await this.awaitingWhere(user, filter);
+      if (!waiting) return empty;
+      where = waiting;
+    } else {
+      const acting = await this.acting(user);
+      const reach = await this.reach(user, filter.kind, acting);
+      if (!reach) return empty;
+      where = this.workWhere(user, filter, reach, band, asOf, acting);
+    }
     const [rows, total] = await Promise.all([
       this.prisma.procRecordStepParty.findMany({
         where,
@@ -177,8 +204,10 @@ export class ProcessingTrackingService {
     const responsible = await this.responsibleNames(rows);
     const items = rows.flatMap((row): TrackingItem[] => {
       const { recordStep: step } = row;
-      // Every row matched a band, so it has all four instants; a row without them is not shown rather than guessed.
-      if (!step.internalDueAt || !step.redFrom || !step.yellowFrom || !step.greenFrom) return [];
+      const timed = step.internalDueAt && step.redFrom && step.yellowFrom && step.greenFrom ? { dueAt: step.internalDueAt, redFrom: step.redFrom, yellowFrom: step.yellowFrom, greenFrom: step.greenFrom } : null;
+      // A row that matched a band has all four instants; one without them is not shown rather than guessed. Only the
+      // list of work waiting for a decision has rows with no deadline: they are shown, with no colour.
+      if (!timed && !awaiting) return [];
       const name = names.get(`${step.recordKind}:${step.recordId}`);
       return [
         {
@@ -194,9 +223,9 @@ export class ProcessingTrackingService {
           assigneeUserId: row.assigneeUserId,
           responsibleName: responsible.get(row.id)?.name ?? null,
           delegateName: responsible.get(row.id)?.delegate ?? null,
-          dueAt: step.internalDueAt.toISOString(),
-          band: bandAt(asOf, { dueAt: step.internalDueAt, redFrom: step.redFrom, yellowFrom: step.yellowFrom, greenFrom: step.greenFrom }),
-          remainingDays: remainingDays(asOf, step.internalDueAt),
+          dueAt: timed ? timed.dueAt.toISOString() : null,
+          band: timed ? bandAt(asOf, timed) : 'NONE',
+          remainingDays: timed ? remainingDays(asOf, timed.dueAt) : null,
         },
       ];
     });
@@ -252,6 +281,46 @@ export class ProcessingTrackingService {
     if (started) parts.push({ recordStep: { startAt: started } });
     if (filter.teamId) parts.push({ teamId: filter.teamId });
     if (filter.mine) parts.push(mineWhere(user.id, acting));
+    const search = searchWhere(filter.q);
+    if (search) parts.push(search);
+    return { AND: parts };
+  }
+
+  /**
+   * THE condition of the work that waits for THIS person's decision, for these filters; `null` when the person decides
+   * nothing at all. `summary.awaitingMyApproval` counts it and `items` with `awaiting=approval` lists it: one condition.
+   *
+   * It is the rule of the decision route (`POST .../steps/:stepKey/decision`), written as a condition of the query:
+   *   - the person is active and holds `approve:ProcessingStep` (the route's guard), and
+   *   - the RECORD is within the person's OWN scope: `recordScopes().inScope`, the record branch alone. The step branch
+   *     is never used: a person who opens a record only through a step, or a delegation, does not decide (`mayDecide`), and
+   *   - the step is REPORTED and its flow step asks for approval (what the decision command accepts), of a CONFIRMED
+   *     flow whose clock runs (`clockRuns`: the record is not deleted, finished or suspended, and no pause is open).
+   *
+   * Counted as everything on this screen is: per party of the role asked (MAIN when none is), so a step with two MAIN
+   * units is two rows. The filters `kind`, `teamId`, `role`, the period and the search apply; `mine` does NOT (the work
+   * is somebody else's by definition: the approver is not the person named on it). No instant is compared: a step waits
+   * whatever its deadline, and one with no deadline waits too.
+   */
+  async awaitingWhere(user: GatewayUser, filter: TrackingFilter): Promise<WorkWhere | null> {
+    const holders = await this.prisma.user.count({ where: { AND: [{ id: user.id, isActive: true }, userHoldingPermission('approve', 'ProcessingStep')] } });
+    if (holders === 0) return null;
+    const scopes = await this.recordScopes(user, filter.kind);
+    const own: WorkWhere[] = RECORD_KINDS.flatMap((kind) => {
+      const scope = scopes[kind];
+      return scope ? [{ recordStep: { recordKind: kind, recordFlow: { [RECORD_LINK[kind].relation]: { is: scope.inScope } } } } as WorkWhere] : [];
+    });
+    if (own.length === 0) return null;
+    const parts: WorkWhere[] = [
+      { role: filter.role ?? 'MAIN' },
+      { recordStep: { status: 'REPORTED', step: { requiresApproval: true }, recordFlow: clockRuns(), ...(filter.kind ? { recordKind: filter.kind } : {}) } },
+      { OR: own },
+    ];
+    const started = periodOf(filter.from, filter.to);
+    if (started) parts.push({ recordStep: { startAt: started } });
+    if (filter.teamId) parts.push({ teamId: filter.teamId });
+    const search = searchWhere(filter.q);
+    if (search) parts.push(search);
     return { AND: parts };
   }
 
@@ -269,6 +338,8 @@ export class ProcessingTrackingService {
     if (filter.teamId || filter.mine) parts.push({ role: 'MAIN' });
     if (filter.teamId) parts.push({ teamId: filter.teamId });
     if (filter.mine) parts.push(mineWhere(user.id, acting));
+    const search = searchWhere(filter.q);
+    if (search) parts.push(search);
     return { AND: parts };
   }
 
@@ -294,12 +365,16 @@ export class ProcessingTrackingService {
    * Per kind of record the person may read at all: `inScope`, the condition of the RECORDS within the person's own
    * scope (exactly the filter the list of that kind applies), and `viaStep`, the condition a record must still meet
    * when it is reached through a step instead (`null`: the scope is unrestricted already, a second reason adds nothing).
-   * A kind the person may not read is absent. `reach` is built from this and nothing else; so is every count of records
-   * that have no step to be reached by (the backlog's "no flow yet" column uses `inScope` alone).
+   * A kind the person may not read is absent. `reach` is built from this and nothing else.
+   *
+   * `onList`: the records the LIST of that kind shows the person. For a petition and an incident it is `inScope`. For a
+   * case it is NOT: a person who acts by representation needs the capability `view` to open a case (what a row of work
+   * leads to, hence `inScope`) and the independent capability `list` to see it on the list. Whatever counts or lists
+   * RECORDS as the list screen would (the backlog's "no flow yet" column and its drill-down) uses `onList`.
    */
-  async recordScopes(user: GatewayUser, only?: RecordKind): Promise<Partial<Record<RecordKind, { inScope: object; viaStep: object | null }>>> {
+  async recordScopes(user: GatewayUser, only?: RecordKind): Promise<Partial<Record<RecordKind, RecordScope>>> {
     const scope = await requestScopeOf(this.scopes, user);
-    const found: Partial<Record<RecordKind, { inScope: object; viaStep: object | null }>> = {};
+    const found: Partial<Record<RecordKind, RecordScope>> = {};
 
     for (const kind of RECORD_KINDS) {
       if (only && only !== kind) continue;
@@ -308,7 +383,10 @@ export class ProcessingTrackingService {
         const governance = new CaseGovernanceService(this.prisma);
         let inScope: Prisma.CaseWhereInput;
         let policyOnly: Prisma.CaseWhereInput;
+        let onList: Prisma.CaseWhereInput;
         try {
+          // The case list's own visibility (`CasesService.visibilityWhere`): the default capability, `list`.
+          onList = await governance.readableCaseWhere(this.prisma, { actorId: user.id });
           // 'view': a row shows the step of a case, which the detail route (`assertCaseReadable`) guards with it.
           inScope = await governance.readableCaseWhere(this.prisma, { actorId: user.id }, { representationCapability: 'view' });
           policyOnly = await governance.readableCaseWhere(this.prisma, { actorId: user.id }, { representationCapability: 'view', withoutScope: true });
@@ -319,14 +397,15 @@ export class ProcessingTrackingService {
         }
         // The list of cases applies the scope of the request on top of the governance scope; so does this.
         const requestScope = buildScopeFilter(scope, 'read', 'Case');
-        found.CASE = { inScope: { AND: [inScope, requestScope ?? {}] }, viaStep: policyOnly };
+        found.CASE = { inScope: { AND: [inScope, requestScope ?? {}] }, viaStep: policyOnly, onList: { AND: [onList, requestScope ?? {}] } };
         continue;
       }
       const subject = kind === 'PETITION' ? 'Petition' : 'Incident';
       if (!(await holdsReadPermission(this.prisma, user.id, subject))) continue;
       const scopeFilter = kind === 'PETITION' ? buildPetitionScopeFilter(scope, 'read') : buildScopeFilter(scope, 'read', 'Incident');
       // Unrestricted already: the second reason adds nothing.
-      found[kind] = { inScope: { AND: [{ deletedAt: null }, scopeFilter ?? {}] }, viaStep: scopeFilter ? { deletedAt: null } : null };
+      const inScope = { AND: [{ deletedAt: null }, scopeFilter ?? {}] };
+      found[kind] = { inScope, viaStep: scopeFilter ? { deletedAt: null } : null, onList: inScope };
     }
     return found;
   }
@@ -382,6 +461,26 @@ export class ProcessingTrackingService {
     }
     return result;
   }
+}
+
+/** A text typed by a person as a LIKE pattern that matches it literally: `%`, `_` and the escape itself are plain characters. */
+const literalLike = (text: string): string => text.replace(/[\\%_]/g, (character) => `\\${character}`);
+
+/**
+ * THE condition of the search box, over the work rows; `null` when there is nothing to search (fewer than two
+ * characters after trimming). The cards, the list, the proposals counted apart and the work waiting for a decision all
+ * add this same condition to their own: it only ever NARROWS what the person already reaches.
+ *
+ * What is matched is what the row shows of its record (`recordNames`): the code people know it by and the name next to
+ * it, case-insensitively, anywhere in the text. A case is matched by its code only: its name is a field its own schema
+ * may restrict, and that policy is not asked here.
+ */
+export function searchWhere(q: string | undefined): WorkWhere | null {
+  const text = (q ?? '').trim().slice(0, TRACKING_SEARCH_MAX);
+  if (text.length < TRACKING_SEARCH_MIN) return null;
+  const has = { contains: literalLike(text), mode: 'insensitive' as const };
+  const of = (kind: RecordKind, where: object): WorkWhere => ({ recordStep: { recordKind: kind, recordFlow: { [RECORD_LINK[kind].relation]: { is: where } } } });
+  return { OR: [of('PETITION', { OR: [{ stt: has }, { senderName: has }] }), of('INCIDENT', { OR: [{ code: has }, { name: has }] }), of('CASE', { caseCode: has })] };
 }
 
 /**
