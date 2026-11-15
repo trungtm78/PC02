@@ -79,6 +79,23 @@ Not verified by this run: the screens, the monkey run, the server's own 15-minut
 
 ---
 
+## Browser pass (Chromium via Playwright, 1366x900 and 400x800), 15/11/2026
+
+Second pass, on `a64f564e` (local stack, database `pc02_uat_browser`). A line says PASS only for what was clicked.
+
+| Screen / piece | Status | What was clicked |
+|---|---|---|
+| Settings: flows, steps, Gantt preview, versions, publish, legal check, binding an information type, working calendar year | PASS | create, edit, move, publish, verify, bind, calendar days in dd/mm/yyyy; a user without the permission gets the Vietnamese no-permission state on all four screens |
+| Tab "Phân công xử lý" on the three forms | PASS | tab order Thông tin → Phân công xử lý → Kết quả xử lý → the rest; complete, reopen, skip / unskip, own deadline, extend (hidden when none is left), acceptance date, confirm a proposal, re-apply; Enter in a tab text box does not save the record; name / change / clear the person, "Nhận việc" |
+| Tab "Kết quả xử lý" | PASS, one defect fixed after the pass | progress and result report, opinion, decision (agree / rework), withdraw; a 409 locks the second page and keeps the typed text; forms offered only to a person the server accepts; attachments: upload (multipart, 200), download (same bytes), remove, upload control gone after the step is done. DEFECT: the Vietnamese name of an attached file was garbled — fixed in `c52d6e3b`, not re-clicked |
+| "Theo dõi xử lý" | PASS | a card's number equals its rows; filters in the URL survive a reload; Back undoes a card; the line "chưa xác định quy trình" and its count going down after a confirmation; an officer's unit filter lists units |
+| "Tồn đọng theo đơn vị" | PASS | a number opens exactly that many rows; filters; on-time table; roll-up with a real parent / child unit; the Excel export equals the screen, also rolled up |
+| Column "Cảnh báo" on the three lists | PASS | cell text, filter by band, sort by the header on petitions, incidents and cases; with the switch off the column, the filter and the two tabs are gone and the lists / forms still work |
+| "Uỷ quyền xử lý" | PASS, two points open | create, in force, the delegate sees the work under "Việc của tôi", opens the record on the tab, reports, revoke removes it. OPEN: the server refusing a delegate who saves the record's own fields was not proven in the browser (the form's own validation stopped the save; the HTTP UAT proves it); after a revoke the report form was still offered to a person who is ALSO a member of that unit (expected for a member; not separated by the test data) |
+| Mobile app (Flutter) | NOT RUN on a device | `flutter test` 155/155 and the Maestro job of CI only |
+
+Not clicked: edit / withdraw of a report that has files, the 10 MB limit and a forbidden file type in the browser, a comparison with the wireframe side by side, write actions at 400 px beyond naming a person and a report with a file.
+
 ## Earlier ledgers (preserved)
 
 # UAT coverage ? petition all-column search
