@@ -12,6 +12,7 @@ import { PetitionAdapter } from '../gateway/petition.adapter';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { recordLink } from '../records/record-alert';
+import { ProcessingResultsService } from '../records/processing-results.service';
 import { RecordStepAccessService } from '../records/record-step-access.service';
 import type { PrismaClient } from '@prisma/client';
 import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
@@ -237,6 +238,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     await db.featureFlag.deleteMany({ where: { key: { in: [SWITCH, RECORDS] } } });
     await db.notification.deleteMany({ where: { userId: { in: people } } });
     await db.procStepChange.deleteMany({ where: { recordId: { in: recordIds } } });
+    await db.procStepOpinion.deleteMany({ where: { recordId: { in: recordIds } } });
     await db.procRecordStepParty.deleteMany({ where: { recordStep: { recordFlow: flows } } });
     await db.procRecordStep.deleteMany({ where: { recordFlow: flows } });
     await db.procRecordPause.deleteMany({ where: { recordFlow: flows } });
@@ -734,6 +736,27 @@ run('The reminders of the processing flow on PostgreSQL', () => {
       expect(await changesOf(recordId)).toMatchObject([{ action: STEP_NUDGED, stepKey: 'k1', reason: 'Please report by Friday', actorId: id.actor, toValue: { notified: 1 } }]);
     });
 
+    it('is written into the opinion book of the step (R4): the results of the step list it, with the message, who and when; a refused nudge and a replayed one add none', async () => {
+      const { recordId } = await work({ due: endOf(25) });
+      // The reader of `GET .../steps/:stepKey/results`: it only reads.
+      const book = async () => (await new ProcessingResultsService(scratch.db as never, {} as never).results('PETITION', recordId, 'k1')).opinions;
+      const input = { message: ' Report by Friday ', idempotencyKey: `nudge-${randomUUID()}` };
+      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', input, NOW);
+      expect(await book()).toMatchObject([
+        { kind: 'NUDGE', verdict: 'NOTE', content: 'Report by Friday', authorId: id.actor, authorTeamId: null, reportId: null, reportRevision: null, withdrawnAt: null, createdAt: NOW.toISOString() },
+      ]);
+
+      // The same request again: the first answer, nothing written.
+      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', input, later(5_000));
+      // Another one inside the window: refused, nothing written.
+      await expect(reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Second' }, later(60_000))).rejects.toMatchObject({ response: { code: 'NUDGE_TOO_SOON' } });
+      expect(await book()).toHaveLength(1);
+
+      // After the window: a second entry, after the first.
+      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Second' }, later(NUDGE_COOLDOWN_MS + 60_000));
+      expect((await book()).map((opinion) => [opinion.kind, opinion.content])).toEqual([['NUDGE', 'Report by Friday'], ['NUDGE', 'Second']]);
+    });
+
     it('once per person and step per 30 minutes: a second one is refused with a code and adds nothing; after the window, and for another person, it goes through', async () => {
       const { recordId } = await work({ due: endOf(25) });
       await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'First' }, NOW);
@@ -799,6 +822,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
       await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'k1', { message: 'Hurry' }, NOW)).rejects.toMatchObject({ response: { code: 'RECORD_FLOW_NOT_FOUND' } });
       expect(await rowsOf(open.recordId)).toHaveLength(0);
       expect(await scratch.db.procStepChange.count({ where: { recordId: { in: [open.recordId, done.recordId] } } })).toBe(0);
+      expect(await scratch.db.procStepOpinion.count({ where: { recordId: { in: [open.recordId, done.recordId] } } })).toBe(0);
     });
   });
 

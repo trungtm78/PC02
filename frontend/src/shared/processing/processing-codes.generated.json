@@ -92,7 +92,8 @@
     "SUPERVISOR",
     "COORDINATE",
     "CHECK",
-    "APPROVAL"
+    "APPROVAL",
+    "NUDGE"
   ],
   "opinionVerdicts": [
     "NOTE",

@@ -526,7 +526,7 @@ export class ProcessingReminderService {
 
   /**
    * A person presses the people who answer for a step being worked, with a short message: they are told now, and the
-   * nudge stays in the history of the step. The caller has already checked that the actor may read the record.
+   * nudge is written into the opinion book of the step and stays in its history. The caller has already checked that the actor may read the record.
    *
    * ONE nudge per person and step per window of 30 minutes. What enforces it is a unique key: the nudge writes a mark
    * row whose key carries the actor, the step and the window, in the same transaction as everything else, so two
@@ -574,7 +574,10 @@ export class ProcessingReminderService {
             data: recipients.map((recipientId) => ({ ...base, dedupeKey: `${markKey}:${recipientId}`, kind: REMINDER_KIND.NUDGE, recipientId, payload: payload as unknown as Prisma.InputJsonValue })),
           });
         }
-        // Metadata only: who, when, the words, how many were told.
+        // The opinion book of the step (R4): everybody who reads the results of the step reads the nudge. It names no
+        // report, speaks for no unit of the step, and is written here and nowhere else.
+        await tx.procStepOpinion.create({ data: { recordStepId: step.id, recordKind: kind, recordId, kind: 'NUDGE', verdict: 'NOTE', content: text, authorId: actorId, createdAt: now } });
+        // The history of the step. Metadata only: who, when, the words, how many were told.
         await tx.procStepChange.create({ data: { recordFlowId: step.recordFlowId, recordKind: kind, recordId, stepKey, action: STEP_NUDGED, toValue: { notified: recipients.length }, reason: text, actorId, at: now } });
       });
     } catch (error) {

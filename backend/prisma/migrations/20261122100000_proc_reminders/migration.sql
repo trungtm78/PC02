@@ -7,6 +7,10 @@
 --
 -- A new table only; nothing existing changes. Plain CREATE INDEX (never CONCURRENTLY inside a migration).
 
+-- A nudge is written into the opinion book of its step, as a kind of its own. The value is only ADDED here: PostgreSQL
+-- does not let a new enum value be used in the transaction that adds it, and nothing in this migration uses it.
+ALTER TYPE "ProcOpinionKind" ADD VALUE IF NOT EXISTS 'NUDGE';
+
 CREATE TABLE "proc_reminders" (
     "id" TEXT NOT NULL,
     "dedupeKey" TEXT NOT NULL,

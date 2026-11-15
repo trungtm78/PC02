@@ -5704,6 +5704,8 @@ enum ProcOpinionKind {
   CHECK
   /// The leader's decision on the result of a step that asks for approval.
   APPROVAL
+  /// A nudge ("Đôn đốc"): the words a person pressed the unit with. Written by the nudge command alone.
+  NUDGE
 }
 
 enum ProcOpinionVerdict {

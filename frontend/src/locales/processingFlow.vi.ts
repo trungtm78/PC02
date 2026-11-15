@@ -571,6 +571,7 @@ export const processingFlow = {
         COORDINATE: 'Đơn vị phối hợp',
         CHECK: 'Đơn vị kiểm tra',
         APPROVAL: 'Lãnh đạo',
+        NUDGE: 'Đôn đốc',
       } as Record<string, string>,
       opinionVerdicts: {
         NOTE: 'Ý kiến',
