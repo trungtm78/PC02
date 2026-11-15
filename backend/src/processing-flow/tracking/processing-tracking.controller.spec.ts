@@ -106,8 +106,14 @@ describe('ProcessingTrackingController (HTTP, real guards)', () => {
     expect(tracking.summary).toHaveBeenCalledWith(expect.anything(), { mine: false, kind: 'PETITION' });
   });
 
+  it('the list of a cell of the backlog table: the role, the band NONE, the period', async () => {
+    await get('/processing/tracking/items?band=NONE&role=CHECK&teamId=t1&from=2026-12-01&to=2026-12-31').expect(200);
+    expect(tracking.items).toHaveBeenCalledWith(expect.anything(), { band: 'NONE', role: 'CHECK', teamId: 't1', from: '2026-12-01', to: '2026-12-31' });
+  });
+
   it.each([
-    '/processing/tracking/items?band=NONE',
+    '/processing/tracking/items?role=INFORM',
+    '/processing/tracking/items?from=2026-02-31',
     '/processing/tracking/items?band=PURPLE',
     '/processing/tracking/items?kind=DOCUMENT',
     '/processing/tracking/items?asOf=yesterday',

@@ -99,7 +99,8 @@ export interface RecordFlowDto {
 
 const iso = (value: Date | null): string | null => (value ? value.toISOString() : null);
 
-const earlier = (a: Date | null, b: Date | null): Date | null => (a && b ? (a.getTime() <= b.getTime() ? a : b) : (a ?? b));
+/** The deadline a step is judged against: the earlier of the regulatory one and the unit's own. */
+export const earlier = (a: Date | null, b: Date | null): Date | null => (a && b ? (a.getTime() <= b.getTime() ? a : b) : (a ?? b));
 
 /**
  * What the record itself says about its clock right now. `suspended`: whether or not the worker has opened the pause
