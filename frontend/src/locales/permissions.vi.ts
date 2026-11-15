@@ -107,6 +107,9 @@ export const permissions = {
     reopenStep: 'Mở lại bước',
     skipStep: 'Bỏ qua bước',
     adjustDue: 'Đặt hạn xử lý của đơn vị',
+    reportStep: 'Báo cáo kết quả bước',
+    opineStep: 'Cho ý kiến ở bước',
+    approveStep: 'Duyệt kết quả bước',
     extendStep: 'Gia hạn bước',
   } as Record<string, string>,
   reaches: {
