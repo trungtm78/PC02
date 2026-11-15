@@ -48,6 +48,14 @@ export interface RecordStepDto {
   internalDueAt: string | null;
   /** The earlier of the two: the one the colour counts down to. */
   dueAt: string | null;
+  /** The instants the bands start at (from the earlier deadline): the Gantt chart draws its tail with them. */
+  greenFrom: string | null;
+  yellowFrom: string | null;
+  redFrom: string | null;
+  /** The alert thresholds of the step, in remaining civil days. */
+  thresholds: { redDays: number; yellowDays: number; greenDays: number };
+  /** The flow allows this many extensions, of this length (the step's own figures; a variant may differ). */
+  extensionsAllowed: number;
   /** The alert colour now, for a step being worked. `NONE` for every other step. */
   band: Band;
   /** Civil days left (negative once past); `null` when the step has no deadline or is not being worked. */
@@ -131,6 +139,11 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, suspended = false
         regulatoryDueAt: iso(step.regulatoryDueAt),
         internalDueAt: iso(step.internalDueAt),
         dueAt: iso(due),
+        greenFrom: iso(step.greenFrom),
+        yellowFrom: iso(step.yellowFrom),
+        redFrom: iso(step.redFrom),
+        thresholds: thresholds,
+        extensionsAllowed: step.step.maxExtensions,
         band: working && due ? bandOf(now, due, thresholds) : 'NONE',
         remainingDays: working && due ? remainingDays(now, due) : null,
         completion: due && step.status !== 'SKIPPED' && step.status !== 'WAITING_ANCHOR' ? completionClass(step.doneAt, due, now) : null,
