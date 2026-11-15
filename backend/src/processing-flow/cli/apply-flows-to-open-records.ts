@@ -135,6 +135,9 @@ async function candidatePage(db: PrismaClient, kind: RecordKind, afterId: string
 }
 
 /** What `applyIn` does for one record, read back and then thrown away with the transaction. */
+/** The record stopped being open between the reading of its page and its turn. */
+export const NO_LONGER_OPEN = 'NO_LONGER_OPEN';
+
 async function preview(deps: ApplyFlowsDeps, kind: RecordKind, recordId: string, actorId: string | null): Promise<Preview> {
   try {
     await deps.db.$transaction(
@@ -209,9 +212,18 @@ export async function applyFlowsToOpenRecords(deps: ApplyFlowsDeps, options: App
         result.candidates += 1;
         try {
           if (options.write) {
-            const outcome = await deps.applier.apply({ kind, recordId, reason: 'CLI', actorId: options.actorId });
-            count(kind, outcomeKey(outcome));
-            if (outcome.outcome === 'APPLIED') result.applied += 1;
+            // The record is asked again inside its own transaction: it may have been finished, suspended or deleted
+            // since its page was read, and such a record is not given a flow by this command.
+            const outcome = await deps.db.$transaction(
+              async (tx) => {
+                const snapshot = await deps.gateway.load(kind, recordId, tx);
+                if (!snapshot || snapshot.isFinished || snapshot.isSuspended) return null;
+                return deps.applier.applyIn(tx, { kind, recordId, reason: 'CLI', actorId: options.actorId });
+              },
+              { timeout: 60_000, maxWait: 10_000 },
+            );
+            count(kind, outcome ? outcomeKey(outcome) : NO_LONGER_OPEN);
+            if (outcome?.outcome === 'APPLIED') result.applied += 1;
           } else {
             const seen = await preview(deps, kind, recordId, options.actorId);
             count(kind, outcomeKey(seen.outcome));
@@ -286,6 +298,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       if (given === undefined || given.startsWith('--')) throw new Error(`${name} needs a value`);
       return given;
     };
+    // A switch takes no value: `--that=false` must never read as "write".
+    if ((name === REAL_RUN_FLAG || name === EVEN_IF_OFF_FLAG) && inline !== undefined) throw new Error(`${name} takes no value`);
     if (name === REAL_RUN_FLAG) parsed.write = true;
     else if (name === EVEN_IF_OFF_FLAG) parsed.evenIfOff = true;
     else if (name === '--kind') {
@@ -302,7 +316,9 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       const text = value();
       // The day as people in Vietnam count it.
       const at = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00+07:00`) : new Date(NaN);
-      if (Number.isNaN(at.getTime())) throw new Error('--since must be a day: YYYY-MM-DD');
+      // A day that does not exist (30 February) would be moved to another day without a word: refused instead.
+      const exists = !Number.isNaN(at.getTime()) && new Date(at.getTime() + 7 * 3_600_000).toISOString().slice(0, 10) === text;
+      if (!exists) throw new Error('--since must be a day: YYYY-MM-DD');
       parsed.since = at;
     } else if (name === '--actor') parsed.actor = value();
     else throw new Error(`Unknown argument: ${argv[index]}`);

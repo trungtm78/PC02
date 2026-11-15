@@ -51,6 +51,18 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--kind'])).toThrow('needs a value');
     expect(() => parseArgs(['--thta'])).toThrow('Unknown argument');
   });
+
+  it('a switch with a value is refused: `--that=false` must never be a real run (found by Codex)', () => {
+    expect(() => parseArgs(['--that=false'])).toThrow('takes no value');
+    expect(() => parseArgs(['--that=true'])).toThrow('takes no value');
+    expect(() => parseArgs(['--even-if-off=false'])).toThrow('takes no value');
+  });
+
+  it('a day that does not exist is refused, not moved to another day', () => {
+    expect(() => parseArgs(['--since', '2026-02-30'])).toThrow('--since');
+    expect(() => parseArgs(['--since=2026-13-01'])).toThrow('--since');
+    expect(parseArgs(['--since', '2024-02-29']).since).toEqual(new Date('2024-02-28T17:00:00.000Z'));
+  });
 });
 
 run('applyFlowsToOpenRecords on PostgreSQL', () => {
@@ -251,11 +263,11 @@ run('applyFlowsToOpenRecords on PostgreSQL', () => {
   it('a record that fails is reported and the records after it still get their flow, also while the switch is off with --even-if-off', async () => {
     const failing = openPetitions[1];
     const flaky: ApplyFlowsDeps['applier'] = {
-      applyIn: (tx, input) => applier.applyIn(tx, input),
-      apply: async (input) => {
+      applyIn: async (tx, input) => {
         if (input.recordId === failing) throw new Error('this one cannot be applied');
-        return applier.apply(input);
+        return applier.applyIn(tx, input);
       },
+      apply: (input) => applier.apply(input),
     };
 
     const result = await applyFlowsToOpenRecords(deps({ applier: flaky, isSwitchOn: async () => false }), options({ write: true, evenIfOff: true }));
@@ -265,6 +277,21 @@ run('applyFlowsToOpenRecords on PostgreSQL', () => {
     expect(result.counts).toEqual({ PETITION: { ERROR: 1, 'APPLIED:TYPE': 1 }, INCIDENT: { NO_FLOW: 1 }, CASE: { 'APPLIED:TYPE': 1 } });
     expect(await withFlow()).toEqual([openPetitions[0], openPetitions[2], openCase].sort());
     expect(lines.join('\n')).toContain('INVISIBLE');
+  });
+
+  it('a record suspended after its page was read, and before its turn, gets no flow (found by Codex)', async () => {
+    const late = openPetitions[1];
+    // The page was read while the record was open; by its turn the record says it is suspended.
+    const seesSuspension = { load: async (...args: Parameters<typeof gateway.load>) => {
+      const snapshot = await gateway.load(...args);
+      return snapshot && args[1] === late ? { ...snapshot, isSuspended: true } : snapshot;
+    } } as unknown as ApplyFlowsDeps['gateway'];
+
+    const result = await applyFlowsToOpenRecords(deps({ gateway: seesSuspension }), options({ write: true }));
+
+    expect(result).toMatchObject({ applied: 0, errorCount: 0 });
+    expect(result.counts.PETITION).toEqual({ NO_LONGER_OPEN: 1 });
+    expect(await withFlow()).not.toContain(late);
   });
 
   it('running again applies only what is still missing, and a run after that applies nothing', async () => {
@@ -289,7 +316,8 @@ run('applyFlowsToOpenRecords on PostgreSQL', () => {
 
   it('each real run leaves one audit entry with counts only', async () => {
     const runs = await scratch.db.auditLog.findMany({ where: { userId: actor, action: 'PROC_FLOW_BULK_APPLY_RUN' }, orderBy: { createdAt: 'asc' } });
-    expect(runs).toHaveLength(4);
+    // Five real runs above: one record, the failing one, the suspended one, the second pass, the pass with nothing left.
+    expect(runs).toHaveLength(5);
     expect(runs[0].metadata).toMatchObject({ kinds: ['PETITION'], limit: 1, candidates: 1, applied: 1, errors: 0 });
     const text = JSON.stringify(runs.map((row) => row.metadata));
     for (const id of allIds()) expect(text).not.toContain(id);
