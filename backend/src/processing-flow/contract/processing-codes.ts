@@ -59,6 +59,22 @@ export const STEP_STATUSES = ['WAITING_ANCHOR', 'OPEN', 'REPORTED', 'DONE', 'SKI
 /** A step against its deadline, for the statistics. */
 export const COMPLETION_CLASSES = ['DONE_ON_TIME', 'DONE_LATE', 'OPEN_IN_TIME', 'OPEN_OVERDUE'] as const;
 
+/** What a unit reports on a step: progress so far, or its result. */
+export const REPORT_KINDS = ['PROGRESS', 'RESULT'] as const;
+
+/** Who is speaking in an opinion on a step. */
+export const OPINION_KINDS = ['SUPERVISOR', 'COORDINATE', 'CHECK', 'APPROVAL'] as const;
+
+/** What an opinion decides, if anything (`NOTE`: nothing). CHECK uses PASS / REQUEST_REWORK, APPROVAL uses AGREE / DISAGREE / OTHER_DIRECTION. */
+export const OPINION_VERDICTS = ['NOTE', 'PASS', 'REQUEST_REWORK', 'AGREE', 'DISAGREE', 'OTHER_DIRECTION'] as const;
+
+/** The ways a unit may propose to settle a record, by kind of record. */
+export const PROPOSAL_KINDS = {
+  PETITION: ['REPLY', 'SAVE_FILE', 'TRANSFER_TO_INCIDENT', 'TRANSFER_TO_CASE', 'TRANSFER_TO_UNIT', 'EXTEND', 'OTHER'],
+  INCIDENT: ['PROSECUTE', 'NOT_PROSECUTE', 'SUSPEND', 'TRANSFER_TO_UNIT', 'MERGE', 'EXTEND', 'OTHER'],
+  CASE: ['SUSPEND', 'RESUME', 'CLOSE', 'TRANSFER_TO_UNIT', 'EXTEND', 'OTHER'],
+} as const;
+
 export const CALENDAR_YEAR_STATUSES = ['DRAFT', 'CONFIRMED'] as const;
 
 /** `OFF`: a day off. `WORKING`: a compensatory working day that falls on a weekend. */
@@ -88,6 +104,22 @@ export const PROCESSING_ERROR_CODES = [
   'INTERNAL_DUE_AFTER_REGULATORY',
   'EXTENSION_NOT_ALLOWED',
   'DEADLINE_MANAGED_BY_FLOW',
+  // results of a step
+  'NOT_A_PARTY_OF_STEP',
+  'STEP_NOT_OPEN',
+  'STEP_NOT_REPORTED',
+  'REPORT_TEXT_REQUIRED',
+  'REPORT_NOT_FOUND',
+  'REPORT_ANSWERED',
+  'REPORT_NOT_YOURS',
+  'PROPOSAL_KIND_UNKNOWN',
+  'DOCUMENTS_INVALID',
+  'NO_RESULT_REPORT',
+  'OPINION_NOT_FOUND',
+  'OPINION_NOT_ALLOWED',
+  'OPINION_NOT_YOURS',
+  'OPINION_ANSWERED',
+  'VERDICT_INVALID',
   'ACCEPTED_DATE_INVALID',
   'ACCEPTED_ALREADY_RECORDED',
   'STEP_REASON_REQUIRED',
@@ -181,6 +213,10 @@ export function processingCodes() {
     flowMatches: [...FLOW_MATCHES],
     stepStatuses: [...STEP_STATUSES],
     completionClasses: [...COMPLETION_CLASSES],
+    reportKinds: [...REPORT_KINDS],
+    opinionKinds: [...OPINION_KINDS],
+    opinionVerdicts: [...OPINION_VERDICTS],
+    proposalKinds: Object.fromEntries(Object.entries(PROPOSAL_KINDS).map(([kind, list]) => [kind, [...list]])),
     calendarYearStatuses: [...CALENDAR_YEAR_STATUSES],
     calendarDayKinds: [...CALENDAR_DAY_KINDS],
     errorCodes: [...PROCESSING_ERROR_CODES],

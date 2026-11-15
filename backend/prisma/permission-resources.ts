@@ -174,7 +174,7 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
     key: 'processingSteps',
     group: 'business',
     basic: { view: 'read:ProcessingStep' },
-    extras: { assignFlow: 'assign:ProcessingStep', completeStep: 'complete:ProcessingStep', reopenStep: 'reopen:ProcessingStep', skipStep: 'skip:ProcessingStep', adjustDue: 'adjustDue:ProcessingStep', extendStep: 'extend:ProcessingStep' },
+    extras: { assignFlow: 'assign:ProcessingStep', completeStep: 'complete:ProcessingStep', reopenStep: 'reopen:ProcessingStep', skipStep: 'skip:ProcessingStep', adjustDue: 'adjustDue:ProcessingStep', reportStep: 'report:ProcessingStep', opineStep: 'opine:ProcessingStep', approveStep: 'approve:ProcessingStep', extendStep: 'extend:ProcessingStep' },
   },
 
   // ── Administration ────────────────────────────────────────────────────────────────────────────────────────────

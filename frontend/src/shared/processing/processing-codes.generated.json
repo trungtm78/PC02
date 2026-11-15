@@ -80,6 +80,52 @@
     "OPEN_IN_TIME",
     "OPEN_OVERDUE"
   ],
+  "reportKinds": [
+    "PROGRESS",
+    "RESULT"
+  ],
+  "opinionKinds": [
+    "SUPERVISOR",
+    "COORDINATE",
+    "CHECK",
+    "APPROVAL"
+  ],
+  "opinionVerdicts": [
+    "NOTE",
+    "PASS",
+    "REQUEST_REWORK",
+    "AGREE",
+    "DISAGREE",
+    "OTHER_DIRECTION"
+  ],
+  "proposalKinds": {
+    "PETITION": [
+      "REPLY",
+      "SAVE_FILE",
+      "TRANSFER_TO_INCIDENT",
+      "TRANSFER_TO_CASE",
+      "TRANSFER_TO_UNIT",
+      "EXTEND",
+      "OTHER"
+    ],
+    "INCIDENT": [
+      "PROSECUTE",
+      "NOT_PROSECUTE",
+      "SUSPEND",
+      "TRANSFER_TO_UNIT",
+      "MERGE",
+      "EXTEND",
+      "OTHER"
+    ],
+    "CASE": [
+      "SUSPEND",
+      "RESUME",
+      "CLOSE",
+      "TRANSFER_TO_UNIT",
+      "EXTEND",
+      "OTHER"
+    ]
+  },
   "calendarYearStatuses": [
     "DRAFT",
     "CONFIRMED"
@@ -109,6 +155,21 @@
     "INTERNAL_DUE_AFTER_REGULATORY",
     "EXTENSION_NOT_ALLOWED",
     "DEADLINE_MANAGED_BY_FLOW",
+    "NOT_A_PARTY_OF_STEP",
+    "STEP_NOT_OPEN",
+    "STEP_NOT_REPORTED",
+    "REPORT_TEXT_REQUIRED",
+    "REPORT_NOT_FOUND",
+    "REPORT_ANSWERED",
+    "REPORT_NOT_YOURS",
+    "PROPOSAL_KIND_UNKNOWN",
+    "DOCUMENTS_INVALID",
+    "NO_RESULT_REPORT",
+    "OPINION_NOT_FOUND",
+    "OPINION_NOT_ALLOWED",
+    "OPINION_NOT_YOURS",
+    "OPINION_ANSWERED",
+    "VERDICT_INVALID",
     "ACCEPTED_DATE_INVALID",
     "ACCEPTED_ALREADY_RECORDED",
     "STEP_REASON_REQUIRED",
