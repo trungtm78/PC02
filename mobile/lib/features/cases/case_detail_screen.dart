@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/status_chip.dart';
 import '../../core/api/providers.dart';
+import '../../core/constants/processing_codes.dart';
+import '../processing/record_steps_section.dart';
 import '../../core/util/safe_json.dart';
 
 final _caseDetailProvider =
@@ -13,7 +15,10 @@ final _caseDetailProvider =
 
 class CaseDetailScreen extends ConsumerWidget {
   final String id;
-  const CaseDetailScreen({super.key, required this.id});
+
+  /// Opened from a notification or from "Việc của tôi": the steps come first.
+  final bool openOnSteps;
+  const CaseDetailScreen({super.key, required this.id, this.openOnSteps = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,6 +64,7 @@ class CaseDetailScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
+              if (openOnSteps) RecordStepsSection(kind: ProcRecordKind.caseRecord, recordId: id),
               if (deadline != null)
                 _InfoRow(
                   label: 'Hạn giải quyết',
@@ -76,6 +82,10 @@ class CaseDetailScreen extends ConsumerWidget {
                   value: DateFormat('dd/MM/yyyy', 'vi_VN')
                       .format(DateTime.parse(c['createdAt'] as String)),
                 ),
+              if (!openOnSteps) ...[
+                const SizedBox(height: 8),
+                RecordStepsSection(kind: ProcRecordKind.caseRecord, recordId: id),
+              ],
             ],
           );
         },

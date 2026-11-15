@@ -1,5 +1,25 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
+## 2026-11-15 — Cột "Cảnh báo" của quy trình xử lý + màn "Theo dõi xử lý" (PR 11)
+
+Chỉ có khi công tắc `processing_flow_records` BẬT: máy chủ khi ấy trả `alert` trên từng dòng và `alertAsOf` ở gốc câu trả lời. Công tắc TẮT thì ba màn danh sách y nguyên như trước (không cột, không ô lọc, không tham số mới).
+
+| Năng lực của các shell danh sách (Đơn thư, Vụ việc, Vụ án) | Hành vi trong release | Bằng chứng |
+|---|---|---|
+| Cột "Cảnh báo" (`alert`, tích sẵn, đứng ngay trước "Trạng thái", 12rem) | Thẻ màu + chữ: "Đỏ · còn 1 ngày · Xác minh", "Quá hạn 2 ngày · Xác minh"; hồ sơ chưa có quy trình hiện theo hạn chung (không có tên bước); không có cảnh báo VÀ hồ sơ chưa tới ngưỡng nào (mức NONE) hiện "—" như wireframe đã duyệt, không hiện thẻ xám. Chữ và màu lấy từ MỘT bộ trình bày (`bandPresenter.ts`) dùng chung với tab Phân công xử lý | `features/processing-flow/alerts/__tests__/listPageSuite.tsx` chạy cho cả ba màn (`*ListPageShell.canhBao.test.tsx`), `bandPresenter.test.ts` |
+| Bố cục cột đã lưu | Cột mới khai trong mã ở cạnh "Trạng thái"; người đã đổi chỗ / ẩn / kéo cột vẫn giữ nguyên tuỳ chỉnh và thấy cột mới ở đúng khu vực ấy (luật `sapXepCot` sẵn có), ẩn được qua nút "Cột" | `listAlert.test.tsx` (nhóm "a person with a SAVED layout") |
+| Lọc theo mức cảnh báo | MỘT ô `enumSelect` trong registry `list-filters` sẵn có của từng màn (`alertBand`, khoá địa chỉ `{prefix}_alert`: Quá hạn / Đỏ / Vàng / Xanh / Chưa tới ngưỡng); đi xuống danh sách, thẻ thống kê và tệp xuất qua `baseQueryParams`; ô chỉ hiện khi máy chủ trả cảnh báo (`<Filters hiddenKeys>`) | `listPageSuite.tsx`, `Filters.test.tsx`, ba ca registry |
+| Sắp theo cảnh báo | Bấm tiêu đề cột: nhịp đầu là NẶNG NHẤT TRƯỚC (`sortBy=alert&sortOrder=asc`), nhịp hai đảo chiều, nhịp ba về mặc định (`ColumnDef.sortFirst`, mở rộng luật ba nhịp sẵn có) | `sortFirst.test.tsx`, `listPageSuite.tsx` |
+| Một mốc thời gian cho mọi trang | Đang lọc hoặc sắp theo cảnh báo thì trang 2 trở đi gửi lại `alertAsOf` mà trang đầu của CHÍNH danh sách ấy đã trả; đổi bộ lọc là lấy mốc mới | `listPageSuite.tsx`, `listAlert.test.tsx` |
+| Xuất Excel (đang xem và mọi trường) | KHÔNG gửi khoá `alert` trong `cot` (tệp xuất chưa có cột này, gửi lên là 400); mang `alertBand` và CÙNG mốc `alertAsOf` của danh sách đang hiện nên tệp khớp đúng các dòng trên màn; sắp theo cảnh báo thì tệp ra đúng thứ tự của màn (máy chủ: `thuTuDanhSach` của ba service dùng chung cho màn và mọi tệp xuất) | `listPageSuite.tsx`, `record-list-alert.database.spec.ts` |
+| Thẻ thống kê khi đang lọc theo mức cảnh báo | Chờ danh sách trả lời rồi mới đếm, với đúng mốc `alertAsOf` của danh sách; danh sách lấy mốc mới thì thẻ đếm lại theo mốc ấy | `listPageSuite.tsx`, `record-list-alert.database.spec.ts` |
+| Địa chỉ còn `{prefix}_alert` / `{prefix}_sort=alert` khi công tắc TẮT | Không gửi `alertBand`, không tính là bộ lọc đang bật, sắp theo cảnh báo coi như không sắp (thứ tự mặc định). Lượt gọi đầu tiên theo cờ tính năng của ứng dụng; nếu câu trả lời cho thấy cờ sai thì KHÔNG vẽ các dòng ấy mà gọi lại ngay (bảng vẫn ở trạng thái đang tải) | `listPageSuite.tsx`, `listAlert.test.tsx` |
+| Màn Tổng hợp, Ủy thác điều tra, Đơn thư phường/xã | KHÔNG đổi: chưa có cột Cảnh báo | — |
+
+| Màn mới | Hành vi trong release | Bằng chứng |
+|---|---|---|
+| "Theo dõi xử lý" (`/theo-doi-xu-ly`, mục menu trong "Quy trình xử lý", cần `read:ProcessingStep`, chỉ hiện khi công tắc bật) | Bốn thẻ Quá hạn / Đỏ / Vàng / Xanh; bấm thẻ lọc bảng, bấm lại là bỏ lọc; lọc Việc của tôi, Đơn vị, Loại hồ sơ; thẻ và bộ lọc nằm trong địa chỉ trang (`tracking_band`, `tracking_mine`, `tracking_team`, `tracking_kind`, `tracking_page`). Số trên thẻ và danh sách dùng CHUNG một mốc `asOf`; nếu số dòng khác số trên thẻ thì hiện "Số liệu lúc hh:mm đã thay đổi." kèm nút cập nhật cho cả hai. Bấm dòng mở hồ sơ ở tab Phân công xử lý (`?tab=phan-cong-xu-ly`). Mỗi dòng là một VIỆC (bước x đơn vị xử lý chính), khoá theo `id` máy chủ trả; cập nhật số liệu thì về trang 1, và trang không còn tồn tại tự về trang 1 | `features/processing-flow/tracking/__tests__/TrackingPage.test.tsx`, `module.test.tsx`, ba ca `*FormPage.quyTrinh.test.tsx` |
+
 ## 2026-10-09 — Giờ tiếp nhận của Đơn thư
 
 | Năng lực của PetitionListPageShell | Hành vi trong release | Bằng chứng |

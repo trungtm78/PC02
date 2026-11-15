@@ -1,3 +1,5 @@
+import 'processing.dart';
+
 class Case {
   final String id;
   final String name;
@@ -6,6 +8,9 @@ class Case {
   final String? investigatorId;
   final String? investigatorName;
 
+  /// The alert the server computed for this row; `null` while the switch is off.
+  final RecordAlert? alert;
+
   const Case({
     required this.id,
     required this.name,
@@ -13,6 +18,7 @@ class Case {
     this.deadline,
     this.investigatorId,
     this.investigatorName,
+    this.alert,
   });
 
   bool get isOverdue {
@@ -35,5 +41,6 @@ class Case {
             : null,
         investigatorId: json['investigatorId'] as String?,
         investigatorName: json['investigator']?['fullName'] as String?,
+        alert: RecordAlert.tryParse(json['alert']),
       );
 }

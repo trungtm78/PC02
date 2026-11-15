@@ -4,6 +4,9 @@ export const processingFlow = {
     flows: 'Quy trình & hạn xử lý',
     calendar: 'Lịch làm việc',
     description: 'Cài quy trình xử lý, thời hạn từng bước và lịch làm việc để tính hạn',
+    /** The switch `processing_flow_records`, as the backend names it. */
+    records: 'Quy trình xử lý trên hồ sơ',
+    recordsDescription: 'Các bước xử lý, hạn từng bước và thao tác theo quy trình trên từng đơn thư, vụ việc, vụ án',
   },
   common: {
     loading: 'Đang tải…',
@@ -617,6 +620,53 @@ export const processingFlow = {
         OTHER: 'Khác',
       },
     } as Record<string, Record<string, string>>,
+  },
+  /** The tracking screen ("Theo dõi xử lý"): the work in an alert band, counted on four cards and listed under them. */
+  tracking: {
+    menu: 'Theo dõi xử lý',
+    description: 'Các bước đang mở đã vào vùng cảnh báo, theo đơn vị và người chịu trách nhiệm',
+    title: 'Theo dõi xử lý',
+    subtitle: 'Các bước đang mở đã vào vùng cảnh báo. Bấm một thẻ để lọc bảng bên dưới.',
+    forbidden: 'Bạn chưa có quyền xem màn Theo dõi xử lý. Liên hệ quản trị viên để được cấp quyền.',
+    scope: {
+      label: 'Phạm vi',
+      mine: 'Việc của tôi',
+      all: 'Tất cả trong phạm vi',
+    },
+    filters: {
+      kind: 'Loại hồ sơ',
+      team: 'Đơn vị',
+      all: 'Tất cả',
+      unknownTeam: 'Đơn vị đang lọc',
+      clear: 'Xóa lọc',
+    },
+    count: (rows: number) => `${rows.toLocaleString('vi-VN')} dòng`,
+    countByCard: (rows: number, card: string) => `${rows.toLocaleString('vi-VN')} dòng · đang lọc theo thẻ ${card}`,
+    clearCard: 'Bỏ lọc theo thẻ',
+    asOf: (time: string) => `Số liệu lúc ${time}`,
+    changed: (time: string) => `Số liệu lúc ${time} đã thay đổi.`,
+    refresh: 'Cập nhật số liệu',
+    tableTitle: 'Các bước đang mở',
+    columns: {
+      alert: 'Cảnh báo',
+      record: 'Hồ sơ',
+      step: 'Bước',
+      unit: 'Đơn vị · người',
+      due: 'Hạn xử lý',
+    },
+    noCode: 'Chưa có số',
+    noUnit: 'Chưa có đơn vị',
+    noPerson: 'chưa có người chịu trách nhiệm',
+    open: (code: string) => `Mở hồ sơ ${code} ở tab Phân công xử lý`,
+    empty: 'Không có bước nào khớp bộ lọc.',
+    emptyHint: 'Thử bỏ lọc theo thẻ, đổi đơn vị hoặc loại hồ sơ.',
+  },
+  /** The alert column of the petition, incident and case lists. */
+  listAlert: {
+    column: 'Cảnh báo',
+    none: '—',
+    filter: 'Cảnh báo',
+    filterAll: 'Tất cả',
   },
   /** One sentence for every code of the contract (`processing-codes.generated.json`). The server sends codes, not words. */
   errors: {

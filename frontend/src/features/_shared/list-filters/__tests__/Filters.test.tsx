@@ -262,3 +262,19 @@ describe('Filters — lựa chọn nạp động', () => {
     expect(nut.slice(-3)).toEqual(['Xóa lọc', 'Xuất Excel', 'Áp dụng']);
   });
 });
+
+describe('<Filters> hiddenKeys', () => {
+  const props = { value: {}, onChange: vi.fn(), onApply: vi.fn(), onReset: vi.fn(), hasUnappliedChanges: false };
+
+  it('does not draw a hidden field and keeps every other one', () => {
+    render(<Filters<CaseFilterValue> registry={makeRegistry()} {...props} hiddenKeys={['source']} />);
+    expect(screen.queryByTestId('filter-source')).toBeNull();
+    expect(screen.getByTestId('filter-from-date')).toBeInTheDocument();
+    expect(screen.getByTestId('filter-unit')).toBeInTheDocument();
+  });
+
+  it('draws every field when nothing is hidden', () => {
+    render(<Filters<CaseFilterValue> registry={makeRegistry()} {...props} hiddenKeys={[]} />);
+    expect(screen.getByTestId('filter-source')).toBeInTheDocument();
+  });
+});

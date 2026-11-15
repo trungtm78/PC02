@@ -110,4 +110,31 @@ describe('<StatsCardsStrip> — drill-down', () => {
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
     expect(screen.queryAllByRole('tablist')).toHaveLength(0);
   });
+
+  /** The tracking screen has no "total" card: the way back to every colour is the chosen card itself. */
+  it('allowDeselect: clicking the chosen card again clears the filter', () => {
+    const onCardSelect = vi.fn();
+    render(<StatsCardsStrip cards={DRILL.slice(1)} activeValue="dang-xu-ly" onCardSelect={onCardSelect} allowDeselect />);
+    const active = screen.getByText('Mở').closest('button')!;
+    expect(active).toHaveAttribute('aria-pressed', 'true');
+    expect(active).toHaveAttribute('aria-disabled', 'false');
+    fireEvent.click(active);
+    expect(onCardSelect).toHaveBeenCalledWith(null);
+    fireEvent.click(screen.getByText('Đóng'));
+    expect(onCardSelect).toHaveBeenLastCalledWith('da-giai-quyet');
+  });
+
+  it('without allowDeselect the chosen card stays inert, as before', () => {
+    const onCardSelect = vi.fn();
+    render(<StatsCardsStrip cards={DRILL} activeValue="dang-xu-ly" onCardSelect={onCardSelect} />);
+    fireEvent.click(screen.getByText('Mở'));
+    expect(onCardSelect).not.toHaveBeenCalled();
+  });
+
+  it('a card carries the test id the screen gives it, clickable or not', () => {
+    const { rerender } = render(<StatsCardsStrip cards={[{ ...DRILL[1], testId: 'card-open' }]} onCardSelect={vi.fn()} />);
+    expect(screen.getByTestId('card-open').tagName).toBe('BUTTON');
+    rerender(<StatsCardsStrip cards={[{ ...CARDS[1], testId: 'card-open' }]} />);
+    expect(screen.getByTestId('card-open').tagName).toBe('DIV');
+  });
 });

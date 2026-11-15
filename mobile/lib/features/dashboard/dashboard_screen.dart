@@ -8,6 +8,7 @@ import '../../core/models/case.dart';
 import '../../core/models/dashboard_stats.dart';
 import '../../core/models/incident.dart';
 import '../../core/models/petition.dart';
+import '../processing/my_work_screen.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/app_drawer.dart';
 import '../../shared/widgets/offline_banner.dart';
@@ -93,7 +94,10 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               data: (d) => RefreshIndicator(
-                onRefresh: () async => ref.invalidate(_dashboardDataProvider),
+                onRefresh: () async {
+                  ref.invalidate(myWorkSummaryProvider);
+                  ref.invalidate(_dashboardDataProvider);
+                },
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
@@ -103,6 +107,7 @@ class DashboardScreen extends ConsumerWidget {
                           fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 16),
+                    const MyWorkHomeCard(),
                     _StatsGrid(stats: d.stats),
                     const SizedBox(height: 24),
                     if (d.overdueCases.isNotEmpty ||

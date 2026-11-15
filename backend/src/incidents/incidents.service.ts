@@ -3,7 +3,7 @@ import { CaseSourceCreationService } from '../case-child-access/case-source-crea
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
-import { ALERT_SORT, RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
+import { RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
 import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import {
@@ -655,7 +655,18 @@ export class IncidentsService {
   }
 
   /** Thứ tự danh sách Vụ việc — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
-  private thuTuDanhSach(sortBy: string | undefined, sortOrder: ListSortOrder) {
+  private thuTuDanhSach(
+    sortBy: string | undefined,
+    sortOrder: ListSortOrder,
+  ):
+    | Prisma.IncidentOrderByWithRelationInput
+    | Prisma.IncidentOrderByWithRelationInput[] {
+    // By alert when asked to while the records switch is on: here, so the list and every export of it order alike.
+    if (this.listAlerts?.sortsByAlert(sortBy)) {
+      return this.listAlerts.orderBy(
+        sortOrder,
+      ) as Prisma.IncidentOrderByWithRelationInput[];
+    }
     // Mặc định sắp theo NGÀY TIẾP NHẬN NGUỒN TIN. Ở bảng này cột đó tên là
     // `ngayDeXuat` (lược đồ chú thích "Ngày tiếp nhận nguồn tin — Đ.146 BLTTHS") —
     // KHÔNG phải `ngayTiepNhanNguonTin`, dù tên gọi gợi ý ngược lại. Đo trên dữ liệu
@@ -706,12 +717,7 @@ export class IncidentsService {
       alertAt,
     });
 
-    const orderBy =
-      alertAt && this.listAlerts && sortBy === ALERT_SORT
-        ? (this.listAlerts.orderBy(
-            sortOrder,
-          ) as Prisma.IncidentOrderByWithRelationInput[])
-        : this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
+    const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
 
     const [rows, total] = await Promise.all([
       this.prisma.incident.findMany({

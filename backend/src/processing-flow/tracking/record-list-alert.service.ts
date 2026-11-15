@@ -130,6 +130,14 @@ export class RecordListAlertService implements OnModuleInit {
     return Number.isNaN(at.getTime()) ? this.now() : at;
   }
 
+  /**
+   * Whether a list asked for `sortBy` is ordered by alert: only that value, and only while the switch is on. The list
+   * and every export of it ask HERE, so a sheet comes out in the order of the screen it was exported from.
+   */
+  sortsByAlert(sortBy: string | undefined): boolean {
+    return this.recordsOn && sortBy === ALERT_SORT;
+  }
+
   /** The records of a kind whose alert is in `band` at `at`: a condition for the list's own `where`. */
   where(kind: RecordKind, band: Band, at: Date): Record<string, unknown> {
     const day = deadlineDayWhere(band, at, this.thresholds());

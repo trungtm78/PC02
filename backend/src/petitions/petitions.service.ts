@@ -5,7 +5,7 @@ import { CaseSourceCreationService } from '../case-child-access/case-source-crea
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
-import { ALERT_SORT, RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
+import { RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
 import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
@@ -472,7 +472,18 @@ export class PetitionsService {
   }
 
   /** Thứ tự danh sách Đơn thư — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
-  private thuTuDanhSach(sortBy: string | undefined, sortOrder: ListSortOrder) {
+  private thuTuDanhSach(
+    sortBy: string | undefined,
+    sortOrder: ListSortOrder,
+  ):
+    | Prisma.PetitionOrderByWithRelationInput
+    | Prisma.PetitionOrderByWithRelationInput[] {
+    // By alert when asked to while the records switch is on: here, so the list and every export of it order alike.
+    if (this.listAlerts?.sortsByAlert(sortBy)) {
+      return this.listAlerts.orderBy(
+        sortOrder,
+      ) as Prisma.PetitionOrderByWithRelationInput[];
+    }
     // Không sắp theo ngày tạo: toàn bộ 45.459 đơn thư di trú có CÙNG một `createdAt` (ngày di
     // trú), sắp theo nó cho ra thứ tự ngẫu nhiên. Đo prod 19/09/2026: `ngayDeXuat` 0 hồ sơ rỗng,
     // 0 ngày tương lai — nên không cần cột sinh chặn ngày phi lý như `sortReceivedDate`.
@@ -552,12 +563,7 @@ export class PetitionsService {
       alertAt,
     });
 
-    const orderBy =
-      alertAt && this.listAlerts && sortBy === ALERT_SORT
-        ? (this.listAlerts.orderBy(
-            sortOrder,
-          ) as Prisma.PetitionOrderByWithRelationInput[])
-        : this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
+    const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
 
     const [rows, total] = await Promise.all([
       this.prisma.petition.findMany({
