@@ -8,6 +8,9 @@
  * migration and a new translation, never a quiet edit.
  */
 
+/** The kinds of record a processing flow can be attached to. */
+export const RECORD_KINDS = ['PETITION', 'INCIDENT', 'CASE'] as const;
+
 /** How the duration of a step is counted. */
 export const DURATION_UNITS = ['HOUR', 'DAY', 'WORKING_DAY', 'MONTH'] as const;
 
@@ -27,6 +30,29 @@ export const BANDS = ['OVERDUE', 'RED', 'YELLOW', 'GREEN', 'NONE'] as const;
 
 /** What a unit is to a step. */
 export const PARTY_ROLES = ['MAIN', 'CHECK', 'COORDINATE', 'INFORM'] as const;
+
+/** Who a party of a step is: the unit that holds the record (resolved per record), or one named unit. */
+export const PARTY_KINDS = ['RECORD_TEAM', 'TEAM'] as const;
+
+/** A fact of the record that picks another duration for a step. */
+export const CONDITION_KEYS = ['CRIME_GRAVITY'] as const;
+
+/** The values of `CRIME_GRAVITY`: the gravity of the crime of a case (the database enum `CapDoToiPham`). */
+export const CRIME_GRAVITIES = ['IT_NGHIEM_TRONG', 'NGHIEM_TRONG', 'RAT_NGHIEM_TRONG', 'DAC_BIET_NGHIEM_TRONG'] as const;
+
+/** The deadline groups of a petition a flow can be bound to (the database enum `LoaiDon`). */
+export const DEADLINE_GROUPS = ['TO_CAO', 'KHIEU_NAI', 'KIEN_NGHI', 'PHAN_ANH'] as const;
+
+export const FLOW_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
+
+/** `PUBLISHED`: the version records follow; it never changes again. `SUPERSEDED`: a published version replaced by a later one. */
+export const FLOW_VERSION_STATUSES = ['DRAFT', 'PUBLISHED', 'SUPERSEDED'] as const;
+
+/**
+ * How a record found its flow. `UNKNOWN_TYPE`: its information type matches no catalogue entry, so the default flow is
+ * only a proposal a person has to confirm.
+ */
+export const FLOW_MATCHES = ['TYPE', 'GROUP', 'DEFAULT', 'UNKNOWN_TYPE'] as const;
 
 export const STEP_STATUSES = ['WAITING_ANCHOR', 'OPEN', 'REPORTED', 'DONE', 'SKIPPED'] as const;
 
@@ -56,6 +82,53 @@ export const PROCESSING_ERROR_CODES = [
   'CALENDAR_YEAR_CONFIRMED',
   'CALENDAR_YEAR_ALREADY_CONFIRMED',
   'CALENDAR_YEAR_NOT_CONFIRMED',
+  // the flow configuration: requests
+  'EXPECTED_REVISION_INVALID',
+  'RECORD_KIND_INVALID',
+  'FLOW_NOT_FOUND',
+  'FLOW_VERSION_NOT_FOUND',
+  'FLOW_STEP_NOT_FOUND',
+  'FLOW_NAME_REQUIRED',
+  'FLOW_NAME_TAKEN',
+  'DEFAULT_FLOW_EXISTS',
+  'FLOW_SOURCE_AMBIGUOUS',
+  'FLOW_SOURCE_NOT_FOUND',
+  'SOURCE_KIND_MISMATCH',
+  'TEMPLATE_UNKNOWN',
+  'FLOW_ARCHIVED',
+  'FLOW_ALREADY_ARCHIVED',
+  'FLOW_NOT_ARCHIVED',
+  'TYPE_ALREADY_BOUND',
+  'DIRECTORY_BOUND_TO_FLOW',
+  'TYPE_UNKNOWN',
+  'GROUP_UNKNOWN',
+  'GROUP_NOT_FOR_KIND',
+  'FLOW_IN_USE',
+  'CONFIRMATION_MISMATCH',
+  'DRAFT_ALREADY_EXISTS',
+  'VERSION_IMMUTABLE',
+  'STEPS_INVALID',
+  'STEP_KEY_UNKNOWN',
+  'TEAM_UNKNOWN',
+  'TEAM_NOT_ACTIVE',
+  'FLOW_INVALID',
+  'LEGAL_BASIS_REQUIRED',
+  'LEGAL_ALREADY_VERIFIED',
+  'LEGAL_NOT_VERIFIED',
+  'PREVIEW_ANCHORS_INVALID',
+  // the flow configuration: what makes a version unfit to publish (`FLOW_INVALID` lists them)
+  'FLOW_HAS_NO_STEPS',
+  'STEP_NAME_REQUIRED',
+  'STEP_NEEDS_ONE_MAIN',
+  'DUPLICATE_PARTY',
+  'EXTENSION_INCOMPLETE',
+  'ANCHOR_NOT_AVAILABLE_FOR_KIND',
+  'PREVIOUS_STEP_ANCHOR_ON_FIRST_STEP',
+  'MULTIPLE_RECORD_DEADLINE_STEPS',
+  'VARIANT_DUPLICATE',
+  'VARIANT_NOT_AVAILABLE_FOR_KIND',
+  // the schedule preview
+  'ANCHOR_DATE_MISSING',
 ] as const;
 
 export type ProcessingErrorCode = (typeof PROCESSING_ERROR_CODES)[number];
@@ -74,10 +147,18 @@ export const PROCESSING_CODES_TARGETS = [
 export function processingCodes() {
   return {
     _generated: 'Do not edit by hand. Source: backend/src/processing-flow/contract/processing-codes.ts. Re-run in backend: npm run gen:processing-codes',
+    recordKinds: [...RECORD_KINDS],
     durationUnits: [...DURATION_UNITS],
     anchorKinds: [...ANCHOR_KINDS],
     bands: [...BANDS],
     partyRoles: [...PARTY_ROLES],
+    partyKinds: [...PARTY_KINDS],
+    conditionKeys: [...CONDITION_KEYS],
+    crimeGravities: [...CRIME_GRAVITIES],
+    deadlineGroups: [...DEADLINE_GROUPS],
+    flowStatuses: [...FLOW_STATUSES],
+    flowVersionStatuses: [...FLOW_VERSION_STATUSES],
+    flowMatches: [...FLOW_MATCHES],
     stepStatuses: [...STEP_STATUSES],
     completionClasses: [...COMPLETION_CLASSES],
     calendarYearStatuses: [...CALENDAR_YEAR_STATUSES],

@@ -158,6 +158,18 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
       requestChanges: 'request_changes:DeadlineRuleVersion',
     },
   },
+  {
+    key: 'processingFlows',
+    group: 'catalogue',
+    basic: { view: 'read:ProcessingFlow', create: 'create:ProcessingFlow', edit: 'edit:ProcessingFlow', delete: 'delete:ProcessingFlow' },
+    extras: { publishFlow: 'publish:ProcessingFlow', verifyLegal: 'verify:ProcessingFlow' },
+  },
+  {
+    key: 'processingCalendar',
+    group: 'catalogue',
+    basic: { view: 'read:ProcessingCalendar', edit: 'edit:ProcessingCalendar' },
+    extras: { confirmYear: 'confirm:ProcessingCalendar' },
+  },
 
   // ── Administration ────────────────────────────────────────────────────────────────────────────────────────────
   {

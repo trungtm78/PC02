@@ -70,6 +70,24 @@ describe('FeatureFlagsService', () => {
       expect(await service.isEnabled('brand-new-feature')).toBe(true);
     });
 
+    it('a feature that starts OFF reads as OFF while it has no row (a database built by `db push` and never seeded)', async () => {
+      delete process.env['ENABLED_FEATURES'];
+      await build();
+      prisma.featureFlag.findMany.mockResolvedValue([]);
+      for (const key of ['processing_flow', 'processing_flow_records', 'processing_flow_reminders']) {
+        expect(await service.isEnabled(key)).toBe(false);
+      }
+      // Everything else keeps today's behaviour: a feature with no row is on.
+      expect(await service.isEnabled('cases')).toBe(true);
+    });
+
+    it('a row decides, also for a feature that starts OFF: the operator switched it on', async () => {
+      delete process.env['ENABLED_FEATURES'];
+      await build();
+      prisma.featureFlag.findMany.mockResolvedValue([row({ key: 'processing_flow', enabled: true })]);
+      expect(await service.isEnabled('processing_flow')).toBe(true);
+    });
+
     it('respects build whitelist: allowed keys pass', async () => {
       process.env['ENABLED_FEATURES'] = 'cases,petitions';
       await build();
@@ -190,6 +208,19 @@ describe('FeatureFlagsService', () => {
       // Unseeded keys → default-allow
       const petitions = all.find((f) => f.key === 'petitions');
       expect(petitions?.enabled).toBe(true);
+    });
+
+    it('the list says OFF for a feature that starts OFF and has no row', async () => {
+      delete process.env['ENABLED_FEATURES'];
+      await build();
+      prisma.featureFlag.findMany.mockResolvedValue([]);
+      const all = await service.listAll();
+      expect(all.filter((f) => f.key.startsWith('processing_flow')).map((f) => [f.key, f.enabled])).toEqual([
+        ['processing_flow', false],
+        ['processing_flow_records', false],
+        ['processing_flow_reminders', false],
+      ]);
+      expect(all.find((f) => f.key === 'cases')?.enabled).toBe(true);
     });
 
     it('filters by build whitelist even when DB is empty', async () => {

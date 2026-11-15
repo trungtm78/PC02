@@ -162,4 +162,18 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'read', subject: 'DynamicReport', description: 'Vào menu Báo cáo động' },
   { action: 'manage', subject: 'DynamicReport', description: 'Thiết lập mẫu, lịch, phân công, xuất bản báo cáo động' },
   { action: 'admin', subject: 'DynamicReport', description: 'Xem toàn bộ (chỉ đọc), huỷ chốt kỳ, miễn nộp — không sửa số liệu hộ' },
+
+  // ── Processing flow and deadlines per information type (the configuration) ──
+  // ADMIN receives these through the grant-all block of `seed-quyen.ts`; no other role is given any of them.
+  // `publish` and `verify` are separate from `edit` on purpose: drafting a flow, making it the rule records follow, and
+  // confirming a legal figure against the source text are three different responsibilities.
+  { action: 'read', subject: 'ProcessingFlow', description: 'Xem quy trình xử lý và thời hạn theo loại thông tin' },
+  { action: 'create', subject: 'ProcessingFlow', description: 'Tạo quy trình xử lý (bản nháp)' },
+  { action: 'edit', subject: 'ProcessingFlow', description: 'Sửa quy trình, các bước của bản nháp, gắn loại thông tin, lưu trữ và khôi phục' },
+  { action: 'delete', subject: 'ProcessingFlow', description: 'Xoá quy trình chưa từng ban hành' },
+  { action: 'publish', subject: 'ProcessingFlow', description: 'Ban hành một phiên bản quy trình để áp dụng cho hồ sơ' },
+  { action: 'verify', subject: 'ProcessingFlow', description: 'Xác nhận căn cứ pháp lý của một bước đã đối chiếu với văn bản gốc' },
+  { action: 'read', subject: 'ProcessingCalendar', description: 'Xem lịch làm việc dùng để tính hạn' },
+  { action: 'edit', subject: 'ProcessingCalendar', description: 'Sửa, xoá ngày nghỉ và ngày làm bù của một năm' },
+  { action: 'confirm', subject: 'ProcessingCalendar', description: 'Xác nhận lịch làm việc của một năm đã đầy đủ, và bỏ xác nhận' },
 ];

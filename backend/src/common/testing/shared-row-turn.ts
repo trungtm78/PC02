@@ -17,6 +17,11 @@ const SHARED_ROWS = {
    * permissions, and takes both back.
    */
   'admin-role': 7226006,
+  /**
+   * `proc_flows`: among the flows in use, a record kind has ONE default flow, and an information type belongs to one
+   * flow. A suite that creates default flows or binds types takes the slot every other such suite would need.
+   */
+  'processing-flows': 7226007,
 } as const;
 
 /**

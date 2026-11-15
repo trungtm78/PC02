@@ -24,6 +24,8 @@ import { THU_TU_CHO_DUYET, sinhDayMa } from '../common/utils/ma-danh-muc.util';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_DANH_MUC } from '../common/tim-kiem/khai/danh-muc.khai';
+import { PROCESSING_ERROR, RECORD_KINDS } from '../processing-flow/contract/processing-codes';
+import { assertRenameKeepsBindingsApart, lockFlowKind } from '../processing-flow/config/binding-conflicts';
 
 /** `search` cũ → thẻ "tất cả các cột" (mã, tên, mô tả). */
 const THAM_SO_CU_DANH_MUC = { search: KHOA_TAT_CA } as const;
@@ -308,17 +310,33 @@ export class DirectoryService {
       await this.checkCircularHierarchy(id, dto.parentId);
     }
 
-    return this.prisma.directory.update({
-      where: { id },
-      data: {
-        ...(dto.code && { code: dto.code.toUpperCase() }),
-        ...(dto.name && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.parentId !== undefined && { parentId: dto.parentId ?? null }),
-        ...(dto.order !== undefined && { order: dto.order }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-        ...(dto.metadata !== undefined && { metadata: dto.metadata as object }),
-      },
+    const data = {
+      ...(dto.code && { code: dto.code.toUpperCase() }),
+      ...(dto.name && { name: dto.name }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.parentId !== undefined && { parentId: dto.parentId ?? null }),
+      ...(dto.order !== undefined && { order: dto.order }),
+      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      ...(dto.metadata !== undefined && { metadata: dto.metadata as object }),
+    };
+
+    // What an information type is CALLED decides which processing flow its records follow. Renaming an entry that a
+    // flow is bound to is therefore the same decision as binding it: made under the same lock (every record kind the
+    // entry is bound for), refused when the new name would read like an entry another flow holds.
+    const renamed =
+      dir.type === LOAI_DANH_MUC_LOAI_THONG_TIN &&
+      typeof dto.name === 'string' &&
+      khoaLoaiThongTin(dto.name) !== khoaLoaiThongTin(dir.name);
+    if (!renamed) return this.prisma.directory.update({ where: { id }, data });
+
+    return this.prisma.$transaction(async (tx) => {
+      // Every record kind, in one order (the order of `RECORD_KINDS`), BEFORE anything is read: a flow that binds this
+      // entry while the rename is deciding is waited for, so what is checked below is what will be there at the commit.
+      // The same order everywhere means two writers never wait for each other in a ring.
+      for (const kind of RECORD_KINDS) await lockFlowKind(tx, kind);
+      const refusal = await assertRenameKeepsBindingsApart(tx, id, dto.name as string);
+      if (refusal) throw new ConflictException({ code: refusal.code, details: refusal.details });
+      return tx.directory.update({ where: { id }, data });
     });
   }
 
@@ -334,6 +352,19 @@ export class DirectoryService {
       throw new BadRequestException(
         `Không thể xóa danh mục có ${childCount} danh mục con. Vui lòng xóa danh mục con trước.`,
       );
+    }
+
+    // An information type a processing flow is bound to is not deleted from under it: the flow says which one.
+    const bound = await this.prisma.procFlowBinding.findMany({
+      where: { directoryId: id },
+      select: { flow: { select: { id: true, name: true, status: true } } },
+      take: 20,
+    });
+    if (bound.length > 0) {
+      throw new ConflictException({
+        code: PROCESSING_ERROR.DIRECTORY_BOUND_TO_FLOW,
+        details: bound.map((binding) => ({ flowId: binding.flow.id, flowName: binding.flow.name, flowStatus: binding.flow.status })),
+      });
     }
 
     await this.prisma.directory.delete({ where: { id } });

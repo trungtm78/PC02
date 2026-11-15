@@ -51,6 +51,9 @@ import { DOCUMENT_TEMPLATES_MANIFEST } from '../document-templates/feature.manif
 import { TIM_KIEM_THE_MANIFEST } from '../common/tim-kiem/feature.manifest'; // 15/09/2026 công tắc khẩn ô thẻ
 import { DYNAMIC_REPORTS_MANIFEST } from '../dynamic-reports/feature.manifest'; // PR2
 import { DYNAMIC_REPORTS_GRID_MANIFEST } from '../dynamic-reports/grid/feature.manifest'; // G7: công tắc khẩn của lưới
+import { PROCESSING_FLOW_MANIFEST } from '../processing-flow/feature.manifest';
+import { PROCESSING_FLOW_RECORDS_MANIFEST } from '../processing-flow/records/feature.manifest';
+import { PROCESSING_FLOW_REMINDERS_MANIFEST } from '../processing-flow/reminders/feature.manifest';
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -94,6 +97,10 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   TIM_KIEM_THE_MANIFEST, // 15/09/2026 — công tắc khẩn ô tìm kiếm dạng thẻ
   DYNAMIC_REPORTS_MANIFEST, // PR2 — tắt mặc định, bật khi PR6+ xong luồng nhập
   DYNAMIC_REPORTS_GRID_MANIFEST, // G7 — công tắc khẩn của lưới Excel
+  // Processing flow and deadlines per information type: three switches, each row inserted OFF by its migration.
+  PROCESSING_FLOW_MANIFEST, // the configuration screens and routes
+  PROCESSING_FLOW_RECORDS_MANIFEST, // steps and actions on each record (later change)
+  PROCESSING_FLOW_REMINDERS_MANIFEST, // reminders and escalations by step (later change)
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

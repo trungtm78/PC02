@@ -34,6 +34,9 @@ const STRATEGY: Record<string, Strategy> = {
   'dyn_report_targets.teamId': 'report-targets',
   // A generated period keeps the team it was generated for: history is never rewritten (D09).
   'dyn_report_assignments.teamId': 'history',
+  // A step of a flow version keeps the unit it names: a published version never changes (D09), and a draft that still
+  // names the merged-away unit is refused at publish (TEAM_NOT_ACTIVE) until a person picks the unit that replaces it.
+  'proc_flow_step_parties.teamId': 'history',
   // What a team gives its people is that team's own setting: the people who move get what the target gives.
   'team_permission_configs.teamId': 'own-settings',
 };

@@ -1,9 +1,10 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { laGioPhutHopLe } from '../../common/utils/thoi-gian-vn.util';
+import { RECORD_KINDS } from '../contract/processing-codes';
 
-/** The three kinds of record a processing flow can be attached to. */
-export const RECORD_KINDS = ['PETITION', 'INCIDENT', 'CASE'] as const;
+/** The three kinds of record a processing flow can be attached to: the list of the shared contract. */
+export { RECORD_KINDS };
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
 /**
@@ -20,6 +21,17 @@ export interface Anchor {
   /** `false`: only the calendar day is known; the time of day of `at` means nothing. */
   hasTime: boolean;
 }
+
+/**
+ * The anchors that can carry a time of day, per record kind: what the adapters fill with `dayWithVietnamTime`. Every
+ * other date of a record is a calendar day, on which a duration in hours means nothing. Kept true by
+ * `anchors-with-time.spec.ts`, which feeds each adapter a fully filled row.
+ */
+export const ANCHORS_WITH_TIME: Readonly<Record<RecordKind, readonly AnchorKey[]>> = Object.freeze({
+  PETITION: Object.freeze(['RECEIVED'] as const),
+  INCIDENT: Object.freeze([] as const),
+  CASE: Object.freeze([] as const),
+});
 
 /** One record of any kind, reduced to what a processing flow reads. Nothing here is written back. */
 export interface RecordSnapshot {
