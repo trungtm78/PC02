@@ -54,6 +54,7 @@ run('Attachments of a step report on PostgreSQL', () => {
   let attachments: ProcessingAttachmentsService;
   let documents: DocumentsService;
   let evidence: CaseEvidenceGovernanceService;
+  let stepAccess: RecordStepAccessService;
   let permissions: EnsuredPermissions;
   let root = '';
   const tag = `${PREFIX}${randomUUID().slice(0, 8)}`;
@@ -181,7 +182,7 @@ run('Attachments of a step report on PostgreSQL', () => {
     const calendars = new WorkingCalendarService(prisma, audit);
     flows = new ProcessingFlowsService(prisma, audit, calendars);
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
-    const stepAccess = new RecordStepAccessService(prisma, { isEnabled: () => Promise.resolve(true) } as never);
+    stepAccess = new RecordStepAccessService(prisma, { isEnabled: () => Promise.resolve(true) } as never);
     await stepAccess.refreshSwitch();
     const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes, stepAccess), new IncidentAdapter(prisma, scopes, stepAccess), new CaseAdapter(prisma, scopes, stepAccess));
     const writer = new RecordDeadlineWriter(prisma, gateway);
@@ -192,7 +193,7 @@ run('Attachments of a step report on PostgreSQL', () => {
     evidence = new CaseEvidenceGovernanceService(prisma, governance, new CaseFieldSchemaService(prisma, governance));
     documents = new DocumentsService(prisma, audit, {} as never, governance, evidence);
     Object.defineProperty(documents, 'uploadDir', { value: root });
-    attachments = new ProcessingAttachmentsService(prisma, gateway, results, documents);
+    attachments = new ProcessingAttachmentsService(prisma, gateway, results, documents, stepAccess);
   });
 
   afterAll(async () => {
@@ -215,6 +216,7 @@ run('Attachments of a step report on PostgreSQL', () => {
     await db.case.deleteMany({ where: { id: { in: caseIds } } });
     await dropFlows();
     await db.auditLog.deleteMany({ where: { userId: { in: userIds } } });
+    await db.procDelegation.deleteMany({ where: { createdById: { in: userIds } } });
     await db.userTeam.deleteMany({ where: { userId: { in: userIds } } });
     await db.team.deleteMany({ where: { code: { startsWith: tag } } });
     await db.user.deleteMany({ where: { id: { in: userIds } } });
@@ -361,7 +363,7 @@ run('Attachments of a step report on PostgreSQL', () => {
     expect(await failure(attachments.openDownload(reader('colleague'), 'CASE', base.recordId, base.stepKey, reportId, added.id))).toEqual({ status: 404, code: 'RECORD_FLOW_NOT_FOUND' });
     // The evidence governance refuses on its own as well, were the step rule ever to let the person through.
     const open = { canRead: () => Promise.resolve(true), load: () => Promise.resolve(null) };
-    const lax = new ProcessingAttachmentsService(scratch.db as never, open as never, results, (attachments as unknown as { documents: DocumentsService }).documents);
+    const lax = new ProcessingAttachmentsService(scratch.db as never, open as never, results, (attachments as unknown as { documents: DocumentsService }).documents, stepAccess);
     expect(await failure(lax.openDownload(reader('colleague'), 'CASE', base.recordId, base.stepKey, reportId, added.id))).toMatchObject({ status: 403 });
   });
 
@@ -378,7 +380,7 @@ run('Attachments of a step report on PostgreSQL', () => {
     const download = (who: string, base: { recordId: string; stepKey: string }, reportId: string, documentId: string, service = attachments) =>
       service.openDownload(reader(who), 'CASE', base.recordId, base.stepKey, reportId, documentId);
     /** The same route with a step rule that lets everybody through: what the case's evidence governance says on its own. */
-    const laxRoute = () => new ProcessingAttachmentsService(scratch.db as never, { canRead: () => Promise.resolve(true), load: () => Promise.resolve(null) } as never, results, documents);
+    const laxRoute = () => new ProcessingAttachmentsService(scratch.db as never, { canRead: () => Promise.resolve(true), load: () => Promise.resolve(null) } as never, results, documents, stepAccess);
     const downloadAudits = (documentId: string, who: string) =>
       scratch.db.auditLog.findMany({ where: { subject: 'Document', subjectId: documentId, action: 'DOCUMENT_DOWNLOADED', userId: user[who] }, orderBy: { createdAt: 'asc' } });
 
@@ -462,6 +464,94 @@ run('Attachments of a step report on PostgreSQL', () => {
       expect(await bytesOf(download('coordinator', base, base.mainReport, base.mainFile.id))).toMatchObject({ text: 'of the main unit' });
       // The ordinary route for the reader in scope: the same answer as without a hold.
       expect(await bytesOf(documents.openDownload(base.mainFile.id, { userId: user.worker }, null))).toMatchObject({ text: 'of the main unit' });
+    });
+  });
+
+  describe('a case reached only through a step: the waiver is bound to the EXACT step of the report (found by Codex)', () => {
+    /**
+     * A case held by unit A with two steps open at once: step A names unit C to coordinate, step B names unit D. So
+     * `coordinator` (unit C) is named in step A only, `outsider` (unit D) in step B only; neither has the case in scope.
+     */
+    const twoSteps = async () => {
+      const partiesOf = (unit: string) => [
+        { partyKind: 'TEAM', teamId: team.A, role: 'MAIN' },
+        { partyKind: 'TEAM', teamId: team[unit], role: 'COORDINATE' },
+      ];
+      const base = await withFlow([step({ name: 'Step A', requiresApproval: false, parties: partiesOf('C') }), step({ name: 'Step B', requiresApproval: false, parties: partiesOf('D') })], 'CASE');
+      const stepB = (await base.get()).steps[1].stepKey;
+      const reportB = await reportOf(base, 'worker', stepB);
+      const fileB = await attachments.attach(user.worker, 'CASE', base.recordId, stepB, reportB, await upload('step-b.txt', 'of step B'));
+      const get = (who: string) => attachments.openDownload(reader(who), 'CASE', base.recordId, stepB, reportB, fileB.id);
+      const finishB = async () => {
+        const flow = await base.get();
+        const done = await commands.completeStep(user.admin, 'CASE', base.recordId, stepB, { expectedRevision: flow.revision });
+        expect(done.steps.map((entry) => entry.status)).toEqual(['OPEN', 'DONE']);
+      };
+      return { ...base, stepB, reportB, fileB, get, finishB };
+    };
+    const refused = { status: 404, code: 'RECORD_FLOW_NOT_FOUND' };
+
+    it('a person named in step A only does not get the files of step B, while B is open nor once it is done', async () => {
+      const base = await twoSteps();
+      // The premise: step A does hand the case to this person (the detail route would open it).
+      expect(await failure(attachments.openDownload(reader('coordinator'), 'CASE', base.recordId, base.stepB, base.reportB, 'no-such-document'))).toEqual({ status: 404, code: 'ATTACHMENT_NOT_FOUND' });
+      expect(await failure(base.get('coordinator'))).toEqual(refused);
+      await base.finishB();
+      expect(await failure(base.get('coordinator'))).toEqual(refused);
+      // Whoever has the case in their OWN scope needs no step: unaffected.
+      expect(await bytesOf(base.get('worker'))).toEqual({ name: 'step-b.txt', text: 'of step B' });
+    });
+
+    it('a person named in step B gets them while B is being worked, and no longer once B is done although step A is still open', async () => {
+      const base = await twoSteps();
+      expect(await bytesOf(base.get('outsider'))).toEqual({ name: 'step-b.txt', text: 'of step B' });
+      await base.finishB();
+      expect(await failure(base.get('outsider'))).toEqual(refused);
+    });
+
+    it('the evidence governance refuses on its own a step rule that only knows "some step of the case"', async () => {
+      const base = await twoSteps();
+      // A route whose own check lets everybody through: what is left is the waiver the governance asks.
+      const lax = new ProcessingAttachmentsService(scratch.db as never, { canRead: () => Promise.resolve(true), load: () => Promise.resolve(null) } as never, results, documents, stepAccess);
+      expect(await failure(lax.openDownload(reader('coordinator'), 'CASE', base.recordId, base.stepB, base.reportB, base.fileB.id))).toMatchObject({ status: 403 });
+    });
+
+    it('a delegate of a person named in step B gets them while the delegation is in force, and not after it is revoked', async () => {
+      const { db } = scratch;
+      // The two share unit E (what makes the delegation effective); only the principal is in unit D, which step B names.
+      team.E = (await db.team.create({ data: { name: `${tag} unit E`, code: `${tag}-E` } })).id;
+      for (const [name, units] of [['principal', ['D', 'E']], ['delegate', ['E']]] as const) {
+        user[name] = (await db.user.create({ data: { username: `${tag}-${name}`, firstName: name, lastName: 'Tester', passwordHash: 'x', roleId: roleIds[0], isActive: true } })).id;
+        for (const unit of units) await db.userTeam.create({ data: { userId: user[name], teamId: team[unit] } });
+      }
+      const base = await twoSteps();
+      expect(await failure(base.get('delegate'))).toEqual(refused);
+
+      const delegation = await db.procDelegation.create({
+        data: { fromUserId: user.principal, toUserId: user.delegate, validFrom: new Date(Date.now() - 3_600_000), validTo: new Date(Date.now() + 3_600_000), createdById: user.principal },
+      });
+      expect(await bytesOf(base.get('delegate'))).toEqual({ name: 'step-b.txt', text: 'of step B' });
+
+      await db.procDelegation.update({ where: { id: delegation.id }, data: { revokedAt: new Date(), revokedById: user.principal } });
+      expect(await failure(base.get('delegate'))).toEqual(refused);
+    });
+
+    it('a RESTRICTED case stays closed to the person named in the very step', async () => {
+      const base = await twoSteps();
+      await scratch.db.case.update({ where: { id: base.recordId }, data: { sensitivity: 'RESTRICTED' } as never });
+      expect(await failure(base.get('outsider'))).toEqual(refused);
+    });
+
+    it('a petition keeps its rule: a unit named in ANY step being worked reads the files of the other steps', async () => {
+      const partiesOf = (unit: string) => [
+        { partyKind: 'TEAM', teamId: team.A, role: 'MAIN' },
+        { partyKind: 'TEAM', teamId: team[unit], role: 'COORDINATE' },
+      ];
+      const base = await withFlow([step({ requiresApproval: false, parties: partiesOf('C') }), step({ requiresApproval: false, parties: partiesOf('D') })]);
+      const stepB = (await base.get()).steps[1].stepKey;
+      const reportB = await reportOf(base, 'worker', stepB);
+      const fileB = await attachments.attach(user.worker, 'PETITION', base.recordId, stepB, reportB, await upload('petition-b.txt', 'of step B'));
+      expect(await bytesOf(attachments.openDownload(reader('coordinator'), 'PETITION', base.recordId, stepB, reportB, fileB.id))).toMatchObject({ text: 'of step B' });
     });
   });
 });
