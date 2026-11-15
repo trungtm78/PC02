@@ -40,7 +40,8 @@ jobs:
         run: cd backend && npm test
 
       - name: Backend TypeScript check
-        run: cd backend && npx tsc --noEmit
+        # The backend type check needs more than node's default heap (it ran out at 4 GB on the runner).
+        run: cd backend && NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit
 
   build:
     name: Build

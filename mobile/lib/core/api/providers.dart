@@ -9,6 +9,7 @@ import 'devices_api.dart';
 import 'incidents_api.dart';
 import 'notifications_api.dart';
 import 'petitions_api.dart';
+import 'processing_api.dart';
 import 'settings_api.dart';
 
 // Single source of truth for API clients and storage. Feature screens import
@@ -36,5 +37,7 @@ final notificationsApiProvider =
     Provider((ref) => NotificationsApi(ref.read(apiClientProvider)));
 final petitionsApiProvider =
     Provider((ref) => PetitionsApi(ref.read(apiClientProvider)));
+final processingApiProvider =
+    Provider((ref) => ProcessingApi(ref.read(apiClientProvider)));
 final settingsApiProvider =
     Provider((ref) => SettingsApi(ref.read(apiClientProvider)));
