@@ -19,13 +19,16 @@ export interface SortState {
  * Bắt đầu bằng GIẢM DẦN vì với hồ sơ nghiệp vụ, cái mới gần như luôn là cái cần xử lý
  * trước. Nhịp thứ ba trả về mặc định để người dùng luôn có đường quay lại, không bị kẹt
  * trong một thứ tự tự chọn mà không biết cách thoát.
+ *
+ * `first`: the direction of the first beat. A column whose natural reading is ascending (an alert, most urgent first)
+ * starts at `asc`; the second beat is then the opposite and the third is still the default.
  */
-export function resolveNextSort(current: SortState, clickedKey: string): SortState {
+export function resolveNextSort(current: SortState, clickedKey: string, first: SortDirection = 'desc'): SortState {
   if (current.sortBy !== clickedKey) {
-    return { sortBy: clickedKey, sortOrder: 'desc' };
+    return { sortBy: clickedKey, sortOrder: first };
   }
-  if (current.sortOrder === 'desc') {
-    return { sortBy: clickedKey, sortOrder: 'asc' };
+  if (current.sortOrder === first) {
+    return { sortBy: clickedKey, sortOrder: first === 'desc' ? 'asc' : 'desc' };
   }
   return { sortBy: undefined, sortOrder: 'desc' };
 }

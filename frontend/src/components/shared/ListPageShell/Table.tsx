@@ -100,6 +100,11 @@ export interface ColumnDef<TRow> {
    */
   sortKey?: string;
   /**
+   * The direction the FIRST click on this header sorts in. Left out: descending (newest first), the rule of every
+   * other column. `asc` for a column whose natural reading is ascending, e.g. an alert ordered most urgent first.
+   */
+  sortFirst?: 'asc' | 'desc';
+  /**
    * Ghim cột này ở mép trái khi bảng cuộn ngang.
    *
    * Neo ở `left-10` vì ô tick đứng trước và rộng `w-10`. Chỉ dùng cho cột điều khiển (Thao
@@ -183,7 +188,7 @@ export interface TableProps<TRow, TId extends string | number = string> {
   /** Chiều đang sắp. Mặc định 'desc'. */
   sortOrder?: 'asc' | 'desc';
   /** Bấm tiêu đề cột. KHÔNG truyền thì mọi tiêu đề đều là chữ trơn (giữ nguyên như cũ). */
-  onSort?: (key: string) => void;
+  onSort?: (key: string, first?: 'asc' | 'desc') => void;
   /** Empty state CTA (state=empty). */
   emptyState?: {
     title: string;
@@ -207,6 +212,8 @@ export interface TableProps<TRow, TId extends string | number = string> {
   /** Đích mở ở TAB MỚI khi Ctrl/⌘+bấm hoặc bấm nút giữa. Trả rỗng = dòng này không có đích. */
   rowHref?(row: TRow): string | null | undefined;
   getRowClassName?(row: TRow): string;
+  /** `data-testid` of a row, for a screen whose tests must find one row among several. */
+  rowTestId?(row: TRow): string;
   /**
    * /investigate v0.61 fix — bulk selection integration. When passed, table
    * prepends sticky-left checkbox column (header + per-row). Pair with
@@ -371,6 +378,7 @@ export function Table<TRow, TId extends string | number = string>({
   onRowDoubleClick,
   rowHref,
   getRowClassName,
+  rowTestId,
   bulkSelection,
   bulkRowsLabel,
   bulkRowLabel,
@@ -476,7 +484,7 @@ export function Table<TRow, TId extends string | number = string>({
                   // Chỉ cột nào khai sortKey VÀ trang có truyền onSort mới bấm được.
                   sortKey={onSort ? col.sortKey : undefined}
                   sort={{ sortBy, sortOrder: sortOrder ?? 'desc' }}
-                  onSort={onSort ?? (() => {})}
+                  onSort={onSort ? (key) => onSort(key, col.sortFirst) : () => {}}
                   width={col.width}
                   anNhanTrenDienThoai={col.thuGonTrenDienThoai}
                   className={`${col.headerClassName ?? TABLE_HEADER_CELL} ${
@@ -527,6 +535,7 @@ export function Table<TRow, TId extends string | number = string>({
               return (
                 <tr
                   key={key}
+                  data-testid={rowTestId?.(row)}
                   onClick={
                     onRowClick || rowHref
                       ? (e) =>

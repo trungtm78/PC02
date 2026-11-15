@@ -32,6 +32,12 @@ interface FiltersProps<TValue extends object> {
    * (18/09/2026). Đặt ở đây để cán bộ lọc xong xuất luôn, không phải tìm nút ở chỗ khác.
    */
   hanhDongPhu?: ReactNode;
+  /**
+   * Fields of the registry NOT drawn right now. For a field that only means something while a feature is on (the alert
+   * band of the processing flow): the registry stays one static list, the address keeps round-tripping the value, and
+   * the box simply is not offered while it would do nothing.
+   */
+  hiddenKeys?: readonly string[];
 }
 
 /**
@@ -53,8 +59,9 @@ export function Filters<TValue extends object>({
   dynamicOptions,
   children,
   hanhDongPhu,
+  hiddenKeys,
 }: FiltersProps<TValue>) {
-  const fields = registry.all();
+  const fields = hiddenKeys?.length ? registry.all().filter((field) => !hiddenKeys.includes(field.key)) : registry.all();
   const v = value as Record<string, string | undefined>;
   return (
     <div className={FILTER_PANEL}>
