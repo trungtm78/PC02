@@ -54,6 +54,7 @@ export function incidentSnapshot(row: IncidentSnapshotRow): RecordSnapshot {
       // Hand-over minutes belong to a case.
       MINUTES_RECEIVED: NO_ANCHOR,
     },
+    conditions: {},
   };
 }
 

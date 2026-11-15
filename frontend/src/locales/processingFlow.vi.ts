@@ -409,6 +409,11 @@ export const processingFlow = {
     VARIANT_DUPLICATE: 'Một mức độ tội phạm được khai hai lần trong cùng một bước.',
     VARIANT_NOT_AVAILABLE_FOR_KIND: 'Thời hạn theo mức độ tội phạm chỉ dùng cho vụ án.',
     ANCHOR_DATE_MISSING: 'Ngày mẫu của mốc này chưa được nhập.',
+    STEP_TRANSITION_INVALID: 'Bước này đang ở trạng thái không làm được thao tác đó.',
+    STEP_NEEDS_APPROVAL: 'Bước này cần lãnh đạo duyệt: hãy gửi báo cáo kết quả thay vì bấm hoàn thành.',
+    STEP_APPROVAL_NOT_REQUIRED: 'Bước này không cần lãnh đạo duyệt: bấm hoàn thành là xong.',
+    RECORD_FLOW_NOT_FOUND: 'Hồ sơ này chưa có quy trình xử lý.',
+    STEP_DEPENDENT_STARTED: 'Bước sau đã được báo cáo hoặc hoàn thành. Hãy rút lại bước sau trước khi mở lại bước này.',
   } as Record<string, string>,
   errorFallback: 'Không thực hiện được. Hãy thử lại hoặc báo quản trị viên.',
 };

@@ -2375,6 +2375,7 @@ model Team {
   dynReportTargets         DynReportTarget[] // Dynamic Report Builder (Báo cáo động)
   dynReportAssignments     DynReportAssignment[] @relation("DynReportAssignmentTeam")
   procFlowStepParties      ProcFlowStepParty[] // Processing flow: a step names this unit as a party
+  procRecordStepParties    ProcRecordStepParty[] // Processing flow: a unit that works a step of a record
 
   @@index([parentId])
   @@index([level])
@@ -5264,6 +5265,7 @@ model ProcFlow {
 
   bindings ProcFlowBinding[]
   versions ProcFlowVersion[]
+  records  ProcRecordFlow[]
 
   @@index([recordKind, status])
   @@map("proc_flows")
@@ -5311,7 +5313,8 @@ model ProcFlowVersion {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
-  steps ProcFlowStep[]
+  steps   ProcFlowStep[]
+  records ProcRecordFlow[]
 
   @@unique([flowId, versionNo])
   @@index([flowId, status])
@@ -5354,8 +5357,9 @@ model ProcFlowStep {
   /// Overdue by this many civil days: told to the leadership group.
   escalateLeadershipAfterDays Int?
 
-  parties  ProcFlowStepParty[]
-  variants ProcFlowStepVariant[]
+  parties     ProcFlowStepParty[]
+  variants    ProcFlowStepVariant[]
+  recordSteps ProcRecordStep[]
 
   @@unique([versionId, stepKey])
   @@unique([versionId, order])
@@ -5399,4 +5403,202 @@ model ProcFlowStepVariant {
 
   @@unique([stepId, conditionKey, conditionValue])
   @@map("proc_flow_step_variants")
+}
+
+// ─── Processing flow: a flow applied to a record (the steps a petition, an incident or a case has, and their deadlines) ───
+
+enum ProcRecordFlowMatch {
+  TYPE
+  GROUP
+  DEFAULT
+  /// The information type matches no catalogue entry: the default flow is only a proposal until a person confirms.
+  UNKNOWN_TYPE
+  /// A person chose the flow.
+  MANUAL
+}
+
+enum ProcStepStatus {
+  WAITING_ANCHOR
+  OPEN
+  REPORTED
+  DONE
+  SKIPPED
+}
+
+enum ProcOutboxStatus {
+  PENDING
+  DONE
+  /// Gave up after too many attempts: shown to an administrator, who can apply the flow by hand.
+  DEAD
+}
+
+/// The flow a record follows, pinned to ONE published version, with the reason the flow was chosen. A record is one
+/// of three tables, so `recordId` carries no foreign key: the unique pair (recordKind, recordId) is the identity.
+model ProcRecordFlow {
+  id            String              @id @default(cuid())
+  recordKind    ProcRecordKind
+  recordId      String
+  flowId        String
+  flow          ProcFlow            @relation(fields: [flowId], references: [id], onDelete: Restrict)
+  /// The published version the steps were taken from. A published version never changes, so the steps stay true.
+  versionId     String
+  version       ProcFlowVersion     @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  match         ProcRecordFlowMatch
+  /// What the match was made on, kept as TEXT (no foreign key): a binding or an entry may be deleted later.
+  directoryId   String?
+  typeKey       String?
+  bindingId     String?
+  /// Facts of the record that picked variants (`{"CRIME_GRAVITY":"NGHIEM_TRONG"}`), as they were when applied.
+  conditions    Json?
+  /// `false` for an UNKNOWN_TYPE proposal: a legal deadline is not asserted until a person confirms.
+  confirmed     Boolean             @default(true)
+  confirmedAt   DateTime?
+  confirmedById String?
+  /// The date of acceptance (thụ lý): no record kind has a column for it, so it is recorded here by a step action.
+  acceptedAt    DateTime?
+  /// Who applied the flow; NULL when the system did, after the record was created.
+  appliedById   String?
+  /// Goes up by one with every write of the flow of the record or of its steps.
+  revision      Int                 @default(1)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  steps ProcRecordStep[]
+
+  @@unique([recordKind, recordId])
+  @@index([flowId])
+  @@index([versionId])
+  @@map("proc_record_flows")
+}
+
+/// One step of a record. Deadlines are STORED (and the instants its bands start at), so a colour is an indexed
+/// comparison and a deadline can be explained later: the REGULATORY deadline changes only by an extension, the
+/// INTERNAL one only inside it.
+model ProcRecordStep {
+  id               String          @id @default(cuid())
+  recordFlowId     String
+  recordFlow       ProcRecordFlow  @relation(fields: [recordFlowId], references: [id], onDelete: Restrict)
+  /// Repeated from the flow of the record: "the steps of this record" and "the open steps of this kind" are one lookup.
+  recordKind       ProcRecordKind
+  recordId         String
+  /// The step of the configuration this was made from (a published version never changes).
+  stepId           String
+  step             ProcFlowStep    @relation(fields: [stepId], references: [id], onDelete: Restrict)
+  stepKey          String
+  order            Int
+  status           ProcStepStatus  @default(WAITING_ANCHOR)
+  /// Where a SKIPPED step goes back to.
+  skippedFrom      ProcStepStatus?
+  /// The date the deadline is counted from; NULL while the step waits.
+  startAt          DateTime?
+  regulatoryDueAt  DateTime?
+  internalDueAt    DateTime?
+  /// The deadline leaned on the calendar of a year nobody has confirmed.
+  provisional      Boolean         @default(false)
+  calendarVersion  String?
+  /// The instants the bands start at, from the EARLIER of the two deadlines.
+  greenFrom        DateTime?
+  yellowFrom       DateTime?
+  redFrom          DateTime?
+  /// The condition value of the variant whose duration was used.
+  variant          String?
+  /// Why a step whose date exists has no deadline (a refusal of the engine).
+  problem          String?
+  /// Goes up by one every time a deadline of the step changes: a reminder names the number it was sent for.
+  deadlineRevision Int             @default(1)
+  /// The step before it was reopened after this one had started.
+  upstreamReopened Boolean         @default(false)
+  doneAt           DateTime?
+  doneById         String?
+  revision         Int             @default(1)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  parties ProcRecordStepParty[]
+
+  @@unique([recordFlowId, stepKey])
+  @@unique([recordFlowId, order])
+  @@index([recordKind, recordId])
+  @@index([status, regulatoryDueAt])
+  @@index([status, redFrom])
+  @@index([stepId])
+  @@map("proc_record_steps")
+}
+
+/// A unit that works a step of a record, resolved when the flow was applied ("the unit holding the record" becomes
+/// that unit's id). `teamId` is NULL while the record has no unit yet. `assigneeUserId`: the person, when one was named.
+model ProcRecordStepParty {
+  id             String         @id @default(cuid())
+  recordStepId   String
+  recordStep     ProcRecordStep @relation(fields: [recordStepId], references: [id], onDelete: Restrict)
+  partyKind      ProcPartyKind
+  teamId         String?
+  team           Team?          @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  role           ProcPartyRole
+  assigneeUserId String?
+  note           String?
+  order          Int
+
+  @@index([recordStepId])
+  @@index([teamId])
+  @@map("proc_record_step_parties")
+}
+
+/// What happened to a record's flow, append-only: who, when, what it was, what it became, why. Metadata, not figures.
+model ProcStepChange {
+  id           String         @id @default(cuid())
+  recordFlowId String
+  recordKind   ProcRecordKind
+  recordId     String
+  /// NULL for a change of the flow of the record itself (applied, confirmed, the date of acceptance).
+  stepKey      String?
+  action       String
+  fromValue    Json?
+  toValue      Json?
+  reason       String?
+  /// NULL when the system did it.
+  actorId      String?
+  at           DateTime       @default(now())
+
+  @@index([recordKind, recordId, at])
+  @@index([recordFlowId, at])
+  @@map("proc_step_changes")
+}
+
+/// The work "apply a flow to this record": written in the SAME transaction as the record, done a moment later by a
+/// worker, retried until it works. A record that cannot get its flow is never a record that cannot be saved.
+model ProcOutbox {
+  id          String           @id @default(cuid())
+  recordKind  ProcRecordKind
+  recordId    String
+  /// Why: CREATED | CONVERTED | REAPPLY (a person asked) | CLI.
+  reason      String
+  status      ProcOutboxStatus @default(PENDING)
+  attempts    Int              @default(0)
+  availableAt DateTime         @default(now())
+  /// What applying the flow came to (APPLIED, ALREADY_APPLIED, RECORD_GONE, RECORD_FINISHED, NO_FLOW, ...).
+  outcome     String?
+  lastError   String?
+  createdAt   DateTime         @default(now())
+  processedAt DateTime?
+
+  @@index([status, availableAt])
+  @@index([recordKind, recordId])
+  @@map("proc_outbox")
+}
+
+/// A key the client chose for ONE write (the app retries after a lost answer): the second arrival of the same key is
+/// answered with the first one's result and does nothing.
+model ProcCommandKey {
+  key        String         @id
+  actorId    String
+  command    String
+  recordKind ProcRecordKind
+  recordId   String
+  /// What the first arrival answered.
+  outcome    Json?
+  createdAt  DateTime       @default(now())
+
+  @@index([createdAt])
+  @@map("proc_command_keys")
 }

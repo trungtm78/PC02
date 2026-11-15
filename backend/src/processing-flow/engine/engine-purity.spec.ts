@@ -24,7 +24,8 @@ const FORBIDDEN: Array<[what: string, pattern: RegExp]> = [
 describe('the engine is pure', () => {
   it('there are engine sources to read', () => {
     expect(sources.map((source) => source.name).sort()).toEqual(
-      ['bands.ts', 'civil-day.ts', 'compute-due.ts', 'errors.ts', 'pauses.ts', 'types.ts', 'working-calendar.ts'].sort(),
+      ['bands.ts', 'civil-day.ts', 'compute-due.ts', 'errors.ts', 'pauses.ts',
+      'step-machine.ts', 'types.ts', 'working-calendar.ts'].sort(),
     );
   });
 
