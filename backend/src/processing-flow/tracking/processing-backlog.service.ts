@@ -9,9 +9,9 @@ import type { Band } from '../engine/types';
 import { RECORD_KINDS, type GatewayUser, type RecordKind } from '../gateway/record-snapshot';
 import { clocklessStatuses } from '../records/record-alert';
 import { rollUpUnits } from './backlog-rollup';
-import type { WorkRole } from './band-conditions';
+import { WORK_ROLES, type WorkRole } from './band-conditions';
 import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
-import { ANY_WORK, periodOf, ProcessingTrackingService, type TrackingFilter } from './processing-tracking.service';
+import { ANY_WORK, periodOf, ProcessingTrackingService, type TrackingFilter, type TrackingTeam } from './processing-tracking.service';
 
 export type BacklogFilter = Pick<TrackingFilter, 'asOf' | 'kind' | 'role' | 'from' | 'to'> & {
   /** The table rolled up to its top units (`rollUpUnits`): what the screen shows with "Gộp lên tổ cha" on. */
@@ -25,14 +25,14 @@ const zeroKinds = (): KindCounts => ({ PETITION: 0, INCIDENT: 0, CASE: 0 });
 
 /**
  * THE condition of a record that has NO FLOW YET (R6, the column "Chưa áp quy trình"): an OPEN record (not deleted,
- * not finished, not suspended) of one kind, within `inScope` (the person's own record scope, as the list of that kind
- * applies it: `ProcessingTrackingService.recordScopes`), held by a unit (`assignedTeamId`), with no flow at all (a
+ * not finished, not suspended) of one kind, within `onList` (the records the LIST of that kind shows the person:
+ * `ProcessingTrackingService.recordScopes`; for a case that is the representation capability `list`, not `view`), held by a unit (`assignedTeamId`), with no flow at all (a
  * proposed flow is a flow: it is counted apart on the tracking screen). The number of a unit and the list behind it
  * (`ProcessingBacklogService.unapplied`) are both this condition and nothing else. No clock is asked: nothing in it
  * depends on the instant. The role and the period of the table do not apply (they are about steps; there is none).
  */
-export function unappliedWhere(kind: RecordKind, inScope: object, teamIds: readonly string[] | null): Record<string, unknown> {
-  return { AND: [inScope, { deletedAt: null, status: { notIn: clocklessStatuses(kind) }, procFlow: { is: null }, assignedTeamId: teamIds ? { in: [...teamIds] } : { not: null } }] };
+export function unappliedWhere(kind: RecordKind, onList: object, teamIds: readonly string[] | null): Record<string, unknown> {
+  return { AND: [onList, { deletedAt: null, status: { notIn: clocklessStatuses(kind) }, procFlow: { is: null }, assignedTeamId: teamIds ? { in: [...teamIds] } : { not: null } }] };
 }
 
 /** A record with no flow yet, as the list behind a number of the column shows it. */
@@ -212,7 +212,7 @@ export class ProcessingBacklogService {
     for (const kind of RECORD_KINDS) {
       const scope = scopes[kind];
       if (!scope) continue;
-      for (const group of await this.unappliedByUnit(kind, unappliedWhere(kind, scope.inScope, only))) {
+      for (const group of await this.unappliedByUnit(kind, unappliedWhere(kind, scope.onList, only))) {
         const found = row(group.teamId);
         found.unappliedByKind[kind] = group.count;
         found.unapplied += group.count;
@@ -271,7 +271,7 @@ export class ProcessingBacklogService {
     const answer: UnappliedRecords = { kind: filter.kind, teamId: filter.teamId, items: [], total: 0, page, pageSize };
     const scope = (await this.tracking.recordScopes(user, filter.kind))[filter.kind];
     if (!scope) return answer;
-    const where = unappliedWhere(filter.kind, scope.inScope, [filter.teamId]) as never;
+    const where = unappliedWhere(filter.kind, scope.onList, [filter.teamId]) as never;
     const paging = { where, orderBy: [{ deadline: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }] as never, skip: (page - 1) * pageSize, take: pageSize };
     const day = (deadline: Date | null) => deadline?.toISOString() ?? null;
     if (filter.kind === 'PETITION') {
@@ -287,13 +287,47 @@ export class ProcessingBacklogService {
     return { ...answer, total, items: rows.map((row) => ({ recordKind: 'CASE', recordId: row.id, recordCode: row.caseCode, recordLabel: null, deadline: null })) };
   }
 
+  /**
+   * The units the filter of the screen offers: exactly the units a row of the (unfiltered) table may be about. Those
+   * that work a step the person may see, in any of the three roles (`workWhere`, any band), and those that hold a
+   * record with no flow the list of its kind shows the person (`unappliedWhere`), plus the units ABOVE those (names
+   * only: the filter by a unit with the roll-up reaches the units under it). Grouped counts only, no row of work or record.
+   */
+  async teams(user: GatewayUser): Promise<TrackingTeam[]> {
+    const ids = new Set<string>();
+    const acting = await this.tracking.acting(user);
+    const reach = await this.tracking.reach(user, undefined, acting);
+    if (reach) {
+      const now = this.tracking.instant(undefined);
+      for (const role of WORK_ROLES) {
+        const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [this.tracking.workWhere(user, { role }, reach, ANY_WORK, now, acting), { teamId: { not: null } }] }, _count: { _all: true } });
+        for (const group of groups) if (group.teamId) ids.add(group.teamId);
+      }
+    }
+    const scopes = await this.tracking.recordScopes(user);
+    for (const kind of RECORD_KINDS) {
+      const scope = scopes[kind];
+      if (scope) for (const group of await this.unappliedByUnit(kind, unappliedWhere(kind, scope.onList, null))) ids.add(group.teamId);
+    }
+    // And the units above them: a person filters by a unit that works nothing itself to see the units under it.
+    for (let wave = [...ids]; wave.length > 0; ) {
+      const above = [...(await this.teamsOf(wave)).values()].flatMap((team) => (team.parentId && !ids.has(team.parentId) ? [team.parentId] : []));
+      wave = [...new Set(above)];
+      for (const parent of wave) ids.add(parent);
+    }
+    const teams = await this.teamsOf([...ids]);
+    return [...teams.entries()]
+      .map(([id, team]) => ({ id, name: team.name, parentTeamId: team.parentId }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi') || a.id.localeCompare(b.id));
+  }
+
   /** The records of a kind that meet `where`, counted per holding unit by PostgreSQL. */
   private async unappliedByUnit(kind: RecordKind, where: Record<string, unknown>): Promise<Array<{ teamId: string; count: number }>> {
     const args = { by: ['assignedTeamId'], where, _count: { _all: true } } as never;
     let groups: Array<{ assignedTeamId: string | null; _count: { _all: number } }>;
-    if (kind === 'PETITION') groups = (await this.prisma.petition.groupBy(args)) as never;
-    else if (kind === 'INCIDENT') groups = (await this.prisma.incident.groupBy(args)) as never;
-    else groups = (await this.prisma.case.groupBy(args)) as never;
+    if (kind === 'PETITION') groups = await this.prisma.petition.groupBy(args);
+    else if (kind === 'INCIDENT') groups = await this.prisma.incident.groupBy(args);
+    else groups = await this.prisma.case.groupBy(args);
     return groups.flatMap((group) => (group.assignedTeamId ? [{ teamId: group.assignedTeamId, count: group._count._all }] : []));
   }
 

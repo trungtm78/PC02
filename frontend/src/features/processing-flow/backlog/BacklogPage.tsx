@@ -31,9 +31,8 @@ import { RECORD_KINDS } from '../codes';
 import { FeatureOffState } from '../components/FeatureOffState';
 import { explainError, isFeatureOff } from '../errors';
 import { recordTabHref } from '../record-tabs/recordLink';
-import { trackingApi } from '../tracking/api';
 import { TrackingItemsTable } from '../tracking/TrackingItemsTable';
-import { TRACKING_QUERY_KEYS, dueText } from '../tracking/trackingKeys';
+import { dueText } from '../tracking/trackingKeys';
 import type { RecordKind } from '../types';
 import { backlogApi } from './api';
 import { BACKLOG_PAGE_SIZE, BACKLOG_QUERY_KEYS, BACKLOG_URL_PREFIX, dayParam, monthOf } from './backlogKeys';
@@ -114,8 +113,11 @@ export default function BacklogPage() {
     retry: false,
   });
 
-  /** The units the filter offers: those holding work the person may see (needs no `read:Team`). */
-  const teamsQ = useQuery({ queryKey: TRACKING_QUERY_KEYS.teams, queryFn: () => trackingApi.teams(), staleTime: 60_000, retry: false });
+  /**
+   * The units the filter offers, from the backlog itself: every unit a row of the table may be about, also one that
+   * only holds records with no flow, and the units above them (needs no `read:Team`).
+   */
+  const teamsQ = useQuery({ queryKey: BACKLOG_QUERY_KEYS.teams, queryFn: () => backlogApi.teams(), staleTime: 60_000, retry: false });
   const unitOptions = useMemo(() => {
     const offered = teamsQ.data ?? [];
     // A unit named by the address stays selectable even when the list does not (or not yet) offer it.

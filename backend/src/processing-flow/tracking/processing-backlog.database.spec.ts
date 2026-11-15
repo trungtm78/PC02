@@ -2,6 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../../audit/audit.service';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
+import { CasesService } from '../../cases/cases.service';
 import { ensurePermissions, openScratchDatabase, type EnsuredPermissions, type ScratchDatabase } from '../../common/testing/scratch-database';
 import { TeamsService } from '../../teams/teams.service';
 import { BANDS } from '../contract/processing-codes';
@@ -359,6 +360,105 @@ run('The backlog by unit on PostgreSQL', () => {
       } finally {
         read.mockRestore();
         grouped.mockRestore();
+      }
+    });
+  });
+
+  describe('cases with no flow follow the case LIST, not the detail route', () => {
+    const people: Record<string, { id: string; role: string; canDispatch: boolean }> = {};
+    const caseId: Record<string, string> = {};
+    let cases: CasesService;
+    let scopes: UnitScopeService;
+    let teamK = '';
+
+    beforeAll(async () => {
+      const { db } = scratch;
+      const role = await db.role.findFirstOrThrow({ where: { name: `${tag}-officer` } });
+      teamK = (await db.team.create({ data: { code: `${tag}-K`, name: `${tag} Đội K` } })).id;
+      const person = async (who: string, over: Record<string, unknown> = {}) => {
+        const row = await db.user.create({ data: { username: `${tag}-${who}`, passwordHash: 'x', roleId: role.id, isActive: true, ...over } });
+        await db.userTeam.create({ data: { userId: row.id, teamId: teamK } });
+        people[who] = { id: row.id, role: role.name, canDispatch: false };
+      };
+      await person('caseMember');
+      await person('viewOnly', { caseAccessMode: 'REPRESENTATION_ONLY' });
+      await person('listOnly', { caseAccessMode: 'REPRESENTATION_ONLY' });
+      const open = async (name: string) => {
+        const n = ++counter;
+        caseId[name] = (await db.case.create({ data: { name: `${tag} case ${n}`, caseCode: `${tag}-c${n}`, caseProvenance: 'DIRECT_DISCOVERY', investigatorId: id.owner, assignedTeamId: teamK, status: 'DANG_DIEU_TRA' } as never })).id;
+      };
+      await open('viewed');
+      await open('listed');
+      await open('plain');
+      // One capability each, on one case each: `view` opens the detail of a case, `list` shows it on the list.
+      const grant = async (who: string, name: string, capability: string) => {
+        const lawyer = await db.lawyer.create({ data: { caseId: caseId[name], fullName: `${tag} lawyer ${who}`, barNumber: `${tag}-${who}` } });
+        await db.caseRepresentationGrant.create({ data: { caseId: caseId[name], lawyerId: lawyer.id, granteeId: people[who].id, createdById: id.owner, startsAt: new Date('2000-01-01'), expiresAt: new Date('2099-01-01'), capabilities: [capability] } });
+      };
+      await grant('viewOnly', 'viewed', 'view');
+      await grant('listOnly', 'listed', 'list');
+
+      const prisma = db as never;
+      const audit = new AuditService(prisma);
+      scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
+      const settings = { getKyThongKe: () => Promise.resolve({ ky: 'TAT_CA', truong: 'NGAY_TIEP_NHAN', tuNgay: null, denNgay: null }) } as never;
+      cases = new CasesService(prisma, audit, settings, {} as never, { emit: () => false } as never);
+    });
+
+    afterAll(async () => {
+      const { db } = scratch;
+      const ids = Object.values(caseId);
+      await db.caseRepresentationGrant.deleteMany({ where: { caseId: { in: ids } } });
+      await db.lawyer.deleteMany({ where: { caseId: { in: ids } } });
+      await db.auditLog.deleteMany({ where: { userId: { in: Object.values(people).map((person) => person.id) } } });
+      await db.case.deleteMany({ where: { id: { in: ids } } });
+    });
+
+    /** The cases of this block the REAL list service shows the person, with the scope their request would carry. */
+    const listed = async (who: string): Promise<string[]> => {
+      const person = people[who];
+      const dataScope = await scopes.resolveScope(person.id, person.role, person.canDispatch);
+      // No `offset`: for a person who acts by representation the list treats any key outside its short safe list as a private filter.
+      const answer = await cases.getList({ limit: 100 } as never, dataScope, person.id);
+      const mine = new Set(Object.values(caseId));
+      return answer.data.map((row) => row.id).filter((found) => mine.has(found)).sort();
+    };
+
+    it('the count and its list are exactly the cases the case LIST shows that person: a `view` grant alone shows none, a `list` grant alone shows its case', async () => {
+      for (const who of ['caseMember', 'viewOnly', 'listOnly']) {
+        const onList = await listed(who);
+        const drill = await backlog.unapplied(people[who], { kind: 'CASE', teamId: teamK, pageSize: 100 });
+        const row = (await backlog.units(people[who], { asOf })).rows.find((found) => found.teamId === teamK);
+        expect({ who, ids: drill.items.map((item) => item.recordId).sort(), total: drill.total, count: row?.unappliedByKind.CASE ?? 0 }).toEqual({ who, ids: onList, total: onList.length, count: onList.length });
+      }
+      // The comparison compared something, and the two grants are told apart.
+      expect(await listed('caseMember')).toEqual([caseId.viewed, caseId.listed, caseId.plain].sort());
+      expect(await listed('viewOnly')).toEqual([]);
+      expect(await listed('listOnly')).toEqual([caseId.listed]);
+    });
+
+    it('the units the filter offers follow the same rule', async () => {
+      expect((await backlog.teams(people.viewOnly)).map((team) => team.id)).not.toContain(teamK);
+      expect((await backlog.teams(people.listOnly)).map((team) => team.id)).toContain(teamK);
+    });
+  });
+
+  describe('the units the filter offers', () => {
+    it('are the units of the table: those that work a step AND those that only hold records with no flow, within the person\'s reach', async () => {
+      const offered = async (who: Who) => (await backlog.teams(user(who))).filter((team) => team.name.includes(tag));
+      // `holder` reaches no work at all: only the two units that hold records with no flow. The unit above comes first.
+      expect(await offered('holder')).toEqual([
+        { id: id.N, name: `${tag} Đội N`, parentTeamId: null },
+        { id: id.N2, name: `${tag} Tổ N2`, parentTeamId: id.N },
+      ]);
+      // `member` reaches the work of T and U and no record without a flow.
+      // P works nothing, but T is under it: it is offered, so that the filter with the roll-up can name it.
+      expect((await offered('member')).map((team) => team.id).sort()).toEqual([id.P, id.T, id.U, id.V].sort());
+      expect(await backlog.teams(user('unpermitted'))).toEqual([]);
+      // Every unit of the unfiltered table (whatever the role) is offered.
+      for (const who of ['holder', 'member', 'other'] as Who[]) {
+        const ids = new Set((await backlog.teams(user(who))).map((team) => team.id));
+        for (const role of WORK_ROLES) for (const row of (await backlog.units(user(who), { asOf, role })).rows) expect(ids.has(row.teamId)).toBe(true);
       }
     });
   });

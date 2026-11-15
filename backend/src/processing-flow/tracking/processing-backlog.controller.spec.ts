@@ -13,7 +13,7 @@ import { ProcessingBacklogService } from './processing-backlog.service';
  */
 describe('ProcessingBacklogController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const backlog = { units: jest.fn(), onTime: jest.fn(), unitsWorkbook: jest.fn(), unapplied: jest.fn() };
+  const backlog = { units: jest.fn(), onTime: jest.fn(), unitsWorkbook: jest.fn(), unapplied: jest.fn(), teams: jest.fn() };
   let switchedOn = true;
   let held: string[] = ['read:ProcessingStep'];
   const asked: string[] = [];
@@ -117,6 +117,20 @@ describe('ProcessingBacklogController (HTTP, real guards)', () => {
     switchedOn = false;
     await get(path).expect(404);
     expect(backlog.unapplied).not.toHaveBeenCalled();
+  });
+
+  it('the units of the filter: behind the same switch and permission, and they take no parameter', async () => {
+    backlog.teams.mockReset().mockResolvedValue([{ id: 't1', name: 'Tổ 1', parentTeamId: null }]);
+    expect((await get('/processing/backlog/teams').expect(200)).body).toEqual([{ id: 't1', name: 'Tổ 1', parentTeamId: null }]);
+    expect(backlog.teams).toHaveBeenCalledWith({ id: 'officer-1', role: 'OFFICER', canDispatch: true });
+    backlog.teams.mockClear();
+    await get('/processing/backlog/teams?kind=CASE').expect(400);
+    held = ['read:Petition'];
+    await get('/processing/backlog/teams').expect(403);
+    held = ['read:ProcessingStep'];
+    switchedOn = false;
+    await get('/processing/backlog/teams').expect(404);
+    expect(backlog.teams).not.toHaveBeenCalled();
   });
 
   it('the export is an .xlsx attachment named after the day the table was judged at', async () => {

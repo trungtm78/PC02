@@ -63,6 +63,11 @@ describe('the backlog routes', () => {
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units/export', { params: { teamId: 'doi-1' }, responseType: 'blob' });
   });
 
+  it('asks the units of the filter from the backlog itself, with no parameter', async () => {
+    await backlogApi.teams();
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/teams');
+  });
+
   it('asks the records with no flow of one unit and one kind', async () => {
     await backlogApi.unapplied({ teamId: 'to-1', kind: 'INCIDENT' }, 2, 20);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/unapplied', { params: { kind: 'INCIDENT', teamId: 'to-1', page: 2, pageSize: 20 } });

@@ -4,18 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import BacklogPage from '../BacklogPage';
 import { backlogApi } from '../api';
-import { trackingApi } from '../../tracking/api';
 import { monthOf } from '../backlogKeys';
 import type { BacklogUnitRow, BacklogUnitsDto, OnTimeReportDto, UnappliedRecordsDto } from '../types';
 import type { TrackingItemDto, TrackingItemsDto } from '../../tracking/types';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
 
-vi.mock('../api', () => ({ backlogApi: { units: vi.fn(), cellItems: vi.fn(), onTime: vi.fn(), exportUnits: vi.fn(), unapplied: vi.fn() } }));
-vi.mock('../../tracking/api', () => ({ trackingApi: { teams: vi.fn() } }));
+vi.mock('../api', () => ({ backlogApi: { units: vi.fn(), cellItems: vi.fn(), onTime: vi.fn(), exportUnits: vi.fn(), unapplied: vi.fn(), teams: vi.fn() } }));
 
 const api = vi.mocked(backlogApi);
-const teamsApi = vi.mocked(trackingApi);
 const T = L.backlog;
 
 const AS_OF = '2026-12-10T02:30:00.000Z'; // 09:30 in Vietnam
@@ -135,9 +132,11 @@ beforeEach(() => {
   api.onTime.mockResolvedValue(onTime());
   api.exportUnits.mockResolvedValue(undefined);
   api.unapplied.mockResolvedValue(noFlowList('PETITION', 'to-1', 2));
-  teamsApi.teams.mockResolvedValue([
+  // The backlog's own units: `to-9` only holds records with no flow, so no list of units that WORK a step has it.
+  api.teams.mockResolvedValue([
     { id: 'doi-1', name: 'Đội 1', parentTeamId: null },
     { id: 'to-1', name: 'Tổ 1', parentTeamId: 'doi-1' },
+    { id: 'to-9', name: 'Tổ 9', parentTeamId: null },
   ]);
 });
 
@@ -369,6 +368,9 @@ describe('the unit filter', () => {
     await loaded();
     const select = screen.getByTestId('backlog-filter-unit');
     await waitFor(() => expect(within(select).getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    // From the backlog's own route: a unit that only holds records with no flow is offered too.
+    expect(within(select).getByRole('option', { name: 'Tổ 9' })).toBeInTheDocument();
+    expect(api.teams).toHaveBeenCalledTimes(1);
     fireEvent.change(select, { target: { value: 'doi-1' } });
     await waitFor(() => expect(api.units).toHaveBeenLastCalledWith({ kind: null, role: 'MAIN', from: null, to: null, unitId: 'doi-1' }, false));
     expect(where()).toContain('backlog_unit=doi-1');

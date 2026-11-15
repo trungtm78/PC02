@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 import { triggerDownload } from '@/features/document-templates/export.api';
-import type { TrackingItemsDto } from '../tracking/types';
+import type { TrackingItemsDto, TrackingTeamDto } from '../tracking/types';
 import { DEFAULT_ROLE, type BacklogCell, type BacklogFilters, type BacklogUnitsDto, type OnTimeQuery, type OnTimeReportDto, type UnappliedCell, type UnappliedRecordsDto } from './types';
 
 const data = <T>(r: { data: T }): T => r.data;
@@ -44,6 +44,12 @@ export const backlogApi = {
    */
   units: (filters: BacklogFilters, rolledUp: boolean) =>
     api.get<BacklogUnitsDto>(`${BASE}/units`, { params: { ...filterParams(filters), ...unitParams(filters.unitId, rolledUp) } }).then(data),
+
+  /**
+   * The units the filter offers: every unit a row of the table may be about (it works a step in any role, or only holds
+   * records with no flow), and the units above them. Needs no `read:Team`.
+   */
+  teams: () => api.get<TrackingTeamDto[]>(`${BASE}/teams`).then(data),
 
   /** The records one number of the column "Chưa áp quy trình" counts: the server's same condition, one unit, one kind. */
   unapplied: (cell: UnappliedCell, page: number, pageSize: number) =>
