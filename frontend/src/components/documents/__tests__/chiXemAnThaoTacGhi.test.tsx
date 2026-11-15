@@ -54,6 +54,26 @@ describe('Tài liệu hồ sơ', () => {
   });
 });
 
+describe('Tệp đính kèm của báo cáo bước xử lý trong danh sách tài liệu', () => {
+  it('không có nút Xoá (máy chủ từ chối 409), có nhãn chỉ chỗ gỡ; tệp thường bên cạnh vẫn xoá được', async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        data: [
+          { id: 'd1', title: 'Biên bản', documentType: 'VAN_BAN' },
+          { id: 'd2', title: 'Báo cáo xác minh.pdf', documentType: 'VAN_BAN', procStepReportId: 'rp1' },
+        ],
+      },
+    });
+    render(<EntityDocumentsTab entityKind="petition" entityId="p1" />, { wrapper: boc });
+    expect(await screen.findByText('Báo cáo xác minh.pdf')).toBeInTheDocument();
+    expect(screen.getAllByTitle('Xóa')).toHaveLength(1);
+    expect(screen.getByTestId('tep-cua-bao-cao-d2')).toHaveTextContent('Tệp của báo cáo bước');
+    expect(screen.queryByTestId('tep-cua-bao-cao-d1')).toBeNull();
+    // Mở và tải xuống vẫn có cho cả hai.
+    expect(screen.getAllByTitle('Tải xuống')).toHaveLength(2);
+  });
+});
+
 describe('Bảng điều tra bổ sung (form Vụ án)', () => {
   beforeEach(() => {
     apiGet.mockResolvedValue({ data: { data: [{ id: 's1', decisionNumber: 'QĐ-1' }] } });
