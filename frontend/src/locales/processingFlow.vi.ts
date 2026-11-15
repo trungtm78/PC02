@@ -288,8 +288,10 @@ export const processingFlow = {
   },
   conflict: {
     title: 'Người khác vừa sửa mục này.',
-    body: 'Bấm "Tải lại" để xem bản mới nhất. Phần bạn đang sửa trong bảng vẫn được giữ lại để bạn đối chiếu và lưu lại nếu cần.',
+    body: 'Phần bạn đang sửa vẫn hiện bên dưới để bạn đối chiếu, nhưng chưa lưu được. Bấm "Tải lại bản mới nhất" để lấy bản của người kia (phần bạn sửa sẽ mất) rồi sửa lại.',
     reload: 'Tải lại bản mới nhất',
+    reloading: 'Đang tải bản mới nhất…',
+    refreshFailed: 'Chưa tải được bản mới nhất. Bấm để thử lại.',
   },
   bound: {
     conflictLine: (what: string, flowName: string) => `${what} đang áp cho quy trình "${flowName}"`,

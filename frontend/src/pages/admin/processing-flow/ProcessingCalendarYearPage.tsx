@@ -46,7 +46,8 @@ export default function ProcessingCalendarYearPage() {
     refetchOnWindowFocus: false,
   });
 
-  if (!valid || yearQ.isError) {
+  // A failed REFRESH (the year was read before) keeps the form: it holds what the person changed.
+  if (!valid || (yearQ.isError && !yearQ.data)) {
     if (valid && isFeatureOff(yearQ.error)) return <FeatureOffState />;
     const message = !valid ? errorText('CALENDAR_YEAR_INVALID') : explainError(yearQ.error).message;
     return (
@@ -83,6 +84,8 @@ export default function ProcessingCalendarYearPage() {
         void queryClient.invalidateQueries({ queryKey: PROCESSING_QUERY_KEYS.calendarYears });
       }}
       reload={() => void yearQ.refetch()}
+      refreshing={yearQ.isFetching}
+      refreshFailed={yearQ.isError}
     />
   );
 }
@@ -92,9 +95,13 @@ interface BodyProps {
   stored: CalendarYearDto | null;
   setStored: (stored: CalendarYearDto | null) => void;
   reload: () => void;
+  /** The year is being read again (after a conflict). */
+  refreshing: boolean;
+  /** The last read failed while an earlier answer is still held. */
+  refreshFailed: boolean;
 }
 
-function YearBody({ year, stored, setStored, reload }: BodyProps) {
+function YearBody({ year, stored, setStored, reload, refreshing, refreshFailed }: BodyProps) {
   const navigate = useNavigate();
   const perms = useProcessingPermissions();
   const [state, setState] = useState<CalendarEditState>(() => editStateFrom(stored));
@@ -111,13 +118,27 @@ function YearBody({ year, stored, setStored, reload }: BodyProps) {
   const [to, setTo] = useState('');
 
   const confirmed = stored?.status === 'CONFIRMED';
-  const editable = perms.canEditCalendar && !confirmed && !busy;
+  // After a conflict nothing may be written until the person has taken the newer year: the screen holds the contents of
+  // an OLDER revision, and the refresh has already moved `stored.revision` on under it.
+  const locked = busy || conflict;
+  const editable = perms.canEditCalendar && !confirmed && !locked;
   const dirty = calendarDirty(state, stored);
   const expected = stored ? { id: stored.id, revision: stored.revision } : null;
 
   function apply(next: CalendarYearDto | null) {
     setStored(next);
     setState(editStateFrom(next));
+  }
+
+  /** The person takes the newer year: its contents replace the screen. */
+  function takeNewerYear() {
+    if (refreshFailed) {
+      reload();
+      return;
+    }
+    setConflict(false);
+    setState(editStateFrom(stored));
+    setDeleteOpen(false);
   }
 
   async function run(job: () => Promise<void>) {
@@ -206,22 +227,22 @@ function YearBody({ year, stored, setStored, reload }: BodyProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {perms.canEditCalendar && !confirmed && (
-            <button type="button" data-testid="calendar-save" className={BTN_PRIMARY} disabled={busy || (stored !== null && !dirty)} onClick={() => void save()}>
+            <button type="button" data-testid="calendar-save" className={BTN_PRIMARY} disabled={locked || (stored !== null && !dirty)} onClick={() => void save()}>
               {busy ? L.common.saving : C.save}
             </button>
           )}
           {perms.canConfirmCalendar && stored && !confirmed && (
-            <button type="button" data-testid="calendar-confirm" className={BTN_SECONDARY} disabled={busy || dirty} title={dirty ? C.needSaveFirst : undefined} onClick={() => void confirm()}>
+            <button type="button" data-testid="calendar-confirm" className={BTN_SECONDARY} disabled={locked || dirty} title={dirty ? C.needSaveFirst : undefined} onClick={() => void confirm()}>
               {C.confirm}
             </button>
           )}
           {perms.canConfirmCalendar && confirmed && (
-            <button type="button" data-testid="calendar-unconfirm" className={BTN_SECONDARY} disabled={busy} onClick={() => void unconfirm()}>
+            <button type="button" data-testid="calendar-unconfirm" className={BTN_SECONDARY} disabled={locked} onClick={() => void unconfirm()}>
               {C.unconfirm}
             </button>
           )}
           {perms.canEditCalendar && stored && !confirmed && (
-            <button type="button" data-testid="calendar-delete" className={BTN_SECONDARY} disabled={busy} onClick={() => setDeleteOpen(true)}>
+            <button type="button" data-testid="calendar-delete" className={BTN_SECONDARY} disabled={locked} onClick={() => setDeleteOpen(true)}>
               {C.deleteYear}
             </button>
           )}
@@ -249,9 +270,19 @@ function YearBody({ year, stored, setStored, reload }: BodyProps) {
         </p>
       )}
       {conflict && (
-        <p data-testid="calendar-conflict" role="alert" className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          <b>{L.conflict.title}</b> {L.conflict.body}
-        </p>
+        <div data-testid="calendar-conflict" role="alert" className="flex flex-wrap items-center gap-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="min-w-0 flex-1">
+            <b>{L.conflict.title}</b> {L.conflict.body}
+          </div>
+          <button type="button" data-testid="calendar-conflict-reload" className={BTN_SECONDARY} disabled={refreshing} onClick={takeNewerYear}>
+            {refreshing ? L.conflict.reloading : refreshFailed ? L.common.retry : L.conflict.reload}
+          </button>
+          {refreshFailed && !refreshing && (
+            <span data-testid="calendar-refresh-failed" className="basis-full text-red-700">
+              {L.conflict.refreshFailed}
+            </span>
+          )}
+        </div>
       )}
       {dirty && <p className="text-xs text-amber-800">{C.unsaved}</p>}
 
@@ -263,7 +294,7 @@ function YearBody({ year, stored, setStored, reload }: BodyProps) {
             <button type="button" className={BTN_SECONDARY} onClick={() => setDeleteOpen(false)} disabled={busy}>
               {L.common.cancel}
             </button>
-            <button type="button" data-testid="calendar-delete-confirm" className={BTN_DANGER} disabled={busy} onClick={() => void remove()}>
+            <button type="button" data-testid="calendar-delete-confirm" className={BTN_DANGER} disabled={locked} onClick={() => void remove()}>
               {L.common.remove}
             </button>
           </div>
@@ -366,7 +397,7 @@ function YearBody({ year, stored, setStored, reload }: BodyProps) {
                           type="button"
                           data-testid={`day-remove-${d.date}`}
                           aria-label={C.removeDay(d.date)}
-                          disabled={busy}
+                          disabled={locked}
                           className="rounded border border-slate-300 px-1.5 text-slate-600 hover:text-red-700 disabled:opacity-40"
                           onClick={() => setState((s) => ({ ...s, days: removeDay(s.days, d.date) }))}
                         >

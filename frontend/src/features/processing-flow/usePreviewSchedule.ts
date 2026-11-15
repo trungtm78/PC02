@@ -8,6 +8,11 @@ export const PREVIEW_DEBOUNCE_MS = 400;
 export interface PreviewState {
   /** The last answer that was good: kept while a newer one is being asked for, and after a failed one. */
   data: SchedulePreviewDto | null;
+  /**
+   * The request `data` answers. After a failed request `data` is the answer of an EARLIER body: whatever labels its rows
+   * (step names, the star of the record's deadline) must come from here, never from the steps on screen now.
+   */
+  answeredFor: PreviewScheduleBody | null;
   loading: boolean;
   /** Why the LAST request failed; null after a good one. */
   error: ExplainedError | null;
@@ -17,6 +22,8 @@ interface Settled {
   /** The request body (serialised) this belongs to. */
   key: string | null;
   data: SchedulePreviewDto | null;
+  /** The serialised body `data` answers (differs from `key` after a failed request). */
+  dataKey: string | null;
   error: ExplainedError | null;
 }
 
@@ -28,7 +35,7 @@ interface Settled {
  */
 export function usePreviewSchedule(body: PreviewScheduleBody | null, delayMs: number = PREVIEW_DEBOUNCE_MS): PreviewState {
   const key = useMemo(() => (body ? JSON.stringify(body) : null), [body]);
-  const [settled, setSettled] = useState<Settled>({ key: null, data: null, error: null });
+  const [settled, setSettled] = useState<Settled>({ key: null, data: null, dataKey: null, error: null });
   const latest = useRef(0);
 
   useEffect(() => {
@@ -41,11 +48,11 @@ export function usePreviewSchedule(body: PreviewScheduleBody | null, delayMs: nu
         .previewSchedule(JSON.parse(key) as PreviewScheduleBody, controller.signal)
         .then((data) => {
           if (mine !== latest.current) return;
-          setSettled({ key, data, error: null });
+          setSettled({ key, data, dataKey: key, error: null });
         })
         .catch((err: unknown) => {
           if (mine !== latest.current || controller.signal.aborted) return;
-          setSettled((prev) => ({ key, data: prev.data, error: explainError(err) }));
+          setSettled((prev) => ({ key, data: prev.data, dataKey: prev.dataKey, error: explainError(err) }));
         });
     }, delayMs);
     return () => {
@@ -54,8 +61,11 @@ export function usePreviewSchedule(body: PreviewScheduleBody | null, delayMs: nu
     };
   }, [key, delayMs]);
 
+  const answeredFor = useMemo(() => (settled.dataKey === null ? null : (JSON.parse(settled.dataKey) as PreviewScheduleBody)), [settled.dataKey]);
+
   return {
     data: key === null ? null : settled.data,
+    answeredFor: key === null ? null : answeredFor,
     loading: key !== null && settled.key !== key,
     error: key === null ? null : settled.error,
   };

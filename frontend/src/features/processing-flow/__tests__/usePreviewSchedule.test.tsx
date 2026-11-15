@@ -101,4 +101,22 @@ describe('the preview of the schedule', () => {
     expect(hook.current.data?.recordDeadline).toBe('good');
     expect(hook.current.error?.code).toBe('STEPS_INVALID');
   });
+
+  it('says which steps the kept chart was drawn for, so its bars are never labelled with steps that moved since (found by Codex)', async () => {
+    preview.mockResolvedValueOnce(result('good'));
+    const { result: hook, rerender } = renderHook(({ b }) => usePreviewSchedule(b), { initialProps: { b: body('first') } });
+    await act(async () => void vi.advanceTimersByTime(400));
+    expect(hook.current.answeredFor).toEqual(body('first'));
+    preview.mockRejectedValueOnce({ isAxiosError: true, response: { status: 400, data: { success: false, code: 'STEPS_INVALID', error: { code: 'STEPS_INVALID', message: 'x', details: [] } } } });
+    rerender({ b: body('second') });
+    await act(async () => void vi.advanceTimersByTime(400));
+    // The old chart is still shown; it belongs to "first", not to what is on screen now.
+    expect(hook.current.data?.recordDeadline).toBe('good');
+    expect(hook.current.answeredFor).toEqual(body('first'));
+  });
+
+  it('has nothing to say about a body when there is nothing to draw', async () => {
+    const { result: hook } = renderHook(() => usePreviewSchedule(null));
+    expect(hook.current.answeredFor).toBeNull();
+  });
 });

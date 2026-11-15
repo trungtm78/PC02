@@ -50,7 +50,8 @@ export default function ProcessingFlowEditorPage() {
     refetchOnWindowFocus: false,
   });
 
-  if (flowQ.isError) {
+  // A failed REFRESH (the flow was read before) must not take the form away: it holds what the person typed.
+  if (flowQ.isError && !flowQ.data) {
     if (isFeatureOff(flowQ.error)) return <FeatureOffState />;
     return (
       <div data-testid="editor-load-error" role="alert" className="m-4 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
@@ -82,6 +83,8 @@ export default function ProcessingFlowEditorPage() {
         void queryClient.invalidateQueries({ queryKey: PROCESSING_QUERY_KEYS.flows });
       }}
       reload={() => void flowQ.refetch()}
+      refreshing={flowQ.isFetching}
+      refreshFailed={flowQ.isError}
     />
   );
 }
@@ -90,9 +93,13 @@ interface BodyProps {
   flow: FlowDetailDto;
   setFlow: (flow: FlowDetailDto) => void;
   reload: () => void;
+  /** The flow is being read again (after a conflict). */
+  refreshing: boolean;
+  /** The last read failed while an earlier answer is still held. */
+  refreshFailed: boolean;
 }
 
-function EditorBody({ flow, setFlow, reload }: BodyProps) {
+function EditorBody({ flow, setFlow, reload, refreshing, refreshFailed }: BodyProps) {
   const perms = useProcessingPermissions();
   const teamsQ = useTeamChoices();
   const catalogueQ = useDirectoryOptions('LOAI_THONG_TIN', { returnId: true, limit: 1000 });
@@ -123,6 +130,31 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
   const onDraft = shown.view === 'draft' && version?.status === 'DRAFT';
   const editable = onDraft && perms.canEdit && !archived;
   const dirty = version ? isDirty(steps, toStepPayloads(draftsOf(version))) : false;
+  /**
+   * After a conflict nothing may be written until the person has taken the newer flow: the screen holds the contents of
+   * an OLDER revision, and the refresh has already moved `flow.revision` on under it.
+   */
+  const locked = busy || conflict;
+
+  /** The person's own edit of the steps: it also withdraws a publish confirmation that was opened for the contents before it. */
+  const changeSteps = (next: StepDraft[] | ((prev: StepDraft[]) => StepDraft[])) => {
+    setPublishOpen(false);
+    setSteps(next);
+  };
+
+  /** The person takes the newer flow: its contents replace the screen, and every panel built on the old one closes. */
+  function takeNewerFlow() {
+    if (refreshFailed) {
+      reload();
+      return;
+    }
+    setConflict(false);
+    setSteps(draftsOf(version));
+    setMetaOpen(false);
+    setPublishOpen(false);
+    setDropDraftOpen(false);
+    setBindingError(null);
+  }
 
   /** Replace what is on screen with a flow the server just sent (a save, a publish, a new draft…). */
   function applyFlow(next: FlowDetailDto, nextView: View | null) {
@@ -166,7 +198,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
     });
 
   const publish = async () => {
-    if (!version) return;
+    if (!version || dirty || conflict) return;
     setBusy(true);
     resetNotices();
     setPublishIssues(null);
@@ -287,8 +319,9 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
                 type="button"
                 data-testid="editor-view-draft"
                 aria-pressed={shown.view === 'draft'}
-                disabled={busy}
+                disabled={locked}
                 onClick={() => {
+                  if (shown.view === 'draft') return;
                   setView('draft');
                   setSteps(draftsOf(flow.draft));
                 }}
@@ -300,8 +333,10 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
                 type="button"
                 data-testid="editor-view-published"
                 aria-pressed={shown.view === 'published'}
-                disabled={busy}
+                disabled={locked || (dirty && shown.view === 'draft')}
+                title={dirty && shown.view === 'draft' ? L.editor.unsaved : undefined}
                 onClick={() => {
+                  if (shown.view === 'published') return;
                   setView('published');
                   setSteps(draftsOf(flow.published));
                 }}
@@ -312,7 +347,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
             </div>
           )}
           {perms.canEdit && !archived && (
-            <button type="button" data-testid="editor-edit-meta" className={BTN_SECONDARY} disabled={busy} onClick={() => setMetaOpen((o) => !o)}>
+            <button type="button" data-testid="editor-edit-meta" className={BTN_SECONDARY} disabled={locked} onClick={() => setMetaOpen((o) => !o)}>
               {L.editor.editMeta}
             </button>
           )}
@@ -320,17 +355,17 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
             {L.editor.history}
           </button>
           {!flow.draft && perms.canEdit && !archived && (
-            <button type="button" data-testid="editor-new-draft" className={BTN_PRIMARY} disabled={busy} onClick={() => void newDraft()}>
+            <button type="button" data-testid="editor-new-draft" className={BTN_PRIMARY} disabled={locked} onClick={() => void newDraft()}>
               {L.editor.newDraft}
             </button>
           )}
           {onDraft && flow.published && perms.canEdit && !archived && (
-            <button type="button" data-testid="editor-delete-draft" className={BTN_SECONDARY} disabled={busy} onClick={() => setDropDraftOpen(true)}>
+            <button type="button" data-testid="editor-delete-draft" className={BTN_SECONDARY} disabled={locked} onClick={() => setDropDraftOpen(true)}>
               {L.editor.deleteDraft}
             </button>
           )}
           {editable && (
-            <button type="button" data-testid="editor-save" className={BTN_SECONDARY} disabled={busy || !dirty} onClick={() => void save()}>
+            <button type="button" data-testid="editor-save" className={BTN_SECONDARY} disabled={locked || !dirty} onClick={() => void save()}>
               {busy ? L.common.saving : L.editor.saveDraft}
             </button>
           )}
@@ -339,7 +374,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
               type="button"
               data-testid="editor-publish"
               className={BTN_PRIMARY}
-              disabled={busy || dirty}
+              disabled={locked || dirty}
               title={dirty ? L.editor.unsaved : undefined}
               onClick={() => {
                 resetNotices();
@@ -369,17 +404,14 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
           <div className="min-w-0 flex-1">
             <b>{L.conflict.title}</b> {L.conflict.body}
           </div>
-          <button
-            type="button"
-            data-testid="editor-conflict-reload"
-            className={BTN_SECONDARY}
-            onClick={() => {
-              setConflict(false);
-              setSteps(draftsOf(version));
-            }}
-          >
-            {L.conflict.reload}
+          <button type="button" data-testid="editor-conflict-reload" className={BTN_SECONDARY} disabled={refreshing} onClick={takeNewerFlow}>
+            {refreshing ? L.conflict.reloading : refreshFailed ? L.common.retry : L.conflict.reload}
           </button>
+          {refreshFailed && !refreshing && (
+            <span data-testid="editor-refresh-failed" className="basis-full text-red-700">
+              {L.conflict.refreshFailed}
+            </span>
+          )}
         </div>
       )}
       {dirty && editable && (
@@ -398,7 +430,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
         </p>
       )}
 
-      {metaOpen && perms.canEdit && !archived && <FlowMetaPanel flow={flow} busy={busy} onSave={(v) => void saveMeta(v)} onClose={() => setMetaOpen(false)} />}
+      {metaOpen && perms.canEdit && !archived && <FlowMetaPanel flow={flow} busy={locked} onSave={(v) => void saveMeta(v)} onClose={() => setMetaOpen(false)} />}
 
       {dropDraftOpen && version && (
         <section data-testid="editor-delete-draft-panel" className="flex flex-col gap-2 rounded-lg border border-red-200 bg-white p-3">
@@ -407,7 +439,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
             <button type="button" className={BTN_SECONDARY} onClick={() => setDropDraftOpen(false)} disabled={busy}>
               {L.common.cancel}
             </button>
-            <button type="button" data-testid="editor-delete-draft-confirm" className={BTN_DANGER} disabled={busy} onClick={() => void dropDraft()}>
+            <button type="button" data-testid="editor-delete-draft-confirm" className={BTN_DANGER} disabled={locked} onClick={() => void dropDraft()}>
               {L.editor.deleteDraftYes}
             </button>
           </div>
@@ -444,7 +476,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
           )}
           {error && <p className="text-sm text-red-700">{error}</p>}
           <div className="flex gap-2">
-            <button type="button" data-testid="editor-publish-confirm" className={BTN_PRIMARY} disabled={busy} onClick={() => void publish()}>
+            <button type="button" data-testid="editor-publish-confirm" className={BTN_PRIMARY} disabled={locked || dirty} onClick={() => void publish()}>
               {L.publish.confirm(version.versionNo)}
             </button>
             <button type="button" data-testid="editor-publish-cancel" className={BTN_SECONDARY} disabled={busy} onClick={() => setPublishOpen(false)}>
@@ -458,7 +490,7 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
         flow={flow}
         catalogue={catalogueQ.data ?? []}
         editable={perms.canEdit && !archived}
-        busy={busy}
+        busy={locked}
         onSave={(ids, groups) => void saveBindings(ids, groups)}
         error={bindingError}
       />
@@ -482,17 +514,17 @@ function EditorBody({ flow, setFlow, reload }: BodyProps) {
       <StepsTable
         recordKind={flow.recordKind}
         steps={steps}
-        editable={editable && !busy}
-        onChange={setSteps}
+        editable={editable && !locked}
+        onChange={changeSteps}
         teams={teams}
         canVerify={perms.canVerify && !archived}
-        verifyBlocked={busy || dirty}
+        verifyBlocked={locked || dirty}
         onVerify={(key, on) => void verify(key, on)}
         userName={userName}
       />
       {editable && (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" data-testid="editor-add-step" className={BTN_SECONDARY} disabled={busy} onClick={() => setSteps((prev) => [...prev, newStepFrom(prev.at(-1) ?? null, L.editor.steps.newStepName)])}>
+          <button type="button" data-testid="editor-add-step" className={BTN_SECONDARY} disabled={locked} onClick={() => changeSteps((prev) => [...prev, newStepFrom(prev.at(-1) ?? null, L.editor.steps.newStepName)])}>
             {L.editor.steps.addStep}
           </button>
           <span className="text-xs text-slate-500">{L.editor.steps.addStepHint}</span>

@@ -84,7 +84,7 @@ export function SchedulePreviewSection({ recordKind, steps }: Props) {
           {S.drawing}
         </p>
       )}
-      <GanttChart steps={steps} data={preview.data} />
+      <GanttChart steps={preview.answeredFor?.steps ?? steps} data={preview.data} />
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" data-testid="gantt-key">
         <span>

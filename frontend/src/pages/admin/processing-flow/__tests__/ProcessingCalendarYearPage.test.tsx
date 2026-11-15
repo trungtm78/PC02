@@ -128,13 +128,40 @@ describe('a stored draft year', () => {
     expect(await screen.findByTestId('list-page')).toBeInTheDocument();
   });
 
-  it('REVISION_CONFLICT says so, reloads, and keeps what the person changed', async () => {
+  it('REVISION_CONFLICT says so, reloads, shows what the person changed but cannot save it over the newer year (found by Codex)', async () => {
     api.save.mockRejectedValue(apiError(409, 'REVISION_CONFLICT'));
+    api.get.mockResolvedValueOnce({ year: 2026, stored: yearDto() }).mockResolvedValue({ year: 2026, stored: yearDto({ revision: 4, weekendDays: [0] }) });
     renderPage();
     fireEvent.click(await screen.findByTestId('weekend-5'));
     fireEvent.click(screen.getByTestId('calendar-save'));
     expect(await screen.findByTestId('calendar-conflict')).toHaveTextContent(L.conflict.title);
     await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(screen.getByTestId('calendar-conflict-reload')).toBeEnabled());
+    expect(screen.getByTestId('weekend-5')).toBeChecked();
+    expect(screen.getByTestId('calendar-save')).toBeDisabled();
+    expect(screen.getByTestId('weekend-1')).toBeDisabled();
+    expect(api.save).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('calendar-conflict-reload'));
+    expect(screen.getByTestId('weekend-5')).not.toBeChecked(); // the newer year's contents
+    expect(screen.getByTestId('weekend-0')).toBeChecked();
+    expect(screen.queryByTestId('calendar-conflict')).toBeNull();
+    fireEvent.click(screen.getByTestId('weekend-5'));
+    api.save.mockResolvedValue(yearDto({ revision: 5 }));
+    fireEvent.click(screen.getByTestId('calendar-save'));
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(2));
+    expect(api.save.mock.calls[1][1]).toMatchObject({ expected: { id: 'y2026', revision: 4 } });
+  });
+
+  it('a refresh that FAILS after a conflict keeps the form and offers to try again (found by Codex)', async () => {
+    api.save.mockRejectedValue(apiError(409, 'REVISION_CONFLICT'));
+    api.get.mockResolvedValueOnce({ year: 2026, stored: yearDto() }).mockRejectedValueOnce(apiError(500, 'INTERNAL_ERROR'));
+    renderPage();
+    fireEvent.click(await screen.findByTestId('weekend-5'));
+    fireEvent.click(screen.getByTestId('calendar-save'));
+    expect(await screen.findByTestId('calendar-conflict')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('calendar-refresh-failed')).toBeInTheDocument());
+    expect(screen.queryByTestId('calendar-load-error')).toBeNull();
     expect(screen.getByTestId('weekend-5')).toBeChecked();
   });
 

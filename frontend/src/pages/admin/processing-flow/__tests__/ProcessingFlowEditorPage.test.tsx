@@ -195,16 +195,79 @@ describe('saving the draft', () => {
     expect(screen.getByTestId('editor-add-step')).toBeDisabled();
   });
 
-  it('REVISION_CONFLICT says somebody else changed it, reloads the flow, and keeps what the person typed', async () => {
+  it('REVISION_CONFLICT says somebody else changed it, reloads the flow, shows what the person typed but lets nothing be saved over the newer version (found by Codex)', async () => {
     api.saveSteps.mockRejectedValue(apiError(409, 'REVISION_CONFLICT'));
+    // The refresh after the conflict brings the version somebody else saved meanwhile: revision 8, another name.
+    api.get
+      .mockResolvedValueOnce(DRAFT())
+      .mockResolvedValue(detail({ draft: version({ id: 'v1', revision: 8 }, [stepDto({ name: 'Của người khác' })]) }));
     renderPage();
     fireEvent.change(await screen.findByTestId('step-0-name'), { target: { value: 'Việc tôi vừa gõ' } });
     fireEvent.click(screen.getByTestId('editor-save'));
     const conflict = await screen.findByTestId('editor-conflict');
     expect(conflict).toHaveTextContent(L.conflict.title);
     await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(1));
+    // What the person typed is still on screen to compare with...
     expect(screen.getByTestId('step-0-name')).toHaveValue('Việc tôi vừa gõ');
-    expect(screen.getByTestId('editor-save')).toBeEnabled();
+    // ...but it cannot be written: the newer revision was never looked at.
+    await waitFor(() => expect(screen.getByTestId('editor-conflict-reload')).toBeEnabled());
+    expect(screen.getByTestId('editor-save')).toBeDisabled();
+    expect(screen.getByTestId('editor-publish')).toBeDisabled();
+    expect(screen.getByTestId('step-0-name')).toBeDisabled();
+    expect(screen.getByTestId('editor-add-step')).toBeDisabled();
+    expect(api.saveSteps).toHaveBeenCalledTimes(1);
+
+    // Taking the newer version is the person's explicit act: its contents replace the screen, and it can be edited again.
+    fireEvent.click(screen.getByTestId('editor-conflict-reload'));
+    expect(screen.getByTestId('step-0-name')).toHaveValue('Của người khác');
+    expect(screen.queryByTestId('editor-conflict')).toBeNull();
+    fireEvent.change(screen.getByTestId('step-0-name'), { target: { value: 'Sau khi tải lại' } });
+    api.saveSteps.mockResolvedValue({ flow: DRAFT(), warnings: [] });
+    fireEvent.click(screen.getByTestId('editor-save'));
+    await waitFor(() => expect(api.saveSteps).toHaveBeenCalledTimes(2));
+    expect(api.saveSteps.mock.calls[1][3]).toBe(8);
+    expect(api.saveSteps.mock.calls[1][2][0].name).toBe('Sau khi tải lại');
+  });
+
+  it('a conflict on the bindings or the name also locks every write until the newer flow is taken', async () => {
+    api.setBindings.mockRejectedValue(apiError(409, 'REVISION_CONFLICT'));
+    renderPage();
+    fireEvent.change(await screen.findByTestId('binding-add-type'), { target: { value: 'd-new' } });
+    expect(await screen.findByTestId('editor-conflict')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('editor-conflict-reload')).toBeEnabled());
+    expect(screen.getByTestId('editor-edit-meta')).toBeDisabled();
+    expect(screen.getByTestId('binding-add-type')).toBeDisabled();
+    expect(screen.getByTestId('step-0-name')).toBeDisabled();
+  });
+
+  it('a refresh that FAILS after a conflict keeps the form, says so inline and offers to try again (found by Codex)', async () => {
+    api.saveSteps.mockRejectedValue(apiError(409, 'REVISION_CONFLICT'));
+    api.get.mockResolvedValueOnce(DRAFT()).mockRejectedValueOnce(apiError(500, 'INTERNAL_ERROR'));
+    renderPage();
+    fireEvent.change(await screen.findByTestId('step-0-name'), { target: { value: 'Việc tôi vừa gõ' } });
+    fireEvent.click(screen.getByTestId('editor-save'));
+    expect(await screen.findByTestId('editor-conflict')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('editor-refresh-failed')).toBeInTheDocument());
+    // The page did not turn into an error screen: the typed text is still there.
+    expect(screen.queryByTestId('editor-load-error')).toBeNull();
+    expect(screen.getByTestId('step-0-name')).toHaveValue('Việc tôi vừa gõ');
+
+    // Trying again fetches once more; nothing is adopted until it has arrived and the person has taken it.
+    api.get.mockResolvedValue(detail({ draft: version({ id: 'v1', revision: 9 }, [stepDto({ name: 'Bản mới' })]) }));
+    fireEvent.click(screen.getByTestId('editor-conflict-reload'));
+    await waitFor(() => expect(screen.queryByTestId('editor-refresh-failed')).toBeNull());
+    fireEvent.click(screen.getByTestId('editor-conflict-reload'));
+    expect(screen.getByTestId('step-0-name')).toHaveValue('Bản mới');
+  });
+
+  it('editing after the publish panel was opened closes the panel, and a publish never goes out over unsaved edits (found by Codex)', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByTestId('editor-publish'));
+    expect(await screen.findByTestId('editor-publish-panel')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('step-0-name'), { target: { value: 'Sửa sau khi mở xác nhận' } });
+    expect(screen.queryByTestId('editor-publish-panel')).toBeNull();
+    expect(api.publish).not.toHaveBeenCalled();
+    expect(screen.getByTestId('step-0-name')).toHaveValue('Sửa sau khi mở xác nhận');
   });
 
   it('STEPS_INVALID is answered in words', async () => {
@@ -385,6 +448,26 @@ describe('a published version', () => {
     expect(screen.getByTestId('step-0-name')).toBeDisabled();
     fireEvent.click(screen.getByTestId('editor-view-draft'));
     expect(screen.getByTestId('step-0-name')).toHaveValue('Nháp');
+  });
+
+  it('the version tabs never throw unsaved edits away: the shown tab is a no-op and the other one waits for a save (found by Codex)', async () => {
+    api.get.mockResolvedValue({
+      ...detailPublished(),
+      draftVersionNo: 3,
+      draft: version({ id: 'v3', versionNo: 3, status: 'DRAFT', revision: 1 }, [stepDto({ name: 'Nháp' })]),
+    });
+    renderPage();
+    fireEvent.change(await screen.findByTestId('step-0-name'), { target: { value: 'Nháp đang sửa dở' } });
+    // Clicking the tab that is already shown must not reload the draft from the server's copy.
+    fireEvent.click(screen.getByTestId('editor-view-draft'));
+    expect(screen.getByTestId('step-0-name')).toHaveValue('Nháp đang sửa dở');
+    // Looking at the published version would drop the edits: it has to wait until they are saved or undone.
+    expect(screen.getByTestId('editor-view-published')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('editor-view-published'));
+    expect(screen.getByTestId('step-0-name')).toHaveValue('Nháp đang sửa dở');
+    // Undone by hand: the tab is free again.
+    fireEvent.change(screen.getByTestId('step-0-name'), { target: { value: 'Nháp' } });
+    expect(screen.getByTestId('editor-view-published')).toBeEnabled();
   });
 });
 
