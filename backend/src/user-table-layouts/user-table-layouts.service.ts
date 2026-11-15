@@ -32,6 +32,9 @@ export const BANG_HOP_LE = new Set([
   'utdt',
   // PR4 S01 — Danh sách báo cáo động (ReportRegisterPage.tsx).
   'dynamic-reports-setup',
+  // Quy trình & hạn xử lý (PR 5): danh sách quy trình và danh sách năm của lịch làm việc.
+  'processing-flows',
+  'processing-calendar-years',
 ]);
 
 /**
