@@ -76,6 +76,8 @@ describe('petitionsListFilters', () => {
       // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận hay
       // ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
       'thongKeTruongNgay',
+      // Mức cảnh báo của quy trình xử lý (PR 11): ô chỉ hiện khi máy chủ trả cảnh báo.
+      'alertBand',
     ]);
   });
 
@@ -114,6 +116,7 @@ describe('petitionsListFilters', () => {
       'filter-to-date',
       'filter-can-bo-nhap',
       'filter-tinh-theo',
+      'filter-alert-band',
     ]);
   });
 });

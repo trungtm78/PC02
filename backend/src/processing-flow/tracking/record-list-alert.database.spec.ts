@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { PassThrough } from 'node:stream';
+import * as ExcelJS from 'exceljs';
 import { AuditService } from '../../audit/audit.service';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
 import { CasesService } from '../../cases/cases.service';
@@ -59,6 +61,8 @@ run('The alert column of the three lists on PostgreSQL', () => {
   const stepConfig: Record<string, string> = {};
   let counter = 0;
   const records: Record<string, { kind: RecordKind; id: string }> = {};
+  /** The number people know each record by (`stt`, `code`, `caseCode`) -> its name in this suite. */
+  const codes: Record<string, string> = {};
 
   /** The real client, except that the warning threshold is what this suite says (the row is the whole database's). */
   const withSetting = (client: PrismaClient): PrismaClient =>
@@ -87,6 +91,7 @@ run('The alert column of the three lists on PostgreSQL', () => {
       recordId = (await db.case.create({ data: { name: `${tag} ${name}`, caseCode: `${tag}-c${n}`, caseProvenance: 'DIRECT_DISCOVERY', investigatorId: id.actor, assignedTeamId: id.T, status: 'DANG_DIEU_TRA', ngayDeXuat: day(1), ...over } as never })).id;
     }
     records[name] = { kind, id: recordId };
+    codes[`${tag}-${kind === 'PETITION' ? 'p' : kind === 'INCIDENT' ? 'i' : 'c'}${n}`] = name;
     return recordId;
   };
 
@@ -329,6 +334,69 @@ run('The alert column of the three lists on PostgreSQL', () => {
       expect((await listed('INCIDENT', { alertBand: 'YELLOW' })).own.map((row) => nameOf(row.id))).toEqual(['I-flow-yellow']);
       expect((await listed('CASE', { alertBand: 'GREEN' })).own.map((row) => nameOf(row.id))).toEqual(['C-flow-green']);
       expect((await listed('CASE', { alertBand: 'RED' })).own.map((row) => nameOf(row.id))).toEqual(['C-own-today']);
+    });
+
+    /** The names of this suite's records in the order the main sheet of an export lists them. */
+    const exported = async (kind: RecordKind, query: Record<string, unknown>): Promise<string[]> => {
+      const stream = new PassThrough();
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const res = Object.assign(stream, { setHeader: () => undefined }) as never;
+      if (kind === 'PETITION') await petitions.xuatDanhSach(query as never, null, res);
+      else if (kind === 'INCIDENT') await incidents.xuatDanhSach(query as never, null, res);
+      else await cases.xuatDanhSach(query as never, null, res);
+      await new Promise((resolve) => setImmediate(resolve));
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(Buffer.concat(chunks) as never);
+      const names: string[] = [];
+      workbook.worksheets[0].eachRow((row) => {
+        row.eachCell((cell) => {
+          const text = typeof cell.value === 'string' ? cell.value : '';
+          if (text in codes) names.push(codes[text]);
+        });
+      });
+      return names;
+    };
+    const ofKind = (kind: RecordKind) => (name: string) => records[name]?.kind === kind;
+
+    it.each(['PETITION', 'INCIDENT', 'CASE'] as const)('%s: the Excel export of the list ordered by alert comes out in the order of the list, not in the default order', async (kind) => {
+      for (const sortOrder of ['asc', 'desc'] as const) {
+        const onScreen = (await listed(kind, { sortBy: 'alert', sortOrder })).own.map((row) => nameOf(row.id));
+        const inFile = (await exported(kind, { sortBy: 'alert', sortOrder })).filter(ofKind(kind));
+        expect({ kind, sortOrder, inFile }).toEqual({ kind, sortOrder, inFile: onScreen });
+      }
+      // And that order is not the default one, or this case would prove nothing.
+      const byDefault = (await listed(kind, {})).own.map((row) => nameOf(row.id));
+      expect((await listed(kind, { sortBy: 'alert', sortOrder: 'asc' })).own.map((row) => nameOf(row.id))).not.toEqual(byDefault);
+      expect((await exported(kind, {})).filter(ofKind(kind))).toEqual(byDefault);
+    });
+
+    it.each(['PETITION', 'INCIDENT', 'CASE'] as const)('%s: while the switch is off an export asked to sort by alert is ordered as the list then is', async (kind) => {
+      switchOn = false;
+      await alerts.refresh();
+      const onScreen = (await listed(kind, { sortBy: 'alert', sortOrder: 'asc' })).own.map((row) => nameOf(row.id));
+      expect((await exported(kind, { sortBy: 'alert', sortOrder: 'asc' })).filter(ofKind(kind))).toEqual(onScreen);
+    });
+
+    it('the Excel export filtered by band holds the rows of the list, judged at the instant passed back', async () => {
+      const at = new Date(endOf(11).getTime() + 1).toISOString();
+      for (const query of [{ alertBand: 'OVERDUE', alertAsOf: asOf }, { alertBand: 'OVERDUE', alertAsOf: at }]) {
+        const onScreen = (await listed('PETITION', query)).own.map((row) => nameOf(row.id)).sort();
+        expect((await exported('PETITION', query)).filter(ofKind('PETITION')).sort()).toEqual(onScreen);
+      }
+      // The later instant finds more: the red step has gone overdue by then.
+      expect((await exported('PETITION', { alertBand: 'OVERDUE', alertAsOf: at })).length).toBeGreaterThan((await exported('PETITION', { alertBand: 'OVERDUE', alertAsOf: asOf })).length);
+    });
+
+    it('the cards of a list filtered by band are counted at the instant passed back, as the list is', async () => {
+      const at = new Date(endOf(11).getTime() + 1).toISOString();
+      const counted = async (alertAsOf: string) => (await petitions.getStats({ alertBand: 'OVERDUE', alertAsOf } as never, null)).total;
+      const shown = async (alertAsOf: string) => (await listed('PETITION', { alertBand: 'OVERDUE', alertAsOf })).total;
+      expect(await counted(asOf)).toBe(await shown(asOf));
+      expect(await counted(at)).toBe(await shown(at));
+      // The later instant counts more (the red step and the record due that day at least; the scratch database may
+      // hold rows of other suites, so the number itself is not pinned).
+      expect((await counted(at)) - (await counted(asOf))).toBeGreaterThanOrEqual(2);
     });
 
     it('sorts by urgency when asked to', async () => {

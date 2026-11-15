@@ -450,6 +450,12 @@ run('The tracking screen on PostgreSQL', () => {
       ]);
       const rows = (await allItems('admin', { kind: 'PETITION' })).filter((item) => item.recordId === recordId);
       expect(rows.map((item) => [item.stepKey, item.teamId, item.band]).sort()).toEqual([['k1', id.T, 'RED'], ['k1', id.U, 'RED'], ['k5', id.T, 'YELLOW']].sort());
+      // Each piece of work has its own id (the party row): the two MAIN parties of step k1 share record and step, not id.
+      const ids = rows.map((item) => item.id);
+      expect(ids.every((value) => typeof value === 'string' && value !== '')).toBe(true);
+      expect(new Set(ids).size).toBe(3);
+      const parties = await scratch.db.procRecordStepParty.findMany({ where: { id: { in: ids } }, select: { id: true, teamId: true, role: true } });
+      expect(parties.map((party) => [party.teamId, party.role]).sort()).toEqual([[id.T, 'MAIN'], [id.T, 'MAIN'], [id.U, 'MAIN']].sort());
       // A person of U sees the step that names U, and not the other step of the same record.
       expect((await allItems('other', { kind: 'PETITION' })).filter((item) => item.recordId === recordId).map((item) => item.stepKey)).toEqual(['k1', 'k1']);
     });

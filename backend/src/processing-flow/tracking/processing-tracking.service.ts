@@ -29,6 +29,11 @@ export interface TrackingSummary {
 }
 
 export interface TrackingItem {
+  /**
+   * The identity of this piece of work: the id of the party row. A step with two MAIN parties is two rows that share
+   * the record and the step, so only this tells them apart (the screen keys its rows by it).
+   */
+  id: string;
   recordKind: RecordKind;
   recordId: string;
   /** The number people know the record by: a petition's `stt`, an incident's `code`, a case's `caseCode`. */
@@ -140,6 +145,7 @@ export class ProcessingTrackingService {
       const name = names.get(`${step.recordKind}:${step.recordId}`);
       return [
         {
+          id: row.id,
           recordKind: step.recordKind,
           recordId: step.recordId,
           recordCode: name?.code ?? null,
