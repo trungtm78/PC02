@@ -154,7 +154,14 @@ export default function TrackingPage() {
       width: '14rem',
       render: (item) =>
         item.responsibleName ? (
-          `${item.teamName ?? T.noUnit} · ${item.responsibleName}`
+          <>
+            {`${item.teamName ?? T.noUnit} · ${item.responsibleName}`}
+            {item.delegateName && (
+              <div data-testid="tracking-delegate" className="text-xs text-amber-800">
+                {T.delegated(item.delegateName)}
+              </div>
+            )}
+          </>
         ) : (
           <>
             {item.teamName ?? T.noUnit}

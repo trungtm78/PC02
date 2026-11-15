@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-type Reader = Pick<Prisma.TransactionClient, 'procDelegation' | 'user'>;
+type Reader = Pick<Prisma.TransactionClient, 'procDelegation' | 'user' | 'userTeam'>;
 
 /** Vietnam has no daylight saving: a civil day there starts seven hours before the same date in UTC. */
 const VIETNAM_OFFSET_MS = 7 * 3_600_000;
@@ -14,6 +14,46 @@ export function delegationInForce(now: Date): Prisma.ProcDelegationWhereInput {
   return { revokedAt: null, validFrom: { lte: now }, validTo: { gte: now } };
 }
 
+/** A delegation that gives something right now. */
+export interface EffectiveDelegation {
+  fromUserId: string;
+  toUserId: string;
+  until: Date;
+}
+
+/**
+ * THE resolver of the delegations that give something at `now`; `actingFor`, `delegatesOf` and everything built on them
+ * ask here and nowhere else. A delegation is effective when
+ *
+ *   - it is in force at `now` (the application clock) and not revoked, and
+ *   - BOTH accounts are still ACTIVE, and
+ *   - the two people still share at least one ACTIVE unit: what made the delegate eligible when it was created must
+ *     still hold when it is used. A delegate who left the unit, a unit that was stopped or archived, a closed account:
+ *     the delegation gives nothing, and gives again if the condition comes back within its days.
+ *
+ * Three queries whatever the number of delegations: the rows, the active accounts, the memberships in active units.
+ */
+export async function effectiveDelegations(db: Reader, where: Prisma.ProcDelegationWhereInput, now: Date): Promise<EffectiveDelegation[]> {
+  const rows = await db.procDelegation.findMany({
+    where: { AND: [where, delegationInForce(now)] },
+    select: { fromUserId: true, toUserId: true, validTo: true },
+    orderBy: [{ validFrom: 'asc' }, { id: 'asc' }],
+  });
+  if (rows.length === 0) return [];
+  const ids = [...new Set(rows.flatMap((row) => [row.fromUserId, row.toUserId]))];
+  const [people, memberships] = await Promise.all([
+    db.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true } }),
+    db.userTeam.findMany({ where: { userId: { in: ids }, team: { status: 'ACTIVE' } }, select: { userId: true, teamId: true } }),
+  ]);
+  const active = new Set(people.map((person) => person.id));
+  const unitsOf = new Map<string, Set<string>>();
+  for (const membership of memberships) unitsOf.set(membership.userId, (unitsOf.get(membership.userId) ?? new Set<string>()).add(membership.teamId));
+  const share = (a: string, b: string): boolean => [...(unitsOf.get(a) ?? [])].some((teamId) => unitsOf.get(b)?.has(teamId) === true);
+  return rows
+    .filter((row) => row.fromUserId !== row.toUserId && active.has(row.fromUserId) && active.has(row.toUserId) && share(row.fromUserId, row.toUserId))
+    .map((row) => ({ fromUserId: row.fromUserId, toUserId: row.toUserId, until: row.validTo }));
+}
+
 /** One person this user acts for right now, and until when. */
 export interface ActingFor {
   fromUserId: string;
@@ -21,10 +61,8 @@ export interface ActingFor {
 }
 
 /**
- * The people `userId` acts for at `now`: the from-users of the delegations in force that name them as the delegate.
- *
- * A delegation counts only while the from-user is still an ACTIVE account: the work of a person whose account was
- * closed is to be given to somebody by a head, not inherited through a paper that outlived its author.
+ * The people `userId` acts for at `now`: the from-users of the EFFECTIVE delegations that name them as the delegate
+ * (`effectiveDelegations`: in force, both accounts active, the two still in one active unit).
  *
  * What it gives is the STEP rule and nothing else: wherever a party of a step names the from-user, or a unit the
  * from-user belongs to (or heads), the delegate counts as that person for that step. It never lends the from-user's
@@ -32,11 +70,7 @@ export interface ActingFor {
  */
 export async function actingFor(db: Reader, userId: string, now: Date): Promise<ActingFor[]> {
   if (!userId) return [];
-  const rows = await db.procDelegation.findMany({ where: { toUserId: userId, ...delegationInForce(now) }, select: { fromUserId: true, validTo: true }, orderBy: { validFrom: 'asc' } });
-  if (rows.length === 0) return [];
-  const active = await db.user.findMany({ where: { id: { in: rows.map((row) => row.fromUserId) }, isActive: true }, select: { id: true } });
-  const alive = new Set(active.map((user) => user.id));
-  return rows.filter((row) => alive.has(row.fromUserId) && row.fromUserId !== userId).map((row) => ({ fromUserId: row.fromUserId, until: row.validTo }));
+  return (await effectiveDelegations(db, { toUserId: userId }, now)).map((row) => ({ fromUserId: row.fromUserId, until: row.until }));
 }
 
 /** The ids only. */
@@ -48,8 +82,8 @@ export async function actingForIds(db: Reader, userId: string, now: Date): Promi
 export async function delegatesOf(db: Reader, fromUserIds: string[], now: Date): Promise<Map<string, { toUserId: string; until: Date }>> {
   const ids = [...new Set(fromUserIds)];
   if (ids.length === 0) return new Map();
-  const rows = await db.procDelegation.findMany({ where: { fromUserId: { in: ids }, ...delegationInForce(now) }, select: { fromUserId: true, toUserId: true, validTo: true } });
-  return new Map(rows.map((row) => [row.fromUserId, { toUserId: row.toUserId, until: row.validTo }]));
+  const rows = await effectiveDelegations(db, { fromUserId: { in: ids } }, now);
+  return new Map(rows.map((row) => [row.fromUserId, { toUserId: row.toUserId, until: row.until }]));
 }
 
 /** `YYYY-MM-DD` as a civil day in Vietnam: its first instant and its last millisecond. `null` when it is no real date. */

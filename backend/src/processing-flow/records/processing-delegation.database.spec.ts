@@ -60,14 +60,14 @@ run('Delegation of processing work, on PostgreSQL', () => {
   const as = (name: string) => ({ id: user[name], role: 'OFFICER', canDispatch: false });
 
   /** A petition held by unit A; with `flow`, one step worked by A (MAIN) due on 11 December. */
-  const record = async (flow = true) => {
+  const record = async (flow = true, extraParties: Array<{ partyKind: string; teamId: string; role: string }> = []) => {
     const row = await scratch.db.petition.create({
       data: { stt: fresh('p'), receivedDate: new Date('2026-12-01T00:00:00Z'), senderName: `${tag} sender`, loaiThongTin: `Không ai biết ${tag}`, enteredById: user.admin, assignedTeamId: team.A, status: 'DANG_XU_LY' } as never,
     });
     recordIds.push(row.id);
     if (flow) {
       const created = await flows.create(user.admin, { name: fresh('flow'), recordKind: 'PETITION' });
-      const step = { name: 'Step', durationValue: 10, durationUnit: 'DAY', rollToWorkingDay: false, anchor: 'RECEIVED', redDays: 1, yellowDays: 2, greenDays: 3, legalBasis: 'Article 1', requiresApproval: true, parties: [{ partyKind: 'TEAM', teamId: team.A, role: 'MAIN' }] };
+      const step = { name: 'Step', durationValue: 10, durationUnit: 'DAY', rollToWorkingDay: false, anchor: 'RECEIVED', redDays: 1, yellowDays: 2, greenDays: 3, legalBasis: 'Article 1', requiresApproval: true, parties: [{ partyKind: 'TEAM', teamId: team.A, role: 'MAIN' }, ...extraParties] };
       const saved = await flows.replaceSteps(created.id, created.draft!.id, user.admin, { steps: [step], expectedRevision: created.draft!.revision });
       const published = await flows.publish(created.id, saved.flow.draft!.id, user.admin, saved.flow.draft!.revision);
       await commands.apply(user.admin, 'PETITION', row.id, { flowId: published.id });
@@ -113,7 +113,7 @@ run('Delegation of processing work, on PostgreSQL', () => {
     const reader = (await db.role.create({ data: { name: `${tag}-role`, permissions: { create: [{ permissionId: permissions.ids['read:Petition'] }] } } })).id;
     const assigning = (await db.role.create({ data: { name: `${tag}-assigning`, permissions: { create: [{ permissionId: permissions.ids['read:Petition'] }, { permissionId: permissions.ids['assign:ProcessingStep'] }] } } })).id;
     roleIds.push(reader, assigning);
-    for (const name of ['A', 'S', 'D']) team[name] = (await db.team.create({ data: { name: `${tag} unit ${name}`, code: `${tag}-${name}` } })).id;
+    for (const name of ['A', 'S', 'D', 'C']) team[name] = (await db.team.create({ data: { name: `${tag} unit ${name}`, code: `${tag}-${name}` } })).id;
     const person = async (name: string, teams: Array<[string, boolean?]>, over: { isActive?: boolean; roleId?: string } = {}) => {
       user[name] = (await db.user.create({ data: { username: `${tag}-${name}`, firstName: name, lastName: 'Tester', passwordHash: 'x', roleId: over.roleId ?? reader, isActive: over.isActive ?? true } })).id;
       for (const [teamName, isLeader] of teams) await db.userTeam.create({ data: { userId: user[name], teamId: team[teamName], isLeader: isLeader ?? false } });
@@ -125,6 +125,7 @@ run('Delegation of processing work, on PostgreSQL', () => {
     await person('standin', [['S']]); // a teammate of the worker through S only: unit A's records are not theirs
     await person('retired', [['S']], { isActive: false });
     await person('outsider', [['D']]);
+    await person('both', [['S'], ['C']]); // a teammate of the worker through S, and a member of unit C in their own right
 
     const prisma = db as never;
     const audit = new AuditService(prisma);
@@ -259,8 +260,8 @@ run('Delegation of processing work, on PostgreSQL', () => {
     });
 
     it('the candidates are the active members of the active units of the caller, without the caller', async () => {
-      expect((await delegations.candidates(user.standin)).map((row) => row.userId)).toEqual([user.worker]);
-      expect((await delegations.candidates(user.worker)).map((row) => row.name).sort()).toEqual(['head Tester', 'standin Tester']);
+      expect((await delegations.candidates(user.standin)).map((row) => row.name)).toEqual(['both Tester', 'worker Tester']);
+      expect((await delegations.candidates(user.worker)).map((row) => row.name).sort()).toEqual(['both Tester', 'head Tester', 'standin Tester']);
       expect(await delegations.candidates(user.admin)).toEqual([]);
     });
   });
@@ -369,6 +370,116 @@ run('Delegation of processing work, on PostgreSQL', () => {
       expect(await reached()).toBeGreaterThanOrEqual(1);
       clock = new Date('2026-12-10T17:00:00.000Z');
       expect([await mine('standin'), await reached()]).toEqual([0, 0]);
+    });
+  });
+
+  describe('a delegation that lost what made it valid (found by Codex)', () => {
+    const acting = () => actingForIds(scratch.db as never, user.standin, NOON);
+
+    it('gives nothing once the delegate left the unit they shared, and counts again when they are back', async () => {
+      const worked = await record();
+      await delegate();
+      const opens = () => gateway.canRead('PETITION', worked.recordId, as('standin'), { viaStep: true });
+      expect([await acting(), await opens()]).toEqual([[user.worker], true]);
+      await scratch.db.userTeam.deleteMany({ where: { userId: user.standin, teamId: team.S } });
+      try {
+        expect([await acting(), await opens()]).toEqual([[], false]);
+        expect(await failure(results.submitReport(user.standin, 'PETITION', worked.recordId, await worked.key(), { expectedRevision: (await worked.get()).revision, kind: 'PROGRESS', doneWork: 'x' }))).toEqual({ status: 403, code: 'NOT_A_PARTY_OF_STEP' });
+        expect((await tracking.items(as('standin'), { kind: 'PETITION', pageSize: 100 })).items.filter((item) => item.recordId === worked.recordId)).toEqual([]);
+      } finally {
+        await scratch.db.userTeam.create({ data: { userId: user.standin, teamId: team.S } });
+      }
+      expect([await acting(), await opens()]).toEqual([[user.worker], true]);
+    });
+
+    it('gives nothing while the unit they shared is not active', async () => {
+      await delegate();
+      await scratch.db.team.update({ where: { id: team.S }, data: { status: 'INACTIVE' as never } });
+      try {
+        expect(await acting()).toEqual([]);
+      } finally {
+        await scratch.db.team.update({ where: { id: team.S }, data: { status: 'ACTIVE' } });
+      }
+      expect(await acting()).toEqual([user.worker]);
+    });
+
+    it('gives nothing while the account of the delegate is closed, and the party no longer shows them as the substitute', async () => {
+      const { get } = await record();
+      await delegations.create(user.head, { toUserId: user.worker, validFrom: '2026-12-09', validTo: '2026-12-10' });
+      expect((await get()).steps[0].parties[0].responsible).toMatchObject([{ userId: user.head, delegateUserId: user.worker }]);
+      await scratch.db.user.update({ where: { id: user.worker }, data: { isActive: false } });
+      try {
+        expect(await actingForIds(scratch.db as never, user.worker, NOON)).toEqual([]);
+        expect((await get()).steps[0].parties[0].responsible).toEqual([{ userId: user.head, name: 'head Tester' }]);
+      } finally {
+        await scratch.db.user.update({ where: { id: user.worker }, data: { isActive: true } });
+      }
+    });
+  });
+
+  describe('for whom a write is recorded (found by Codex)', () => {
+    const behalf = async (recordId: string, action: string) =>
+      (await scratch.db.procStepChange.findMany({ where: { recordId, action }, orderBy: { at: 'asc' } })).map((row) => [row.actorId, (row.toValue as { onBehalfOfUserId?: string } | null)?.onBehalfOfUserId]);
+
+    it('a person who holds a role of their own that allows the write acts for nobody, although a delegation gives them another role: report, edit, withdraw, opinion', async () => {
+      const { recordId, get, key } = await record(true, [{ partyKind: 'TEAM', teamId: team.C, role: 'COORDINATE' }]);
+      await delegate('worker', 'both'); // `both` coordinates in their own right, and is MAIN only through the worker
+      const base = async () => ({ expectedRevision: (await get()).revision });
+      await results.submitReport(user.both, 'PETITION', recordId, await key(), { ...(await base()), kind: 'PROGRESS', doneWork: 'Own work' });
+      const book = await results.results('PETITION', recordId, await key());
+      // The report is the unit's own: written through unit C, not through the unit of the person they act for.
+      expect(book.reports.map((row) => [row.authorId, row.authorTeamId])).toEqual([[user.both, team.C]]);
+      await results.editReport(user.both, 'PETITION', recordId, await key(), book.reports[0].id, { ...(await base()), doneWork: 'Own work, corrected' });
+      await results.withdrawReport(user.both, 'PETITION', recordId, await key(), book.reports[0].id, await base());
+      await results.addOpinion(user.both, 'PETITION', recordId, await key(), { ...(await base()), kind: 'COORDINATE', content: 'Agreed' });
+      expect([await behalf(recordId, 'PROGRESS_REPORTED'), await behalf(recordId, 'REPORT_EDITED'), await behalf(recordId, 'REPORT_WITHDRAWN'), await behalf(recordId, 'OPINION_GIVEN')]).toEqual([
+        [[user.both, undefined]],
+        [[user.both, undefined]],
+        [[user.both, undefined]],
+        [[user.both, undefined]],
+      ]);
+    });
+
+    it('a person with no role of their own that allows the write acts for the person who delegated: report, edit, withdraw, opinion', async () => {
+      // Unit C checks here: `both` may give a CHECK opinion themself, but reports only through the worker.
+      const { recordId, get, key } = await record(true, [{ partyKind: 'TEAM', teamId: team.C, role: 'CHECK' }]);
+      await delegate('worker', 'both');
+      const base = async () => ({ expectedRevision: (await get()).revision });
+      await results.submitReport(user.both, 'PETITION', recordId, await key(), { ...(await base()), kind: 'PROGRESS', doneWork: 'For the worker' });
+      const book = await results.results('PETITION', recordId, await key());
+      expect(book.reports.map((row) => [row.authorId, row.authorTeamId])).toEqual([[user.both, team.A]]);
+      await results.editReport(user.both, 'PETITION', recordId, await key(), book.reports[0].id, { ...(await base()), doneWork: 'For the worker, corrected' });
+      await results.withdrawReport(user.both, 'PETITION', recordId, await key(), book.reports[0].id, await base());
+      await results.addOpinion(user.both, 'PETITION', recordId, await key(), { ...(await base()), kind: 'CHECK', verdict: 'NOTE', content: 'Looked at it' });
+      // The head lets `worker` act for them: the SUPERVISOR opinion of the worker is the head's.
+      await delegations.create(user.head, { toUserId: user.worker, validFrom: '2026-12-09', validTo: '2026-12-09' });
+      await results.addOpinion(user.worker, 'PETITION', recordId, await key(), { ...(await base()), kind: 'SUPERVISOR', content: 'Keep going' });
+      expect([await behalf(recordId, 'PROGRESS_REPORTED'), await behalf(recordId, 'REPORT_EDITED'), await behalf(recordId, 'REPORT_WITHDRAWN'), await behalf(recordId, 'OPINION_GIVEN')]).toEqual([
+        [[user.both, user.worker]],
+        [[user.both, user.worker]],
+        [[user.both, user.worker]],
+        [
+          [user.both, undefined],
+          [user.worker, user.head],
+        ],
+      ]);
+    });
+  });
+
+  describe('the tracking list', () => {
+    it('names the person who acts for the responsible one, and nobody once the delegation gives nothing', async () => {
+      const { recordId } = await record();
+      await scratch.db.procRecordStepParty.updateMany({ where: { recordStep: { recordId } }, data: { assigneeUserId: user.worker } });
+      const row = async () => (await tracking.items(as('worker'), { mine: true, kind: 'PETITION', pageSize: 100 })).items.find((item) => item.recordId === recordId);
+      expect(await row()).toMatchObject({ responsibleName: 'Tester worker', delegateName: null });
+      await delegate();
+      expect(await row()).toMatchObject({ responsibleName: 'Tester worker', delegateName: 'Tester standin' });
+      await scratch.db.user.update({ where: { id: user.standin }, data: { isActive: false } });
+      try {
+        expect(await row()).toMatchObject({ delegateName: null });
+      } finally {
+        await scratch.db.user.update({ where: { id: user.standin }, data: { isActive: true } });
+      }
     });
   });
 });

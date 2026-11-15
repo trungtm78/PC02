@@ -103,6 +103,14 @@ describe('the cards and the list behind them', () => {
     expect(screen.getByTestId('tracking-count')).toHaveTextContent('10 dòng');
   });
 
+  it('says who acts for the responsible person under a delegation, on that row only', async () => {
+    api.items.mockResolvedValue(items([item({ delegateName: 'Lê C' }), item({ recordId: 'pet-2', delegateName: null })]));
+    renderPage();
+    const row = await screen.findByTestId('tracking-row-pet-1-s2');
+    expect(within(row).getByTestId('tracking-delegate')).toHaveTextContent('uỷ quyền cho Lê C');
+    expect(within(screen.getByTestId('tracking-row-pet-2-s2')).queryByTestId('tracking-delegate')).toBeNull();
+  });
+
   it('never asks for the list before the cards answered (it has no instant to pass)', async () => {
     let answer: (value: TrackingSummaryDto) => void = () => {};
     api.summary.mockReturnValue(new Promise((resolve) => (answer = resolve)));

@@ -677,6 +677,7 @@ export const processingFlow = {
     noCode: 'Chưa có số',
     noUnit: 'Chưa có đơn vị',
     noPerson: 'chưa có người chịu trách nhiệm',
+    delegated: (name: string) => `uỷ quyền cho ${name}`,
     open: (code: string) => `Mở hồ sơ ${code} ở tab Phân công xử lý`,
     empty: 'Không có bước nào khớp bộ lọc.',
     emptyHint: 'Thử bỏ lọc theo thẻ, đổi đơn vị hoặc loại hồ sơ.',

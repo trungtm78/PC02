@@ -12,6 +12,8 @@ type Tx = Prisma.TransactionClient;
 const MAX_TEXT = 20_000;
 const MAX_DOCUMENTS = 50;
 const MAX_DOCUMENT_FIELD = 200;
+/** The roles a unit reports in: it works the step, or coordinates it. */
+const REPORTING_ROLES = ['MAIN', 'COORDINATE'] as const;
 
 const refuse = {
   bad: (code: ProcessingErrorCode) => new BadRequestException({ code }),
@@ -126,11 +128,11 @@ export class ProcessingResultsService {
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'REPORT', input, async (tx, flow, step) => {
       const roles = await this.rolesOf(tx, step.id, actorId);
       if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
-      this.commands.actOnBehalf(tx, roles.onBehalfOf(roles.has('MAIN') ? 'MAIN' : 'COORDINATE'));
+      this.commands.actOnBehalf(tx, roles.onBehalfOf(REPORTING_ROLES));
       if (step.status !== 'OPEN') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
       // Only ONE result stands: an earlier one (after a disagreement or a request for rework) stays in the book, superseded.
       if (input.kind === 'RESULT') await tx.procStepReport.updateMany({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, data: { supersededAt: this.commands.now() } });
-      const report = await tx.procStepReport.create({ data: { recordStepId: step.id, recordKind: kind, recordId, kind: input.kind, ...fields, authorId: actorId, authorTeamId: roles.teamOf() } });
+      const report = await tx.procStepReport.create({ data: { recordStepId: step.id, recordKind: kind, recordId, kind: input.kind, ...fields, authorId: actorId, authorTeamId: roles.teamOf(REPORTING_ROLES) } });
       await this.commands.change(tx, flow, step.stepKey, input.kind === 'RESULT' ? 'RESULT_REPORTED' : 'PROGRESS_REPORTED', null, { reportId: report.id, hasProposal: fields.proposalKind !== null }, null, actorId);
       if (input.kind !== 'RESULT') return;
       // The result of the step: it waits for the leader, or finishes the step.
@@ -171,7 +173,7 @@ export class ProcessingResultsService {
   private async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
     const roles = await this.rolesOf(tx, stepId, actorId);
     if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
-    this.commands.actOnBehalf(tx, roles.onBehalfOf(roles.has('MAIN') ? 'MAIN' : 'COORDINATE'));
+    this.commands.actOnBehalf(tx, roles.onBehalfOf(REPORTING_ROLES));
   }
 
   /** The report of the caller, standing (not withdrawn, not replaced) and unanswered. */
@@ -204,7 +206,7 @@ export class ProcessingResultsService {
       const roles = await this.rolesOf(tx, step.id, actorId);
       const role = input.kind === 'SUPERVISOR' ? 'MAIN' : input.kind;
       if (!roles.has(role) || (input.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
-      this.commands.actOnBehalf(tx, roles.onBehalfOf(role, input.kind === 'SUPERVISOR'));
+      this.commands.actOnBehalf(tx, roles.onBehalfOf([role], input.kind === 'SUPERVISOR'));
       if (step.status === 'WAITING_ANCHOR' || step.status === 'SKIPPED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
 
       // An opinion about the result names the exact report (and its revision) it was given on.
@@ -224,7 +226,7 @@ export class ProcessingResultsService {
           reportId: about?.id ?? null,
           reportRevision: about?.revision ?? null,
           authorId: actorId,
-          authorTeamId: roles.teamOf(role),
+          authorTeamId: roles.teamOf([role], input.kind === 'SUPERVISOR'),
         },
       });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_GIVEN', null, { kind: input.kind, verdict }, null, actorId);
@@ -243,7 +245,7 @@ export class ProcessingResultsService {
       const roles = await this.rolesOf(tx, step.id, actorId);
       const role = opinion.kind === 'SUPERVISOR' ? 'MAIN' : opinion.kind;
       if (!roles.has(role) || (opinion.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
-      this.commands.actOnBehalf(tx, roles.onBehalfOf(role, opinion.kind === 'SUPERVISOR'));
+      this.commands.actOnBehalf(tx, roles.onBehalfOf([role], opinion.kind === 'SUPERVISOR'));
       if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
       await tx.procStepOpinion.update({ where: { id: opinion.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_WITHDRAWN', { opinionId: opinion.id }, null, null, actorId);
@@ -279,9 +281,12 @@ export class ProcessingResultsService {
    * The roles the person has on ONE step, through the active units they belong to (or by being named): MAIN, CHECK,
    * COORDINATE, INFORM. `leads(role)`: they head a unit that holds that role. `teamOf(role)`: the unit they act through.
    *
-   * A delegate counts wherever a person they act for counts (a delegation in force at the clock of the command), on
-   * this step and by this rule only. `onBehalfOf(role, asHead)`: the person the role is held FOR, when the caller does
-   * not hold it themself; `null` when they do.
+   * A delegate counts wherever a person they act for counts (an effective delegation at the clock of the command), on
+   * this step and by this rule only.
+   *
+   * A role the caller holds THEMSELF always comes first: `onBehalfOf(roles, asHead)` names the person a write is made
+   * FOR only when no role of the caller's own allows it (any of `roles`; as a head when `asHead`), and `teamOf` answers
+   * the caller's own unit before the unit of a person they act for. A person who needed no delegation acted for nobody.
    */
   private async rolesOf(tx: Tx, stepId: string, userId: string) {
     const acting = await actingForIds(tx, userId, this.commands.now());
@@ -291,19 +296,27 @@ export class ProcessingResultsService {
       select: { role: true, teamId: true, assigneeUserId: true, team: { select: { members: { where: { userId: { in: ids } }, select: { userId: true, isLeader: true } } } } },
       orderBy: { order: 'asc' },
     });
-    /** The people (the caller, or those they act for) through whom the caller holds `role`; heads only when `asHead`. */
-    const holders = (role: string, asHead: boolean): string[] =>
+    /** Every way the caller holds one of `roles`: through whom (themself, or a person they act for), on which unit. */
+    const holdings = (roles: readonly string[], asHead: boolean): Array<{ through: string; teamId: string | null }> =>
       parties
-        .filter((p) => p.role === role)
-        .flatMap((p) => [...(!asHead && p.assigneeUserId && ids.includes(p.assigneeUserId) ? [p.assigneeUserId] : []), ...(p.team?.members ?? []).filter((m) => !asHead || m.isLeader).map((m) => m.userId)]);
+        .filter((p) => roles.includes(p.role))
+        .flatMap((p) => [
+          ...(!asHead && p.assigneeUserId && ids.includes(p.assigneeUserId) ? [p.assigneeUserId] : []),
+          ...(p.team?.members ?? []).filter((m) => !asHead || m.isLeader).map((m) => m.userId),
+        ].map((through) => ({ through, teamId: p.teamId })));
+    /** The caller's own holding first, then the first one that comes from a delegation. */
+    const best = (roles: readonly string[], asHead: boolean) => {
+      const all = holdings(roles, asHead);
+      return all.find((holding) => holding.through === userId) ?? all[0] ?? null;
+    };
     return {
       has: (role: string) => parties.some((p) => p.role === role),
       // Heading a unit is being its leader in the ACTIVE unit that holds the role; being named only makes a participant.
-      leads: (role: string) => holders(role, true).length > 0,
-      teamOf: (role?: string) => parties.find((p) => !role || p.role === role)?.teamId ?? null,
-      onBehalfOf: (role: string, asHead = false): string | null => {
-        const through = holders(role, asHead);
-        return through.length === 0 || through.includes(userId) ? null : through[0];
+      leads: (role: string) => holdings([role], true).length > 0,
+      teamOf: (roles: readonly string[], asHead = false): string | null => best(roles, asHead)?.teamId ?? null,
+      onBehalfOf: (roles: readonly string[], asHead = false): string | null => {
+        const holding = best(roles, asHead);
+        return holding === null || holding.through === userId ? null : holding.through;
       },
     };
   }

@@ -84,22 +84,17 @@ export function displayNameOf(user: NamedUser): string {
  * Reads the people a flow names and its rows do not carry: the names of the persons named on a party, and who acts for
  * each responsible person at `now` (the application clock).
  */
-export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation'>, row: RecordFlowRow, now: Date): Promise<FlowPeople> {
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam'>, row: RecordFlowRow, now: Date): Promise<FlowPeople> {
   const parties = row.steps.flatMap((step) => step.parties);
   const named = [...new Set(parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : [])))];
   const heads = parties.flatMap((party) => (party.team?.status === 'ACTIVE' ? party.team.members.map((member) => member.userId) : []));
   const given = await delegatesOf(db, [...named, ...heads], now);
   const wanted = [...new Set([...named, ...[...given.values()].map((delegate) => delegate.toUserId)])];
   if (wanted.length === 0) return NOBODY;
-  const users = await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, firstName: true, lastName: true, username: true, isActive: true } });
+  const users = await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, firstName: true, lastName: true, username: true } });
   const names = new Map(users.map((user) => [user.id, displayNameOf(user)]));
-  const closed = new Set(users.filter((user) => !user.isActive).map((user) => user.id));
-  const delegates = new Map<string, { toUserId: string; name: string; until: Date }>();
-  // The same rule as `actingFor`: the delegation of a person whose account is closed gives nothing (the heads listed
-  // on a party are active already).
-  for (const [fromUserId, delegate] of given) {
-    if (!closed.has(fromUserId)) delegates.set(fromUserId, { toUserId: delegate.toUserId, name: names.get(delegate.toUserId) ?? '', until: delegate.until });
-  }
+  // Who counts as a substitute is the resolver's answer (`delegatesOf`), the same one that lets the delegate act.
+  const delegates = new Map([...given].map(([fromUserId, delegate]) => [fromUserId, { toUserId: delegate.toUserId, name: names.get(delegate.toUserId) ?? '', until: delegate.until }]));
   return { names, delegates };
 }
 

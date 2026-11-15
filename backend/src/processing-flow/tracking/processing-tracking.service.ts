@@ -9,7 +9,7 @@ import type { Band } from '../engine/types';
 import { holdsReadPermission, requestScopeOf } from '../gateway/read-access';
 import { RECORD_KINDS, type GatewayUser, type RecordKind } from '../gateway/record-snapshot';
 import { clocklessStatuses, COUNTED_STEP_STATUSES, RECORD_LINK } from '../records/record-alert';
-import { actingForIds } from '../records/processing-delegation';
+import { actingForIds, delegatesOf } from '../records/processing-delegation';
 import { partyNamesUser } from '../records/record-step-access.service';
 import { bandConditions, TRACKED_BANDS, type TrackedBand } from './band-conditions';
 import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
@@ -50,6 +50,8 @@ export interface TrackingItem {
   assigneeUserId: string | null;
   /** Who answers for it: the person named, otherwise the head(s) of the unit. `null` when there is neither. */
   responsibleName: string | null;
+  /** Who acts for the responsible person(s) right now under a delegation; `null` when nobody does. */
+  delegateName: string | null;
   dueAt: string;
   band: Band;
   /** Civil days left (Vietnam); 0 on the due day, negative after it. */
@@ -158,7 +160,8 @@ export class ProcessingTrackingService {
           teamId: row.teamId,
           teamName: row.team?.name ?? null,
           assigneeUserId: row.assigneeUserId,
-          responsibleName: responsible.get(row.id) ?? null,
+          responsibleName: responsible.get(row.id)?.name ?? null,
+          delegateName: responsible.get(row.id)?.delegate ?? null,
           dueAt: step.internalDueAt.toISOString(),
           band: bandAt(asOf, { dueAt: step.internalDueAt, redFrom: step.redFrom, yellowFrom: step.yellowFrom, greenFrom: step.greenFrom }),
           remainingDays: remainingDays(asOf, step.internalDueAt),
@@ -260,8 +263,11 @@ export class ProcessingTrackingService {
     return names;
   }
 
-  /** Who answers for each row of a page: the person named, otherwise the heads of the unit. Two queries for the page. */
-  private async responsibleNames(rows: Array<{ id: string; teamId: string | null; assigneeUserId: string | null }>): Promise<Map<string, string>> {
+  /**
+   * Who answers for each row of a page: the person named, otherwise the heads of the unit; and who acts for them now
+   * (the shared resolver `delegatesOf`). A fixed number of queries for the page.
+   */
+  private async responsibleNames(rows: Array<{ id: string; teamId: string | null; assigneeUserId: string | null }>): Promise<Map<string, { name: string; delegate: string | null }>> {
     const assignees = [...new Set(rows.flatMap((row) => (row.assigneeUserId ? [row.assigneeUserId] : [])))];
     const teams = [...new Set(rows.flatMap((row) => (!row.assigneeUserId && row.teamId ? [row.teamId] : [])))];
     const select = { id: true, firstName: true, lastName: true, username: true } as const;
@@ -270,13 +276,23 @@ export class ProcessingTrackingService {
       ? await this.prisma.userTeam.findMany({ where: { teamId: { in: teams }, isLeader: true, user: { isActive: true } }, select: { teamId: true, user: { select } }, orderBy: [{ teamId: 'asc' }, { userId: 'asc' }] })
       : [];
     const nameOf = new Map(people.map((person) => [person.id, displayName(person)]));
-    const headsOf = new Map<string, string[]>();
-    for (const head of heads) headsOf.set(head.teamId, [...(headsOf.get(head.teamId) ?? []), displayName(head.user)]);
+    const headsOf = new Map<string, Array<{ id: string; name: string }>>();
+    for (const head of heads) headsOf.set(head.teamId, [...(headsOf.get(head.teamId) ?? []), { id: head.user.id, name: displayName(head.user) }]);
 
-    const result = new Map<string, string>();
+    const given = await delegatesOf(this.prisma, [...assignees, ...heads.map((head) => head.user.id)], this.now());
+    const delegateIds = [...new Set([...given.values()].map((delegate) => delegate.toUserId))];
+    const delegates = delegateIds.length > 0 ? await this.prisma.user.findMany({ where: { id: { in: delegateIds } }, select }) : [];
+    const delegateNameOf = new Map(delegates.map((person) => [person.id, displayName(person)]));
+    const actingFor = (ids: string[]): string | null => {
+      const names = [...new Set(ids.flatMap((id) => { const delegate = given.get(id); const name = delegate ? delegateNameOf.get(delegate.toUserId) : undefined; return name ? [name] : []; }))];
+      return names.length > 0 ? names.join(', ') : null;
+    };
+
+    const result = new Map<string, { name: string; delegate: string | null }>();
     for (const row of rows) {
-      const name = row.assigneeUserId ? nameOf.get(row.assigneeUserId) : row.teamId ? headsOf.get(row.teamId)?.join(', ') : undefined;
-      if (name) result.set(row.id, name);
+      const unitHeads = !row.assigneeUserId && row.teamId ? (headsOf.get(row.teamId) ?? []) : [];
+      const name = row.assigneeUserId ? nameOf.get(row.assigneeUserId) : unitHeads.map((head) => head.name).join(', ') || undefined;
+      if (name) result.set(row.id, { name, delegate: actingFor(row.assigneeUserId ? [row.assigneeUserId] : unitHeads.map((head) => head.id)) });
     }
     return result;
   }
