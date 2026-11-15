@@ -187,6 +187,33 @@ export class FlowApplicationService {
     return { outcome: 'APPLIED', recordFlowId: recordFlow.id, flowId: flow.id, versionId: version.id, match, confirmed: !unknown, steps: plan.length };
   }
 
+  /**
+   * Brings the deadline column of ONE record in line with its flow, after the legal figures of the step that sets it
+   * were verified (the job of `deadline-resync.ts`). Its own transaction, under the record's flow lock, so it never
+   * crosses a command on the same record; doing it twice writes once.
+   *
+   * WHAT is written, and whether anything is, stays the writer's decision (`RecordDeadlineWriter.sync`: a flow nobody
+   * confirmed, a step nobody verified, a record that is gone write nothing). Added here, for a write no person asked
+   * for on this record: a FINISHED record is history and keeps its column (`LEFT_ALONE`, as a record that is gone),
+   * and a SUSPENDED one is not written while it is suspended: the answer `SUSPENDED` tells the outbox to keep a row
+   * of its own for the record and ask again until it has resumed. (The worker of the clock cannot be relied on for
+   * that: a record suspended and resumed between two of its looks never gets a pause.)
+   */
+  async resyncDeadline(kind: RecordKind, recordId: string, reason: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED' | 'LEFT_ALONE' | 'SUSPENDED'> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
+        const snapshot = await this.gateway.load(kind, recordId, tx);
+        if (!snapshot || snapshot.isFinished) return 'LEFT_ALONE';
+        // A suspended record is the writer's to refuse (`SUSPENDED`, with the row that waits for it).
+        const result = await this.deadlineWriter.sync(tx, kind, recordId, reason);
+        if (result === 'WRITTEN') await refreshRecordAlert(tx, this.gateway, kind, recordId);
+        return result;
+      },
+      { timeout: 60_000, maxWait: 10_000 },
+    );
+  }
+
   /** A person chose a flow: it must exist, be in use and be of the record's kind. */
   private chosenFlow(config: ResolveConfig, kind: RecordKind, flowId: string): FlowResolution {
     const flow = config.flows.find((candidate) => candidate.id === flowId && candidate.recordKind === kind);

@@ -221,6 +221,19 @@ function approval(record: {
   )
     throw new ConflictException('Exact revision approval required');
 }
+/**
+ * The ONE narrow capability of `authorizeDocumentDownload`: "this document is a file of a report of a step of this
+ * case, and the step rule lets the actor read that step". Handed in ONLY by the download route of step attachments
+ * (`DocumentsService.stepAttachmentPrincipal`, for `ProcessingAttachmentsService.openDownload`).
+ *
+ * It waives the requirement that the case be in the actor's own SCOPE, and nothing else: the active principal, the
+ * `read:Case` permission, the sensitivity of the case, the byte policy of protected fields, the rule of a registered
+ * original and the representation rules all still run. `mayReadByStep` is asked only when the actor's scope does not
+ * reach the case.
+ */
+export interface StepAttachmentCapability {
+  mayReadByStep: () => Promise<boolean>;
+}
 @Injectable()
 export class CaseEvidenceGovernanceService {
   async authorizeDocumentDownload(
@@ -228,10 +241,35 @@ export class CaseEvidenceGovernanceService {
     caseId: string | null,
     documentId: string,
     actor: ActorContext,
-  ): Promise<{ mode: CaseAccessMode; revision: number }> {
+    options?: { stepAttachment?: StepAttachmentCapability },
+  ): Promise<{ mode: CaseAccessMode; revision: number; viaStep?: true }> {
     const principal = await this.actorAccessPolicy(tx, actor);
+    // The scope waiver of a step attachment: built only after this service has seen FOR ITSELF that the document is
+    // a file of a step report of this case, and it records whether the step rule was what let the actor through.
+    let viaStep = false;
+    let waiver: { stepAssignee: () => Promise<boolean> } | undefined;
+    if (options?.stepAttachment) {
+      const capability = options.stepAttachment;
+      if (!caseId || !(await this.isStepAttachmentOf(tx, caseId, documentId)))
+        throw new ForbiddenException(
+          'Step access requires a file of a step report of this Case',
+        );
+      waiver = {
+        stepAssignee: async () => {
+          const allowed = (await capability.mayReadByStep()) === true;
+          if (allowed) viaStep = true;
+          return allowed;
+        },
+      };
+    }
     const bytePolicy = caseId
-      ? await this.fields.byteFieldPolicySnapshot(tx, caseId, actor)
+      ? await this.fields.byteFieldPolicySnapshot(
+          tx,
+          caseId,
+          actor,
+          undefined,
+          waiver,
+        )
       : null;
     if (caseId)
       await this.governance.assertCaseAccessCapability(
@@ -239,12 +277,16 @@ export class CaseEvidenceGovernanceService {
         caseId,
         actor,
         'download',
+        waiver,
       );
+    // A step hands a case to a unit's own people; an account that only represents a party never reads by step.
+    if (viaStep && principal.mode !== CaseAccessMode.INTERNAL)
+      throw new ForbiddenException('Step access requires an internal principal');
     if (
       principal.mode === CaseAccessMode.INTERNAL &&
       !bytePolicy?.hasDeniedProtectedFields
     )
-      return principal;
+      return viaStep ? { ...principal, viaStep: true } : principal;
     if (!caseId)
       throw new ForbiddenException(
         'Representation disclosure requires exact owning Case',
@@ -258,6 +300,28 @@ export class CaseEvidenceGovernanceService {
       );
     await this.authorizeAsset(tx, caseId, asset.id, actor, 'download');
     return principal;
+  }
+  /** Whether the document is, in the database now, a file of a report of a step of THIS case. */
+  private async isStepAttachmentOf(
+    tx: Tx,
+    caseId: string,
+    documentId: string,
+  ): Promise<boolean> {
+    const document = await tx.document.findFirst({
+      where: { id: documentId, caseId, deletedAt: null },
+      select: { procStepReportId: true },
+    });
+    if (!document?.procStepReportId) return false;
+    const report = await tx.procStepReport.findFirst({
+      where: {
+        id: document.procStepReportId,
+        recordKind: 'CASE',
+        recordId: caseId,
+        recordStep: { recordKind: 'CASE', recordId: caseId },
+      },
+      select: { id: true },
+    });
+    return report !== null;
   }
   async decisionSourceSnapshot(
     tx: Tx,
