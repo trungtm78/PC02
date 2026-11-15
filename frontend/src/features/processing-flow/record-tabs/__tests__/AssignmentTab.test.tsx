@@ -421,6 +421,19 @@ describe('the person who answers for a party', () => {
     expect(await screen.findByTestId('party-pm-responsible')).toHaveTextContent(R.assignee.heads('Lê A'));
   });
 
+  it('says who acts for a responsible person under a delegation, and until which day (Vietnam); nothing when nobody does', async () => {
+    api.get.mockResolvedValue(oneParty({ responsible: [{ userId: 'u1', name: 'Lê A', delegateUserId: 'u7', delegateName: 'Trần B', delegatedUntil: '2026-12-10T16:59:59.999Z' }] }));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-delegated-u1')).toHaveTextContent('Lê A (uỷ quyền cho Trần B đến 10/12)');
+  });
+
+  it('shows no delegation line for a responsible person nobody acts for', async () => {
+    api.get.mockResolvedValue(oneParty());
+    renderTab();
+    await screen.findByTestId('party-pm-responsible');
+    expect(screen.queryByTestId('party-pm-delegated-u1')).toBeNull();
+  });
+
   it('a person who may assign picks among the members the server lists, and the command carries the revision and a key', async () => {
     api.get.mockResolvedValue(oneParty());
     api.candidates.mockResolvedValue([

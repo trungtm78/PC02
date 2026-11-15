@@ -17,6 +17,8 @@ import { ProcessingDeadlineService } from './records/processing-deadline.service
 import { ProcessingOutboxService } from './records/processing-outbox.service';
 import { ProcessingPauseService } from './records/processing-pause.service';
 import { ProcessingAssignmentService } from './records/processing-assignment.service';
+import { ProcessingDelegationService } from './records/processing-delegation.service';
+import { ProcessingDelegationsController } from './records/processing-delegations.controller';
 import { ProcessingResultsService } from './records/processing-results.service';
 import { ProcessingAttachmentsService } from './records/processing-attachments.service';
 import { DocumentsModule } from '../documents/documents.module';
@@ -40,8 +42,8 @@ import { RecordListAlertService } from './tracking/record-list-alert.service';
   // AuthModule: the guards of the routes.
   // DocumentsModule: the attachments of a step report are documents of the record (storage, audit, evidence governance).
   imports: [TeamsModule, AuditModule, AuthModule, forwardRef(() => DocumentsModule)],
-  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingTrackingController, ProcessingBacklogController],
-  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingBacklogService, ProcessingAttachmentsService, ProcessingAssignmentService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, RecordListAlertService],
+  controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController, ProcessingDelegationsController, ProcessingTrackingController, ProcessingBacklogController],
+  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingResultsService, ProcessingBacklogService, ProcessingAttachmentsService, ProcessingAssignmentService, ProcessingDelegationService, ProcessingPauseService, RecordDeadlineWriter, RecordStepAccessService, ProcessingTrackingService, RecordListAlertService],
   // ProcessingOutboxService: the services that save a petition, an incident or a case write one request in their own
   // transaction (`enqueue`); nothing else of this module is theirs to call.
   // RecordListAlertService: the alert column of the three lists.

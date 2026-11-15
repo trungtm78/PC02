@@ -10,6 +10,7 @@ import type { Band } from '../engine/types';
 import { holdsReadPermission, requestScopeOf } from '../gateway/read-access';
 import { RECORD_KINDS, type GatewayUser, type RecordKind } from '../gateway/record-snapshot';
 import { clocklessStatuses, COUNTED_STEP_STATUSES, finishedStatuses, RECORD_LINK } from '../records/record-alert';
+import { actingForIds, delegatesOf } from '../records/processing-delegation';
 import { partyNamesUser } from '../records/record-step-access.service';
 import { bandConditions, TRACKED_BANDS, type TrackedBand, type WorkRole } from './band-conditions';
 import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
@@ -65,6 +66,8 @@ export interface TrackingItem {
   assigneeUserId: string | null;
   /** Who answers for it: the person named, otherwise the head(s) of the unit. `null` when there is neither. */
   responsibleName: string | null;
+  /** Who acts for the responsible person(s) right now under a delegation; `null` when nobody does. */
+  delegateName: string | null;
   dueAt: string;
   band: Band;
   /** Civil days left (Vietnam); 0 on the due day, negative after it. */
@@ -125,13 +128,14 @@ export class ProcessingTrackingService {
 
   async summary(user: GatewayUser, filter: TrackingFilter): Promise<TrackingSummary> {
     const asOf = this.instant(filter.asOf);
-    const reach = await this.reach(user, filter.kind);
+    const acting = await this.acting(user);
+    const reach = await this.reach(user, filter.kind, acting);
     const counts = { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 };
     let unconfirmed = 0;
     if (reach) {
-      for (const band of TRACKED_BANDS) counts[band] = await this.prisma.procRecordStepParty.count({ where: this.workWhere(user, filter, reach, band, asOf) });
+      for (const band of TRACKED_BANDS) counts[band] = await this.prisma.procRecordStepParty.count({ where: this.workWhere(user, filter, reach, band, asOf, acting) });
       // The flows nobody has confirmed, whatever their steps and dates say: counted by record.
-      unconfirmed = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: this.proposalWhere(user, filter, reach) } } } } });
+      unconfirmed = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: this.proposalWhere(user, filter, reach, acting) } } } } });
     }
     return { asOf: asOf.toISOString(), counts, unconfirmed };
   }
@@ -142,10 +146,11 @@ export class ProcessingTrackingService {
     const pageSize = Math.min(Math.max(filter.pageSize ?? TRACKING_DEFAULT_PAGE_SIZE, 1), TRACKING_MAX_PAGE_SIZE);
     const band = filter.band ?? null;
     const empty: TrackingItems = { asOf: asOf.toISOString(), band, items: [], total: 0, page, pageSize };
-    const reach = await this.reach(user, filter.kind);
+    const acting = await this.acting(user);
+    const reach = await this.reach(user, filter.kind, acting);
     if (!reach) return empty;
 
-    const where = this.workWhere(user, filter, reach, band, asOf);
+    const where = this.workWhere(user, filter, reach, band, asOf, acting);
     const [rows, total] = await Promise.all([
       this.prisma.procRecordStepParty.findMany({
         where,
@@ -177,7 +182,8 @@ export class ProcessingTrackingService {
           teamId: row.teamId,
           teamName: row.team?.name ?? null,
           assigneeUserId: row.assigneeUserId,
-          responsibleName: responsible.get(row.id) ?? null,
+          responsibleName: responsible.get(row.id)?.name ?? null,
+          delegateName: responsible.get(row.id)?.delegate ?? null,
           dueAt: step.internalDueAt.toISOString(),
           band: bandAt(asOf, { dueAt: step.internalDueAt, redFrom: step.redFrom, yellowFrom: step.yellowFrom, greenFrom: step.greenFrom }),
           remainingDays: remainingDays(asOf, step.internalDueAt),
@@ -185,6 +191,14 @@ export class ProcessingTrackingService {
       ];
     });
     return { ...empty, items, total };
+  }
+
+  /**
+   * The people this person acts for NOW (delegations in force at the application clock, never at `asOf`: what a person
+   * may see is a question about the present).
+   */
+  acting(user: GatewayUser): Promise<string[]> {
+    return actingForIds(this.prisma, user.id, this.now());
   }
 
   instant(asOf: string | undefined): Date {
@@ -196,7 +210,7 @@ export class ProcessingTrackingService {
    * THE condition of a piece of work in a band (`null`: any colour) at `asOf`, for these filters and this person.
    * `summary` and `items` both build their queries here and nowhere else.
    */
-  workWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere, band: Band | null | typeof ANY_WORK, asOf: Date): WorkWhere {
+  workWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere, band: Band | null | typeof ANY_WORK, asOf: Date, acting: readonly string[] = []): WorkWhere {
     const parts: WorkWhere[] = [
       { role: filter.role ?? 'MAIN' },
       // A step being worked, of a record whose clock runs. Asked of the record, its pauses and its flow as they are NOW,
@@ -209,7 +223,7 @@ export class ProcessingTrackingService {
     const started = periodOf(filter.from, filter.to);
     if (started) parts.push({ recordStep: { startAt: started } });
     if (filter.teamId) parts.push({ teamId: filter.teamId });
-    if (filter.mine) parts.push(mineWhere(user.id));
+    if (filter.mine) parts.push(mineWhere(user.id, acting));
     return { AND: parts };
   }
 
@@ -222,11 +236,11 @@ export class ProcessingTrackingService {
    * status, so the record must be in the person's scope, or THIS step must name the person or a unit of theirs. The
    * unit and "my work" filters ask for a MAIN party of any step; without them any party row of the flow will do.
    */
-  proposalWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere): WorkWhere {
+  proposalWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere, acting: readonly string[] = []): WorkWhere {
     const parts: WorkWhere[] = [{ recordStep: { recordFlow: awaitsConfirmation(), ...(filter.kind ? { recordKind: filter.kind } : {}) } }, reach];
     if (filter.teamId || filter.mine) parts.push({ role: 'MAIN' });
     if (filter.teamId) parts.push({ teamId: filter.teamId });
-    if (filter.mine) parts.push(mineWhere(user.id));
+    if (filter.mine) parts.push(mineWhere(user.id, acting));
     return { AND: parts };
   }
 
@@ -234,9 +248,9 @@ export class ProcessingTrackingService {
    * What this person may see, as a condition over the work rows; `null` when it is nothing at all (no kind of record
    * they may read). See the class comment for the rule.
    */
-  async reach(user: GatewayUser, only?: RecordKind): Promise<WorkWhere | null> {
+  async reach(user: GatewayUser, only?: RecordKind, acting: readonly string[] = []): Promise<WorkWhere | null> {
     const scope = await requestScopeOf(this.scopes, user);
-    const byStep: WorkWhere = { recordStep: { parties: { some: partyNamesUser(user.id) } } };
+    const byStep: WorkWhere = { recordStep: { parties: { some: partyNamesUser(user.id, acting) } } };
     const record = (kind: RecordKind, where: object): WorkWhere => ({ recordStep: { recordKind: kind, recordFlow: { [RECORD_LINK[kind].relation]: { is: where } } } });
     const branches: WorkWhere[] = [];
 
@@ -290,8 +304,11 @@ export class ProcessingTrackingService {
     return names;
   }
 
-  /** Who answers for each row of a page: the person named, otherwise the heads of the unit. Two queries for the page. */
-  private async responsibleNames(rows: Array<{ id: string; teamId: string | null; assigneeUserId: string | null }>): Promise<Map<string, string>> {
+  /**
+   * Who answers for each row of a page: the person named, otherwise the heads of the unit; and who acts for them now
+   * (the shared resolver `delegatesOf`). A fixed number of queries for the page.
+   */
+  private async responsibleNames(rows: Array<{ id: string; teamId: string | null; assigneeUserId: string | null }>): Promise<Map<string, { name: string; delegate: string | null }>> {
     const assignees = [...new Set(rows.flatMap((row) => (row.assigneeUserId ? [row.assigneeUserId] : [])))];
     const teams = [...new Set(rows.flatMap((row) => (!row.assigneeUserId && row.teamId ? [row.teamId] : [])))];
     const select = { id: true, firstName: true, lastName: true, username: true } as const;
@@ -300,13 +317,23 @@ export class ProcessingTrackingService {
       ? await this.prisma.userTeam.findMany({ where: { teamId: { in: teams }, isLeader: true, user: { isActive: true } }, select: { teamId: true, user: { select } }, orderBy: [{ teamId: 'asc' }, { userId: 'asc' }] })
       : [];
     const nameOf = new Map(people.map((person) => [person.id, displayName(person)]));
-    const headsOf = new Map<string, string[]>();
-    for (const head of heads) headsOf.set(head.teamId, [...(headsOf.get(head.teamId) ?? []), displayName(head.user)]);
+    const headsOf = new Map<string, Array<{ id: string; name: string }>>();
+    for (const head of heads) headsOf.set(head.teamId, [...(headsOf.get(head.teamId) ?? []), { id: head.user.id, name: displayName(head.user) }]);
 
-    const result = new Map<string, string>();
+    const given = await delegatesOf(this.prisma, [...assignees, ...heads.map((head) => head.user.id)], this.now());
+    const delegateIds = [...new Set([...given.values()].map((delegate) => delegate.toUserId))];
+    const delegates = delegateIds.length > 0 ? await this.prisma.user.findMany({ where: { id: { in: delegateIds } }, select }) : [];
+    const delegateNameOf = new Map(delegates.map((person) => [person.id, displayName(person)]));
+    const actingFor = (ids: string[]): string | null => {
+      const names = [...new Set(ids.flatMap((id) => { const delegate = given.get(id); const name = delegate ? delegateNameOf.get(delegate.toUserId) : undefined; return name ? [name] : []; }))];
+      return names.length > 0 ? names.join(', ') : null;
+    };
+
+    const result = new Map<string, { name: string; delegate: string | null }>();
     for (const row of rows) {
-      const name = row.assigneeUserId ? nameOf.get(row.assigneeUserId) : row.teamId ? headsOf.get(row.teamId)?.join(', ') : undefined;
-      if (name) result.set(row.id, name);
+      const unitHeads = !row.assigneeUserId && row.teamId ? (headsOf.get(row.teamId) ?? []) : [];
+      const name = row.assigneeUserId ? nameOf.get(row.assigneeUserId) : unitHeads.map((head) => head.name).join(', ') || undefined;
+      if (name) result.set(row.id, { name, delegate: actingFor(row.assigneeUserId ? [row.assigneeUserId] : unitHeads.map((head) => head.id)) });
     }
     return result;
   }
@@ -316,8 +343,10 @@ export class ProcessingTrackingService {
  * "My work": the person is named on it, or nobody is and the person heads the (active) unit that holds it. The same
  * rule as the reminders of a step: the person named, otherwise the heads of the unit.
  */
-export function mineWhere(userId: string): WorkWhere {
-  return { OR: [{ assigneeUserId: userId }, { assigneeUserId: null, team: { status: 'ACTIVE', members: { some: { userId, isLeader: true } } } }] };
+export function mineWhere(userId: string, acting: readonly string[] = []): WorkWhere {
+  // The work of a person this one acts for (a delegation in force) is theirs too, by the same rule.
+  const ids = [userId, ...acting];
+  return { OR: [{ assigneeUserId: { in: ids } }, { assigneeUserId: null, team: { status: 'ACTIVE', members: { some: { userId: { in: ids }, isLeader: true } } } }] };
 }
 
 /**

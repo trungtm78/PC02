@@ -44,6 +44,8 @@ export interface TrackingItemDto {
   teamName: string | null;
   assigneeUserId: string | null;
   responsibleName: string | null;
+  /** Who acts for the responsible person(s) right now under a delegation; absent or `null` when nobody does. */
+  delegateName?: string | null;
   dueAt: string;
   band: string;
   remainingDays: number;

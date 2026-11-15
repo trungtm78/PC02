@@ -566,6 +566,13 @@ function StepRow({ step, flow, position, personName, me, myTeams, onAssign, onTa
                   {p.responsible.length > 0 ? R.assignee.heads(p.responsible.map((r) => r.name).join(', ')) : R.assignee.nobody}
                 </div>
               )}
+              {p.responsible
+                .filter((r) => r.delegateName && r.delegatedUntil)
+                .map((r) => (
+                  <div key={r.userId} data-testid={`party-${p.id}-delegated-${r.userId}`} className="text-xs text-amber-800">
+                    {R.assignee.delegated(r.name, r.delegateName ?? '', formatVNDate(r.delegatedUntil).slice(0, 5))}
+                  </div>
+                ))}
               {(names || canTake || canUnassign) && (
                 <div className="flex flex-wrap gap-x-3 text-xs">
                   {names && (

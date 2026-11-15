@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { bandOf, completionClass, remainingDays } from '../engine/bands';
 import type { Band, CompletionClass, StepStatus } from '../engine/types';
+import { delegatesOf } from './processing-delegation';
 
 /** The flow of a record with everything the tab shows, read in one query. */
 export const RECORD_FLOW_INCLUDE = {
@@ -38,6 +39,10 @@ export type RecordFlowRow = Prisma.ProcRecordFlowGetPayload<{ include: typeof RE
 export interface ResponsiblePersonDto {
   userId: string;
   name: string;
+  /** The person who acts for them right now (a delegation in force), and until when. Absent when nobody does. */
+  delegateUserId?: string;
+  delegateName?: string;
+  delegatedUntil?: string;
 }
 
 export interface RecordStepPartyDto {
@@ -58,9 +63,11 @@ export interface RecordStepPartyDto {
 /** What the DTO shows of people and is not on the rows of the flow: the names of the persons named on a party. */
 export interface FlowPeople {
   names: Map<string, string>;
+  /** By from-user: the person who acts for them now. */
+  delegates: Map<string, { toUserId: string; name: string; until: Date }>;
 }
 
-const NOBODY: FlowPeople = { names: new Map() };
+const NOBODY: FlowPeople = { names: new Map(), delegates: new Map() };
 
 interface NamedUser {
   firstName: string | null;
@@ -73,12 +80,22 @@ export function displayNameOf(user: NamedUser): string {
   return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username;
 }
 
-/** Reads the people a flow names and its rows do not carry. One query. */
-export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user'>, row: RecordFlowRow): Promise<FlowPeople> {
-  const ids = [...new Set(row.steps.flatMap((step) => step.parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : []))))];
-  if (ids.length === 0) return NOBODY;
-  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, username: true } });
-  return { names: new Map(users.map((user) => [user.id, displayNameOf(user)])) };
+/**
+ * Reads the people a flow names and its rows do not carry: the names of the persons named on a party, and who acts for
+ * each responsible person at `now` (the application clock).
+ */
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam'>, row: RecordFlowRow, now: Date): Promise<FlowPeople> {
+  const parties = row.steps.flatMap((step) => step.parties);
+  const named = [...new Set(parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : [])))];
+  const heads = parties.flatMap((party) => (party.team?.status === 'ACTIVE' ? party.team.members.map((member) => member.userId) : []));
+  const given = await delegatesOf(db, [...named, ...heads], now);
+  const wanted = [...new Set([...named, ...[...given.values()].map((delegate) => delegate.toUserId)])];
+  if (wanted.length === 0) return NOBODY;
+  const users = await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, firstName: true, lastName: true, username: true } });
+  const names = new Map(users.map((user) => [user.id, displayNameOf(user)]));
+  // Who counts as a substitute is the resolver's answer (`delegatesOf`), the same one that lets the delegate act.
+  const delegates = new Map([...given].map(([fromUserId, delegate]) => [fromUserId, { toUserId: delegate.toUserId, name: names.get(delegate.toUserId) ?? '', until: delegate.until }]));
+  return { names, delegates };
 }
 
 export interface RecordStepDto {
@@ -226,7 +243,11 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
         latestOpinion: step.opinions[0] ? { kind: step.opinions[0].kind, verdict: step.opinions[0].verdict, at: step.opinions[0].createdAt.toISOString() } : null,
         parties: step.parties.map((party) => {
           const assigneeName = party.assigneeUserId ? (people.names.get(party.assigneeUserId) ?? null) : null;
-          const heads = party.team?.status === 'ACTIVE' ? party.team.members.map((member) => ({ userId: member.userId, name: displayNameOf(member.user) })) : [];
+          const person = (userId: string, name: string): ResponsiblePersonDto => {
+            const delegate = people.delegates.get(userId);
+            return delegate ? { userId, name, delegateUserId: delegate.toUserId, delegateName: delegate.name, delegatedUntil: delegate.until.toISOString() } : { userId, name };
+          };
+          const heads = party.team?.status === 'ACTIVE' ? party.team.members.map((member) => person(member.userId, displayNameOf(member.user))) : [];
           return {
             id: party.id,
             partyKind: party.partyKind,
@@ -235,7 +256,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
             role: party.role,
             assigneeUserId: party.assigneeUserId,
             assigneeName,
-            responsible: party.assigneeUserId ? [{ userId: party.assigneeUserId, name: assigneeName ?? '' }] : heads,
+            responsible: party.assigneeUserId ? [person(party.assigneeUserId, assigneeName ?? '')] : heads,
             note: party.note,
           };
         }),
