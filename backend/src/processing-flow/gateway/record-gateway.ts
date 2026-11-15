@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { CaseAdapter } from './case.adapter';
 import { IncidentAdapter } from './incident.adapter';
 import { PetitionAdapter } from './petition.adapter';
-import type { GatewayUser, Reader, RecordAdapter, RecordKind, RecordSnapshot } from './record-snapshot';
+import type { CanReadOptions, GatewayUser, Reader, RecordAdapter, RecordKind, RecordSnapshot } from './record-snapshot';
 
 /**
  * The one door through which the processing flow reads a petition, an incident or a case.
@@ -31,7 +31,7 @@ export class RecordGateway {
   }
 
   /** Whether the detail route of that kind would show this record to this person. A missing record: `false`. */
-  canRead(kind: RecordKind, id: string, user: GatewayUser): Promise<boolean> {
-    return this.adapters[kind].canRead(id, user);
+  canRead(kind: RecordKind, id: string, user: GatewayUser, options?: CanReadOptions): Promise<boolean> {
+    return this.adapters[kind].canRead(id, user, options);
   }
 }

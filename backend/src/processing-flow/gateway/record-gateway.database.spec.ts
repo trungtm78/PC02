@@ -22,6 +22,7 @@ import { TeamsService } from '../../teams/teams.service';
 import { CaseAdapter } from './case.adapter';
 import { IncidentAdapter } from './incident.adapter';
 import { PetitionAdapter } from './petition.adapter';
+import { RecordStepAccessService } from '../records/record-step-access.service';
 import { RecordGateway } from './record-gateway';
 import type { RecordKind } from './record-snapshot';
 
@@ -63,6 +64,8 @@ run('RecordGateway on PostgreSQL', () => {
   let cases: CasesService;
   let authz: AuthzService;
   let enforced: AuthzScopeService;
+  let stepAccess: RecordStepAccessService;
+  let recordsSwitch = true;
   let mode: 'OFF' | 'ENFORCE' = 'OFF';
   const tag = `rgw-${randomUUID().slice(0, 8)}`;
   const id: Record<string, string> = {};
@@ -113,9 +116,9 @@ run('RecordGateway on PostgreSQL', () => {
     try {
       await new PermissionsGuard(reflector, scratch.db as never).canActivate(context);
       const scope = await scopes.resolveScope(id[who], roleOf[who].name, false);
-      if (kind === 'PETITION') await petitions.getById(recordId, scope);
-      else if (kind === 'INCIDENT') await incidents.getById(recordId, scope);
-      else await cases.getById(recordId, scope, id[who]);
+      if (kind === 'PETITION') await petitions.getById(recordId, scope, id[who]);
+      else if (kind === 'INCIDENT') await incidents.getById(recordId, scope, id[who]);
+      else await cases.getById(recordId, scope, id[who], 'read', true);
       return true;
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof NotFoundException) return false;
@@ -124,8 +127,10 @@ run('RecordGateway on PostgreSQL', () => {
   };
 
   /** One line per person: what the gateway says for the petition, the incident and the case. */
-  const answers = async (who: Who, ids: Record<RecordKind, string> = record) =>
-    Object.fromEntries(await Promise.all(KINDS.map(async (kind) => [kind, await gateway.canRead(kind, ids[kind], user(who))]))) as Record<RecordKind, boolean>;
+  const answers = async (who: Who, ids: Record<RecordKind, string> = record, options?: { viaStep?: boolean }) =>
+    Object.fromEntries(await Promise.all(KINDS.map(async (kind) => [kind, await gateway.canRead(kind, ids[kind], user(who), options)]))) as Record<RecordKind, boolean>;
+  /** What a route that only READS the flow of a record asks: the record's own scope, or a step being worked. */
+  const readAnswers = (who: Who) => answers(who, record, { viaStep: true });
   const routeAnswers = async (who: Who, ids: Record<RecordKind, string> = record) => {
     const out = {} as Record<RecordKind, boolean>;
     for (const kind of KINDS) out[kind] = await detailRouteShows(kind, ids[kind], who);
@@ -261,11 +266,13 @@ run('RecordGateway on PostgreSQL', () => {
     const prisma = db as never;
     const audit = new AuditService(prisma);
     scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
-    gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
+    stepAccess = new RecordStepAccessService(prisma, { isEnabled: () => Promise.resolve(recordsSwitch) } as never);
+    await stepAccess.refreshSwitch();
+    gateway = new RecordGateway(new PetitionAdapter(prisma, scopes, stepAccess), new IncidentAdapter(prisma, scopes, stepAccess), new CaseAdapter(prisma, scopes, stepAccess));
     // The services of the three detail routes; reading a record uses nothing but the database.
-    petitions = new PetitionsService(prisma, audit, {} as never, {} as never, {} as never, { emit: () => false } as never, {} as never, {} as never, {} as never);
-    incidents = new IncidentsService(prisma, audit, {} as never, {} as never, {} as never, { emit: () => false } as never, {} as never, {} as never);
-    cases = new CasesService(prisma, audit, {} as never, {} as never, { emit: () => false } as never);
+    petitions = new PetitionsService(prisma, audit, {} as never, {} as never, {} as never, { emit: () => false } as never, {} as never, {} as never, {} as never, undefined, undefined, undefined, stepAccess);
+    incidents = new IncidentsService(prisma, audit, {} as never, {} as never, {} as never, { emit: () => false } as never, {} as never, {} as never, undefined, undefined, undefined, stepAccess);
+    cases = new CasesService(prisma, audit, {} as never, {} as never, { emit: () => false } as never, undefined, undefined, undefined, undefined, stepAccess);
 
     // The permission engine, loaded and registered as in the running application; OFF until a test says otherwise.
     AuthzService.enforceAvailable = true;
@@ -299,10 +306,150 @@ run('RecordGateway on PostgreSQL', () => {
     await scratch.close();
   });
 
+
+  /**
+   * A step being worked on every record of the suite that names unit U (where `other` and `assignee` sit; the records
+   * are held by T). The configuration it stands on (flow, version, step) is made for it and removed at the end.
+   */
+  const handingToU = async (status: 'OPEN' | 'DONE' | 'SKIPPED' | 'WAITING_ANCHOR' = 'OPEN') => {
+    const { db } = scratch;
+    const flow = await db.procFlow.create({ data: { recordKind: 'PETITION', name: `${tag}-flow-${randomUUID().slice(0, 6)}`, createdById: id.owner, updatedById: id.owner } });
+    const version = await db.procFlowVersion.create({ data: { flowId: flow.id, versionNo: 1, status: 'PUBLISHED', createdById: id.owner } });
+    const config = await db.procFlowStep.create({
+      data: { versionId: version.id, stepKey: 'k1', order: 0, name: 'Step', durationValue: 5, durationUnit: 'DAY', anchor: 'RECEIVED', redDays: 1, yellowDays: 2, greenDays: 3 },
+    });
+    for (const kind of KINDS) {
+      const recordFlow = await db.procRecordFlow.create({ data: { recordKind: kind, recordId: record[kind], flowId: flow.id, versionId: version.id, match: 'MANUAL' } });
+      await db.procRecordStep.create({
+        data: {
+          recordFlowId: recordFlow.id,
+          recordKind: kind,
+          recordId: record[kind],
+          stepId: config.id,
+          stepKey: 'k1',
+          order: 0,
+          status,
+          ...(status === 'DONE' ? { doneAt: new Date() } : {}),
+          ...(status === 'SKIPPED' ? { skippedFrom: 'OPEN', skippedAt: new Date() } : {}),
+          parties: { create: [{ partyKind: 'TEAM', teamId: id.U, role: 'MAIN', order: 0 }] },
+        },
+      });
+    }
+  };
+  const withdrawFromU = async () => {
+    const { db } = scratch;
+    const ids = Object.values(record);
+    await db.procRecordStepParty.deleteMany({ where: { recordStep: { recordId: { in: ids } } } });
+    await db.procRecordStep.deleteMany({ where: { recordId: { in: ids } } });
+    await db.procRecordFlow.deleteMany({ where: { recordId: { in: ids } } });
+    await db.procFlowStep.deleteMany({ where: { version: { flow: { name: { startsWith: `${tag}-flow-` } } } } });
+    await db.procFlowVersion.deleteMany({ where: { flow: { name: { startsWith: `${tag}-flow-` } } } });
+    await db.procFlow.deleteMany({ where: { name: { startsWith: `${tag}-flow-` } } });
+  };
+
+  /** What a step being worked adds to the read of a record, in whichever mode the suite is in. */
+  const stepAccessCases = () => {
+    afterEach(async () => {
+      await withdrawFromU();
+      recordsSwitch = true;
+      await stepAccess.refreshSwitch();
+    });
+
+    it('a step being worked that names the reader\'s unit hands them the record, the gateway and the detail route agree, and it stays read-only', async () => {
+      expect(await readAnswers('other')).toEqual(all(false));
+      await handingToU('OPEN');
+      expect(await readAnswers('other')).toEqual(all(true));
+      // A route that WRITES asks without the step: the record's own scope still decides.
+      expect(await answers('other')).toEqual(all(false));
+      expect(await routeAnswers('other')).toEqual(all(true));
+      // Read-only: the petition's detail answer says the person may not write it.
+      const scope = await scopes.resolveScope(id.other, roleOf.other.name, false);
+      const detail = (await petitions.getById(record.PETITION, scope, id.other)) as { data: { quyenGhi: boolean } };
+      expect(detail.data.quyenGhi).toBe(false);
+    });
+
+    it('a person of a unit that is not named, and a person without the read permission of the kind, read exactly what they read before', async () => {
+      const before = { member: await answers('member'), unpermitted: await answers('unpermitted'), routeMember: await routeAnswers('member'), routeUnpermitted: await routeAnswers('unpermitted') };
+      await handingToU('OPEN');
+      expect(await answers('member')).toEqual(before.member);
+      expect(await answers('unpermitted')).toEqual(before.unpermitted);
+      expect(await readAnswers('unpermitted')).toEqual(before.unpermitted);
+      expect(await routeAnswers('member')).toEqual(before.routeMember);
+      expect(await routeAnswers('unpermitted')).toEqual(before.routeUnpermitted);
+    });
+
+    it('it ends with the step: done, skipped or still waiting for its date hand over nothing', async () => {
+      for (const status of ['DONE', 'SKIPPED', 'WAITING_ANCHOR'] as const) {
+        await handingToU(status);
+        expect(await readAnswers('other')).toEqual(all(false));
+        expect(await routeAnswers('other')).toEqual(all(false));
+        await withdrawFromU();
+      }
+    });
+
+    it('a person NAMED on the step, whatever their unit, reads it too', async () => {
+      await handingToU('OPEN');
+      await scratch.db.procRecordStepParty.updateMany({ where: { recordStep: { recordId: { in: Object.values(record) } } }, data: { teamId: null, partyKind: 'RECORD_TEAM', assigneeUserId: id.other } });
+      expect(await readAnswers('other')).toEqual(all(true));
+      expect(await readAnswers('assignee')).toEqual(all(false));
+    });
+
+    it('does nothing while the switch is off', async () => {
+      await handingToU('OPEN');
+      recordsSwitch = false;
+      await stepAccess.refreshSwitch();
+      expect(await readAnswers('other')).toEqual(all(false));
+      expect(await routeAnswers('other')).toEqual(all(false));
+    });
+
+    it('a unit that has been stopped or archived hands over nothing, whatever the membership says (found by Codex)', async () => {
+      await handingToU('OPEN');
+      expect(await readAnswers('other')).toEqual(all(true));
+      await scratch.db.team.update({ where: { id: id.U }, data: { status: 'INACTIVE' } });
+      try {
+        expect(await readAnswers('other')).toEqual(all(false));
+        expect(await routeAnswers('other')).toEqual(all(false));
+      } finally {
+        await scratch.db.team.update({ where: { id: id.U }, data: { status: 'ACTIVE' } });
+      }
+    });
+
+    it('what the reader receives is the record without what hangs on it: no linked case, no petitions, no history, no subjects (found by Codex)', async () => {
+      await handingToU('OPEN');
+      const scope = await scopes.resolveScope(id.other, roleOf.other.name, false);
+      const petition = (await petitions.getById(record.PETITION, scope, id.other)) as { data: Record<string, unknown> };
+      const incident = (await incidents.getById(record.INCIDENT, scope, id.other)) as { data: Record<string, unknown> };
+      const aCase = (await cases.getById(record.CASE, scope, id.other, 'read', true)) as { data: Record<string, unknown> };
+      for (const key of ['linkedCase', 'linkedIncident']) expect(petition.data).not.toHaveProperty(key);
+      for (const key of ['petitions', 'statusHistory', 'linkedCase', 'mergedInto']) expect(incident.data).not.toHaveProperty(key);
+      for (const key of ['subjects', 'petitions', 'statistic']) expect(aCase.data).not.toHaveProperty(key);
+      expect(aCase.data.autoLinkedIncident).toBeNull();
+      // The record itself is there.
+      expect(petition.data.id).toBe(record.PETITION);
+      expect(incident.data.id).toBe(record.INCIDENT);
+      expect(aCase.data.id).toBe(record.CASE);
+      // A reader who is in scope still gets everything.
+      const ownerScope = await scopes.resolveScope(id.owner, roleOf.owner.name, false);
+      const full = (await incidents.getById(record.INCIDENT, ownerScope, id.owner)) as { data: Record<string, unknown> };
+      expect(full.data).toHaveProperty('statusHistory');
+    });
+
+    it('never reaches what hangs on the record: the access is the detail route only (a write check still looks at the reader\'s own scope)', async () => {
+      await handingToU('OPEN');
+      const scope = await scopes.resolveScope(id.other, roleOf.other.name, false);
+      // The same read WITHOUT the reader passed (what an export or a print does) is refused.
+      await expect(petitions.getById(record.PETITION, scope)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(incidents.getById(record.INCIDENT, scope)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(cases.getById(record.CASE, scope, id.other, 'read', false)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  };
+
   describe('canRead, permissions by team OFF', () => {
     it('permissions by team are not enforced', () => {
       expect(authz.state()).toBe('OFF');
     });
+
+    describe('a step being worked', stepAccessCases);
 
     it('(a) the owner reads the record: who investigates an incident or a case, who entered a petition', async () => {
       expect(await answers('owner')).toEqual(all(true));
@@ -363,6 +510,8 @@ run('RecordGateway on PostgreSQL', () => {
     it('permissions by team are enforced', () => {
       expect(authz.state()).toBe('ENFORCE');
     });
+
+    describe('a step being worked', stepAccessCases);
 
     it('(a) the owner, whose own team sets nothing, still reads their records in another team', async () => {
       expect(await answers('owner')).toEqual(all(true));

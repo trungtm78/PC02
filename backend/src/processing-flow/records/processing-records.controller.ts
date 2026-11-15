@@ -42,18 +42,19 @@ export class ProcessingRecordsController {
   ) {}
 
   /** The record kind in the path, and the record behind it, readable by this person; else the same 404 as a missing one. */
-  private async readable(kind: string, recordId: string, user: AuthenticatedUser): Promise<RecordKind> {
+  private async readable(kind: string, recordId: string, user: AuthenticatedUser, viaStep = false): Promise<RecordKind> {
     if (!(RECORD_KINDS as readonly string[]).includes(kind)) throw new NotFoundException({ code: PROCESSING_ERROR.RECORD_KIND_INVALID });
     const recordKind = kind as RecordKind;
     const gatewayUser = { id: user.id, role: roleName(user), canDispatch: user.canDispatch ?? false };
-    if (!(await this.gateway.canRead(recordKind, recordId, gatewayUser))) throw new NotFoundException({ code: PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND });
+    if (!(await this.gateway.canRead(recordKind, recordId, gatewayUser, { viaStep }))) throw new NotFoundException({ code: PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND });
     return recordKind;
   }
 
   @Get(':kind/:id')
   @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
   async get(@Param('kind') kind: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.commands.get(await this.readable(kind, id, user), id);
+    // The only route that may open a record by a step alone: it reads. Every write below keeps the record's own scope.
+    return this.commands.get(await this.readable(kind, id, user, true), id);
   }
 
   @Post(':kind/:id/apply')

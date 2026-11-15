@@ -1,6 +1,8 @@
 import { CaseOperationsService } from './governance/case-operations.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
+import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
 import {
@@ -379,6 +381,7 @@ export class CasesService {
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
     @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
+    @Optional() private readonly stepAccess?: RecordStepAccessService,
   ) {}
 
   private async lockCase(tx: PrismaTx, id: string): Promise<void> {
@@ -488,9 +491,20 @@ export class CasesService {
   private get governance(): CaseGovernanceService {
     return new CaseGovernanceService(this.prisma);
   }
-  private async authorizeRead(id: string, actorId?: string) {
+  private async authorizeRead(id: string, actorId?: string, stepReaderId?: string, onStepAccess?: () => void) {
     if (actorId)
-      return this.governance.assertCaseReadable(this.prisma, id, { actorId });
+      return this.governance.assertCaseReadable(
+        this.prisma,
+        id,
+        { actorId },
+        undefined,
+        stepReaderId ? { stepAssignee: async () => {
+                const granted = (await this.stepAccess?.mayOpen('CASE', id, stepReaderId)) ?? false;
+                if (granted) onStepAccess?.();
+                return granted;
+              },
+            } : undefined,
+      );
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
     });
@@ -1269,10 +1283,17 @@ export class CasesService {
     dataScope?: DataScope | null,
     actorId?: string,
     purpose: 'read' | 'export' = 'read',
+    stepRead = false,
   ) {
     if (purpose === 'export' && actorId)
       await this.governance.assertGeneralExport(this.prisma, { actorId });
-    await this.authorizeRead(id, actorId);
+    // `stepRead`: the plain GET of the detail route only (never an export or a print) may open a case that a step being
+    // worked hands to the reader's unit, read-only; the sensitivity and representation rules still run.
+    const stepReaderId = stepRead && purpose === 'read' ? actorId : undefined;
+    let viaStep = false;
+    await this.authorizeRead(id, actorId, stepReaderId, () => {
+      viaStep = true;
+    });
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -1310,7 +1331,12 @@ export class CasesService {
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     }
 
-    this.checkRecordInScope(record, dataScope);
+    try {
+      this.checkRecordInScope(record, dataScope);
+    } catch (error) {
+      if (!(error instanceof ForbiddenException && stepReaderId && (await this.stepAccess?.mayOpen('CASE', id, stepReaderId)))) throw error;
+      viaStep = true;
+    }
 
     // Find auto-created Incident linked via Incident.linkedCaseId (Branch 3).
     // Case.linkedIncidentId is NULL for Branch 3 due to case_provenance_fk_consistency constraint.
@@ -1325,15 +1351,17 @@ export class CasesService {
       select: { id: true, code: true, name: true },
     });
 
+    // Opened only because a step names the reader's unit: the case itself, without its subjects, petitions and links.
+    const serialized = await this.serializeCase(record, actorId, purpose);
     return {
       success: true,
       data: {
-        ...(await this.serializeCase(record, actorId, purpose)),
+        ...(viaStep ? withoutKeys(serialized, STEP_ONLY_WITHHELD.CASE) : serialized),
         utdtReplyConflict:
           record.caseType === CaseType.UY_THAC_DIEU_TRA
             ? hasUtdtReplyConflict(record)
             : false,
-        autoLinkedIncident: autoLinkedIncident ?? null,
+        autoLinkedIncident: viaStep ? null : (autoLinkedIncident ?? null),
         // Giao diện ẩn nút ghi khi false — cùng luật với checkWriteScope (máy chủ vẫn chặn ghi như cũ).
         quyenGhi: actorId
           ? await this.governance.canCaseEdit(this.prisma, id, { actorId })

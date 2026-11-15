@@ -358,7 +358,7 @@ export class PetitionsController {
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.petitionsService.getById(id, req.dataScope);
+    return this.petitionsService.getById(id, req.dataScope, (req.user as AuthUser)?.id);
   }
 
   // GET /api/v1/petitions/:id/export-word — Xuất đơn thư ra Word (legacy v0.46)
