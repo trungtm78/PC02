@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/models/petition.dart';
+import '../../shared/widgets/band_chip.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/offline_banner.dart';
@@ -169,7 +170,12 @@ class _PetitionList extends ConsumerWidget {
                             StatusChip(status: p.status),
                           ],
                         ),
-                        if (p.deadline != null) ...[
+                        // The alert the server computed wins; the local deadline badge is
+                        // only for a row that carries none (the switch is off).
+                        if (p.alert != null) ...[
+                          const SizedBox(height: 8),
+                          BandChip.forAlert(p.alert),
+                        ] else if (p.deadline != null) ...[
                           const SizedBox(height: 8),
                           DeadlineBadge(deadline: p.deadline),
                         ],

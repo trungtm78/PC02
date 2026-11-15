@@ -16,6 +16,8 @@ export interface StatCard {
    * y hệt trước đây — 16+ trang khác đang dùng component này không đổi một byte DOM nào.
    */
   filterValue?: string | null;
+  /** `data-testid` of the card, for a screen whose tests must find one card among several. */
+  testId?: string;
 }
 
 export interface StatsCardsStripProps {
@@ -33,6 +35,13 @@ export interface StatsCardsStripProps {
    * không biết vì sao không phải 4.717, và kết luận hệ thống đếm sai.
    */
   periodLabel?: string | null;
+  /**
+   * Clicking the chosen card again clears the filter (`onCardSelect(null)`). For a strip with no "total" card, where
+   * the chosen card is the only way back. Left out: the chosen card is inert, as on every other screen.
+   */
+  allowDeselect?: boolean;
+  /** The grid of the cards. Left out: two columns on a phone, five on a desktop, with the page's side padding. */
+  gridClassName?: string;
 }
 
 function CardValue({ value, valueColorClass, loading }: { value: number | null; valueColorClass: string; loading: boolean }): ReactNode {
@@ -63,6 +72,8 @@ export function StatsCardsStrip({
   activeValue,
   onCardSelect,
   periodLabel,
+  allowDeselect = false,
+  gridClassName = 'grid grid-cols-2 md:grid-cols-5 gap-4 px-6 py-4',
 }: StatsCardsStripProps) {
   return (
     <div className={className ?? ''}>
@@ -74,12 +85,12 @@ export function StatsCardsStrip({
           Thống kê: <span className="text-slate-700">{periodLabel}</span>
         </p>
       )}
-      <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 px-6 py-4`}>
+      <div className={gridClassName}>
       {cards.map((card, i) => {
         const interactive = onCardSelect != null && 'filterValue' in card;
         if (!interactive) {
           return (
-            <div key={card.filterValue ?? card.label ?? i} className={STATS_CARD}>
+            <div key={card.filterValue ?? card.label ?? i} className={STATS_CARD} data-testid={card.testId}>
               <CardBody card={card} loading={loading} />
             </div>
           );
@@ -88,7 +99,7 @@ export function StatsCardsStrip({
         // Thẻ "Tổng" mang filterValue null nên tự sáng khi không lọc gì — không cần nhánh riêng.
         const isActive = (card.filterValue ?? null) === (activeValue ?? null);
         // Chặn bấm khi đang tải: lọc theo con số chưa tải xong là vô nghĩa.
-        const blocked = isActive || loading;
+        const blocked = (isActive && !allowDeselect) || loading;
 
         return (
           <button
@@ -99,9 +110,10 @@ export function StatsCardsStrip({
             // aria-disabled giữ nguyên hành vi "không bấm được" mà không hỏng điều hướng.
             aria-disabled={blocked}
             aria-pressed={isActive}
+            data-testid={card.testId}
             onClick={() => {
               if (blocked) return;
-              onCardSelect(card.filterValue ?? null);
+              onCardSelect(isActive ? null : (card.filterValue ?? null));
             }}
             className={[
               STATS_CARD,

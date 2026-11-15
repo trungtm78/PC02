@@ -20,6 +20,7 @@ import 'features/incidents/incidents_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/petitions/petition_detail_screen.dart';
 import 'features/petitions/petitions_screen.dart';
+import 'features/processing/my_work_screen.dart';
 import 'shared/theme/app_theme.dart';
 
 // Kept alive to keep semantics enabled in debug builds for Maestro E2E flows.
@@ -117,7 +118,10 @@ class PC02App extends ConsumerWidget {
                 GoRoute(
                   path: ':id',
                   builder: (_, state) =>
-                      CaseDetailScreen(id: state.pathParameters['id']!),
+                      CaseDetailScreen(
+                    id: state.pathParameters['id']!,
+                    openOnSteps: _opensOnSteps(state),
+                  ),
                 ),
               ],
             ),
@@ -128,7 +132,10 @@ class PC02App extends ConsumerWidget {
                 GoRoute(
                   path: ':id',
                   builder: (_, state) =>
-                      IncidentDetailScreen(id: state.pathParameters['id']!),
+                      IncidentDetailScreen(
+                    id: state.pathParameters['id']!,
+                    openOnSteps: _opensOnSteps(state),
+                  ),
                 ),
               ],
             ),
@@ -139,9 +146,16 @@ class PC02App extends ConsumerWidget {
                 GoRoute(
                   path: ':id',
                   builder: (_, state) =>
-                      PetitionDetailScreen(id: state.pathParameters['id']!),
+                      PetitionDetailScreen(
+                    id: state.pathParameters['id']!,
+                    openOnSteps: _opensOnSteps(state),
+                  ),
                 ),
               ],
+            ),
+            GoRoute(
+              path: '/my-work',
+              builder: (_, __) => const MyWorkScreen(),
             ),
             GoRoute(
               path: '/notifications',
@@ -153,6 +167,10 @@ class PC02App extends ConsumerWidget {
     );
   }
 }
+
+/// A link to a record that carries the steps tab opens the detail on its steps.
+bool _opensOnSteps(GoRouterState state) =>
+    state.uri.queryParameters['tab'] == NotificationRouter.stepsTab;
 
 class _Shell extends StatefulWidget {
   final Widget child;

@@ -80,6 +80,7 @@ import { SubjectModal, EvidenceModal } from "./modals";
 import { formatVNDateTime, today } from "@/lib/dates";
 import { RecordTabBody } from "@/features/processing-flow/record-tabs/RecordTabs";
 import { recordTabItems, useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
+import { recordTabFromSearch } from "@/features/processing-flow/record-tabs/recordLink";
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -754,6 +755,14 @@ function CaseFormPage() {
     [coTabQuyTrinh, visibleTabs],
   );
   const activeRecordTab: RecordTabId | null = coTabQuyTrinh && (activeTab === 'phan-cong-xu-ly' || activeTab === 'ket-qua-xu-ly') ? activeTab : null;
+  // A link may ask for one of the two tabs (`?tab=phan-cong-xu-ly`, e.g. from "Theo dõi xử lý"). Read ONCE, and opened
+  // only when the tabs exist: with the switch off or without the permission the form stays on "Thông tin".
+  const linkedRecordTab = useRef<RecordTabId | null>(recordTabFromSearch(location.search));
+  useEffect(() => {
+    if (!coTabQuyTrinh || !linkedRecordTab.current) return;
+    setActiveTab(linkedRecordTab.current);
+    linkedRecordTab.current = null;
+  }, [coTabQuyTrinh]);
 
   // ─── Shared tab props ──────────────────────────────────────────────────
 

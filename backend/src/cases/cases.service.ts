@@ -2,7 +2,7 @@ import { CaseOperationsService } from './governance/case-operations.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
-import { ALERT_SORT, RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
+import { RecordListAlertService } from '../processing-flow/tracking/record-list-alert.service';
 import { STEP_ONLY_WITHHELD, withoutKeys } from '../processing-flow/records/step-projection';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
@@ -1013,6 +1013,11 @@ export class CasesService {
   ): Promise<
     Prisma.CaseOrderByWithRelationInput | Prisma.CaseOrderByWithRelationInput[]
   > {
+    // By alert when asked to while the records switch is on: here, so the list and every export of it order alike,
+    // under the same authorisation (the reader must be allowed to sort by both `deadline` and `status`).
+    if (this.listAlerts?.sortsByAlert(sortBy)) {
+      return this.thuTuTheoCanhBao(sortOrder, actorId);
+    }
     if (!sortBy && actorId) {
       if (
         (await this.governance.accessProfile(this.prisma, { actorId }))
@@ -1089,14 +1094,11 @@ export class CasesService {
       alertAt,
     });
 
-    let orderBy = await this.thuTuDanhSach(
+    const orderBy = await this.thuTuDanhSach(
       sortBy,
       sortOrder as ListSortOrder,
       actorId,
     );
-    if (alertAt && this.listAlerts && sortBy === ALERT_SORT) {
-      orderBy = await this.thuTuTheoCanhBao(sortOrder, actorId);
-    }
     // The alert of each row, read apart from the rows and only for the cases whose deadline this reader may read.
     const alertVisible = alertAt
       ? await this.deadlineReadableWhere(actorId)

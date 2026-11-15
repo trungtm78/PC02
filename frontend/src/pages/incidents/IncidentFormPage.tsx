@@ -65,6 +65,7 @@ import { computeIncidentErrors } from "./validate-incident";
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { RecordTabBody, RecordTabButtons } from "@/features/processing-flow/record-tabs/RecordTabs";
 import { useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
+import { recordTabFromSearch } from "@/features/processing-flow/record-tabs/recordLink";
 import {
   LEGACY_TAB_LABEL,
   type LegacyTabId,
@@ -182,7 +183,8 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
   // Hai tab "Phân công xử lý" / "Kết quả xử lý" nằm NGOÀI bộ 10 tab của hệ cũ: trạng thái riêng, không đụng tabDangMo.
-  const [tabQuyTrinh, setTabQuyTrinh] = useState<RecordTabId | null>(null);
+  // A link may ask for one of them (`?tab=phan-cong-xu-ly`, e.g. from "Theo dõi xử lý"): read ONCE, when the form mounts.
+  const [tabQuyTrinh, setTabQuyTrinh] = useState<RecordTabId | null>(() => recordTabFromSearch(location.search));
 
   /**
    * Thay ô chữ trần bằng ô riêng cho hai chỗ hệ mới mạnh hơn hẳn.

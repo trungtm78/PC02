@@ -31,7 +31,8 @@ jobs:
         run: cd backend && npm test
 
       - name: TypeScript type check
-        run: cd backend && npx tsc --noEmit
+        # The backend type check needs more than node's default heap (it ran out at 4 GB on the runner).
+        run: cd backend && NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit
 
       - name: Admin-units seed dry-run smoke
         run: cd backend && npx ts-node prisma/seed-admin-units-runner.ts --dry-run

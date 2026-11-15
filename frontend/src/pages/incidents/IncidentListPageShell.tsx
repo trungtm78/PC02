@@ -76,6 +76,16 @@ import { getIncidentStatusIcon } from '@/shared/enums/status-icons';
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
+import {
+  ALERT_SORT_KEY,
+  effectiveFilters,
+  effectiveSort,
+  exportableColumnKeys,
+  useListAlerts,
+  withAlertColumn,
+  type ListAnswerWithAlert,
+  type RowWithAlert,
+} from '@/features/processing-flow/alerts/listAlert';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
@@ -159,7 +169,7 @@ function getVietnameseErrorMessage(e: unknown): string {
   return 'Lỗi không xác định';
 }
 
-interface IncidentRow {
+interface IncidentRow extends RowWithAlert {
   id: string;
   code: string;
   name: string;
@@ -300,7 +310,11 @@ export function IncidentListPageShell({
 }: { view?: 'management' | 'intake' } = {}) {
   const navigate = useNavigate();
   const url = useListPageUrlState('incidents');
-  const sort = useListSort('incidents');
+  // The alert column of the processing flow. While the list answers no alerts, alert state left in the address (a
+  // band, an order by alert) is not honoured: `sort` and `appliedFilters` below are the EFFECTIVE ones.
+  const alerts = useListAlerts();
+  const sortInAddress = useListSort('incidents');
+  const sort = effectiveSort(sortInAddress, alerts.on);
 
   const rawStatus = url.getParam('status');
   const statusFilter = isValidIncidentStatus(rawStatus) ? rawStatus : null;
@@ -429,7 +443,8 @@ export function IncidentListPageShell({
     prefix: 'incidents',
     registry: incidentsListFilters,
   });
-  const appliedFilters = listFilters.applied;
+  const appliedFilters = useMemo(() => effectiveFilters(listFilters.applied, alerts.on), [listFilters.applied, alerts.on]);
+  const alertInAddress = Boolean(listFilters.applied.alertBand) || sortInAddress.sortBy === ALERT_SORT_KEY;
 
   /**
    * Param dùng CHUNG cho cả request danh sách lẫn thống kê — một nguồn duy nhất thì số
@@ -444,6 +459,8 @@ export function IncidentListPageShell({
 
   const baseQueryParams = useMemo(
     () => ({
+      // The alert band of the processing flow: in this object so the list, the cards and the export all get it.
+      ...(appliedFilters.alertBand && { alertBand: appliedFilters.alertBand }),
       view,
       ...(appliedFilters.tinhTrangHoSo && {
         tinhTrangHoSo: appliedFilters.tinhTrangHoSo,
@@ -486,6 +503,13 @@ export function IncidentListPageShell({
   );
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
+  // `alertListKey` is what makes it the same list across pages: every page of a list filtered or ordered by alert is
+  // judged at ONE instant, and so are the cards and the exports of a list filtered by band (`alertClock`).
+  const byAlert = Boolean(appliedFilters.alertBand) || sort.sortBy === ALERT_SORT_KEY;
+  const alertListKey = JSON.stringify([baseQueryKey, statusFilter, phaseFilter, sort.sortBy, sort.sortOrder]);
+  const alertClock = appliedFilters.alertBand ? alerts.clockOf(alertListKey) : null;
+  const waitsForAlertClock = Boolean(appliedFilters.alertBand) && alertClock === null;
+
   useEffect(() => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -498,17 +522,20 @@ export function IncidentListPageShell({
       ...(statusFilter && { status: statusFilter }),
       ...(phaseFilter && { phase: phaseFilter }),
       ...sort.params,
+      ...alerts.requestParams(alertListKey, page, byAlert),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
 
     api
-      .get<{ data: IncidentRow[]; total: number }>('/incidents', {
+      .get<{ data: IncidentRow[]; total: number } & ListAnswerWithAlert>('/incidents', {
         params,
         signal: ctrl.signal,
       })
       .then((listRes) => {
         if (ctrl.signal.aborted) return;
+        // Asked under the wrong guess of the switch while the address holds alert state: not drawn, asked again.
+        if (!alerts.onAnswer(alertListKey, page, listRes.data, alertInAddress)) return;
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
@@ -547,12 +574,15 @@ export function IncidentListPageShell({
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
+    // Filtered by alert band: the cards are counted at the instant the list was. Wait for the list to answer,
+    // then follow its clock (this effect runs again when the clock is known or changes).
+    if (waitsForAlertClock) return;
     const ctrl = new AbortController();
     setStats(null);
     // KHÔNG gửi `phase`: thẻ phải đếm toàn bộ, nếu lọc theo giai đoạn đang chọn thì 3 thẻ
     // kia về 0 và hết chỗ bấm sang. Backend cũng đã chặn `phase` ở DTO stats.
     // Nhưng PHẢI gửi các bộ lọc còn lại, nếu không số trên thẻ lệch khỏi danh sách.
-    const statsParams = baseQueryParams;
+    const statsParams = { ...baseQueryParams, ...(alertClock && { alertAsOf: alertClock }) };
     api
       .get<IncidentsStatsResponse>('/incidents/stats', {
         params: statsParams,
@@ -572,7 +602,7 @@ export function IncidentListPageShell({
     // Khoá theo GIÁ TRỊ (`baseQueryKey`) vì `appliedFilters` đổi identity mỗi lần URL đổi.
     // `refetchCounter`: xoá/đổi trạng thái hàng loạt cũng phải cập nhật lại số trên thẻ.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseQueryKey, refetchCounter]);
+  }, [baseQueryKey, refetchCounter, alertClock, waitsForAlertClock]);
 
   const chipOptions = useMemo(
     () =>
@@ -648,7 +678,7 @@ export function IncidentListPageShell({
     return () => clearTimeout(t);
   }, [transientBanner]);
 
-  const columns: ColumnDef<IncidentRow>[] = useMemo(
+  const baseColumns: ColumnDef<IncidentRow>[] = useMemo(
     () => [
       // BỀ RỘNG CỘT LẤY TỪ SỐ ĐO DỮ LIỆU THẬT (bản chạy thật, 25/08/2026) — không đoán.
       //   Tóm tắt nội dung  855 / 1776  → 30rem, cột rộng nhất
@@ -948,6 +978,9 @@ export function IncidentListPageShell({
   // `optional` khai ngay trên từng cột ở khối trên, không phải một danh sách riêng ở đây.
   // Bố cục cột lưu trên MÁY CHỦ theo tài khoản: bề rộng, ẩn/hiện và thứ tự cùng một chỗ.
   // Trước đây ẩn/hiện lưu ở trình duyệt từng máy nên đổi máy là mất.
+  // "Cảnh báo" sits right before "Trạng thái", and only while the server answers alerts. A saved layout that never
+  // saw the column gets it at this place too (`sapXepCot` slots a new column next to its neighbour in the code).
+  const columns = useMemo(() => withAlertColumn(baseColumns, alerts.on, 'status'), [baseColumns, alerts.on]);
   const {
     coGhiDeBeRong,
     visibleColumns,
@@ -1117,6 +1150,7 @@ export function IncidentListPageShell({
       >
         <Filters<IncidentFilterValue>
           registry={incidentsListFilters}
+          hiddenKeys={alerts.hiddenFilterKeys}
           value={listFilters.draft}
           onChange={listFilters.setField}
           onApply={listFilters.apply}
@@ -1140,10 +1174,10 @@ export function IncidentListPageShell({
                   ...(statusFilter && { status: statusFilter }),
                   ...(phaseFilter && { phase: phaseFilter }),
                   ...sort.params,
+                  ...(alertClock && { alertAsOf: alertClock }),
                 }}
-                cot={visibleColumns
-                  .map((c) => c.key)
-                  .filter((k) => k !== 'actions')}
+                // The export has no alert column: asking for it is a 400.
+                cot={exportableColumnKeys(visibleColumns.map((c) => c.key).filter((k) => k !== 'actions'))}
                 tong={tableState === 'loading' ? null : totalCount}
                 hasUnappliedChanges={listFilters.hasUnappliedChanges}
                 onApply={listFilters.apply}
@@ -1158,6 +1192,7 @@ export function IncidentListPageShell({
                     ...(statusFilter && { status: statusFilter }),
                     ...(phaseFilter && { phase: phaseFilter }),
                     ...sort.params,
+                    ...(alertClock && { alertAsOf: alertClock }),
                   }}
                   cot={[]}
                   boQuaCot
