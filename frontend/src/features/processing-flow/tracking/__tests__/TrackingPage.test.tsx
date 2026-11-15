@@ -270,12 +270,13 @@ describe('opening a record', () => {
     ['PETITION', '/petitions/r1?tab=phan-cong-xu-ly'],
     ['INCIDENT', '/incidents/r1?tab=phan-cong-xu-ly'],
     ['CASE', '/cases/r1/edit?tab=phan-cong-xu-ly'],
-  ] as const)('a %s row opens its form on the assignment tab', async (kind, href) => {
+  ] as const)('the link of a %s row opens its form on the assignment tab', async (kind, href) => {
     api.items.mockResolvedValue(items([item({ recordKind: kind, recordId: 'r1' })], { total: 10 }));
     renderPage();
     const row = await screen.findByTestId('tracking-row-r1-s2');
     expect(within(row).getByRole('link')).toHaveAttribute('href', href);
-    fireEvent.click(within(row).getByText('Xác minh'));
+    // The record opens by its link (the row itself is not a click target: the app's row-click setting is per list).
+    fireEvent.click(within(row).getByRole('link'));
     await waitFor(() => expect(where()).toBe(href));
   });
 });

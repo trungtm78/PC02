@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Activity, AlertCircle, AlertOctagon, AlertTriangle, CheckCircle2, Clock, RefreshCw, ShieldOff, type LucideIcon } from 'lucide-react';
 import { ListPageShell, useListPageUrlState, type ColumnDef } from '@/components/shared/ListPageShell';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
@@ -42,7 +42,6 @@ const LINK = `text-sm text-blue-700 hover:underline ${A11Y_FOCUS_RING}`;
 const rowId = (item: TrackingItemDto): string => item.id;
 
 export default function TrackingPage() {
-  const navigate = useNavigate();
   const url = useListPageUrlState(TRACKING_URL_PREFIX);
   const teamsQ = useTeamChoices();
 
@@ -340,7 +339,6 @@ export default function TrackingPage() {
                   title={T.tableTitle}
                   totalCount={total}
                   emptyState={{ title: T.empty, description: hasFilters ? T.emptyHint : undefined }}
-                  onRowClick={(item) => navigate(recordTabHref(item.recordKind, item.recordId))}
                   rowHref={(item) => recordTabHref(item.recordKind, item.recordId)}
                   rowTestId={(item) => `tracking-row-${rowId(item)}`}
                 />
