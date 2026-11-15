@@ -12,6 +12,7 @@ import { IncidentAdapter } from '../gateway/incident.adapter';
 import { PetitionAdapter } from '../gateway/petition.adapter';
 import { RecordGateway } from '../gateway/record-gateway';
 import { FlowApplicationService } from './flow-application.service';
+import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingPauseService } from './processing-pause.service';
@@ -132,10 +133,10 @@ run('Deadline commands and the pause of the clock on PostgreSQL', () => {
     flows = new ProcessingFlowsService(prisma, audit, calendars);
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
     const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
-    const applier = new FlowApplicationService(prisma, gateway, calendars, audit);
-    commands = new ProcessingCommandService(prisma, gateway, calendars, applier, audit);
+    const applier = new FlowApplicationService(prisma, gateway, calendars, audit, new RecordDeadlineWriter(prisma, gateway));
+    commands = new ProcessingCommandService(prisma, gateway, calendars, applier, audit, new RecordDeadlineWriter(prisma, gateway));
     deadlines = new ProcessingDeadlineService(prisma, commands);
-    pauses = new ProcessingPauseService(prisma, gateway, { isEnabled: () => Promise.resolve(switchOn) } as never);
+    pauses = new ProcessingPauseService(prisma, gateway, { isEnabled: () => Promise.resolve(switchOn) } as never, new RecordDeadlineWriter(prisma, gateway));
   });
 
   afterAll(async () => {

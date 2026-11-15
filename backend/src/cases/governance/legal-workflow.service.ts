@@ -10,6 +10,8 @@ import { Case, CaseActionRequest, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DocumentNumbersService } from '../../document-numbers/document-numbers.service';
 import { ProcessingOutboxService } from '../../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../../processing-flow/records/record-deadline-writer.service';
+import { assertDeadlineNotManaged } from '../../processing-flow/records/deadline-managed.guard';
 import { CaseEvidenceGovernanceService } from '../evidence-governance/evidence-governance.service';
 import { machMocGiaiQuyet } from '../../common/trang-thai/trang-thai-ket-thuc';
 import { CaseGovernanceService } from './case-governance.service';
@@ -69,6 +71,7 @@ export class LegalWorkflowService {
     @Optional() private readonly numbers?: DocumentNumbersService,
     @Optional() private readonly evidence?: CaseEvidenceGovernanceService,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
   async actionCapabilities(
     caseId: string,
@@ -1029,6 +1032,16 @@ export class LegalWorkflowService {
           row,
           actor,
         );
+        // A governed action that moves the deadline of a record whose flow keeps it to another day is refused before
+        // anything is written; one that lands on the same day (`PRESERVE` included) does not write the column at all.
+        const writeDeadline =
+          (await assertDeadlineNotManaged(
+            this.deadlineWriter,
+            tx,
+            'CASE',
+            caseId,
+            deadlineEffect.deadline,
+          )) === 'WRITE';
         const decision = await tx.caseDecision.create({
           data: {
             caseId,
@@ -1157,7 +1170,7 @@ export class LegalWorkflowService {
             status: plan.status,
             investigationPhase: plan.investigationPhase,
             governanceRuleVersionId: rule.id,
-            deadline: deadlineEffect.deadline,
+            ...(writeDeadline ? { deadline: deadlineEffect.deadline } : {}),
             ...machMocGiaiQuyet(
               'case',
               caseRecord.status,

@@ -10,6 +10,7 @@ import { civilDayOf, civilYearOf } from '../engine/civil-day';
 import { buildWorkingCalendar, MAX_CALENDAR_YEAR } from '../engine/working-calendar';
 import { ANCHOR_KEYS, type RecordKind, type RecordSnapshot } from '../gateway/record-snapshot';
 import { RecordGateway } from '../gateway/record-gateway';
+import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import { planRecordSteps, type RecordAnchors } from './schedule-step';
 
 type Tx = Prisma.TransactionClient;
@@ -70,6 +71,7 @@ export class FlowApplicationService {
     private readonly gateway: RecordGateway,
     private readonly calendars: WorkingCalendarService,
     private readonly audit: AuditService,
+    private readonly deadlineWriter: RecordDeadlineWriter,
   ) {}
 
   async apply(input: ApplyInput): Promise<ApplyOutcome> {
@@ -176,6 +178,8 @@ export class FlowApplicationService {
       },
       tx,
     );
+    // A flow that keeps the deadline of the record writes it now (a proposed or unverified one does not).
+    await this.deadlineWriter.sync(tx, kind, recordId);
     return { outcome: 'APPLIED', recordFlowId: recordFlow.id, flowId: flow.id, versionId: version.id, match, confirmed: !unknown, steps: plan.length };
   }
 

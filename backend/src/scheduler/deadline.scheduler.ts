@@ -1,6 +1,6 @@
 import { readersOf } from '../authz/record-readers';
 import type { RecordSubject } from '../common/utils/precise-scope';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 import { addDays, differenceInDays, startOfDay, subHours } from 'date-fns';
@@ -8,6 +8,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import type { RecordKind } from '../processing-flow/gateway/record-snapshot';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+
+/** The switch of the new reminders (a later change); while it is on they own the records whose deadline a flow keeps. */
+const REMINDERS_SWITCH = 'processing_flow_reminders';
+
+/** Above this many ids the exclusion is done in memory instead of with `NOT IN (...)`. */
+export const MAX_NOT_IN_IDS = 5000;
 
 const TERMINAL_CASE_STATUSES: CaseStatus[] = [
   CaseStatus.DINH_CHI,
@@ -41,12 +50,53 @@ export class DeadlineScheduler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
+    @Optional() private readonly flags?: FeatureFlagsService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
+
+  /**
+   * The records this run must leave alone: those whose deadline a flow keeps, once the NEW reminders are on
+   * (`processing_flow_reminders`), because they remind about the step and a second notice about the same deadline would
+   * be noise. `null` (nothing excluded: the queries are exactly the old ones) while the switch is off, when no writer is
+   * wired, or when either lookup fails: a duplicate reminder is better than a missed one.
+   */
+  private async managedExclusions(): Promise<Record<RecordKind, string[]> | null> {
+    if (!this.flags || !this.deadlineWriter) return null;
+    try {
+      if (!(await this.flags.isEnabled(REMINDERS_SWITCH))) return null;
+      const [cases, incidents, petitions] = await Promise.all([
+        this.deadlineWriter.managedRecordIds('CASE'),
+        this.deadlineWriter.managedRecordIds('INCIDENT'),
+        this.deadlineWriter.managedRecordIds('PETITION'),
+      ]);
+      return { CASE: cases, INCIDENT: incidents, PETITION: petitions };
+    } catch (err) {
+      this.logger.error('DeadlineScheduler: failed to read the records with a managed deadline, reminding about all of them', err);
+      return null;
+    }
+  }
+
+  /**
+   * `{ id: { notIn } }` for the ids to leave out, nothing at all when there are none OR when there are too many for one
+   * query: a `NOT IN` list goes out as bind parameters, and tens of thousands of them exceed the driver's limit (the
+   * query would fail and that kind's reminders would be lost). A long list is applied in memory by `survivors`.
+   */
+  private leaveOut(ids: string[] | undefined): { id?: { notIn: string[] } } {
+    return ids && ids.length > 0 && ids.length <= MAX_NOT_IN_IDS ? { id: { notIn: ids } } : {};
+  }
+
+  /** The rows left after a long exclusion list (see `leaveOut`); a short list was already applied by the query. These queries have no `take`, so a plain filter is complete. */
+  private survivors<T extends { id: string }>(rows: T[], ids: string[] | undefined): T[] {
+    if (!ids || ids.length <= MAX_NOT_IN_IDS) return rows;
+    const leftOut = new Set(ids);
+    return rows.filter((row) => !leftOut.has(row.id));
+  }
 
   @Cron('0 7 * * *')
   async checkDeadlines() {
     this.logger.log('DeadlineScheduler: running deadline check');
     const today = new Date();
+    const managed = await this.managedExclusions();
 
     let thresholdSetting: { value: string } | null = null;
     try {
@@ -61,9 +111,9 @@ export class DeadlineScheduler {
     const inWarnDays = addDays(today, safeWarnDays);
 
     await Promise.allSettled([
-      this.checkCases(today, inWarnDays),
-      this.checkIncidents(today, inWarnDays),
-      this.checkPetitions(today, inWarnDays),
+      this.checkCases(today, inWarnDays, managed?.CASE),
+      this.checkIncidents(today, inWarnDays, managed?.INCIDENT),
+      this.checkPetitions(today, inWarnDays, managed?.PETITION),
     ]);
 
     this.logger.log('DeadlineScheduler: done');
@@ -135,9 +185,10 @@ export class DeadlineScheduler {
     return directUserId ? [directUserId] : [];
   }
 
-  private async checkCases(today: Date, inWarnDays: Date) {
+  private async checkCases(today: Date, inWarnDays: Date, leaveOutIds?: string[]) {
     const overdue = await this.prisma.case.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { lt: today },
         status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
@@ -146,7 +197,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
-    for (const c of overdue) {
+    for (const c of this.survivors(overdue, leaveOutIds)) {
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId, 'Case');
       for (const userId of recipients) {
         if (await this.isDuped('case', c.id, userId)) continue;
@@ -171,6 +222,7 @@ export class DeadlineScheduler {
 
     const near = await this.prisma.case.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { gte: today, lte: inWarnDays },
         status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
@@ -179,7 +231,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true, deadline: true },
     });
 
-    for (const c of near) {
+    for (const c of this.survivors(near, leaveOutIds)) {
       const daysLeft = c.deadline ? differenceInDays(startOfDay(c.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId, 'Case');
@@ -205,9 +257,10 @@ export class DeadlineScheduler {
     }
   }
 
-  private async checkIncidents(today: Date, inWarnDays: Date) {
+  private async checkIncidents(today: Date, inWarnDays: Date, leaveOutIds?: string[]) {
     const overdue = await this.prisma.incident.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { lt: today },
         status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
@@ -216,7 +269,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
-    for (const inc of overdue) {
+    for (const inc of this.survivors(overdue, leaveOutIds)) {
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId, 'Incident');
       for (const userId of recipients) {
         if (await this.isDuped('incident', inc.id, userId)) continue;
@@ -241,6 +294,7 @@ export class DeadlineScheduler {
 
     const near = await this.prisma.incident.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { gte: today, lte: inWarnDays },
         status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
@@ -249,7 +303,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true, deadline: true },
     });
 
-    for (const inc of near) {
+    for (const inc of this.survivors(near, leaveOutIds)) {
       const daysLeft = inc.deadline ? differenceInDays(startOfDay(inc.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId, 'Incident');
@@ -275,10 +329,11 @@ export class DeadlineScheduler {
     }
   }
 
-  private async checkPetitions(today: Date, inWarnDays: Date) {
+  private async checkPetitions(today: Date, inWarnDays: Date, leaveOutIds?: string[]) {
     // Petitions: directUserId = enteredById (mirrors buildPetitionScopeFilter ownership).
     const overdue = await this.prisma.petition.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { lt: today },
         status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
@@ -287,7 +342,7 @@ export class DeadlineScheduler {
       select: { id: true, senderName: true, enteredById: true, assignedTeamId: true },
     });
 
-    for (const p of overdue) {
+    for (const p of this.survivors(overdue, leaveOutIds)) {
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById, 'Petition');
       for (const userId of recipients) {
         if (await this.isDuped('petition', p.id, userId)) continue;
@@ -312,6 +367,7 @@ export class DeadlineScheduler {
 
     const near = await this.prisma.petition.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { gte: today, lte: inWarnDays },
         status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
@@ -320,7 +376,7 @@ export class DeadlineScheduler {
       select: { id: true, senderName: true, enteredById: true, assignedTeamId: true, deadline: true },
     });
 
-    for (const p of near) {
+    for (const p of this.survivors(near, leaveOutIds)) {
       const daysLeft = p.deadline ? differenceInDays(startOfDay(p.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById, 'Petition');

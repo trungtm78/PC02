@@ -7,6 +7,7 @@ import { bandInstants } from '../engine/bands';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { RECORD_FLOW_LOCK } from './flow-application.service';
+import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import { RECORDS_SWITCH } from './processing-outbox.service';
 
 export const PAUSE_TICK_MS = 60_000;
@@ -44,6 +45,7 @@ export class ProcessingPauseService {
     private readonly prisma: PrismaService,
     private readonly gateway: RecordGateway,
     private readonly flags: FeatureFlagsService,
+    private readonly deadlineWriter: RecordDeadlineWriter,
   ) {}
 
   @Interval(PAUSE_TICK_MS)
@@ -120,6 +122,7 @@ export class ProcessingPauseService {
 
         let moved = 0;
         if (alive) moved = await this.shiftDeadlines(tx, flowId, open.from, to);
+        if (moved > 0) await this.deadlineWriter.sync(tx, kind, recordId);
         await tx.procStepChange.create({
           data: { recordFlowId: flowId, recordKind: kind, recordId, action: 'CLOCK_RESUMED', fromValue: { from: open.from.toISOString() }, toValue: { to: to.toISOString(), stepsMoved: moved, recordAlive: alive }, actorId: null },
         });

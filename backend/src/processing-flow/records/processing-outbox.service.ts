@@ -5,11 +5,12 @@ import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService, type ApplyReason } from './flow-application.service';
+import { RECORDS_SWITCH } from './record-deadline-writer.service';
 
 type Tx = Prisma.TransactionClient;
 
-/** The switch that lets a record get its flow by itself. */
-export const RECORDS_SWITCH = 'processing_flow_records';
+/** The switch that lets a record get its flow by itself (defined beside the writer of the deadline, which reads it too). */
+export { RECORDS_SWITCH };
 
 /** How often the worker looks for work, and the pause before a failed attempt is tried again (doubling, capped). */
 export const OUTBOX_TICK_MS = 10_000;

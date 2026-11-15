@@ -1,6 +1,8 @@
 import { CaseOperationsService } from './governance/case-operations.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
 import {
   Injectable,
   NotFoundException,
@@ -376,6 +378,7 @@ export class CasesService {
     private readonly governedSourceCreation?: CaseSourceCreationService,
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
 
   private async lockCase(tx: PrismaTx, id: string): Promise<void> {
@@ -2637,6 +2640,19 @@ export class CasesService {
         const flag = await tx.featureFlag.findUnique({
           where: { key: 'CASE_GOVERNANCE_V1' },
         });
+        // A record whose flow keeps the deadline takes it from a step, not from this form: a different day is refused,
+        // the value the screen showed is left out of the update (judged against the deadline stored now, under the
+        // lock, and before the governed-columns check below, which would otherwise see it as a change).
+        if (
+          (await assertDeadlineNotManaged(
+            this.deadlineWriter,
+            tx,
+            'CASE',
+            id,
+            updateData.deadline as Date | null | undefined,
+          )) === 'SKIP'
+        )
+          delete updateData.deadline;
         const adopted =
           !!currentCase.governanceRuleVersionId ||
           !!currentCase.fieldDefinitionVersionId ||

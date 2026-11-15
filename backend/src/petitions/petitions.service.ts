@@ -4,6 +4,8 @@ import type { Petition } from '@prisma/client';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import {
   Injectable,
@@ -325,6 +327,7 @@ export class PetitionsService {
     private readonly caseEvidence: CaseEvidenceGovernanceService,
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1053,6 +1056,20 @@ export class PetitionsService {
       }
     }
 
+    // A record whose flow keeps the deadline takes it from a step, not from this form.
+    // The value the screen showed is left out of the update; a different day is refused.
+    const deadlineDecision = await assertDeadlineNotManaged(
+      this.deadlineWriter,
+      this.prisma,
+      'PETITION',
+      id,
+      dto.deadline === undefined
+        ? undefined
+        : dto.deadline
+          ? new Date(dto.deadline)
+          : null,
+    );
+
     const loaiVaNhomHan = await this.loaiVaNhomHanKhiSua(dto, existing);
 
     // v0.30: PETITION_UPDATED via wrapUpdate — full before/after for inline diff.
@@ -1094,9 +1111,10 @@ export class PetitionsService {
       ...(dto.attachmentsNote !== undefined && {
         attachmentsNote: dto.attachmentsNote,
       }),
-      ...(dto.deadline !== undefined && {
-        deadline: dto.deadline ? new Date(dto.deadline) : null,
-      }),
+      ...(dto.deadline !== undefined &&
+        deadlineDecision === 'WRITE' && {
+          deadline: dto.deadline ? new Date(dto.deadline) : null,
+        }),
       ...(dto.assignedToId !== undefined && {
         assignedToId: dto.assignedToId,
       }),
@@ -1797,6 +1815,16 @@ export class PetitionsService {
       }
     }
 
+    // Only a deadline the assignment CHANGES is refused: assigning a managed record without one stays possible.
+    const writeDeadline =
+      (await assertDeadlineNotManaged(
+        this.deadlineWriter,
+        this.prisma,
+        'PETITION',
+        id,
+        dto.deadline ? new Date(dto.deadline) : undefined,
+      )) === 'WRITE' && !!dto.deadline;
+
     try {
       await this.prisma.petition.update({
         where: {
@@ -1808,7 +1836,7 @@ export class PetitionsService {
         data: {
           assignedTeamId: dto.assignedTeamId,
           assignedToId: resolvedAssignedToId,
-          ...(dto.deadline ? { deadline: new Date(dto.deadline) } : {}),
+          ...(writeDeadline ? { deadline: new Date(dto.deadline!) } : {}),
         },
       });
     } catch (e) {

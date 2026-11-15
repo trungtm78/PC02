@@ -16,6 +16,7 @@ import { ProcessingCommandService } from './records/processing-command.service';
 import { ProcessingDeadlineService } from './records/processing-deadline.service';
 import { ProcessingOutboxService } from './records/processing-outbox.service';
 import { ProcessingPauseService } from './records/processing-pause.service';
+import { RecordDeadlineWriter } from './records/record-deadline-writer.service';
 import { ProcessingRecordsController } from './records/processing-records.controller';
 
 /**
@@ -29,9 +30,9 @@ import { ProcessingRecordsController } from './records/processing-records.contro
   // AuthModule: the guards of the routes.
   imports: [TeamsModule, AuditModule, AuthModule],
   controllers: [ProcessingFlowsController, WorkingCalendarController, ProcessingRecordsController],
-  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingPauseService],
+  providers: [UnitScopeService, PetitionAdapter, IncidentAdapter, CaseAdapter, RecordGateway, WorkingCalendarService, ProcessingFlowsService, FlowApplicationService, ProcessingOutboxService, ProcessingCommandService, ProcessingDeadlineService, ProcessingPauseService, RecordDeadlineWriter],
   // ProcessingOutboxService: the services that save a petition, an incident or a case write one request in their own
   // transaction (`enqueue`); nothing else of this module is theirs to call.
-  exports: [RecordGateway, WorkingCalendarService, ProcessingFlowsService, ProcessingOutboxService],
+  exports: [RecordGateway, WorkingCalendarService, ProcessingFlowsService, ProcessingOutboxService, RecordDeadlineWriter],
 })
 export class ProcessingFlowModule {}

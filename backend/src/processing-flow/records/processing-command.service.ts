@@ -11,6 +11,7 @@ import { guardReopen, nextStep, type StepEvent } from '../engine/step-machine';
 import type { StepStatus } from '../engine/types';
 import { buildWorkingCalendar, MAX_CALENDAR_YEAR, type WorkingCalendar } from '../engine/working-calendar';
 import { RecordGateway } from '../gateway/record-gateway';
+import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService, RECORD_FLOW_LOCK, anchorsOf, type ApplyOutcome } from './flow-application.service';
 import { RECORD_FLOW_INCLUDE, toRecordFlowDto, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
@@ -70,6 +71,7 @@ export class ProcessingCommandService {
     private readonly calendars: WorkingCalendarService,
     private readonly applier: FlowApplicationService,
     private readonly audit: AuditService,
+    private readonly deadlineWriter: RecordDeadlineWriter,
   ) {}
 
   // ---- reading
@@ -237,6 +239,8 @@ export class ProcessingCommandService {
       if (flow.revision !== input.expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       await job(tx, flow);
       await tx.procRecordFlow.update({ where: { id: flow.id }, data: { revision: { increment: 1 } } });
+      // The record's own deadline column follows the step that keeps it, in the same transaction.
+      await this.deadlineWriter.sync(tx, kind, recordId);
       await this.audit.log(
         {
           userId: actorId,

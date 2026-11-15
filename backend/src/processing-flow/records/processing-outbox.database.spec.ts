@@ -12,6 +12,7 @@ import { IncidentAdapter } from '../gateway/incident.adapter';
 import { PetitionAdapter } from '../gateway/petition.adapter';
 import { RecordGateway } from '../gateway/record-gateway';
 import { FlowApplicationService } from './flow-application.service';
+import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import { MAX_ATTEMPTS, ProcessingOutboxService } from './processing-outbox.service';
 
 /**
@@ -98,7 +99,7 @@ run('ProcessingOutboxService on PostgreSQL', () => {
     flows = new ProcessingFlowsService(prisma, audit, calendars);
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
     const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
-    applier = new FlowApplicationService(prisma, gateway, calendars, audit);
+    applier = new FlowApplicationService(prisma, gateway, calendars, audit, new RecordDeadlineWriter(prisma, gateway));
     const flags = { isEnabled: () => Promise.resolve(switchOn) } as never;
     outbox = new ProcessingOutboxService(prisma, flags, applier);
     outbox.nudgeEnabled = false;

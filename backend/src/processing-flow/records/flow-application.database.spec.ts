@@ -14,6 +14,7 @@ import { PetitionAdapter } from '../gateway/petition.adapter';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService } from './flow-application.service';
+import { RecordDeadlineWriter } from './record-deadline-writer.service';
 
 /**
  * Applying a flow to a record, on a REAL PostgreSQL: the flow found for the record, the version it is pinned to, the
@@ -160,7 +161,7 @@ run('FlowApplicationService on PostgreSQL', () => {
     flows = new ProcessingFlowsService(prisma, audit, calendars);
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
     const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
-    applier = new FlowApplicationService(prisma, gateway, calendars, audit);
+    applier = new FlowApplicationService(prisma, gateway, calendars, audit, new RecordDeadlineWriter(prisma, gateway));
   });
 
   afterAll(async () => {
