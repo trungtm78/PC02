@@ -1,9 +1,10 @@
 /**
  * The rows of work (a step × the unit that works it) as the tracking screen lists them, with their pages. ONE table for
  * every place that lists such rows (the tracking screen, the cell of the backlog table), so the two never drift apart.
- * A row opens its record on the assignment tab.
+ * A record opens on the assignment tab by the link on its code (`rowHref`): never by a bare row click, which every list
+ * screen takes from the hook `useBamDong`.
  */
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ListPageShell, type ColumnDef } from '@/components/shared/ListPageShell';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
@@ -90,7 +91,6 @@ interface TrackingItemsTableProps {
 }
 
 export function TrackingItemsTable({ loading, rows, total, page, pageSize, onPageChange, title, emptyTitle, emptyDescription }: TrackingItemsTableProps) {
-  const navigate = useNavigate();
   return (
     <>
       <ListPageShell.Table<TrackingItemDto>
@@ -103,7 +103,6 @@ export function TrackingItemsTable({ loading, rows, total, page, pageSize, onPag
         title={title}
         totalCount={total}
         emptyState={{ title: emptyTitle, description: emptyDescription }}
-        onRowClick={(item) => navigate(recordTabHref(item.recordKind, item.recordId))}
         rowHref={(item) => recordTabHref(item.recordKind, item.recordId)}
         rowTestId={(item) => `tracking-row-${rowId(item)}`}
       />
