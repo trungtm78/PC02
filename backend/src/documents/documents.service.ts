@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { uploadedFileName } from './document-upload-policy';
 import { AuditService } from '../audit/audit.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -969,11 +970,12 @@ export class DocumentsService {
       throw new BadRequestException(
         `Vượt giới hạn ${maxPerEntity} tài liệu/đối tượng. Xoá tài liệu cũ trước khi tải mới.`,
       );
+    const givenName = uploadedFileName(file.originalname);
     const record = await tx.document.create({
       data: {
-        title: file.originalname.slice(0, 255),
+        title: givenName.slice(0, 255),
         fileName: file.filename,
-        originalName: file.originalname,
+        originalName: givenName,
         mimeType: file.mimetype,
         size: file.size,
         filePath: path.join(this.uploadDir, file.filename),

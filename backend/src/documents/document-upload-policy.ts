@@ -117,3 +117,14 @@ export async function assertUploadedDocument(
     throw error;
   }
 }
+
+/**
+ * The name the person gave the file. The multipart parser reads a file name as latin1, so a name sent as UTF-8
+ * ("Báo cáo.pdf") arrives as "BÃ¡o cÃ¡o.pdf". Read back as UTF-8 when that gives valid text; a name that was truly
+ * latin1 (its bytes are not valid UTF-8), or one that already holds characters beyond latin1, is kept as it came.
+ */
+export function uploadedFileName(originalname: string): string {
+  if ([...originalname].some((char) => char.charCodeAt(0) > 0xff)) return originalname;
+  const decoded = Buffer.from(originalname, 'latin1').toString('utf8');
+  return decoded.includes('�') ? originalname : decoded;
+}

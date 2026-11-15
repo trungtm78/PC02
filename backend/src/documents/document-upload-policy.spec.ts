@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { validateUploadedDocument } from './document-upload-policy';
+import { uploadedFileName, validateUploadedDocument } from './document-upload-policy';
 
 describe('document upload policy', () => {
   const media = {
@@ -65,5 +65,23 @@ describe('document upload policy', () => {
     expect(() =>
       validateUploadedDocument(media, 'video/mp4', 'AM_THANH'),
     ).toThrow(BadRequestException);
+  });
+});
+
+describe('uploadedFileName', () => {
+  // What the multipart parser hands over for a UTF-8 name: each byte read as one latin1 character.
+  const asParsed = (name: string) => Buffer.from(name, 'utf8').toString('latin1');
+
+  it('gives back the Vietnamese name the person chose (found in the browser pass)', () => {
+    expect(asParsed('Báo cáo xác minh.pdf')).toBe('BÃ¡o cÃ¡o xÃ¡c minh.pdf');
+    expect(uploadedFileName(asParsed('Báo cáo xác minh.pdf'))).toBe('Báo cáo xác minh.pdf');
+    expect(uploadedFileName(asParsed('Ghi chú xác minh.txt'))).toBe('Ghi chú xác minh.txt');
+  });
+
+  it('leaves a plain name, a true latin1 name and a name already in Unicode as they came', () => {
+    expect(uploadedFileName('report-2026.pdf')).toBe('report-2026.pdf');
+    // "café" sent as latin1 bytes is not valid UTF-8: kept.
+    expect(uploadedFileName('café.txt')).toBe('café.txt');
+    expect(uploadedFileName('Báo cáo điều tra.pdf')).toBe('Báo cáo điều tra.pdf');
   });
 });
