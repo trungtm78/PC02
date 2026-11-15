@@ -452,6 +452,14 @@ describe('the role of the person on the step (viewer)', () => {
     expect(screen.queryByTestId('report-mine-withdraw')).toBeNull();
   });
 
+  it('a holder of `approve` who opened the record only through a step (canApprove false) may still report, and is offered no decision', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: { ...VIEWER, canReport: true, opinionKinds: ['CHECK'], canAssignByScope: false } })]));
+    renderTab();
+    await screen.findByTestId('book-b');
+    expect(screen.queryByTestId('decision-form')).toBeNull();
+    expect(screen.queryByTestId('decision-agree')).toBeNull();
+  });
+
   it('the decision is offered when the permission and the role both allow it', async () => {
     api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: { ...VIEWER, canApprove: true } })]));
     renderTab();

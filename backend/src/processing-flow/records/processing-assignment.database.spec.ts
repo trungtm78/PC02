@@ -43,6 +43,9 @@ run('The person who answers for a party of a step, on PostgreSQL', () => {
   let flows: ProcessingFlowsService;
   let commands: ProcessingCommandService;
   let assignments: ProcessingAssignmentService;
+  /** The same service on the REAL gateway: the record's own scope is asked of the record's policy. */
+  let scopedAssignments: ProcessingAssignmentService;
+  let gateway: RecordGateway;
   let permissions: EnsuredPermissions;
   let recordInScope = true;
   const tag = `${PREFIX}${randomUUID().slice(0, 8)}`;
@@ -117,10 +120,15 @@ run('The person who answers for a party of a step, on PostgreSQL', () => {
     await takeTurnOnSharedRow(scratch.pg, 'processing-flows');
     await dropFlows();
 
-    permissions = await ensurePermissions(scratch, ['assign:ProcessingStep']);
+    permissions = await ensurePermissions(scratch, ['assign:ProcessingStep', 'approve:ProcessingStep', 'read:Petition']);
     const plain = (await db.role.create({ data: { name: `${tag}-role` } })).id;
     const assigning = (await db.role.create({ data: { name: `${tag}-assigning`, permissions: { create: [{ permissionId: permissions.ids['assign:ProcessingStep'] }] } } })).id;
-    roleIds.push(plain, assigning);
+    const both = (
+      await db.role.create({
+        data: { name: `${tag}-both`, permissions: { create: ['assign:ProcessingStep', 'approve:ProcessingStep', 'read:Petition'].map((key) => ({ permissionId: permissions.ids[key] })) } },
+      })
+    ).id;
+    roleIds.push(plain, assigning, both);
     for (const name of ['A', 'B', 'D']) team[name] = (await db.team.create({ data: { name: `${tag} unit ${name}`, code: `${tag}-${name}` } })).id;
     const person = async (name: string, teamName: string | null, over: { isLeader?: boolean; isActive?: boolean; roleId?: string } = {}) => {
       user[name] = (await db.user.create({ data: { username: `${tag}-${name}`, firstName: name, lastName: 'Tester', passwordHash: 'x', roleId: over.roleId ?? plain, isActive: over.isActive ?? true } })).id;
@@ -134,17 +142,22 @@ run('The person who answers for a party of a step, on PostgreSQL', () => {
     await person('retired', 'A', { isActive: false });
     await person('coordinator', 'B');
     await person('outsider', 'D');
+    // Both hold assign + approve + read:Petition. The petitions belong to unit A: one has them in scope, the other
+    // reaches them only through the step that names unit B.
+    await person('inScope', 'A', { roleId: both });
+    await person('throughStep', 'B', { roleId: both });
 
     const prisma = db as never;
     const audit = new AuditService(prisma);
     const calendars = new WorkingCalendarService(prisma, audit);
     flows = new ProcessingFlowsService(prisma, audit, calendars);
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
-    const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
+    gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
     const writer = new RecordDeadlineWriter(prisma, gateway);
     const applier = new FlowApplicationService(prisma, gateway, calendars, audit, writer);
     commands = new ProcessingCommandService(prisma, gateway, calendars, applier, audit, writer);
     assignments = new ProcessingAssignmentService(prisma, commands, { canRead: () => Promise.resolve(recordInScope) } as never);
+    scopedAssignments = new ProcessingAssignmentService(prisma, commands, gateway);
   });
 
   beforeEach(() => {
@@ -287,11 +300,38 @@ run('The person who answers for a party of a step, on PostgreSQL', () => {
     it('are the active members of the party unit, shown to a member of it or to a holder of the permission, and to nobody else', async () => {
       const { recordId, stepKey, party } = await withFlow();
       const list = await assignments.candidates(as('worker'), 'PETITION', recordId, stepKey, party('MAIN'));
-      expect(list.map((row) => row.userId).sort()).toEqual([user.head, user.worker, user.colleague].sort());
+      expect(list.map((row) => row.userId).sort()).toEqual([user.head, user.worker, user.colleague, user.inScope].sort());
       expect(list.find((row) => row.userId === user.head)).toMatchObject({ name: 'head Tester', isLeader: true });
-      await expect(assignments.candidates(as('dispatcher'), 'PETITION', recordId, stepKey, party('MAIN'))).resolves.toHaveLength(3);
+      await expect(assignments.candidates(as('dispatcher'), 'PETITION', recordId, stepKey, party('MAIN'))).resolves.toHaveLength(4);
       expect(await failure(assignments.candidates(as('outsider'), 'PETITION', recordId, stepKey, party('MAIN')))).toEqual({ status: 403, code: 'ASSIGN_NOT_ALLOWED' });
       expect(await failure(assignments.candidates(as('worker'), 'PETITION', recordId, stepKey, 'no-such-party'))).toEqual({ status: 404, code: 'PARTY_NOT_FOUND' });
+    });
+  });
+
+  describe('what the screen is told about the record own scope (viewer)', () => {
+    const viewerOf = async (recordId: string, who: string) => (await commands.get('PETITION', recordId, user[who])).steps[0].viewer;
+    const ownScope = (recordId: string, who: string) => gateway.canRead('PETITION', recordId, as(who), { viaStep: false });
+
+    it('a holder of assign and approve who reaches the record only through a step is told no, and both writes refuse', async () => {
+      const { recordId, stepKey, party, get } = await withFlow();
+      expect(await viewerOf(recordId, 'throughStep')).toMatchObject({ canApprove: false, canAssignByScope: false, memberOfPartyIds: [party('COORDINATE')], leaderOfPartyIds: [] });
+      // The decision route asks exactly this before it runs; assignment by permission asks it in the service.
+      expect(await ownScope(recordId, 'throughStep')).toBe(false);
+      expect(await failure(scopedAssignments.assign(as('throughStep'), 'PETITION', recordId, stepKey, party('MAIN'), { expectedRevision: (await get()).revision, userId: user.worker }))).toEqual({ status: 403, code: 'ASSIGN_NOT_ALLOWED' });
+    });
+
+    it('a holder with the record in their own scope is told yes, and the assignment is accepted', async () => {
+      const { recordId, stepKey, party, get } = await withFlow();
+      expect(await viewerOf(recordId, 'inScope')).toMatchObject({ canApprove: true, canAssignByScope: true });
+      expect(await ownScope(recordId, 'inScope')).toBe(true);
+      const after = await scopedAssignments.assign(as('inScope'), 'PETITION', recordId, stepKey, party('COORDINATE'), { expectedRevision: (await get()).revision, userId: user.coordinator });
+      // The answer of the write is the actor's: it says the same of the record.
+      expect(after.steps[0].viewer).toMatchObject({ canApprove: true, canAssignByScope: true });
+    });
+
+    it('a person who holds no permission to read the kind of record has it in no scope, whatever their unit', async () => {
+      const { recordId } = await withFlow();
+      expect(await viewerOf(recordId, 'head')).toMatchObject({ canApprove: false, canAssignByScope: false });
     });
   });
 });

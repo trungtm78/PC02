@@ -83,12 +83,18 @@ export function displayNameOf(user: NamedUser): string {
   return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username;
 }
 
+/** The person an answer is for, and whether the RECORD is in their own scope (asked once per record by the caller). */
+export interface FlowViewer {
+  id: string;
+  inOwnScope: boolean;
+}
+
 /**
  * Reads the people a flow names and its rows do not carry: the names of the persons named on a party, who acts for each
  * responsible person at `now` (the application clock) and, when the answer is for a person, what that person may do on
  * each step by their role, a delegation included (`step-roles.ts`).
  */
-export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam' | 'procRecordStepParty'>, row: RecordFlowRow, now: Date, viewerId?: string): Promise<FlowPeople> {
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam' | 'procRecordStepParty'>, row: RecordFlowRow, now: Date, viewer?: FlowViewer): Promise<FlowPeople> {
   const parties = row.steps.flatMap((step) => step.parties);
   const named = [...new Set(parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : [])))];
   const heads = parties.flatMap((party) => (party.team?.status === 'ACTIVE' ? party.team.members.map((member) => member.userId) : []));
@@ -98,8 +104,8 @@ export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' |
   const names = new Map(users.map((user) => [user.id, displayNameOf(user)]));
   // Who counts as a substitute is the resolver's answer (`delegatesOf`), the same one that lets the delegate act.
   const delegates = new Map([...given].map(([fromUserId, delegate]) => [fromUserId, { toUserId: delegate.toUserId, name: names.get(delegate.toUserId) ?? '', until: delegate.until }]));
-  if (viewerId === undefined) return { names, delegates };
-  return { names, delegates, viewers: await loadStepViewers(db, row.steps.map((step) => step.id), viewerId, now) };
+  if (viewer === undefined) return { names, delegates };
+  return { names, delegates, viewers: await loadStepViewers(db, row.steps.map((step) => step.id), viewer.id, now, viewer.inOwnScope) };
 }
 
 export interface RecordStepDto {

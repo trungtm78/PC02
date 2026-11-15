@@ -143,36 +143,52 @@ export function mayGiveOpinion(roles: StepRoles, kind: string): boolean {
 }
 
 /**
- * The leader's decision has no rule about the step's parties: whoever holds `approve:ProcessingStep` and may open the
- * record decides. Kept here so that a rule added later is told to the screen by the same function.
+ * The leader's decision has no rule about the step's parties: whoever holds `approve:ProcessingStep` and has the RECORD
+ * in their own scope decides. `inOwnScope` is the gateway's `canRead` WITHOUT the step rule, the question the decision
+ * route asks before it runs: a person who opened the record only through a step (or a delegation) does not decide.
  */
-export function mayDecide(_roles: StepRoles): boolean {
-  return true;
+export function mayDecide(inOwnScope: boolean): boolean {
+  return inOwnScope;
+}
+
+/**
+ * Naming a person BY PERMISSION (`assign:ProcessingStep`, rule 1 of `ProcessingAssignmentService`) needs the record in
+ * the person's own scope too; heading the party's unit (`leaderOfPartyIds`) is the other way and needs no scope.
+ */
+export function mayAssignByScope(inOwnScope: boolean): boolean {
+  return inOwnScope;
 }
 
 /** What the person looking at the record may do on a step BY THEIR ROLE; the route's permission is asked separately. */
 export interface StepViewerDto {
   canReport: boolean;
   opinionKinds: SpeakingKind[];
+  /** The record is in the person's OWN scope (not only opened through a step): the decision route will take them. */
   canApprove: boolean;
+  /** The same fact for naming a person by the permission `assign:ProcessingStep`. */
+  canAssignByScope: boolean;
   /** The parties of the step whose (active) unit the person belongs to. Never through a delegation. */
   memberOfPartyIds: string[];
   /** The parties of the step whose (active) unit the person heads. Never through a delegation. */
   leaderOfPartyIds: string[];
 }
 
-export function stepViewerOf(roles: StepRoles): StepViewerDto {
+export function stepViewerOf(roles: StepRoles, inOwnScope: boolean): StepViewerDto {
   return {
     canReport: mayReport(roles),
     opinionKinds: SPEAKING_KINDS.filter((kind) => mayGiveOpinion(roles, kind)),
-    canApprove: mayDecide(roles),
+    canApprove: mayDecide(inOwnScope),
+    canAssignByScope: mayAssignByScope(inOwnScope),
     memberOfPartyIds: roles.memberOfPartyIds(),
     leaderOfPartyIds: roles.leaderOfPartyIds(),
   };
 }
 
-/** The viewer of every step of a flow at `now`, keyed by the step's row. */
-export async function loadStepViewers(db: Db, stepIds: string[], userId: string, now: Date): Promise<Map<string, StepViewerDto>> {
+/**
+ * The viewer of every step of a flow at `now`, keyed by the step's row. `inOwnScope`: whether the RECORD is in the
+ * person's own scope, asked ONCE per record by the caller (`RecordGateway.canRead` without `viaStep`).
+ */
+export async function loadStepViewers(db: Db, stepIds: string[], userId: string, now: Date, inOwnScope: boolean): Promise<Map<string, StepViewerDto>> {
   const parties = await loadRolePartiesAt(db, stepIds, userId, now);
-  return new Map(stepIds.map((stepId) => [stepId, stepViewerOf(stepRolesOf({ ...parties, rows: parties.rows.filter((p) => p.recordStepId === stepId) }))]));
+  return new Map(stepIds.map((stepId) => [stepId, stepViewerOf(stepRolesOf({ ...parties, rows: parties.rows.filter((p) => p.recordStepId === stepId) }), inOwnScope)]));
 }

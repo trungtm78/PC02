@@ -550,7 +550,10 @@ function StepRow({ step, flow, position, me, onAssign, onTake, onUnassign, locke
           const member = step.viewer?.memberOfPartyIds.includes(p.id) === true;
           const leads = step.viewer?.leaderOfPartyIds.includes(p.id) === true;
           const open = step.status !== 'DONE' && step.status !== 'SKIPPED';
-          const names = open && (perms.canAssign || leads);
+          // The permission names a person only on a record in the person's OWN scope (the server refuses one opened
+          // through a step alone); heading the party's unit needs no scope.
+          const byPermission = perms.canAssign && (step.viewer?.canAssignByScope ?? true);
+          const names = open && (byPermission || leads);
           const canTake = open && !names && member && me !== null && p.assigneeUserId === null;
           const canUnassign = open && p.assigneeUserId !== null && (names || p.assigneeUserId === me);
           return (

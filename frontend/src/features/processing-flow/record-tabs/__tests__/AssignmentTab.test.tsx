@@ -573,3 +573,46 @@ describe('an officer who may not read the list of users', () => {
     expect(screen.queryByTestId('party-pm-take')).toBeNull();
   });
 });
+
+describe('assignment by permission needs the record in the person own scope', () => {
+  const base = { canReport: false, opinionKinds: [], canApprove: false, memberOfPartyIds: [], leaderOfPartyIds: [] };
+  const flowFor = (viewer: StepViewerDto | undefined) =>
+    recFlow({}, [
+      recStep({
+        stepKey: 'b',
+        ...(viewer ? { viewer } : {}),
+        parties: [party({ id: 'pm' }), party({ id: 'pn', teamId: 't9', teamName: 'Tổ 9', role: 'COORDINATE', assigneeUserId: 'u2', assigneeName: 'Ngô C' })],
+      }),
+    ]);
+
+  it('a holder of `assign` who opened the record only through a step is offered no naming, changing or unassigning', async () => {
+    api.get.mockResolvedValue(flowFor({ ...base, canAssignByScope: false }));
+    renderTab();
+    await screen.findByTestId('party-pm');
+    expect(screen.queryByTestId('party-pm-assign')).toBeNull();
+    expect(screen.queryByTestId('party-pn-assign')).toBeNull();
+    expect(screen.queryByTestId('party-pn-unassign')).toBeNull();
+  });
+
+  it('heading the unit of a party still names its people there, and only there', async () => {
+    api.get.mockResolvedValue(flowFor({ ...base, canAssignByScope: false, memberOfPartyIds: ['pm'], leaderOfPartyIds: ['pm'] }));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toBeInTheDocument();
+    expect(screen.queryByTestId('party-pn-assign')).toBeNull();
+  });
+
+  it('with the record in scope the permission names, changes and unassigns on every party', async () => {
+    api.get.mockResolvedValue(flowFor({ ...base, canAssignByScope: true }));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toHaveTextContent(R.actions.assign);
+    expect(screen.getByTestId('party-pn-assign')).toHaveTextContent(R.actions.changeAssignee);
+    expect(screen.getByTestId('party-pn-unassign')).toBeInTheDocument();
+  });
+
+  it('an answer without the field (an older server) leaves the permission alone to decide', async () => {
+    api.get.mockResolvedValue(flowFor(base));
+    renderTab();
+    expect(await screen.findByTestId('party-pm-assign')).toBeInTheDocument();
+    api.get.mockResolvedValue(flowFor(undefined));
+  });
+});

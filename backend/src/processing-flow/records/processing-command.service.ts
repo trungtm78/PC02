@@ -15,7 +15,7 @@ import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { FlowApplicationService, RECORD_FLOW_LOCK, anchorsOf, type ApplyOutcome } from './flow-application.service';
 import { refreshRecordAlert } from './record-alert';
-import { RECORD_FLOW_INCLUDE, loadFlowPeople, toRecordFlowDto, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
+import { RECORD_FLOW_INCLUDE, loadFlowPeople, toRecordFlowDto, type FlowViewer, type RecordClock, type RecordFlowDto, type RecordFlowRow } from './record-flow.dto';
 import { scheduleStep, type AnchorInstant, type RecordConditions } from './schedule-step';
 
 type Tx = Prisma.TransactionClient;
@@ -81,7 +81,7 @@ export class ProcessingCommandService {
   async get(kind: RecordKind, recordId: string, viewerId?: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row, this.now(), viewerId));
+    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row, this.now(), await this.viewerOf(this.prisma, kind, recordId, viewerId)));
   }
 
   // ---- the flow of the record
@@ -342,9 +342,22 @@ export class ProcessingCommandService {
     return { suspended: snapshot !== null && snapshot.isSuspended && !snapshot.isFinished, finished: snapshot !== null && snapshot.isFinished };
   }
 
+  /**
+   * The person an answer is for, with the ONE fact about the record the steps cannot tell: whether it is in the person's
+   * OWN scope (the gateway's `canRead` without the step rule), which the decision route and assignment by permission
+   * require. Asked once per record. The person is read as the request would carry them (role, dispatch right).
+   */
+  private async viewerOf(db: Tx | PrismaService, kind: RecordKind, recordId: string, viewerId: string | undefined): Promise<FlowViewer | undefined> {
+    if (viewerId === undefined) return undefined;
+    const person = await db.user.findUnique({ where: { id: viewerId }, select: { isActive: true, canDispatch: true, role: { select: { name: true } } } });
+    if (!person?.isActive) return { id: viewerId, inOwnScope: false };
+    const inOwnScope = await this.gateway.canRead(kind, recordId, { id: viewerId, role: person.role.name, canDispatch: person.canDispatch }, { viaStep: false });
+    return { id: viewerId, inOwnScope };
+  }
+
   async read(tx: Tx, kind: RecordKind, recordId: string, viewerId?: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row, this.now(), viewerId)) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row, this.now(), await this.viewerOf(tx, kind, recordId, viewerId))) : (null as unknown as RecordFlowDto);
   }
 
   transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {

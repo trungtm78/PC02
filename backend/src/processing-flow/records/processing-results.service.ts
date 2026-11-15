@@ -5,7 +5,7 @@ import { OPINION_KINDS, PROCESSING_ERROR, PROPOSAL_KINDS, type ProcessingErrorCo
 import type { RecordKind } from '../gateway/record-snapshot';
 import { ProcessingCommandService, type CommandInput } from './processing-command.service';
 import type { RecordFlowDto } from './record-flow.dto';
-import { REPORTING_ROLES, loadRolePartiesAt, mayDecide, mayGiveOpinion, mayReport, opinionNeedsHead, roleOfOpinion, stepRolesOf, type StepRoles } from './step-roles';
+import { REPORTING_ROLES, loadRolePartiesAt, mayGiveOpinion, mayReport, opinionNeedsHead, roleOfOpinion, stepRolesOf, type StepRoles } from './step-roles';
 
 type Tx = Prisma.TransactionClient;
 
@@ -296,7 +296,8 @@ export class ProcessingResultsService {
     if (!['AGREE', 'DISAGREE', 'OTHER_DIRECTION'].includes(input.verdict)) throw refuse.bad(PROCESSING_ERROR.VERDICT_INVALID);
     if (input.verdict !== 'AGREE' && !content) throw refuse.bad(PROCESSING_ERROR.REPORT_TEXT_REQUIRED);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'DECIDE', input, async (tx, flow, step) => {
-      if (!mayDecide(await this.rolesOf(tx, step.id, actorId))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      // WHO decides is asked before this runs: the route's permission and the record in the person's own scope
+      // (`mayDecide` in step-roles.ts tells the screen that same answer).
       if (step.status !== 'REPORTED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_REPORTED);
       const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, orderBy: { createdAt: 'desc' } });
       if (!result) throw refuse.conflict(PROCESSING_ERROR.NO_RESULT_REPORT);

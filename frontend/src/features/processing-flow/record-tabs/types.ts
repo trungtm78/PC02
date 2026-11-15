@@ -93,7 +93,13 @@ export interface RecordStepDto {
 export interface StepViewerDto {
   canReport: boolean;
   opinionKinds: SpeakingKind[];
+  /** The record is in the person's OWN scope (not only opened through a step): the decision route will take them. */
   canApprove: boolean;
+  /**
+   * The same fact for naming a person by the permission `assign:ProcessingStep`. Absent in an answer of an older server:
+   * the permission alone decides, as before.
+   */
+  canAssignByScope?: boolean;
   /** The parties of the step whose (active) unit the person belongs to: where they may take the work themself. */
   memberOfPartyIds: string[];
   /** The parties of the step whose (active) unit the person heads: there they may name anybody of the unit. */
