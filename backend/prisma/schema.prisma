@@ -1826,9 +1826,14 @@ model Document {
   deadlineRuleAttachments DeadlineRuleVersion[] @relation("DeadlineRuleAttachment")
   dispositionReceipts CaseDispositionRequest[] @relation("DispositionReceiptDocument")
 
+  /// The report of a processing step this file was attached to (C4). NULL for every other document.
+  procStepReportId String?
+  procStepReport   ProcStepReport? @relation(fields: [procStepReportId], references: [id], onDelete: SetNull)
+
   @@index([caseId])
   @@index([incidentId])
   @@index([petitionId])
+  @@index([procStepReportId])
   @@index([uploadedById])
   @@index([documentType])
   @@index([deletedAt])
@@ -5717,11 +5722,33 @@ model ProcStepReport {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  opinions ProcStepOpinion[]
+  opinions    ProcStepOpinion[]
+  /// Files attached to this report by its author (documents of the record, linked here).
+  attachments Document[]
 
   @@index([recordStepId, createdAt])
   @@index([recordKind, recordId])
   @@map("proc_step_reports")
+}
+
+/// A person who will be away lets another person act for them on the steps they answer for (R8). Never edited:
+/// revoked, and made anew. User ids are kept as TEXT (no foreign key), as the other history of this module does.
+model ProcDelegation {
+  id          String    @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  /// In force from `validFrom` (inclusive) to `validTo` (inclusive), both instants of the application clock.
+  validFrom   DateTime
+  validTo     DateTime
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  revokedById String?
+
+  @@index([toUserId, validFrom, validTo])
+  @@index([fromUserId, validFrom, validTo])
+  @@map("proc_delegations")
 }
 
 /// What the people around a step say, append-only in the sense that nobody changes another person's words: the head of
