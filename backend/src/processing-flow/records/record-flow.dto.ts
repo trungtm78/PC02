@@ -102,11 +102,24 @@ const iso = (value: Date | null): string | null => (value ? value.toISOString() 
 const earlier = (a: Date | null, b: Date | null): Date | null => (a && b ? (a.getTime() <= b.getTime() ? a : b) : (a ?? b));
 
 /**
- * The flow of a record as the tab shows it. `now` decides the colours; nothing else here reads a clock. `suspended`: the
- * record is suspended right now, whether or not the worker has opened the pause yet: no colour is shown for a clock that
- * is about to stand still.
+ * What the record itself says about its clock right now. `suspended`: whether or not the worker has opened the pause
+ * yet, no colour is shown for a clock that is about to stand still. `finished`: nothing counts down on a record the
+ * unit is done with, even if a step was left open.
  */
-export function toRecordFlowDto(row: RecordFlowRow, now: Date, suspended = false): RecordFlowDto {
+export interface RecordClock {
+  suspended: boolean;
+  finished: boolean;
+}
+
+const RUNNING: RecordClock = { suspended: false, finished: false };
+
+/**
+ * The flow of a record as the tab shows it. `now` decides the colours; nothing else here reads a clock. The colour of a
+ * step and the stored alert of the record (`refreshRecordAlert`) follow the same rule: none while the record is
+ * suspended or finished, or its clock is paused.
+ */
+export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordClock = RUNNING): RecordFlowDto {
+  const { suspended, finished } = clock;
   return {
     id: row.id,
     recordKind: row.recordKind,
@@ -123,7 +136,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, suspended = false
     steps: row.steps.map((step) => {
       const due = earlier(step.regulatoryDueAt, step.internalDueAt);
       // A deadline that is about to move (the record is suspended) has no colour: it would be wrong the moment it resumes.
-      const working = (step.status === 'OPEN' || step.status === 'REPORTED') && row.pauses.length === 0 && !suspended;
+      const working = (step.status === 'OPEN' || step.status === 'REPORTED') && row.pauses.length === 0 && !suspended && !finished;
       const thresholds = { redDays: step.step.redDays, yellowDays: step.step.yellowDays, greenDays: step.step.greenDays };
       return {
         stepKey: step.stepKey,

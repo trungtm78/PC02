@@ -1,15 +1,21 @@
 import * as fc from 'fast-check';
 import { BANDS } from '../contract/processing-codes';
 import {
+  bandAt,
   bandInstants,
   bandOf,
   bandWhere,
+  colouredWhere,
   completionClass,
+  deadlineDayBand,
+  deadlineDayWhere,
+  earliestInstants,
   remainingDays,
   validateThresholds,
   worseBand,
   type BandRow,
   type BandWhere,
+  type InstantComparison,
   type Thresholds,
 } from './bands';
 import { ProcessingEngineError } from './errors';
@@ -234,5 +240,94 @@ describe('completionClass', () => {
 
   it('once done, the clock no longer matters', () => {
     expect(completionClass(vn('2026-03-01T08:00:00.000'), DUE, vn('2030-01-01T00:00:00.000'))).toBe('DONE_ON_TIME');
+  });
+});
+
+describe('bandAt', () => {
+  it('reads the band off the stored instants, and it is the band of bandOf (property, at and next to every boundary)', () => {
+    fc.assert(
+      fc.property(instant, thresholds, fc.constantFrom(-1, 0, 1), fc.constantFrom('dueAt', 'redFrom', 'yellowFrom', 'greenFrom'), instant, (dueAt, t, delta, edge, anywhere) => {
+        const row: BandRow = { dueAt, ...bandInstants(dueAt, t) };
+        for (const at of [anywhere, new Date(row[edge as keyof BandRow].getTime() + delta)]) expect(bandAt(at, row)).toBe(bandOf(at, dueAt, t));
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it('exactly at the deadline is still RED; one millisecond later is OVERDUE', () => {
+    const row: BandRow = { dueAt: DUE, ...bandInstants(DUE, T) };
+    expect(bandAt(DUE, row)).toBe('RED');
+    expect(bandAt(new Date(DUE.getTime() + 1), row)).toBe('OVERDUE');
+  });
+});
+
+describe('earliestInstants', () => {
+  it('no row: nothing', () => {
+    expect(earliestInstants([])).toBeNull();
+  });
+
+  it('takes the earliest of each instant on its own', () => {
+    const a: BandRow = { dueAt: vn('2026-03-10T23:59:59.999'), redFrom: vn('2026-03-10T00:00:00.000'), yellowFrom: vn('2026-03-09T00:00:00.000'), greenFrom: vn('2026-03-08T00:00:00.000') };
+    const b: BandRow = { dueAt: vn('2026-03-12T23:59:59.999'), redFrom: vn('2026-03-07T00:00:00.000'), yellowFrom: vn('2026-03-06T00:00:00.000'), greenFrom: vn('2026-03-05T00:00:00.000') };
+    expect(earliestInstants([a, b])).toEqual({ dueAt: a.dueAt, redFrom: b.redFrom, yellowFrom: b.yellowFrom, greenFrom: b.greenFrom });
+  });
+
+  it('the band of the earliest instants is the WORST band of the rows, and bandWhere finds it (property)', () => {
+    const step = fc.tuple(instant, thresholds).map(([dueAt, t]): BandRow => ({ dueAt, ...bandInstants(dueAt, t) }));
+    fc.assert(
+      fc.property(fc.array(step, { minLength: 1, maxLength: 5 }), instant, (rows, at) => {
+        const worst = rows.map((row) => bandAt(at, row)).reduce(worseBand);
+        const stored = earliestInstants(rows) as BandRow;
+        expect(bandAt(at, stored)).toBe(worst);
+        expect(BANDS.filter((band) => matches(stored, bandWhere(band, at)))).toEqual([worst]);
+      }),
+      { numRuns: 2000 },
+    );
+  });
+});
+
+describe('colouredWhere', () => {
+  it('finds exactly the rows that are OVERDUE, RED, YELLOW or GREEN (property)', () => {
+    fc.assert(
+      fc.property(instant, thresholds, instant, (dueAt, t, at) => {
+        const row: BandRow = { dueAt, ...bandInstants(dueAt, t) };
+        expect(matches(row, colouredWhere(at))).toBe(bandOf(at, dueAt, t) !== 'NONE');
+      }),
+      { numRuns: 2000 },
+    );
+  });
+});
+
+describe('a deadline that is a calendar day', () => {
+  /** What a database would answer for a single instant column. */
+  const holds = (value: Date, test: InstantComparison | null): boolean =>
+    test !== null &&
+    (test.lt === undefined || value.getTime() < test.lt.getTime()) &&
+    (test.lte === undefined || value.getTime() <= test.lte.getTime()) &&
+    (test.gt === undefined || value.getTime() > test.gt.getTime()) &&
+    (test.gte === undefined || value.getTime() >= test.gte.getTime());
+
+  it('counts to the END of its civil day: red on the day itself, overdue from the next midnight (Vietnam)', () => {
+    const column = new Date('2026-03-10T00:00:00.000Z'); // how a date column stores 10 March
+    const t: Thresholds = { redDays: 0, yellowDays: 7, greenDays: 7 };
+    expect(deadlineDayBand(vn('2026-03-02T23:59:59.999'), column, t)).toBe('NONE');
+    expect(deadlineDayBand(vn('2026-03-03T00:00:00.000'), column, t)).toBe('YELLOW');
+    expect(deadlineDayBand(vn('2026-03-09T23:59:59.999'), column, t)).toBe('YELLOW');
+    expect(deadlineDayBand(vn('2026-03-10T00:00:00.000'), column, t)).toBe('RED');
+    expect(deadlineDayBand(vn('2026-03-10T23:59:59.999'), column, t)).toBe('RED');
+    expect(deadlineDayBand(vn('2026-03-11T00:00:00.000'), column, t)).toBe('OVERDUE');
+  });
+
+  it('a band no day can be in has no condition at all', () => {
+    expect(deadlineDayWhere('GREEN', vn('2026-03-09T10:00:00.000'), { redDays: 0, yellowDays: 7, greenDays: 7 })).toBeNull();
+  });
+
+  it('every deadline matches exactly one band, and it is the band of deadlineDayBand (property)', () => {
+    fc.assert(
+      fc.property(instant, instant, thresholds, (at, deadline, t) => {
+        expect(BANDS.filter((band) => holds(deadline, deadlineDayWhere(band, at, t)))).toEqual([deadlineDayBand(at, deadline, t)]);
+      }),
+      { numRuns: 2000 },
+    );
   });
 });

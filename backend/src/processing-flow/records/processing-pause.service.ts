@@ -7,6 +7,7 @@ import { bandInstants } from '../engine/bands';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { RECORD_FLOW_LOCK } from './flow-application.service';
+import { alertDriftCandidates, refreshRecordAlert } from './record-alert';
 import { RecordDeadlineWriter } from './record-deadline-writer.service';
 import { RECORDS_SWITCH } from './processing-outbox.service';
 
@@ -53,6 +54,7 @@ export class ProcessingPauseService {
     try {
       if (!(await this.flags.isEnabled(RECORDS_SWITCH))) return;
       await this.reconcile();
+      await this.reconcileAlerts();
     } catch (error) {
       this.logger.warn(`Reconciling the pauses failed: ${String(error)}`);
     }
@@ -112,6 +114,8 @@ export class ProcessingPauseService {
         const from = this.now();
         await tx.procRecordPause.create({ data: { recordFlowId: flowId, from, reason: 'SUSPENDED' } });
         await tx.procStepChange.create({ data: { recordFlowId: flowId, recordKind: kind, recordId, action: 'CLOCK_PAUSED', toValue: { from: from.toISOString(), reason: 'SUSPENDED' }, actorId: null } });
+        // A clock that stands still shows no colour: the stored alert goes.
+        await refreshRecordAlert(tx, this.gateway, kind, recordId);
         return 'OPENED';
       }
       if (!shouldStand && open) {
@@ -126,10 +130,28 @@ export class ProcessingPauseService {
         await tx.procStepChange.create({
           data: { recordFlowId: flowId, recordKind: kind, recordId, action: 'CLOCK_RESUMED', fromValue: { from: open.from.toISOString() }, toValue: { to: to.toISOString(), stepsMoved: moved, recordAlive: alive }, actorId: null },
         });
+        // The clock runs again (or the record is done): the stored alert is that of the deadlines as they are now.
+        await refreshRecordAlert(tx, this.gateway, kind, recordId);
         return 'CLOSED';
       }
       return null;
     });
+  }
+
+  /**
+   * The stored alert of the records whose STATUS changed without a word to the flow (finished, worked again, deleted):
+   * each is recomputed under the record's lock from what is true at that moment. Answers how many were rewritten.
+   */
+  async reconcileAlerts(): Promise<number> {
+    let written = 0;
+    for (const { kind, recordId } of await alertDriftCandidates(this.prisma)) {
+      const done = await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
+        return refreshRecordAlert(tx, this.gateway, kind, recordId);
+      });
+      if (done === 'WRITTEN') written += 1;
+    }
+    return written;
   }
 
   /** The steps being worked lose the time spent paused: both deadlines move later, the bands follow. */
