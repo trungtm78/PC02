@@ -127,4 +127,22 @@ describe('IncidentFormPage — hai tab quy trình', () => {
     expect(screen.queryByTestId('tab-nut-ket-qua-xu-ly')).toBeNull();
     expect(legacyButtons()).toHaveLength(Object.keys(LEGACY_TAB_LABEL).length);
   });
+
+  it('đường dẫn ?tab=phan-cong-xu-ly (màn Theo dõi xử lý dẫn tới) mở thẳng tab Phân công xử lý; bấm tab khác vẫn chuyển được', async () => {
+    await renderPage({ path: '/vu-viec/inc-1/edit?tab=phan-cong-xu-ly', readOnly: true });
+    expect(await screen.findByTestId('assignment-tab')).toBeInTheDocument();
+    // Form Vụ việc vẽ khung chờ trong lúc nạp hồ sơ nên thân tab được gắn hai lần: cùng MỘT đường dẫn, không đường nào khác.
+    expect([...new Set(recordPaths())]).toEqual(['/processing/records/INCIDENT/inc-1']);
+    fireEvent.click(screen.getByTestId('tab-nut-info'));
+    expect(screen.queryByTestId('assignment-tab')).toBeNull();
+    expect(nameField().closest('.hidden')).toBeNull();
+  });
+
+  it('đường dẫn ?tab=phan-cong-xu-ly khi công tắc TẮT: form mở tab Thông tin, không gọi /processing/records', async () => {
+    await renderPage({ path: '/vu-viec/inc-1/edit?tab=phan-cong-xu-ly', switchOn: false });
+    await waitFor(() => expect(nameField().value).toBe('Vụ việc test'));
+    expect(nameField().closest('.hidden')).toBeNull();
+    expect(screen.queryByTestId('assignment-tab')).toBeNull();
+    expect(recordPaths()).toEqual([]);
+  });
 });

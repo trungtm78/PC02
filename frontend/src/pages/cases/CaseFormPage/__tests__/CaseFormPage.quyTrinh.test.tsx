@@ -133,4 +133,24 @@ describe('CaseFormPage — hai tab quy trình', () => {
     await waitFor(() => expect(tabIds()).toEqual(FORM_TABS));
     expect(screen.queryByTestId('tab-phan-cong-xu-ly')).toBeNull();
   });
+
+  it('đường dẫn ?tab=phan-cong-xu-ly (màn Theo dõi xử lý dẫn tới) mở thẳng tab Phân công xử lý; bấm tab khác vẫn chuyển được', async () => {
+    await renderPage({ path: '/cases/case-1/edit?tab=phan-cong-xu-ly' });
+    expect(await screen.findByTestId('assignment-tab')).toBeInTheDocument();
+    expect(screen.queryByTestId('stub-info')).toBeNull();
+    expect(recordPaths()).toEqual(['/processing/records/CASE/case-1']);
+    fireEvent.click(screen.getByTestId('tab-info'));
+    expect(screen.queryByTestId('assignment-tab')).toBeNull();
+    expect(screen.getByTestId('stub-info')).toBeInTheDocument();
+    // Tham số chỉ đọc MỘT lần: quay lại tab Thông tin rồi thì form không tự nhảy về tab quy trình nữa.
+    fireEvent.click(screen.getByTestId('tab-ket-qua-xu-ly'));
+    expect(await screen.findByTestId('results-tab')).toBeInTheDocument();
+  });
+
+  it('đường dẫn ?tab=phan-cong-xu-ly khi công tắc TẮT: form mở tab Thông tin, không gọi /processing/records', async () => {
+    await renderPage({ path: '/cases/case-1/edit?tab=phan-cong-xu-ly', switchOn: false });
+    expect(await screen.findByTestId('stub-info')).toBeInTheDocument();
+    expect(tabIds()).toEqual(FORM_TABS);
+    expect(recordPaths()).toEqual([]);
+  });
 });
