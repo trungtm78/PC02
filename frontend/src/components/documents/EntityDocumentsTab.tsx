@@ -21,6 +21,8 @@ interface EntityDocument {
   size?: number | null;
   createdAt?: string | null;
   description?: string | null;
+  /** Có giá trị khi tệp là tệp đính kèm của một báo cáo bước xử lý: gỡ ở tab "Kết quả xử lý", không gỡ ở đây. */
+  procStepReportId?: string | null;
 }
 
 // Loại tài liệu (DOCUMENT_TYPE) nay là danh mục ĐỘNG — options + nhãn lấy từ Catalog Registry
@@ -476,7 +478,16 @@ export function EntityDocumentsTab({
                 >
                   <Download className="w-4 h-4" />
                 </button>
-                {!chiXem && <button
+                {!chiXem && doc.procStepReportId && (
+                  <span
+                    data-testid={`tep-cua-bao-cao-${doc.id}`}
+                    className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                    title="Tệp đính kèm của báo cáo bước xử lý — gỡ ở tab Kết quả xử lý"
+                  >
+                    Tệp của báo cáo bước
+                  </span>
+                )}
+                {!chiXem && !doc.procStepReportId && <button
                   type="button"
                   onClick={() => handleDelete(doc)}
                   className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
