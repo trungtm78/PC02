@@ -125,8 +125,8 @@ function expectedBand(asOfMs, dueMs, dueDay, t) {
 }
 
 // ── set-up and clean-up (SQL: only what the API cannot do) ──────────────────────────────────────────────────────
-const TEAMS = ['x', 'y', 'c', 'i', 'z', 'l'].map((k) => `${TAG}-team-${k}`);
-const [TX, TY, TC, TI, TZ, TL] = TEAMS;
+const TEAMS = ['x', 'y', 'c', 'i', 'z', 'l', 'd'].map((k) => `${TAG}-team-${k}`);
+const [TX, TY, TC, TI, TZ, TL, TD] = TEAMS;
 const TYPE_BOUND = `UAT ${RUN} loại có quy trình`;
 let CRIME_ID = null; // an entry of the seeded crime catalogue: the petition form requires one
 async function seed(pg) {
@@ -143,6 +143,12 @@ async function seed(pg) {
     await pg.query(`INSERT INTO "users" ("id","username","email","passwordHash","roleId","isActive","twoFaSetupRequired","updatedAt") VALUES ($1,$1,$2,$3,$4,true,false,now())`, [id, `${id}@local.test`, hash, role]);
     if (team) await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,true)`, [id, team]);
   }
+  // A plain member of X (to be named on a step); a team D whose members are Y's head and one more person (a teammate of Y's head who is NOT in Y).
+  for (const [id, team] of [[`${TAG}-ux2`, TX], [`${TAG}-uy3`, TD]]) {
+    await pg.query(`INSERT INTO "users" ("id","username","email","passwordHash","roleId","isActive","twoFaSetupRequired","updatedAt") VALUES ($1,$1,$2,$3,$4,true,false,now())`, [id, `${id}@local.test`, hash, `${TAG}-officer-role`]);
+    await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [id, team]);
+  }
+  await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [`${TAG}-uy`, TD]);
   // The leadership person also belongs to an ordinary team (decision C3: rights are the union of the teams).
   await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [`${TAG}-ul`, TZ]);
   CRIME_ID = (await pg.query(`SELECT "id" FROM "crimes" ORDER BY "id" LIMIT 1`)).rows[0]?.id ?? null;
@@ -446,6 +452,100 @@ async function workflow(pg) {
   const xUndo = await cmd(admin, `/steps/${keys[2]}/reopen`, { reason: 'UAT: trả bước về OPEN cho các ca sau' });
   check('C2', 'có quyền complete:ProcessingStep → hoàn thành được (rồi quản trị, người có quyền reopen, mở lại)', xComplete.status === 200 && xUndo.status === 200, [xComplete.status, xComplete.body?.code, xUndo.status]);
 
+  // ── O2b: naming the person of a party ─────────────────────────────────────────────────────────────────────────
+  const ux2 = await login(`${TAG}-ux2`);
+  const partyX = step((await getFlow()).body, 1).parties.find((x) => x.teamId === TX);
+  const assignUrl = `/steps/${keys[1]}/parties/${partyX?.id}/assignee`;
+  const partyNow = async () => step((await getFlow()).body, 1).parties.find((x) => x.teamId === TX);
+  const n_cands = await call(ux, 'GET', `${rec}/steps/${keys[1]}/parties/${partyX?.id}/candidates`);
+  check('O2b', 'danh sách người có thể được chỉ định gồm thành viên của đơn vị', n_cands.status === 200 && JSON.stringify(n_cands.body).includes(`${TAG}-ux2`) && !JSON.stringify(n_cands.body).includes(`${TAG}-uz`), [n_cands.status, n_cands.body]);
+  const n_named = await cmd(ux, assignUrl, { userId: `${TAG}-ux2` });
+  let pNow = await partyNow();
+  check('O2b', 'tổ trưởng chỉ định một thành viên: người chịu trách nhiệm của bước là người đó', n_named.status === 200 && pNow?.assigneeUserId === `${TAG}-ux2` && JSON.stringify(pNow?.responsible ?? []).includes(`${TAG}-ux2`) && !JSON.stringify(pNow?.responsible ?? []).includes(`"${TAG}-ux"`), [n_named.status, n_named.body?.code, pNow]);
+  const n_notMember = await cmd(ux, assignUrl, { userId: `${TAG}-uz` });
+  check('O2b', 'chỉ định người KHÔNG thuộc đơn vị bị từ chối', n_notMember.status >= 400 && n_notMember.status < 500 && (await partyNow())?.assigneeUserId === `${TAG}-ux2`, [n_notMember.status, n_notMember.body]);
+  const n_cleared = await cmd(ux, assignUrl, { userId: null });
+  pNow = await partyNow();
+  check('O2b', 'bỏ chỉ định: người chịu trách nhiệm trở lại là tổ trưởng', n_cleared.status === 200 && pNow?.assigneeUserId === null && JSON.stringify(pNow?.responsible ?? []).includes(`"${TAG}-ux"`), [n_cleared.status, pNow]);
+  const n_taken = await cmd(ux2, assignUrl, { userId: `${TAG}-ux2` });
+  const takenNow = (await partyNow())?.assigneeUserId;
+  const n_givenBack = await cmd(ux2, assignUrl, { userId: null });
+  check('O2b', 'thành viên tự nhận việc khi chưa ai được chỉ định, rồi trả lại', n_taken.status === 200 && takenNow === `${TAG}-ux2` && n_givenBack.status === 200 && (await partyNow())?.assigneeUserId === null, [n_taken.status, n_taken.body?.code, takenNow, n_givenBack.status, n_givenBack.body?.code]);
+  const n_outsider = await cmd(uy, assignUrl, { userId: `${TAG}-uy` });
+  check('O2b', 'người của đơn vị khác (không thuộc đơn vị của phần việc) không tự nhận được', [403, 409].includes(n_outsider.status) && (await partyNow())?.assigneeUserId === null, [n_outsider.status, n_outsider.body]);
+
+  // ── the viewer of the DTO agrees with the server ──────────────────────────────────────────────────────────────
+  const vMain = step((await getFlow(ux)).body, 1).viewer;
+  const vAdmin = step((await getFlow()).body, 1).viewer;
+  const adminReport = await cmd(admin, `/steps/${keys[1]}/reports`, { kind: 'PROGRESS', doneWork: 'Quản trị không thuộc bước' });
+  check('VIEWER', 'DTO: người của đơn vị xử lý chính có canReport = true', vMain?.canReport === true, vMain);
+  check('VIEWER', 'DTO: quản trị có mọi quyền nhưng không thuộc bước có canReport = false, và ghi thử thì bị 403', vAdmin?.canReport === false && adminReport.status === 403, [vAdmin, adminReport.status, adminReport.body?.code]);
+  const teamsList = await call(ux, 'GET', '/processing/tracking/teams');
+  check('TRACK-TEAMS', 'cán bộ không có quyền read:User vẫn lấy được danh sách đơn vị để lọc màn Theo dõi', teamsList.status === 200 && JSON.stringify(teamsList.body).includes(TX), [teamsList.status, teamsList.body]);
+
+  // ── C4: a file n_attached to the unit's own report ──────────────────────────────────────────────────────────────
+  const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n', 'latin1');
+  const upload = async (token, url, fields = {}) => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    form.append('file', new Blob([PDF], { type: 'application/pdf' }), `uat-${RUN}.pdf`);
+    const res = await fetch(`${BASE}${url}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const reportsOf = async (key) => (await call(admin, 'GET', `${rec}/steps/${key}/results`)).body?.reports ?? [];
+  const yRep = (await reportsOf(keys[1])).find((r) => r.authorId === `${TAG}-uy` && !r.withdrawnAt);
+  const attUrl = `${rec}/steps/${keys[1]}/reports/${yRep?.id}/attachments`;
+  const plainUpload = await upload(uy, '/documents', { petitionId: petId, title: 'UAT' });
+  check('C4', 'đường tải tệp thông thường POST /documents vẫn từ chối người của đơn vị phối hợp', [403, 404].includes(plainUpload.status), [plainUpload.status, plainUpload.body]);
+  const n_attached = await upload(uy, attUrl);
+  const attOf = async () => ((await reportsOf(keys[1])).find((r) => r.id === yRep?.id)?.attachments ?? []);
+  const att = (await attOf())[0];
+  const docId = att?.documentId ?? att?.id;
+  check('C4', 'người của đơn vị phối hợp (không có quyền ghi hồ sơ) đính kèm được tệp vào báo cáo của chính mình và thấy nó trong kết quả', n_attached.status === 200 && !!docId, [n_attached.status, n_attached.body, att]);
+  const dl = await fetch(`${BASE}${attUrl}/${docId}/download`, { headers: { Authorization: `Bearer ${uy}` } });
+  const dlBytes = Buffer.from(await dl.arrayBuffer());
+  check('C4', 'tải xuống trả đúng các byte đã gửi', dl.status === 200 && dlBytes.equals(PDF), [dl.status, dlBytes.length, PDF.length]);
+  const n_foreign = await upload(ux, attUrl);
+  check('C4', 'đơn vị khác không đính kèm được vào báo cáo đó', n_foreign.status >= 400 && n_foreign.status < 500 && (await attOf()).length === 1, [n_foreign.status, n_foreign.body]);
+  const n_crossed = await fetch(`${BASE}/processing/records/PETITION/${idOf(p0)}/steps/${p0flow?.steps?.[1]?.stepKey}/reports/${yRep?.id}/attachments/${docId}/download`, { headers: { Authorization: `Bearer ${admin}` } });
+  check('C4', 'mã tài liệu của hồ sơ khác bị từ chối khi tải xuống qua một hồ sơ không chứa nó', [403, 404].includes(n_crossed.status), n_crossed.status);
+  const n_removed = await call(uy, 'DELETE', `${attUrl}/${docId}`);
+  check('C4', 'tác giả gỡ được tệp đính kèm', n_removed.status === 200 && (await attOf()).length === 0, [n_removed.status, n_removed.body]);
+
+  // ── R8: delegation by date range ──────────────────────────────────────────────────────────────────────────────
+  const uy3 = await login(`${TAG}-uy3`);
+  const todayVn = vnDayOf(Date.now());
+  const ownOfY = await call(admin, 'POST', '/petitions', { receivedDate: RECEIVED, senderName: `UAT ${RUN} đơn của tổ Y`, assignedTeamId: TY, crimeChinhId: CRIME_ID, ngayDeXuat: RECEIVED });
+  const beforeDel = await call(uy3, 'GET', `/petitions/${petId}`);
+  check('R8', 'trước khi được uỷ quyền: đồng đội (ở tổ khác của người uỷ quyền) không mở được hồ sơ', [403, 404].includes(beforeDel.status), beforeDel.status);
+  const n_stranger = await call(uy, 'POST', '/processing/delegations', { toUserId: `${TAG}-uz`, validFrom: todayVn, validTo: addDays(todayVn, 1) });
+  check('R8', 'uỷ quyền cho người không cùng tổ nào bị từ chối', n_stranger.status >= 400 && n_stranger.status < 500, [n_stranger.status, n_stranger.body]);
+  const n_del = await call(uy, 'POST', '/processing/delegations', { toUserId: `${TAG}-uy3`, validFrom: todayVn, validTo: addDays(todayVn, 1), note: 'UAT' });
+  const delId = n_del.body?.id ?? n_del.body?.delegation?.id;
+  check('R8', 'uỷ quyền cho đồng đội từ hôm nay đến ngày mai (ngày Việt Nam)', n_del.status === 201 && !!delId, [n_del.status, n_del.body]);
+  const n_overlap = await call(uy, 'POST', '/processing/delegations', { toUserId: `${TAG}-uy3`, validFrom: addDays(todayVn, 1), validTo: addDays(todayVn, 2) });
+  check('R8', 'uỷ quyền chồng khoảng ngày bị từ chối (DELEGATION_OVERLAP)', refused(n_overlap, 'DELEGATION_OVERLAP'), [n_overlap.status, n_overlap.body]);
+  if (delId) {
+    const dRead = await call(uy3, 'GET', `/petitions/${petId}`);
+    const dFlow = await getFlow(uy3);
+    check('R8', 'người được uỷ quyền mở được hồ sơ và các bước của phần việc người uỷ quyền chịu trách nhiệm', dRead.status === 200 && dFlow.status === 200, [dRead.status, dFlow.status]);
+    const dEdit = await call(uy3, 'PUT', `/petitions/${petId}`, { senderName: 'bị người được uỷ quyền sửa' });
+    check('R8', '...không sửa được hồ sơ', [403, 404].includes(dEdit.status), [dEdit.status, dEdit.body]);
+    const dReport = await cmd(uy3, `/steps/${keys[1]}/reports`, { kind: 'PROGRESS', doneWork: 'Làm thay theo uỷ quyền' });
+    const dBook = (await reportsOf(keys[1])).find((r) => r.authorId === `${TAG}-uy3`);
+    const dHistory = (await pg.query(`SELECT count(*)::int AS n FROM "proc_step_changes" WHERE "recordId" = $1 AND "actorId" = $2 AND "toValue"::text LIKE $3`, [petId, `${TAG}-uy3`, `%${TAG}-uy"%`])).rows[0].n;
+    check('R8', '...báo cáo thay được, và báo cáo / nhật ký ghi rõ làm thay ai (onBehalfOfUserId)', dReport.status === 200 && (dBook?.onBehalfOfUserId === `${TAG}-uy` || dHistory > 0), [dReport.status, dReport.body?.code, dBook?.onBehalfOfUserId, dHistory]);
+    const dMine = await call(uy3, 'GET', `/processing/tracking/items?mine=true&role=COORDINATE&${atRed}`);
+    check('R8', '...thấy việc đó ở "Việc của tôi"', dMine.status === 200 && rowsOf(dMine.body).some((it) => it.recordId === petId && it.stepKey === keys[1]), [dMine.status, dMine.body]);
+    const dOther = await call(uy3, 'GET', `/petitions/${idOf(ownOfY)}`);
+    check('R8', '...không mở được hồ sơ KHÁC của người uỷ quyền (hồ sơ của tổ Y, không qua bước nào)', !!idOf(ownOfY) && [403, 404].includes(dOther.status), [ownOfY.status, dOther.status]);
+    const n_revoked = await call(uy, 'POST', `/processing/delegations/${delId}/revoke`);
+    const afterRead = await call(uy3, 'GET', `/petitions/${petId}`);
+    const afterFlow = await getFlow(uy3);
+    const afterMine = await call(uy3, 'GET', `/processing/tracking/items?mine=true&role=COORDINATE&${atRed}`);
+    check('R8', 'thu hồi: mọi quyền theo uỷ quyền hết ngay', n_revoked.status === 200 && [403, 404].includes(afterRead.status) && [403, 404].includes(afterFlow.status) && !rowsOf(afterMine.body).some((it) => it.recordId === petId), [n_revoked.status, afterRead.status, afterFlow.status]);
+  }
+
   // ── state machine, idempotency, revision (C8) ─────────────────────────────────────────────────────────────────
   rf = (await getFlow()).body;
   const stale = rf.revision;
@@ -508,6 +608,9 @@ async function workflow(pg) {
   const done2 = await cmd(admin, `/steps/${keys[1]}/complete`, {});
   const yAfter = await call(uy, 'GET', `/petitions/${petId}`);
   check('PERM-ENDS', 'bước xong thì cán bộ đơn vị phối hợp hết quyền mở hồ sơ', done2.status === 200 && [403, 404].includes(yAfter.status), [done2.status, done2.body?.code, yAfter.status]);
+  const xRep = (await reportsOf(keys[1])).find((r) => r.authorId === `${TAG}-ux` && !r.withdrawnAt);
+  const lateAttach = await upload(ux, `${rec}/steps/${keys[1]}/reports/${xRep?.id}/attachments`);
+  check('C4', 'bước đã xong: không đính kèm thêm được (kể cả tác giả của báo cáo)', !!xRep && lateAttach.status >= 400 && lateAttach.status < 500, [xRep?.id, lateAttach.status, lateAttach.body]);
   const gone = await call(admin, 'GET', `/processing/tracking/items?${atRed}`);
   check('TRACK-LEAVES', 'bước đã xong rời khỏi danh sách theo dõi ngay', gone.status === 200 && !mineIn(gone.body, 1), rowsOf(gone.body).map((it) => it.stepKey));
 
@@ -543,14 +646,20 @@ async function workflow(pg) {
       const ideadline = irow.body?.deadline ?? irow.body?.data?.deadline ?? null;
       check('C10', 'đề xuất chưa xác nhận không được đếm ở màn Theo dõi (thống kê đếm riêng)', !rowsOf((await call(admin, 'GET', `/processing/tracking/items?pageSize=100`)).body).some((it) => it.recordId === incId), ideadline);
       check('C10', 'đề xuất chưa xác nhận KHÔNG khẳng định hạn pháp lý: không bước nào mang màu / quá hạn', iflow.steps.every((s) => s.band === 'NONE'), iflow.steps.map((s) => [s.band, s.regulatoryDueAt]));
+      const sumBefore = (await call(admin, 'GET', '/processing/tracking/summary')).body;
+      const iList = await call(admin, 'GET', `/incidents?limit=50&fromDateRange=2026-01-01&toDateRange=2026-12-31&alertAsOf=${encodeURIComponent('2026-05-20T05:00:00.000Z')}`);
+      const iRow = rowsOf(iList.body).find((r) => r.id === incId);
+      check('C10', 'đề xuất chưa xác nhận: cột Cảnh báo của danh sách theo hạn chung của hồ sơ (RECORD_DEADLINE), không theo quy trình', iRow?.alert?.source === 'RECORD_DEADLINE', [iList.status, iRow?.alert ?? null]);
       const confirmed = await call(admin, 'POST', `${irec}/confirm`, { expectedRevision: iflow.revision });
+      const sumAfter = (await call(admin, 'GET', '/processing/tracking/summary')).body;
+      check('C10', 'đề xuất chưa xác nhận được đếm riêng: summary.unconfirmed ≥ 1 trước khi xác nhận và giảm đúng 1 sau khi xác nhận', sumBefore?.unconfirmed >= 1 && sumAfter?.unconfirmed === sumBefore.unconfirmed - 1, [sumBefore?.unconfirmed, sumAfter?.unconfirmed]);
       const inow = (await call(admin, 'GET', irec)).body;
       check('C10', `người giữ hồ sơ xác nhận một lần bấm → có hạn (hết ngày ${want})`, confirmed.status === 200 && inow?.confirmed === true && endsDay(inow.steps[0].regulatoryDueAt, want), [confirmed.status, confirmed.body?.code, inow?.steps?.[0]?.regulatoryDueAt]);
       const twice = await call(admin, 'POST', `${irec}/confirm`, { expectedRevision: inow?.revision });
       check('C10', 'xác nhận lần hai bị từ chối (FLOW_ALREADY_CONFIRMED)', refused(twice, 'FLOW_ALREADY_CONFIRMED'), [twice.status, twice.body]);
     }
   }
-  const newCase = (extra = {}) => call(admin, 'POST', '/cases', { name: `UAT ${RUN} vụ án`, caseProvenance: 'DIRECT_DISCOVERY', assignedTeamId: TX, receiveDate: RECEIVED, ...extra });
+  const newCase = (extra = {}) => call(admin, 'POST', '/cases', { name: `UAT ${RUN} vụ án`, caseProvenance: 'DIRECT_DISCOVERY', assignedTeamId: TX, receiveDate: RECEIVED, ngayDeXuat: RECEIVED, ...extra });
   const kase = await newCase();
   const caseId = idOf(kase);
   if (kase.status !== 201) notRun('R11', 'Vụ án khi không có quy trình nào cho Vụ án: không có quy trình, hạn không tự tính', `NOT RUN: the script could not create a case over HTTP (${kase.status} ${short(kase.body)})`);
@@ -678,7 +787,8 @@ async function workflow(pg) {
 
   // ── the alert column on the incident and case lists (R9) ──────────────────────────────────────────────────────
   for (const [kind, url, id, asOf] of [['Vụ việc', 'incidents', incId, '2026-05-20T05:00:00.000Z'], ['Vụ án', 'cases', openCase ? idOf(openCase) : null, '2026-05-28T05:00:00.000Z']]) {
-    const res = id ? await call(admin, 'GET', `/${url}?limit=100${PERIOD}&alertAsOf=${encodeURIComponent(asOf)}`) : null;
+    const period = url === 'incidents' ? '&fromDateRange=2026-01-01&toDateRange=2026-12-31' : PERIOD;
+    const res = id ? await call(admin, 'GET', `/${url}?limit=50${period}&alertAsOf=${encodeURIComponent(asOf)}`) : null;
     const row = res ? rowsOf(res.body).find((r) => r.id === id) : null;
     if (!row) notRun('R9', `cột Cảnh báo trên danh sách ${kind}`, `NOT RUN: the script's record is not on the list it asked for (${res?.status} total ${res?.body?.total})`);
     else check('R9', `cột Cảnh báo trên danh sách ${kind}: QUÁ HẠN theo quy trình, sau hạn do script tính`, row.alert?.band === 'OVERDUE' && row.alert?.source === 'FLOW', row.alert);
@@ -805,10 +915,46 @@ async function workflow(pg) {
     const soon = await call(admin, 'POST', `${rec}/steps/${openStep?.stepKey}/nudge`, { message: 'UAT đôn đốc lần hai', idempotencyKey: `uat-${RUN}-nudge-2` });
     check('R4', 'đôn đốc lần hai trong 30 phút → 429 NUDGE_TOO_SOON', soon.status === 429 && soon.body?.code === 'NUDGE_TOO_SOON', [soon.status, soon.body]);
     const book = (await call(admin, 'GET', `${rec}/steps/${openStep?.stepKey}/results`)).body;
-    check('R4', 'lời đôn đốc được ghi vào sổ ý kiến của bước, đúng một lần', (JSON.stringify(book).match(/UAT đôn đốc/g) ?? []).length === 1, book?.opinions);
+    const nudges = (book?.opinions ?? []).filter((o) => o.kind === 'NUDGE');
+    check('R4', 'lời đôn đốc được ghi vào sổ ý kiến của bước với loại NUDGE, đúng một lần, đúng lời nhắn', nudges.length === 1 && String(nudges[0].content ?? '').includes('UAT đôn đốc'), book?.opinions);
   }
-  const hasReminders = (await pg.query(`SELECT to_regclass('public.proc_reminders') AS t`)).rows[0]?.t;
-  notRun('C12', 'nhắc đúng một lần mỗi mức, không dồn, quá hạn mỗi ngày, nhắc lại sau đổi hạn', hasReminders ? 'NOT RUN: ProcessingReminderService.tick(now) runs on a 15-minute server interval at the real clock; no HTTP route and no CLI drives it with a chosen "now", and the in-process runner (wiring the service by hand as the CLI does) was not written in the time box' : 'NOT RUN: table proc_reminders absent (code not merged)');
+  // ── C12: the reminders, with the r_tick driven r_at chosen instants (in-process runner, the real database) ────────
+  const remPet = await newPetition({ senderName: `UAT ${RUN} nhắc việc` });
+  const remId = idOf(remPet);
+  const remFlow = remId ? await waitFlow('PETITION', remId) : null;
+  const r_tick = (...instants) => {
+    const run = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['ts-node', '--transpile-only', path.join(__dirname, 'reminder-tick.ts'), remId, ...instants], { cwd: BACKEND, env: { ...process.env, DATABASE_URL: DB_URL, TS_NODE_PROJECT: path.join(BACKEND, 'tsconfig.json') }, encoding: 'utf8', shell: process.platform === 'win32', timeout: 170_000 });
+    const out = `${run.stdout ?? ''}${run.stderr ?? ''}`;
+    return { ok: run.status === 0 && (out.match(/^TICK /gm) ?? []).length === instants.length, out, results: (out.match(/^TICK (.*)$/gm) ?? []).map((line) => JSON.parse(line.slice(5)).result) };
+  };
+  const r_at = (ymd, hour) => iso(vnMidnight(ymd) + hour * 3600 * 1000);
+  const key2 = remFlow?.steps?.[1]?.stepKey;
+  const r_sent = async () => (await pg.query(`SELECT "band", "deadlineRevision", "recipientId", "kind", "status", "outcome" FROM "proc_reminders" WHERE "recordId" = $1 AND "stepKey" = $2 AND "kind" = 'BAND' ORDER BY "createdAt", "id"`, [remId, key2])).rows;
+  const forX = (r_rows, band) => r_rows.filter((r) => r.recipientId === `${TAG}-ux` && r.band === band).length;
+  const r_bell = async () => (await call(ux, 'GET', '/notifications?limit=100')).body;
+  const bellCount = (body) => body?.total ?? rowsOf(body).length;
+  // Step 2 of the petition: due r_at the end of 07/05/2026, thresholds green 5 / yellow 3 / red 1. Working days, 09:00 Vietnam time.
+  const r_first = remFlow ? r_tick(r_at('2026-05-04', 9), r_at('2026-05-04', 10), r_at('2026-05-06', 9), r_at('2026-05-06', 10), r_at('2026-05-08', 9), r_at('2026-05-08', 10), r_at('2026-05-11', 9)) : null;
+  if (!r_first || !r_first.ok) notRun('C12', 'nhắc đúng một lần mỗi mức, không dồn, quá hạn mỗi ngày, nhắc lại sau đổi hạn', `NOT RUN: the in-process runner did not complete (${short((r_first?.out ?? 'no petition with a flow').slice(-500))})`);
+  else {
+    const r_rows = await r_sent();
+    check('C12', 'bộ nhắc chạy (công tắc bật): mỗi lần r_tick đều thực hiện', r_first.results.every((r) => r.ran === true), r_first.results.map((r) => [r.ran, r.planning, r.planned]));
+    check('C12', 'chỉ gửi mức hiện tại, một lần mỗi mức: VÀNG 1, ĐỎ 1 cho người chịu trách nhiệm (tổ trưởng đơn vị xử lý chính); r_tick lần hai cùng mức không thêm; không dồn XANH đã qua', forX(r_rows, 'YELLOW') === 1 && forX(r_rows, 'RED') === 1 && forX(r_rows, 'GREEN') === 0, r_rows);
+    check('C12', 'QUÁ HẠN: một lần mỗi ngày Việt Nam (08/05 và 11/05 → 2; r_tick lần hai trong ngày 08/05 không thêm)', forX(r_rows, 'OVERDUE') === 2, r_rows.filter((r) => r.band === 'OVERDUE'));
+    check('C12', 'người không được đọc hồ sơ / không thuộc bước không nhận nhắc', !r_rows.some((r) => [`${TAG}-uz`, `${TAG}-uy3`].includes(r.recipientId)), r_rows.map((r) => r.recipientId));
+    const bellBefore = bellCount(await r_bell());
+    const r_changed = await call(admin, 'POST', `/processing/records/PETITION/${remId}/steps/${key2}/due`, { expectedRevision: (await call(admin, 'GET', `/processing/records/PETITION/${remId}`)).body.revision, date: '2026-05-06', reason: 'UAT đổi hạn' });
+    const r_second = r_tick(r_at('2026-05-11', 10));
+    const r_rows2 = await r_sent();
+    check('C12', 'đổi hạn rồi r_tick lại trong CÙNG ngày 11/05: nhắc thêm đúng một lần cho hạn mới', r_changed.status === 200 && r_second.ok && forX(r_rows2, 'OVERDUE') === 3, [r_changed.status, r_changed.body?.code, r_second.out.slice(-200), r_rows2.filter((r) => r.band === 'OVERDUE')]);
+    const bellAfter = await r_bell();
+    check('C12', 'người nhận thấy các lời nhắc trong thông báo của mình (GET /notifications)', bellCount(bellAfter) > 0 && bellCount(bellAfter) >= bellBefore, [bellBefore, bellCount(bellAfter), r_rows2.map((r) => [r.band, r.status, r.outcome])]);
+    await pg.query(`UPDATE "feature_flags" SET "enabled" = false WHERE "key" = 'processing_flow_reminders'`);
+    const r_off = r_tick(r_at('2026-05-12', 9));
+    const r_rows3 = await r_sent();
+    await pg.query(`UPDATE "feature_flags" SET "enabled" = true WHERE "key" = 'processing_flow_reminders'`);
+    check('C16', 'TẮT công tắc nhắc việc: r_tick không chạy và không ghi gì', r_off.ok && r_off.results[0]?.ran === false && r_rows3.length === r_rows2.length, [r_off.results, r_rows2.length, r_rows3.length]);
+  }
 
   // ── C16: on -> written -> off -> on ───────────────────────────────────────────────────────────────────────────
   const before = (await getFlow()).body;

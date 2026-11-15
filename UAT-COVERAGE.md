@@ -2,77 +2,80 @@
 
 Oracle: the top part of the plan `t-i-m-n-h-nh-danh-twinkling-acorn.md` (the owner's rules, sections 1–4, decisions C1–C16, R3–R11) and the engine rules listed in `PROGRESS.md`. Expected values are computed by the script, never read back from the product.
 
-Evidence: `tools/uat-quy-trinh/workflow.cjs`, round three, run on 2026-11-15 over HTTP against a local stack built from `origin/main` + `feat/processing-flow-backlog` + `feat/processing-flow-reminders` + `feat/processing-flow-apply-cli` (a throwaway local branch; `fix/processing-flow-unconfirmed` is NOT in it: it conflicts with the backlog branch), on a freshly created database `pc02_uat_quy_trinh` (`prisma db push` + `tools/uat-quy-trinh/install-triggers.cjs` + the seeds; `prisma migrate deploy` does not replay on an empty database). Checks: **154 PASS, 4 FAIL, 3 NOT RUN** of 161. The script refuses a database that already holds processing flows.
+Evidence: `tools/uat-quy-trinh/workflow.cjs`, final round, run on 2026-11-15 over HTTP against a local stack built from `origin/feat/processing-flow-assign-delegate-attach` at `a64f564e` (plus the UAT script), on a freshly created database `pc02_uat_quy_trinh` (`prisma db push` + `tools/uat-quy-trinh/install-triggers.cjs` + the seeds; `prisma migrate deploy` does not replay on an empty database). Checks: **195 PASS, 0 FAIL, 0 NOT RUN** of 195. One run; the script refuses a database that already holds processing flows.
 
-**Coverage: 45 of 63 requirements = 71.4%** (PASS only; FAIL 2, NOT RUN 4 and GAP 12 all count as not covered). A NOT RUN is not a pass.
+**HTTP coverage: 54 of 56 requirements = 96.4%** (PASS only; FAIL 0, NOT RUN 0 and GAP 2 count as not covered). The seven screens are outside this percentage: see the browser pass. A PASS covers what its row says; what a row's note lists as "no check" is NOT covered.
 
 | Requirement | What it says | Checks | Layer | Status | Note |
 |---|---|---|---|---|---|
 | O1 | Thời hạn bước theo giờ / ngày / ngày làm việc (qua 30/4, 1/5, cuối tuần) / tháng; hạn do script tự tính | QT-027..030 | HTTP | PASS | — |
 | O2 | Bước giao cho đơn vị; không chỉ định thì trưởng đơn vị chịu trách nhiệm (Việc của tôi) | QT-048 | HTTP | PASS | — |
-| O2b | Chỉ định / đổi cán bộ chịu trách nhiệm của bước | — | — | GAP | no route found in the records controller; PROGRESS lists it as not built |
+| O2b | Chỉ định cán bộ của bước: tổ trưởng chỉ định, thành viên tự nhận / trả lại, người ngoài đơn vị bị từ chối, danh sách ứng viên | QT-079..084 | HTTP | PASS | — |
 | O3 | Mức màu theo số ngày còn lại; đúng hạn = ĐỎ, sau hạn = QUÁ HẠN; ranh giới nửa đêm VN | QT-036..044 | HTTP | PASS | — |
-| O3b | Mỗi lần đổi mức gửi một lần nhắc; quá hạn nhắc mỗi ngày | QT-154 | HTTP | NOT RUN | no HTTP or CLI way to drive the tick with a chosen clock; the in-process runner was not written |
-| O4 | Đơn vị được giao bước đang mở: xem hồ sơ, báo cáo bước mình, KHÔNG sửa hồ sơ; hết khi bước xong; tổ ngoài 403/404 | QT-061..066, QT-095 | HTTP | PASS | mode OFF |
-| O4-ENFORCE | Cùng các ca quyền ở chế độ ENFORCE như production (bật bằng hai quản trị, trả về OFF) | QT-126..129, QT-132, QT-133 | HTTP | PASS | the trigger sections of two migrations were installed on the db-push database (tools/uat-quy-trinh/install-triggers.cjs) |
+| O3b / C12 | Nhắc việc: chỉ mức hiện tại, một lần mỗi mức, không dồn, quá hạn mỗi ngày VN, nhắc lại sau đổi hạn | QT-182..187 | in-process tick on the real database + SQL read of proc_reminders + HTTP /notifications | PASS | the tick is driven by tools/uat-quy-trinh/reminder-tick.ts, not by the server's scheduler; bands exercised: YELLOW, RED, OVERDUE (a GREEN reminder was not exercised); the 'may not read' check only shows that people outside the step got nothing; the escalation ladder (R4) and the off-hours deferral: no check |
+| O4 | Đơn vị được giao bước đang mở: xem hồ sơ, báo cáo bước mình, KHÔNG sửa hồ sơ; hết khi bước xong; tổ ngoài 403/404 | QT-061..066, QT-120 | HTTP | PASS | mode OFF |
+| O4-ENFORCE | Cùng các ca quyền ở chế độ ENFORCE như production (bật bằng hai quản trị, trả về OFF) | QT-154..157, QT-160, QT-161 | HTTP | PASS | trigger sections installed on the db-push database |
 | CFG-CREATE | Tạo quy trình, có bản nháp; quy trình mặc định | QT-006, QT-007, QT-021 | HTTP | PASS | — |
 | CFG-STEPS | Bước: 4 đơn vị tính, 4 vai trò, ngưỡng, căn cứ pháp lý, mốc | QT-013, QT-015 | HTTP | PASS | — |
 | CFG-PUBLISH | Kiểm khi xuất bản: đúng một xử lý chính, ngưỡng giảm dần, giờ cần mốc có giờ, tối đa một hạn chung | QT-008..012, QT-014 | HTTP | PASS | — |
-| D09 | Bản đã xuất bản bất biến; sửa = bản nháp mới | QT-016, QT-017 | HTTP | PASS | — |
+| D09 | Bản đã xuất bản bất biến; sửa = bản nháp mới | QT-016, QT-017 | HTTP | PASS | moving a running record to a new version: no check |
 | CFG-BIND | Gắn với Loại thông tin | QT-019 | HTTP | PASS | binding by deadline group and binding conflicts: no check |
 | CFG-ARCHIVE | Lưu trữ ⇄ khôi phục | QT-020 | HTTP | PASS | — |
-| CFG-DELETE | Xoá bị chặn khi đang được dùng | QT-098 | HTTP | PASS | — |
-| TAO-SUA-XOA | Tạo thì phải sửa và xoá (bản nháp xoá được; quy trình chưa dùng xoá cứng khi gõ đúng tên) | QT-018, QT-122 | HTTP | PASS | — |
-| CFG-COPY | Sao chép từ quy trình khác | QT-121 | HTTP | PASS | — |
-| CFG-TEMPLATES | Bộ mẫu theo luật có sẵn; bước của mẫu ở trạng thái chưa đối chiếu | QT-119, QT-120 | HTTP | PASS | — |
-| C1 | Vụ án HẠN CHẾ không lộ qua bước (bước, kết quả, hồ sơ, màn Theo dõi) | QT-109, QT-110 | HTTP | PASS | the case is marked RESTRICTED by SQL (set-up) |
-| C2 | Ma trận quyền: thiếu quyền của hành động → 403; có quyền → không bị từ chối vì quyền | QT-070..078 | HTTP | PASS | seven actions refused without the permission (reopen, skip, adjustDue, extend, approve, assign, nudge), two allowed with it (report, complete); opine without the permission: no check |
-| C3 | Mẫu Lãnh đạo: xem toàn bộ, không cấp quyền sửa; người hai tổ | QT-124, QT-125, QT-130, QT-131 | HTTP | PASS | ENFORCE |
-| C4 | Đính kèm vào báo cáo của bước | — | — | GAP | PROGRESS: not built in the product yet |
+| CFG-DELETE | Xoá bị chặn khi đang được dùng | QT-124 | HTTP | PASS | — |
+| TAO-SUA-XOA | Tạo thì phải sửa và xoá (bản nháp xoá được; quy trình chưa dùng xoá cứng khi gõ đúng tên) | QT-018, QT-150 | HTTP | PASS | — |
+| CFG-COPY | Sao chép từ quy trình khác | QT-149 | HTTP | PASS | — |
+| CFG-TEMPLATES | Bộ mẫu theo luật có sẵn; bước của mẫu ở trạng thái chưa đối chiếu | QT-147, QT-148 | HTTP | PASS | — |
+| C1 | Vụ án HẠN CHẾ không lộ qua bước (bước, kết quả, hồ sơ, màn Theo dõi) | QT-137, QT-138 | HTTP | PASS | the case is marked RESTRICTED by SQL (set-up) |
+| C2 | Ma trận quyền: thiếu quyền của hành động → 403; có quyền → không bị từ chối vì quyền | QT-070..078 | HTTP | PASS | refused without the permission: reopen, skip, adjustDue, extend, approve, assign, nudge; allowed with it: report, complete; opine without the permission: no check |
+| C3 | Mẫu Lãnh đạo: xem toàn bộ, không cấp quyền sửa; người hai tổ | QT-152, QT-153, QT-158, QT-159 | HTTP | PASS | ENFORCE |
+| C4 | Đính kèm vào báo cáo của bước: đơn vị phối hợp đính kèm, thấy, tải đúng byte, gỡ; đơn vị khác và hồ sơ khác bị từ chối; hết sau khi bước xong; POST /documents vẫn từ chối | QT-088..093, QT-121 | HTTP | PASS | — |
 | C5 | Một đầu mối ghi hạn: form cũ gửi hạn khác → 409 DEADLINE_MANAGED_BY_FLOW; cùng ngày thì nhận | QT-034, QT-035 | HTTP | PASS | Đơn thư only; the assign and /extend paths of Vụ việc: no check |
 | C6 | Hạn quy định chỉ đổi bằng Gia hạn trong giới hạn; hạn nội bộ chỉ bằng hoặc sớm hơn; record.deadline = hạn quy định của bước hạn chung | QT-033, QT-056..060 | HTTP | PASS | — |
-| C7 | Duyệt không tự kết thúc hồ sơ | QT-093 | HTTP | PASS | — |
-| C8 | Máy trạng thái: hoàn thành, mở lại, bỏ qua ⇄ bỏ bỏ qua, bước chờ bước trước | QT-031, QT-079, QT-082..084, QT-094 | HTTP | PASS | — |
-| C8-IDEM | Thử lại cùng khoá idempotency không ghi hai lần | QT-080 | HTTP | PASS | — |
-| C8-REV | expectedRevision cũ → 409 REVISION_CONFLICT | QT-081 | HTTP | PASS | — |
-| C8-APPROVE | Bước cần duyệt chỉ xong khi lãnh đạo đồng ý; sửa chỉ khi OPEN; rút lại trước khi duyệt; ý kiến duyệt ghi mã + phiên bản báo cáo | QT-085..089, QT-091, QT-092 | HTTP | PASS | — |
-| C8-REWORK | Yêu cầu bổ sung mở lại bước | QT-090 | HTTP | PASS | the reminder to the handling unit: no check |
-| C9 | Ghim căn cứ chọn quy trình (khớp theo LOẠI) | QT-026 | HTTP | PASS | version change with a per-step comparison: no check |
-| C10 | Loại không nhận diện được → đề xuất, không khẳng định hạn pháp lý tới khi xác nhận | QT-100..104 | HTTP | FAIL | QT-101 counted in tracking, QT-102 band OVERDUE before confirmation. The fix (PR #686) could not be merged into the run: it conflicts with the backlog branch in processing-tracking.service.ts |
+| C7 | Duyệt không tự kết thúc hồ sơ | QT-118 | HTTP | PASS | — |
+| C8 | Máy trạng thái: hoàn thành, mở lại, bỏ qua ⇄ bỏ bỏ qua, bước chờ bước trước | QT-031, QT-104, QT-107..109, QT-119 | HTTP | PASS | the 'upstream reopened' flag: no check |
+| C8-IDEM | Thử lại cùng khoá idempotency không ghi hai lần | QT-105 | HTTP | PASS | — |
+| C8-REV | expectedRevision cũ → 409 REVISION_CONFLICT | QT-106 | HTTP | PASS | — |
+| C8-APPROVE | Bước cần duyệt chỉ xong khi lãnh đạo đồng ý; sửa chỉ khi OPEN; rút lại trước khi duyệt; ý kiến duyệt ghi mã + phiên bản báo cáo | QT-110..114, QT-116, QT-117 | HTTP | PASS | — |
+| C8-REWORK | Yêu cầu bổ sung mở lại bước | QT-115 | HTTP | PASS | the reminder to the handling unit: no check |
+| C9 | Ghim căn cứ chọn quy trình (khớp theo LOẠI) | QT-026 | HTTP | PASS | — |
+| C10 | Loại không nhận diện được → đề xuất: không màu, không đếm trong bốn mức, đếm riêng (summary.unconfirmed), danh sách theo RECORD_DEADLINE; xác nhận một lần bấm | QT-126..132 | HTTP | PASS | — |
 | C11 | Lịch làm việc theo năm: nhập ngày nghỉ, xác nhận, hạn ngày làm việc dùng lịch đó | QT-004, QT-005, QT-029 | HTTP | PASS | make-up days and the provisional label: no check |
 | C11b | Bước hạn chung chưa đối chiếu: không ghi hạn chung; đối chiếu rồi mới ghi | QT-022, QT-023, QT-033 | HTTP | PASS | — |
-| C12 | Nhắc qua outbox: một lần mỗi mức, A→B→A | QT-154 | HTTP | NOT RUN | same as O3b |
-| C13 | Liên kết thông báo tới bước | — | — | GAP | no check |
-| C14 | Quy trình tự nạp sau khi lưu hồ sơ; chuyển Đơn thư → Vụ việc mở quy trình đích, việc của nguồn rời màn Theo dõi | QT-024, QT-025, QT-099, QT-111 | HTTP | PASS | Vụ việc → Vụ án (prosecute): no check |
-| C15 | Số thẻ = số dòng ở cùng đồng hồ; đếm bước × đơn vị xử lý chính; dòng tổng không đếm trùng | QT-045..047, QT-049, QT-136 | HTTP | PASS | — |
-| C16 | Bật → ghi → tắt (route 404 kể cả Đôn đốc, danh sách như trước, quyền theo bước hết) → bật (dữ liệu còn) | QT-002, QT-003, QT-156..161 | HTTP | PASS | — |
-| C16-LEGACY | Tắt bộ nhắc mới thì bộ nhắc cũ nhắc lại | — | — | GAP | no check |
-| R3 | Tạm đình chỉ dừng đồng hồ; phục hồi dời hạn đúng thời gian dừng | QT-113..115 | HTTP | PASS | the end of the pause is bracketed by the script's clock (the API does not report it) |
-| R4 | Đôn đốc kèm lời nhắn, ghi vào sổ ý kiến; chặn 30 phút | QT-150..153 | HTTP | FAIL | QT-153: the nudge is not in the opinion book of the step (being fixed on the reminders branch) |
-| R5 | Tỷ lệ đúng hạn theo đơn vị = đúng hạn / (đúng hạn + chậm + đang quá hạn) | QT-145..147 | HTTP | PASS | the average days: no check |
-| R6 | CLI áp quy trình: chạy thử không ghi; chạy thật áp được; chạy lại không còn gì | QT-106..108 | CLI + HTTP + SQL counts | PASS | — |
-| R7 | Vai trò Xem để biết: được xem, không có hạn riêng, không được đếm là việc, không báo cáo | QT-067..069 | HTTP | PASS | "được báo" (receives reminders): no check |
-| R8 | Uỷ quyền theo khoảng ngày | — | — | GAP | PROGRESS: not built in the product yet |
-| R9 | Cột Cảnh báo: mức nặng nhất trong các bước đang mở (Đơn thư) | QT-053, QT-054, QT-155 | HTTP | PASS | — |
-| R9-OTHER | Cột Cảnh báo trên danh sách Vụ việc và Vụ án | QT-117, QT-118 | HTTP | NOT RUN | script: the incident list answered 400 to the request (limit=100 or the period parameters) and the case list returned 0 rows for the period sent; the right list parameters were not found in the time box |
+| C13 | Liên kết thông báo tới bước (mở đúng bước từ thông báo) | — | — | GAP | no check |
+| C14 | Quy trình tự nạp sau khi lưu hồ sơ; chuyển Đơn thư → Vụ việc mở quy trình đích, việc của nguồn rời màn Theo dõi | QT-024, QT-025, QT-125, QT-139 | HTTP | PASS | Vụ việc → Vụ án (prosecute): no check |
+| C15 | Số thẻ = số dòng ở cùng đồng hồ; đếm bước × đơn vị xử lý chính; dòng tổng không đếm trùng | QT-045..047, QT-049, QT-164 | HTTP | PASS | — |
+| C16 | Bật → ghi → tắt (route 404 kể cả Đôn đốc, tick không ghi, danh sách như trước, quyền theo bước hết) → bật (dữ liệu còn) | QT-002, QT-003, QT-188, QT-190..195 | HTTP + in-process tick | PASS | — |
+| C16-LEGACY | Tắt bộ nhắc mới thì bộ nhắc hạn cũ nhắc lại | — | — | GAP | no check |
+| R3 | Tạm đình chỉ dừng đồng hồ; phục hồi dời hạn đúng thời gian dừng | QT-141..143 | HTTP | PASS | the end of the pause is bracketed by the script's clock (the API does not report it), so the shift is checked within that bracket, not to the millisecond |
+| R4 | Đôn đốc kèm lời nhắn, ghi vào sổ ý kiến (NUDGE); chặn 30 phút | QT-178..181 | HTTP | PASS | the escalation ladder (after N / M days): no check |
+| R5 | Tỷ lệ đúng hạn theo đơn vị = đúng hạn / (đúng hạn + chậm + đang quá hạn) | QT-173..175 | HTTP | PASS | the average days: no check |
+| R6 | CLI áp quy trình: chạy thử không ghi; chạy thật áp được; chạy lại không còn gì | QT-134..136 | CLI + HTTP + SQL counts | PASS | — |
+| R7 | Vai trò Xem để biết: được xem, không có hạn riêng, không được đếm là việc, không báo cáo | QT-067..069 | HTTP | PASS | whether it receives reminders: no check |
+| R8 | Uỷ quyền theo khoảng ngày: mở chỉ đọc, báo cáo thay (ghi làm thay ai), Việc của tôi, không sửa, không mở hồ sơ khác, thu hồi, chồng khoảng, không cùng tổ | QT-094..103 | HTTP (+ one SQL read of the history as a fallback for onBehalfOfUserId) | PASS | the delegate receiving the reminders: no check |
+| R9 | Cột Cảnh báo: mức nặng nhất trong các bước đang mở, trên cả ba danh sách | QT-053, QT-054, QT-145, QT-146, QT-189 | HTTP | PASS | — |
 | LIST-FILTER | Lọc alertBand, sắp xếp sortBy=alert | QT-051, QT-052, QT-055 | HTTP | PASS | Đơn thư only |
-| R10 | Một tệp hợp đồng mã cho máy chủ, web, Flutter | QT-123 | HTTP + files | NOT RUN | the check printed FAIL because of a wrong guard in the script (it demanded three distinct step statuses; the run answered two). No unknown value was found and the two files are equal; the guard is corrected, the check was not run again |
-| R11 | Hồ sơ không có quy trình giữ hạn như cũ (Vụ án không tự tính) | QT-105 | HTTP | PASS | Đơn thư / Vụ việc legacy deadlines and the legacy reminder: no check |
+| R10 | Một tệp hợp đồng mã cho máy chủ, web, Flutter | QT-151 | HTTP + files | PASS | — |
+| R11 | Hồ sơ không có quy trình giữ hạn như cũ (Vụ án không tự tính) | QT-133 | HTTP | PASS | Đơn thư / Vụ việc legacy deadlines and the legacy reminder (pinned by the repository's database specs): no HTTP check |
+| VIEWER | DTO `viewer` khớp với máy chủ (canReport) | QT-085, QT-086 | HTTP | PASS | — |
 | TRACK-MINE | Lọc Việc của tôi | QT-048 | HTTP | PASS | — |
 | TRACK-SCOPE | Người ngoài phạm vi không thấy việc của tổ khác | QT-050 | HTTP | PASS | — |
-| TRACK-LEAVES | Bước xong / hồ sơ bị xoá / đã chuyển / tạm đình chỉ / đã kết thúc rời số đếm ngay | QT-096, QT-097, QT-111, QT-112, QT-116 | HTTP | PASS | — |
-| BACKLOG | Tồn đọng theo đơn vị: mọi ô = số dòng mở ra; người ngoài không thấy đơn vị khác | QT-134, QT-135, QT-137 | HTTP | PASS | the oldest record column: no check |
-| BACKLOG-FILTER | Bộ lọc loại hồ sơ, vai trò, khoảng ngày: ô vẫn bằng số dòng | QT-138..144 | HTTP | PASS | filter by information type: no check |
-| BACKLOG-XLSX | Xuất Excel mở được, số khớp bảng | QT-148, QT-149 | HTTP + ExcelJS | PASS | — |
-| S1 | Màn cài quy trình + Gantt | — | browser | GAP | browser: pending |
-| S2 | Tab Phân công xử lý | — | browser | GAP | browser: pending |
-| S3 | Tab Kết quả xử lý | — | browser | GAP | browser: pending |
-| S4 | Màn Theo dõi xử lý | — | browser | GAP | browser: pending |
-| S5 | Màn Tồn đọng theo đơn vị | — | browser | GAP | browser: pending |
-| S6 | Cột Cảnh báo trên ba danh sách | — | browser | GAP | browser: pending |
-| S7 | App smartphone | — | device | GAP | browser / device: pending |
+| TRACK-TEAMS | Danh sách đơn vị để lọc, cho cán bộ không có read:User | QT-087 | HTTP | PASS | — |
+| TRACK-LEAVES | Bước xong / hồ sơ bị xoá / đã chuyển / tạm đình chỉ / đã kết thúc rời số đếm ngay | QT-122, QT-123, QT-139, QT-140, QT-144 | HTTP | PASS | — |
+| BACKLOG | Tồn đọng theo đơn vị: mọi ô = số dòng mở ra; người ngoài không thấy đơn vị khác | QT-162, QT-163, QT-165 | HTTP | PASS | the oldest record column and the 'chưa áp quy trình' column: no check |
+| BACKLOG-FILTER | Bộ lọc loại hồ sơ, vai trò, khoảng ngày: ô vẫn bằng số dòng | QT-166..172 | HTTP | PASS | filter by information type: no check |
+| BACKLOG-XLSX | Xuất Excel mở được, số khớp bảng | QT-176, QT-177 | HTTP + ExcelJS | PASS | — |
 
-Not verified at all: the browser click-through of the seven screens (a separate pass), the monkey run, the reminder tick, anything on production.
+Screens (not in the HTTP percentage):
+
+- S1 Màn cài quy trình + Gantt — browser: see browser pass
+- S2 Tab Phân công xử lý — browser: see browser pass
+- S3 Tab Kết quả xử lý — browser: see browser pass
+- S4 Màn Theo dõi xử lý — browser: see browser pass
+- S5 Màn Tồn đọng theo đơn vị — browser: see browser pass
+- S6 Cột Cảnh báo trên ba danh sách — browser: see browser pass
+- S7 App smartphone — browser: see browser pass
+
+Not verified by this run: the screens, the monkey run, the server's own 15-minute scheduler firing the reminder tick, push delivery (FCM), `prisma migrate deploy` on an empty database (it fails at the first migration), anything on production.
 
 ---
 
