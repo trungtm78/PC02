@@ -43,7 +43,10 @@ export interface OnTimeRow {
   doneLate: number;
   openInTime: number;
   openOverdue: number;
-  /** doneOnTime / (doneOnTime + doneLate), 0..1; `null` when nothing was done in the period. */
+  /**
+   * doneOnTime / (doneOnTime + doneLate + openOverdue), 0..1: work that is overdue and not done counts against the unit.
+   * `null` when nothing was done in the period and nothing is overdue.
+   */
   onTimeRate: number | null;
   /** Mean of (doneAt - startAt) in days over the work done in the period, one decimal; `null` when none. */
   averageDays: number | null;
@@ -210,7 +213,8 @@ export class ProcessingBacklogService {
     const teams = await this.teamsOf([...rows.keys()]);
     const total = { ...zero(), spent: 0, timed: 0 };
     const finish = (found: typeof total) => {
-      const judged = found.doneOnTime + found.doneLate;
+      // Overdue and not done is already a miss: it is judged with the work that was done.
+      const judged = found.doneOnTime + found.doneLate + found.openOverdue;
       found.onTimeRate = judged > 0 ? Math.round((found.doneOnTime / judged) * 10_000) / 10_000 : null;
       found.averageDays = found.timed > 0 ? round1(found.spent / found.timed / MS_PER_DAY) : null;
     };

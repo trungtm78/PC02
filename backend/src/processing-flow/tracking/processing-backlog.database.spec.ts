@@ -300,16 +300,17 @@ run('The backlog by unit on PostgreSQL', () => {
       const report = await backlog.onTime(user('member'), { asOf, from: '2026-12-01', to: '2026-12-31' });
       expect(report).toMatchObject({ asOf, from: '2026-11-30T17:00:00.000Z', to: '2026-12-31T16:59:59.999Z' });
       expect(report.rows.every((row) => myTeams().has(row.teamId))).toBe(true);
+      // The rate counts against a unit the work that is overdue and not done: on time / (on time + late + open overdue).
       // T: r2 done EXACTLY at the deadline (on time), r7 one millisecond after it (late). 7.71 and 2.71 days of work.
-      expect(report.rows.find((row) => row.teamId === id.T)).toEqual({ teamId: id.T, teamName: `${tag} Tổ T`, parentTeamId: id.P, doneOnTime: 1, doneLate: 1, openInTime: 4, openOverdue: 2, onTimeRate: 0.5, averageDays: 5.2 });
-      expect(report.rows.find((row) => row.teamId === id.U)).toEqual({ teamId: id.U, teamName: `${tag} Tổ U`, parentTeamId: null, doneOnTime: 0, doneLate: 1, openInTime: 1, openOverdue: 0, onTimeRate: 0, averageDays: 6.7 });
-      expect(report.totals).toEqual({ doneOnTime: 1, doneLate: 2, openInTime: 5, openOverdue: 2, onTimeRate: 0.3333, averageDays: 5.7 });
+      expect(report.rows.find((row) => row.teamId === id.T)).toEqual({ teamId: id.T, teamName: `${tag} Tổ T`, parentTeamId: id.P, doneOnTime: 1, doneLate: 1, openInTime: 4, openOverdue: 2, onTimeRate: 1 / (1 + 1 + 2), averageDays: 5.2 });
+      expect(report.rows.find((row) => row.teamId === id.U)).toEqual({ teamId: id.U, teamName: `${tag} Tổ U`, parentTeamId: null, doneOnTime: 0, doneLate: 1, openInTime: 1, openOverdue: 0, onTimeRate: 0 / (0 + 1 + 0), averageDays: 6.7 });
+      expect(report.totals).toEqual({ doneOnTime: 1, doneLate: 2, openInTime: 5, openOverdue: 2, onTimeRate: 1 / (1 + 2 + 2), averageDays: 5.7 });
     });
 
-    it('the period is the day the step was DONE; a unit with nothing done has no rate', async () => {
+    it('the period is the day the step was DONE; a unit with nothing done and nothing overdue has no rate', async () => {
       const late = await backlog.onTime(user('member'), { asOf, from: '2026-12-08', to: '2026-12-31' });
-      expect(late.rows.find((row) => row.teamId === id.T)).toMatchObject({ doneOnTime: 1, doneLate: 0, onTimeRate: 1, averageDays: 7.7 });
-      expect(late.rows.find((row) => row.teamId === id.U)).toMatchObject({ doneOnTime: 0, doneLate: 0, onTimeRate: null, averageDays: null, openInTime: 1 });
+      expect(late.rows.find((row) => row.teamId === id.T)).toMatchObject({ doneOnTime: 1, doneLate: 0, openOverdue: 2, onTimeRate: Math.round((1 / (1 + 0 + 2)) * 10_000) / 10_000, averageDays: 7.7 });
+      expect(late.rows.find((row) => row.teamId === id.U)).toMatchObject({ doneOnTime: 0, doneLate: 0, openOverdue: 0, onTimeRate: null, averageDays: null, openInTime: 1 });
       const incidents = await backlog.onTime(user('member'), { asOf, kind: 'INCIDENT' });
       expect(incidents.rows.map((row) => row.teamId)).toEqual([id.U]);
     });

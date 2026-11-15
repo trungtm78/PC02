@@ -713,7 +713,7 @@ export const processingFlow = {
     },
     onTime: {
       title: 'Tỷ lệ đúng hạn theo kỳ',
-      hint: 'Tỷ lệ = xong đúng hạn ÷ (xong đúng hạn + xong trễ), tính trên các bước xong trong kỳ.',
+      hint: 'Tỷ lệ đúng hạn = xong đúng hạn ÷ (xong đúng hạn + xong trễ + đang quá hạn). Bước đang quá hạn chưa xong cũng tính là không đúng hạn.',
       from: 'Kỳ từ ngày',
       to: 'đến ngày',
       thisMonth: 'Tháng này',

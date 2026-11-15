@@ -21,7 +21,7 @@ const TD = 'px-3 py-2 text-sm tabular-nums text-slate-800';
 
 const count = (value: number) => value.toLocaleString('vi-VN');
 
-/** The six figures of a row, as cells. A rate that does not exist (nothing done in the period) is a dash, not 0%. */
+/** The six figures of a row, as cells. A rate that does not exist (nothing done, nothing overdue) is a dash, not 0%. */
 function Figures({ figures, testId }: { figures: OnTimeFigures; testId: string }) {
   return (
     <>

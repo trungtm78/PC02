@@ -47,7 +47,7 @@ export interface OnTimeFigures {
   doneLate: number;
   openInTime: number;
   openOverdue: number;
-  /** 0..1; `null` when nothing was done in the period. */
+  /** doneOnTime / (doneOnTime + doneLate + openOverdue), 0..1; `null` when that denominator is 0. */
   onTimeRate: number | null;
   averageDays: number | null;
 }

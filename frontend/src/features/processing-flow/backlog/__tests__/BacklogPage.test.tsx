@@ -334,6 +334,12 @@ describe('the on-time rate by period', () => {
     expect(row.getByText('3')).toBeInTheDocument();
   });
 
+  it('states the formula of the rate: work overdue and not done counts against it', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('backlog-on-time')).toBeInTheDocument());
+    expect(screen.getByTestId('backlog-on-time')).toHaveTextContent('xong đúng hạn ÷ (xong đúng hạn + xong trễ + đang quá hạn)');
+  });
+
   it('keeps a chosen period in the address and asks it', async () => {
     renderPage();
     await waitFor(() => expect(api.onTime).toHaveBeenCalled());
