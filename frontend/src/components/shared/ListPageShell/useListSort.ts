@@ -14,7 +14,7 @@ import { resolveNextSort, type SortDirection, type SortState } from './sortState
  */
 export interface ListSort extends SortState {
   /** Bấm tiêu đề cột — theo luật ba nhịp: giảm → tăng → về mặc định. */
-  onSort(key: string): void;
+  onSort(key: string, first?: SortDirection): void;
   /** Tham số gửi lên máy chủ. Rỗng khi đang dùng mặc định của máy chủ. */
   params: { sortBy?: string; sortOrder?: SortDirection };
 }
@@ -26,8 +26,8 @@ export function useListSort(prefix: string): ListSort {
   const sortOrder: SortDirection = url.getParam('dir') === 'asc' ? 'asc' : 'desc';
 
   const onSort = useCallback(
-    (key: string) => {
-      const next = resolveNextSort({ sortBy, sortOrder }, key);
+    (key: string, first?: SortDirection) => {
+      const next = resolveNextSort({ sortBy, sortOrder }, key, first);
       url.setParams(
         {
           sort: next.sortBy ?? null,

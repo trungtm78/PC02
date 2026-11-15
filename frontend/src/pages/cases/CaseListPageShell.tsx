@@ -82,6 +82,16 @@ import { AlertCircle, X } from 'lucide-react';
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
+import {
+  ALERT_SORT_KEY,
+  effectiveFilters,
+  effectiveSort,
+  exportableColumnKeys,
+  useListAlerts,
+  withAlertColumn,
+  type ListAnswerWithAlert,
+  type RowWithAlert,
+} from '@/features/processing-flow/alerts/listAlert';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
@@ -144,7 +154,7 @@ function getVietnameseErrorMessage(e: unknown): string {
   return 'Lỗi không xác định';
 }
 
-interface CaseRow {
+interface CaseRow extends RowWithAlert {
   id: string;
   caseCode: string | null;
   name: string;
@@ -296,7 +306,11 @@ function buildCasesCards(stats: CasesStatsResponse | null): StatCard[] {
 export function CaseListPageShell() {
   const navigate = useNavigate();
   const url = useListPageUrlState('cases');
-  const sort = useListSort('cases');
+  // The alert column of the processing flow. While the list answers no alerts, alert state left in the address (a
+  // band, an order by alert) is not honoured: `sort` and `appliedFilters` below are the EFFECTIVE ones.
+  const alerts = useListAlerts();
+  const sortInAddress = useListSort('cases');
+  const sort = effectiveSort(sortInAddress, alerts.on);
 
   // AUTO-FIX #5: validate URL status param immediately at trust boundary.
   const rawStatus = url.getParam('status');
@@ -380,7 +394,8 @@ export function CaseListPageShell() {
     prefix: 'cases',
     registry: casesListFilters,
   });
-  const appliedFilters = listFilters.applied;
+  const appliedFilters = useMemo(() => effectiveFilters(listFilters.applied, alerts.on), [listFilters.applied, alerts.on]);
+  const alertInAddress = Boolean(listFilters.applied.alertBand) || sortInAddress.sortBy === ALERT_SORT_KEY;
   const [governanceParams] = useSearchParams();
   const governanceQueryKey = JSON.stringify(governanceFilterParams(governanceParams));
 
@@ -394,6 +409,8 @@ export function CaseListPageShell() {
 
   const baseQueryParams = useMemo(
     () => ({
+      // The alert band of the processing flow: in this object so the list, the cards and the export all get it.
+      ...(appliedFilters.alertBand && { alertBand: appliedFilters.alertBand }),
       ...JSON.parse(governanceQueryKey),
       // Thẻ đi xuống CẢ danh sách lẫn thống kê qua object này — số trên thẻ thống kê khớp dòng.
       // Các ô lọc chữ cũ (đơn vị, điều tra viên, tội danh, STT, STT cũ) nay là thẻ, không gửi riêng.
@@ -423,6 +440,13 @@ export function CaseListPageShell() {
    * sẽ khiến stats refetch mỗi lần bấm thẻ/đổi trang → nháy khung xương.
    */
   const baseQueryKey = JSON.stringify(baseQueryParams);
+
+  // `alertListKey` is what makes it the same list across pages: every page of a list filtered or ordered by alert is
+  // judged at ONE instant, and so are the cards and the exports of a list filtered by band (`alertClock`).
+  const byAlert = Boolean(appliedFilters.alertBand) || sort.sortBy === ALERT_SORT_KEY;
+  const alertListKey = JSON.stringify([baseQueryKey, statusFilter, groupFilter, sort.sortBy, sort.sortOrder]);
+  const alertClock = appliedFilters.alertBand ? alerts.clockOf(alertListKey) : null;
+  const waitsForAlertClock = Boolean(appliedFilters.alertBand) && alertClock === null;
 
   const handleCardSelect = useCallback(
     (value: string | null) => {
@@ -456,17 +480,20 @@ export function CaseListPageShell() {
       ...(statusFilter && { status: statusFilter }),
       ...(groupFilter && { statusGroup: groupFilter }),
       ...sort.params,
+      ...alerts.requestParams(alertListKey, page, byAlert),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
 
     api
-      .get<{ data: CaseRow[]; total: number }>('/cases', {
+      .get<{ data: CaseRow[]; total: number } & ListAnswerWithAlert>('/cases', {
         params,
         signal: ctrl.signal,
       })
       .then((listRes) => {
         if (ctrl.signal.aborted) return;
+        // Asked under the wrong guess of the switch while the address holds alert state: not drawn, asked again.
+        if (!alerts.onAnswer(alertListKey, page, listRes.data, alertInAddress)) return;
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
@@ -507,8 +534,11 @@ export function CaseListPageShell() {
   // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh
   // sách. KHÔNG phụ thuộc groupFilter → bấm thẻ không refetch stats (tránh nháy skeleton).
   useEffect(() => {
+    // Filtered by alert band: the cards are counted at the instant the list was. Wait for the list to answer,
+    // then follow its clock (this effect runs again when the clock is known or changes).
+    if (waitsForAlertClock) return;
     const ctrl = new AbortController();
-    const statsParams = baseQueryParams;
+    const statsParams = { ...baseQueryParams, ...(alertClock && { alertAsOf: alertClock }) };
     api
       .get<CasesStatsResponse>('/cases/stats', {
         params: statsParams,
@@ -529,7 +559,7 @@ export function CaseListPageShell() {
     // `refetchCounter` cần có: xoá/đổi trạng thái hàng loạt mà chỉ refetch danh sách thì
     // thẻ giữ số cũ → lệch với danh sách.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseQueryKey, refetchCounter]);
+  }, [baseQueryKey, refetchCounter, alertClock, waitsForAlertClock]);
 
   const chipOptions = useMemo(
     () =>
@@ -609,7 +639,7 @@ export function CaseListPageShell() {
     return () => clearTimeout(t);
   }, [transientBanner]);
 
-  const columns: ColumnDef<CaseRow>[] = useMemo(
+  const baseColumns: ColumnDef<CaseRow>[] = useMemo(
     () => [
       // BỀ RỘNG CỘT LẤY TỪ SỐ ĐO DỮ LIỆU THẬT (bản chạy thật, 25/08/2026) — không đoán.
       // Độ dài nội dung, trung vị / phân vị 90:
@@ -886,6 +916,9 @@ export function CaseListPageShell() {
   // `optional` khai ngay trên từng cột ở khối trên, không phải một danh sách riêng ở đây.
   // Bố cục cột lưu trên MÁY CHỦ theo tài khoản: bề rộng, ẩn/hiện và thứ tự cùng một chỗ.
   // Trước đây ẩn/hiện lưu ở trình duyệt từng máy nên đổi máy là mất.
+  // "Cảnh báo" sits right before "Trạng thái", and only while the server answers alerts. A saved layout that never
+  // saw the column gets it at this place too (`sapXepCot` slots a new column next to its neighbour in the code).
+  const columns = useMemo(() => withAlertColumn(baseColumns, alerts.on, 'status'), [baseColumns, alerts.on]);
   const {
     coGhiDeBeRong,
     visibleColumns,
@@ -1026,6 +1059,7 @@ export function CaseListPageShell() {
       >
         <Filters<CaseFilterValue>
           registry={casesListFilters}
+          hiddenKeys={alerts.hiddenFilterKeys}
           value={listFilters.draft}
           onChange={listFilters.setField}
           onApply={listFilters.apply}
@@ -1046,10 +1080,10 @@ export function CaseListPageShell() {
                   ...(statusFilter && { status: statusFilter }),
                   ...(groupFilter && { statusGroup: groupFilter }),
                   ...sort.params,
+                  ...(alertClock && { alertAsOf: alertClock }),
                 }}
-                cot={visibleColumns
-                  .map((c) => c.key)
-                  .filter((k) => k !== 'actions')}
+                // The export has no alert column: asking for it is a 400.
+                cot={exportableColumnKeys(visibleColumns.map((c) => c.key).filter((k) => k !== 'actions'))}
                 tong={tableState === 'loading' ? null : totalCount}
                 hasUnappliedChanges={listFilters.hasUnappliedChanges}
                 onApply={listFilters.apply}
@@ -1063,6 +1097,7 @@ export function CaseListPageShell() {
                   ...(statusFilter && { status: statusFilter }),
                   ...(groupFilter && { statusGroup: groupFilter }),
                   ...sort.params,
+                  ...(alertClock && { alertAsOf: alertClock }),
                 }}
                 cot={[]}
                 boQuaCot

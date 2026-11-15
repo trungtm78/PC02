@@ -4,11 +4,14 @@
  */
 import { formatVNDate } from '@/lib/dates';
 import { errorText, processingFlow as L } from '@/locales/processingFlow.vi';
+import { TONE_CLASS, bandText, bandTone, type Tone } from '../bandPresenter';
 import type { RecordFlowDto, RecordStepDto, RecordStepPartyDto, SpeakingKind } from './types';
 
-const R = L.recordTabs;
+/** The colours live in the one band presenter; the tabs import them from here as before. */
+export { TONE_CLASS };
+export type { Tone };
 
-export type Tone = 'over' | 'red' | 'yellow' | 'green' | 'blue' | 'done' | 'neutral';
+const R = L.recordTabs;
 
 export interface StepBadge {
   tone: Tone;
@@ -16,18 +19,6 @@ export interface StepBadge {
   /** A second, quieter line under the badge. */
   note: string | null;
 }
-
-export const TONE_CLASS: Record<Tone, string> = {
-  over: 'border-red-900 bg-red-900 text-white',
-  red: 'border-red-300 bg-red-100 text-red-800',
-  yellow: 'border-amber-300 bg-amber-100 text-amber-900',
-  green: 'border-green-300 bg-green-100 text-green-800',
-  blue: 'border-blue-300 bg-blue-100 text-blue-800',
-  done: 'border-green-300 bg-green-100 text-green-800',
-  neutral: 'border-slate-300 bg-slate-100 text-slate-600',
-};
-
-const BAND_TONE: Record<string, Tone> = { OVERDUE: 'over', RED: 'red', YELLOW: 'yellow', GREEN: 'green', NONE: 'neutral' };
 
 /** A step being worked: the colour the server computed, with the days left. While the record is suspended: no colour. */
 export function stepBadge(step: RecordStepDto, flow: Pick<RecordFlowDto, 'suspended' | 'pausedSince'>): StepBadge {
@@ -49,13 +40,8 @@ export function stepBadge(step: RecordStepDto, flow: Pick<RecordFlowDto, 'suspen
   if (flow.suspended || flow.pausedSince) {
     return { tone: 'blue', text: R.suspended, note: waitsForLeader };
   }
-  const days = step.remainingDays;
-  let text: string;
-  if (step.band === 'OVERDUE') text = days !== null && days < 0 ? R.overdueBy(-days) : R.overdue;
-  else if (step.band === 'NONE') text = days === null ? R.bands.NONE : `${R.bands.NONE} · ${R.daysLeft(days)}`;
-  else text = days === null ? R.bands[step.band] : `${R.bands[step.band]} · ${R.daysLeft(days)}`;
-  if (step.dueAt === null && step.band === 'NONE') text = R.noDeadline;
-  return { tone: BAND_TONE[step.band] ?? 'neutral', text, note: waitsForLeader };
+  const text = step.dueAt === null && step.band === 'NONE' ? R.noDeadline : bandText(step.band, step.remainingDays);
+  return { tone: bandTone(step.band), text, note: waitsForLeader };
 }
 
 /** Why a waiting step waits, in words: for the date of acceptance, or for the step before. */

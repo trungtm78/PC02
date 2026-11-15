@@ -139,4 +139,31 @@ describe('PetitionFormPage — hai tab quy trình', () => {
     expect(screen.queryByTestId('tab-nut-ket-qua-xu-ly')).toBeNull();
     expect(legacyButtons()).toHaveLength(Object.keys(LEGACY_TAB_LABEL).length);
   });
+
+  it('đường dẫn ?tab=phan-cong-xu-ly (màn Theo dõi xử lý dẫn tới) mở thẳng tab Phân công xử lý; bấm tab khác vẫn chuyển được', async () => {
+    await renderPage({ path: '/petitions/pet-1?tab=phan-cong-xu-ly', cheDo: 'xem' });
+    expect(await screen.findByTestId('assignment-tab')).toBeInTheDocument();
+    expect(recordPaths()).toEqual(['/processing/records/PETITION/pet-1']);
+    fireEvent.click(screen.getByTestId('tab-nut-info'));
+    expect(screen.queryByTestId('assignment-tab')).toBeNull();
+    expect((screen.getByTestId('field-senderName') as HTMLInputElement).closest('.hidden')).toBeNull();
+  });
+
+  it('đường dẫn ?tab=ket-qua-xu-ly mở tab Kết quả xử lý; giá trị lạ thì mở tab Thông tin như thường', async () => {
+    const view = await renderPage({ path: '/petitions/pet-1/edit?tab=ket-qua-xu-ly' });
+    expect(await screen.findByTestId('results-tab')).toBeInTheDocument();
+    view.unmount();
+    await renderPage({ path: '/petitions/pet-1/edit?tab=khong-co' });
+    await waitFor(() => expect((screen.getByTestId('field-senderName') as HTMLInputElement).value).toBe('Trần Thị A'), { timeout: 5000 });
+    expect((screen.getByTestId('field-senderName') as HTMLInputElement).closest('.hidden')).toBeNull();
+    expect(screen.queryByTestId('assignment-tab')).toBeNull();
+  });
+
+  it('đường dẫn ?tab=phan-cong-xu-ly khi công tắc TẮT: form mở tab Thông tin, không gọi /processing/records', async () => {
+    await renderPage({ path: '/petitions/pet-1/edit?tab=phan-cong-xu-ly', switchOn: false });
+    await waitFor(() => expect((screen.getByTestId('field-senderName') as HTMLInputElement).value).toBe('Trần Thị A'), { timeout: 5000 });
+    expect((screen.getByTestId('field-senderName') as HTMLInputElement).closest('.hidden')).toBeNull();
+    expect(screen.queryByTestId('assignment-tab')).toBeNull();
+    expect(recordPaths()).toEqual([]);
+  });
 });

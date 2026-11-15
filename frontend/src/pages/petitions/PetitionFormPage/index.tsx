@@ -28,6 +28,7 @@ import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { RecordTabBody, RecordTabButtons } from "@/features/processing-flow/record-tabs/RecordTabs";
 import { useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
+import { recordTabFromSearch } from "@/features/processing-flow/record-tabs/recordLink";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -154,7 +155,8 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   // Tab đang mở. Hệ cũ dùng đúng bộ 10 tab này cho cả Đơn thư, Vụ việc và Vụ án.
   const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
   // Hai tab "Phân công xử lý" / "Kết quả xử lý" nằm NGOÀI bộ 10 tab của hệ cũ: trạng thái riêng, không đụng tabDangMo.
-  const [tabQuyTrinh, setTabQuyTrinh] = useState<RecordTabId | null>(null);
+  // A link may ask for one of them (`?tab=phan-cong-xu-ly`, e.g. from "Theo dõi xử lý"): read ONCE, when the form mounts.
+  const [tabQuyTrinh, setTabQuyTrinh] = useState<RecordTabId | null>(() => recordTabFromSearch(location.search));
   const idHoSoDaLuu = id ?? createdId;
   const coTabQuyTrinh = useRecordTabsAvailable(idHoSoDaLuu);
   const tabQuyTrinhDangMo = coTabQuyTrinh ? tabQuyTrinh : null;
