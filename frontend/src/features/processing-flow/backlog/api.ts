@@ -32,8 +32,12 @@ export interface CellItemsQuery extends BacklogFilters, BacklogCell {
  * is off and 403 without `read:ProcessingStep`.
  */
 export const backlogApi = {
-  /** Asked with no `asOf`: the server uses its clock and says which instant that was. */
-  units: (filters: BacklogFilters) => api.get<BacklogUnitsDto>(`${BASE}/units`, { params: filterParams(filters) }).then(data),
+  /**
+   * Asked with no `asOf`: the server uses its clock and says which instant that was. `rolledUp`: the server answers the
+   * top units with the sums under them (the ONE definition of the roll-up, which the export writes too).
+   */
+  units: (filters: BacklogFilters, rolledUp: boolean) =>
+    api.get<BacklogUnitsDto>(`${BASE}/units`, { params: { ...filterParams(filters), ...(rolledUp ? { rollup: true } : {}) } }).then(data),
 
   cellItems: (query: CellItemsQuery) =>
     api
@@ -52,12 +56,13 @@ export const backlogApi = {
   onTime: (query: OnTimeQuery) => api.get<OnTimeReportDto>(`${BASE}/on-time`, { params: filterParams(query) }).then(data),
 
   /**
-   * The table as an Excel file, saved to the person's disk. With `asOf` the file holds the figures on screen. The name
+   * The table as an Excel file, saved to the person's disk: rolled up when the screen is, and with `asOf` the file holds
+   * the figures on screen. The name
    * is the one the server sends (Content-Disposition); the fallback is used only when it sends none.
    */
-  exportUnits: async (filters: BacklogFilters, asOf: string | null): Promise<void> => {
+  exportUnits: async (filters: BacklogFilters, asOf: string | null, rolledUp: boolean): Promise<void> => {
     const response = await api.get<Blob>(`${BASE}/units/export`, {
-      params: { ...filterParams(filters), ...(asOf ? { asOf } : {}) },
+      params: { ...filterParams(filters), ...(asOf ? { asOf } : {}), ...(rolledUp ? { rollup: true } : {}) },
       responseType: 'blob',
     });
     triggerDownload(response, EXPORT_FALLBACK_NAME);

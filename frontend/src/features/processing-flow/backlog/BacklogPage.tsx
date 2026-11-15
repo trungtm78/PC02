@@ -6,9 +6,10 @@
  * the filters of the table and the instant the table was judged at (`asOf`). The data may still change between the
  * two calls; the screen then SAYS the figures changed and offers to take a new instant for both.
  *
- * Rolled up ("Gộp lên tổ cha") the band columns are sums over a top unit and everything under it. Such a sum is the
- * work of SEVERAL units, so it is not a link (the list is asked per unit): un-roll to open a unit's own number.
- * `holding` counts distinct records, which two units may share, so a rolled-up row gives it as "≥" a lower bound.
+ * Rolled up ("Gộp lên tổ cha") the SERVER answers the top units with the sums under them, and the export writes the
+ * same rows: the screen does no roll-up arithmetic. Such a sum is the work of SEVERAL units, so it is not a link (the
+ * list is asked per unit): un-roll to open a unit's own number. `holding` counts distinct records, which two units may
+ * share, so a rolled-up row gives it as "≥" a lower bound.
  *
  * The filters, the roll-up and the chosen cell live in the address; the instant does not.
  */
@@ -30,7 +31,7 @@ import type { RecordKind } from '../types';
 import { backlogApi } from './api';
 import { BACKLOG_PAGE_SIZE, BACKLOG_QUERY_KEYS, BACKLOG_URL_PREFIX, dayParam, monthOf } from './backlogKeys';
 import { OnTimeSection } from './OnTimeSection';
-import { rollUp, treeOrder } from './tree';
+import { treeOrder } from './tree';
 import { BACKLOG_BANDS, DEFAULT_ROLE, WORK_ROLES, type BacklogBand, type BacklogCell, type BacklogFilters, type BandCounts } from './types';
 
 const T = L.backlog;
@@ -75,7 +76,9 @@ export default function BacklogPage() {
   const askedBand = url.getParam('band');
   const cellBand: BacklogBand | null = BACKLOG_BANDS.find((b) => b === askedBand) ?? null;
   const page = Math.max(1, url.getNumberParam('page', 1));
-  const month = useMemo(() => monthOf(), []);
+  // The current month in Vietnam, asked of the clock at every render: a page left open across the end of a month must
+  // not keep asking the month it was opened in.
+  const month = monthOf();
   const askedPeriodFrom = dayParam(url.getParam('period_from'));
   const askedPeriodTo = dayParam(url.getParam('period_to'));
 
@@ -83,8 +86,8 @@ export default function BacklogPage() {
   const cell: BacklogCell | null = useMemo(() => (cellTeam && cellBand ? { teamId: cellTeam, band: cellBand } : null), [cellTeam, cellBand]);
 
   const unitsQ = useQuery({
-    queryKey: BACKLOG_QUERY_KEYS.units(filters),
-    queryFn: () => backlogApi.units(filters),
+    queryKey: BACKLOG_QUERY_KEYS.units(filters, rolledUp),
+    queryFn: () => backlogApi.units(filters, rolledUp),
     staleTime: 30_000,
     retry: false,
   });
@@ -104,13 +107,18 @@ export default function BacklogPage() {
   const table = unitsQ.data ?? null;
   const display: DisplayRow[] = useMemo(() => {
     if (table === null) return [];
-    if (rolledUp) return rollUp(table.rows).map((row) => ({ ...row, depth: 0 }));
+    // Rolled up, the rows ARE the top units as the server summed them.
+    if (rolledUp) return table.rows.map((row) => ({ ...row, depth: 0, descendants: row.descendants ?? 0, holdingIsLowerBound: row.holdingIsLowerBound ?? false }));
     return treeOrder(table.rows).map(({ row, depth }) => ({ ...row, depth, descendants: 0, holdingIsLowerBound: false }));
   }, [table, rolledUp]);
 
   const cellUnit = cell && table ? (table.rows.find((r) => r.teamId === cell.teamId) ?? null) : null;
-  /** What the table promises for the open cell: the number that was clicked, as the table now on screen has it. */
-  const promised = cell === null || table === null ? null : cellUnit ? cellUnit[cell.band] : 0;
+  /**
+   * What the table promises for the open cell: the number that was clicked, as the table now on screen has it. A
+   * rolled-up table does not show the own number of a unit inside a group: it then promises nothing for that cell.
+   */
+  const ownFigures = cellUnit !== null && (cellUnit.descendants ?? 0) === 0;
+  const promised = cell === null || table === null ? null : ownFigures && cellUnit ? cellUnit[cell.band] : rolledUp ? null : 0;
   const list = cell === null ? null : (itemsQ.data ?? null);
   const rows = list?.items ?? [];
   const total = list?.total ?? 0;
@@ -139,7 +147,7 @@ export default function BacklogPage() {
     setExporting(true);
     setExportError(null);
     try {
-      await backlogApi.exportUnits(filters, asOf);
+      await backlogApi.exportUnits(filters, asOf, rolledUp);
     } catch (err) {
       setExportError(explainError(await parseBlobError(err)).message || T.exportFailed);
     } finally {

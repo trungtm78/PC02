@@ -8,7 +8,7 @@ vi.mock('@/features/document-templates/export.api', () => download);
 
 import { backlogApi, EXPORT_FALLBACK_NAME } from '../api';
 import { dayParam, monthOf } from '../backlogKeys';
-import { rollUp, treeOrder } from '../tree';
+import { treeOrder } from '../tree';
 import { BACKLOG_BANDS, type BacklogUnitRow } from '../types';
 
 const AS_OF = '2026-12-10T02:30:00.000Z';
@@ -35,9 +35,12 @@ beforeEach(() => {
 
 describe('the backlog routes', () => {
   it('asks the table with only the filters that are set; the default role is left out', async () => {
-    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null });
+    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null }, false);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', { params: {} });
-    await backlogApi.units({ kind: 'CASE', role: 'CHECK', from: '2026-11-01', to: '2026-11-30' });
+    // Rolled up: the server does the roll-up, the screen only asks for it.
+    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null }, true);
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', { params: { rollup: true } });
+    await backlogApi.units({ kind: 'CASE', role: 'CHECK', from: '2026-11-01', to: '2026-11-30' }, false);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', {
       params: { kind: 'CASE', role: 'CHECK', from: '2026-11-01', to: '2026-11-30' },
     });
@@ -58,13 +61,19 @@ describe('the backlog routes', () => {
   it('exports with the filters and the instant on screen, as a blob, and leaves the file name to the server', async () => {
     const response = { data: new Blob(['x']), headers: { 'content-disposition': 'attachment; filename="ton-dong-theo-don-vi-2026-12-10.xlsx"' } };
     http.get.mockResolvedValueOnce(response);
-    await backlogApi.exportUnits({ kind: 'INCIDENT', role: 'CHECK', from: null, to: '2026-12-01' }, AS_OF);
+    await backlogApi.exportUnits({ kind: 'INCIDENT', role: 'CHECK', from: null, to: '2026-12-01' }, AS_OF, false);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units/export', {
       params: { kind: 'INCIDENT', role: 'CHECK', to: '2026-12-01', asOf: AS_OF },
       responseType: 'blob',
     });
     // The whole response goes to the shared helper, which reads Content-Disposition; ours is only the fallback name.
     expect(download.triggerDownload).toHaveBeenCalledWith(response, EXPORT_FALLBACK_NAME);
+  });
+
+  it('exports the table rolled up when the screen is rolled up', async () => {
+    http.get.mockResolvedValueOnce({ data: new Blob(['x']), headers: {} });
+    await backlogApi.exportUnits({ kind: null, role: 'MAIN', from: null, to: null }, AS_OF, true);
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units/export', { params: { asOf: AS_OF, rollup: true }, responseType: 'blob' });
   });
 
   it('the columns of the table are the bands of the contract, not a copy', () => {
@@ -83,36 +92,6 @@ describe('the units as a tree', () => {
     expect(treeOrder([unit('to-1', 'doi-hidden')]).map(({ row, depth }) => `${row.teamId}@${depth}`)).toEqual(['to-1@0']);
     const cycle = treeOrder([unit('a', 'b'), unit('b', 'a')]);
     expect(cycle.map(({ row }) => row.teamId).sort()).toEqual(['a', 'b']);
-  });
-});
-
-describe('the tree rolled up to its top units', () => {
-  const rows = [
-    unit('doi-1', null, { holding: 2, OVERDUE: 1, RED: 0, YELLOW: 1, GREEN: 0, NONE: 2, oldestDueAt: '2026-12-08T16:59:59.999Z', oldestDays: 2 }),
-    unit('to-1', 'doi-1', { holding: 5, OVERDUE: 2, RED: 1, YELLOW: 0, GREEN: 3, NONE: 1, oldestDueAt: '2026-12-01T16:59:59.999Z', oldestDays: 9 }),
-    unit('nhom-a', 'to-1', { holding: 3, OVERDUE: 0, RED: 4, YELLOW: 0, GREEN: 0, NONE: 0 }),
-    unit('doi-2', null, { holding: 4, GREEN: 4 }),
-  ];
-
-  it('sums the band columns of a top unit and everything under it', () => {
-    const [first, second] = rollUp(rows);
-    expect(rollUp(rows)).toHaveLength(2);
-    expect(first).toMatchObject({ teamId: 'doi-1', descendants: 2, OVERDUE: 3, RED: 5, YELLOW: 1, GREEN: 3, NONE: 3 });
-    expect(second).toMatchObject({ teamId: 'doi-2', descendants: 0, GREEN: 4 });
-  });
-
-  it('never sums `holding`: a group gives the largest figure of one unit, marked as a lower bound', () => {
-    const [first, second] = rollUp(rows);
-    expect(first.holding).toBe(5);
-    expect(first.holdingIsLowerBound).toBe(true);
-    // A unit with nothing under it keeps its own exact figure.
-    expect(second.holding).toBe(4);
-    expect(second.holdingIsLowerBound).toBe(false);
-  });
-
-  it('keeps the earliest deadline of the group, with its days', () => {
-    expect(rollUp(rows)[0]).toMatchObject({ oldestDueAt: '2026-12-01T16:59:59.999Z', oldestDays: 9 });
-    expect(rollUp(rows)[1]).toMatchObject({ oldestDueAt: null, oldestDays: null });
   });
 });
 

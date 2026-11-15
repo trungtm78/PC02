@@ -8,7 +8,7 @@ export const BACKLOG_URL_PREFIX = 'backlog';
 export const BACKLOG_PAGE_SIZE = 20;
 
 export const BACKLOG_QUERY_KEYS = {
-  units: (filters: BacklogFilters) => ['processing-backlog', 'units', filters] as const,
+  units: (filters: BacklogFilters, rolledUp: boolean) => ['processing-backlog', 'units', filters, rolledUp] as const,
   cell: (filters: BacklogFilters, cell: BacklogCell | null, page: number, asOf: string) =>
     ['processing-backlog', 'cell', filters, cell, page, asOf] as const,
   onTime: (query: OnTimeQuery) => ['processing-backlog', 'on-time', query] as const,

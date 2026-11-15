@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -137,8 +137,18 @@ describe('the table of units', () => {
   });
 
   it('rolled up, shows each top unit with the sums under it, `holding` as a lower bound, and no link on a sum', async () => {
+    // The server rolled the table up (`rollUpUnits`): the screen shows its rows and does no arithmetic of its own.
+    api.units.mockResolvedValue(
+      units({
+        rows: [
+          { ...unit('doi-1', 'Đội 1', null, { holding: 5, OVERDUE: 3, RED: 1, YELLOW: 1, GREEN: 3, NONE: 3, oldestDueAt: '2026-12-07T16:59:59.999Z', oldestDays: 3 }), descendants: 1, holdingIsLowerBound: true },
+          { ...unit('doi-2', 'Đội 2', null, { holding: 4, GREEN: 4 }), descendants: 0, holdingIsLowerBound: false },
+        ],
+      }),
+    );
     renderPage('/ton-dong-theo-don-vi?backlog_rollup=1');
     await loaded();
+    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null }, true);
     expect(unitOrder()).toEqual(['backlog-row-doi-1', 'backlog-row-doi-2']);
     expect(cellOf('doi-1', 'OVERDUE')).toHaveTextContent('3');
     expect(cellOf('doi-1', 'NONE')).toHaveTextContent('3');
@@ -241,7 +251,7 @@ describe('the filters', () => {
   it('reads them from the address and sends them with the table', async () => {
     renderPage('/ton-dong-theo-don-vi?backlog_kind=CASE&backlog_role=COORDINATE&backlog_from=2026-10-01&backlog_to=2026-10-31');
     await loaded();
-    expect(api.units).toHaveBeenCalledWith({ kind: 'CASE', role: 'COORDINATE', from: '2026-10-01', to: '2026-10-31' });
+    expect(api.units).toHaveBeenCalledWith({ kind: 'CASE', role: 'COORDINATE', from: '2026-10-01', to: '2026-10-31' }, false);
     expect(screen.getByTestId('backlog-filter-kind')).toHaveValue('CASE');
     expect(screen.getByTestId('backlog-filter-role')).toHaveValue('COORDINATE');
     expect(screen.getByTestId('backlog-filter-from')).toHaveValue('2026-10-01');
@@ -258,7 +268,7 @@ describe('the filters', () => {
     await waitFor(() => expect(where()).toContain('backlog_role=CHECK'));
     fireEvent.change(screen.getByTestId('backlog-filter-from'), { target: { value: '2026-11-01' } });
     await waitFor(() => expect(where()).toContain('backlog_from=2026-11-01'));
-    await waitFor(() => expect(api.units).toHaveBeenLastCalledWith({ kind: 'INCIDENT', role: 'CHECK', from: '2026-11-01', to: null }));
+    await waitFor(() => expect(api.units).toHaveBeenLastCalledWith({ kind: 'INCIDENT', role: 'CHECK', from: '2026-11-01', to: null }, false));
     fireEvent.change(screen.getByTestId('backlog-filter-role'), { target: { value: 'MAIN' } });
     await waitFor(() => expect(where()).not.toContain('backlog_role'));
     fireEvent.click(screen.getByTestId('backlog-clear-filters'));
@@ -269,7 +279,7 @@ describe('the filters', () => {
   it('ignores a value of the address the contract does not know', async () => {
     renderPage('/ton-dong-theo-don-vi?backlog_kind=NOPE&backlog_role=INFORM&backlog_from=01/11/2026');
     await loaded();
-    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null });
+    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null }, false);
   });
 });
 
@@ -359,13 +369,51 @@ describe('the on-time rate by period', () => {
   });
 });
 
+describe('the default period across the end of a month', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('asks the month it is NOW in Vietnam, not the month the page was opened in', async () => {
+    // 30 November 2026, 23:30 in Vietnam.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-30T16:30:00.000Z'));
+    renderPage();
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith(expect.objectContaining({ from: '2026-11-01', to: '2026-11-30' })));
+
+    // One hour later it is 1 December in Vietnam (still 30 November in UTC). The page was never closed.
+    vi.setSystemTime(new Date('2026-11-30T17:30:00.000Z'));
+    fireEvent.change(screen.getByTestId('backlog-filter-kind'), { target: { value: 'CASE' } });
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith({ kind: 'CASE', role: 'MAIN', from: '2026-12-01', to: '2026-12-31' }));
+    expect(screen.getByTestId('backlog-period-from')).toHaveValue('2026-12-01');
+  });
+
+  it('"Tháng này" goes back to the month it is now', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-30T16:30:00.000Z'));
+    renderPage('/ton-dong-theo-don-vi?backlog_period_from=2026-10-01&backlog_period_to=2026-10-31');
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith(expect.objectContaining({ from: '2026-10-01', to: '2026-10-31' })));
+    vi.setSystemTime(new Date('2026-11-30T17:30:00.000Z'));
+    fireEvent.click(screen.getByTestId('backlog-period-reset'));
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith(expect.objectContaining({ from: '2026-12-01', to: '2026-12-31' })));
+  });
+});
+
 describe('the export', () => {
   it('downloads the table as filtered, at the instant on screen', async () => {
     renderPage('/ton-dong-theo-don-vi?backlog_kind=PETITION&backlog_role=CHECK&backlog_to=2026-11-30');
     await loaded();
     fireEvent.click(screen.getByTestId('backlog-export'));
     await waitFor(() => expect(api.exportUnits).toHaveBeenCalledTimes(1));
-    expect(api.exportUnits).toHaveBeenCalledWith({ kind: 'PETITION', role: 'CHECK', from: null, to: '2026-11-30' }, AS_OF);
+    expect(api.exportUnits).toHaveBeenCalledWith({ kind: 'PETITION', role: 'CHECK', from: null, to: '2026-11-30' }, AS_OF, false);
+  });
+
+  it('rolled up, asks the file rolled up too: the file is the table on screen', async () => {
+    renderPage('/ton-dong-theo-don-vi?backlog_rollup=1');
+    await loaded();
+    fireEvent.click(screen.getByTestId('backlog-export'));
+    await waitFor(() => expect(api.exportUnits).toHaveBeenCalledTimes(1));
+    expect(api.exportUnits).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null }, AS_OF, true);
   });
 
   it('says so when the export fails', async () => {

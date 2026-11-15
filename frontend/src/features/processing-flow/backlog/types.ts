@@ -33,6 +33,10 @@ export interface BacklogUnitRow extends BandCounts {
   holding: number;
   oldestDueAt: string | null;
   oldestDays: number | null;
+  /** Only on a rolled-up table: the units summed into this row besides itself. */
+  descendants?: number;
+  /** Only on a rolled-up table: `holding` is a lower bound of the group (records do not add up across units). */
+  holdingIsLowerBound?: boolean;
 }
 
 export interface BacklogUnitsDto {
