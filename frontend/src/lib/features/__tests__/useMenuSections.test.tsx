@@ -96,7 +96,7 @@ describe('useMenuSections', () => {
   it('drops empty sections entirely (no bare headers)', () => {
     // Disable every feature that declares menu entries in "workflow"
     const flags = allFeaturesEnabled().map((f) =>
-      f.key === 'workflow' || f.key === 'classification'
+      f.key === 'workflow' || f.key === 'classification' || f.key === 'processing_flow_records'
         ? makeFlag(f.key, false)
         : f,
     );

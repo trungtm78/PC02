@@ -112,3 +112,32 @@ describe('the words of the lists the two record tabs show', () => {
     expect(R.suspended).toBe('Tạm dừng đồng hồ do hồ sơ tạm đình chỉ');
   });
 });
+
+describe('the words of the tracking screen and of the alert column', () => {
+  const T = processingFlow.tracking;
+
+  it('names the screen, its cards hint and its empty list as the mockup the owner accepted', () => {
+    expect(T.menu).toBe('Theo dõi xử lý');
+    expect(T.title).toBe('Theo dõi xử lý');
+    expect(T.subtitle).toBe('Các bước đang mở đã vào vùng cảnh báo. Bấm một thẻ để lọc bảng bên dưới.');
+    expect(T.scope).toMatchObject({ mine: 'Việc của tôi', all: 'Tất cả trong phạm vi' });
+    expect(T.filters).toMatchObject({ kind: 'Loại hồ sơ', team: 'Đơn vị', all: 'Tất cả' });
+    expect(T.columns).toEqual({ alert: 'Cảnh báo', record: 'Hồ sơ', step: 'Bước', unit: 'Đơn vị · người', due: 'Hạn xử lý' });
+    expect(T.clearCard).toBe('Bỏ lọc theo thẻ');
+    expect(T.empty).toBe('Không có bước nào khớp bộ lọc.');
+    expect(T.countByCard(3, 'Đỏ')).toBe('3 dòng · đang lọc theo thẻ Đỏ');
+  });
+
+  it('says the figures of an instant changed, with the hour it is given', () => {
+    expect(T.changed('09:30')).toBe('Số liệu lúc 09:30 đã thay đổi.');
+    expect(T.asOf('09:30')).toBe('Số liệu lúc 09:30');
+  });
+
+  it('names the alert column and its filter', () => {
+    expect(processingFlow.listAlert).toMatchObject({ column: 'Cảnh báo', filter: 'Cảnh báo', filterAll: 'Tất cả', none: '—' });
+  });
+
+  it('the module of the records switch is named as the backend names the switch', () => {
+    expect(processingFlow.menu.records).toBe('Quy trình xử lý trên hồ sơ');
+  });
+});
