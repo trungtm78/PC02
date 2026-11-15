@@ -27,6 +27,10 @@
     "GREEN",
     "NONE"
   ],
+  "alertSources": [
+    "FLOW",
+    "RECORD_DEADLINE"
+  ],
   "partyRoles": [
     "MAIN",
     "CHECK",

@@ -11,6 +11,14 @@ const RECORDS_SWITCH = 'processing_flow_records';
 const WORKED = ['OPEN', 'REPORTED'] as const;
 
 /**
+ * The parties of a step that name this person: the person themselves, or an ACTIVE unit they belong to. ONE definition,
+ * for opening a record by a step (`mayOpen`) and for the rows of the tracking screen.
+ */
+export function partyNamesUser(userId: string) {
+  return { OR: [{ assigneeUserId: userId }, { team: { status: 'ACTIVE' as const, members: { some: { userId } } } }] };
+}
+
+/**
  * Why a person who is NOT in the scope of a record may still OPEN it, read-only: a step of that record that is being
  * worked names a unit they belong to (or names them).
  *
@@ -54,7 +62,7 @@ export class RecordStepAccessService implements OnModuleInit {
     const party = await this.prisma.procRecordStepParty.findFirst({
       where: {
         recordStep: { recordKind: kind, recordId, status: { in: [...WORKED] } },
-        OR: [{ assigneeUserId: userId }, { team: { status: 'ACTIVE', members: { some: { userId } } } }],
+        ...partyNamesUser(userId),
       },
       select: { id: true },
     });

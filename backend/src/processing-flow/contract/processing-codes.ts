@@ -28,6 +28,14 @@ export const ANCHOR_KINDS = [
 /** The alert colour of a deadline, worst first. `NONE`: further away than the green threshold. */
 export const BANDS = ['OVERDUE', 'RED', 'YELLOW', 'GREEN', 'NONE'] as const;
 
+/**
+ * Where the alert of a record on a list comes from: the steps of its flow, or (a record with no flow) its own
+ * `deadline` column.
+ */
+export const ALERT_SOURCES = ['FLOW', 'RECORD_DEADLINE'] as const;
+export type AlertSource = (typeof ALERT_SOURCES)[number];
+export const ALERT_SOURCE = { FLOW: 'FLOW', RECORD_DEADLINE: 'RECORD_DEADLINE' } as const satisfies { [K in AlertSource]: K };
+
 /** What a unit is to a step. */
 export const PARTY_ROLES = ['MAIN', 'CHECK', 'COORDINATE', 'INFORM'] as const;
 
@@ -203,6 +211,7 @@ export function processingCodes() {
     durationUnits: [...DURATION_UNITS],
     anchorKinds: [...ANCHOR_KINDS],
     bands: [...BANDS],
+    alertSources: [...ALERT_SOURCES],
     partyRoles: [...PARTY_ROLES],
     partyKinds: [...PARTY_KINDS],
     conditionKeys: [...CONDITION_KEYS],
