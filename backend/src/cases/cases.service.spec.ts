@@ -27,6 +27,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CasesService } from './cases.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
@@ -239,6 +240,9 @@ function findAuditAction(
 // Scan-intake binder: a stand-in, its own behaviour is tested on PostgreSQL in ocr-import/binding.
 const mockOcrBinder = { bindIfRequested: jest.fn().mockResolvedValue(undefined) };
 
+// Processing-flow outbox: a stand-in; the row it writes is tested on PostgreSQL in processing-flow/records.
+const mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
 describe('CasesService', () => {
   let service: CasesService;
 
@@ -256,6 +260,7 @@ describe('CasesService', () => {
           useValue: mockCaseSourceCreation,
         },
         { provide: OcrBinder, useValue: mockOcrBinder },
+        { provide: ProcessingOutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -1034,6 +1039,36 @@ describe('CasesService', () => {
         expect.objectContaining({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' }),
         { entity: 'CASE', recordId: 'case-new', userId: 'actor-001' },
       );
+    });
+
+    it('asks for the processing flow inside the same transaction as a case saved from scratch', async () => {
+      const tx = {
+        user: mockPrisma.user, caseFieldDefinitionVersion: mockPrisma.caseFieldDefinitionVersion, caseGovernanceGrant: mockPrisma.caseGovernanceGrant, $queryRaw: mockPrisma.$queryRaw, featureFlag: mockPrisma.featureFlag, caseHandoff: mockPrisma.caseHandoff, caseEvidenceHold: mockPrisma.caseEvidenceHold,
+        case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'case-new' }) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation((fn: (t: unknown) => Promise<unknown>) => fn(tx));
+
+      await service.create({ name: 'Test', caseProvenance: CaseProvenance.DIRECT_DISCOVERY }, 'actor-001');
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledTimes(1);
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(tx, 'CASE', 'case-new', 'CREATED');
+    });
+
+    it('does not create the case when the outbox row cannot be written', async () => {
+      const tx = {
+        user: mockPrisma.user, caseFieldDefinitionVersion: mockPrisma.caseFieldDefinitionVersion, caseGovernanceGrant: mockPrisma.caseGovernanceGrant, $queryRaw: mockPrisma.$queryRaw, featureFlag: mockPrisma.featureFlag, caseHandoff: mockPrisma.caseHandoff, caseEvidenceHold: mockPrisma.caseEvidenceHold,
+        case: { create: jest.fn().mockResolvedValue(mockCase) },
+        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrisma.$transaction.mockImplementation((fn: (t: unknown) => Promise<unknown>) => fn(tx));
+      mockOutbox.enqueue.mockRejectedValueOnce(new Error('OUTBOX_DOWN'));
+
+      await expect(
+        service.create({ name: 'Test', caseProvenance: CaseProvenance.DIRECT_DISCOVERY }, 'actor-001'),
+      ).rejects.toThrow('OUTBOX_DOWN');
     });
 
     it('does not create the case when the session cannot be bound', async () => {

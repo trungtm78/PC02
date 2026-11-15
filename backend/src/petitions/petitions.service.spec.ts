@@ -33,6 +33,7 @@ import {
 } from '@nestjs/common';
 import { PetitionsService } from './petitions.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
@@ -194,6 +195,9 @@ const mockDeadlineRules = {
 // Scan-intake binder: a stand-in, because its own behaviour is tested on PostgreSQL in ocr-import/binding.
 const mockOcrBinder = { bindIfRequested: jest.fn().mockResolvedValue(undefined) };
 
+// Processing-flow outbox: a stand-in; the row it writes is tested on PostgreSQL in processing-flow/records.
+const mockOutbox = { enqueue: jest.fn().mockResolvedValue(undefined) };
+
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
 describe('PetitionsService', () => {
@@ -210,6 +214,7 @@ describe('PetitionsService', () => {
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         { provide: OcrBinder, useValue: mockOcrBinder },
+        { provide: ProcessingOutboxService, useValue: mockOutbox },
       ],
     }).compile();
 
@@ -722,6 +727,25 @@ describe('PetitionsService', () => {
         expect.objectContaining({ ocrPhienId: 'sess-1', ocrPhienBan: 'ana-1' }),
         { entity: 'PETITION', recordId: 'pet-new', userId: 'user-001' },
       );
+    });
+
+    it('asks for the processing flow inside the same transaction as the new petition', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue({ ...mockPetition, ...validDto, id: 'pet-new' });
+
+      await service.create(validDto, 'user-001');
+
+      expect(mockOutbox.enqueue).toHaveBeenCalledTimes(1);
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(mockPrisma, 'PETITION', 'pet-new', 'CREATED');
+    });
+
+    it('does not save the petition when the outbox row cannot be written', async () => {
+      mockPrisma.petition.findUnique.mockResolvedValue(null);
+      mockPrisma.petition.create.mockResolvedValue({ ...mockPetition, ...validDto });
+      mockOutbox.enqueue.mockRejectedValueOnce(new Error('OUTBOX_DOWN'));
+
+      await expect(service.create(validDto, 'user-001')).rejects.toThrow('OUTBOX_DOWN');
+      expect(mockAudit.log).not.toHaveBeenCalled();
     });
 
     it('does not save the petition when the session cannot be bound', async () => {
@@ -1393,7 +1417,7 @@ describe('PetitionsService', () => {
     it('AC-03: should convert petition to incident successfully', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
       mockPrisma.incident.count.mockResolvedValue(0);
-      mockPrisma.$transaction.mockResolvedValue([mockIncident]);
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
       mockPrisma.petition.update.mockResolvedValue({
         ...mockPetition,
         linkedIncidentId: 'incident-001',
@@ -1417,6 +1441,8 @@ describe('PetitionsService', () => {
       )[0].data;
       expect(taoVuViec.createdById).toBe('user-001');
       expect(taoVuViec.canBoNhapId).toBe('user-001');
+      // The incident and its outbox row are written in one interactive transaction.
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(mockPrisma, 'INCIDENT', mockIncident.id, 'CONVERTED');
     });
 
     it('EC-01: should throw BadRequestException when incidentName missing', async () => {
@@ -1477,7 +1503,7 @@ describe('PetitionsService', () => {
     it('hands off petition documents to new Incident via document.updateMany', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
       mockPrisma.incident.count.mockResolvedValue(0);
-      mockPrisma.$transaction.mockResolvedValue([mockIncident]);
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
       mockPrisma.petition.update.mockResolvedValue({
         ...mockPetition,
         linkedIncidentId: 'incident-001',
@@ -1626,6 +1652,14 @@ await service.convertToCase('petition-001', validCaseDto, 'user-001');
           action: 'PETITION_CONVERTED_TO_CASE',
         }),
         expect.anything(),
+      );
+
+      // The case made from the petition asks for its flow in that same transaction (the tx handed to the callback).
+      expect(mockOutbox.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ case: expect.anything(), documentNumberLog: expect.anything() }),
+        'CASE',
+        mockCase.id,
+        'CONVERTED',
       );
     });
 

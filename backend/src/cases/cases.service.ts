@@ -1,5 +1,6 @@
 import { CaseOperationsService } from './governance/case-operations.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
+import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
 import {
   Injectable,
   NotFoundException,
@@ -374,6 +375,7 @@ export class CasesService {
     @Optional()
     private readonly governedSourceCreation?: CaseSourceCreationService,
     @Optional() private readonly ocrBinder?: OcrBinder,
+    @Optional() private readonly processingOutbox?: ProcessingOutboxService,
   ) {}
 
   private async lockCase(tx: PrismaTx, id: string): Promise<void> {
@@ -1843,6 +1845,8 @@ export class CasesService {
               where: { id: committedCaseCode.logId },
               data: { documentId: newCase.id },
             });
+            // A case made from a petition: one outbox row in the same transaction.
+            await this.processingOutbox?.enqueue(tx, 'CASE', newCase.id, 'CONVERTED');
             await this.ocrBinder?.bindIfRequested(tx, dto, {
               entity: 'CASE',
               recordId: newCase.id,
@@ -1976,6 +1980,8 @@ export class CasesService {
               where: { id: committedCaseCode.logId },
               data: { documentId: newCase.id },
             });
+            // A case made from an incident: one outbox row in the same transaction.
+            await this.processingOutbox?.enqueue(tx, 'CASE', newCase.id, 'CONVERTED');
             await this.ocrBinder?.bindIfRequested(tx, dto, {
               entity: 'CASE',
               recordId: newCase.id,
@@ -2122,6 +2128,8 @@ export class CasesService {
           where: { id: committedCaseCode.logId },
           data: { documentId: caseRecord.id },
         });
+        // A case saved from scratch: one outbox row in the same transaction.
+        await this.processingOutbox?.enqueue(tx, 'CASE', caseRecord.id, 'CREATED');
         await this.ocrBinder?.bindIfRequested(tx, dto, {
           entity: 'CASE',
           recordId: caseRecord.id,

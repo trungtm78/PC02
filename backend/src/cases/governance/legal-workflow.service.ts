@@ -9,6 +9,7 @@ import {
 import { Case, CaseActionRequest, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DocumentNumbersService } from '../../document-numbers/document-numbers.service';
+import { ProcessingOutboxService } from '../../processing-flow/records/processing-outbox.service';
 import { CaseEvidenceGovernanceService } from '../evidence-governance/evidence-governance.service';
 import { machMocGiaiQuyet } from '../../common/trang-thai/trang-thai-ket-thuc';
 import { CaseGovernanceService } from './case-governance.service';
@@ -67,6 +68,7 @@ export class LegalWorkflowService {
     private readonly core: CaseGovernanceService,
     @Optional() private readonly numbers?: DocumentNumbersService,
     @Optional() private readonly evidence?: CaseEvidenceGovernanceService,
+    @Optional() private readonly processingOutbox?: ProcessingOutboxService,
   ) {}
   async actionCapabilities(
     caseId: string,
@@ -1362,6 +1364,8 @@ export class LegalWorkflowService {
       where: { id: allocated.logId },
       data: { documentId: child.id },
     });
+    // A child case split off another case: one outbox row in the same transaction.
+    await this.processingOutbox?.enqueue(tx, 'CASE', child.id, 'CONVERTED');
     return tx.caseRelation.create({
       data: {
         sourceCaseId: source.id,

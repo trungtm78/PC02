@@ -47,6 +47,7 @@ CREATE TABLE "proc_record_steps" (
     "order" INTEGER NOT NULL,
     "status" "ProcStepStatus" NOT NULL DEFAULT 'WAITING_ANCHOR',
     "skippedFrom" "ProcStepStatus",
+    "skippedAt" TIMESTAMP(3),
     "startAt" TIMESTAMP(3),
     "regulatoryDueAt" TIMESTAMP(3),
     "internalDueAt" TIMESTAMP(3),
@@ -195,9 +196,6 @@ ALTER TABLE "proc_record_step_parties" ADD CONSTRAINT "proc_record_step_parties_
 -- AddForeignKey
 ALTER TABLE "proc_record_step_parties" ADD CONSTRAINT "proc_record_step_parties_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- At most one pending application of a flow per record: a second request while one waits is the same work.
-CREATE UNIQUE INDEX "proc_outbox_one_pending_per_record" ON "proc_outbox"("recordKind", "recordId") WHERE "status" = 'PENDING';
-
 -- The internal deadline of a step never goes past the regulatory one (the rule of the command layer, kept by the database).
 ALTER TABLE "proc_record_steps" ADD CONSTRAINT "proc_record_steps_internal_within_regulatory"
     CHECK ("internalDueAt" IS NULL OR "regulatoryDueAt" IS NULL OR "internalDueAt" <= "regulatoryDueAt");
@@ -206,6 +204,6 @@ ALTER TABLE "proc_record_steps" ADD CONSTRAINT "proc_record_steps_internal_withi
 ALTER TABLE "proc_record_steps" ADD CONSTRAINT "proc_record_steps_done_has_time"
     CHECK (("status" = 'DONE') = ("doneAt" IS NOT NULL));
 
--- A step skipped remembers where it came from; one that is not skipped does not.
+-- A step skipped remembers where it came from and when; one that is not skipped does not.
 ALTER TABLE "proc_record_steps" ADD CONSTRAINT "proc_record_steps_skipped_remembers"
-    CHECK (("status" = 'SKIPPED') = ("skippedFrom" IS NOT NULL));
+    CHECK (("status" = 'SKIPPED') = ("skippedFrom" IS NOT NULL AND "skippedAt" IS NOT NULL));

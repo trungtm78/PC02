@@ -170,6 +170,12 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
     basic: { view: 'read:ProcessingCalendar', edit: 'edit:ProcessingCalendar' },
     extras: { confirmYear: 'confirm:ProcessingCalendar' },
   },
+  {
+    key: 'processingSteps',
+    group: 'business',
+    basic: { view: 'read:ProcessingStep' },
+    extras: { assignFlow: 'assign:ProcessingStep', completeStep: 'complete:ProcessingStep', reopenStep: 'reopen:ProcessingStep', skipStep: 'skip:ProcessingStep' },
+  },
 
   // ── Administration ────────────────────────────────────────────────────────────────────────────────────────────
   {

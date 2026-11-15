@@ -415,6 +415,7 @@ run('RecordGateway on PostgreSQL', () => {
           PROSECUTED: none,
           MINUTES_RECEIVED: none,
         },
+        conditions: {},
       });
     });
 
@@ -438,6 +439,7 @@ run('RecordGateway on PostgreSQL', () => {
           PROSECUTED: none,
           MINUTES_RECEIVED: none,
         },
+        conditions: {},
       });
     });
 
@@ -461,6 +463,7 @@ run('RecordGateway on PostgreSQL', () => {
           PROSECUTED: { at: day('2026-02-01'), hasTime: false },
           MINUTES_RECEIVED: { at: day('2026-01-03'), hasTime: false },
         },
+        conditions: {},
       });
     });
 

@@ -5489,6 +5489,8 @@ model ProcRecordStep {
   status           ProcStepStatus  @default(WAITING_ANCHOR)
   /// Where a SKIPPED step goes back to.
   skippedFrom      ProcStepStatus?
+  /// When it was set aside: a step counted from its completion starts counting from here.
+  skippedAt        DateTime?
   /// The date the deadline is counted from; NULL while the step waits.
   startAt          DateTime?
   regulatoryDueAt  DateTime?
