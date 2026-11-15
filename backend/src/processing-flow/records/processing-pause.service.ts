@@ -129,9 +129,10 @@ export class ProcessingPauseService {
 
         let moved = 0;
         if (alive) moved = await this.shiftDeadlines(tx, flowId, open.from, to);
-        // Also when no step moved: the job after a legal verification leaves a suspended record to this moment, and
-        // the write is one that changes nothing when the column already agrees.
-        if (alive) await this.deadlineWriter.sync(tx, kind, recordId);
+        // Also when no step moved (the write changes nothing when the column already agrees), but never while the
+        // record is STILL suspended: a pause also closes when no step is being worked any more, and a suspended
+        // record's deadline is written at its resumption (by the row the resync job keeps for it, `deadline-resync.ts`).
+        if (alive && !snapshot.isSuspended) await this.deadlineWriter.sync(tx, kind, recordId);
         await tx.procStepChange.create({
           data: { recordFlowId: flowId, recordKind: kind, recordId, action: 'CLOCK_RESUMED', fromValue: { from: open.from.toISOString() }, toValue: { to: to.toISOString(), stepsMoved: moved, recordAlive: alive }, actorId: null },
         });

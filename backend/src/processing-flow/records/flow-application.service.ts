@@ -194,15 +194,18 @@ export class FlowApplicationService {
    *
    * WHAT is written, and whether anything is, stays the writer's decision (`RecordDeadlineWriter.sync`: a flow nobody
    * confirmed, a step nobody verified, a record that is gone write nothing). Added here, for a write no person asked
-   * for on this record: a FINISHED record is history and keeps its column, and a SUSPENDED one is left to the worker of
-   * the clock, which writes the deadline when the suspension ends and the step's deadline has moved.
+   * for on this record: a FINISHED record is history and keeps its column (`LEFT_ALONE`, as a record that is gone),
+   * and a SUSPENDED one is not written while it is suspended: the answer `SUSPENDED` tells the outbox to keep a row
+   * of its own for the record and ask again until it has resumed. (The worker of the clock cannot be relied on for
+   * that: a record suspended and resumed between two of its looks never gets a pause.)
    */
-  async resyncDeadline(kind: RecordKind, recordId: string, reason: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED' | 'LEFT_ALONE'> {
+  async resyncDeadline(kind: RecordKind, recordId: string, reason: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED' | 'LEFT_ALONE' | 'SUSPENDED'> {
     return this.prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
         const snapshot = await this.gateway.load(kind, recordId, tx);
-        if (!snapshot || snapshot.isFinished || snapshot.isSuspended) return 'LEFT_ALONE';
+        if (!snapshot || snapshot.isFinished) return 'LEFT_ALONE';
+        if (snapshot.isSuspended) return 'SUSPENDED';
         const result = await this.deadlineWriter.sync(tx, kind, recordId, reason);
         if (result === 'WRITTEN') await refreshRecordAlert(tx, this.gateway, kind, recordId);
         return result;

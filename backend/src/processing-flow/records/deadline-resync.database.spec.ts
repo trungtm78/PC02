@@ -10,7 +10,7 @@ import { CaseAdapter } from '../gateway/case.adapter';
 import { IncidentAdapter } from '../gateway/incident.adapter';
 import { PetitionAdapter } from '../gateway/petition.adapter';
 import { RecordGateway } from '../gateway/record-gateway';
-import { DEADLINE_RESYNC_BATCH, DEADLINE_RESYNC_REASON, LEGAL_VERIFIED_REASON } from './deadline-resync';
+import { DEADLINE_RESYNC_BATCH, DEADLINE_RESYNC_CHECKPOINT, DEADLINE_RESYNC_DONE, DEADLINE_RESYNC_REASON, DEADLINE_RESYNC_RECORD_REASON, LEGAL_VERIFIED_REASON } from './deadline-resync';
 import { FlowApplicationService } from './flow-application.service';
 import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
@@ -347,5 +347,188 @@ run('The deadline of records already on a flow version, after its legal figures 
     expect(progress).toEqual(Array.from({ length: passes }, (_, index) => Math.min((index + 1) * DEADLINE_RESYNC_BATCH, total)));
     expect(await scratch.db.procOutbox.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: 'DONE', outcome: 'RESYNCED' });
     expect(await scratch.db.procStepChange.count({ where: { recordId: { in: ids }, action: 'RECORD_DEADLINE_WRITTEN' } })).toBe(total);
+  });
+
+  describe('records the job cannot do at once (found by Codex)', () => {
+    /** An outbox whose per-record work runs `before` first: a fault, or another worker, placed exactly where wanted. */
+    const outboxWith = (before: (recordId: string) => Promise<void>) => {
+      const wrapped = {
+        apply: (input: Parameters<FlowApplicationService['apply']>[0]) => applier.apply(input),
+        resyncDeadline: async (kind: 'PETITION', recordId: string, reason: string) => {
+          await before(recordId);
+          return applier.resyncDeadline(kind, recordId, reason);
+        },
+      };
+      const service = new ProcessingOutboxService(scratch.db as never, { isEnabled: () => Promise.resolve(switchOn) } as never, wrapped as never);
+      service.nudgeEnabled = false;
+      return service;
+    };
+    const recordJobs = (recordId: string) => scratch.db.procOutbox.findMany({ where: { recordId, reason: DEADLINE_RESYNC_RECORD_REASON }, orderBy: { createdAt: 'asc' } });
+    const makeDue = (recordId: string) => scratch.db.procOutbox.updateMany({ where: { recordId, status: 'PENDING' }, data: { availableAt: new Date(Date.now() - 1000) } });
+    /** Drains until every job of the version, and (when asked) every waiting job of these records, has been looked at once more. */
+    const drainUntil = async (service: ProcessingOutboxService, done: () => Promise<boolean>) => {
+      for (let pass = 0; pass < 200; pass += 1) {
+        if (await done()) return;
+        await service.drain(5);
+      }
+      throw new Error('The drain never got there');
+    };
+    const versionDone = (flow: FlowDetailDto) => async () => (await jobsOf(flow)).every((job) => job.status !== 'PENDING');
+
+    it('a record that keeps failing does not block the version: the others are done, the job ends, and the record is retried apart until it works', async () => {
+      const flow = await publish([step()]);
+      const ids: string[] = [];
+      for (let n = 0; n < 5; n += 1) ids.push(await applied(flow));
+      // The job goes through the records in the order of their flows.
+      const ordered = (await scratch.db.procRecordFlow.findMany({ where: { recordId: { in: ids } }, orderBy: { id: 'asc' }, select: { recordId: true } })).map((row) => row.recordId);
+      const broken = ordered[2];
+      let fault = true;
+      const faulty = outboxWith((recordId) => (fault && recordId === broken ? Promise.reject(new Error('this record cannot be written')) : Promise.resolve()));
+
+      await verify(flow);
+      await drainUntil(faulty, versionDone(flow));
+
+      expect(await jobsOf(flow)).toMatchObject([{ status: 'DONE', outcome: `${DEADLINE_RESYNC_DONE} deferred=1` }]);
+      for (const id of ordered) expect(await columnOf(id)).toBe(id === broken ? OLD_DEADLINE.toISOString() : FLOW_DEADLINE);
+      const [waiting] = await recordJobs(broken);
+      expect(await recordJobs(broken)).toHaveLength(1);
+      expect(waiting).toMatchObject({ status: 'PENDING', recordKind: 'PETITION', lastError: 'this record cannot be written' });
+      expect(waiting.availableAt.getTime()).toBeGreaterThan(Date.now());
+
+      // Retried on its own, and counted: it would be given up on (DEAD) by itself, never taking the version with it.
+      await makeDue(broken);
+      await drainUntil(faulty, async () => (await recordJobs(broken))[0].attempts >= 1);
+      expect((await recordJobs(broken))[0]).toMatchObject({ status: 'PENDING', attempts: 1, lastError: 'this record cannot be written' });
+      expect(await columnOf(broken)).toBe(OLD_DEADLINE.toISOString());
+
+      fault = false;
+      await makeDue(broken);
+      await drainUntil(faulty, async () => (await recordJobs(broken))[0].status !== 'PENDING');
+      expect(await recordJobs(broken)).toMatchObject([{ status: 'DONE', outcome: 'WRITTEN', lastError: null }]);
+      expect(await columnOf(broken)).toBe(FLOW_DEADLINE);
+      expect(await writtenRows(broken)).toHaveLength(1);
+    });
+
+    it('a worker that lost its claim in the middle of a batch stops without touching the job, and no record is written twice', async () => {
+      expect(DEADLINE_RESYNC_CHECKPOINT).toBeLessThan(DEADLINE_RESYNC_BATCH);
+      const flow = await publish([step()]);
+      const total = DEADLINE_RESYNC_CHECKPOINT * 2 + 5;
+      const ids: string[] = [];
+      for (let n = 0; n < total; n += 1) ids.push(await applied(flow));
+      await verify(flow);
+      const [job] = await jobsOf(flow);
+
+      // During the third record another worker takes the job (its lease ran out for them): its claim, its cursor.
+      const stolenLease = new Date(Date.now() + 240_000);
+      let calls = 0;
+      const first = outboxWith(async (recordId) => {
+        if (!ids.includes(recordId)) return;
+        calls += 1;
+        if (calls === 3) await scratch.db.procOutbox.update({ where: { id: job.id }, data: { availableAt: stolenLease, outcome: 'AFTER:the-other-worker' } });
+      });
+      for (let pass = 0; pass < 100 && calls < 3; pass += 1) await first.drain(1);
+
+      // It noticed at its next checkpoint: nothing of the job was overwritten, and it did not go on to the end.
+      const after = await scratch.db.procOutbox.findUniqueOrThrow({ where: { id: job.id } });
+      expect(after).toMatchObject({ status: 'PENDING', outcome: 'AFTER:the-other-worker' });
+      expect(after.availableAt.getTime()).toBe(stolenLease.getTime());
+      expect(calls).toBe(DEADLINE_RESYNC_CHECKPOINT);
+
+      // The other worker does the whole version (from the start): every record once, one history row each.
+      await scratch.db.procOutbox.update({ where: { id: job.id }, data: { outcome: null, availableAt: new Date(Date.now() - 1000) } });
+      await drainJobsOf(flow);
+      expect(await scratch.db.petition.count({ where: { id: { in: ids }, deadline: new Date(FLOW_DEADLINE) } })).toBe(total);
+      const rows = await scratch.db.procStepChange.groupBy({ by: ['recordId'], where: { recordId: { in: ids }, action: 'RECORD_DEADLINE_WRITTEN' }, _count: true });
+      expect(rows).toHaveLength(total);
+      expect(rows.every((row) => row._count === 1)).toBe(true);
+    });
+
+    it('a record suspended when the job met it waits in a row of its own, uncounted, and is written after it resumes although no pause was ever recorded', async () => {
+      const flow = await publish([step()]);
+      const suspended = await applied(flow);
+      const finished = await applied(flow);
+      const deleted = await applied(flow);
+      await scratch.db.petition.update({ where: { id: suspended }, data: { status: 'TAM_DINH_CHI' } });
+      await scratch.db.petition.update({ where: { id: finished }, data: { status: 'DA_GIAI_QUYET' } });
+      await scratch.db.petition.update({ where: { id: deleted }, data: { deletedAt: new Date() } });
+
+      await verify(flow);
+      await drainJobsOf(flow);
+      expect(await jobsOf(flow)).toMatchObject([{ status: 'DONE', outcome: `${DEADLINE_RESYNC_DONE} deferred=1` }]);
+      // Nothing is kept for a record that is history or gone.
+      expect(await recordJobs(finished)).toHaveLength(0);
+      expect(await recordJobs(deleted)).toHaveLength(0);
+      const [waiting] = await recordJobs(suspended);
+      expect(waiting).toMatchObject({ status: 'PENDING', attempts: 0, outcome: 'SUSPENDED', lastError: null });
+      expect(waiting.availableAt.getTime()).toBeGreaterThan(Date.now());
+
+      // Looked at again while still suspended: it waits on, and that is not a failed attempt.
+      await makeDue(suspended);
+      await drainUntil(outbox, async () => (await recordJobs(suspended))[0].availableAt.getTime() > Date.now());
+      expect((await recordJobs(suspended))[0]).toMatchObject({ status: 'PENDING', attempts: 0, outcome: 'SUSPENDED' });
+      expect(await columnOf(suspended)).toBe(OLD_DEADLINE.toISOString());
+
+      // Resumed between two looks of the worker of the clock: no pause row exists, nothing else would ever write it.
+      await scratch.db.petition.update({ where: { id: suspended }, data: { status: 'DANG_XU_LY' } });
+      expect(await scratch.db.procRecordPause.count({ where: { recordFlow: { recordId: suspended } } })).toBe(0);
+      await makeDue(suspended);
+      await drainUntil(outbox, async () => (await recordJobs(suspended))[0].status !== 'PENDING');
+      expect(await recordJobs(suspended)).toMatchObject([{ status: 'DONE', outcome: 'WRITTEN' }]);
+      expect(await columnOf(suspended)).toBe(FLOW_DEADLINE);
+      expect(await writtenRows(suspended)).toHaveLength(1);
+    });
+
+    it('a pause that closes because no step is worked any more, on a record STILL suspended, writes no deadline; the resumption does, once', async () => {
+      const flow = await publish([step()]);
+      const recordId = await applied(flow);
+      await scratch.db.petition.update({ where: { id: recordId }, data: { status: 'TAM_DINH_CHI' } });
+      await pauses.reconcile();
+      expect(await scratch.db.procRecordPause.count({ where: { recordFlow: { recordId }, to: null } })).toBe(1);
+      // The last step ends while the record is suspended and its figures are not verified yet.
+      await scratch.db.procRecordStep.updateMany({ where: { recordId }, data: { status: 'DONE', doneAt: new Date('2026-12-03T03:00:00.000Z') } });
+      await verify(flow);
+      await drainJobsOf(flow);
+
+      await pauses.reconcile();
+      expect(await scratch.db.procRecordPause.count({ where: { recordFlow: { recordId }, to: null } })).toBe(0);
+      expect(await columnOf(recordId)).toBe(OLD_DEADLINE.toISOString());
+      expect(await writtenRows(recordId)).toHaveLength(0);
+
+      await scratch.db.petition.update({ where: { id: recordId }, data: { status: 'DANG_XU_LY' } });
+      await pauses.reconcile();
+      await makeDue(recordId);
+      await drainUntil(outbox, async () => (await recordJobs(recordId)).every((job) => job.status !== 'PENDING'));
+      expect(await columnOf(recordId)).toBe(FLOW_DEADLINE);
+      expect(await writtenRows(recordId)).toHaveLength(1);
+    });
+
+    it('a waiting row of this kind is not mistaken for "a flow is about to be applied": the request of a saved record is still written, and nothing runs while the switch is off', async () => {
+      const flow = await publish([step()]);
+      const recordId = await applied(flow);
+      await scratch.db.petition.update({ where: { id: recordId }, data: { status: 'TAM_DINH_CHI' } });
+      await verify(flow);
+      await drainJobsOf(flow);
+      expect(await recordJobs(recordId)).toMatchObject([{ status: 'PENDING' }]);
+
+      await outbox.refreshSwitch();
+      await scratch.db.$transaction((tx) => outbox.enqueue(tx, 'PETITION', recordId, 'CONVERTED'));
+      const applyRows = await scratch.db.procOutbox.findMany({ where: { recordId, reason: 'CONVERTED' } });
+      expect(applyRows).toMatchObject([{ status: 'PENDING' }]);
+
+      // Switched off: neither row is claimed, although both are due and the record has resumed.
+      await scratch.db.petition.update({ where: { id: recordId }, data: { status: 'DANG_XU_LY' } });
+      await makeDue(recordId);
+      switchOn = false;
+      expect(await outbox.drain()).toEqual({ done: 0, retried: 0, dead: 0 });
+      expect((await scratch.db.procOutbox.findMany({ where: { recordId } })).map((row) => [row.status, row.attempts])).toEqual([['PENDING', 0], ['PENDING', 0]]);
+      expect(await columnOf(recordId)).toBe(OLD_DEADLINE.toISOString());
+
+      switchOn = true;
+      await drainUntil(outbox, async () => (await scratch.db.procOutbox.count({ where: { recordId, status: 'PENDING' } })) === 0);
+      expect(await scratch.db.procOutbox.findMany({ where: { recordId }, orderBy: { createdAt: 'asc' }, select: { reason: true, outcome: true } })).toEqual([
+        { reason: DEADLINE_RESYNC_RECORD_REASON, outcome: 'WRITTEN' },
+        { reason: 'CONVERTED', outcome: 'ALREADY_APPLIED' },
+      ]);
+    });
   });
 });
