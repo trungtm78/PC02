@@ -827,6 +827,14 @@ export class DocumentsService {
           actorId,
           tx,
         );
+        // A file attached to the report of a processing step is removed by the report's author through the step, while
+        // the step is open: write access to the record does not let another person take it away here.
+        if (
+          (existing as { procStepReportId?: string | null }).procStepReportId
+        )
+          throw new ConflictException(
+            'An attachment of a step report is removed through its step',
+          );
         if (existing.caseId) {
           await tx.$queryRaw(
             Prisma.sql`SELECT id FROM cases WHERE id = ${existing.caseId} FOR UPDATE`,
