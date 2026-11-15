@@ -2,6 +2,11 @@ import { CaseChildAccessService } from '../case-child-access/case-child-access.s
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+import {
+  assertDeadlineNotManaged,
+  assertExtensionNotManaged,
+} from '../processing-flow/records/deadline-managed.guard';
 import {
   Injectable,
   Optional,
@@ -235,6 +240,7 @@ export class IncidentsService {
     private readonly caseBoundary: CaseChildAccessService,
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1447,6 +1453,16 @@ export class IncidentsService {
       };
     }
 
+    // A record whose flow keeps the deadline takes it from a step, not from this form.
+    await assertDeadlineNotManaged(
+      this.deadlineWriter,
+      this.prisma,
+      'INCIDENT',
+      id,
+      updateData.deadline as Date | null | undefined,
+      existing.deadline,
+    );
+
     // v0.30: INCIDENT_UPDATED via wrapUpdate — full before/after snapshot for inline diff.
     let record: IncidentWithInvestigator;
     try {
@@ -1935,6 +1951,8 @@ export class IncidentsService {
       throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
     this.checkWriteScope(incident, dataScope);
     this.checkReceivedForBusiness(incident);
+    // The extension of a record whose flow keeps the deadline happens on the step, not here.
+    await assertExtensionNotManaged(this.deadlineWriter, this.prisma, 'INCIDENT', id);
 
     // Max-extensions: use snapshot taken at incident creation (frozen). Falls
     // back to current active rule for incidents created before the migration
@@ -2363,6 +2381,16 @@ export class IncidentsService {
           );
       }
     }
+
+    // Only a deadline the assignment CHANGES is refused: assigning a managed record without one stays possible.
+    await assertDeadlineNotManaged(
+      this.deadlineWriter,
+      this.prisma,
+      'INCIDENT',
+      id,
+      dto.deadline ? new Date(dto.deadline) : undefined,
+      existing.deadline,
+    );
 
     let record: IncidentWithInvestigator;
     try {

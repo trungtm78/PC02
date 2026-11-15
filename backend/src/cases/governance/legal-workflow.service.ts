@@ -10,6 +10,8 @@ import { Case, CaseActionRequest, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DocumentNumbersService } from '../../document-numbers/document-numbers.service';
 import { ProcessingOutboxService } from '../../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../../processing-flow/records/record-deadline-writer.service';
+import { assertDeadlineNotManaged } from '../../processing-flow/records/deadline-managed.guard';
 import { CaseEvidenceGovernanceService } from '../evidence-governance/evidence-governance.service';
 import { machMocGiaiQuyet } from '../../common/trang-thai/trang-thai-ket-thuc';
 import { CaseGovernanceService } from './case-governance.service';
@@ -69,6 +71,7 @@ export class LegalWorkflowService {
     @Optional() private readonly numbers?: DocumentNumbersService,
     @Optional() private readonly evidence?: CaseEvidenceGovernanceService,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
   async actionCapabilities(
     caseId: string,
@@ -1028,6 +1031,16 @@ export class LegalWorkflowService {
           caseRecord,
           row,
           actor,
+        );
+        // A governed action that moves the deadline of a record whose flow keeps it is refused before anything is
+        // written (`PRESERVE` and any action that lands on the stored value pass).
+        await assertDeadlineNotManaged(
+          this.deadlineWriter,
+          tx,
+          'CASE',
+          caseId,
+          deadlineEffect.deadline,
+          caseRecord.deadline,
         );
         const decision = await tx.caseDecision.create({
           data: {

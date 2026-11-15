@@ -1,6 +1,6 @@
 import { readersOf } from '../authz/record-readers';
 import type { RecordSubject } from '../common/utils/precise-scope';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 import { addDays, differenceInDays, startOfDay, subHours } from 'date-fns';
@@ -8,6 +8,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import type { RecordKind } from '../processing-flow/gateway/record-snapshot';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+
+/** The switch of the new reminders (a later change); while it is on they own the records whose deadline a flow keeps. */
+const REMINDERS_SWITCH = 'processing_flow_reminders';
 
 const TERMINAL_CASE_STATUSES: CaseStatus[] = [
   CaseStatus.DINH_CHI,
@@ -41,12 +47,42 @@ export class DeadlineScheduler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
+    @Optional() private readonly flags?: FeatureFlagsService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
+
+  /**
+   * The records this run must leave alone: those whose deadline a flow keeps, once the NEW reminders are on
+   * (`processing_flow_reminders`), because they remind about the step and a second notice about the same deadline would
+   * be noise. `null` (nothing excluded: the queries are exactly the old ones) while the switch is off, when no writer is
+   * wired, or when either lookup fails: a duplicate reminder is better than a missed one.
+   */
+  private async managedExclusions(): Promise<Record<RecordKind, string[]> | null> {
+    if (!this.flags || !this.deadlineWriter) return null;
+    try {
+      if (!(await this.flags.isEnabled(REMINDERS_SWITCH))) return null;
+      const [cases, incidents, petitions] = await Promise.all([
+        this.deadlineWriter.managedRecordIds('CASE'),
+        this.deadlineWriter.managedRecordIds('INCIDENT'),
+        this.deadlineWriter.managedRecordIds('PETITION'),
+      ]);
+      return { CASE: cases, INCIDENT: incidents, PETITION: petitions };
+    } catch (err) {
+      this.logger.error('DeadlineScheduler: failed to read the records with a managed deadline, reminding about all of them', err);
+      return null;
+    }
+  }
+
+  /** `{ id: { notIn } }` for the ids to leave out, nothing at all when there are none. */
+  private leaveOut(ids: string[] | undefined): { id?: { notIn: string[] } } {
+    return ids && ids.length > 0 ? { id: { notIn: ids } } : {};
+  }
 
   @Cron('0 7 * * *')
   async checkDeadlines() {
     this.logger.log('DeadlineScheduler: running deadline check');
     const today = new Date();
+    const managed = await this.managedExclusions();
 
     let thresholdSetting: { value: string } | null = null;
     try {
@@ -61,9 +97,9 @@ export class DeadlineScheduler {
     const inWarnDays = addDays(today, safeWarnDays);
 
     await Promise.allSettled([
-      this.checkCases(today, inWarnDays),
-      this.checkIncidents(today, inWarnDays),
-      this.checkPetitions(today, inWarnDays),
+      this.checkCases(today, inWarnDays, managed?.CASE),
+      this.checkIncidents(today, inWarnDays, managed?.INCIDENT),
+      this.checkPetitions(today, inWarnDays, managed?.PETITION),
     ]);
 
     this.logger.log('DeadlineScheduler: done');
@@ -135,9 +171,10 @@ export class DeadlineScheduler {
     return directUserId ? [directUserId] : [];
   }
 
-  private async checkCases(today: Date, inWarnDays: Date) {
+  private async checkCases(today: Date, inWarnDays: Date, leaveOutIds?: string[]) {
     const overdue = await this.prisma.case.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { lt: today },
         status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
@@ -171,6 +208,7 @@ export class DeadlineScheduler {
 
     const near = await this.prisma.case.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { gte: today, lte: inWarnDays },
         status: { notIn: TERMINAL_CASE_STATUSES },
         deletedAt: null,
@@ -205,9 +243,10 @@ export class DeadlineScheduler {
     }
   }
 
-  private async checkIncidents(today: Date, inWarnDays: Date) {
+  private async checkIncidents(today: Date, inWarnDays: Date, leaveOutIds?: string[]) {
     const overdue = await this.prisma.incident.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { lt: today },
         status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
@@ -241,6 +280,7 @@ export class DeadlineScheduler {
 
     const near = await this.prisma.incident.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { gte: today, lte: inWarnDays },
         status: { notIn: TERMINAL_INCIDENT_STATUSES },
         deletedAt: null,
@@ -275,10 +315,11 @@ export class DeadlineScheduler {
     }
   }
 
-  private async checkPetitions(today: Date, inWarnDays: Date) {
+  private async checkPetitions(today: Date, inWarnDays: Date, leaveOutIds?: string[]) {
     // Petitions: directUserId = enteredById (mirrors buildPetitionScopeFilter ownership).
     const overdue = await this.prisma.petition.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { lt: today },
         status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,
@@ -312,6 +353,7 @@ export class DeadlineScheduler {
 
     const near = await this.prisma.petition.findMany({
       where: {
+        ...this.leaveOut(leaveOutIds),
         deadline: { gte: today, lte: inWarnDays },
         status: { notIn: TERMINAL_PETITION_STATUSES },
         deletedAt: null,

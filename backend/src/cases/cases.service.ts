@@ -1,6 +1,8 @@
 import { CaseOperationsService } from './governance/case-operations.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
 import {
   Injectable,
   NotFoundException,
@@ -376,6 +378,7 @@ export class CasesService {
     private readonly governedSourceCreation?: CaseSourceCreationService,
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
 
   private async lockCase(tx: PrismaTx, id: string): Promise<void> {
@@ -2693,6 +2696,15 @@ export class CasesService {
               'Use a governed legal action to change adopted legal dates, reasons or deadlines',
             );
         }
+        // A record whose flow keeps the deadline takes it from a step, not from this form.
+        await assertDeadlineNotManaged(
+          this.deadlineWriter,
+          tx,
+          'CASE',
+          id,
+          updateData.deadline as Date | null | undefined,
+          currentCase.deadline,
+        );
         const ownerChanged =
           (dto.investigatorId !== undefined &&
             dto.investigatorId !== existing.investigatorId) ||

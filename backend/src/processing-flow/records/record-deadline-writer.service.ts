@@ -48,6 +48,22 @@ export class RecordDeadlineWriter {
     return (await this.managedDeadline(db, kind, recordId)) !== null;
   }
 
+  /**
+   * The ids of the records of a kind whose deadline is managed: the same test as `isManaged`, for all of them in one
+   * query (the reminders of the old scheduler leave these records to the new ones).
+   */
+  async managedRecordIds(kind: RecordKind): Promise<string[]> {
+    const flows = await this.prisma.procRecordFlow.findMany({
+      where: {
+        recordKind: kind,
+        confirmed: true,
+        steps: { some: { regulatoryDueAt: { not: null }, step: { setsRecordDeadline: true, legalVerifiedAt: { not: null } } } },
+      },
+      select: { recordId: true },
+    });
+    return flows.map((flow) => flow.recordId);
+  }
+
   /** Copies the managed deadline into the record's column when it differs. Returns what it did. */
   async sync(tx: Prisma.TransactionClient, kind: RecordKind, recordId: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED'> {
     const managed = await this.managedDeadline(tx, kind, recordId);

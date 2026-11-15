@@ -221,6 +221,20 @@ run('RecordDeadlineWriter on PostgreSQL', () => {
     expect(await columnOf(recordId)).toBe('2026-12-11T16:59:59.999Z');
   });
 
+  it('lists the records whose deadline is kept by a flow, and only those (the legacy reminders skip them)', async () => {
+    const verified = await publish([step()]);
+    await verify(verified);
+    const unverified = await publish([step()]);
+    const keptId = await petition();
+    const notKeptId = await petition();
+    await commands.apply(actor, 'PETITION', keptId, { flowId: verified.id });
+    await commands.apply(actor, 'PETITION', notKeptId, { flowId: unverified.id });
+    const ids = await writer.managedRecordIds('PETITION');
+    expect(ids).toContain(keptId);
+    expect(ids).not.toContain(notKeptId);
+    expect(await writer.managedRecordIds('CASE')).not.toContain(keptId);
+  });
+
   it('only the step marked as the deadline of the record counts', async () => {
     const flow = await publish([step({ name: 'Other', setsRecordDeadline: false }), step({ name: 'The deadline', anchor: 'PREVIOUS_STEP_DONE', setsRecordDeadline: true })]);
     await verify(flow, 0);

@@ -4,6 +4,8 @@ import type { Petition } from '@prisma/client';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
+import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import {
   Injectable,
@@ -325,6 +327,7 @@ export class PetitionsService {
     private readonly caseEvidence: CaseEvidenceGovernanceService,
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
+    @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1052,6 +1055,20 @@ export class PetitionsService {
         throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
       }
     }
+
+    // A record whose flow keeps the deadline takes it from a step, not from this form.
+    await assertDeadlineNotManaged(
+      this.deadlineWriter,
+      this.prisma,
+      'PETITION',
+      id,
+      dto.deadline === undefined
+        ? undefined
+        : dto.deadline
+          ? new Date(dto.deadline)
+          : null,
+      existing.deadline,
+    );
 
     const loaiVaNhomHan = await this.loaiVaNhomHanKhiSua(dto, existing);
 
@@ -1796,6 +1813,16 @@ export class PetitionsService {
         );
       }
     }
+
+    // Only a deadline the assignment CHANGES is refused: assigning a managed record without one stays possible.
+    await assertDeadlineNotManaged(
+      this.deadlineWriter,
+      this.prisma,
+      'PETITION',
+      id,
+      dto.deadline ? new Date(dto.deadline) : undefined,
+      existing.deadline,
+    );
 
     try {
       await this.prisma.petition.update({
