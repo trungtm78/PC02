@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
-import { IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -19,6 +19,8 @@ interface AuthenticatedUser {
 
 export class NudgeDto {
   @IsString() @MaxLength(MAX_NUDGE_MESSAGE) message!: string;
+  /** Chosen by the client for ONE nudge: sent again (a lost answer), it gets the first answer and does nothing. */
+  @IsOptional() @IsString() @MaxLength(100) idempotencyKey?: string;
 }
 
 /**
@@ -44,6 +46,6 @@ export class ProcessingRemindersController {
     const recordKind = kind as RecordKind;
     const role = typeof user.role === 'string' ? user.role : (user.role?.name ?? '');
     if (!(await this.gateway.canRead(recordKind, id, { id: user.id, role, canDispatch: user.canDispatch ?? false }))) throw new NotFoundException({ code: PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND });
-    return this.reminders.nudge(user.id, recordKind, id, stepKey, body.message);
+    return this.reminders.nudge(user.id, recordKind, id, stepKey, { message: body.message, idempotencyKey: body.idempotencyKey });
   }
 }

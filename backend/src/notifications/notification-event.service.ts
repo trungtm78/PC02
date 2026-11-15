@@ -34,6 +34,11 @@ export interface InAppNotice {
   metadata?: Record<string, unknown>;
 }
 
+export interface PreparedNotice {
+  notice: InAppNotice;
+  push: boolean;
+}
+
 @Injectable()
 export class NotificationEventService {
   private readonly logger = new Logger(NotificationEventService.name);
@@ -309,27 +314,45 @@ export class NotificationEventService {
     payload: InAppNotice,
     db: Pick<Prisma.TransactionClient, 'notification'> = this.prisma,
   ): Promise<boolean> {
+    const prepared = await this.prepareInApp(payload);
+    if (!prepared) return false;
+    await this.writeInApp(prepared, db);
+    return true;
+  }
+
+  /**
+   * Everything of a delivery that only READS (the case policy, the preferences of the person), on the root client: a
+   * caller that writes the notice inside a transaction does this BEFORE opening it, so the transaction never waits
+   * for a second connection. `null`: no notice (the person may not read the case, or switched the notice off).
+   */
+  async prepareInApp(payload: InAppNotice): Promise<PreparedNotice | null> {
     const policy =
       this.casePolicy ?? new CaseNotificationPolicyService(this.prisma);
     const allowed = await policy.serialize(payload.toUserId, payload);
-    if (!allowed) return false;
-    payload = allowed;
-    const pref = await this.getPref(payload.toUserId, payload.type);
-    if (!pref.inApp) return false;
+    if (!allowed) return null;
+    const pref = await this.getPref(allowed.toUserId, allowed.type);
+    if (!pref.inApp) return null;
+    return { notice: allowed, push: pref.push };
+  }
 
+  /** The write of a prepared notice, and nothing else: one statement on the client given. */
+  async writeInApp(
+    prepared: PreparedNotice,
+    db: Pick<Prisma.TransactionClient, 'notification'> = this.prisma,
+  ): Promise<void> {
+    const { notice } = prepared;
     await db.notification.create({
       data: {
-        userId: payload.toUserId,
-        type: payload.type,
-        title: payload.title,
-        message: payload.message,
-        link: payload.link,
-        metadata: (payload.metadata ?? Prisma.JsonNull) as any,
-        pushNextRetryAt: pref.push ? nextWorkHoursTime() : null,
+        userId: notice.toUserId,
+        type: notice.type,
+        title: notice.title,
+        message: notice.message,
+        link: notice.link,
+        metadata: (notice.metadata ?? Prisma.JsonNull) as any,
+        pushNextRetryAt: prepared.push ? nextWorkHoursTime() : null,
         pushMaxRetries: 3,
       },
     });
-    return true;
   }
 
   private async getPref(userId: string, type: NotificationType) {

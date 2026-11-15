@@ -13,7 +13,10 @@ import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { recordLink } from '../records/record-alert';
 import { RecordStepAccessService } from '../records/record-step-access.service';
-import { ProcessingReminderService, REMINDERS_SWITCH, STEP_NUDGED } from './processing-reminder.service';
+import type { PrismaClient } from '@prisma/client';
+import { SETTINGS_KEY } from '../../common/constants/settings-keys.constants';
+import { CaseNotificationPolicyService } from '../../notifications/case-notification-policy.service';
+import { NUDGE_COOLDOWN_MS, ProcessingReminderService, STEP_NUDGED } from './processing-reminder.service';
 
 /**
  * The reminders of the processing flow on a REAL PostgreSQL: what is decided, for whom, once; what a dying process
@@ -53,10 +56,35 @@ run('The reminders of the processing flow on PostgreSQL', () => {
   let events: NotificationEventService;
   let reminders: ProcessingReminderService;
   let permissions: EnsuredPermissions;
-  let remindersOn = true;
-  const flags = { isEnabled: (key: string) => Promise.resolve(key === REMINDERS_SWITCH ? remindersOn : true) } as never;
+  // The switch of the records, as the cached flag service answers it: on.
+  const flags = { isEnabled: () => Promise.resolve(true) } as never;
+  /** What the two escalation settings say; a key that is absent = the row does not exist (the defaults apply). */
+  let settings: Record<string, string> = {};
   const bell = jest.fn();
   const tag = `rem-${randomUUID().slice(0, 8)}`;
+  /** Rows of `feature_flags` of this suite alone: the real switches are one row each for the whole shared database. */
+  const SWITCH = `${tag}-reminders`;
+  const RECORDS = `${tag}-records`;
+  /** Flips the switch where every runner reads it: the row. */
+  const switchTo = (enabled: boolean) => scratch.db.featureFlag.update({ where: { key: SWITCH }, data: { enabled } });
+
+  /** The database with the two escalation settings answered by this suite (the rows are shared, so they are not written). */
+  const withSettings = (client: PrismaClient): PrismaClient =>
+    new Proxy(client, {
+      get(target, property, receiver) {
+        if (property !== 'systemSetting') return Reflect.get(target, property, receiver) as unknown;
+        return new Proxy(target.systemSetting, {
+          get(setting, method, settingReceiver) {
+            if (method !== 'findUnique') return Reflect.get(setting, method, settingReceiver) as unknown;
+            return (args: { where: { key: string } }) => {
+              const { key } = args.where;
+              if (key !== SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY && key !== SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY) return setting.findUnique(args as never);
+              return Promise.resolve(key in settings ? { key, value: settings[key] } : null);
+            };
+          },
+        });
+      },
+    });
   const id: Record<string, string> = {};
   const recordIds: string[] = [];
   let flowConfig = { flowId: '', versionId: '' };
@@ -124,10 +152,12 @@ run('The reminders of the processing flow on PostgreSQL', () => {
   };
   const toWhom = async (recordId: string) => (await noticesOf(recordId)).map((notice) => notice.to).sort();
 
-  const service = (notifier: Pick<NotificationEventService, 'deliverInApp' | 'ringBell'> = events) => {
-    const made = new ProcessingReminderService(scratch.db as never, flags, gateway, notifier as never);
-    made.onlyRecordIds = recordIds;
+  type Notifier = Pick<NotificationEventService, 'prepareInApp' | 'writeInApp' | 'ringBell'>;
+  const service = (over: { notifier?: Notifier; gateway?: Pick<RecordGateway, 'canRead' | 'load'>; records?: string[] } = {}) => {
+    const made = new ProcessingReminderService(withSettings(scratch.db) as never, flags, (over.gateway ?? gateway) as never, (over.notifier ?? events) as never);
+    made.onlyRecordIds = over.records ?? recordIds;
     made.onlyUserIds = Object.values(id);
+    made.switchKey = SWITCH;
     return made;
   };
 
@@ -182,15 +212,19 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     const version = await db.procFlowVersion.create({ data: { flowId: flow.id, versionNo: 1, status: 'PUBLISHED', createdById: id.owner } });
     flowConfig = { flowId: flow.id, versionId: version.id };
     const base = { versionId: version.id, durationValue: 5, durationUnit: 'DAY' as const, anchor: 'RECEIVED' as const, ...T };
+    // `plain` says nothing about escalation (the system settings decide); `escalating` says 4 and 6 days itself.
     stepConfig.plain = (await db.procFlowStep.create({ data: { ...base, stepKey: 'k1', order: 0, name: `${tag} Verify` } })).id;
-    stepConfig.escalating = (await db.procFlowStep.create({ data: { ...base, stepKey: 'k2', order: 1, name: `${tag} Settle`, escalateAfterDays: 3, escalateLeadershipAfterDays: 7 } })).id;
+    stepConfig.escalating = (await db.procFlowStep.create({ data: { ...base, stepKey: 'k2', order: 1, name: `${tag} Settle`, escalateAfterDays: 4, escalateLeadershipAfterDays: 6 } })).id;
 
     const prisma = db as never;
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, new AuditService(prisma), {} as never));
     const stepAccess = new RecordStepAccessService(prisma, { isEnabled: () => Promise.resolve(true) } as never);
     await stepAccess.refreshSwitch();
     gateway = new RecordGateway(new PetitionAdapter(prisma, scopes, stepAccess), new IncidentAdapter(prisma, scopes, stepAccess), new CaseAdapter(prisma, scopes, stepAccess));
-    events = new NotificationEventService(prisma, { notifyUser: bell } as never, {} as never);
+    await db.featureFlag.createMany({ data: [{ key: SWITCH, label: SWITCH, enabled: true }, { key: RECORDS, label: RECORDS, enabled: true }] });
+    const casePolicy = new CaseNotificationPolicyService(prisma);
+    casePolicy.recordsSwitchKey = RECORDS;
+    events = new NotificationEventService(prisma, { notifyUser: bell } as never, {} as never, casePolicy);
     reminders = service();
   });
 
@@ -200,6 +234,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     const people = Object.entries(id).filter(([name]) => name.length > 1).map(([, value]) => value);
     const flows = { flowId: flowConfig.flowId };
     await db.procReminder.deleteMany({ where: { recordId: { in: recordIds } } });
+    await db.featureFlag.deleteMany({ where: { key: { in: [SWITCH, RECORDS] } } });
     await db.notification.deleteMany({ where: { userId: { in: people } } });
     await db.procStepChange.deleteMany({ where: { recordId: { in: recordIds } } });
     await db.procRecordStepParty.deleteMany({ where: { recordStep: { recordFlow: flows } } });
@@ -221,8 +256,10 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     await scratch.close();
   });
 
-  beforeEach(() => {
-    remindersOn = true;
+  beforeEach(async () => {
+    await switchTo(true);
+    // No escalation unless a test says so: the tests of the bands count notices.
+    settings = { [SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY]: '0', [SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY]: '0' };
     bell.mockClear();
   });
 
@@ -281,7 +318,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     it('two runners at once: one tick does the work, the key is written once', async () => {
       const { recordId } = await work({ due: endOf(13) });
       const results = await Promise.all([reminders.tick(NOW), service().tick(NOW), service().tick(NOW)]);
-      expect(results.some((result) => result.ran)).toBe(true);
+      expect(results.some((result) => result.planning === 'DONE')).toBe(true);
       expect(await rowsOf(recordId)).toHaveLength(1);
       expect(await noticesOf(recordId)).toHaveLength(1);
     });
@@ -303,7 +340,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
 
     it('a reminder decided for a deadline that changed before it was delivered is dropped as stale', async () => {
       const { recordId, stepId } = await work({ due: endOf(13) });
-      expect(await reminders.plan(NOW)).toBeGreaterThanOrEqual(1);
+      expect((await reminders.plan(NOW)).planned).toBeGreaterThanOrEqual(1);
       await moveDeadline(stepId, endOf(25));
       await reminders.deliver(NOW);
       expect(await rowsOf(recordId)).toMatchObject([{ status: 'DONE', outcome: 'STALE' }]);
@@ -331,11 +368,14 @@ run('The reminders of the processing flow on PostgreSQL', () => {
       const { recordId } = await work({ due: endOf(13) });
       await reminders.plan(NOW);
       const dying = service({
-        deliverInApp: async (payload, db) => {
-          await events.deliverInApp(payload, db);
-          throw new Error('the process died');
+        notifier: {
+          prepareInApp: (payload) => events.prepareInApp(payload),
+          writeInApp: async (prepared, db) => {
+            await events.writeInApp(prepared, db);
+            throw new Error('the process died');
+          },
+          ringBell: () => undefined,
         },
-        ringBell: () => undefined,
       });
       expect(await dying.deliver(NOW)).toMatchObject({ sent: 0, retried: 1 });
       const [row] = await rowsOf(recordId);
@@ -356,33 +396,191 @@ run('The reminders of the processing flow on PostgreSQL', () => {
   describe('the switch', () => {
     it('off: the tick reads and writes nothing, and the legacy reminder leaves no record out', async () => {
       const { recordId } = await work({ due: endOf(8) });
-      remindersOn = false;
-      expect(await reminders.tick(NOW)).toEqual({ ran: false, planned: 0, delivered: { sent: 0, dropped: 0, retried: 0, dead: 0 } });
+      await switchTo(false);
+      expect(await reminders.tick(NOW)).toEqual({ ran: false, planning: 'OFF', planned: 0, delivered: { sent: 0, dropped: 0, retried: 0, dead: 0 } });
       expect(await rowsOf(recordId)).toHaveLength(0);
       expect(await noticesOf(recordId)).toHaveLength(0);
 
-      // The legacy scheduler asks the SAME switch at run time which records to leave to these reminders.
-      const legacy = new DeadlineScheduler(scratch.db as never, {} as never, flags, { managedRecordIds: () => Promise.resolve([recordId]) } as never) as unknown as { managedExclusions(): Promise<Record<RecordKind, string[]> | null> };
+      // The legacy scheduler asks the switch at run time which records to leave to these reminders.
+      let on = false;
+      const legacy = new DeadlineScheduler(scratch.db as never, {} as never, { isEnabled: () => Promise.resolve(on) } as never, { managedRecordIds: () => Promise.resolve([recordId]) } as never) as unknown as {
+        managedExclusions(): Promise<Record<RecordKind, string[]> | null>;
+      };
       expect(await legacy.managedExclusions()).toBeNull();
-      remindersOn = true;
+      on = true;
       expect(await legacy.managedExclusions()).toMatchObject({ PETITION: [recordId] });
     });
 
-    it('on -> off -> on: what was decided waits while off, nothing new is decided, and back on only the current band speaks', async () => {
+    it('on -> off -> on: what was decided waits while off, nothing new is decided, and back on only the CURRENT band speaks (the green one that waited is dropped)', async () => {
       const { recordId } = await work({ due: endOf(13) });
       await reminders.plan(NOW);
-      remindersOn = false;
+      await switchTo(false);
       expect(await reminders.deliver(NOW)).toEqual({ sent: 0, dropped: 0, retried: 0, dead: 0 });
       // The yellow band comes and goes while the switch is off.
       await reminders.tick(at(11));
       expect(await rowsOf(recordId)).toMatchObject([{ status: 'PENDING', band: 'GREEN' }]);
       expect(await noticesOf(recordId)).toHaveLength(0);
 
-      remindersOn = true;
+      await switchTo(true);
       await reminders.tick(at(12));
       await reminders.tick(at(12, 5));
-      expect((await rowsOf(recordId)).map((row) => [row.band, row.status, row.outcome])).toEqual([['GREEN', 'DONE', 'SENT'], ['RED', 'DONE', 'SENT']]);
-      expect(await noticesOf(recordId)).toHaveLength(2);
+      expect((await rowsOf(recordId)).map((row) => [row.band, row.status, row.outcome])).toEqual([['GREEN', 'DONE', 'STALE'], ['RED', 'DONE', 'SENT']]);
+      expect((await noticesOf(recordId)).map((notice) => notice.metadata.band)).toEqual(['RED']);
+    });
+
+    it('an overdue reminder of an earlier day is not sent a day late: the day it is delivered has its own', async () => {
+      const { recordId } = await work({ due: endOf(8) });
+      await reminders.plan(at(10));
+      await reminders.tick(at(11));
+      expect((await rowsOf(recordId)).map((row) => row.outcome)).toEqual(['STALE', 'SENT']);
+      expect(await noticesOf(recordId)).toHaveLength(1);
+    });
+
+    it('turned off in the ROW while a runner plans: that runner plans nothing more, though its flag cache still says on', async () => {
+      const three = [await work({ due: endOf(13) }), await work({ due: endOf(13) }), await work({ due: endOf(13) })].map((made) => made.recordId);
+      // The first question "may this person read" comes in the middle of the first batch: the switch goes off there.
+      const flipping = service({
+        records: three,
+        gateway: {
+          load: (kind, recordId) => gateway.load(kind, recordId),
+          canRead: async (kind, recordId, user, options) => {
+            await switchTo(false);
+            return gateway.canRead(kind, recordId, user, options);
+          },
+        },
+      });
+      flipping.batchSize = 1;
+      const result = await flipping.tick(NOW);
+      expect(result).toMatchObject({ planning: 'PARTIAL', planned: 1, delivered: { sent: 0 } });
+      expect(await scratch.db.procReminder.count({ where: { recordId: { in: three } } })).toBe(1);
+      expect(await scratch.db.procReminder.count({ where: { recordId: { in: three }, status: 'PENDING' } })).toBe(1);
+    });
+
+    it('turned off in the ROW while a runner delivers: the notice being written is the last one', async () => {
+      const three = [await work({ due: endOf(13) }), await work({ due: endOf(13) }), await work({ due: endOf(13) })].map((made) => made.recordId);
+      const flipping = service({
+        records: three,
+        notifier: {
+          prepareInApp: (payload) => events.prepareInApp(payload),
+          writeInApp: async (prepared, db) => {
+            await events.writeInApp(prepared, db);
+            await switchTo(false);
+          },
+          ringBell: () => undefined,
+        },
+      });
+      expect((await flipping.plan(NOW)).planned).toBe(3);
+      expect(await flipping.deliver(NOW)).toMatchObject({ sent: 1 });
+      expect(await scratch.db.procReminder.count({ where: { recordId: { in: three }, status: 'PENDING' } })).toBe(2);
+    });
+  });
+
+  describe('a tick that cannot finish its planning', () => {
+    it('plans as far as its budget goes and the next tick goes on from there: nothing is skipped, nothing twice', async () => {
+      const three = [await work({ due: endOf(13) }), await work({ due: endOf(13) }), await work({ due: endOf(13) })].map((made) => made.recordId);
+      const bounded = service({ records: three });
+      bounded.batchSize = 1;
+      bounded.stepBudget = 1;
+      const count = () => scratch.db.procReminder.count({ where: { recordId: { in: three } } });
+
+      expect(await bounded.tick(NOW)).toMatchObject({ planning: 'PARTIAL', planned: 1, delivered: { sent: 1 } });
+      expect(await count()).toBe(1);
+      expect(await bounded.tick(NOW)).toMatchObject({ planning: 'PARTIAL', planned: 1 });
+      expect(await bounded.tick(NOW)).toMatchObject({ planning: 'PARTIAL', planned: 1 });
+      expect(await count()).toBe(3);
+      // The end of the scan: the next tick starts over and finds everything decided.
+      expect(await bounded.tick(NOW)).toMatchObject({ planning: 'DONE', planned: 0 });
+      expect(await bounded.tick(NOW)).toMatchObject({ planned: 0 });
+      expect(await count()).toBe(3);
+      for (const recordId of three) expect(await noticesOf(recordId)).toHaveLength(1);
+    });
+
+    it('planning that fails does not stop the delivery of what waits', async () => {
+      const { recordId } = await work({ due: endOf(13) });
+      await reminders.plan(NOW);
+      const broken = service();
+      broken.plan = () => Promise.reject(new Error('the scan failed'));
+      expect(await broken.tick(NOW)).toMatchObject({ ran: true, planning: 'FAILED', planned: 0 });
+      expect(await rowsOf(recordId)).toMatchObject([{ status: 'DONE', outcome: 'SENT' }]);
+    });
+  });
+
+  describe('an error while asking who may read', () => {
+    const failingGateway = (state: { fail: boolean }): Pick<RecordGateway, 'canRead' | 'load'> => ({
+      load: (kind, recordId) => gateway.load(kind, recordId),
+      canRead: (kind, recordId, user, options) => (state.fail ? Promise.reject(new Error('the database timed out')) : gateway.canRead(kind, recordId, user, options)),
+    });
+
+    it('when delivering: it is not a refusal. The row is retried and the person is told once it can be asked', async () => {
+      const { recordId } = await work({ due: endOf(13) });
+      await reminders.plan(NOW);
+      const state = { fail: true };
+      const shaky = service({ gateway: failingGateway(state) });
+      expect(await shaky.deliver(NOW)).toMatchObject({ sent: 0, dropped: 0, retried: 1 });
+      expect(await rowsOf(recordId)).toMatchObject([{ status: 'PENDING', attempts: 1, outcome: null, lastError: 'the database timed out' }]);
+
+      state.fail = false;
+      await shaky.deliver(at(10, 5));
+      expect(await rowsOf(recordId)).toMatchObject([{ status: 'DONE', outcome: 'SENT', attempts: 2 }]);
+      expect(await noticesOf(recordId)).toHaveLength(1);
+    });
+
+    it('when planning: nothing is written for that step, and the next tick plans it', async () => {
+      const { recordId } = await work({ due: endOf(13) });
+      const state = { fail: true };
+      const shaky = service({ gateway: failingGateway(state), records: [recordId] });
+      expect(await shaky.tick(NOW)).toMatchObject({ planning: 'DONE', planned: 0 });
+      expect(await rowsOf(recordId)).toHaveLength(0);
+      state.fail = false;
+      await shaky.tick(NOW);
+      expect(await noticesOf(recordId)).toHaveLength(1);
+    });
+  });
+
+  describe('connections', () => {
+    it('everything a notice needs is read BEFORE the transaction that writes it; inside it there is the write alone, on the transaction', async () => {
+      const { recordId } = await work({ due: endOf(13) });
+      await reminders.plan(NOW);
+      const calls: string[] = [];
+      let wroteOnRoot: boolean | null = null;
+      const watching = service({
+        records: [recordId],
+        gateway: {
+          load: (kind, id_) => gateway.load(kind, id_),
+          canRead: (kind, id_, user, options) => {
+            calls.push('canRead');
+            return gateway.canRead(kind, id_, user, options);
+          },
+        },
+        notifier: {
+          prepareInApp: (payload) => {
+            calls.push('prepare');
+            return events.prepareInApp(payload);
+          },
+          writeInApp: (prepared, db) => {
+            calls.push('write');
+            wroteOnRoot = db === undefined || (db as unknown) === scratch.db;
+            return events.writeInApp(prepared, db);
+          },
+          ringBell: () => calls.push('bell'),
+        },
+      });
+      await watching.deliver(NOW);
+      expect(calls).toEqual(['canRead', 'prepare', 'write', 'bell']);
+      expect(wroteOnRoot).toBe(false);
+    });
+
+    it('a row claimed by a process that died is taken again when its lease runs out, and sent once', async () => {
+      const { recordId } = await work({ due: endOf(13) });
+      await reminders.plan(NOW);
+      // Claimed and abandoned.
+      await scratch.db.procReminder.updateMany({ where: { recordId }, data: { attempts: 1, availableAt: new Date(NOW.getTime() + 300_000) } });
+      await reminders.deliver(NOW);
+      expect(await noticesOf(recordId)).toHaveLength(0);
+      await reminders.deliver(at(10, 4));
+      await reminders.deliver(at(10, 5));
+      expect(await rowsOf(recordId)).toMatchObject([{ status: 'DONE', outcome: 'SENT', attempts: 2 }]);
+      expect(await noticesOf(recordId)).toHaveLength(1);
     });
   });
 
@@ -469,28 +667,55 @@ run('The reminders of the processing flow on PostgreSQL', () => {
   });
 
   describe('escalation', () => {
-    it('overdue by the days the step says: once the heads of the parent unit, later once the people who approve, each only if they may read', async () => {
-      const { recordId } = await work({ due: endOf(8), config: 'escalating' });
-      const escalations = async () => (await rowsOf(recordId)).filter((row) => row.kind !== 'BAND').map((row) => [row.kind, Object.keys(id).find((name) => id[name] === row.recipientId)]);
+    const escalationsOf = async (recordId: string) => (await rowsOf(recordId)).filter((row) => row.kind !== 'BAND').map((row) => [row.kind, Object.keys(id).find((name) => id[name] === row.recipientId)]);
+
+    it('a step whose flow says nothing: the system defaults, 3 days for the parent unit and 7 for the leadership, each once, each only if they may read', async () => {
+      // No rows at all: the defaults.
+      settings = {};
+      const { recordId } = await work({ due: endOf(8) });
 
       // 2 days overdue: not yet.
       await reminders.tick(at(10));
-      expect(await escalations()).toEqual([]);
+      expect(await escalationsOf(recordId)).toEqual([]);
       // 3 days: the parent unit, once.
       await reminders.tick(at(11));
       await reminders.tick(at(12));
-      expect(await escalations()).toEqual([['ESCALATE_PARENT', 'parentLead']]);
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead']]);
       // 7 days: the leadership, once; the one who holds the permission but may not read this record is not told.
       await reminders.tick(at(15));
       await reminders.tick(at(16));
-      expect(await escalations()).toEqual([['ESCALATE_PARENT', 'parentLead'], ['ESCALATE_LEADERSHIP', 'boss']]);
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead'], ['ESCALATE_LEADERSHIP', 'boss']]);
       const told = await noticesOf(recordId);
       expect(told.filter((notice) => notice.to === 'parentLead')).toHaveLength(1);
       expect(told.filter((notice) => notice.to === 'boss')).toMatchObject([{ type: 'PETITION_OVERDUE', title: 'Bước xử lý quá hạn chưa được giải quyết' }]);
       expect(told.filter((notice) => notice.to === 'bossElsewhere')).toHaveLength(0);
     });
 
-    it('a step whose flow sets no escalation never escalates, however late', async () => {
+    it('the settings are what the defaults stand in for: other numbers move the days', async () => {
+      settings = { [SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY]: '1', [SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY]: '2' };
+      const { recordId } = await work({ due: endOf(8) });
+      await reminders.tick(at(9));
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead']]);
+      await reminders.tick(at(10));
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead'], ['ESCALATE_LEADERSHIP', 'boss']]);
+    });
+
+    it('a step that says its own days (4 and 6) is not moved by the settings', async () => {
+      settings = { [SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY]: '1', [SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY]: '2' };
+      const { recordId } = await work({ due: endOf(8), config: 'escalating' });
+      // 3 days overdue: the settings would have told both long ago.
+      await reminders.tick(at(11));
+      expect(await escalationsOf(recordId)).toEqual([]);
+      await reminders.tick(at(12));
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead']]);
+      await reminders.tick(at(13));
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead']]);
+      await reminders.tick(at(14));
+      expect(await escalationsOf(recordId)).toEqual([['ESCALATE_PARENT', 'parentLead'], ['ESCALATE_LEADERSHIP', 'boss']]);
+    });
+
+    it.each([['0'], ['']])('a setting of "%s" switches the escalation off, however late the step is', async (value) => {
+      settings = { [SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY]: value, [SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY]: value };
       const { recordId } = await work({ due: endOf(1) });
       await reminders.tick(at(20));
       expect((await rowsOf(recordId)).map((row) => row.kind)).toEqual(['BAND']);
@@ -498,39 +723,133 @@ run('The reminders of the processing flow on PostgreSQL', () => {
   });
 
   describe('the nudge', () => {
+    const changesOf = (recordId: string) => scratch.db.procStepChange.findMany({ where: { recordId }, orderBy: { at: 'asc' } });
+    const later = (ms: number) => new Date(NOW.getTime() + ms);
+
     it('tells the people who answer for the step now, with the message, and stays in the history of the step', async () => {
       const { recordId } = await work({ due: endOf(25), parties: [{}, { teamId: id.B, role: 'CHECK' }] });
-      expect(await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', '  Please report by Friday  ', NOW)).toEqual({ notified: 1 });
+      expect(await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: '  Please report by Friday  ' }, NOW)).toEqual({ notified: 1 });
       expect(await noticesOf(recordId)).toMatchObject([{ to: 'lead', type: 'SYSTEM', title: 'Đôn đốc xử lý', link: `/petitions/${recordId}?tab=phan-cong-xu-ly` }]);
       expect((await noticesOf(recordId))[0].message).toContain('Please report by Friday');
-      expect(await scratch.db.procStepChange.findMany({ where: { recordId } })).toMatchObject([{ action: STEP_NUDGED, stepKey: 'k1', reason: 'Please report by Friday', actorId: id.actor, toValue: { notified: 1 } }]);
+      expect(await changesOf(recordId)).toMatchObject([{ action: STEP_NUDGED, stepKey: 'k1', reason: 'Please report by Friday', actorId: id.actor, toValue: { notified: 1 } }]);
+    });
 
-      // A second nudge is a second notice: it is never deduplicated away.
-      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', 'Again', NOW);
-      expect(await noticesOf(recordId)).toHaveLength(2);
+    it('once per person and step per 30 minutes: a second one is refused with a code and adds nothing; after the window, and for another person, it goes through', async () => {
+      const { recordId } = await work({ due: endOf(25) });
+      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'First' }, NOW);
+      await expect(reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Second' }, later(60_000))).rejects.toMatchObject({ status: 429, response: { code: 'NUDGE_TOO_SOON' } });
+      // 29 minutes later is another fixed window of the key for some instants; it is still too soon.
+      await expect(reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Third' }, later(NUDGE_COOLDOWN_MS - 60_000))).rejects.toMatchObject({ response: { code: 'NUDGE_TOO_SOON' } });
+      expect(await noticesOf(recordId)).toHaveLength(1);
+      expect(await changesOf(recordId)).toHaveLength(1);
+
+      // Another person is not held back by the first one's nudge.
+      await reminders.nudge(id.boss, 'PETITION', recordId, 'k1', { message: 'From the boss' }, later(60_000));
+      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Again' }, later(NUDGE_COOLDOWN_MS + 60_000));
+      expect((await noticesOf(recordId)).map((notice) => notice.message.split(': ')[1])).toEqual(['First', 'From the boss', 'Again']);
+      expect(await changesOf(recordId)).toHaveLength(3);
+    });
+
+    it('two requests at the same instant: exactly one passes (the unique key decides, not a look before)', async () => {
+      const { recordId } = await work({ due: endOf(25) });
+      const results = await Promise.allSettled([1, 2, 3, 4].map((n) => service().nudge(id.actor, 'PETITION', recordId, 'k1', { message: `Hurry ${n}` }, NOW)));
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      for (const result of results) {
+        if (result.status === 'rejected') expect(result.reason).toMatchObject({ response: { code: 'NUDGE_TOO_SOON' } });
+      }
+      expect(await noticesOf(recordId)).toHaveLength(1);
+      expect(await changesOf(recordId)).toHaveLength(1);
+    });
+
+    it('the same request sent again with its idempotency key gets the first answer and does nothing, also when both arrive together', async () => {
+      const { recordId } = await work({ due: endOf(25) });
+      const input = { message: 'Hurry', idempotencyKey: `nudge-${randomUUID()}` };
+      expect(await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', input, NOW)).toEqual({ notified: 1 });
+      expect(await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', input, later(5_000))).toEqual({ notified: 1 });
+
+      const other = await work({ due: endOf(25) });
+      const together = { message: 'Hurry', idempotencyKey: `nudge-${randomUUID()}` };
+      const answers = await Promise.all([1, 2, 3].map(() => service().nudge(id.actor, 'PETITION', other.recordId, 'k1', together, NOW)));
+      expect(answers).toEqual([{ notified: 1 }, { notified: 1 }, { notified: 1 }]);
+
+      for (const each of [recordId, other.recordId]) {
+        expect(await noticesOf(each)).toHaveLength(1);
+        expect(await changesOf(each)).toHaveLength(1);
+      }
+      await expect(reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Hurry', idempotencyKey: 'short' }, NOW)).rejects.toMatchObject({ response: { code: 'IDEMPOTENCY_KEY_INVALID' } });
+    });
+
+    it('delivers its own notices and leaves the reminders that wait to the tick', async () => {
+      const waiting = await work({ due: endOf(13) });
+      await reminders.plan(NOW);
+      const { recordId } = await work({ due: endOf(25) });
+      await reminders.nudge(id.actor, 'PETITION', recordId, 'k1', { message: 'Hurry' }, NOW);
+      expect(await noticesOf(recordId)).toHaveLength(1);
+      expect(await rowsOf(waiting.recordId)).toMatchObject([{ status: 'PENDING', attempts: 0 }]);
+      await reminders.deliver(NOW);
     });
 
     it('refuses an empty message, a step that is not being worked, an unknown step, and everything while the switch is off', async () => {
       const open = await work({ due: endOf(25) });
       const done = await work({ due: endOf(25), status: 'DONE' });
-      await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'k1', '   ', NOW)).rejects.toMatchObject({ response: { code: 'STEP_REASON_REQUIRED' } });
-      await expect(reminders.nudge(id.actor, 'PETITION', done.recordId, 'k1', 'Hurry', NOW)).rejects.toMatchObject({ response: { code: 'STEP_NOT_OPEN' } });
-      await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'nope', 'Hurry', NOW)).rejects.toMatchObject({ response: { code: 'RECORD_STEP_NOT_FOUND' } });
-      remindersOn = false;
-      await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'k1', 'Hurry', NOW)).rejects.toMatchObject({ response: { code: 'RECORD_FLOW_NOT_FOUND' } });
+      await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'k1', { message: '   ' }, NOW)).rejects.toMatchObject({ response: { code: 'STEP_REASON_REQUIRED' } });
+      await expect(reminders.nudge(id.actor, 'PETITION', done.recordId, 'k1', { message: 'Hurry' }, NOW)).rejects.toMatchObject({ response: { code: 'STEP_NOT_OPEN' } });
+      await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'nope', { message: 'Hurry' }, NOW)).rejects.toMatchObject({ response: { code: 'RECORD_STEP_NOT_FOUND' } });
+      await switchTo(false);
+      await expect(reminders.nudge(id.actor, 'PETITION', open.recordId, 'k1', { message: 'Hurry' }, NOW)).rejects.toMatchObject({ response: { code: 'RECORD_FLOW_NOT_FOUND' } });
       expect(await rowsOf(open.recordId)).toHaveLength(0);
       expect(await scratch.db.procStepChange.count({ where: { recordId: { in: [open.recordId, done.recordId] } } })).toBe(0);
     });
   });
 
   describe('a case (C13)', () => {
-    it('the notice of a person who may read the case keeps the link to the assignment tab of the case form', async () => {
-      const row = await scratch.db.case.create({ data: { name: `${tag} case`, caseCode: `${tag}-c1`, caseProvenance: 'DIRECT_DISCOVERY', investigatorId: id.owner, assignedTeamId: id.O, status: 'DANG_DIEU_TRA' } as never });
+    const caseOf = async (over: Record<string, unknown> = {}): Promise<string> => {
+      const row = await scratch.db.case.create({ data: { name: `${tag} case ${++counter}`, caseCode: `${tag}-c${counter}`, caseProvenance: 'DIRECT_DISCOVERY', investigatorId: id.owner, assignedTeamId: id.O, status: 'DANG_DIEU_TRA', ...over } as never });
       recordIds.push(row.id);
-      await stepOn('CASE', row.id, { due: endOf(8), parties: [{ teamId: id.O, assigneeUserId: id.owner }] });
+      return row.id;
+    };
+
+    it('the notice of a person who may read the case keeps the link to the assignment tab of the case form', async () => {
+      const caseId = await caseOf();
+      await stepOn('CASE', caseId, { due: endOf(8), parties: [{ teamId: id.O, assigneeUserId: id.owner }] });
       await reminders.tick(NOW);
-      expect(await rowsOf(row.id)).toMatchObject([{ status: 'DONE', outcome: 'SENT', recipientId: id.owner }]);
-      expect(await noticesOf(row.id)).toMatchObject([{ to: 'owner', type: 'CASE_OVERDUE', link: `/cases/${row.id}/edit?tab=phan-cong-xu-ly`, metadata: { caseId: row.id } }]);
+      expect(await rowsOf(caseId)).toMatchObject([{ status: 'DONE', outcome: 'SENT', recipientId: id.owner }]);
+      expect(await noticesOf(caseId)).toMatchObject([{ to: 'owner', type: 'CASE_OVERDUE', link: `/cases/${caseId}/edit?tab=phan-cong-xu-ly`, metadata: { caseId } }]);
+    });
+
+    it('a person outside the unit of the case, named by the step alone, is told too: the link to the tab, and nothing of the case', async () => {
+      // Held by O; the step is worked by T, whose head is not in the scope of the case.
+      const caseId = await caseOf();
+      await stepOn('CASE', caseId, { due: endOf(8), parties: [{ teamId: id.T }] });
+      expect(await gateway.canRead('CASE', caseId, { id: id.lead, role: `${tag}-officer`, canDispatch: false })).toBe(false);
+      await reminders.tick(NOW);
+      expect(await rowsOf(caseId)).toMatchObject([{ status: 'DONE', outcome: 'SENT', recipientId: id.lead }]);
+      const [notice] = await noticesOf(caseId);
+      expect(notice).toMatchObject({ to: 'lead', link: `/cases/${caseId}/edit?tab=phan-cong-xu-ly`, title: 'Cập nhật hồ sơ', message: 'Hồ sơ có cập nhật', metadata: { caseId } });
+      expect(JSON.stringify(notice)).not.toContain(`${tag}-c`);
+    });
+
+    it('the step lifts the scope only for a notice that points at the tab of THAT case, and only while the step is being worked', async () => {
+      const caseId = await caseOf();
+      const stepId = await stepOn('CASE', caseId, { due: endOf(8), parties: [{ teamId: id.T }] });
+      const notice = { toUserId: id.lead, type: 'CASE_OVERDUE' as const, title: 't', message: 'm', link: `/cases/${caseId}/edit?tab=phan-cong-xu-ly`, metadata: { caseId } };
+      expect(await events.prepareInApp(notice)).not.toBeNull();
+      // Any other notice about the case: as before, nothing.
+      expect(await events.prepareInApp({ ...notice, link: `/cases/${caseId}` })).toBeNull();
+      // The step is done: the reason is gone.
+      await scratch.db.procRecordStep.update({ where: { id: stepId }, data: { status: 'DONE', doneAt: NOW } });
+      expect(await events.prepareInApp(notice)).toBeNull();
+    });
+
+    it('a RESTRICTED case: the step never lifts the sensitivity rule. Nothing is decided, and the policy itself lets nothing through', async () => {
+      const caseId = await caseOf({ sensitivity: 'RESTRICTED' });
+      await stepOn('CASE', caseId, { due: endOf(8), parties: [{ teamId: id.T }] });
+      await reminders.tick(NOW);
+      expect(await rowsOf(caseId)).toHaveLength(0);
+      // Asked directly, as a delivery (or the list of the bell) would ask it.
+      const notice = { toUserId: id.lead, type: 'CASE_OVERDUE' as const, title: 't', message: 'm', link: `/cases/${caseId}/edit?tab=phan-cong-xu-ly`, metadata: { caseId } };
+      expect(await events.prepareInApp(notice)).toBeNull();
+      expect(await scratch.db.notification.count({ where: { userId: id.lead, metadata: { path: ['caseId'], equals: caseId } } })).toBe(0);
     });
   });
 });
