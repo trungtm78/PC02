@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { bandOf, completionClass, remainingDays } from '../engine/bands';
 import type { Band, CompletionClass, StepStatus } from '../engine/types';
+import { loadStepViewers, type StepViewerDto } from './step-roles';
 
 /** The flow of a record with everything the tab shows, read in one query. */
 export const RECORD_FLOW_INCLUDE = {
@@ -58,6 +59,8 @@ export interface RecordStepPartyDto {
 /** What the DTO shows of people and is not on the rows of the flow: the names of the persons named on a party. */
 export interface FlowPeople {
   names: Map<string, string>;
+  /** What the person the answer is for may do on each step by their role, keyed by the step's row. Absent: nobody is looking. */
+  viewers?: Map<string, StepViewerDto>;
 }
 
 const NOBODY: FlowPeople = { names: new Map() };
@@ -73,12 +76,16 @@ export function displayNameOf(user: NamedUser): string {
   return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username;
 }
 
-/** Reads the people a flow names and its rows do not carry. One query. */
-export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user'>, row: RecordFlowRow): Promise<FlowPeople> {
+/**
+ * Reads the people a flow names and its rows do not carry (one query) and, when the answer is for a person, what that
+ * person may do on each step by their role (one more).
+ */
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procRecordStepParty'>, row: RecordFlowRow, viewerId?: string): Promise<FlowPeople> {
   const ids = [...new Set(row.steps.flatMap((step) => step.parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : []))))];
-  if (ids.length === 0) return NOBODY;
-  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, username: true } });
-  return { names: new Map(users.map((user) => [user.id, displayNameOf(user)])) };
+  const users = ids.length === 0 ? [] : await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, username: true } });
+  const names = new Map(users.map((user) => [user.id, displayNameOf(user)]));
+  if (viewerId === undefined) return { names };
+  return { names, viewers: await loadStepViewers(db, row.steps.map((step) => step.id), viewerId) };
 }
 
 export interface RecordStepDto {
@@ -127,6 +134,11 @@ export interface RecordStepDto {
   /** The newest report still standing, cut short, and the newest opinion: the summary line of the step. */
   latestReport: { kind: string; summary: string; at: string; revision: number } | null;
   latestOpinion: { kind: string; verdict: string; at: string } | null;
+  /**
+   * What the person this answer is for may do on the step BY THEIR ROLE on it (the same rules the write routes refuse
+   * with). The screen offers a form only when the permission AND this allow it. Absent when the answer is for nobody.
+   */
+  viewer?: StepViewerDto;
 }
 
 export interface RecordFlowDto {
@@ -222,6 +234,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
         revision: step.revision,
         latestReport: step.reports[0] ? { kind: step.reports[0].kind, summary: step.reports[0].doneWork.slice(0, 200), at: step.reports[0].createdAt.toISOString(), revision: step.reports[0].revision } : null,
         latestOpinion: step.opinions[0] ? { kind: step.opinions[0].kind, verdict: step.opinions[0].verdict, at: step.opinions[0].createdAt.toISOString() } : null,
+        ...(people.viewers ? { viewer: people.viewers.get(step.id) } : {}),
         parties: step.parties.map((party) => {
           const assigneeName = party.assigneeUserId ? (people.names.get(party.assigneeUserId) ?? null) : null;
           const heads = party.team?.status === 'ACTIVE' ? party.team.members.map((member) => ({ userId: member.userId, name: displayNameOf(member.user) })) : [];

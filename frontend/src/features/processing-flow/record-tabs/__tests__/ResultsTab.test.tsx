@@ -413,3 +413,56 @@ describe('"Kết luận chung"', () => {
     expect(screen.queryByTestId('results-conclusion')).toBeNull();
   });
 });
+
+describe('the role of the person on the step (viewer)', () => {
+  const VIEWER = { canReport: false, opinionKinds: [], canApprove: false, memberOfPartyIds: [] };
+  const parties = [party({ id: 'm', role: 'MAIN' }), party({ id: 'c', role: 'CHECK', teamId: 't4' })];
+
+  it('a person with every permission and no part in the step is offered no report form and no opinion', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties, viewer: VIEWER })]));
+    renderTab();
+    await screen.findByTestId('book-b');
+    expect(screen.queryByTestId('report-form')).toBeNull();
+    expect(screen.queryByTestId('opinion-open')).toBeNull();
+  });
+
+  it('a member of the unit that checks is offered only the opinion of a check, and no report form', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties, viewer: { ...VIEWER, opinionKinds: ['CHECK'] } })]));
+    renderTab();
+    fireEvent.click(await screen.findByTestId('opinion-open'));
+    expect(screen.queryByTestId('report-form')).toBeNull();
+    // One role only: there is nothing to choose, the kind is not asked.
+    const kind = screen.queryByTestId('opinion-kind');
+    if (kind) expect(within(kind).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['CHECK']);
+  });
+
+  it('a member of the unit that works the step is offered the report form', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties, viewer: { ...VIEWER, canReport: true } })]));
+    renderTab();
+    expect(await screen.findByTestId('report-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('opinion-open')).toBeNull();
+  });
+
+  it('the decision is offered only when the role allows it too; the author of a report who left the unit gets no buttons on it', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: VIEWER })]));
+    api.results.mockResolvedValue(book([report({ id: 'mine', kind: 'RESULT', authorId: 'u7' })]));
+    renderTab();
+    await screen.findByTestId('report-mine');
+    expect(screen.queryByTestId('decision-form')).toBeNull();
+    expect(screen.queryByTestId('report-mine-withdraw')).toBeNull();
+  });
+
+  it('the decision is offered when the permission and the role both allow it', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ status: 'REPORTED', requiresApproval: true, parties, viewer: { ...VIEWER, canApprove: true } })]));
+    renderTab();
+    expect(await screen.findByTestId('decision-form')).toBeInTheDocument();
+  });
+
+  it('an answer without viewer (an older server) offers what the permissions allow, as before', async () => {
+    api.get.mockResolvedValue(recFlow({}, [OPEN({ parties })]));
+    renderTab();
+    expect(await screen.findByTestId('report-form')).toBeInTheDocument();
+    // The opinion is offered (the button, or the form a draft of an earlier visit left open).
+    expect(await screen.findByTestId(/^opinion-(open|form)$/)).toBeInTheDocument();
+  });
+});

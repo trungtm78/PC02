@@ -5,6 +5,7 @@ import { OPINION_KINDS, PROCESSING_ERROR, PROPOSAL_KINDS, type ProcessingErrorCo
 import type { RecordKind } from '../gateway/record-snapshot';
 import { ProcessingCommandService, type CommandInput } from './processing-command.service';
 import type { RecordFlowDto } from './record-flow.dto';
+import { loadRoleParties, mayDecide, mayGiveOpinion, mayReport, roleOfOpinion, stepRolesOf, type StepRoles } from './step-roles';
 
 type Tx = Prisma.TransactionClient;
 
@@ -156,7 +157,7 @@ export class ProcessingResultsService {
     if (input.kind !== 'PROGRESS' && input.kind !== 'RESULT') throw refuse.bad(PROCESSING_ERROR.REPORT_TEXT_REQUIRED);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'REPORT', input, async (tx, flow, step) => {
       const roles = await this.rolesOf(tx, step.id, actorId);
-      if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+      if (!mayReport(roles)) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
       if (step.status !== 'OPEN') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
       // Only ONE result stands: an earlier one (after a disagreement or a request for rework) stays in the book, superseded.
       if (input.kind === 'RESULT') await tx.procStepReport.updateMany({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, data: { supersededAt: this.commands.now() } });
@@ -199,8 +200,7 @@ export class ProcessingResultsService {
 
   /** The caller must still be a unit that works the step (or coordinates it): leaving the unit ends the right to touch what it wrote. */
   async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
-    const roles = await this.rolesOf(tx, stepId, actorId);
-    if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+    if (!mayReport(await this.rolesOf(tx, stepId, actorId))) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
   }
 
   /** The report of the caller, standing (not withdrawn, not replaced) and unanswered. */
@@ -231,8 +231,8 @@ export class ProcessingResultsService {
 
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'OPINION', input, async (tx, flow, step) => {
       const roles = await this.rolesOf(tx, step.id, actorId);
-      const role = input.kind === 'SUPERVISOR' ? 'MAIN' : input.kind;
-      if (!roles.has(role) || (input.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      const role = roleOfOpinion(input.kind);
+      if (!mayGiveOpinion(roles, input.kind)) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       if (step.status === 'WAITING_ANCHOR' || step.status === 'SKIPPED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
 
       // An opinion about the result names the exact report (and its revision) it was given on.
@@ -269,8 +269,7 @@ export class ProcessingResultsService {
       if (opinion.authorId !== actorId) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_YOURS);
       if (opinion.kind === 'APPROVAL') throw refuse.conflict(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       const roles = await this.rolesOf(tx, step.id, actorId);
-      const role = opinion.kind === 'SUPERVISOR' ? 'MAIN' : opinion.kind;
-      if (!roles.has(role) || (opinion.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      if (!mayGiveOpinion(roles, opinion.kind)) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
       await tx.procStepOpinion.update({ where: { id: opinion.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_WITHDRAWN', { opinionId: opinion.id }, null, null, actorId);
@@ -287,6 +286,7 @@ export class ProcessingResultsService {
     if (!['AGREE', 'DISAGREE', 'OTHER_DIRECTION'].includes(input.verdict)) throw refuse.bad(PROCESSING_ERROR.VERDICT_INVALID);
     if (input.verdict !== 'AGREE' && !content) throw refuse.bad(PROCESSING_ERROR.REPORT_TEXT_REQUIRED);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'DECIDE', input, async (tx, flow, step) => {
+      if (!mayDecide(await this.rolesOf(tx, step.id, actorId))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       if (step.status !== 'REPORTED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_REPORTED);
       const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, orderBy: { createdAt: 'desc' } });
       if (!result) throw refuse.conflict(PROCESSING_ERROR.NO_RESULT_REPORT);
@@ -302,21 +302,9 @@ export class ProcessingResultsService {
 
   // ---- who the person is on this step
 
-  /**
-   * The roles the person has on ONE step, through the active units they belong to (or by being named): MAIN, CHECK,
-   * COORDINATE, INFORM. `leads(role)`: they head a unit that holds that role. `teamOf(role)`: the unit they act through.
-   */
-  private async rolesOf(tx: Tx, stepId: string, userId: string) {
-    const parties = await tx.procRecordStepParty.findMany({
-      where: { recordStepId: stepId, OR: [{ assigneeUserId: userId }, { team: { status: 'ACTIVE', members: { some: { userId } } } }] },
-      select: { role: true, teamId: true, assigneeUserId: true, team: { select: { members: { where: { userId }, select: { isLeader: true } } } } },
-    });
-    return {
-      has: (role: string) => parties.some((p) => p.role === role),
-      // Heading a unit is being its leader in the ACTIVE unit that holds the role; being named only makes a participant.
-      leads: (role: string) => parties.some((p) => p.role === role && p.team?.members.some((m) => m.isLeader) === true),
-      teamOf: (role?: string) => parties.find((p) => !role || p.role === role)?.teamId ?? null,
-    };
+  /** The roles the person has on ONE step: the rules live in `step-roles.ts`, shared with the DTO's `viewer`. */
+  private async rolesOf(tx: Tx, stepId: string, userId: string): Promise<StepRoles> {
+    return stepRolesOf(await loadRoleParties(tx, [stepId], userId));
   }
 }
 

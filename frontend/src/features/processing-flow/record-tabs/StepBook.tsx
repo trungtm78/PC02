@@ -98,11 +98,16 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
   const drafts = draftKeys(kind, recordId, key);
   // While the screen is locked by a conflict, a form with typed text stays in view even if the refresh no longer offers it.
   const keepIfDraft = (draftKey: string) => write.conflict && hasDraft(draftKey);
-  const canWriteReport = (perms.canReport && worked) || keepIfDraft(drafts.report);
-  const kinds = speakingKinds(step);
+  // The permission says the person may use the route; `viewer` says the server will not refuse THEM on this step (their
+  // unit has a part in it). An answer without `viewer` (an older server) leaves the permission alone to decide.
+  const viewer = step.viewer;
+  const roleReports = viewer?.canReport ?? true;
+  const canWriteReport = (perms.canReport && roleReports && worked) || keepIfDraft(drafts.report);
+  const kinds = speakingKinds(step).filter((k) => !viewer || viewer.opinionKinds.includes(k));
+  const canDecide = perms.canApprove && (viewer?.canApprove ?? true);
   const canOpine = (perms.canOpine && kinds.length > 0 && step.status !== 'WAITING_ANCHOR' && step.status !== 'SKIPPED') || keepIfDraft(drafts.opinion);
 
-  const standing = (r: ReportDto) => !r.withdrawnAt && !r.supersededAt && !r.answered && r.authorId === userId && perms.canReport;
+  const standing = (r: ReportDto) => !r.withdrawnAt && !r.supersededAt && !r.answered && r.authorId === userId && perms.canReport && roleReports;
   const canEdit = (r: ReportDto) => standing(r) && step.status === 'OPEN';
   const canWithdraw = (r: ReportDto) => standing(r) && (step.status === 'OPEN' || (step.status === 'REPORTED' && r.kind === 'RESULT'));
 
@@ -236,7 +241,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
               )}
             </div>
             {o.content && <p className="whitespace-pre-wrap text-sm text-slate-800">{o.content}</p>}
-            {!o.withdrawnAt && o.kind !== 'APPROVAL' && perms.canOpine && o.authorId === userId && (
+            {!o.withdrawnAt && o.kind !== 'APPROVAL' && perms.canOpine && o.authorId === userId && (!viewer || viewer.opinionKinds.includes(o.kind)) && (
               <div>
                 <button type="button" data-testid={`opinion-${o.id}-withdraw`} className={LINK_BUTTON} disabled={write.locked} onClick={() => withdrawOpinion(o)}>
                   {O.withdraw}
@@ -261,7 +266,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
         )}
       </div>
 
-      {((perms.canApprove && step.status === 'REPORTED') || keepIfDraft(drafts.decision)) && (
+      {((canDecide && step.status === 'REPORTED') || keepIfDraft(drafts.decision)) && (
         <DecisionForm
           draftKey={drafts.decision}
           locked={write.locked}
