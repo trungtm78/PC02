@@ -1,6 +1,6 @@
 /** What the backlog screen keeps outside its component: its keys in the address, its query keys, and its period. */
 import { today } from '@/lib/dates';
-import type { BacklogCell, BacklogFilters, OnTimeQuery } from './types';
+import type { BacklogCell, BacklogFilters, OnTimeQuery, UnappliedCell } from './types';
 
 /** The prefix of every key this screen keeps in the address: `backlog_kind`, `backlog_role`, `backlog_from`, ... */
 export const BACKLOG_URL_PREFIX = 'backlog';
@@ -11,6 +11,7 @@ export const BACKLOG_QUERY_KEYS = {
   units: (filters: BacklogFilters, rolledUp: boolean) => ['processing-backlog', 'units', filters, rolledUp] as const,
   cell: (filters: BacklogFilters, cell: BacklogCell | null, page: number, asOf: string) =>
     ['processing-backlog', 'cell', filters, cell, page, asOf] as const,
+  unapplied: (cell: UnappliedCell | null, page: number, asOf: string) => ['processing-backlog', 'unapplied', cell, page, asOf] as const,
   onTime: (query: OnTimeQuery) => ['processing-backlog', 'on-time', query] as const,
 };
 

@@ -44,13 +44,16 @@ interface OnTimeSectionProps {
   role: WorkRole;
   from: string;
   to: string;
+  /** The unit filter of the table above (and whether it reaches the units under it). */
+  unitId: string | null;
+  rolledUp: boolean;
   /** The period is not the default one: offer the way back to it. */
   customPeriod: boolean;
   onPeriodChange: (updates: { from?: string | null; to?: string | null }) => void;
 }
 
-export function OnTimeSection({ kind, role, from, to, customPeriod, onPeriodChange }: OnTimeSectionProps) {
-  const query: OnTimeQuery = { kind, role, from, to };
+export function OnTimeSection({ kind, role, from, to, unitId, rolledUp, customPeriod, onPeriodChange }: OnTimeSectionProps) {
+  const query: OnTimeQuery = { kind, role, from, to, unitId, rolledUp: unitId !== null && rolledUp };
   const reportQ = useQuery({
     queryKey: BACKLOG_QUERY_KEYS.onTime(query),
     queryFn: () => backlogApi.onTime(query),

@@ -4,15 +4,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import BacklogPage from '../BacklogPage';
 import { backlogApi } from '../api';
+import { trackingApi } from '../../tracking/api';
 import { monthOf } from '../backlogKeys';
-import type { BacklogUnitRow, BacklogUnitsDto, OnTimeReportDto } from '../types';
+import type { BacklogUnitRow, BacklogUnitsDto, OnTimeReportDto, UnappliedRecordsDto } from '../types';
 import type { TrackingItemDto, TrackingItemsDto } from '../../tracking/types';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
 
-vi.mock('../api', () => ({ backlogApi: { units: vi.fn(), cellItems: vi.fn(), onTime: vi.fn(), exportUnits: vi.fn() } }));
+vi.mock('../api', () => ({ backlogApi: { units: vi.fn(), cellItems: vi.fn(), onTime: vi.fn(), exportUnits: vi.fn(), unapplied: vi.fn() } }));
+vi.mock('../../tracking/api', () => ({ trackingApi: { teams: vi.fn() } }));
 
 const api = vi.mocked(backlogApi);
+const teamsApi = vi.mocked(trackingApi);
 const T = L.backlog;
 
 const AS_OF = '2026-12-10T02:30:00.000Z'; // 09:30 in Vietnam
@@ -84,6 +87,24 @@ const onTime = (over: Partial<OnTimeReportDto> = {}): OnTimeReportDto => ({
   ...over,
 });
 
+const noFlowList = (kind: UnappliedRecordsDto['kind'], teamId: string, total: number): UnappliedRecordsDto => ({
+  kind,
+  teamId,
+  items: Array.from({ length: Math.min(total, 20) }, (_, at) => ({ recordKind: kind, recordId: `${kind}-${at + 1}`, recordCode: `2026-0000${at + 1}`, recordLabel: at === 0 ? 'Lê Thị C' : null, deadline: at === 0 ? '2026-12-20T00:00:00.000Z' : null })),
+  total,
+  page: 1,
+  pageSize: 20,
+});
+
+/** The table with records that have no flow yet: Tổ 1 holds two petitions and one incident, Đội 2 nothing. */
+const unitsWithNoFlow = (over: Partial<BacklogUnitsDto> = {}): BacklogUnitsDto => {
+  const table = units();
+  table.rows[0] = { ...table.rows[0], unapplied: 3, unappliedByKind: { PETITION: 2, INCIDENT: 1, CASE: 0 } };
+  table.rows[1] = { ...table.rows[1], unapplied: 4, unappliedByKind: { PETITION: 4, INCIDENT: 0, CASE: 0 } };
+  table.rows[2] = { ...table.rows[2], unapplied: 0, unappliedByKind: { PETITION: 0, INCIDENT: 0, CASE: 0 } };
+  return { ...table, totals: { ...table.totals, unapplied: 7 }, ...over };
+};
+
 function Where() {
   const location = useLocation();
   return <output data-testid="where">{`${location.pathname}${location.search}`}</output>;
@@ -113,6 +134,11 @@ beforeEach(() => {
   api.cellItems.mockResolvedValue(items([item(), item({ id: 'party-2', recordId: 'pet-2', recordCode: '2026-11902' })]));
   api.onTime.mockResolvedValue(onTime());
   api.exportUnits.mockResolvedValue(undefined);
+  api.unapplied.mockResolvedValue(noFlowList('PETITION', 'to-1', 2));
+  teamsApi.teams.mockResolvedValue([
+    { id: 'doi-1', name: 'Đội 1', parentTeamId: null },
+    { id: 'to-1', name: 'Tổ 1', parentTeamId: 'doi-1' },
+  ]);
 });
 
 describe('the table of units', () => {
@@ -148,7 +174,7 @@ describe('the table of units', () => {
     );
     renderPage('/ton-dong-theo-don-vi?backlog_rollup=1');
     await loaded();
-    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null }, true);
+    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null, unitId: null }, true);
     expect(unitOrder()).toEqual(['backlog-row-doi-1', 'backlog-row-doi-2']);
     expect(cellOf('doi-1', 'OVERDUE')).toHaveTextContent('3');
     expect(cellOf('doi-1', 'NONE')).toHaveTextContent('3');
@@ -182,6 +208,7 @@ describe('the rows behind a number', () => {
       role: 'CHECK',
       from: '2026-11-01',
       to: '2026-11-30',
+      unitId: null,
       teamId: 'to-1',
       band: 'OVERDUE',
       asOf: AS_OF,
@@ -247,11 +274,127 @@ describe('the rows behind a number', () => {
 
 const T_OPEN = (code: string) => L.tracking.open(code);
 
+describe('the records with no flow yet ("Chưa áp quy trình")', () => {
+  const noFlowCell = (teamId: string) => screen.getByTestId(`backlog-unapplied-${teamId}`);
+
+  it('shows the number of each unit and the total of the server; a zero opens nothing; an older answer without the field is zero', async () => {
+    api.units.mockResolvedValue(unitsWithNoFlow());
+    const first = renderPage();
+    await loaded();
+    expect(screen.getByRole('columnheader', { name: T.columns.unapplied })).toBeInTheDocument();
+    expect(noFlowCell('to-1')).toHaveTextContent('3');
+    expect(noFlowCell('to-1').tagName).toBe('BUTTON');
+    expect(noFlowCell('doi-2')).toHaveTextContent('0');
+    expect(noFlowCell('doi-2').tagName).toBe('SPAN');
+    expect(screen.getByTestId('backlog-total-unapplied')).toHaveTextContent('7');
+    first.unmount();
+
+    api.units.mockResolvedValue(units());
+    renderPage();
+    await loaded();
+    expect(noFlowCell('to-1')).toHaveTextContent('0');
+    expect(screen.getByTestId('backlog-total-unapplied')).toHaveTextContent('0');
+  });
+
+  it('a number opens exactly its records: the unit, the first kind it has, links to the records; the chooser changes the kind', async () => {
+    api.units.mockResolvedValue(unitsWithNoFlow());
+    renderPage();
+    await loaded();
+    fireEvent.click(noFlowCell('to-1'));
+    await waitFor(() => expect(api.unapplied).toHaveBeenCalledWith({ teamId: 'to-1', kind: 'PETITION' }, 1, 20));
+    expect(where()).toContain('backlog_noflow=to-1');
+    const panel = within(await screen.findByTestId('backlog-unapplied-panel'));
+    await waitFor(() => expect(panel.getByTestId('backlog-unapplied-count')).toHaveTextContent(T.unapplied.count(2)));
+    expect(panel.getByRole('heading')).toHaveTextContent(T.unapplied.title('Tổ 1'));
+    expect(panel.getByRole('link', { name: T.unapplied.open('2026-00001') })).toHaveAttribute('href', '/petitions/PETITION-1?tab=phan-cong-xu-ly');
+    expect(panel.getByTestId('backlog-unapplied-row-PETITION-1')).toHaveTextContent('20/12/2026');
+    expect(panel.getByTestId('backlog-unapplied-row-PETITION-2')).toHaveTextContent(T.unapplied.noDeadline);
+    // The number was 2 and the list has 2: nothing changed.
+    expect(screen.queryByTestId('backlog-unapplied-changed')).not.toBeInTheDocument();
+
+    // Two kinds have records: the chooser offers both, with their own numbers.
+    api.unapplied.mockResolvedValue(noFlowList('INCIDENT', 'to-1', 1));
+    fireEvent.click(panel.getByTestId('backlog-unapplied-kind-INCIDENT'));
+    await waitFor(() => expect(api.unapplied).toHaveBeenLastCalledWith({ teamId: 'to-1', kind: 'INCIDENT' }, 1, 20));
+    expect(where()).toContain('backlog_noflow_kind=INCIDENT');
+    expect(screen.getByTestId('backlog-unapplied-kind-PETITION')).toHaveTextContent(T.unapplied.kindCount(L.recordKinds.PETITION, 2));
+
+    fireEvent.click(screen.getByTestId('backlog-unapplied-close'));
+    await waitFor(() => expect(screen.queryByTestId('backlog-unapplied-panel')).not.toBeInTheDocument());
+    expect(where()).not.toContain('backlog_noflow');
+  });
+
+  it('one kind only: no chooser. Opening a band cell closes the list, and the other way round', async () => {
+    api.units.mockResolvedValue(unitsWithNoFlow());
+    api.unapplied.mockResolvedValue(noFlowList('PETITION', 'doi-1', 4));
+    renderPage();
+    await loaded();
+    fireEvent.click(noFlowCell('doi-1'));
+    await screen.findByTestId('backlog-unapplied-table');
+    expect(screen.queryByTestId('backlog-unapplied-kind-PETITION')).not.toBeInTheDocument();
+    fireEvent.click(cellOf('to-1', 'OVERDUE'));
+    await screen.findByTestId('backlog-cell-panel');
+    expect(screen.queryByTestId('backlog-unapplied-panel')).not.toBeInTheDocument();
+    fireEvent.click(noFlowCell('doi-1'));
+    await screen.findByTestId('backlog-unapplied-panel');
+    expect(screen.queryByTestId('backlog-cell-panel')).not.toBeInTheDocument();
+  });
+
+  it('says so when the list is no longer the number, and a failed list is not an empty one', async () => {
+    api.units.mockResolvedValue(unitsWithNoFlow());
+    api.unapplied.mockResolvedValue(noFlowList('PETITION', 'to-1', 1));
+    renderPage('/ton-dong-theo-don-vi?backlog_noflow=to-1');
+    await loaded();
+    expect(await screen.findByTestId('backlog-unapplied-changed')).toHaveTextContent(T.unapplied.changed);
+
+    api.unapplied.mockRejectedValue(apiError(500, 'INTERNAL'));
+    fireEvent.click(screen.getByTestId('backlog-unapplied-kind-INCIDENT'));
+    expect(await screen.findByTestId('backlog-unapplied-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('backlog-unapplied-empty')).not.toBeInTheDocument();
+  });
+
+  it('rolled up, the sum is shown and is not a link', async () => {
+    const table = unitsWithNoFlow();
+    api.units.mockResolvedValue({ ...table, rows: [{ ...table.rows[1], unapplied: 7, unappliedByKind: { PETITION: 6, INCIDENT: 1, CASE: 0 }, descendants: 1, holdingIsLowerBound: true }, { ...table.rows[2], descendants: 0 }] });
+    renderPage('/ton-dong-theo-don-vi?backlog_rollup=1');
+    await loaded();
+    expect(noFlowCell('doi-1')).toHaveTextContent('7');
+    expect(noFlowCell('doi-1').tagName).toBe('SPAN');
+  });
+});
+
+describe('the unit filter', () => {
+  it('offers the units of the tracking filter, keeps the choice in the address and sends it with the table, the on-time report and the export', async () => {
+    renderPage();
+    await loaded();
+    const select = screen.getByTestId('backlog-filter-unit');
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    fireEvent.change(select, { target: { value: 'doi-1' } });
+    await waitFor(() => expect(api.units).toHaveBeenLastCalledWith({ kind: null, role: 'MAIN', from: null, to: null, unitId: 'doi-1' }, false));
+    expect(where()).toContain('backlog_unit=doi-1');
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith(expect.objectContaining({ unitId: 'doi-1', rolledUp: false })));
+    fireEvent.click(screen.getByTestId('backlog-rollup'));
+    await waitFor(() => expect(api.units).toHaveBeenLastCalledWith(expect.objectContaining({ unitId: 'doi-1' }), true));
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith(expect.objectContaining({ unitId: 'doi-1', rolledUp: true })));
+    fireEvent.click(screen.getByTestId('backlog-export'));
+    await waitFor(() => expect(api.exportUnits).toHaveBeenCalledWith(expect.objectContaining({ unitId: 'doi-1' }), AS_OF, true));
+    fireEvent.click(screen.getByTestId('backlog-clear-filters'));
+    await waitFor(() => expect(where()).not.toContain('backlog_unit'));
+  });
+
+  it('a unit named by the address is selected even when the filter list does not offer it', async () => {
+    renderPage('/ton-dong-theo-don-vi?backlog_unit=doi-2');
+    await loaded();
+    expect(api.units).toHaveBeenCalledWith(expect.objectContaining({ unitId: 'doi-2' }), false);
+    await waitFor(() => expect(screen.getByTestId('backlog-filter-unit')).toHaveValue('doi-2'));
+  });
+});
+
 describe('the filters', () => {
   it('reads them from the address and sends them with the table', async () => {
     renderPage('/ton-dong-theo-don-vi?backlog_kind=CASE&backlog_role=COORDINATE&backlog_from=2026-10-01&backlog_to=2026-10-31');
     await loaded();
-    expect(api.units).toHaveBeenCalledWith({ kind: 'CASE', role: 'COORDINATE', from: '2026-10-01', to: '2026-10-31' }, false);
+    expect(api.units).toHaveBeenCalledWith({ kind: 'CASE', role: 'COORDINATE', from: '2026-10-01', to: '2026-10-31', unitId: null }, false);
     expect(screen.getByTestId('backlog-filter-kind')).toHaveValue('CASE');
     expect(screen.getByTestId('backlog-filter-role')).toHaveValue('COORDINATE');
     expect(screen.getByTestId('backlog-filter-from')).toHaveValue('2026-10-01');
@@ -268,7 +411,7 @@ describe('the filters', () => {
     await waitFor(() => expect(where()).toContain('backlog_role=CHECK'));
     fireEvent.change(screen.getByTestId('backlog-filter-from'), { target: { value: '2026-11-01' } });
     await waitFor(() => expect(where()).toContain('backlog_from=2026-11-01'));
-    await waitFor(() => expect(api.units).toHaveBeenLastCalledWith({ kind: 'INCIDENT', role: 'CHECK', from: '2026-11-01', to: null }, false));
+    await waitFor(() => expect(api.units).toHaveBeenLastCalledWith({ kind: 'INCIDENT', role: 'CHECK', from: '2026-11-01', to: null, unitId: null }, false));
     fireEvent.change(screen.getByTestId('backlog-filter-role'), { target: { value: 'MAIN' } });
     await waitFor(() => expect(where()).not.toContain('backlog_role'));
     fireEvent.click(screen.getByTestId('backlog-clear-filters'));
@@ -279,7 +422,7 @@ describe('the filters', () => {
   it('ignores a value of the address the contract does not know', async () => {
     renderPage('/ton-dong-theo-don-vi?backlog_kind=NOPE&backlog_role=INFORM&backlog_from=01/11/2026');
     await loaded();
-    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null }, false);
+    expect(api.units).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null, unitId: null }, false);
   });
 });
 
@@ -327,7 +470,7 @@ describe('the on-time rate by period', () => {
   it('asks the current month in Vietnam by default, with the kind and the role of the table', async () => {
     renderPage('/ton-dong-theo-don-vi?backlog_kind=CASE&backlog_role=CHECK');
     await waitFor(() => expect(api.onTime).toHaveBeenCalled());
-    expect(api.onTime).toHaveBeenCalledWith({ kind: 'CASE', role: 'CHECK', ...monthOf() });
+    expect(api.onTime).toHaveBeenCalledWith({ kind: 'CASE', role: 'CHECK', ...monthOf(), unitId: null, rolledUp: false });
     expect(screen.getByTestId('backlog-period-from')).toHaveValue(monthOf().from);
   });
 
@@ -384,7 +527,7 @@ describe('the default period across the end of a month', () => {
     // One hour later it is 1 December in Vietnam (still 30 November in UTC). The page was never closed.
     vi.setSystemTime(new Date('2026-11-30T17:30:00.000Z'));
     fireEvent.change(screen.getByTestId('backlog-filter-kind'), { target: { value: 'CASE' } });
-    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith({ kind: 'CASE', role: 'MAIN', from: '2026-12-01', to: '2026-12-31' }));
+    await waitFor(() => expect(api.onTime).toHaveBeenLastCalledWith({ kind: 'CASE', role: 'MAIN', from: '2026-12-01', to: '2026-12-31', unitId: null, rolledUp: false }));
     expect(screen.getByTestId('backlog-period-from')).toHaveValue('2026-12-01');
   });
 
@@ -405,7 +548,7 @@ describe('the export', () => {
     await loaded();
     fireEvent.click(screen.getByTestId('backlog-export'));
     await waitFor(() => expect(api.exportUnits).toHaveBeenCalledTimes(1));
-    expect(api.exportUnits).toHaveBeenCalledWith({ kind: 'PETITION', role: 'CHECK', from: null, to: '2026-11-30' }, AS_OF, false);
+    expect(api.exportUnits).toHaveBeenCalledWith({ kind: 'PETITION', role: 'CHECK', from: null, to: '2026-11-30', unitId: null }, AS_OF, false);
   });
 
   it('rolled up, asks the file rolled up too: the file is the table on screen', async () => {
@@ -413,7 +556,7 @@ describe('the export', () => {
     await loaded();
     fireEvent.click(screen.getByTestId('backlog-export'));
     await waitFor(() => expect(api.exportUnits).toHaveBeenCalledTimes(1));
-    expect(api.exportUnits).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null }, AS_OF, true);
+    expect(api.exportUnits).toHaveBeenCalledWith({ kind: null, role: 'MAIN', from: null, to: null, unitId: null }, AS_OF, true);
   });
 
   it('says so when the export fails', async () => {

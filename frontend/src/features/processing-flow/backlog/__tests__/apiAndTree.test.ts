@@ -35,33 +35,48 @@ beforeEach(() => {
 
 describe('the backlog routes', () => {
   it('asks the table with only the filters that are set; the default role is left out', async () => {
-    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null }, false);
+    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null, unitId: null }, false);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', { params: {} });
     // Rolled up: the server does the roll-up, the screen only asks for it.
-    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null }, true);
+    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null, unitId: null }, true);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', { params: { rollup: true } });
-    await backlogApi.units({ kind: 'CASE', role: 'CHECK', from: '2026-11-01', to: '2026-11-30' }, false);
+    await backlogApi.units({ kind: 'CASE', role: 'CHECK', from: '2026-11-01', to: '2026-11-30', unitId: null }, false);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', {
       params: { kind: 'CASE', role: 'CHECK', from: '2026-11-01', to: '2026-11-30' },
     });
   });
 
   it('asks the rows of a cell from the tracking list, with the unit, the band and the instant of the table', async () => {
-    await backlogApi.cellItems({ kind: 'PETITION', role: 'COORDINATE', from: '2026-11-01', to: null, teamId: 't3', band: 'NONE', asOf: AS_OF, page: 2, pageSize: 20 });
+    await backlogApi.cellItems({ kind: 'PETITION', role: 'COORDINATE', from: '2026-11-01', to: null, unitId: 'doi-9', teamId: 't3', band: 'NONE', asOf: AS_OF, page: 2, pageSize: 20 });
     expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/items', {
       params: { kind: 'PETITION', role: 'COORDINATE', from: '2026-11-01', teamId: 't3', band: 'NONE', asOf: AS_OF, page: 2, pageSize: 20 },
     });
   });
 
+  it('sends the unit filter as `teamId` with the table, the export and the on-time report; the rows of a cell keep the unit of the CELL', async () => {
+    await backlogApi.units({ kind: null, role: 'MAIN', from: null, to: null, unitId: 'doi-1' }, true);
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units', { params: { teamId: 'doi-1', rollup: true } });
+    await backlogApi.onTime({ kind: null, role: 'MAIN', from: '2026-11-01', to: '2026-11-30', unitId: 'doi-1', rolledUp: true });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/on-time', { params: { from: '2026-11-01', to: '2026-11-30', teamId: 'doi-1', rollup: true } });
+    http.get.mockResolvedValueOnce({ data: new Blob(['x']), headers: {} });
+    await backlogApi.exportUnits({ kind: null, role: 'MAIN', from: null, to: null, unitId: 'doi-1' }, null, false);
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units/export', { params: { teamId: 'doi-1' }, responseType: 'blob' });
+  });
+
+  it('asks the records with no flow of one unit and one kind', async () => {
+    await backlogApi.unapplied({ teamId: 'to-1', kind: 'INCIDENT' }, 2, 20);
+    expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/unapplied', { params: { kind: 'INCIDENT', teamId: 'to-1', page: 2, pageSize: 20 } });
+  });
+
   it('asks the on-time report with its period', async () => {
-    await backlogApi.onTime({ kind: null, role: 'MAIN', from: '2026-11-01', to: '2026-11-30' });
+    await backlogApi.onTime({ kind: null, role: 'MAIN', from: '2026-11-01', to: '2026-11-30', unitId: null, rolledUp: false });
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/on-time', { params: { from: '2026-11-01', to: '2026-11-30' } });
   });
 
   it('exports with the filters and the instant on screen, as a blob, and leaves the file name to the server', async () => {
     const response = { data: new Blob(['x']), headers: { 'content-disposition': 'attachment; filename="ton-dong-theo-don-vi-2026-12-10.xlsx"' } };
     http.get.mockResolvedValueOnce(response);
-    await backlogApi.exportUnits({ kind: 'INCIDENT', role: 'CHECK', from: null, to: '2026-12-01' }, AS_OF, false);
+    await backlogApi.exportUnits({ kind: 'INCIDENT', role: 'CHECK', from: null, to: '2026-12-01', unitId: null }, AS_OF, false);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units/export', {
       params: { kind: 'INCIDENT', role: 'CHECK', to: '2026-12-01', asOf: AS_OF },
       responseType: 'blob',
@@ -72,7 +87,7 @@ describe('the backlog routes', () => {
 
   it('exports the table rolled up when the screen is rolled up', async () => {
     http.get.mockResolvedValueOnce({ data: new Blob(['x']), headers: {} });
-    await backlogApi.exportUnits({ kind: null, role: 'MAIN', from: null, to: null }, AS_OF, true);
+    await backlogApi.exportUnits({ kind: null, role: 'MAIN', from: null, to: null, unitId: null }, AS_OF, true);
     expect(http.get).toHaveBeenLastCalledWith('/processing/backlog/units/export', { params: { asOf: AS_OF, rollup: true }, responseType: 'blob' });
   });
 

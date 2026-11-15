@@ -7,7 +7,7 @@ import { TeamsService } from '../../teams/teams.service';
 import { BANDS } from '../contract/processing-codes';
 import { bandInstants } from '../engine/bands';
 import type { RecordKind } from '../gateway/record-snapshot';
-import { recordLink } from '../records/record-alert';
+import { clocklessStatuses, finishedStatuses, recordLink } from '../records/record-alert';
 import { WORK_ROLES, type WorkRole } from './band-conditions';
 import { DURATION_PAGE_SIZE, ProcessingBacklogService, ROLLED_UP_NOTE, type BacklogUnitRow } from './processing-backlog.service';
 import { ProcessingTrackingService } from './processing-tracking.service';
@@ -28,7 +28,7 @@ if (process.env.DYN_REPORTS_DATABASE_REQUIRED === '1') {
   });
 }
 
-type Who = 'owner' | 'member' | 'other' | 'unpermitted';
+type Who = 'owner' | 'member' | 'other' | 'unpermitted' | 'holder';
 const T = { redDays: 1, yellowDays: 2, greenDays: 3 };
 /** 10 December 2026, 10:00 in Vietnam. */
 const NOW = new Date('2026-12-10T03:00:00.000Z');
@@ -48,6 +48,8 @@ run('The backlog by unit on PostgreSQL', () => {
   let stepConfig = '';
   let flowConfig = { flowId: '', versionId: '' };
   let counter = 0;
+  /** The ids of the open records with no flow, by holding unit and kind: what the column must count and its list show. */
+  const noFlow: Record<'N' | 'N2', Record<'PETITION' | 'INCIDENT', string[]>> = { N: { PETITION: [], INCIDENT: [] }, N2: { PETITION: [], INCIDENT: [] } };
 
   const user = (who: Who) => ({ id: id[who], role: roleOf[who], canDispatch: false });
 
@@ -65,7 +67,7 @@ run('The backlog by unit on PostgreSQL', () => {
     status?: 'OPEN' | 'REPORTED' | 'DONE';
     startAt?: Date;
     doneAt?: Date;
-    parties: Array<{ team: 'T' | 'U' | 'V'; role?: 'MAIN' | 'CHECK' | 'COORDINATE' | 'INFORM' }>;
+    parties: Array<{ team: 'T' | 'U' | 'V' | 'N'; role?: 'MAIN' | 'CHECK' | 'COORDINATE' | 'INFORM' }>;
   }
 
   const flowOn = async (kind: RecordKind, recordId: string, steps: StepSpec[]): Promise<void> => {
@@ -116,6 +118,7 @@ run('The backlog by unit on PostgreSQL', () => {
     await person('member', officer);
     await person('other', officer);
     await person('unpermitted', bare);
+    await person('holder', officer);
 
     // P is the unit above T. T holds every record; U and V are other units that steps name. V's name would be a formula.
     id.P = (await db.team.create({ data: { code: `${tag}-P`, name: `${tag} Đội P` } })).id;
@@ -123,12 +126,17 @@ run('The backlog by unit on PostgreSQL', () => {
     id.U = (await db.team.create({ data: { code: `${tag}-U`, name: `${tag} Tổ U` } })).id;
     id.V = (await db.team.create({ data: { code: `${tag}-V`, name: `=${tag} V` } })).id;
     id.O = (await db.team.create({ data: { code: `${tag}-O`, name: `${tag} Tổ O` } })).id;
+    // N and, under it, N2 hold records that have NO flow yet; nobody of T, U or V is in them.
+    id.N = (await db.team.create({ data: { code: `${tag}-N`, name: `${tag} Đội N` } })).id;
+    id.N2 = (await db.team.create({ data: { code: `${tag}-N2`, name: `${tag} Tổ N2`, parentId: id.N } })).id;
     await db.userTeam.createMany({
       data: [
         { userId: id.member, teamId: id.T },
         { userId: id.unpermitted, teamId: id.T },
         { userId: id.owner, teamId: id.O },
         { userId: id.other, teamId: id.U },
+        { userId: id.holder, teamId: id.N },
+        { userId: id.holder, teamId: id.N2 },
       ],
     });
 
@@ -170,6 +178,17 @@ run('The backlog by unit on PostgreSQL', () => {
     // Never counted: a deleted record, a suspended one.
     await flowOn('PETITION', await record('PETITION', { deletedAt: NOW }), [{ due: DUE.RED, parties: [{ team: 'T' }] }]);
     await flowOn('PETITION', await record('PETITION', { status: 'TAM_DINH_CHI' }), [{ due: DUE.RED, parties: [{ team: 'T' }] }]);
+
+    // ---- no flow yet (R6). N holds two open petitions and one open incident without a flow; N2 one petition.
+    noFlow.N.PETITION.push(await record('PETITION', { assignedTeamId: id.N, deadline: new Date('2026-12-20T00:00:00Z') }), await record('PETITION', { assignedTeamId: id.N }));
+    noFlow.N.INCIDENT.push(await record('INCIDENT', { assignedTeamId: id.N }));
+    noFlow.N2.PETITION.push(await record('PETITION', { assignedTeamId: id.N2 }));
+    // Never counted: finished, suspended, deleted, held by no unit, or carrying a flow (here one whose only step is done).
+    await record('PETITION', { assignedTeamId: id.N, status: finishedStatuses('PETITION')[0] });
+    await record('PETITION', { assignedTeamId: id.N, status: 'TAM_DINH_CHI' });
+    await record('PETITION', { assignedTeamId: id.N, deletedAt: NOW });
+    await record('PETITION', { assignedTeamId: null });
+    await flowOn('PETITION', await record('PETITION', { assignedTeamId: id.N }), [{ due: endOf(3), status: 'DONE', doneAt: endOf(3), parties: [{ team: 'N' }] }]);
   });
 
   afterAll(async () => {
@@ -201,15 +220,15 @@ run('The backlog by unit on PostgreSQL', () => {
       expect(table.asOf).toBe(asOf);
       expect(table.rows.map((row) => row.teamId).sort()).toEqual([id.T, id.U].sort());
       // T: five records (r1..r5), six pieces of work.
-      expect(rowOf(table.rows, 'T')).toEqual({ teamId: id.T, teamName: `${tag} Tổ T`, parentTeamId: id.P, holding: 5, OVERDUE: 2, RED: 1, YELLOW: 1, GREEN: 1, NONE: 1, oldestDueAt: DUE.OVERDUE.toISOString(), oldestDays: 2 });
-      expect(rowOf(table.rows, 'U')).toEqual({ teamId: id.U, teamName: `${tag} Tổ U`, parentTeamId: null, holding: 1, OVERDUE: 0, RED: 0, YELLOW: 1, GREEN: 0, NONE: 0, oldestDueAt: DUE.YELLOW.toISOString(), oldestDays: 0 });
+      expect(rowOf(table.rows, 'T')).toEqual({ teamId: id.T, teamName: `${tag} Tổ T`, parentTeamId: id.P, holding: 5, unapplied: 0, unappliedByKind: { PETITION: 0, INCIDENT: 0, CASE: 0 }, OVERDUE: 2, RED: 1, YELLOW: 1, GREEN: 1, NONE: 1, oldestDueAt: DUE.OVERDUE.toISOString(), oldestDays: 2 });
+      expect(rowOf(table.rows, 'U')).toEqual({ teamId: id.U, teamName: `${tag} Tổ U`, parentTeamId: null, holding: 1, unapplied: 0, unappliedByKind: { PETITION: 0, INCIDENT: 0, CASE: 0 }, OVERDUE: 0, RED: 0, YELLOW: 1, GREEN: 0, NONE: 0, oldestDueAt: DUE.YELLOW.toISOString(), oldestDays: 0 });
     });
 
     it('the totals add the band columns, and count each record once', async () => {
       // Unfiltered: exactly what the route answers. A member of T reaches the records of T only.
       const table = await backlog.units(user('member'), { asOf });
       expect(table.rows.every((row) => myTeams().has(row.teamId))).toBe(true);
-      expect(table.totals).toEqual({ holding: 6, OVERDUE: 2, RED: 1, YELLOW: 2, GREEN: 1, NONE: 1 });
+      expect(table.totals).toEqual({ holding: 6, unapplied: 0, OVERDUE: 2, RED: 1, YELLOW: 2, GREEN: 1, NONE: 1 });
     });
 
     it('the role: CHECK and COORDINATE have tables of their own, INFORM is never work', async () => {
@@ -271,6 +290,110 @@ run('The backlog by unit on PostgreSQL', () => {
     });
   });
 
+  describe('the records with no flow yet (R6)', () => {
+    const mine = (rows: BacklogUnitRow[]) => rows.filter((row) => row.teamId === id.N || row.teamId === id.N2);
+
+    it('counts the OPEN records with no flow by the unit that holds them, per kind; a unit that only holds such records has a row; the totals add them', async () => {
+      const table = await backlog.units(user('holder'), { asOf });
+      expect(mine(table.rows).map((row) => [row.teamId, row.unapplied, row.unappliedByKind, row.holding, row.oldestDueAt])).toEqual([
+        [id.N, 3, { PETITION: 2, INCIDENT: 1, CASE: 0 }, 0, null],
+        [id.N2, 1, { PETITION: 1, INCIDENT: 0, CASE: 0 }, 0, null],
+      ]);
+      // Finished, suspended, deleted, held by no unit, or carrying a flow: none of the five is counted.
+      expect(table.totals.unapplied).toBe(table.rows.reduce((sum, row) => sum + row.unapplied, 0));
+      expect(table.totals.unapplied).toBe(4);
+      expect(clocklessStatuses('PETITION')).toEqual(expect.arrayContaining([finishedStatuses('PETITION')[0], 'TAM_DINH_CHI']));
+      // The kind filters it; the role and the period (which are about steps) do not.
+      expect(mine((await backlog.units(user('holder'), { asOf, kind: 'INCIDENT' })).rows).map((row) => [row.teamId, row.unapplied])).toEqual([[id.N, 1]]);
+      expect(mine((await backlog.units(user('holder'), { asOf, role: 'CHECK', from: '2026-12-05' })).rows).map((row) => [row.teamId, row.unapplied])).toEqual([[id.N, 3], [id.N2, 1]]);
+    });
+
+    it('EVERY number of the column is the total of the list it opens, and the list is exactly those records', async () => {
+      const compared: Array<{ cell: string; number: number; total: number }> = [];
+      for (const who of ['holder', 'member', 'other', 'unpermitted'] as Who[]) {
+        const table = await backlog.units(user(who), { asOf });
+        for (const team of ['N', 'N2', 'T', 'U'] as const) {
+          const row = table.rows.find((found) => found.teamId === id[team]);
+          let all = 0;
+          for (const kind of ['PETITION', 'INCIDENT', 'CASE'] as const) {
+            const list = await backlog.unapplied(user(who), { kind, teamId: id[team], pageSize: 100 });
+            expect(list.items).toHaveLength(list.total);
+            compared.push({ cell: `${who}/${team}/${kind}`, number: row?.unappliedByKind[kind] ?? 0, total: list.total });
+            all += list.total;
+            if (who === 'holder' && (team === 'N' || team === 'N2') && kind !== 'CASE') expect(list.items.map((item) => item.recordId).sort()).toEqual([...noFlow[team][kind]].sort());
+          }
+          compared.push({ cell: `${who}/${team}/all`, number: row?.unapplied ?? 0, total: all });
+        }
+      }
+      expect(compared.filter((cell) => cell.number !== cell.total)).toEqual([]);
+      expect(compared.filter((cell) => cell.number > 0).length).toBeGreaterThanOrEqual(5);
+      // The most urgent first: the record with a deadline of its own before the one without. Pages do not overlap.
+      const first = await backlog.unapplied(user('holder'), { kind: 'PETITION', teamId: id.N, pageSize: 1 });
+      const second = await backlog.unapplied(user('holder'), { kind: 'PETITION', teamId: id.N, pageSize: 1, page: 2 });
+      expect(first).toMatchObject({ total: 2, page: 1, pageSize: 1, items: [{ recordId: noFlow.N.PETITION[0], recordKind: 'PETITION', deadline: '2026-12-20T00:00:00.000Z' }] });
+      expect(first.items[0].recordCode).toContain(tag);
+      expect(second.items.map((item) => item.recordId)).toEqual([noFlow.N.PETITION[1]]);
+    });
+
+    it('is counted under the person\'s OWN record scope: somebody outside the unit sees none of it, a role that reads no record sees nothing', async () => {
+      // `member` is in T, `other` in U: the records N holds are outside both scopes, and no step reaches them.
+      expect(mine((await backlog.units(user('member'), { asOf })).rows)).toEqual([]);
+      expect(mine((await backlog.units(user('other'), { asOf })).rows)).toEqual([]);
+      expect((await backlog.unapplied(user('other'), { kind: 'PETITION', teamId: id.N })).total).toBe(0);
+      expect((await backlog.unapplied(user('unpermitted'), { kind: 'PETITION', teamId: id.N })).total).toBe(0);
+    });
+
+    it('rolled up, the figure of the unit above is the SUM of its units', async () => {
+      const table = await backlog.units(user('holder'), { asOf, rollup: true });
+      expect(mine(table.rows).map((row) => [row.teamId, row.unapplied, row.unappliedByKind, row.descendants])).toEqual([[id.N, 4, { PETITION: 3, INCIDENT: 1, CASE: 0 }, 1]]);
+      expect(table.totals.unapplied).toBe(4);
+    });
+
+    it('reads no record row for the column: one grouped count per kind', async () => {
+      const read = jest.spyOn(scratch.db.petition, 'findMany');
+      const grouped = jest.spyOn(scratch.db.petition, 'groupBy');
+      try {
+        await backlog.units(user('holder'), { asOf });
+        expect(read).not.toHaveBeenCalled();
+        expect(grouped).toHaveBeenCalledTimes(1);
+      } finally {
+        read.mockRestore();
+        grouped.mockRestore();
+      }
+    });
+  });
+
+  describe('the unit filter', () => {
+    it('one unit: its row alone, and totals of that row; with the roll-up, the unit and every unit under it', async () => {
+      const one = await backlog.units(user('member'), { asOf, teamId: id.U });
+      expect(one.rows.map((row) => row.teamId)).toEqual([id.U]);
+      expect(one.totals).toEqual({ holding: 1, unapplied: 0, OVERDUE: 0, RED: 0, YELLOW: 1, GREEN: 0, NONE: 0 });
+      // N alone is N; rolled up it is N with N2 under it.
+      expect((await backlog.units(user('holder'), { asOf, teamId: id.N })).rows.map((row) => [row.teamId, row.unapplied])).toEqual([[id.N, 3]]);
+      expect((await backlog.units(user('holder'), { asOf, teamId: id.N2 })).rows.map((row) => [row.teamId, row.unapplied])).toEqual([[id.N2, 1]]);
+      const rolled = await backlog.units(user('holder'), { asOf, teamId: id.N, rollup: true });
+      expect(rolled.rows.map((row) => [row.teamId, row.unapplied, row.descendants])).toEqual([[id.N, 4, 1]]);
+      expect(rolled.totals.unapplied).toBe(4);
+      // P works nothing itself; T is under it.
+      expect((await backlog.units(user('member'), { asOf, teamId: id.P })).rows).toEqual([]);
+      expect((await backlog.units(user('member'), { asOf, teamId: id.P, rollup: true })).rows.map((row) => [row.teamId, row.holding])).toEqual([[id.T, 5]]);
+    });
+
+    it('a filtered cell still equals the list it opens', async () => {
+      const table = await backlog.units(user('member'), { asOf, teamId: id.T });
+      const row = rowOf(table.rows, 'T');
+      for (const band of BANDS) expect((await tracking.items(user('member'), { asOf, teamId: id.T, band, pageSize: 100 })).total).toBe(row?.[band]);
+    });
+
+    it('the on-time report takes the same filter', async () => {
+      const report = await backlog.onTime(user('member'), { asOf, from: '2026-12-01', to: '2026-12-31', teamId: id.U });
+      expect(report.rows.map((row) => row.teamId)).toEqual([id.U]);
+      expect(report.totals).toMatchObject({ doneOnTime: 0, doneLate: 1, openInTime: 1, openOverdue: 0 });
+      const under = await backlog.onTime(user('member'), { asOf, from: '2026-12-01', to: '2026-12-31', teamId: id.P, rollup: true });
+      expect(under.rows.map((row) => row.teamId)).toEqual([id.T]);
+    });
+  });
+
   describe('who sees which unit', () => {
     it('a person of a unit a step names sees the work of that step only: no unit outside it', async () => {
       // `other` is in U. U works r6 (MAIN) and checks r3; the records are T's and outside their scope.
@@ -283,7 +406,7 @@ run('The backlog by unit on PostgreSQL', () => {
     });
 
     it('a person whose role reads no kind of record sees no unit, even from inside the unit that holds the records', async () => {
-      expect(await backlog.units(user('unpermitted'), { asOf })).toEqual({ asOf, rows: [], totals: { holding: 0, OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0, NONE: 0 } });
+      expect(await backlog.units(user('unpermitted'), { asOf })).toEqual({ asOf, rows: [], totals: { holding: 0, unapplied: 0, OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0, NONE: 0 } });
       expect((await backlog.onTime(user('unpermitted'), { asOf })).rows).toEqual([]);
     });
 
@@ -348,11 +471,11 @@ run('The backlog by unit on PostgreSQL', () => {
 
     it('the table as filtered: a header, one line per unit, the totals', async () => {
       const rows = await sheetOf('member');
-      expect(rows[0]).toEqual(['Đơn vị', 'Đang giữ (hồ sơ)', 'Quá hạn', 'Đỏ', 'Vàng', 'Xanh', 'Chưa tới ngưỡng', 'Hạn cũ nhất', 'Số ngày quá hạn']);
+      expect(rows[0]).toEqual(['Đơn vị', 'Đang giữ (hồ sơ)', 'Quá hạn', 'Đỏ', 'Vàng', 'Xanh', 'Chưa tới ngưỡng', 'Chưa áp quy trình', 'Hạn cũ nhất', 'Số ngày quá hạn']);
       expect(rows.slice(1)).toEqual([
-        [`${tag} Tổ T`, 5, 2, 1, 1, 1, 1, DUE.OVERDUE.toISOString(), 2],
-        [`${tag} Tổ U`, 1, 0, 0, 1, 0, 0, DUE.YELLOW.toISOString(), 0],
-        ['Tổng cộng', 6, 2, 1, 2, 1, 1, '', ''],
+        [`${tag} Tổ T`, 5, 2, 1, 1, 1, 1, 0, DUE.OVERDUE.toISOString(), 2],
+        [`${tag} Tổ U`, 1, 0, 0, 1, 0, 0, 0, DUE.YELLOW.toISOString(), 0],
+        ['Tổng cộng', 6, 2, 1, 2, 1, 1, 0, '', ''],
       ]);
       expect((await sheetOf('member', { kind: 'INCIDENT' })).map((row) => row[0])).toEqual(['Đơn vị', `${tag} Tổ U`, 'Tổng cộng']);
     });
@@ -360,8 +483,8 @@ run('The backlog by unit on PostgreSQL', () => {
     it('rolled up, the file says so; units that stand alone keep their own exact figures', async () => {
       const rows = await sheetOf('member', { rollup: true });
       expect(rows.slice(1, 3)).toEqual([
-        [`${tag} Tổ T`, 5, 2, 1, 1, 1, 1, DUE.OVERDUE.toISOString(), 2],
-        [`${tag} Tổ U`, 1, 0, 0, 1, 0, 0, DUE.YELLOW.toISOString(), 0],
+        [`${tag} Tổ T`, 5, 2, 1, 1, 1, 1, 0, DUE.OVERDUE.toISOString(), 2],
+        [`${tag} Tổ U`, 1, 0, 0, 1, 0, 0, 0, DUE.YELLOW.toISOString(), 0],
       ]);
       expect(rows[rows.length - 1]).toEqual([ROLLED_UP_NOTE]);
       const table = await backlog.units(user('member'), { asOf, rollup: true });

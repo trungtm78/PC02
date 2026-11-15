@@ -1,7 +1,7 @@
 import { api } from '@/lib/api';
 import { triggerDownload } from '@/features/document-templates/export.api';
 import type { TrackingItemsDto } from '../tracking/types';
-import { DEFAULT_ROLE, type BacklogCell, type BacklogFilters, type BacklogUnitsDto, type OnTimeQuery, type OnTimeReportDto } from './types';
+import { DEFAULT_ROLE, type BacklogCell, type BacklogFilters, type BacklogUnitsDto, type OnTimeQuery, type OnTimeReportDto, type UnappliedCell, type UnappliedRecordsDto } from './types';
 
 const data = <T>(r: { data: T }): T => r.data;
 
@@ -18,6 +18,12 @@ const filterParams = (filters: Pick<BacklogFilters, 'kind' | 'role'> & { from: s
   ...(filters.role !== DEFAULT_ROLE ? { role: filters.role } : {}),
   ...(filters.from ? { from: filters.from } : {}),
   ...(filters.to ? { to: filters.to } : {}),
+});
+
+/** The unit filter: that unit, and with the roll-up every unit under it (the server walks the tree). */
+const unitParams = (unitId: string | null, rolledUp: boolean): Record<string, string | boolean> => ({
+  ...(unitId ? { teamId: unitId } : {}),
+  ...(rolledUp ? { rollup: true } : {}),
 });
 
 export interface CellItemsQuery extends BacklogFilters, BacklogCell {
@@ -37,7 +43,11 @@ export const backlogApi = {
    * top units with the sums under them (the ONE definition of the roll-up, which the export writes too).
    */
   units: (filters: BacklogFilters, rolledUp: boolean) =>
-    api.get<BacklogUnitsDto>(`${BASE}/units`, { params: { ...filterParams(filters), ...(rolledUp ? { rollup: true } : {}) } }).then(data),
+    api.get<BacklogUnitsDto>(`${BASE}/units`, { params: { ...filterParams(filters), ...unitParams(filters.unitId, rolledUp) } }).then(data),
+
+  /** The records one number of the column "Chưa áp quy trình" counts: the server's same condition, one unit, one kind. */
+  unapplied: (cell: UnappliedCell, page: number, pageSize: number) =>
+    api.get<UnappliedRecordsDto>(`${BASE}/unapplied`, { params: { kind: cell.kind, teamId: cell.teamId, page, pageSize } }).then(data),
 
   cellItems: (query: CellItemsQuery) =>
     api
@@ -53,7 +63,8 @@ export const backlogApi = {
       })
       .then(data),
 
-  onTime: (query: OnTimeQuery) => api.get<OnTimeReportDto>(`${BASE}/on-time`, { params: filterParams(query) }).then(data),
+  onTime: (query: OnTimeQuery) =>
+    api.get<OnTimeReportDto>(`${BASE}/on-time`, { params: { ...filterParams(query), ...(query.unitId ? unitParams(query.unitId, query.rolledUp) : {}) } }).then(data),
 
   /**
    * The table as an Excel file, saved to the person's disk: rolled up when the screen is, and with `asOf` the file holds
@@ -62,7 +73,7 @@ export const backlogApi = {
    */
   exportUnits: async (filters: BacklogFilters, asOf: string | null, rolledUp: boolean): Promise<void> => {
     const response = await api.get<Blob>(`${BASE}/units/export`, {
-      params: { ...filterParams(filters), ...(asOf ? { asOf } : {}), ...(rolledUp ? { rollup: true } : {}) },
+      params: { ...filterParams(filters), ...(asOf ? { asOf } : {}), ...unitParams(filters.unitId, rolledUp) },
       responseType: 'blob',
     });
     triggerDownload(response, EXPORT_FALLBACK_NAME);

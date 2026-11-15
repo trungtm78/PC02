@@ -716,6 +716,7 @@ export const processingFlow = {
     filters: {
       kind: 'Loại hồ sơ',
       role: 'Vai trò của đơn vị',
+      unit: 'Đơn vị',
       from: 'Bước bắt đầu từ ngày',
       to: 'đến ngày',
       all: 'Tất cả',
@@ -737,7 +738,23 @@ export const processingFlow = {
     columns: {
       unit: 'Đơn vị',
       holding: 'Đang giữ',
+      unapplied: 'Chưa áp quy trình',
       oldest: 'Hạn lâu nhất',
+    },
+    unappliedHint:
+      'Số hồ sơ đang mở mà đơn vị giữ nhưng chưa được áp quy trình xử lý. Tính theo đơn vị giữ hồ sơ, trong phạm vi dữ liệu của bạn; không phụ thuộc vai trò hay khoảng ngày của bước.',
+    openUnapplied: (unit: string, count: number) => `Xem ${count.toLocaleString('vi-VN')} hồ sơ chưa áp quy trình của ${unit}`,
+    unapplied: {
+      title: (unit: string) => `${unit} · Chưa áp quy trình`,
+      count: (rows: number) => `${rows.toLocaleString('vi-VN')} hồ sơ`,
+      kinds: 'Loại hồ sơ',
+      kindCount: (kind: string, count: number) => `${kind} (${count.toLocaleString('vi-VN')})`,
+      tableTitle: 'Các hồ sơ chưa áp quy trình của đơn vị đang chọn',
+      columns: { record: 'Hồ sơ', deadline: 'Hạn chung của hồ sơ' },
+      noDeadline: 'Chưa có hạn',
+      open: (code: string) => `Mở hồ sơ ${code}`,
+      empty: 'Đơn vị này không còn hồ sơ nào chưa áp quy trình.',
+      changed: 'Số liệu đã thay đổi so với bảng.',
     },
     holdingHint: 'Số hồ sơ đơn vị đang giữ. Một hồ sơ hai đơn vị cùng giữ được tính ở cả hai, nên không cộng dọc được.',
     atLeast: (count: number) => `≥ ${count.toLocaleString('vi-VN')}`,

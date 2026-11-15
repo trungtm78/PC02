@@ -13,7 +13,7 @@ import { ProcessingBacklogService } from './processing-backlog.service';
  */
 describe('ProcessingBacklogController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const backlog = { units: jest.fn(), onTime: jest.fn(), unitsWorkbook: jest.fn() };
+  const backlog = { units: jest.fn(), onTime: jest.fn(), unitsWorkbook: jest.fn(), unapplied: jest.fn() };
   let switchedOn = true;
   let held: string[] = ['read:ProcessingStep'];
   const asked: string[] = [];
@@ -70,6 +70,7 @@ describe('ProcessingBacklogController (HTTP, real guards)', () => {
   beforeEach(() => {
     backlog.units.mockReset().mockResolvedValue({ asOf: 'x', rows: [], totals: {} });
     backlog.onTime.mockReset().mockResolvedValue({ asOf: 'x', rows: [], totals: {} });
+    backlog.unapplied.mockReset().mockResolvedValue({ items: [], total: 0 });
     backlog.unitsWorkbook.mockReset().mockResolvedValue({ buffer: Buffer.from('xlsx-bytes'), asOf: '2026-12-10T03:00:00.000Z' });
     switchedOn = true;
     held = ['read:ProcessingStep'];
@@ -98,6 +99,26 @@ describe('ProcessingBacklogController (HTTP, real guards)', () => {
     expect(backlog[method]).toHaveBeenCalledWith({ id: 'officer-1', role: 'OFFICER', canDispatch: true }, { asOf: '2026-12-10T03:00:00.000Z', kind: 'CASE', role: 'COORDINATE', from: '2026-12-01', to: '2026-12-31' });
   });
 
+  it('the unit filter and the roll-up reach the table and the on-time report as sent', async () => {
+    await get('/processing/backlog/units?teamId=t1&rollup=true').expect(200);
+    expect(backlog.units).toHaveBeenCalledWith(expect.objectContaining({ id: 'officer-1' }), { teamId: 't1', rollup: true });
+    await get('/processing/backlog/on-time?teamId=t1').expect(200);
+    expect(backlog.onTime).toHaveBeenCalledWith(expect.objectContaining({ id: 'officer-1' }), { teamId: 't1' });
+  });
+
+  it('the records with no flow of a unit: behind the same switch and permission, a kind and a unit are required', async () => {
+    const path = '/processing/backlog/unapplied?kind=INCIDENT&teamId=t1&page=2&pageSize=50';
+    await get(path).expect(200);
+    expect(backlog.unapplied).toHaveBeenCalledWith({ id: 'officer-1', role: 'OFFICER', canDispatch: true }, { kind: 'INCIDENT', teamId: 't1', page: 2, pageSize: 50 });
+    backlog.unapplied.mockClear();
+    held = ['read:Petition', 'read:Incident'];
+    await get(path).expect(403);
+    held = ['read:ProcessingStep'];
+    switchedOn = false;
+    await get(path).expect(404);
+    expect(backlog.unapplied).not.toHaveBeenCalled();
+  });
+
   it('the export is an .xlsx attachment named after the day the table was judged at', async () => {
     const answer = await get('/processing/backlog/units/export').expect(200);
     expect(answer.headers['content-type']).toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -108,7 +129,10 @@ describe('ProcessingBacklogController (HTTP, real guards)', () => {
     '/processing/backlog/units?role=INFORM',
     '/processing/backlog/units?kind=DOCUMENT',
     '/processing/backlog/units?asOf=yesterday',
-    '/processing/backlog/units?teamId=t1',
+    '/processing/backlog/units?mine=true',
+    '/processing/backlog/unapplied?teamId=t1',
+    '/processing/backlog/unapplied?kind=PETITION',
+    '/processing/backlog/unapplied?kind=DOCUMENT&teamId=t1',
     '/processing/backlog/units/export?from=2026-02-31',
     '/processing/backlog/on-time?to=soon',
     '/processing/backlog/on-time?userId=somebody-else',

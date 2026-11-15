@@ -277,10 +277,29 @@ export class ProcessingTrackingService {
    * they may read). See the class comment for the rule.
    */
   async reach(user: GatewayUser, only?: RecordKind, acting: readonly string[] = []): Promise<WorkWhere | null> {
-    const scope = await requestScopeOf(this.scopes, user);
+    const scopes = await this.recordScopes(user, only);
     const byStep: WorkWhere = { recordStep: { parties: { some: partyNamesUser(user.id, acting) } } };
     const record = (kind: RecordKind, where: object): WorkWhere => ({ recordStep: { recordKind: kind, recordFlow: { [RECORD_LINK[kind].relation]: { is: where } } } });
     const branches: WorkWhere[] = [];
+    for (const kind of RECORD_KINDS) {
+      const scope = scopes[kind];
+      if (!scope) continue;
+      branches.push(record(kind, scope.inScope));
+      if (scope.viaStep) branches.push({ AND: [byStep, record(kind, scope.viaStep)] });
+    }
+    return branches.length > 0 ? { OR: branches } : null;
+  }
+
+  /**
+   * Per kind of record the person may read at all: `inScope`, the condition of the RECORDS within the person's own
+   * scope (exactly the filter the list of that kind applies), and `viaStep`, the condition a record must still meet
+   * when it is reached through a step instead (`null`: the scope is unrestricted already, a second reason adds nothing).
+   * A kind the person may not read is absent. `reach` is built from this and nothing else; so is every count of records
+   * that have no step to be reached by (the backlog's "no flow yet" column uses `inScope` alone).
+   */
+  async recordScopes(user: GatewayUser, only?: RecordKind): Promise<Partial<Record<RecordKind, { inScope: object; viaStep: object | null }>>> {
+    const scope = await requestScopeOf(this.scopes, user);
+    const found: Partial<Record<RecordKind, { inScope: object; viaStep: object | null }>> = {};
 
     for (const kind of RECORD_KINDS) {
       if (only && only !== kind) continue;
@@ -300,18 +319,16 @@ export class ProcessingTrackingService {
         }
         // The list of cases applies the scope of the request on top of the governance scope; so does this.
         const requestScope = buildScopeFilter(scope, 'read', 'Case');
-        branches.push(record('CASE', { AND: [inScope, requestScope ?? {}] }));
-        branches.push({ AND: [byStep, record('CASE', policyOnly)] });
+        found.CASE = { inScope: { AND: [inScope, requestScope ?? {}] }, viaStep: policyOnly };
         continue;
       }
       const subject = kind === 'PETITION' ? 'Petition' : 'Incident';
       if (!(await holdsReadPermission(this.prisma, user.id, subject))) continue;
       const scopeFilter = kind === 'PETITION' ? buildPetitionScopeFilter(scope, 'read') : buildScopeFilter(scope, 'read', 'Incident');
-      branches.push(record(kind, { AND: [{ deletedAt: null }, scopeFilter ?? {}] }));
       // Unrestricted already: the second reason adds nothing.
-      if (scopeFilter) branches.push({ AND: [byStep, record(kind, { deletedAt: null })] });
+      found[kind] = { inScope: { AND: [{ deletedAt: null }, scopeFilter ?? {}] }, viaStep: scopeFilter ? { deletedAt: null } : null };
     }
-    return branches.length > 0 ? { OR: branches } : null;
+    return found;
   }
 
   /** The code and the name of the records of a page: one query per kind present. */

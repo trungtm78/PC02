@@ -38,6 +38,16 @@ export class BacklogQueryDto {
   @IsOptional() @IsNgayThat() @MaxLength(40) to?: string;
   /** The table rolled up to its top units, as the screen shows it with "Gộp lên tổ cha" on. */
   @IsOptional() @Transform(asBoolean) @IsBoolean() rollup?: boolean;
+  /** Only this unit; with `rollup`, the unit and every unit under it. */
+  @IsOptional() @IsString() @MaxLength(MAX_ID) teamId?: string;
+}
+
+/** The records behind one number of the column "no flow yet": one unit, one kind of record. */
+export class UnappliedQueryDto {
+  @IsIn([...RECORD_KINDS]) kind!: (typeof RECORD_KINDS)[number];
+  @IsString() @MaxLength(MAX_ID) teamId!: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(TRACKING_MAX_PAGE_SIZE) pageSize?: number;
 }
 
 /** The period (by `doneAt`) and the kind of the on-time report. */

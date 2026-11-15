@@ -21,6 +21,8 @@ export interface BacklogFilters {
   role: WorkRole;
   from: string | null;
   to: string | null;
+  /** Only this unit (with the roll-up: and every unit under it). Sent as `teamId`. */
+  unitId: string | null;
 }
 
 export type BandCounts = Record<BacklogBand, number>;
@@ -31,6 +33,12 @@ export interface BacklogUnitRow extends BandCounts {
   parentTeamId: string | null;
   /** Distinct RECORDS this unit is working. Two units may hold the same record, so it does not add up across units. */
   holding: number;
+  /**
+   * Open records this unit HOLDS that have no flow yet, in all and per kind. A record is held by one unit, so these DO
+   * add up across units. Absent in the answer of an older server.
+   */
+  unapplied?: number;
+  unappliedByKind?: Partial<Record<RecordKind, number>>;
   oldestDueAt: string | null;
   oldestDays: number | null;
   /** Only on a rolled-up table: the units summed into this row besides itself. */
@@ -43,7 +51,32 @@ export interface BacklogUnitsDto {
   /** The instant the table was judged at: passed back when the rows of a cell are opened, so the two agree. */
   asOf: string;
   rows: BacklogUnitRow[];
-  totals: BandCounts & { holding: number };
+  totals: BandCounts & { holding: number; unapplied?: number };
+}
+
+/** A record with no flow yet, of the list behind a number of the column "Chưa áp quy trình". */
+export interface UnappliedRecordDto {
+  recordKind: RecordKind;
+  recordId: string;
+  recordCode: string | null;
+  recordLabel: string | null;
+  /** The record's own deadline; `null` without one, and for a case. */
+  deadline: string | null;
+}
+
+export interface UnappliedRecordsDto {
+  kind: RecordKind;
+  teamId: string;
+  items: UnappliedRecordDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** The number of the column "Chưa áp quy trình" that was clicked: one unit, one kind of record. */
+export interface UnappliedCell {
+  teamId: string;
+  kind: RecordKind;
 }
 
 export interface OnTimeFigures {
@@ -76,6 +109,9 @@ export interface OnTimeQuery {
   role: WorkRole;
   from: string;
   to: string;
+  /** The unit filter of the table above, and whether it reaches the units under it. */
+  unitId: string | null;
+  rolledUp: boolean;
 }
 
 /** The cell of the table that was clicked: one unit, one band. */
