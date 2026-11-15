@@ -9,7 +9,7 @@ import { bandInstants } from '../engine/bands';
 import type { RecordKind } from '../gateway/record-snapshot';
 import { recordLink } from '../records/record-alert';
 import { WORK_ROLES, type WorkRole } from './band-conditions';
-import { ProcessingBacklogService, type BacklogUnitRow } from './processing-backlog.service';
+import { DURATION_PAGE_SIZE, ProcessingBacklogService, ROLLED_UP_NOTE, type BacklogUnitRow } from './processing-backlog.service';
 import { ProcessingTrackingService } from './processing-tracking.service';
 
 /**
@@ -316,6 +316,26 @@ run('The backlog by unit on PostgreSQL', () => {
     });
   });
 
+  describe('the cost of a table', () => {
+    it('reads no row of work for the units table or its export, and the on-time report reads durations a page at a time', async () => {
+      const read = jest.spyOn(scratch.db.procRecordStepParty, 'findMany');
+      try {
+        await backlog.units(user('member'), { asOf });
+        await backlog.unitsWorkbook(user('member'), { asOf, rollup: true });
+        expect(read).not.toHaveBeenCalled();
+        await backlog.onTime(user('member'), { asOf, from: '2026-12-01', to: '2026-12-31' });
+        expect(read.mock.calls.length).toBeGreaterThan(0);
+        for (const [args] of read.mock.calls) {
+          expect((args as { take?: number }).take).toBe(DURATION_PAGE_SIZE);
+          // Two instants and the unit: never the whole row.
+          expect(Object.keys((args as { select: object }).select).sort()).toEqual(['id', 'recordStep', 'teamId']);
+        }
+      } finally {
+        read.mockRestore();
+      }
+    });
+  });
+
   describe('the export', () => {
     const sheetOf = async (who: Who, filter: Record<string, unknown> = {}) => {
       const { buffer } = await backlog.unitsWorkbook(user(who), { asOf, ...filter });
@@ -335,6 +355,17 @@ run('The backlog by unit on PostgreSQL', () => {
         ['Tổng cộng', 6, 2, 1, 2, 1, 1, '', ''],
       ]);
       expect((await sheetOf('member', { kind: 'INCIDENT' })).map((row) => row[0])).toEqual(['Đơn vị', `${tag} Tổ U`, 'Tổng cộng']);
+    });
+
+    it('rolled up, the file says so; units that stand alone keep their own exact figures', async () => {
+      const rows = await sheetOf('member', { rollup: true });
+      expect(rows.slice(1, 3)).toEqual([
+        [`${tag} Tổ T`, 5, 2, 1, 1, 1, 1, DUE.OVERDUE.toISOString(), 2],
+        [`${tag} Tổ U`, 1, 0, 0, 1, 0, 0, DUE.YELLOW.toISOString(), 0],
+      ]);
+      expect(rows[rows.length - 1]).toEqual([ROLLED_UP_NOTE]);
+      const table = await backlog.units(user('member'), { asOf, rollup: true });
+      expect(table.rows.map((row) => [row.teamId, row.descendants, row.holdingIsLowerBound])).toEqual([[id.T, 0, false], [id.U, 0, false]]);
     });
 
     it('a unit whose name would be a formula is written as text', async () => {

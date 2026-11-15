@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
 import { PrismaService } from '../../prisma/prisma.service';
-import { completionClass, remainingDays } from '../engine/bands';
+import { remainingDays } from '../engine/bands';
 import { BANDS } from '../contract/processing-codes';
 import type { Band } from '../engine/types';
 import type { GatewayUser, RecordKind } from '../gateway/record-snapshot';
-import { earlier } from '../records/record-flow.dto';
+import { rollUpUnits } from './backlog-rollup';
 import type { WorkRole } from './band-conditions';
 import { ANY_WORK, periodOf, ProcessingTrackingService, type TrackingFilter } from './processing-tracking.service';
 
-export type BacklogFilter = Pick<TrackingFilter, 'asOf' | 'kind' | 'role' | 'from' | 'to'>;
+export type BacklogFilter = Pick<TrackingFilter, 'asOf' | 'kind' | 'role' | 'from' | 'to'> & {
+  /** The table rolled up to its top units (`rollUpUnits`): what the screen shows with "Gộp lên tổ cha" on. */
+  rollup?: boolean;
+};
 
 type BandCounts = Record<Band, number>;
 
@@ -25,6 +29,10 @@ export interface BacklogUnitRow extends BandCounts {
   oldestDueAt: string | null;
   /** Civil days (Vietnam) that deadline is past at `asOf`; 0 while it is not past; `null` with `oldestDueAt`. */
   oldestDays: number | null;
+  /** Only on a rolled-up table: the units summed into this row besides itself. */
+  descendants?: number;
+  /** Only on a rolled-up table: `holding` is a lower bound of the group (records do not add up across units). */
+  holdingIsLowerBound?: boolean;
 }
 
 export interface BacklogUnits {
@@ -63,6 +71,31 @@ export interface OnTimeReport {
 const zeroBands = (): BandCounts => ({ OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0, NONE: 0 });
 const MS_PER_DAY = 86_400_000;
 const round1 = (value: number) => Math.round(value * 10) / 10;
+/** How many units are asked about at once: the queries of a table are bounded by its units, never by its work. */
+const UNITS_AT_ONCE = 8;
+/** The rows of one page when durations are read: the report holds one page at a time, whatever the size of the period. */
+export const DURATION_PAGE_SIZE = 1000;
+
+/** The note under a rolled-up sheet: a reader of the file alone must know the figures are sums. */
+export const ROLLED_UP_NOTE =
+  'Số liệu đã gộp lên tổ cha: các cột cảnh báo là tổng của tổ cha và các tổ con. Cột "Đang giữ" ghi "≥" vì một hồ sơ có thể do hai tổ cùng giữ nên không cộng được.';
+
+/**
+ * The lines under the header of the exported sheet: what the screen shows, line for line. Rolled up, a group's
+ * `holding` is written as the text "≥ N" and a note says the figures are sums. Unit names are escaped against formulas.
+ */
+export function backlogSheetLines(table: BacklogUnits, rolledUp: boolean): Array<Array<string | number>> {
+  const lines: Array<Array<string | number>> = table.rows.map((row) => [
+    escapeXlsxCell(row.teamName),
+    row.holdingIsLowerBound ? `≥ ${row.holding}` : row.holding,
+    ...BANDS.map((band) => row[band]),
+    row.oldestDueAt ?? '',
+    row.oldestDays ?? '',
+  ]);
+  lines.push(['Tổng cộng', table.totals.holding, ...BANDS.map((band) => table.totals[band]), '', '']);
+  if (rolledUp) lines.push([ROLLED_UP_NOTE]);
+  return lines;
+}
 
 /** The column titles of the exported sheet are fixed labels of a document, as in the other exports of the system. */
 const EXPORT_COLUMNS: Array<{ header: string; key: keyof BacklogUnitRow; width: number }> = [
@@ -117,32 +150,38 @@ export class ProcessingBacklogService {
       for (const group of groups) if (group.teamId) row(group.teamId)[band] = group._count._all;
     }
 
-    // "Holding" and the oldest deadline: every piece of work of the unit, whatever its band. The distinct records are
-    // counted here (a grouped count cannot count distinct values of a related row).
-    const work = await this.prisma.procRecordStepParty.findMany({
-      where: { AND: [this.tracking.workWhere(user, filter, reach, ANY_WORK, asOf), ofAUnit] },
-      select: { teamId: true, recordStep: { select: { recordFlowId: true, internalDueAt: true } } },
-    });
-    const held = new Map<string, Set<string>>();
+    // "Holding" and the oldest deadline: every piece of work of the unit, whatever its band. Both are computed by
+    // PostgreSQL, per unit: no row of work is read here, so the table costs the same whatever the size of the backlog.
+    const everyWork: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, filter, reach, ANY_WORK, asOf), ofAUnit] };
+    const working = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: everyWork, _count: { _all: true } });
+    for (const group of working) if (group.teamId) row(group.teamId);
+    const workOf = (teamId: string): Prisma.ProcRecordStepPartyWhereInput => ({ AND: [everyWork, { teamId }] });
+    const held = new Map<string, number>();
     const oldest = new Map<string, Date>();
-    const everyRecord = new Set<string>();
-    for (const piece of work) {
-      if (!piece.teamId) continue;
-      row(piece.teamId);
-      held.set(piece.teamId, (held.get(piece.teamId) ?? new Set<string>()).add(piece.recordStep.recordFlowId));
-      everyRecord.add(piece.recordStep.recordFlowId);
-      const due = piece.recordStep.internalDueAt;
-      const known = oldest.get(piece.teamId);
-      if (due && (!known || due.getTime() < known.getTime())) oldest.set(piece.teamId, due);
+    const unitIds = [...rows.keys()];
+    for (let at = 0; at < unitIds.length; at += UNITS_AT_ONCE) {
+      await Promise.all(
+        unitIds.slice(at, at + UNITS_AT_ONCE).map(async (teamId) => {
+          const [records, due] = await Promise.all([
+            // Distinct records: the flows with at least one step this unit works.
+            this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: workOf(teamId) } } } } }),
+            this.prisma.procRecordStep.aggregate({ where: { parties: { some: workOf(teamId) } }, _min: { internalDueAt: true } }),
+          ]);
+          held.set(teamId, records);
+          if (due._min.internalDueAt) oldest.set(teamId, due._min.internalDueAt);
+        }),
+      );
     }
+    // A record two units work is ONE record of the table.
+    const everyRecord = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: everyWork } } } } });
 
     const teams = await this.teamsOf([...rows.keys()]);
-    const totals = { ...zeroBands(), holding: everyRecord.size };
+    const totals = { ...zeroBands(), holding: everyRecord };
     for (const found of rows.values()) {
       const team = teams.get(found.teamId);
       found.teamName = team?.name ?? '';
       found.parentTeamId = team?.parentId ?? null;
-      found.holding = held.get(found.teamId)?.size ?? 0;
+      found.holding = held.get(found.teamId) ?? 0;
       const due = oldest.get(found.teamId);
       if (due) {
         found.oldestDueAt = due.toISOString();
@@ -153,7 +192,7 @@ export class ProcessingBacklogService {
     // A unit all of whose work vanished between the queries has nothing to show.
     const shown = [...rows.values()].filter((found) => found.holding > 0 || BANDS.some((band) => found[band] > 0));
     shown.sort((a, b) => a.teamName.localeCompare(b.teamName, 'vi') || a.teamId.localeCompare(b.teamId));
-    return { asOf: asOf.toISOString(), rows: shown, totals };
+    return { asOf: asOf.toISOString(), rows: filter.rollup ? rollUpUnits(shown) : shown, totals };
   }
 
   /**
@@ -170,20 +209,30 @@ export class ProcessingBacklogService {
     const reach = await this.tracking.reach(user, filter.kind);
     if (!reach) return report;
 
-    const select = { teamId: true, recordStep: { select: { startAt: true, doneAt: true, regulatoryDueAt: true, internalDueAt: true } } } as const;
     const kind: { recordKind?: RecordKind } = filter.kind ? { recordKind: filter.kind } : {};
     const role: WorkRole = filter.role ?? 'MAIN';
-    const [done, open] = await Promise.all([
-      this.prisma.procRecordStepParty.findMany({
-        where: { AND: [{ role, teamId: { not: null } }, { recordStep: { status: 'DONE', doneAt: period ?? { not: null }, ...kind } }, reach] },
-        select,
-      }),
-      // Still open: the work of the backlog table, started no later than the end of the period.
-      this.prisma.procRecordStepParty.findMany({
-        where: { AND: [this.tracking.workWhere(user, { kind: filter.kind, role, to: filter.to }, reach, ANY_WORK, asOf), { teamId: { not: null } }] },
-        select,
-      }),
-    ]);
+    const done: Prisma.ProcRecordStepPartyWhereInput = { AND: [{ role, teamId: { not: null } }, { recordStep: { status: 'DONE', doneAt: period ?? { not: null }, ...kind } }, reach] };
+    // Still open: the work of the backlog table, started no later than the end of the period.
+    const open: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, { kind: filter.kind, role, to: filter.to }, reach, ANY_WORK, asOf), { teamId: { not: null } }] };
+
+    // `completionClass` against the EARLIER of the two deadlines, written as conditions PostgreSQL judges: "not after the
+    // earlier" is "not after either that exists". Written without NOT: a missing deadline is NULL, and NOT of NULL drops the row.
+    const column = this.prisma.procRecordStep.fields;
+    const hasDeadline: Prisma.ProcRecordStepWhereInput = { OR: [{ regulatoryDueAt: { not: null } }, { internalDueAt: { not: null } }] };
+    const classes: Array<{ key: 'doneOnTime' | 'doneLate' | 'openInTime' | 'openOverdue'; of: Prisma.ProcRecordStepPartyWhereInput; step: Prisma.ProcRecordStepWhereInput }> = [
+      {
+        key: 'doneOnTime',
+        of: done,
+        step: { AND: [hasDeadline, { OR: [{ regulatoryDueAt: null }, { doneAt: { lte: column.regulatoryDueAt } }] }, { OR: [{ internalDueAt: null }, { doneAt: { lte: column.internalDueAt } }] }] },
+      },
+      { key: 'doneLate', of: done, step: { OR: [{ doneAt: { gt: column.regulatoryDueAt } }, { doneAt: { gt: column.internalDueAt } }] } },
+      {
+        key: 'openInTime',
+        of: open,
+        step: { AND: [hasDeadline, { OR: [{ regulatoryDueAt: null }, { regulatoryDueAt: { gte: asOf } }] }, { OR: [{ internalDueAt: null }, { internalDueAt: { gte: asOf } }] }] },
+      },
+      { key: 'openOverdue', of: open, step: { OR: [{ regulatoryDueAt: { lt: asOf } }, { internalDueAt: { lt: asOf } }] } },
+    ];
 
     const rows = new Map<string, OnTimeRow & { spent: number; timed: number }>();
     const row = (teamId: string) => {
@@ -194,20 +243,30 @@ export class ProcessingBacklogService {
       }
       return found;
     };
-    for (const piece of [...done, ...open]) {
-      const { startAt, doneAt, regulatoryDueAt, internalDueAt } = piece.recordStep;
-      const due = earlier(regulatoryDueAt, internalDueAt);
-      if (!piece.teamId || !due) continue;
-      const found = row(piece.teamId);
-      const outcome = completionClass(doneAt, due, asOf);
-      if (outcome === 'DONE_ON_TIME') found.doneOnTime += 1;
-      else if (outcome === 'DONE_LATE') found.doneLate += 1;
-      else if (outcome === 'OPEN_IN_TIME') found.openInTime += 1;
-      else found.openOverdue += 1;
-      if (doneAt && startAt) {
+    for (const { key, of, step } of classes) {
+      const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [of, { recordStep: step }] }, _count: { _all: true } });
+      for (const group of groups) if (group.teamId) row(group.teamId)[key] = group._count._all;
+    }
+
+    // The mean duration needs (doneAt - startAt), which a grouped query cannot subtract: the two instants of the work done
+    // in the period are read ONE PAGE at a time (by id) and only the sums are kept.
+    let after: string | undefined;
+    for (;;) {
+      const page = await this.prisma.procRecordStepParty.findMany({
+        where: { AND: [done, { recordStep: { AND: [hasDeadline, { startAt: { not: null } }] } }, ...(after ? [{ id: { gt: after } }] : [])] },
+        select: { id: true, teamId: true, recordStep: { select: { startAt: true, doneAt: true } } },
+        orderBy: { id: 'asc' },
+        take: DURATION_PAGE_SIZE,
+      });
+      for (const piece of page) {
+        const { startAt, doneAt } = piece.recordStep;
+        if (!piece.teamId || !startAt || !doneAt) continue;
+        const found = row(piece.teamId);
         found.spent += Math.max(doneAt.getTime() - startAt.getTime(), 0);
         found.timed += 1;
       }
+      if (page.length < DURATION_PAGE_SIZE) break;
+      after = page[page.length - 1].id;
     }
 
     const teams = await this.teamsOf([...rows.keys()]);
@@ -232,17 +291,19 @@ export class ProcessingBacklogService {
     return report;
   }
 
-  /** The units table as filtered, as an .xlsx. Every text cell is escaped against formula injection. */
+  /**
+   * The units table as filtered AND as shown (rolled up or not), as an .xlsx: the lines are `backlogSheetLines` of the
+   * very table the screen gets. Unit names are escaped against formula injection.
+   */
   async unitsWorkbook(user: GatewayUser, filter: BacklogFilter): Promise<{ buffer: Buffer; asOf: string }> {
     const table = await this.units(user, filter);
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Tồn đọng theo đơn vị');
     sheet.columns = EXPORT_COLUMNS.map((column) => ({ header: column.header, key: column.key, width: column.width }));
     sheet.getRow(1).font = { bold: true };
-    const cells = (source: Partial<Record<keyof BacklogUnitRow, string | number | null>>) =>
-      Object.fromEntries(EXPORT_COLUMNS.map(({ key }) => [key, typeof source[key] === 'string' ? escapeXlsxCell(source[key]) : (source[key] ?? '')]));
-    for (const found of table.rows) sheet.addRow(cells(found));
-    sheet.addRow(cells({ ...table.totals, teamName: 'Tổng cộng' })).font = { bold: true };
+    for (const line of backlogSheetLines(table, filter.rollup === true)) sheet.addRow(line);
+    // The totals: the line after the units.
+    sheet.getRow(1 + table.rows.length + 1).font = { bold: true };
     return { buffer: Buffer.from(await workbook.xlsx.writeBuffer()), asOf: table.asOf };
   }
 

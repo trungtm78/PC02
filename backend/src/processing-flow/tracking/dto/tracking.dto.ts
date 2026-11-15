@@ -36,6 +36,8 @@ export class BacklogQueryDto {
   @IsOptional() @IsIn([...WORK_ROLES]) role?: WorkRole;
   @IsOptional() @IsNgayThat() @MaxLength(40) from?: string;
   @IsOptional() @IsNgayThat() @MaxLength(40) to?: string;
+  /** The table rolled up to its top units, as the screen shows it with "Gộp lên tổ cha" on. */
+  @IsOptional() @Transform(asBoolean) @IsBoolean() rollup?: boolean;
 }
 
 /** The period (by `doneAt`) and the kind of the on-time report. */
