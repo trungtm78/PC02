@@ -205,7 +205,7 @@ export class FlowApplicationService {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
         const snapshot = await this.gateway.load(kind, recordId, tx);
         if (!snapshot || snapshot.isFinished) return 'LEFT_ALONE';
-        if (snapshot.isSuspended) return 'SUSPENDED';
+        // A suspended record is the writer's to refuse (`SUSPENDED`, with the row that waits for it).
         const result = await this.deadlineWriter.sync(tx, kind, recordId, reason);
         if (result === 'WRITTEN') await refreshRecordAlert(tx, this.gateway, kind, recordId);
         return result;

@@ -40,6 +40,32 @@ export const DEADLINE_RESYNC_BUDGET_MS = 60_000;
 /** What `outcome` says while a record of the second kind waits for its record to resume. */
 export const DEADLINE_RESYNC_SUSPENDED = 'SUSPENDED';
 
+/** A record that is suspended is asked about again after this long at first, then less and less often. */
+export const DEADLINE_RESYNC_SUSPENDED_RECHECK_MS = 60_000;
+
+/** A record that failed is tried again after this long at first. */
+export const DEADLINE_RESYNC_FAILED_RETRY_MS = 15_000;
+
+/**
+ * Hands ONE record to a row of its own (`DEADLINE_RESYNC_RECORD_REASON`), unless one already waits for it.
+ *
+ * THE one way such a row is made. The caller's transaction must hold the flow lock of the record
+ * (`pg_advisory_xact_lock(RECORD_FLOW_LOCK, hashtext(kind:recordId))`): the look and the insert are then one step, so
+ * two workers, or a worker and a command, never both insert. The partial unique index of the migration
+ * `20261125100000_proc_outbox_resync_unique` is the backstop for a caller that forgot the lock, and the insert
+ * tolerates its refusal (`ON CONFLICT DO NOTHING`) instead of failing the caller's transaction.
+ */
+export async function deferRecordResync(tx: Prisma.TransactionClient, kind: RecordKind, recordId: string, why: { suspended: true } | { error: string }): Promise<void> {
+  const base = { recordKind: kind, recordId, reason: DEADLINE_RESYNC_RECORD_REASON };
+  const waiting = await tx.procOutbox.findFirst({ where: { ...base, status: 'PENDING' }, select: { id: true } });
+  if (waiting) return;
+  const now = Date.now();
+  await tx.procOutbox.createMany({
+    data: ['suspended' in why ? { ...base, availableAt: new Date(now + DEADLINE_RESYNC_SUSPENDED_RECHECK_MS), outcome: DEADLINE_RESYNC_SUSPENDED } : { ...base, availableAt: new Date(now + DEADLINE_RESYNC_FAILED_RETRY_MS), lastError: why.error }],
+    skipDuplicates: true,
+  });
+}
+
 /** How many records one pass of the worker does before it gives the job back (and remembers where it stopped). */
 export const DEADLINE_RESYNC_BATCH = 100;
 

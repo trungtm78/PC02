@@ -13,10 +13,12 @@ import {
   DEADLINE_RESYNC_REASONS,
   DEADLINE_RESYNC_RECORD_REASON,
   DEADLINE_RESYNC_SUSPENDED,
+  DEADLINE_RESYNC_SUSPENDED_RECHECK_MS,
+  deferRecordResync,
   LEGAL_VERIFIED_REASON,
   resyncCursor,
 } from './deadline-resync';
-import { FlowApplicationService, type ApplyReason } from './flow-application.service';
+import { FlowApplicationService, RECORD_FLOW_LOCK, type ApplyReason } from './flow-application.service';
 import { RECORDS_SWITCH } from './record-deadline-writer.service';
 
 type Tx = Prisma.TransactionClient;
@@ -34,8 +36,6 @@ export const MAX_ATTEMPTS = 8;
 /** A record saved a moment ago gets its flow within about this long, without waiting for the next tick. */
 const NUDGE_MS = 1500;
 const MAX_ERROR_LENGTH = 500;
-/** A record that is suspended is asked about again after this long at first, then less and less often (capped). */
-const SUSPENDED_FIRST_RECHECK_MS = 60_000;
 
 /**
  * A row as its worker claimed it. `availableAt` is the end of the lease the claim wrote, and it is the TOKEN of the
@@ -150,8 +150,9 @@ export class ProcessingOutboxService implements OnModuleInit {
           continue;
         }
         const outcome = await this.applier.apply({ kind: row.recordKind, recordId: row.recordId, reason: asReason(row.reason), actorId: null });
-        await this.prisma.procOutbox.update({ where: { id: row.id }, data: { status: 'DONE', processedAt: new Date(), outcome: outcome.outcome, lastError: null } });
-        result.done += 1;
+        // Under the claim, like every write of a claimed row: a worker that stalled past its lease does not write its
+        // answer over that of the worker that took the row, and does not count it.
+        if (await this.owned(row, { status: 'DONE', processedAt: new Date(), outcome: outcome.outcome, lastError: null })) result.done += 1;
       } catch (error) {
         const failed = await this.fail(row, error);
         if (failed === 'DEAD') result.dead += 1;
@@ -193,14 +194,11 @@ export class ProcessingOutboxService implements OnModuleInit {
         handedBack = true;
         break;
       }
-      let unresolved: { suspended: true } | { error: unknown } | null = null;
       try {
-        if ((await this.applier.resyncDeadline(row.recordKind, flow.recordId, LEGAL_VERIFIED_REASON)) === 'SUSPENDED') unresolved = { suspended: true };
+        // A suspended record: the writer left the row that waits for it, in the record's own transaction.
+        if ((await this.applier.resyncDeadline(row.recordKind, flow.recordId, LEGAL_VERIFIED_REASON)) === 'SUSPENDED') deferred += 1;
       } catch (error) {
-        unresolved = { error };
-      }
-      if (unresolved) {
-        await this.defer(row.recordKind, flow.recordId, unresolved);
+        await this.defer(row.recordKind, flow.recordId, { error });
         deferred += 1;
       }
       after = flow.id;
@@ -228,23 +226,21 @@ export class ProcessingOutboxService implements OnModuleInit {
   private async resyncRecord(row: ClaimedRow): Promise<boolean> {
     const outcome = await this.applier.resyncDeadline(row.recordKind, row.recordId, LEGAL_VERIFIED_REASON);
     if (outcome === 'SUSPENDED') {
-      const wait = Math.min(Math.max(Date.now() - row.createdAt.getTime(), SUSPENDED_FIRST_RECHECK_MS), MAX_BACKOFF_MS);
+      const wait = Math.min(Math.max(Date.now() - row.createdAt.getTime(), DEADLINE_RESYNC_SUSPENDED_RECHECK_MS), MAX_BACKOFF_MS);
       await this.owned(row, { availableAt: new Date(Date.now() + wait), attempts: 0, outcome: DEADLINE_RESYNC_SUSPENDED, lastError: null });
       return false;
     }
     return this.owned(row, { status: 'DONE', processedAt: new Date(), outcome, lastError: null });
   }
 
-  /** Hands one record to a row of its own, unless one already waits for it (a pass done twice hands it over once). */
-  private async defer(kind: RecordKind, recordId: string, why: { suspended: true } | { error: unknown }): Promise<void> {
-    const waiting = await this.prisma.procOutbox.findFirst({ where: { recordKind: kind, recordId, reason: DEADLINE_RESYNC_RECORD_REASON, status: 'PENDING' }, select: { id: true } });
-    if (waiting) return;
-    const base = { recordKind: kind, recordId, reason: DEADLINE_RESYNC_RECORD_REASON };
-    await this.prisma.procOutbox.create({
-      data:
-        'suspended' in why
-          ? { ...base, availableAt: new Date(Date.now() + SUSPENDED_FIRST_RECHECK_MS), outcome: DEADLINE_RESYNC_SUSPENDED }
-          : { ...base, availableAt: new Date(Date.now() + FIRST_BACKOFF_MS), lastError: errorText(why.error) },
+  /**
+   * Hands one record to a row of its own, unless one already waits for it: in a transaction that holds the flow lock
+   * of the record, so the look and the insert are one step whoever else is doing the same (`deferRecordResync`).
+   */
+  async defer(kind: RecordKind, recordId: string, why: { suspended: true } | { error: unknown }): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RECORD_FLOW_LOCK}::int, hashtext(${`${kind}:${recordId}`})::int)`;
+      await deferRecordResync(tx, kind, recordId, 'suspended' in why ? why : { error: errorText(why.error) });
     });
   }
 
