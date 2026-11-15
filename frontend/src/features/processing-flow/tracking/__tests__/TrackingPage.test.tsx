@@ -200,6 +200,32 @@ describe('a number that no longer equals its rows (C15)', () => {
   });
 });
 
+describe('records whose flow nobody has confirmed', () => {
+  it('are named in one quiet line under the cards, apart from them', async () => {
+    api.summary.mockResolvedValue(summary({ unconfirmed: 1234 }));
+    renderPage();
+    const line = await screen.findByTestId('tracking-unconfirmed');
+    expect(line).toHaveTextContent('Có 1.234 hồ sơ chưa xác định quy trình (chưa tính vào các thẻ).');
+    // The cards and the list are what they were: nothing is added to them, and nothing looks changed.
+    expect(card('OVERDUE')).toHaveTextContent('2');
+    expect(card('RED')).toHaveTextContent('1');
+    expect(screen.queryByTestId('tracking-changed')).toBeNull();
+  });
+
+  it('there is no line when there is none, nor when an older server does not say', async () => {
+    api.summary.mockResolvedValue(summary({ unconfirmed: 0 }));
+    const first = renderPage();
+    await screen.findByTestId('tracking-row-pet-1-s2');
+    expect(screen.queryByTestId('tracking-unconfirmed')).toBeNull();
+    first.unmount();
+
+    api.summary.mockResolvedValue(summary());
+    renderPage();
+    await screen.findByTestId('tracking-row-pet-1-s2');
+    expect(screen.queryByTestId('tracking-unconfirmed')).toBeNull();
+  });
+});
+
 describe('the filters live in the address', () => {
   it('reads the card, my work, the unit, the kind and the page from the address', async () => {
     api.items.mockResolvedValue(items([item()], { band: 'YELLOW', total: 3, page: 2 }));
