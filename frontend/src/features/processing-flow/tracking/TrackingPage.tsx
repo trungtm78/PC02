@@ -12,23 +12,22 @@
  */
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { Activity, AlertCircle, AlertOctagon, AlertTriangle, CheckCircle2, Clock, RefreshCw, ShieldOff, type LucideIcon } from 'lucide-react';
-import { ListPageShell, useListPageUrlState, type ColumnDef } from '@/components/shared/ListPageShell';
+import { ListPageShell, useListPageUrlState } from '@/components/shared/ListPageShell';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { A11Y_FOCUS_RING, BTN_SECONDARY } from '@/constants/styles';
 import { formatVNTime } from '@/lib/dates';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
-import { TONE_CARD_CLASS, TONE_CLASS, bandLabel, bandText, bandTone } from '../bandPresenter';
+import { TONE_CARD_CLASS, bandLabel, bandTone } from '../bandPresenter';
 import { RECORD_KINDS } from '../codes';
 import { FeatureOffState } from '../components/FeatureOffState';
 import { explainError, isFeatureOff } from '../errors';
-import { recordTabHref } from '../record-tabs/recordLink';
 import type { RecordKind } from '../types';
 import { useTeamChoices } from '../useTeamChoices';
 import { trackingApi } from './api';
-import { TRACKING_PAGE_SIZE, TRACKING_QUERY_KEYS, TRACKING_URL_PREFIX, dueText } from './trackingKeys';
-import { TRACKED_BANDS, type TrackedBand, type TrackingFilters, type TrackingItemDto } from './types';
+import { TrackingItemsTable } from './TrackingItemsTable';
+import { TRACKING_PAGE_SIZE, TRACKING_QUERY_KEYS, TRACKING_URL_PREFIX } from './trackingKeys';
+import { TRACKED_BANDS, type TrackedBand, type TrackingFilters } from './types';
 
 const T = L.tracking;
 
@@ -37,9 +36,6 @@ const CARD_ICON: Record<TrackedBand, LucideIcon> = { OVERDUE: AlertOctagon, RED:
 
 const SELECT = 'rounded border border-slate-300 bg-white px-3 py-2 text-sm';
 const LINK = `text-sm text-blue-700 hover:underline ${A11Y_FOCUS_RING}`;
-
-/** One row per piece of work: the id the server gives it. Record + step is NOT unique (a step may have two MAIN parties). */
-const rowId = (item: TrackingItemDto): string => item.id;
 
 export default function TrackingPage() {
   const url = useListPageUrlState(TRACKING_URL_PREFIX);
@@ -111,65 +107,6 @@ export default function TrackingPage() {
     if (page > 1) url.setParam('page', null);
     void summaryQ.refetch();
   };
-
-  const columns: ColumnDef<TrackingItemDto>[] = [
-    {
-      key: 'alert',
-      header: T.columns.alert,
-      width: '11rem',
-      render: (item) => (
-        <span
-          data-testid="tracking-band"
-          className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold ${TONE_CLASS[bandTone(item.band)]}`}
-        >
-          {bandText(item.band, item.remainingDays)}
-        </span>
-      ),
-    },
-    {
-      key: 'record',
-      header: T.columns.record,
-      width: '15rem',
-      render: (item) => {
-        const code = item.recordCode ?? T.noCode;
-        return (
-          <div className="min-w-0">
-            <Link
-              to={recordTabHref(item.recordKind, item.recordId)}
-              aria-label={T.open(code)}
-              className={`font-semibold text-blue-800 hover:underline ${A11Y_FOCUS_RING}`}
-            >
-              {code}
-            </Link>
-            {item.recordLabel && <span className="text-slate-700"> · {item.recordLabel}</span>}
-            <div className="text-xs text-slate-500">{L.recordKinds[item.recordKind] ?? item.recordKind}</div>
-          </div>
-        );
-      },
-    },
-    { key: 'step', header: T.columns.step, width: '12rem', render: (item) => item.stepName },
-    {
-      key: 'unit',
-      header: T.columns.unit,
-      width: '14rem',
-      render: (item) =>
-        item.responsibleName ? (
-          `${item.teamName ?? T.noUnit} · ${item.responsibleName}`
-        ) : (
-          <>
-            {item.teamName ?? T.noUnit}
-            <div className="text-xs text-slate-500">{T.noPerson}</div>
-          </>
-        ),
-    },
-    {
-      key: 'due',
-      header: T.columns.due,
-      width: '9rem',
-      cellClassName: 'px-4 py-3 align-top text-sm text-slate-800 tabular-nums',
-      render: (item) => dueText(item.dueAt),
-    },
-  ];
 
   if (summaryQ.isError && isFeatureOff(summaryQ.error)) return <FeatureOffState body={L.recordTabs.off} />;
 
@@ -329,24 +266,16 @@ export default function TrackingPage() {
               </div>
             ) : (
               <>
-                <ListPageShell.Table<TrackingItemDto>
-                  state={list === null || itemsQ.isFetching || ranOut ? 'loading' : rows.length === 0 ? 'empty' : 'ready'}
-                  fixedLayout
-                  xuongDong
-                  columns={columns}
-                  data={rows}
-                  rowKey={rowId}
-                  title={T.tableTitle}
-                  totalCount={total}
-                  emptyState={{ title: T.empty, description: hasFilters ? T.emptyHint : undefined }}
-                  rowHref={(item) => recordTabHref(item.recordKind, item.recordId)}
-                  rowTestId={(item) => `tracking-row-${rowId(item)}`}
-                />
-                <ListPageShell.Pagination
+                <TrackingItemsTable
+                  loading={list === null || itemsQ.isFetching || ranOut}
+                  rows={rows}
+                  total={total}
                   page={page}
-                  totalPages={Math.max(1, Math.ceil(total / TRACKING_PAGE_SIZE))}
-                  totalCount={total}
+                  pageSize={TRACKING_PAGE_SIZE}
                   onPageChange={(next) => url.setParam('page', next > 1 ? String(next) : null)}
+                  title={T.tableTitle}
+                  emptyTitle={T.empty}
+                  emptyDescription={hasFilters ? T.emptyHint : undefined}
                 />
               </>
             )}
