@@ -466,3 +466,14 @@ describe('the role of the person on the step (viewer)', () => {
     expect(await screen.findByTestId(/^opinion-(open|form)$/)).toBeInTheDocument();
   });
 });
+
+describe('the required mark of "Việc đã thực hiện"', () => {
+  it('sits in the same inline element as the label, so the flex column cannot push it onto its own line', async () => {
+    renderTab();
+    const field = (await screen.findByTestId('report-done-work')).closest('label')!;
+    const mark = within(field).getByText('*');
+    expect(mark.parentElement).not.toBe(field);
+    expect(mark.parentElement?.tagName).toBe('SPAN');
+    expect(mark.parentElement).toHaveTextContent(`${R.results.form.doneWork} *`);
+  });
+});

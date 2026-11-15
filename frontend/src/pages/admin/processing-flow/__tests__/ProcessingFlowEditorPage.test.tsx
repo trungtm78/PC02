@@ -665,3 +665,12 @@ describe('the chart under the table', () => {
     await waitFor(() => expect(lastPreviewBody()?.conditions).toEqual({ CRIME_GRAVITY: 'NGHIEM_TRONG' }), { timeout: 3000 });
   });
 });
+
+describe('a person without read:ProcessingFlow', () => {
+  it('sees the plain "no permission" state, not an error with a retry', async () => {
+    api.get.mockRejectedValue(apiError(403, null));
+    renderPage();
+    expect(await screen.findByTestId('processing-flow-forbidden')).toBeInTheDocument();
+    expect(screen.queryByTestId('editor-load-error')).toBeNull();
+  });
+});

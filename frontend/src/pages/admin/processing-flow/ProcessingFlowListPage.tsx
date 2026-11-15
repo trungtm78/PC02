@@ -14,7 +14,8 @@ import { processingFlowApi } from '@/features/processing-flow/api';
 import { RECORD_KINDS } from '@/features/processing-flow/codes';
 import { FeatureOffState } from '@/features/processing-flow/components/FeatureOffState';
 import { FlowDeletePanel, type FlowDeleteOutcome } from '@/features/processing-flow/components/FlowDeletePanel';
-import { explainError, isFeatureOff } from '@/features/processing-flow/errors';
+import { explainError, isFeatureOff, isForbidden } from '@/features/processing-flow/errors';
+import { ForbiddenState } from '@/features/processing-flow/components/ForbiddenState';
 import { boundLabels, copyName, countByKind, versionText, visibleFlows } from '@/features/processing-flow/list';
 import { PROCESSING_QUERY_KEYS } from '@/features/processing-flow/queryKeys';
 import { useProcessingPermissions } from '@/features/processing-flow/usePermissions';
@@ -237,6 +238,7 @@ export default function ProcessingFlowListPage() {
   );
 
   if (listQ.isError && isFeatureOff(listQ.error)) return <FeatureOffState />;
+  if (listQ.isError && isForbidden(listQ.error)) return <ForbiddenState />;
 
   const loadError = listQ.isError ? explainError(listQ.error).message : null;
 

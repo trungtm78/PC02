@@ -496,7 +496,8 @@ function StepRow({ step, flow, position, personName, me, myTeams, onAssign, onTa
   const canReopen = perms.canReopen && step.status === 'DONE';
   const canSkip = perms.canSkip && (step.status === 'WAITING_ANCHOR' || step.status === 'OPEN');
   const canUnskip = perms.canSkip && step.status === 'SKIPPED';
-  const canExtend = perms.canExtend && worked && step.dueAt !== null;
+  // No extension left (or the step allows none): the server would refuse, the button is not offered.
+  const canExtend = perms.canExtend && worked && step.dueAt !== null && step.extensionsUsed < step.extensionsAllowed;
   const canAdjust = perms.canAdjustDue && worked && step.dueAt !== null;
 
   const icon =

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssignmentTab } from '../AssignmentTab';
+import { RecordNotices } from '../RecordNotices';
 import { processingRecordApi } from '../api';
 import { processingFlow as L, errorText } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
@@ -501,5 +502,31 @@ describe('the person who answers for a party', () => {
     fireEvent.click(await screen.findByTestId('party-pm-unassign'));
     await waitFor(() => expect(screen.getByTestId('party-pm-unassign')).toBeDisabled());
     expect(screen.getByTestId('party-pm-assign')).toBeDisabled();
+  });
+});
+
+describe('"Gia hạn" when no extension is left', () => {
+  it('is not offered once every extension was used, nor on a step that allows none', async () => {
+    api.get.mockResolvedValue(
+      recFlow({}, [
+        recStep({ stepKey: 'left', extensionsAllowed: 2, extensionsUsed: 1 }),
+        recStep({ stepKey: 'used', extensionsAllowed: 2, extensionsUsed: 2 }),
+        recStep({ stepKey: 'none', extensionsAllowed: 0, extensionsUsed: 0 }),
+      ]),
+    );
+    renderTab();
+    expect(await screen.findByTestId('step-left-extend')).toBeInTheDocument();
+    expect(screen.queryByTestId('step-used-extend')).toBeNull();
+    expect(screen.queryByTestId('step-none-extend')).toBeNull();
+  });
+});
+
+describe('the sentence of a conflict on the record tabs', () => {
+  it('says the typed text is kept, not lost', () => {
+    render(<RecordNotices testPrefix="assignment" message={null} error={null} conflict refreshing={false} refreshFailed={false} onTakeNewer={() => undefined} />);
+    const notice = screen.getByTestId('assignment-conflict');
+    expect(notice).toHaveTextContent(L.conflict.bodyKeepsText);
+    expect(notice).not.toHaveTextContent('sẽ mất');
+    expect(L.conflict.bodyKeepsText).toContain('giữ lại');
   });
 });

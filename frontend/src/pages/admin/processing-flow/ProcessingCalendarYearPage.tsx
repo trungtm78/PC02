@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY } from '@/constants/styles';
-import { formatVNDateTime } from '@/lib/dates';
+import { formatVNDate, formatVNDateTime } from '@/lib/dates';
 import { errorText, processingFlow as L } from '@/locales/processingFlow.vi';
 import { processingCalendarApi } from '@/features/processing-flow/api';
 import {
@@ -23,7 +23,8 @@ import {
 } from '@/features/processing-flow/calendar';
 import { CALENDAR_DAY_KINDS } from '@/features/processing-flow/codes';
 import { FeatureOffState } from '@/features/processing-flow/components/FeatureOffState';
-import { explainError, isFeatureOff } from '@/features/processing-flow/errors';
+import { explainError, isFeatureOff, isForbidden } from '@/features/processing-flow/errors';
+import { ForbiddenState } from '@/features/processing-flow/components/ForbiddenState';
 import { CALENDAR_PATH } from '@/features/processing-flow/menu';
 import { PROCESSING_QUERY_KEYS } from '@/features/processing-flow/queryKeys';
 import type { CalendarDayKind, CalendarYearDto, CalendarYearRead } from '@/features/processing-flow/types';
@@ -49,6 +50,7 @@ export default function ProcessingCalendarYearPage() {
   // A failed REFRESH (the year was read before) keeps the form: it holds what the person changed.
   if (!valid || (yearQ.isError && !yearQ.data)) {
     if (valid && isFeatureOff(yearQ.error)) return <FeatureOffState />;
+    if (valid && isForbidden(yearQ.error)) return <ForbiddenState />;
     const message = !valid ? errorText('CALENDAR_YEAR_INVALID') : explainError(yearQ.error).message;
     return (
       <div data-testid="calendar-load-error" role="alert" className="m-4 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
@@ -388,7 +390,7 @@ function YearBody({ year, stored, setStored, reload, refreshing, refreshFailed }
               <tbody>
                 {state.days.map((d) => (
                   <tr key={d.date} data-testid={`day-row-${d.date}`} className="border-t border-slate-100">
-                    <td className="px-2.5 py-1.5 tabular-nums">{d.date}</td>
+                    <td className="px-2.5 py-1.5 tabular-nums">{formatVNDate(d.date)}</td>
                     <td className="px-2.5 py-1.5">{C.kinds[d.kind]}</td>
                     <td className="px-2.5 py-1.5">{d.label ?? ''}</td>
                     <td className="px-2.5 py-1.5 text-right">
@@ -396,7 +398,7 @@ function YearBody({ year, stored, setStored, reload, refreshing, refreshFailed }
                         <button
                           type="button"
                           data-testid={`day-remove-${d.date}`}
-                          aria-label={C.removeDay(d.date)}
+                          aria-label={C.removeDay(formatVNDate(d.date))}
                           disabled={locked}
                           className="rounded border border-slate-300 px-1.5 text-slate-600 hover:text-red-700 disabled:opacity-40"
                           onClick={() => setState((s) => ({ ...s, days: removeDay(s.days, d.date) }))}

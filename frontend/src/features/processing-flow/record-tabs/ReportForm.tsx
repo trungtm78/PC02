@@ -73,7 +73,10 @@ export function ReportForm({ recordKind, requiresApproval, editing, locked, draf
           </p>
         )}
         <label className={`${FIELD_LABEL} md:col-span-2`}>
-          {F.doneWork} <span className="text-red-500">*</span>
+          {/* One child of the flex column: the mark stays on the line of the label. */}
+          <span>
+            {F.doneWork} <span className="text-red-500">*</span>
+          </span>
           <textarea data-testid="report-done-work" className={`${FIELD_BOX} min-h-[64px]`} value={state.doneWork} disabled={locked} onChange={(e) => patch({ doneWork: e.target.value })} />
         </label>
         <label className={FIELD_LABEL}>
