@@ -36,7 +36,7 @@ export interface SubmitReportInput extends CommandInput, ReportInput {
 export type OpinionKind = (typeof OPINION_KINDS)[number];
 
 export interface ResultsDto {
-  reports: Array<ReportInput & { id: string; kind: string; authorId: string; authorName: string | null; authorTeamId: string | null; revision: number; withdrawnAt: string | null; createdAt: string; answered: boolean }>;
+  reports: Array<ReportInput & { id: string; kind: string; authorId: string; authorName: string | null; authorTeamId: string | null; revision: number; withdrawnAt: string | null; supersededAt: string | null; createdAt: string; answered: boolean }>;
   opinions: Array<{ id: string; kind: string; verdict: string; content: string | null; reportId: string | null; reportRevision: number | null; authorId: string; authorName: string | null; authorTeamId: string | null; withdrawnAt: string | null; createdAt: string }>;
 }
 
@@ -91,6 +91,7 @@ export class ProcessingResultsService {
         authorTeamId: r.authorTeamId,
         revision: r.revision,
         withdrawnAt: iso(r.withdrawnAt),
+        supersededAt: iso(r.supersededAt),
         createdAt: r.createdAt.toISOString(),
         answered: answeredIds.has(r.id),
       })),
@@ -125,6 +126,8 @@ export class ProcessingResultsService {
       const roles = await this.rolesOf(tx, step.id, actorId);
       if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
       if (step.status !== 'OPEN') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
+      // Only ONE result stands: an earlier one (after a disagreement or a request for rework) stays in the book, superseded.
+      if (input.kind === 'RESULT') await tx.procStepReport.updateMany({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, data: { supersededAt: this.commands.now() } });
       const report = await tx.procStepReport.create({ data: { recordStepId: step.id, recordKind: kind, recordId, kind: input.kind, ...fields, authorId: actorId, authorTeamId: roles.teamOf() } });
       await this.commands.change(tx, flow, step.stepKey, input.kind === 'RESULT' ? 'RESULT_REPORTED' : 'PROGRESS_REPORTED', null, { reportId: report.id, hasProposal: fields.proposalKind !== null }, null, actorId);
       if (input.kind !== 'RESULT') return;
@@ -138,6 +141,7 @@ export class ProcessingResultsService {
   async editReport(actorId: string, kind: RecordKind, recordId: string, stepKey: string, reportId: string, input: CommandInput & ReportInput): Promise<RecordFlowDto> {
     const fields = checkedReport(kind, input);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'EDIT_REPORT', input, async (tx, flow, step) => {
+      await this.assertReporter(tx, step.id, actorId);
       const report = await this.ownReport(tx, step.id, reportId, actorId);
       if (step.status !== 'OPEN') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
       await tx.procStepReport.update({ where: { id: report.id }, data: { ...fields, revision: { increment: 1 } } });
@@ -151,18 +155,26 @@ export class ProcessingResultsService {
    */
   async withdrawReport(actorId: string, kind: RecordKind, recordId: string, stepKey: string, reportId: string, input: CommandInput): Promise<RecordFlowDto> {
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'WITHDRAW_REPORT', input, async (tx, flow, step) => {
+      await this.assertReporter(tx, step.id, actorId);
       const report = await this.ownReport(tx, step.id, reportId, actorId);
       if (step.status !== 'OPEN' && !(step.status === 'REPORTED' && report.kind === 'RESULT')) throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
       await tx.procStepReport.update({ where: { id: report.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'REPORT_WITHDRAWN', { reportId: report.id }, null, null, actorId);
-      if (step.status === 'REPORTED') await this.commands.moveStep(tx, flow, step, 'RETURN', 'The result was withdrawn', actorId);
+      // Only the standing result moves the step: an earlier one that a later result replaced is long gone from it.
+      if (step.status === 'REPORTED' && report.kind === 'RESULT') await this.commands.moveStep(tx, flow, step, 'RETURN', 'The result was withdrawn', actorId);
     });
   }
 
-  /** The report of the caller, standing and unanswered. */
+  /** The caller must still be a unit that works the step (or coordinates it): leaving the unit ends the right to touch what it wrote. */
+  private async assertReporter(tx: Tx, stepId: string, actorId: string): Promise<void> {
+    const roles = await this.rolesOf(tx, stepId, actorId);
+    if (!roles.has('MAIN') && !roles.has('COORDINATE')) throw refuse.forbidden(PROCESSING_ERROR.NOT_A_PARTY_OF_STEP);
+  }
+
+  /** The report of the caller, standing (not withdrawn, not replaced) and unanswered. */
   private async ownReport(tx: Tx, stepId: string, reportId: string, actorId: string) {
     const report = await tx.procStepReport.findFirst({ where: { id: reportId, recordStepId: stepId } });
-    if (!report || report.withdrawnAt) throw refuse.notFound(PROCESSING_ERROR.REPORT_NOT_FOUND);
+    if (!report || report.withdrawnAt || report.supersededAt) throw refuse.notFound(PROCESSING_ERROR.REPORT_NOT_FOUND);
     if (report.authorId !== actorId) throw refuse.forbidden(PROCESSING_ERROR.REPORT_NOT_YOURS);
     if ((await tx.procStepOpinion.count({ where: { reportId: report.id, withdrawnAt: null } })) > 0) throw refuse.conflict(PROCESSING_ERROR.REPORT_ANSWERED);
     return report;
@@ -192,9 +204,11 @@ export class ProcessingResultsService {
       if (step.status === 'WAITING_ANCHOR' || step.status === 'SKIPPED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_OPEN);
 
       // An opinion about the result names the exact report (and its revision) it was given on.
-      const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null }, orderBy: { createdAt: 'desc' } });
+      const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, orderBy: { createdAt: 'desc' } });
       if (verdict === 'PASS' && !result) throw refuse.conflict(PROCESSING_ERROR.NO_RESULT_REPORT);
-      const about = verdict === 'NOTE' ? null : result;
+      // A remark made while a result waits for the leader answers THAT result (and protects it from being taken back); a
+      // remark on a step still being worked stands alone.
+      const about = verdict === 'NOTE' && step.status !== 'REPORTED' ? null : result;
       await tx.procStepOpinion.create({
         data: {
           recordStepId: step.id,
@@ -222,6 +236,9 @@ export class ProcessingResultsService {
       if (!opinion || opinion.withdrawnAt) throw refuse.notFound(PROCESSING_ERROR.OPINION_NOT_FOUND);
       if (opinion.authorId !== actorId) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_YOURS);
       if (opinion.kind === 'APPROVAL') throw refuse.conflict(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
+      const roles = await this.rolesOf(tx, step.id, actorId);
+      const role = opinion.kind === 'SUPERVISOR' ? 'MAIN' : opinion.kind;
+      if (!roles.has(role) || (opinion.kind === 'SUPERVISOR' && !roles.leads('MAIN'))) throw refuse.forbidden(PROCESSING_ERROR.OPINION_NOT_ALLOWED);
       if ((await tx.procStepOpinion.count({ where: { recordStepId: step.id, createdAt: { gt: opinion.createdAt }, withdrawnAt: null } })) > 0) throw refuse.conflict(PROCESSING_ERROR.OPINION_ANSWERED);
       await tx.procStepOpinion.update({ where: { id: opinion.id }, data: { withdrawnAt: this.commands.now() } });
       await this.commands.change(tx, flow, step.stepKey, 'OPINION_WITHDRAWN', { opinionId: opinion.id }, null, null, actorId);
@@ -239,7 +256,7 @@ export class ProcessingResultsService {
     if (input.verdict !== 'AGREE' && !content) throw refuse.bad(PROCESSING_ERROR.REPORT_TEXT_REQUIRED);
     return this.commands.writeStep(kind, recordId, actorId, stepKey, 'DECIDE', input, async (tx, flow, step) => {
       if (step.status !== 'REPORTED') throw refuse.conflict(PROCESSING_ERROR.STEP_NOT_REPORTED);
-      const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null }, orderBy: { createdAt: 'desc' } });
+      const result = await tx.procStepReport.findFirst({ where: { recordStepId: step.id, kind: 'RESULT', withdrawnAt: null, supersededAt: null }, orderBy: { createdAt: 'desc' } });
       if (!result) throw refuse.conflict(PROCESSING_ERROR.NO_RESULT_REPORT);
       const teamId = (await tx.userTeam.findFirst({ where: { userId: actorId, team: { status: 'ACTIVE' } }, select: { teamId: true } }))?.teamId ?? null;
       await tx.procStepOpinion.create({
@@ -264,7 +281,8 @@ export class ProcessingResultsService {
     });
     return {
       has: (role: string) => parties.some((p) => p.role === role),
-      leads: (role: string) => parties.some((p) => p.role === role && (p.assigneeUserId === userId || p.team?.members.some((m) => m.isLeader) === true)),
+      // Heading a unit is being its leader in the ACTIVE unit that holds the role; being named only makes a participant.
+      leads: (role: string) => parties.some((p) => p.role === role && p.team?.members.some((m) => m.isLeader) === true),
       teamOf: (role?: string) => parties.find((p) => !role || p.role === role)?.teamId ?? null,
     };
   }

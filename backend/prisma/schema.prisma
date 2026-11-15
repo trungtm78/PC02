@@ -5686,6 +5686,9 @@ model ProcStepReport {
   /// Goes up by one with every edit.
   revision        Int            @default(1)
   withdrawnAt     DateTime?
+  /// A RESULT that a later one of the same step replaced (after a disagreement or a request for rework): it stays in the
+  /// book, but only ONE result stands at a time.
+  supersededAt    DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

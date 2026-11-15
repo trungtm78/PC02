@@ -118,7 +118,9 @@ export class ProcessingCommandService {
       if (flow.revision !== input.expectedRevision) throw refuse.conflict(PROCESSING_ERROR.REVISION_CONFLICT);
       if (flow.confirmed) throw refuse.conflict(PROCESSING_ERROR.FLOW_ALREADY_CONFIRMED);
       // A clock that has been paused moved deadlines: a flow made from scratch would forget that, so the flow stays.
-      if (flow.acceptedAt || flow._count.pauses > 0 || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
+      // Reports and opinions (withdrawn ones too) are history that a flow made from scratch would orphan.
+      const written = (await tx.procStepReport.count({ where: { recordKind: kind, recordId } })) + (await tx.procStepOpinion.count({ where: { recordKind: kind, recordId } }));
+      if (written > 0 || flow.acceptedAt || flow._count.pauses > 0 || flow.steps.some((step) => step.status !== 'OPEN' && step.status !== 'WAITING_ANCHOR')) throw refuse.conflict(PROCESSING_ERROR.FLOW_HAS_PROGRESS);
 
       // The teams the old steps name are locked before their rows are touched, in the order a team merge takes them
       // (a merge locks a unit and then repoints its parties): a cycle between the two cannot form.

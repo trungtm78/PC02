@@ -240,6 +240,72 @@ run('Results of a step on PostgreSQL', () => {
     });
   });
 
+  describe('what the code found when it was reviewed', () => {
+    it('a person NAMED on the step takes part but does not head the unit: no opinion as its head (found by Codex)', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      await scratch.db.procRecordStepParty.updateMany({ where: { recordStep: { recordId }, role: 'MAIN' }, data: { teamId: null, partyKind: 'RECORD_TEAM', assigneeUserId: user.outsider } });
+      const { revision } = await get();
+      expect(await failure(results.addOpinion(user.outsider, 'PETITION', recordId, await key(), { expectedRevision: revision, kind: 'SUPERVISOR', verdict: 'NOTE', content: 'As the head' }))).toEqual({ status: 403, code: 'OPINION_NOT_ALLOWED' });
+      // ...but may report, as a participant.
+      await expect(results.submitReport(user.outsider, 'PETITION', recordId, await key(), { expectedRevision: revision, ...report() })).resolves.toBeDefined();
+    });
+
+    it('leaving the unit ends the right to edit or withdraw what it wrote, a report and an opinion alike (found by Codex)', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      let flow = await get();
+      const key_ = await key();
+      flow = await results.submitReport(user.worker, 'PETITION', recordId, key_, { expectedRevision: flow.revision, ...report({ kind: 'RESULT', doneWork: 'Verified' }) });
+      const [result] = (await results.results('PETITION', recordId, key_)).reports;
+      await scratch.db.userTeam.deleteMany({ where: { userId: user.worker } });
+      try {
+        expect(await failure(results.withdrawReport(user.worker, 'PETITION', recordId, key_, result.id, { expectedRevision: flow.revision }))).toEqual({ status: 403, code: 'NOT_A_PARTY_OF_STEP' });
+        expect(await failure(results.editReport(user.worker, 'PETITION', recordId, key_, result.id, { expectedRevision: flow.revision, doneWork: 'Changed from outside' }))).toEqual({ status: 403, code: 'NOT_A_PARTY_OF_STEP' });
+      } finally {
+        await scratch.db.userTeam.create({ data: { userId: user.worker, teamId: team.A } });
+      }
+      // An opinion the person can no longer speak as cannot be withdrawn either.
+      flow = await results.addOpinion(user.coordinator, 'PETITION', recordId, key_, { expectedRevision: flow.revision, kind: 'COORDINATE', verdict: 'NOTE', content: 'Our part' });
+      const opinion = (await results.results('PETITION', recordId, key_)).opinions.at(-1)!;
+      await scratch.db.userTeam.deleteMany({ where: { userId: user.coordinator } });
+      try {
+        expect(await failure(results.withdrawOpinion(user.coordinator, 'PETITION', recordId, key_, opinion.id, { expectedRevision: flow.revision }))).toEqual({ status: 403, code: 'OPINION_NOT_ALLOWED' });
+      } finally {
+        await scratch.db.userTeam.create({ data: { userId: user.coordinator, teamId: team.C } });
+      }
+    });
+
+    it('only ONE result stands: a new one replaces the earlier, which stays in the book and can no longer move the step (found by Codex)', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      let flow = await get();
+      const key_ = await key();
+      flow = await results.submitReport(user.worker, 'PETITION', recordId, key_, { expectedRevision: flow.revision, ...report({ kind: 'RESULT', doneWork: 'First version' }) });
+      flow = await results.decide(user.approver, 'PETITION', recordId, key_, { expectedRevision: flow.revision, verdict: 'DISAGREE', content: 'Not enough' });
+      flow = await results.submitReport(user.worker, 'PETITION', recordId, key_, { expectedRevision: flow.revision, ...report({ kind: 'RESULT', doneWork: 'Second version' }) });
+      const [first, second] = (await results.results('PETITION', recordId, key_)).reports;
+      expect(first.supersededAt).not.toBeNull();
+      expect(second.supersededAt).toBeNull();
+      // The first can be neither withdrawn nor edited: it is not the standing result.
+      expect(await failure(results.withdrawReport(user.worker, 'PETITION', recordId, key_, first.id, { expectedRevision: flow.revision }))).toEqual({ status: 404, code: 'REPORT_NOT_FOUND' });
+      expect((await get()).steps[0].status).toBe('REPORTED');
+      // The decision goes to the standing one.
+      flow = await results.decide(user.approver, 'PETITION', recordId, key_, { expectedRevision: flow.revision, verdict: 'AGREE' });
+      expect((await results.results('PETITION', recordId, key_)).opinions.at(-1)).toMatchObject({ verdict: 'AGREE', reportId: second.id });
+    });
+
+    it('a remark made while the result waits answers that result and protects it from being taken back (found by Codex)', async () => {
+      const { recordId, get, key } = await withFlow([step()]);
+      let flow = await get();
+      const key_ = await key();
+      flow = await results.addOpinion(user.head, 'PETITION', recordId, key_, { expectedRevision: flow.revision, kind: 'SUPERVISOR', verdict: 'NOTE', content: 'Still working' });
+      flow = await results.submitReport(user.worker, 'PETITION', recordId, key_, { expectedRevision: flow.revision, ...report({ kind: 'RESULT', doneWork: 'Verified' }) });
+      flow = await results.addOpinion(user.head, 'PETITION', recordId, key_, { expectedRevision: flow.revision, kind: 'SUPERVISOR', verdict: 'NOTE', content: 'The unit endorses it' });
+      const book = await results.results('PETITION', recordId, key_);
+      expect(book.opinions[0].reportId).toBeNull(); // before the result: stands alone
+      expect(book.opinions[1]).toMatchObject({ reportId: book.reports[0].id, reportRevision: 1 });
+      expect(await failure(results.withdrawReport(user.worker, 'PETITION', recordId, key_, book.reports[0].id, { expectedRevision: flow.revision }))).toEqual({ status: 409, code: 'REPORT_ANSWERED' });
+    });
+  });
+
   describe('editing and withdrawing a report', () => {
     it('the author corrects it while nobody has answered; another person of the unit may not', async () => {
       const { recordId, get, key } = await withFlow([step()]);

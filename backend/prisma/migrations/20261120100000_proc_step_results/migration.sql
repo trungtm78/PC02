@@ -29,6 +29,7 @@ CREATE TABLE "proc_step_reports" (
     "authorTeamId" TEXT,
     "revision" INTEGER NOT NULL DEFAULT 1,
     "withdrawnAt" TIMESTAMP(3),
+    "supersededAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

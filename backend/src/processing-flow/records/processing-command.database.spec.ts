@@ -427,6 +427,18 @@ run('ProcessingCommandService on PostgreSQL', () => {
       expect(await failure(commands.reapplyFlow(actor, 'PETITION', proposed, { expectedRevision: flow.revision + 9 }))).toEqual({ status: 409, code: 'REVISION_CONFLICT' });
     });
 
+    it('a flow with a report or an opinion written under it keeps itself: there is history a new flow would orphan (found by Codex)', async () => {
+      const recordId = await petition({ loaiThongTin: 'Văn bản lạ có báo cáo' });
+      const proposed = (await commands.apply(actor, 'PETITION', recordId, {})).flow!;
+      const stored = await scratch.db.procRecordStep.findFirstOrThrow({ where: { recordId } });
+      await scratch.db.procStepReport.create({ data: { recordStepId: stored.id, recordKind: 'PETITION', recordId, kind: 'PROGRESS', doneWork: 'Started', authorId: actor } });
+      try {
+        expect(await failure(commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: proposed.revision }))).toEqual({ status: 409, code: 'FLOW_HAS_PROGRESS' });
+      } finally {
+        await scratch.db.procStepReport.deleteMany({ where: { recordId } });
+      }
+    });
+
     it('when nothing fits any more the proposal stays as it was', async () => {
       const recordId = await petition({ loaiThongTin: 'Văn bản lạ thứ ba' });
       const proposed = (await commands.apply(actor, 'PETITION', recordId, {})).flow!;
