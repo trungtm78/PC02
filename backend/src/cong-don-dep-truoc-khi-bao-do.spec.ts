@@ -42,6 +42,22 @@ describe('GATE — deploy.sh cleans up before it may end red', () => {
     expect(line).toContain('$RELEASE_SHA');
   });
 
+  it('tarballs of releases no longer on disk are pruned before the red exit; the tarball of this deploy is not', () => {
+    const text = script();
+    const prune = text.indexOf('TARBALL_PRUNED=0');
+    expect(prune).toBeGreaterThan(-1);
+    expect(prune).toBeLessThan(redExitAt(text));
+    const loop = text.slice(prune, text.indexOf('\ndone\n', prune));
+    // This deploy's own tarball is skipped, and so is one whose release directory still exists.
+    expect(loop).toContain('[ "$OLD_TARBALL" = "$TARBALL" ] && continue');
+    expect(loop).toContain('[ -d "$RELEASES_DIR/$OLD_SHA" ] && continue');
+    // The commit id is really taken out of the file name: a `sed` whose `\1` was eaten by a shell heredoc leaves it
+    // empty, every file is skipped, and the prune silently does nothing (it happened while this was written).
+    expect(loop).toContain(String.raw`\.tar\.gz$/\1/`);
+    // The unconditional removal of this deploy's tarball still comes after the red exit (a red deploy is re-runnable).
+    expect(text.indexOf('\nrm -f "$TARBALL"\n')).toBeGreaterThan(redExitAt(text));
+  });
+
   it('pre-deploy backups have a retention rule (newest 30 + the first of every day), before the red exit', () => {
     const text = script();
     const rule = text.indexOf('BACKUP_KEEP=');
