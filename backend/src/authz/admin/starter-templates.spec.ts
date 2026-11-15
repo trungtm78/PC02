@@ -12,9 +12,17 @@ const views = new Set(PERMISSION_RESOURCES.flatMap((r) => (r.basic.view ? [r.bas
 const problemsOf = (entries: Record<string, Reach>) => entryProblems(new Map(Object.entries(entries)));
 
 describe('starter templates', () => {
-  it('there are three, with distinct codes and names', () => {
-    expect(STARTER_TEMPLATES.map((t) => t.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY']);
-    expect(new Set(STARTER_TEMPLATES.map((t) => t.name)).size).toBe(3);
+  it('there are four, with distinct codes and names', () => {
+    expect(STARTER_TEMPLATES.map((t) => t.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
+    expect(new Set(STARTER_TEMPLATES.map((t) => t.name)).size).toBe(4);
+  });
+
+  it('the leadership template sees every kind of record at ALL, holds the steps of the flows, and holds nothing that writes', () => {
+    const entries = starterTemplates(['read:Petition']).STARTER_LEADERSHIP.entries;
+    expect(entries).toEqual({ 'read:Petition': 'ALL', 'read:Incident': 'ALL', 'read:Case': 'ALL', 'read:ProcessingStep': 'ALL' });
+    for (const permission of Object.keys(entries)) expect(permission.startsWith('read:')).toBe(true);
+    // The same whatever the officer role holds: it is not built from it.
+    expect(starterTemplates([]).STARTER_LEADERSHIP.entries).toEqual(entries);
   });
 
   it('the catalogue has both kinds of permission, or the assertions below would prove nothing', () => {
@@ -62,7 +70,10 @@ describe('starter templates', () => {
   });
 
   it('a role that holds nothing gives empty templates, not an error', () => {
-    for (const doc of Object.values(starterTemplates([]))) expect(doc.entries).toEqual({});
+    // The three built from the role are empty; the leadership template is not built from it (it is tested above).
+    const { STARTER_LEADERSHIP, ...fromTheRole } = starterTemplates([]);
+    for (const doc of Object.values(fromTheRole)) expect(doc.entries).toEqual({});
+    expect(Object.keys(STARTER_LEADERSHIP.entries).length).toBeGreaterThan(0);
   });
 });
 
@@ -88,23 +99,23 @@ describe('AuthzAdminService.createStarterTemplates', () => {
     expect(actorId).toBe('admin-1');
     expect(kind).toBe('STARTER_TEMPLATES_CREATED');
     expect(options).toMatchObject({ reason: expect.any(String) as unknown, meta: { ipAddress: '10.0.0.1' } });
-    expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY']);
+    expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
     expect((wanted[1].after as { entries: Record<string, string> }).entries).toEqual({ 'edit:Petition': 'OWN', 'read:Petition': 'OWN' });
     expect((wanted[2].after as { entries: Record<string, string> }).entries).toEqual({ 'read:Petition': 'TEAM_TREE' });
-    expect(result.created.map((c) => c.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY']);
-    expect(new Set(result.created.map((c) => c.id)).size).toBe(3);
+    expect(result.created.map((c) => c.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
+    expect(new Set(result.created.map((c) => c.id)).size).toBe(4);
     expect(result.existing).toEqual([]);
   });
 
   it('one that exists already (also renamed or archived: the code is what counts) is left alone', async () => {
     const { service, commit } = build({ existingCodes: ['STARTER_OWN_ONLY'] });
     const result = await service.createStarterTemplates('admin-1');
-    expect(commit.mock.calls[0][2].map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_VIEW_ONLY']);
+    expect(commit.mock.calls[0][2].map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
     expect(result.existing).toEqual(['STARTER_OWN_ONLY']);
   });
 
-  it('all three exist: nothing is written and it says so', async () => {
-    const { service, commit } = build({ existingCodes: ['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY'] });
+  it('all four exist: nothing is written and it says so', async () => {
+    const { service, commit } = build({ existingCodes: ['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP'] });
     await expect(service.createStarterTemplates('admin-1')).resolves.toMatchObject({ changed: false, created: [], changeSetId: null });
     expect(commit).not.toHaveBeenCalled();
   });
