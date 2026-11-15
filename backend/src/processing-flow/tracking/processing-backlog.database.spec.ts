@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { AuditService } from '../../audit/audit.service';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
 import { CasesService } from '../../cases/cases.service';
+import { configurationHash } from '../../cases/governance/case-configuration.service';
 import { ensurePermissions, openScratchDatabase, type EnsuredPermissions, type ScratchDatabase } from '../../common/testing/scratch-database';
 import { TeamsService } from '../../teams/teams.service';
 import { BANDS } from '../contract/processing-codes';
@@ -435,6 +436,24 @@ run('The backlog by unit on PostgreSQL', () => {
       expect(await listed('caseMember')).toEqual([caseId.viewed, caseId.listed, caseId.plain].sort());
       expect(await listed('viewOnly')).toEqual([]);
       expect(await listed('listOnly')).toEqual([caseId.listed]);
+    });
+
+    it('the list behind the number shows no code of a case whose schema restricts it for that reader', async () => {
+      const { db } = scratch;
+      const definition = { fields: [], fieldPolicies: [{ key: 'caseCode', sensitivity: 'RESTRICTED' }] };
+      const schema = await db.caseFieldDefinitionVersion.create({ data: { code: `${tag}-code`, definition, contentHash: configurationHash(definition), status: 'PUBLISHED', authorId: id.owner, publishedAt: new Date() } });
+      try {
+        await db.case.update({ where: { id: caseId.plain }, data: { fieldDefinitionVersionId: schema.id } });
+        const drill = await backlog.unapplied(people.caseMember, { kind: 'CASE', teamId: teamK, pageSize: 100 });
+        const codes = Object.fromEntries(drill.items.map((item) => [item.recordId, item.recordCode]));
+        expect(codes[caseId.plain]).toBeNull();
+        expect(codes[caseId.viewed]).toContain(tag);
+        // Still counted and listed: the record is on the person's list, only its code is closed.
+        expect(drill.total).toBe(3);
+      } finally {
+        await db.case.update({ where: { id: caseId.plain }, data: { fieldDefinitionVersionId: null } });
+        await db.caseFieldDefinitionVersion.delete({ where: { id: schema.id } });
+      }
     });
 
     it('the units the filter offers follow the same rule', async () => {

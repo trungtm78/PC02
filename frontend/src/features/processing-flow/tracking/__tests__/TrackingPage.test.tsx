@@ -303,6 +303,28 @@ describe('the card "Chờ tôi duyệt"', () => {
   });
 });
 
+describe('the units of the filter follow what the screen lists', () => {
+  it('asks them with the role of the screen: a unit that only checks can be picked when the checking work is listed', async () => {
+    api.teams.mockImplementation((asked) =>
+      Promise.resolve(asked.role === 'CHECK' ? [{ id: 't9', name: 'Tổ kiểm tra', parentTeamId: null }] : [{ id: 't1', name: 'Tổ 1', parentTeamId: null }]),
+    );
+    renderPage();
+    const picker = screen.getByTestId('tracking-filter-team');
+    await waitFor(() => expect(within(picker).getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    expect(api.teams).toHaveBeenLastCalledWith({ role: 'MAIN', awaiting: false });
+    fireEvent.change(screen.getByTestId('tracking-filter-role'), { target: { value: 'CHECK' } });
+    await waitFor(() => expect(within(picker).getByRole('option', { name: 'Tổ kiểm tra' })).toBeInTheDocument());
+    expect(api.teams).toHaveBeenLastCalledWith({ role: 'CHECK', awaiting: false });
+    expect(within(picker).queryByRole('option', { name: 'Tổ 1' })).not.toBeInTheDocument();
+  });
+
+  it('with the card "Chờ tôi duyệt" chosen, asks the units of that work', async () => {
+    api.summary.mockResolvedValue(summary({ awaitingMyApproval: 2 }));
+    renderPage('/theo-doi-xu-ly?tracking_awaiting=1&tracking_role=COORDINATE');
+    await waitFor(() => expect(api.teams).toHaveBeenCalledWith({ role: 'COORDINATE', awaiting: true }));
+  });
+});
+
 describe('the role filter and the search box', () => {
   it('the role is read from the address and sent with the cards and the list; MAIN is the default and is not written', async () => {
     renderPage('/theo-doi-xu-ly?tracking_role=CHECK&tracking_page=2');

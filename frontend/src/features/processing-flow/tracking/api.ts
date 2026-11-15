@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { DEFAULT_TRACKING_ROLE, type TrackedBand, type TrackingFilters, type TrackingItemsDto, type TrackingSummaryDto, type TrackingTeamDto } from './types';
+import { DEFAULT_TRACKING_ROLE, type TrackedBand, type TrackingFilters, type TrackingRole, type TrackingItemsDto, type TrackingSummaryDto, type TrackingTeamDto } from './types';
 
 const data = <T>(r: { data: T }): T => r.data;
 
@@ -13,6 +13,12 @@ const filterParams = (filters: TrackingFilters): Record<string, string | boolean
   ...(filters.role !== DEFAULT_TRACKING_ROLE ? { role: filters.role } : {}),
   ...(filters.q ? { q: filters.q } : {}),
 });
+
+/** What the unit filter is asked with. */
+export interface TrackingTeamsQuery {
+  role: TrackingRole;
+  awaiting: boolean;
+}
 
 export interface TrackingItemsQuery extends TrackingFilters {
   /** The card that was clicked; `null`: every colour. */
@@ -33,8 +39,16 @@ export const trackingApi = {
   /** Asked with no `asOf`: the server uses its clock and says which instant that was. */
   summary: (filters: TrackingFilters) => api.get<TrackingSummaryDto>(`${BASE}/summary`, { params: filterParams(filters) }).then(data),
 
-  /** The units holding work the person may see: what the unit filter offers (no `read:Team` needed). */
-  teams: () => api.get<TrackingTeamDto[]>(`${BASE}/teams`).then(data),
+  /**
+   * The units holding the work the SCREEN lists (its role; with the card "Chờ tôi duyệt", the work waiting for the
+   * person's decision): what the unit filter offers (no `read:Team` needed).
+   */
+  teams: (asked: TrackingTeamsQuery) =>
+    api
+      .get<TrackingTeamDto[]>(`${BASE}/teams`, {
+        params: { ...(asked.role !== DEFAULT_TRACKING_ROLE ? { role: asked.role } : {}), ...(asked.awaiting ? { awaiting: 'approval' } : {}) },
+      })
+      .then(data),
 
   items: (query: TrackingItemsQuery) =>
     api

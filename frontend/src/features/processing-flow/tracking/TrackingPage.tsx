@@ -54,10 +54,6 @@ const LINK = `text-sm text-blue-700 hover:underline ${A11Y_FOCUS_RING}`;
 
 export default function TrackingPage() {
   const url = useListPageUrlState(TRACKING_URL_PREFIX);
-  // The units that hold work this person may see, from the tracking route itself: an officer who may not read the
-  // office's list of units still gets a filter.
-  const teamsQ = useQuery({ queryKey: TRACKING_QUERY_KEYS.teams, queryFn: () => trackingApi.teams(), retry: false, staleTime: 60_000 });
-
   // The profile not loaded yet lets the card show for a moment, as every control of this feature does.
   const { permissions } = usePermission();
   const mayApprove = permissions === null || permissions.includes(PERMISSION.stepApprove);
@@ -99,6 +95,14 @@ export default function TrackingPage() {
     queryFn: () => trackingApi.summary(filters),
     staleTime: 30_000,
     retry: false,
+  });
+  // The units that hold the work the screen lists (its role, or the work waiting for this person's decision), from
+  // the tracking route itself: an officer who may not read the office's list of units still gets a filter.
+  const teamsQ = useQuery({
+    queryKey: TRACKING_QUERY_KEYS.teams(role, awaiting),
+    queryFn: () => trackingApi.teams({ role, awaiting }),
+    retry: false,
+    staleTime: 60_000,
   });
   /** The instant everything on the screen is judged at; none until the cards answered. */
   const asOf = summaryQ.data?.asOf ?? null;

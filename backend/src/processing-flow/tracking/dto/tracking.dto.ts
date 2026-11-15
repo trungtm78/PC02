@@ -62,6 +62,12 @@ export class UnappliedQueryDto {
 /** The period (by `doneAt`) and the kind of the on-time report. */
 export class OnTimeQueryDto extends BacklogQueryDto {}
 
+/** What the unit filter of the screen is asked with: the role the screen lists, and the card "waiting for my approval". */
+export class TrackingTeamsQueryDto {
+  @IsOptional() @IsIn([...WORK_ROLES]) role?: WorkRole;
+  @IsOptional() @IsIn([AWAITING_APPROVAL]) awaiting?: typeof AWAITING_APPROVAL;
+}
+
 export class TrackingItemsQueryDto extends TrackingQueryDto {
   /**
    * The card (or the cell of the backlog table) that was clicked. Left out: every colour, which is everything but NONE.

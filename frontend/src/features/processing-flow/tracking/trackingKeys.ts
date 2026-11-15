@@ -1,6 +1,6 @@
 /** What the tracking screen keeps outside its component: its keys in the address, its query keys, and the deadline's words. */
 import { formatVNDate, formatVNTime } from '@/lib/dates';
-import type { TrackedBand, TrackingFilters } from './types';
+import type { TrackedBand, TrackingFilters, TrackingRole } from './types';
 
 /** The prefix of every key this screen keeps in the address: `tracking_band`, `tracking_page`, ... */
 export const TRACKING_URL_PREFIX = 'tracking';
@@ -9,7 +9,7 @@ export const TRACKING_PAGE_SIZE = 20;
 
 export const TRACKING_QUERY_KEYS = {
   all: ['processing-tracking'] as const,
-  teams: ['processing-tracking', 'teams'] as const,
+  teams: (role: TrackingRole, awaiting: boolean) => ['processing-tracking', 'teams', role, awaiting] as const,
   summary: (filters: TrackingFilters) => ['processing-tracking', 'summary', filters] as const,
   items: (filters: TrackingFilters, band: TrackedBand | null, awaiting: boolean, page: number, asOf: string) =>
     ['processing-tracking', 'items', filters, band, awaiting, page, asOf] as const,

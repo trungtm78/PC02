@@ -39,6 +39,15 @@ describe('the tracking routes', () => {
     expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/items', { params: { role: 'COORDINATE', awaiting: 'approval', asOf: 'x', page: 1, pageSize: 20 } });
   });
 
+  it('asks the units of the filter with the role of the screen (the default left out) and the card "waiting for my approval"', async () => {
+    await trackingApi.teams({ role: 'MAIN', awaiting: false });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/teams', { params: {} });
+    await trackingApi.teams({ role: 'CHECK', awaiting: false });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/teams', { params: { role: 'CHECK' } });
+    await trackingApi.teams({ role: 'COORDINATE', awaiting: true });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/teams', { params: { role: 'COORDINATE', awaiting: 'approval' } });
+  });
+
   it('returns the body, not the axios response', async () => {
     http.get.mockResolvedValueOnce({ data: { asOf: 'x', counts: {} } });
     await expect(trackingApi.summary({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null })).resolves.toEqual({ asOf: 'x', counts: {} });

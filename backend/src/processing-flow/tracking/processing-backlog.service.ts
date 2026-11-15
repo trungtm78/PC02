@@ -282,9 +282,12 @@ export class ProcessingBacklogService {
       const [rows, total] = await Promise.all([this.prisma.incident.findMany({ ...paging, select: { id: true, code: true, name: true, deadline: true } }), this.prisma.incident.count({ where })]);
       return { ...answer, total, items: rows.map((row) => ({ recordKind: 'INCIDENT', recordId: row.id, recordCode: row.code, recordLabel: row.name, deadline: day(row.deadline) })) };
     }
-    // The code only: the name and the deadline of a case are fields its own schema may restrict, and that policy is not asked here.
-    const [rows, total] = await Promise.all([this.prisma.case.findMany({ ...paging, select: { id: true, caseCode: true } }), this.prisma.case.count({ where })]);
-    return { ...answer, total, items: rows.map((row) => ({ recordKind: 'CASE', recordId: row.id, recordCode: row.caseCode, recordLabel: null, deadline: null })) };
+    // The code only, and only where the case's schema lets this person read it (`caseCodeWhere`): the name and the
+    // deadline of a case are fields its schema may restrict too, and they are never shown here.
+    const [rows, total] = await Promise.all([this.prisma.case.findMany({ ...paging, select: { id: true } }), this.prisma.case.count({ where })]);
+    const coded = await this.prisma.case.findMany({ where: { AND: [{ id: { in: rows.map((row) => row.id) } }, await this.tracking.caseCodeWhere(user, 'read')] }, select: { id: true, caseCode: true } });
+    const codeOf = new Map(coded.map((row) => [row.id, row.caseCode]));
+    return { ...answer, total, items: rows.map((row) => ({ recordKind: 'CASE', recordId: row.id, recordCode: codeOf.get(row.id) ?? null, recordLabel: null, deadline: null })) };
   }
 
   /**

@@ -16,7 +16,7 @@ import { ProcessingTrackingService } from './processing-tracking.service';
  */
 describe('ProcessingTrackingController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const tracking = { summary: jest.fn(), items: jest.fn() };
+  const tracking = { summary: jest.fn(), items: jest.fn(), teams: jest.fn() };
   let switchedOn = true;
   let held: string[] = ['read:ProcessingStep'];
   const asked: string[] = [];
@@ -109,6 +109,19 @@ describe('ProcessingTrackingController (HTTP, real guards)', () => {
   it('the list of a cell of the backlog table: the role, the band NONE, the period', async () => {
     await get('/processing/tracking/items?band=NONE&role=CHECK&teamId=t1&from=2026-12-01&to=2026-12-31').expect(200);
     expect(tracking.items).toHaveBeenCalledWith(expect.anything(), { band: 'NONE', role: 'CHECK', teamId: 't1', from: '2026-12-01', to: '2026-12-31' });
+  });
+
+  it('the units of the filter take the role and the card of the screen, and nothing else', async () => {
+    tracking.teams.mockReset().mockResolvedValue([]);
+    await get('/processing/tracking/teams?role=CHECK').expect(200);
+    expect(tracking.teams).toHaveBeenLastCalledWith(expect.anything(), { role: 'CHECK' });
+    await get('/processing/tracking/teams?awaiting=approval').expect(200);
+    expect(tracking.teams).toHaveBeenLastCalledWith(expect.anything(), { awaiting: 'approval' });
+    await get('/processing/tracking/teams').expect(200);
+    expect(tracking.teams).toHaveBeenLastCalledWith(expect.anything(), {});
+    tracking.teams.mockClear();
+    for (const path of ['/processing/tracking/teams?role=INFORM', '/processing/tracking/teams?awaiting=all', '/processing/tracking/teams?teamId=t1']) await get(path).expect(400);
+    expect(tracking.teams).not.toHaveBeenCalled();
   });
 
   it('the search (trimmed) and the card "waiting for my approval" reach the service as sent', async () => {
