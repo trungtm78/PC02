@@ -59,6 +59,8 @@ export class CaseFieldSchemaService {
     caseId: string,
     actor: ActorContext,
     inspectionPurpose?: string,
+    /** Only for the download of a file of a step report: see `CaseGovernanceService.assertBaseCaseReadable`. */
+    options?: { stepAssignee?: () => Promise<boolean> },
   ) {
     const record = inspectionPurpose
       ? await this.core.assertClassificationInspectable(
@@ -67,7 +69,7 @@ export class CaseFieldSchemaService {
           actor,
           inspectionPurpose,
         )
-      : await this.core.assertBaseCaseReadable(tx, caseId, actor);
+      : await this.core.assertBaseCaseReadable(tx, caseId, actor, options);
     const schema = record.fieldDefinitionVersionId
       ? await tx.caseFieldDefinitionVersion.findUnique({
           where: { id: record.fieldDefinitionVersionId },

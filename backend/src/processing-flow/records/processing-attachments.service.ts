@@ -7,6 +7,7 @@ import { RecordGateway } from '../gateway/record-gateway';
 import type { GatewayUser, RecordKind } from '../gateway/record-snapshot';
 import { RECORD_FLOW_LOCK } from './flow-application.service';
 import { ProcessingResultsService } from './processing-results.service';
+import { RecordStepAccessService } from './record-step-access.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -47,7 +48,8 @@ interface RequestMeta {
  *     withdrawn, not replaced, not answered), the record neither gone nor finished. Under the record's lock.
  *   - download: whoever may read the results of the step (the caller's `readable`, asked again here around the bytes),
  *     and the document must be a file of a report of THAT step of THAT record; a case's evidence governance still
- *     decides for its bytes (`DocumentsService.openDownload`).
+ *     decides for its bytes (`DocumentsService.openDownload`), except that a case outside the reader's own scope is
+ *     opened by the step rule (`mayReadByStep`): the scope alone gives way, sensitivity and representation do not.
  *
  * The route adds its permission and the record's read rule opened by the step (the case policy for a RESTRICTED case).
  * The file is a `Document` of the record (its own foreign key), so it is also in the record's document store.
@@ -59,6 +61,7 @@ export class ProcessingAttachmentsService {
     private readonly gateway: RecordGateway,
     private readonly results: ProcessingResultsService,
     private readonly documents: DocumentsService,
+    private readonly stepAccess: RecordStepAccessService,
   ) {}
 
   async attach(actorId: string, kind: RecordKind, recordId: string, stepKey: string, reportId: string, file: UploadedAttachment, meta?: RequestMeta): Promise<AttachmentDto> {
@@ -90,14 +93,33 @@ export class ProcessingAttachmentsService {
    */
   async openDownload(user: GatewayUser, kind: RecordKind, recordId: string, stepKey: string, reportId: string, documentId: string, meta?: RequestMeta) {
     const missing = () => refuse.notFound(PROCESSING_ERROR.ATTACHMENT_NOT_FOUND);
+    const reportOfStep = () =>
+      this.prisma.procStepReport.findFirst({ where: { id: reportId, recordKind: kind, recordId, recordStep: { recordKind: kind, recordId, stepKey } }, select: { id: true, recordStepId: true } });
+    /**
+     * The step rule of a CASE the reader does not have in their own scope: the step OF THE REPORT is being worked and
+     * names them (`RecordStepAccessService.mayOpenStep`: the one predicate `partyNamesUser`, on that step only), on
+     * top of the case policy opened by a step (sensitivity, representation). Being named in ANOTHER step of the case
+     * opens the case's detail, not the files of this step's reports; and the reach ends when this step is done.
+     */
+    const caseByThisStep = async (): Promise<boolean> => {
+      if (!(await this.gateway.canRead(kind, recordId, user, { viaStep: true }))) return false;
+      const report = await reportOfStep();
+      return report !== null && (await this.stepAccess.mayOpenStep(kind, recordId, report.recordStepId, user.id));
+    };
     const authorize = async (document: { id: string; procStepReportId: string | null } & Record<'caseId' | 'incidentId' | 'petitionId', string | null>) => {
-      if (!(await this.gateway.canRead(kind, recordId, user, { viaStep: true }))) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
+      // A petition or an incident keeps its rule: a unit named in ANY step being worked may read the record, and so
+      // the files of the reports of its steps. A case is stricter: its own scope, or the exact step.
+      const readable = kind === 'CASE' ? (await this.gateway.canRead(kind, recordId, user)) || (await caseByThisStep()) : await this.gateway.canRead(kind, recordId, user, { viaStep: true });
+      if (!readable) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
       if (document.procStepReportId !== reportId || document[PARENT_KEY[kind]] !== recordId) throw missing();
-      const report = await this.prisma.procStepReport.findFirst({ where: { id: reportId, recordKind: kind, recordId, recordStep: { recordKind: kind, recordId, stepKey } }, select: { id: true } });
-      if (!report) throw missing();
+      if (!(await reportOfStep())) throw missing();
     };
     try {
-      return await this.documents.openDownload(documentId, { userId: user.id, ...meta }, undefined, { authorize });
+      // `mayReadByStep`: for a CASE outside the reader's own scope, what the case's evidence governance asks in place
+      // of the scope (and nothing else of the case policy): the rule of the EXACT step, asked again there, before
+      // and after the bytes are read. Never asked for a petition or an incident (they do not pass that governance).
+      const mayReadByStep = () => (kind === 'CASE' ? caseByThisStep() : Promise.resolve(false));
+      return await this.documents.openDownload(documentId, { userId: user.id, ...meta }, undefined, { authorize, mayReadByStep });
     } catch (error) {
       // A document that is gone (or never was an attachment) answers with the code of this module.
       if (error instanceof NotFoundException && !(error.getResponse() as { code?: unknown }).code) throw missing();

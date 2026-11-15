@@ -199,6 +199,12 @@ export class CaseGovernanceService {
     caseId: string,
     actor: ActorContext,
     capability: string,
+    /**
+     * `stepAssignee`: the scope requirement alone is waived when a step being worked on this case hands it to the
+     * actor's unit. Asked ONLY when the actor's own scope does not reach the case; every other rule still runs.
+     * Passed only by the evidence governance for the download of a file of a step report (`StepAttachmentCapability`).
+     */
+    options?: { stepAssignee?: () => Promise<boolean> },
   ): Promise<Case> {
     const user = await this.activeActor(tx, actor.actorId);
     if (!this.permission(user, 'Case', 'read'))
@@ -207,12 +213,7 @@ export class CaseGovernanceService {
       where: { id: caseId, deletedAt: null },
     });
     if (!record) throw new NotFoundException('Case not found');
-    assertParentInScope(
-      record,
-      await this.currentScope(tx, user),
-      'read',
-      'Case',
-    );
+    await this.assertInScopeOrByStep(tx, record, user, options);
     await this.sensitive(tx, record, user);
     await this.representation(tx, caseId, user, capability);
     return record;
@@ -221,6 +222,12 @@ export class CaseGovernanceService {
     tx: Tx,
     caseId: string,
     actor: ActorContext,
+    /**
+     * `stepAssignee`: the scope requirement alone is waived when a step being worked on this case hands it to the
+     * actor's unit. Asked ONLY when the actor's own scope does not reach the case; every other rule still runs.
+     * Passed only by the evidence governance for the download of a file of a step report (`StepAttachmentCapability`).
+     */
+    options?: { stepAssignee?: () => Promise<boolean> },
   ): Promise<Case> {
     const user = await this.activeActor(tx, actor.actorId);
     if (!this.permission(user, 'Case', 'read'))
@@ -229,14 +236,34 @@ export class CaseGovernanceService {
       where: { id: caseId, deletedAt: null },
     });
     if (!record) throw new NotFoundException('Case not found');
-    assertParentInScope(
-      record,
-      await this.currentScope(tx, user),
-      'read',
-      'Case',
-    );
+    await this.assertInScopeOrByStep(tx, record, user, options);
     await this.sensitive(tx, record, user);
     return record;
+  }
+  /** The actor's own read scope over the case; failing that, and only when the caller handed one in, the step rule. */
+  private async assertInScopeOrByStep(
+    tx: Tx,
+    record: Case,
+    user: DbActor,
+    options?: { stepAssignee?: () => Promise<boolean> },
+  ): Promise<void> {
+    try {
+      assertParentInScope(
+        record,
+        await this.currentScope(tx, user),
+        'read',
+        'Case',
+      );
+    } catch (error) {
+      if (
+        !(
+          error instanceof ForbiddenException &&
+          options?.stepAssignee &&
+          (await options.stepAssignee())
+        )
+      )
+        throw error;
+    }
   }
   async assertClassificationInspectable(
     tx: Tx,

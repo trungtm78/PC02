@@ -5621,6 +5621,9 @@ model ProcOutbox {
 
   @@index([status, availableAt])
   @@index([recordKind, recordId])
+  // Migration-only (Prisma cannot express a partial index): UNIQUE ("recordKind", "recordId") WHERE reason =
+  // 'RESYNC_DEADLINE_RECORD' AND status = 'PENDING' (`20261125100000_proc_outbox_resync_unique`): one waiting row of
+  // the deadline resync per record. A database built with `db push` lacks it; the code does not depend on it.
   @@map("proc_outbox")
 }
 

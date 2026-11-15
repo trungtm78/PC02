@@ -5,6 +5,7 @@ import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
+import { deferRecordResync } from './deadline-resync';
 
 /**
  * The switch that lets a record get its flow, and that makes its deadline the flow's. Defined here (and re-exported by
@@ -28,6 +29,11 @@ type Db = Prisma.TransactionClient | PrismaService;
  *   - the step has a deadline.
  *
  * Otherwise the record keeps the deadline it has, and the old ways of setting it stay open.
+ *
+ * And never while the record is SUSPENDED, whoever asks (a command, the application of a flow, the worker of the clock,
+ * the job after a legal verification): `sync` then writes nothing, answers `SUSPENDED`, and leaves ONE waiting row of
+ * the outbox for the record (`deferRecordResync`), which writes the deadline after the record has resumed. That row is
+ * the one mechanism of the catch-up; it does not depend on a pause having been recorded.
  *
  * It is called by the command layer, the pause worker and the application of a flow, inside their transactions, so the
  * column and the steps never disagree.
@@ -104,13 +110,21 @@ export class RecordDeadlineWriter implements OnModuleInit {
     return flows.map((flow) => flow.recordId);
   }
 
-  /** Copies the managed deadline into the record's column when it differs. Returns what it did. */
-  async sync(tx: Prisma.TransactionClient, kind: RecordKind, recordId: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED'> {
+  /**
+   * Copies the managed deadline into the record's column when it differs. Returns what it did. `reason` goes into the
+   * history row of a write, for a caller that is not a command a person gave (the job after a legal verification).
+   */
+  async sync(tx: Prisma.TransactionClient, kind: RecordKind, recordId: string, reason?: string): Promise<'WRITTEN' | 'UNCHANGED' | 'NOT_MANAGED' | 'SUSPENDED'> {
     const managed = await this.managedDeadline(tx, kind, recordId);
     if (!managed) return 'NOT_MANAGED';
     const snapshot = await this.gateway.load(kind, recordId, tx);
     if (!snapshot) return 'NOT_MANAGED';
     if (snapshot.deadline && snapshot.deadline.getTime() === managed.getTime()) return 'UNCHANGED';
+    if (snapshot.isSuspended) {
+      // Every caller holds the flow lock of the record, which is what makes this "one row per record".
+      await deferRecordResync(tx, kind, recordId, { suspended: true });
+      return 'SUSPENDED';
+    }
     await this.gateway.writeDeadline(kind, recordId, managed, tx);
     const flow = await tx.procRecordFlow.findUniqueOrThrow({ where: { recordKind_recordId: { recordKind: kind, recordId } }, select: { id: true } });
     await tx.procStepChange.create({
@@ -121,6 +135,7 @@ export class RecordDeadlineWriter implements OnModuleInit {
         action: 'RECORD_DEADLINE_WRITTEN',
         fromValue: { deadline: snapshot.deadline ? snapshot.deadline.toISOString() : null },
         toValue: { deadline: managed.toISOString() },
+        reason: reason ?? null,
         actorId: null,
       },
     });

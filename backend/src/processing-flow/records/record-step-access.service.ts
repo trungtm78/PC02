@@ -65,11 +65,26 @@ export class RecordStepAccessService implements OnModuleInit {
   }
 
   /** Whether a step being worked on this record names a unit the person belongs to, or names the person. */
-  async mayOpen(kind: RecordKind, recordId: string, userId: string): Promise<boolean> {
+  mayOpen(kind: RecordKind, recordId: string, userId: string): Promise<boolean> {
+    return this.namedInWorkedStep(kind, recordId, userId, null);
+  }
+
+  /**
+   * The same question about ONE step of the record: that very step is being worked and one of ITS parties names the
+   * person (themself, an active unit of theirs, or somebody they act for). What opens the files of the reports of a
+   * step of a CASE outside the person's scope: being named in another step of the case does not.
+   */
+  mayOpenStep(kind: RecordKind, recordId: string, recordStepId: string, userId: string): Promise<boolean> {
+    if (!recordStepId) return Promise.resolve(false);
+    return this.namedInWorkedStep(kind, recordId, userId, recordStepId);
+  }
+
+  /** THE rule of both: `partyNamesUser` over the steps being worked, of the record or of one step of it. */
+  private async namedInWorkedStep(kind: RecordKind, recordId: string, userId: string, recordStepId: string | null): Promise<boolean> {
     if (!this.recordsOn || !userId) return false;
     const party = await this.prisma.procRecordStepParty.findFirst({
       where: {
-        recordStep: { recordKind: kind, recordId, status: { in: [...WORKED] } },
+        recordStep: { ...(recordStepId ? { id: recordStepId } : {}), recordKind: kind, recordId, status: { in: [...WORKED] } },
         ...partyNamesUser(userId, await actingForIds(this.prisma, userId, this.now())),
       },
       select: { id: true },
