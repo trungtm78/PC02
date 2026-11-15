@@ -1,6 +1,6 @@
 /**
  * Hai tab "Phân công xử lý" / "Kết quả xử lý" trên form Vụ việc: chỉ có khi công tắc `processing_flow_records` BẬT,
- * hồ sơ ĐÃ LƯU và người dùng có `read:ProcessingStep`. Chúng đứng SAU 10 tab của hệ cũ và không đụng tới trạng thái tab cũ.
+ * hồ sơ ĐÃ LƯU và người dùng có `read:ProcessingStep`. Chúng đứng NGAY SAU tab Thông tin, trước các tab còn lại của hệ cũ, và không đụng tới trạng thái tab cũ.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
@@ -63,11 +63,11 @@ beforeEach(() => {
 });
 
 describe('IncidentFormPage — hai tab quy trình', () => {
-  it('có đủ hai tab SAU 10 tab của hệ cũ khi công tắc bật, hồ sơ đã lưu và có quyền đọc bước', async () => {
+  it('có đủ hai tab NGAY SAU tab Thông tin khi công tắc bật, hồ sơ đã lưu và có quyền đọc bước', async () => {
     await renderPage({ path: '/vu-viec/inc-1/edit' });
     await screen.findByTestId('tab-nut-phan-cong-xu-ly');
     const bar = screen.getByTestId('thanh-tab-vu-viec');
-    expect(Array.from(bar.querySelectorAll('button')).map((b) => b.textContent)).toEqual([...Object.values(LEGACY_TAB_LABEL), 'Phân công xử lý', 'Kết quả xử lý']);
+    expect(Array.from(bar.querySelectorAll('button')).map((b) => b.textContent)).toEqual(['Thông tin', 'Phân công xử lý', 'Kết quả xử lý', ...Object.values(LEGACY_TAB_LABEL).slice(1)]);
     expect(legacyButtons().map((b) => b.textContent)).toEqual(Object.values(LEGACY_TAB_LABEL));
   });
 

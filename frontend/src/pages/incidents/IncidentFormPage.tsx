@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { randomUUID } from "@/lib/uuid";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
 import { RecordNameSuggestions } from "@/components/inputs/RecordNameSuggestions";
@@ -965,8 +965,8 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
           data-testid="thanh-tab-vu-viec"
         >
           {(Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]).map((t) => (
+            <Fragment key={t}>
             <button
-              key={t}
               type="button"
               onClick={() => {
                 setTabDangMo(t);
@@ -981,8 +981,10 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
             >
               {LEGACY_TAB_LABEL[t]}
             </button>
+            {/* The two flow tabs come right after "Thông tin", before the other legacy tabs. */}
+            {t === "info" && coTabQuyTrinh && <RecordTabButtons active={tabQuyTrinhDangMo} onSelect={setTabQuyTrinh} />}
+            </Fragment>
           ))}
-          {coTabQuyTrinh && <RecordTabButtons active={tabQuyTrinhDangMo} onSelect={setTabQuyTrinh} />}
         </div>
 
         {coTabQuyTrinh && effectiveId && <RecordTabBody kind="INCIDENT" recordId={effectiveId} active={tabQuyTrinhDangMo} />}

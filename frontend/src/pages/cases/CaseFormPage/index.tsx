@@ -749,7 +749,8 @@ function CaseFormPage() {
   const recordIdSaved = id ?? createdId;
   const coTabQuyTrinh = useRecordTabsAvailable(recordIdSaved);
   const barTabs: TabItem<TabId | RecordTabId>[] = useMemo(
-    () => (coTabQuyTrinh ? [...visibleTabs, ...recordTabItems()] : visibleTabs),
+    // Right after "Thông tin" (the first tab), before the other tabs.
+    () => (coTabQuyTrinh ? [visibleTabs[0], ...recordTabItems(), ...visibleTabs.slice(1)] : visibleTabs),
     [coTabQuyTrinh, visibleTabs],
   );
   const activeRecordTab: RecordTabId | null = coTabQuyTrinh && (activeTab === 'phan-cong-xu-ly' || activeTab === 'ket-qua-xu-ly') ? activeTab : null;

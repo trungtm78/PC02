@@ -1,6 +1,6 @@
 /**
  * Hai tab "Phân công xử lý" / "Kết quả xử lý" trên form Vụ án: chỉ có khi công tắc `processing_flow_records` BẬT,
- * hồ sơ ĐÃ LƯU và người dùng có `read:ProcessingStep`. Chúng đứng SAU các tab của form, cùng thanh, id riêng.
+ * hồ sơ ĐÃ LƯU và người dùng có `read:ProcessingStep`. Chúng đứng NGAY SAU tab đầu (Thông tin), trước các tab còn lại, cùng thanh, id riêng.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
@@ -75,10 +75,10 @@ beforeEach(() => {
 });
 
 describe('CaseFormPage — hai tab quy trình', () => {
-  it('có đủ hai tab SAU các tab của form khi công tắc bật, hồ sơ đã lưu và có quyền đọc bước', async () => {
+  it('có đủ hai tab NGAY SAU tab Thông tin khi công tắc bật, hồ sơ đã lưu và có quyền đọc bước', async () => {
     await renderPage({ path: '/cases/case-1/edit' });
     await screen.findByTestId('tab-phan-cong-xu-ly');
-    expect(tabIds()).toEqual([...FORM_TABS, 'tab-phan-cong-xu-ly', 'tab-ket-qua-xu-ly']);
+    expect(tabIds()).toEqual([FORM_TABS[0], 'tab-phan-cong-xu-ly', 'tab-ket-qua-xu-ly', ...FORM_TABS.slice(1)]);
     expect(screen.getByTestId('tab-ket-qua-xu-ly')).toHaveTextContent('Kết quả xử lý');
   });
 

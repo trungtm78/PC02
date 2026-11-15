@@ -30,7 +30,7 @@ import { RecordTabBody, RecordTabButtons } from "@/features/processing-flow/reco
 import { useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -1139,8 +1139,8 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
         {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự. */}
         <div className="flex flex-wrap gap-1 border-b border-slate-200" data-testid="thanh-tab-don-thu">
           {(Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]).map((t) => (
+            <Fragment key={t}>
             <button
-              key={t}
               type="button"
               onClick={() => {
                 setTabDangMo(t);
@@ -1155,8 +1155,10 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
             >
               {LEGACY_TAB_LABEL[t]}
             </button>
+            {/* The two flow tabs come right after "Thông tin", before the other legacy tabs. */}
+            {t === "info" && coTabQuyTrinh && <RecordTabButtons active={tabQuyTrinhDangMo} onSelect={setTabQuyTrinh} />}
+            </Fragment>
           ))}
-          {coTabQuyTrinh && <RecordTabButtons active={tabQuyTrinhDangMo} onSelect={setTabQuyTrinh} />}
         </div>
 
         {coTabQuyTrinh && idHoSoDaLuu && <RecordTabBody kind="PETITION" recordId={idHoSoDaLuu} active={tabQuyTrinhDangMo} />}
