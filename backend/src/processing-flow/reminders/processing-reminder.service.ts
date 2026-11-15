@@ -307,8 +307,10 @@ export class ProcessingReminderService {
       const dedupeKey = `${step.id}:${step.deadlineRevision}:${what}:${recipientId}`;
       if (!wanted.has(dedupeKey)) wanted.set(dedupeKey, { recipientId, kind, dedupeKey, day, onBehalfOfUserId });
     };
-    // A person is told about the band ONCE, by the first reason in this order: they answer for the work (MAIN, CHECK),
-    // they act for somebody who does, they are informed, they act for somebody who is.
+    // A person is told about the band ONCE. Every DIRECT recipient is registered first, in their own right and with the
+    // cadence of their own role (MAIN, CHECK: daily when overdue; INFORM: once per band). A delegate gets a row only
+    // when they are NOT a direct recipient: a delegation never changes the key, the cadence or the payload of a row a
+    // person is owed themself (so revoking it cannot make their own reminder stale).
     const told = new Set<string>();
     const tell = (userId: string, daily: boolean, onBehalfOfUserId?: string) => {
       if (told.has(userId)) return;
@@ -317,15 +319,18 @@ export class ProcessingReminderService {
       else want(userId, REMINDER_KIND.BAND, band, undefined, onBehalfOfUserId);
     };
     const delegates = await this.delegatesAt(context, now);
-    const tellWithDelegates = (people: string[], daily: boolean) => {
-      for (const userId of people) tell(userId, daily);
+    const responsible = await this.responsible(step, ['MAIN', 'CHECK'], heads);
+    const informed = await this.responsible(step, ['INFORM'], heads);
+    for (const userId of responsible) tell(userId, true);
+    for (const userId of informed) tell(userId, false);
+    const tellDelegatesOf = (people: string[], daily: boolean) => {
       for (const userId of people) {
         const delegate = delegates.get(userId);
         if (delegate) tell(delegate, daily, userId);
       }
     };
-    tellWithDelegates(await this.responsible(step, ['MAIN', 'CHECK'], heads), true);
-    tellWithDelegates(await this.responsible(step, ['INFORM'], heads), false);
+    tellDelegatesOf(responsible, true);
+    tellDelegatesOf(informed, false);
 
     if (band === 'OVERDUE') {
       const overdueDays = today - civilDayOf(dueAt);

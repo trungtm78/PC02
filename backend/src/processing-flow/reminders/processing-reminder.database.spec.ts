@@ -755,6 +755,50 @@ run('The reminders of the processing flow on PostgreSQL', () => {
       expect(own.metadata.onBehalfOfUserId).toBeUndefined();
     });
 
+    describe('a delegate who is told in their OWN right as an informed party', () => {
+      /** `member` works the step and `delegate` is named on its informed party: a direct recipient, once per band. */
+      const informed = (spec: StepSpec = {}) => named({ ...spec, parties: [{ assigneeUserId: id.member }, { role: 'INFORM', assigneeUserId: id.delegate }] });
+      const rowsOfDelegate = async (recordId: string) => (await rowsOf(recordId)).filter((row) => row.recipientId === id.delegate);
+
+      it('gets exactly one reminder per band in their own right, and revoking the delegation before the delivery changes nothing', async () => {
+        const row = await delegation(at(9), endOf(20));
+        const { recordId } = await informed();
+        stepClock = NOW;
+        await reminders.plan(NOW);
+        const [planned] = await rowsOfDelegate(recordId);
+        expect(await rowsOfDelegate(recordId)).toHaveLength(1);
+        expect((planned.payload as Record<string, unknown>).onBehalfOfUserId).toBeUndefined();
+        await scratch.db.procDelegation.update({ where: { id: row.id }, data: { revokedAt: NOW, revokedById: id.owner } });
+        await reminders.deliver(NOW);
+        expect(await rowsOfDelegate(recordId)).toMatchObject([{ status: 'DONE', outcome: 'SENT', band: 'GREEN' }]);
+        const [own] = (await noticesOf(recordId)).filter((notice) => notice.to === 'delegate');
+        expect(own.message).not.toContain('uỷ quyền');
+        expect(await toWhom(recordId)).toEqual(['delegate', 'member']);
+      });
+
+      it('an overdue step: told once, never daily, and a delegation that starts meanwhile adds no second notice, that day or the next', async () => {
+        const { recordId } = await informed({ due: endOf(8) });
+        await tickAt(NOW);
+        expect(await toWhom(recordId)).toEqual(['delegate', 'member']);
+        await delegation(at(10, 4), endOf(20));
+        await tickAt(at(10, 9));
+        expect(await toWhom(recordId)).toEqual(['delegate', 'member']);
+        await tickAt(at(11));
+        // The person who works the step is reminded again on the new day; the informed one is not.
+        expect(await toWhom(recordId)).toEqual(['delegate', 'member', 'member']);
+        expect((await rowsOfDelegate(recordId)).map((reminder) => reminder.dedupeKey.split(':').slice(2, -1).join(':'))).toEqual(['OVERDUE']);
+      });
+    });
+
+    it('a delegate of the person who works an OVERDUE step is reminded daily, as that person is', async () => {
+      await delegation(at(9), endOf(20));
+      const { recordId } = await named({ due: endOf(8) });
+      await tickAt(NOW);
+      await tickAt(at(10, 9));
+      await tickAt(at(11));
+      expect(await toWhom(recordId)).toEqual(['delegate', 'delegate', 'member', 'member']);
+    });
+
     it('a delegate who no longer shares an active unit with the person gets nothing', async () => {
       await delegation(at(9), endOf(20));
       const { recordId } = await named();
