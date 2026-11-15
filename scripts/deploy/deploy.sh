@@ -368,6 +368,20 @@ for OLD_BACKUP in $(printf '%s\n' "$BACKUP_LIST" | cut -d' ' -f2); do
 done
 [ "$BACKUP_PRUNED" -gt 0 ] && log "Pruned $BACKUP_PRUNED old pre-deploy backups (kept the newest 30 and the first of every day)"
 
+# Tarballs of releases that are no longer on disk: a deploy that ends red keeps its tarball on purpose (see below), so
+# they pile up in /tmp (measured 15/11/2026: 55 files, 11 GB). One whose release directory is gone can never be re-run.
+TARBALL_DIR="$(dirname "$TARBALL")"
+TARBALL_PRUNED=0
+for OLD_TARBALL in "$TARBALL_DIR"/pc02-*.tar.gz; do
+    [ -f "$OLD_TARBALL" ] || continue
+    [ "$OLD_TARBALL" = "$TARBALL" ] && continue
+    OLD_SHA="$(basename "$OLD_TARBALL" | sed -E 's/^pc02-([0-9a-f]{40})\.tar\.gz$/\1/')"
+    printf '%s' "$OLD_SHA" | grep -qE '^[0-9a-f]{40}$' || continue
+    [ -d "$RELEASES_DIR/$OLD_SHA" ] && continue
+    rm -f -- "$OLD_TARBALL" && TARBALL_PRUNED=$((TARBALL_PRUNED + 1))
+done
+[ "$TARBALL_PRUNED" -gt 0 ] && log "Pruned $TARBALL_PRUNED tarballs of releases no longer on disk"
+
 # The tarball of this release is NOT removed here: a deploy that ends red below must be re-runnable with the same
 # tarball (gates `cong-service-worker`, `cong-nap-cot-bong-sau-deploy`). It is removed at the very end of a green run.
 
