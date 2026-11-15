@@ -17,6 +17,7 @@ import { ProcessingCommandService } from './processing-command.service';
 import { ProcessingDeadlineService } from './processing-deadline.service';
 import { ProcessingPauseService } from './processing-pause.service';
 import { ProcessingResultsService } from './processing-results.service';
+import { alertDriftCandidates, refreshRecordAlert } from './record-alert';
 import { RecordDeadlineWriter } from './record-deadline-writer.service';
 
 /**
@@ -46,6 +47,8 @@ run('The stored alert of a record on PostgreSQL', () => {
   let deadlines: ProcessingDeadlineService;
   let results: ProcessingResultsService;
   let pauses: ProcessingPauseService;
+  let recordGateway: RecordGateway;
+  const gatewayOf = () => recordGateway;
   const tag = `${PREFIX}${randomUUID().slice(0, 8)}`;
   let actor = '';
   let roleId = '';
@@ -158,6 +161,7 @@ run('The stored alert of a record on PostgreSQL', () => {
     flows = new ProcessingFlowsService(prisma, audit, calendars);
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, audit, {} as never));
     const gateway = new RecordGateway(new PetitionAdapter(prisma, scopes), new IncidentAdapter(prisma, scopes), new CaseAdapter(prisma, scopes));
+    recordGateway = gateway;
     const applier = new FlowApplicationService(prisma, gateway, calendars, audit, new RecordDeadlineWriter(prisma, gateway));
     commands = new ProcessingCommandService(prisma, gateway, calendars, applier, audit, new RecordDeadlineWriter(prisma, gateway));
     deadlines = new ProcessingDeadlineService(prisma, commands);
@@ -265,22 +269,72 @@ run('The stored alert of a record on PostgreSQL', () => {
     expect(await expectAlertAgrees(recordId)).toEqual(['NONE']);
   });
 
-  it('a proposed flow that is confirmed, and one that is replaced, keep their alert', async () => {
-    const flow = await publishedFlow([step({ durationValue: 5 })]);
-    const other = await publishedFlow([step({ durationValue: 7 })]);
-    const recordId = await petition();
-    await commands.apply(actor, 'PETITION', recordId, { flowId: flow.id });
-    await scratch.db.procRecordFlow.updateMany({ where: { recordId }, data: { confirmed: false } });
-    let dto = await commands.get('PETITION', recordId);
-    const replaced = await commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: dto.revision, flowId: other.id });
-    expect(replaced.outcome.outcome).toBe('APPLIED');
-    expect((await stored(recordId)).alertDueAt?.toISOString()).toBe('2026-12-08T16:59:59.999Z');
-    await expectAlertAgrees(recordId);
+  describe('a flow that is only a proposal (decision C10)', () => {
+    const LATE = new Date('2026-12-20T03:00:00.000Z');
+    const EMPTY = { alertDueAt: null, alertRedFrom: null, alertYellowFrom: null, alertGreenFrom: null };
+    const unconfirm = (recordId: string) => scratch.db.procRecordFlow.updateMany({ where: { recordId }, data: { confirmed: false, confirmedAt: null, confirmedById: null } });
+    const drifting = async (recordId: string) => (await alertDriftCandidates(scratch.db as never, 100_000)).some((candidate) => candidate.recordId === recordId);
 
-    await scratch.db.procRecordFlow.updateMany({ where: { recordId }, data: { confirmed: false } });
-    dto = await commands.get('PETITION', recordId);
-    await commands.confirmFlow(actor, 'PETITION', recordId, { expectedRevision: dto.revision });
-    await expectAlertAgrees(recordId);
+    it('asserts no deadline: no stored alert, no colour on its steps, while the dates stay; the worker agrees and does not come back', async () => {
+      const flow = await publishedFlow([step({ durationValue: 5 })]);
+      const recordId = await petition();
+      await commands.apply(actor, 'PETITION', recordId, { flowId: flow.id });
+      commands.now = () => LATE;
+      expect((await commands.get('PETITION', recordId)).steps[0]).toMatchObject({ band: 'OVERDUE', remainingDays: -14, completion: 'OPEN_OVERDUE' });
+
+      // The flow becomes a proposal behind the back of the stored alert: the worker notices, as it does for a status.
+      await unconfirm(recordId);
+      expect(await drifting(recordId)).toBe(true);
+      await scratch.db.$transaction((tx) => refreshRecordAlert(tx, gatewayOf(), 'PETITION', recordId));
+      expect(await stored(recordId)).toMatchObject(EMPTY);
+      expect(await drifting(recordId)).toBe(false);
+
+      const dto = await commands.get('PETITION', recordId);
+      expect(dto.confirmed).toBe(false);
+      expect(dto.steps[0]).toMatchObject({ status: 'OPEN', band: 'NONE', remainingDays: null, completion: null, dueAt: '2026-12-06T16:59:59.999Z', regulatoryDueAt: '2026-12-06T16:59:59.999Z' });
+      expect(await expectAlertAgrees(recordId)).toEqual(['NONE']);
+    });
+
+    it('a command on a step of a proposal leaves the alert empty', async () => {
+      const flow = await publishedFlow([step({ durationValue: 5 }), step({ name: 'Other', durationValue: 8 })]);
+      const recordId = await petition();
+      await commands.apply(actor, 'PETITION', recordId, { flowId: flow.id });
+      await unconfirm(recordId);
+      const dto = await commands.get('PETITION', recordId);
+      await commands.completeStep(actor, 'PETITION', recordId, dto.steps[0].stepKey, { expectedRevision: dto.revision });
+      expect(await stored(recordId)).toMatchObject(EMPTY);
+      expect(await expectAlertAgrees(recordId)).toEqual(['NONE']);
+    });
+
+    it('confirming it brings the alert and the colours back at once', async () => {
+      const flow = await publishedFlow([step({ durationValue: 5 })]);
+      const recordId = await petition();
+      await commands.apply(actor, 'PETITION', recordId, { flowId: flow.id });
+      await unconfirm(recordId);
+      await scratch.db.$transaction((tx) => refreshRecordAlert(tx, gatewayOf(), 'PETITION', recordId));
+      expect(await stored(recordId)).toMatchObject(EMPTY);
+
+      commands.now = () => LATE;
+      let dto = await commands.get('PETITION', recordId);
+      dto = await commands.confirmFlow(actor, 'PETITION', recordId, { expectedRevision: dto.revision });
+      expect(dto).toMatchObject({ confirmed: true, steps: [{ band: 'OVERDUE', remainingDays: -14 }] });
+      expect((await stored(recordId)).alertDueAt?.toISOString()).toBe('2026-12-06T16:59:59.999Z');
+      expect(await drifting(recordId)).toBe(false);
+      expect(await expectAlertAgrees(recordId)).toContain('OVERDUE');
+    });
+
+    it('replacing it by a flow a person names stores the alert of the new flow', async () => {
+      const flow = await publishedFlow([step({ durationValue: 5 })]);
+      const other = await publishedFlow([step({ durationValue: 7 })]);
+      const recordId = await petition();
+      await commands.apply(actor, 'PETITION', recordId, { flowId: flow.id });
+      await unconfirm(recordId);
+      const dto = await commands.get('PETITION', recordId);
+      const replaced = await commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: dto.revision, flowId: other.id });
+      expect(replaced.outcome).toMatchObject({ outcome: 'APPLIED', confirmed: true });
+      expect((await stored(recordId)).alertDueAt?.toISOString()).toBe('2026-12-08T16:59:59.999Z');
+      await expectAlertAgrees(recordId);
+    });
   });
 
   describe('the clock of the record', () => {
