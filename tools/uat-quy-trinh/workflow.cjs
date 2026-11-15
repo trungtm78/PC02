@@ -12,6 +12,9 @@
  *
  * Direct SQL is used only for set-up the API cannot do: accounts, teams, the information-type entries, the three
  * feature switches, marking one case RESTRICTED, and reading row counts around the CLI dry run. REFUSES any address that is not local.
+ * NEEDS A FRESH DATABASE: the run creates the default flows of the incident and case kinds and leaves its records
+ * behind, so a second run on the same database would judge the leftovers. It stops at once when it finds them.
+ * Build order: db push, `node tools/uat-quy-trinh/install-triggers.cjs`, the seeds, then the backend.
  * Every check prints PASS | FAIL | NOT RUN with its requirement id. A NOT RUN is never a pass. Exit 0 = no FAIL.
  */
 const path = require('node:path');
@@ -135,7 +138,7 @@ async function seed(pg) {
   await pg.query(`INSERT INTO "roles" ("id","name","updatedAt") VALUES ($1,$2,now())`, [`${TAG}-officer-role`, `${TAG}-OFFICER`]);
   await pg.query(`INSERT INTO "role_permissions" ("roleId","permissionId") SELECT $1, "id" FROM "permissions" WHERE "action" || ':' || "subject" = ANY($2)`, [`${TAG}-officer-role`, OFFICER_KEYS]);
   for (const id of TEAMS) await pg.query(`INSERT INTO "teams" ("id","name","code","updatedAt") VALUES ($1,$2,$1,now())`, [id, `UAT ${RUN} ${id.slice(-1).toUpperCase()}`]);
-  const people = [[`${TAG}-admin`, admin, null], [`${TAG}-admin2`, admin, null], [`${TAG}-ul`, `${TAG}-officer-role`, TL], [`${TAG}-ux`, `${TAG}-officer-role`, TX], [`${TAG}-uy`, `${TAG}-officer-role`, TY], [`${TAG}-uz`, `${TAG}-officer-role`, TZ]];
+  const people = [[`${TAG}-admin`, admin, null], [`${TAG}-admin2`, admin, null], [`${TAG}-ul`, `${TAG}-officer-role`, TL], [`${TAG}-ui`, `${TAG}-officer-role`, TI], [`${TAG}-ux`, `${TAG}-officer-role`, TX], [`${TAG}-uy`, `${TAG}-officer-role`, TY], [`${TAG}-uz`, `${TAG}-officer-role`, TZ]];
   for (const [id, role, team] of people) {
     await pg.query(`INSERT INTO "users" ("id","username","email","passwordHash","roleId","isActive","twoFaSetupRequired","updatedAt") VALUES ($1,$1,$2,$3,$4,true,false,now())`, [id, `${id}@local.test`, hash, role]);
     if (team) await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,true)`, [id, team]);
@@ -318,6 +321,12 @@ async function workflow(pg) {
   const recDeadline = petRow.body?.deadline ?? petRow.body?.data?.deadline;
   check('C6', `bước đã đối chiếu + quy trình đã xác nhận: hạn chung của hồ sơ = hạn quy định của bước hạn chung (ngày ${monthDue})`, onDay(recDeadline, monthDue), recDeadline);
 
+  // ── C5: one writer of the record's deadline ───────────────────────────────────────────────────────────────────
+  const oldForm = await call(admin, 'PUT', `/petitions/${petId}`, { deadline: addDays(monthDue, 5) });
+  check('C5', 'form cũ gửi một hạn KHÁC khi quy trình giữ hạn → 409 DEADLINE_MANAGED_BY_FLOW', oldForm.status === 409 && JSON.stringify(oldForm.body).includes('DEADLINE_MANAGED_BY_FLOW'), [oldForm.status, oldForm.body]);
+  const sameDay = await call(admin, 'PUT', `/petitions/${petId}`, { deadline: monthDue });
+  check('C5', 'form cũ gửi lại ĐÚNG ngày hạn đang có thì được nhận, hạn không đổi', sameDay.status === 200 && onDay(await deadlineOf('petitions', petId), monthDue), [sameDay.status, sameDay.body?.error ?? null]);
+
   // ── bands at chosen instants, with the tracking clock (owner's rule; C15) ─────────────────────────────────────
   const due2 = Date.parse(step(rf, 1).regulatoryDueAt);
   const instants = [
@@ -409,6 +418,33 @@ async function workflow(pg) {
   const zOpens = await call(uz, 'GET', `/petitions/${petId}`);
   const zFlow = await getFlow(uz);
   check('PERM-OUTSIDE', 'cán bộ tổ không liên quan bị từ chối (403/404) ở hồ sơ và ở các bước', [403, 404].includes(zOpens.status) && [403, 404].includes(zFlow.status), [zOpens.status, zFlow.status]);
+
+  // ── R7: the unit that is only informed ────────────────────────────────────────────────────────────────────────
+  const ui = await login(`${TAG}-ui`);
+  const iRead = await call(ui, 'GET', `/petitions/${petId}`);
+  const iFlow = await getFlow(ui);
+  const iMine = await call(ui, 'GET', `/processing/tracking/items?mine=true&${atRed}`);
+  const iTeam = await call(admin, 'GET', `/processing/tracking/items?teamId=${TI}&${atRed}`);
+  check('R7', 'đơn vị "Xem để biết" mở được hồ sơ và các bước', iRead.status === 200 && iFlow.status === 200, [iRead.status, iFlow.status]);
+  check('R7', '...nhưng không có việc, không có hạn riêng: "Việc của tôi" trống và đơn vị đó không được đếm', iMine.status === 200 && rowsOf(iMine.body).length === 0 && iTeam.body?.total === 0, [iMine.body?.total, iTeam.body?.total]);
+  const iReport = await cmd(ui, `/steps/${keys[1]}/reports`, { kind: 'PROGRESS', doneWork: 'Đơn vị chỉ được báo' });
+  check('R7', '...và không ghi được báo cáo của bước', iReport.status === 403, [iReport.status, iReport.body]);
+
+  // ── C2: one permission per action ─────────────────────────────────────────────────────────────────────────────
+  // The officer of the handling unit holds read, report, opine, complete on ProcessingStep and none of the others.
+  const lacking = [['reopen', `/steps/${keys[1]}/reopen`, { reason: 'x' }], ['skip', `/steps/${keys[2]}/skip`, { reason: 'x' }], ['adjustDue', `/steps/${keys[1]}/due`, { date: addDays(dayDue, -1) }], ['extend', `/steps/${keys[3]}/extend`, { reason: 'x' }], ['approve', `/steps/${keys[3]}/decision`, { verdict: 'AGREE' }], ['assign', '/confirm', {}]];
+  for (const [action, tail, body] of lacking) {
+    const r = await cmd(ux, tail, body);
+    check('C2', `không có quyền ${action}:ProcessingStep → 403 (dù là cán bộ của chính đơn vị xử lý)`, r.status === 403, [r.status, r.body?.code ?? r.body]);
+  }
+  const xNudge = await call(ux, 'POST', `${rec}/steps/${keys[1]}/nudge`, { message: 'x' });
+  if (xNudge.status === 404 && !xNudge.body?.code) notRun('C2', 'không có quyền nudge:ProcessingStep → 403', 'NOT RUN: route absent');
+  else check('C2', 'không có quyền nudge:ProcessingStep → 403', xNudge.status === 403, [xNudge.status, xNudge.body]);
+  const xProgress = await cmd(ux, `/steps/${keys[1]}/reports`, { kind: 'PROGRESS', doneWork: 'Tiến độ của đơn vị xử lý chính' });
+  check('C2', 'có quyền report:ProcessingStep → không bị từ chối vì quyền', xProgress.status === 200, [xProgress.status, xProgress.body]);
+  const xComplete = await cmd(ux, `/steps/${keys[2]}/complete`, {});
+  const xUndo = await cmd(admin, `/steps/${keys[2]}/reopen`, { reason: 'UAT: trả bước về OPEN cho các ca sau' });
+  check('C2', 'có quyền complete:ProcessingStep → hoàn thành được (rồi quản trị, người có quyền reopen, mở lại)', xComplete.status === 200 && xUndo.status === 200, [xComplete.status, xComplete.body?.code, xUndo.status]);
 
   // ── state machine, idempotency, revision (C8) ─────────────────────────────────────────────────────────────────
   rf = (await getFlow()).body;
@@ -551,6 +587,18 @@ async function workflow(pg) {
     check('R6', 'CLI chạy thử (mặc định): kết thúc bình thường, có nêu hồ sơ ứng viên, và KHÔNG ghi gì (số dòng proc_* không đổi, Vụ án vẫn chưa có quy trình)', dry.status === 0 && JSON.stringify(beforeRun) === JSON.stringify(afterRun) && still.status === 404 && /\b[1-9]\d*\b/.test(out), [dry.status, beforeRun, afterRun, still.status, out.slice(-400)]);
   }
 
+  if (pkg.scripts?.['proc:apply-flows'] && caseId && caseFlowLive) {
+    const run = () => spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'proc:apply-flows', '--', '--that', '--actor', `${TAG}-admin`, '--kind', 'CASE'], { cwd: BACKEND, env: { ...process.env, DATABASE_URL: DB_URL }, encoding: 'utf8', shell: process.platform === 'win32', timeout: 180_000 });
+    const flows = async () => (await pg.query(`SELECT count(*)::int AS n FROM "proc_record_flows"`)).rows[0].n;
+    const n0 = await flows();
+    const real = run();
+    const n1 = await flows();
+    const applied = await call(admin, 'GET', `/processing/records/CASE/${caseId}`);
+    check('R6', 'CLI chạy thật (--that): Vụ án đang mở chưa có quy trình nay có quy trình', real.status === 0 && applied.status === 200 && n1 > n0, [real.status, n0, n1, applied.status, `${real.stdout ?? ''}${real.stderr ?? ''}`.slice(-300)]);
+    const second = run();
+    check('R6', 'CLI chạy thật lần hai: không còn gì để áp, không ghi thêm', second.status === 0 && (await flows()) === n1, [second.status, n1, await flows(), `${second.stdout ?? ''}`.slice(-200)]);
+  }
+
   // ── C1: a RESTRICTED case is not revealed through a step ──────────────────────────────────────────────────────
   const openCase = caseFlowLive ? await newCase({ name: `UAT ${RUN} vụ án thường` }) : null;
   const secretCase = caseFlowLive ? await newCase({ name: `UAT ${RUN} vụ án hạn chế` }) : null;
@@ -584,37 +632,91 @@ async function workflow(pg) {
     check('C14', 'chuyển Đơn thư → Vụ việc: Vụ việc mới tự có quy trình; việc của Đơn thư nguồn rời màn Theo dõi (không bước nào còn mang màu)', !!target && !srcWork && (srcNow?.steps ?? []).every((x) => x.band === 'NONE'), [!!target, srcWork, (srcNow?.steps ?? []).map((x) => [x.status, x.band])]);
   }
 
-  // ── suspended: leaves the counts at once; the clock stops and the deadlines move by the pause (R3) ────────────
-  const inc2 = await call(admin, 'POST', '/incidents', { name: `UAT ${RUN} vụ việc tạm đình chỉ`, ngayDeXuat: RECEIVED, assignedTeamId: TX });
+  // ── suspended / finished: leave the counts at once; the clock stops and the deadlines move by the pause (R3) ──
+  // The proposal date is the real today, so that the deadline lies after the real "now" (a pause only moves a deadline it began before).
+  const today = vnDayOf(Date.now());
+  const inc2 = await call(admin, 'POST', '/incidents', { name: `UAT ${RUN} vụ việc tạm đình chỉ`, ngayDeXuat: today, assignedTeamId: TX });
   const inc2Id = idOf(inc2);
   const inc2Flow = inc2Id ? await waitFlow('INCIDENT', inc2Id) : null;
-  const tracked = async (id) => rowsOf((await call(admin, 'GET', '/processing/tracking/items?pageSize=100&kind=INCIDENT')).body).some((it) => it.recordId === id);
+  const tracked = async (id) => rowsOf((await call(admin, 'GET', '/processing/tracking/items?band=NONE&pageSize=100&kind=INCIDENT')).body).some((it) => it.recordId === id) || rowsOf((await call(admin, 'GET', '/processing/tracking/items?pageSize=100&kind=INCIDENT')).body).some((it) => it.recordId === id);
+  const moveTo = (id, status, extra = {}) => call(admin, 'PATCH', `/incidents/${id}/status`, { status, note: 'UAT', ...extra });
+  const decision = { decisionNumber: `UAT-${RUN}`, decisionDate: today };
+  const working = inc2Id ? await moveTo(inc2Id, 'DANG_XAC_MINH') : null;
   const wasTracked = inc2Id ? await tracked(inc2Id) : false;
-  const statusBefore = inc2Id ? ((await call(admin, 'GET', `/incidents/${inc2Id}`)).body?.status ?? (await call(admin, 'GET', `/incidents/${inc2Id}`)).body?.data?.status) : null;
-  const tSuspend = Date.now();
-  const suspend = inc2Id ? await call(admin, 'PATCH', `/incidents/${inc2Id}/status`, { status: 'TAM_DINH_CHI', decisionNumber: `UAT-${RUN}`, decisionDate: '2026-11-15', canCu: 'UAT', note: 'UAT' }) : null;
+  const suspend = inc2Id ? await moveTo(inc2Id, 'TAM_DINH_CHI', { ...decision, canCu: 'UAT', lyDoTamDinhChiVuViec: ['CAN_CU_KHAC'] }) : null;
+  const tSuspendSent = Date.now();
   if (!inc2Flow || !wasTracked || !suspend || suspend.status >= 400) {
-    notRun('TRACK-LEAVES', 'hồ sơ tạm đình chỉ rời số đếm ngay', `NOT RUN: the script could not suspend an incident over HTTP (flow ${!!inc2Flow}, tracked ${wasTracked}, status ${statusBefore}, ${suspend?.status} ${short(suspend?.body ?? '')})`);
+    notRun('TRACK-SUSPENDED', 'hồ sơ tạm đình chỉ rời số đếm ngay', `NOT RUN: the script could not suspend an incident over HTTP (flow ${!!inc2Flow}, tracked ${wasTracked}, ${working?.status} ${suspend?.status} ${short(suspend?.body ?? working?.body ?? '')})`);
     notRun('R3', 'tạm đình chỉ dừng đồng hồ, phục hồi dời hạn đúng bằng thời gian dừng', 'NOT RUN: no suspended record (see the line above)');
   } else {
-    check('TRACK-LEAVES', 'hồ sơ tạm đình chỉ rời số đếm ngay (trước cả khi bộ dừng đồng hồ chạy)', !(await tracked(inc2Id)), 'still listed');
+    check('TRACK-SUSPENDED', 'hồ sơ tạm đình chỉ rời số đếm ngay (trước cả khi bộ dừng đồng hồ chạy)', !(await tracked(inc2Id)), 'still listed');
     const dueBefore = Date.parse(inc2Flow.steps[0].regulatoryDueAt);
     const poll = async (want) => { for (let i = 0; i < 45; i++) { const now = (await call(admin, 'GET', `/processing/records/INCIDENT/${inc2Id}`)).body; if (want(now)) return now; await sleep(2000); } return null; };
     const paused = await poll((x) => !!x?.pausedSince);
-    const tPausedSeen = Date.now();
-    check('R3', 'trong vòng 90 giây hồ sơ tạm đình chỉ được ghi nhận dừng đồng hồ', !!paused, 'pausedSince never appeared');
-    const resume = await call(admin, 'PATCH', `/incidents/${inc2Id}/status`, { status: statusBefore, note: 'UAT phục hồi' });
+    check('R3', 'trong vòng 90 giây hồ sơ tạm đình chỉ được ghi nhận dừng đồng hồ, và mốc dừng không sớm hơn lúc tạm đình chỉ', !!paused && Date.parse(paused.pausedSince) >= tSuspendSent - 5000, paused?.pausedSince ?? 'pausedSince never appeared');
+    const tResumeSent = Date.now();
+    const resume = await moveTo(inc2Id, 'PHUC_HOI_NGUON_TIN', decision);
     if (!paused || resume.status >= 400) notRun('R3', 'phục hồi dời hạn đúng bằng thời gian dừng', `NOT RUN: the script could not resume the incident over HTTP (${resume.status} ${short(resume.body)})`);
     else {
-      const resumed = await poll((x) => x && !x.pausedSince && Date.parse(x.steps[0].regulatoryDueAt) !== dueBefore);
+      const resumed = await poll((x) => x && !x.pausedSince);
       const tResumedSeen = Date.now();
       const shift = resumed ? Date.parse(resumed.steps[0].regulatoryDueAt) - dueBefore : null;
-      // The script's own clock brackets the pause: it began after the suspension was sent and ended before the resumed state was seen.
-      // The step's deadline (May 2026) is before the pause began, so by the engine rule ("a pause that begins at or after the deadline does not move it") the shift must be 0.
-      check('R3', 'bước đã quá hạn TRƯỚC khi dừng: phục hồi không dời hạn (quy tắc engine); đồng hồ chạy lại', !!(await poll((x) => x && !x.pausedSince)) && (shift === null || shift === 0), [shift, tPausedSeen - tSuspend, tResumedSeen - tSuspend]);
-      notRun('R3', 'dừng trước hạn: hạn dời đúng bằng thời gian dừng', 'NOT RUN: needs a step whose deadline is after the real "now"; the record dates of this run are in April-May 2026 so that asOf can be used as the clock');
+      const from = Date.parse(paused.pausedSince);
+      // The pause began at the instant the server reported (`pausedSince`); it ended between the resumption the script sent and the first answer that showed the clock running.
+      check('R3', 'phục hồi: hạn quy định dời đúng bằng thời gian dừng (từ mốc dừng máy chủ báo tới lúc đồng hồ chạy lại)', resumed !== null && shift >= tResumeSent - from && shift <= tResumedSeen - from, [shift, tResumeSent - from, tResumedSeen - from]);
+      check('R3', '...hạn xử lý nội bộ dời cùng một lượng', resumed !== null && Date.parse(resumed.steps[0].internalDueAt) - Date.parse(inc2Flow.steps[0].internalDueAt) === shift, [resumed?.steps?.[0]?.internalDueAt, shift]);
     }
   }
+  const inc3 = await call(admin, 'POST', '/incidents', { name: `UAT ${RUN} vụ việc kết thúc`, ngayDeXuat: today, assignedTeamId: TX });
+  const inc3Id = idOf(inc3);
+  const inc3Flow = inc3Id ? await waitFlow('INCIDENT', inc3Id) : null;
+  if (inc3Id) await moveTo(inc3Id, 'DANG_XAC_MINH');
+  const tracked3 = inc3Id ? await tracked(inc3Id) : false;
+  const finish = inc3Id ? await moveTo(inc3Id, 'DA_GIAI_QUYET') : null;
+  if (!inc3Flow || !tracked3 || !finish || finish.status >= 400) notRun('TRACK-FINISHED', 'hồ sơ đã kết thúc rời số đếm ngay', `NOT RUN: the script could not finish an incident over HTTP (flow ${!!inc3Flow}, tracked ${tracked3}, ${finish?.status} ${short(finish?.body ?? '')})`);
+  else check('TRACK-FINISHED', 'hồ sơ đã kết thúc rời số đếm ngay', !(await tracked(inc3Id)), 'still listed');
+
+  // ── the alert column on the incident and case lists (R9) ──────────────────────────────────────────────────────
+  for (const [kind, url, id, asOf] of [['Vụ việc', 'incidents', incId, '2026-05-20T05:00:00.000Z'], ['Vụ án', 'cases', openCase ? idOf(openCase) : null, '2026-05-28T05:00:00.000Z']]) {
+    const res = id ? await call(admin, 'GET', `/${url}?limit=100${PERIOD}&alertAsOf=${encodeURIComponent(asOf)}`) : null;
+    const row = res ? rowsOf(res.body).find((r) => r.id === id) : null;
+    if (!row) notRun('R9', `cột Cảnh báo trên danh sách ${kind}`, `NOT RUN: the script's record is not on the list it asked for (${res?.status} total ${res?.body?.total})`);
+    else check('R9', `cột Cảnh báo trên danh sách ${kind}: QUÁ HẠN theo quy trình, sau hạn do script tính`, row.alert?.band === 'OVERDUE' && row.alert?.source === 'FLOW', row.alert);
+  }
+
+  // ── templates by law and copying a flow (design 1) ────────────────────────────────────────────────────────────
+  const tpls = await call(admin, 'GET', '/processing-flows/templates');
+  const tplList = rowsOf(tpls.body?.templates ?? tpls.body);
+  check('CFG-TEMPLATES', 'có sẵn bộ quy trình mẫu theo pháp luật', tpls.status === 200 && tplList.length >= 5, [tpls.status, tplList.map((t) => t.key ?? t.templateKey)]);
+  const tpl = tplList.find((t) => (t.recordKind ?? 'PETITION') === 'PETITION') ?? tplList[0];
+  if (tpl) {
+    const fromTpl = await call(admin, 'POST', '/processing-flows', { name: `UAT ${RUN} từ mẫu`, recordKind: tpl.recordKind ?? 'PETITION', templateKey: tpl.key ?? tpl.templateKey });
+    const made = idOf(fromTpl) ? (await call(admin, 'GET', `/processing-flows/${idOf(fromTpl)}`)).body : null;
+    const tSteps = made?.draft?.steps ?? [];
+    check('CFG-TEMPLATES', 'quy trình tạo từ mẫu: có bước, mọi bước ở trạng thái "chưa đối chiếu văn bản gốc"', fromTpl.status === 201 && tSteps.length > 0 && tSteps.every((x) => (x.legalVerifiedAt ?? null) === null && x.legalVerified !== true), [fromTpl.status, fromTpl.body?.code, tSteps.map((x) => [x.name, x.legalVerifiedAt, x.legalVerified])]);
+  }
+  const copy = await call(admin, 'POST', '/processing-flows', { name: `UAT ${RUN} bản sao`, recordKind: 'PETITION', copyFromFlowId: flowId });
+  const copied = idOf(copy) ? (await call(admin, 'GET', `/processing-flows/${idOf(copy)}`)).body : null;
+  check('CFG-COPY', 'sao chép từ quy trình khác: bản nháp mới mang đủ 5 bước, chưa gắn Loại thông tin nào', copy.status === 201 && copied?.draft?.steps?.length === 5 && (copied?.boundTypes ?? []).length === 0, [copy.status, copy.body?.code, copied?.draft?.steps?.length]);
+  if (copied) {
+    const gone = await call(admin, 'DELETE', `/processing-flows/${copied.id}?expectedRevision=${copied.revision}&confirmName=${encodeURIComponent(copied.name)}`);
+    check('TAO-SUA-XOA', 'quy trình chưa được dùng xoá cứng được khi gõ đúng tên', gone.status === 200, [gone.status, gone.body]);
+  }
+
+  // ── R10: the values the API answered are the values of the shared contract files ──────────────────────────────
+  const contracts = ['frontend/src/shared/processing/processing-codes.generated.json', 'mobile/assets/contract/processing-codes.json'].map((file) => JSON.parse(require('node:fs').readFileSync(path.join(__dirname, '../..', file), 'utf8')));
+  const seen = { bands: new Set(), stepStatuses: new Set(), partyRoles: new Set(), partyKinds: new Set(), flowMatches: new Set() };
+  for (const [kind, id] of [['PETITION', petId], ['INCIDENT', incId], ['INCIDENT', inc2Id], ['CASE', openCase ? idOf(openCase) : null]]) {
+    const dto = id ? (await call(admin, 'GET', `/processing/records/${kind}/${id}`)).body : null;
+    if (!dto?.steps) continue;
+    seen.flowMatches.add(dto.match);
+    for (const st of dto.steps) { seen.bands.add(st.band); seen.stepStatuses.add(st.status); for (const pt of st.parties) { seen.partyRoles.add(pt.role); seen.partyKinds.add(pt.partyKind); } }
+  }
+  for (const band of ['OVERDUE', 'RED', 'YELLOW', 'GREEN']) seen.bands.add(band); // every one of them was answered by the tracking list above
+  const unknown = [];
+  for (const [list, values] of Object.entries(seen)) for (const v of values) for (const [n, contract] of contracts.entries()) if (!(contract[list] ?? []).includes(v)) unknown.push([n === 0 ? 'web' : 'flutter', list, v]);
+  const strip = (c) => JSON.stringify({ ...c, _generated: undefined });
+  check('R10', 'mọi mã mức màu / trạng thái bước / vai trò / cách khớp mà API đã trả đều có trong tệp hợp đồng của web và của Flutter; hai tệp cùng nội dung', unknown.length === 0 && strip(contracts[0]) === strip(contracts[1]) && seen.stepStatuses.size >= 2, [unknown, [...seen.stepStatuses]]);
 
   // ── ENFORCE: the same reach through a step, and the leadership template (C3) ──────────────────────────────────
   await enforceSection({ pg, admin, call, check, notRun, newPetition, waitFlow, idOf, cmdOn: async (token, base, tail, body) => { const now = (await call(admin, 'GET', base)).body; return call(token, 'POST', `${base}${tail}`, { expectedRevision: now.revision, ...body }); } });
@@ -638,6 +740,22 @@ async function workflow(pg) {
     const outsideUnits = await call(uz, 'GET', `/processing/backlog/units?${asOfQ}`);
     check('BACKLOG', 'người ngoài nhóm lãnh đạo không thấy đơn vị ngoài phạm vi của mình', outsideUnits.status === 200 && !(outsideUnits.body?.rows ?? []).some((u) => u.teamId === TX), outsideUnits.body?.rows?.map((u) => u.teamId));
   } else notRun('BACKLOG', 'PENDING-MERGE số trong ô = tổng số dòng khi mở ra', 'NOT RUN: route absent');
+  if (units.status === 200) {
+    for (const filter of ['kind=INCIDENT', 'kind=PETITION', 'role=COORDINATE', 'from=2026-04-01&to=2026-04-30', 'from=2026-06-01']) {
+      const table = await call(admin, 'GET', `/processing/backlog/units?${asOfQ}&${filter}`);
+      const off = [];
+      for (const row of table.body?.rows ?? []) for (const band of COLOURS) {
+        const drill = await call(admin, 'GET', `/processing/tracking/items?band=${band}&teamId=${row.teamId}&${asOfQ}&${filter}&pageSize=100`);
+        if (row[band] !== drill.body?.total) off.push([row.teamId, band, row[band], drill.status, drill.body?.total]);
+      }
+      check('BACKLOG-FILTER', `bộ lọc ${filter}: mọi ô vẫn bằng số dòng mở ra với cùng bộ lọc`, table.status === 200 && off.length === 0, [table.status, off]);
+    }
+    const byRole = await call(admin, 'GET', `/processing/backlog/units?${asOfQ}&role=COORDINATE`);
+    const sumOf = (row) => (row ? COLOURS.reduce((n, k) => n + row[k], 0) : 0);
+    check('BACKLOG-FILTER', 'lọc vai trò Phối hợp: tổ Y (phối hợp ở bước 2 của các đơn) có việc, tổ X (chỉ xử lý chính) không có', sumOf((byRole.body?.rows ?? []).find((r) => r.teamId === TY)) > 0 && sumOf((byRole.body?.rows ?? []).find((r) => r.teamId === TX)) === 0, byRole.body?.rows);
+    const later = await call(admin, 'GET', `/processing/backlog/units?${asOfQ}&from=2026-06-01`);
+    check('BACKLOG-FILTER', 'lọc từ 01/06/2026: việc của các đơn bắt đầu 27/04 không còn trong bảng của tổ Y', sumOf((await call(admin, 'GET', `/processing/backlog/units?${asOfQ}&role=COORDINATE&from=2026-06-01`)).body?.rows?.find((r) => r.teamId === TY)) === 0, later.body?.rows);
+  }
   const onTime = await call(admin, 'GET', `/processing/backlog/on-time?${asOfQ}`);
   pending('R5', 'báo cáo tỷ lệ đúng hạn theo đơn vị trả lời', onTime, (r) => r.status === 200 && Array.isArray(r.body?.rows));
   if (onTime.status === 200) {
@@ -690,7 +808,7 @@ async function workflow(pg) {
     check('R4', 'lời đôn đốc được ghi vào sổ ý kiến của bước, đúng một lần', (JSON.stringify(book).match(/UAT đôn đốc/g) ?? []).length === 1, book?.opinions);
   }
   const hasReminders = (await pg.query(`SELECT to_regclass('public.proc_reminders') AS t`)).rows[0]?.t;
-  notRun('C12', 'nhắc đúng một lần mỗi mức, không dồn, quá hạn mỗi ngày, nhắc lại sau đổi hạn', hasReminders ? 'NOT RUN: ProcessingReminderService.tick(now) runs on a 15-minute server interval at the real clock; no HTTP route and no CLI drives it with a chosen "now"' : 'NOT RUN: table proc_reminders absent (code not merged)');
+  notRun('C12', 'nhắc đúng một lần mỗi mức, không dồn, quá hạn mỗi ngày, nhắc lại sau đổi hạn', hasReminders ? 'NOT RUN: ProcessingReminderService.tick(now) runs on a 15-minute server interval at the real clock; no HTTP route and no CLI drives it with a chosen "now", and the in-process runner (wiring the service by hand as the CLI does) was not written in the time box' : 'NOT RUN: table proc_reminders absent (code not merged)');
 
   // ── C16: on -> written -> off -> on ───────────────────────────────────────────────────────────────────────────
   const before = (await getFlow()).body;
@@ -700,6 +818,8 @@ async function workflow(pg) {
   const offRec = await getFlow();
   const offTrack = await call(admin, 'GET', '/processing/tracking/summary');
   check('C16', 'TẮT sau khi đã ghi: route bước và route theo dõi trả 404', offRec.status === 404 && offTrack.status === 404, [offRec.status, offTrack.status]);
+  const offNudge = await call(admin, 'POST', `${rec}/steps/${keys[2]}/nudge`, { message: 'UAT khi tắt' });
+  check('C16', 'TẮT công tắc nhắc việc: route Đôn đốc trả 404', offNudge.status === 404, [offNudge.status, offNudge.body]);
   const plain = await call(admin, 'GET', `/petitions?limit=50${PERIOD}`);
   const withParams = await call(admin, 'GET', `/petitions?limit=50${PERIOD}&alertBand=OVERDUE&sortBy=alert&alertAsOf=${encodeURIComponent(late)}`);
   const ids = (res) => rowsOf(res.body).map((r) => r.id).join(',');
@@ -781,6 +901,12 @@ async function enforceSection({ pg, admin, call, check, notRun, newPetition, wai
   const before = (await pg.query(`SELECT "key", "enabled" FROM "feature_flags" WHERE "key" = ANY($1)`, [SWITCHES])).rows;
   const modeBefore = (await pg.query(`SELECT "value" FROM "system_settings" WHERE "key" = $1`, [MODE_KEY])).rows[0]?.value ?? null;
   try {
+    const leftovers = (await pg.query(`SELECT count(*)::int AS n FROM "proc_flows"`)).rows[0].n;
+    if (leftovers > 0) {
+      console.error(`REFUSED: this database already holds ${leftovers} processing flow(s). The UAT needs a FRESH database (drop and recreate it, db push, install-triggers, seeds).`);
+      await pg.end();
+      process.exit(2);
+    }
     if (before.length !== SWITCHES.length) throw new Error(`the three switches are not in feature_flags (found ${before.length}); run npm run db:seed:features`);
     await pg.query(`UPDATE "feature_flags" SET "enabled" = false WHERE "key" = ANY($1)`, [SWITCHES]);
     await sleep(SWITCH_WAIT_MS);
