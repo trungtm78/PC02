@@ -34,6 +34,8 @@ const item = (over: Partial<TrackingItemDto> = {}): TrackingItemDto => ({
   band: 'RED',
   remainingDays: 1,
   ...over,
+  // The id of a piece of work is the party row; a fixture that names none gets one from its record and step.
+  id: over.id ?? `${over.recordId ?? 'pet-1'}-${over.stepKey ?? 's2'}`,
 });
 
 const summary = (over: Partial<TrackingSummaryDto> = {}): TrackingSummaryDto => ({ asOf: AS_OF, counts: { OVERDUE: 2, RED: 1, YELLOW: 3, GREEN: 4 }, ...over });
@@ -330,5 +332,86 @@ describe('what the screen says when there is nothing to show', () => {
     renderPage();
     expect(await screen.findByTestId('list-page-shell-table-loading')).toBeInTheDocument();
     expect(screen.queryByText(T.empty)).toBeNull();
+  });
+});
+
+describe('one row per piece of work (a step x a MAIN party)', () => {
+  const rowIds = () => screen.queryAllByTestId(/^tracking-row-/).map((row) => row.getAttribute('data-testid'));
+
+  it('two MAIN parties of one step are two rows, each under its own id', async () => {
+    const twin = { recordId: 'pet-1', stepKey: 's2', band: 'RED' };
+    api.items.mockResolvedValue(items([item({ ...twin, id: 'party-a', teamName: 'Tổ 1' }), item({ ...twin, id: 'party-b', teamName: 'Tổ 3' })], { total: 10 }));
+    renderPage();
+    await screen.findByTestId('tracking-row-party-a');
+    expect(rowIds()).toEqual(['tracking-row-party-a', 'tracking-row-party-b']);
+    expect(screen.getByTestId('tracking-row-party-a')).toHaveTextContent('Tổ 1');
+    expect(screen.getByTestId('tracking-row-party-b')).toHaveTextContent('Tổ 3');
+  });
+
+  it('switching band leaves no row of the other band behind, even when the two lists share a record and a step', async () => {
+    const twin = { recordId: 'pet-1', stepKey: 's2' };
+    api.items.mockResolvedValue(items([item({ ...twin, id: 'party-a', band: 'RED', teamName: 'Tổ 1' }), item({ ...twin, id: 'party-b', band: 'RED', teamName: 'Tổ 3' })], { band: 'RED', total: 1 }));
+    api.summary.mockResolvedValue(summary({ counts: { OVERDUE: 1, RED: 2, YELLOW: 0, GREEN: 0 } }));
+    renderPage('/theo-doi-xu-ly?tracking_band=RED');
+    await screen.findByTestId('tracking-row-party-b');
+
+    api.items.mockResolvedValue(items([item({ recordId: 'pet-7', stepKey: 's2', id: 'party-c', band: 'OVERDUE', remainingDays: -2, teamName: 'Tổ 9' })], { band: 'OVERDUE', total: 1 }));
+    fireEvent.click(card('OVERDUE'));
+    await screen.findByTestId('tracking-row-party-c');
+    expect(rowIds()).toEqual(['tracking-row-party-c']);
+    expect(screen.queryByText(/Tổ 1|Tổ 3/, { selector: 'td, td *' })).toBeNull();
+    expect(screen.getAllByTestId('tracking-band').map((chip) => chip.textContent)).toEqual(['Quá hạn 2 ngày']);
+  });
+});
+
+describe('a page that no longer exists', () => {
+  it('a refresh goes back to the first page: the page key is removed with the new instant', async () => {
+    api.summary.mockResolvedValue(summary({ counts: { OVERDUE: 10, RED: 10, YELLOW: 10, GREEN: 15 } }));
+    api.items.mockResolvedValue(items([item()], { total: 45, page: 3 }));
+    renderPage('/theo-doi-xu-ly?tracking_page=3');
+    await screen.findByTestId('tracking-row-pet-1-s2');
+    expect(lastItemsCall()).toMatchObject({ page: 3 });
+
+    // Meanwhile most of the work was finished: one page is left.
+    api.summary.mockResolvedValue(summary({ asOf: AS_OF_2, counts: { OVERDUE: 1, RED: 0, YELLOW: 0, GREEN: 0 } }));
+    api.items.mockImplementation((query) => Promise.resolve(query.page === 1 ? items([item()], { asOf: query.asOf, total: 1 }) : items([], { asOf: query.asOf, total: 1, page: query.page })));
+    fireEvent.click(screen.getByTestId('tracking-reload'));
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ page: 1, asOf: AS_OF_2 }));
+    expect(await screen.findByTestId('tracking-row-pet-1-s2')).toBeInTheDocument();
+    expect(screen.queryByText(T.empty)).toBeNull();
+    // No list of the new instant was asked for the page that is gone.
+    expect(api.items.mock.calls.filter(([query]) => query.asOf === AS_OF_2 && query.page !== 1)).toEqual([]);
+  });
+
+  it('the refresh button of the "changed" line does the same', async () => {
+    api.summary.mockResolvedValue(summary({ counts: { OVERDUE: 10, RED: 10, YELLOW: 10, GREEN: 15 } }));
+    api.items.mockResolvedValue(items([item()], { total: 44, page: 2 }));
+    renderPage('/theo-doi-xu-ly?tracking_page=2');
+    const line = await screen.findByTestId('tracking-changed');
+    api.summary.mockResolvedValue(summary({ asOf: AS_OF_2, counts: { OVERDUE: 1, RED: 0, YELLOW: 0, GREEN: 0 } }));
+    api.items.mockResolvedValue(items([item()], { asOf: AS_OF_2, total: 1 }));
+    fireEvent.click(within(line).getByTestId('tracking-refresh'));
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ page: 1, asOf: AS_OF_2 }));
+  });
+
+  it('an answer with no rows while the total says there are some (the page ran out behind our back) goes back to page 1', async () => {
+    api.summary.mockResolvedValue(summary({ counts: { OVERDUE: 5, RED: 0, YELLOW: 0, GREEN: 0 } }));
+    api.items.mockImplementation((query) => Promise.resolve(query.page === 1 ? items([item()], { total: 5 }) : items([], { total: 5, page: query.page })));
+    renderPage('/theo-doi-xu-ly?tracking_page=3');
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    expect(await screen.findByTestId('tracking-row-pet-1-s2')).toBeInTheDocument();
+    expect(lastItemsCall()).toMatchObject({ page: 1 });
+    // The empty page was never shown as "nothing matches".
+    expect(screen.queryByText(T.empty)).toBeNull();
+  });
+
+  it('a list that is truly empty stays where it is and says so', async () => {
+    api.summary.mockResolvedValue(summary({ counts: { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 } }));
+    api.items.mockResolvedValue(items([], { total: 0, page: 2 }));
+    renderPage('/theo-doi-xu-ly?tracking_page=2');
+    expect(await screen.findByText(T.empty)).toBeInTheDocument();
+    expect(where()).toBe('/theo-doi-xu-ly?tracking_page=2');
   });
 });

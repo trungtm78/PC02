@@ -24,6 +24,11 @@ export interface TrackingSummaryDto {
 }
 
 export interface TrackingItemDto {
+  /**
+   * The identity of this piece of work (the party row). Two MAIN parties of one step share the record and the step,
+   * so rows are keyed by this and by nothing else.
+   */
+  id: string;
   recordKind: RecordKind;
   recordId: string;
   recordCode: string | null;

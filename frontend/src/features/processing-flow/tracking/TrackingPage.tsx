@@ -10,7 +10,7 @@
  * The card and the filters live in the address (a link can be shared, Back works); the instant does not (a link
  * opened tomorrow must be judged tomorrow).
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity, AlertCircle, AlertOctagon, AlertTriangle, CheckCircle2, Clock, RefreshCw, ShieldOff, type LucideIcon } from 'lucide-react';
@@ -38,7 +38,8 @@ const CARD_ICON: Record<TrackedBand, LucideIcon> = { OVERDUE: AlertOctagon, RED:
 const SELECT = 'rounded border border-slate-300 bg-white px-3 py-2 text-sm';
 const LINK = `text-sm text-blue-700 hover:underline ${A11Y_FOCUS_RING}`;
 
-const rowId = (item: TrackingItemDto): string => `${item.recordId}-${item.stepKey}`;
+/** One row per piece of work: the id the server gives it. Record + step is NOT unique (a step may have two MAIN parties). */
+const rowId = (item: TrackingItemDto): string => item.id;
 
 export default function TrackingPage() {
   const navigate = useNavigate();
@@ -89,11 +90,28 @@ export default function TrackingPage() {
   /** The rows no longer are what the card said: something was finished, or came due, between the two calls. */
   const changed = list !== null && !itemsQ.isFetching && !summaryQ.isFetching && promised !== null && list.total !== promised;
 
+  /**
+   * The page asked for ran out behind our back (the list shrank while we were on it, or a link names a page past the
+   * end): no rows although the total says there are some. Go back to the first page instead of showing an empty table.
+   */
+  const ranOut = list !== null && !itemsQ.isFetching && page > 1 && list.items.length === 0 && list.total > 0;
+  const { setParam } = url;
+  useEffect(() => {
+    if (ranOut) setParam('page', null);
+  }, [ranOut, setParam]);
+
   /** Any change of what is listed starts again at the first page: the page key is REMOVED, not set to 1. */
   const setFilter = (updates: Record<string, string | null>) => url.setParams({ ...updates, page: null });
   // A card is a deliberate step people expect Back to undo; a filter is a refinement and replaces.
   const selectCard = (value: string | null) => url.setParams({ band: value, page: null }, { history: 'push' });
-  const refresh = () => void summaryQ.refetch();
+  /**
+   * A new instant for the cards and the list. It starts again at the first page: the page being looked at may not
+   * exist any more once the figures are new (page 3 of a list that shrank to one page is an empty table).
+   */
+  const refresh = () => {
+    if (page > 1) url.setParam('page', null);
+    void summaryQ.refetch();
+  };
 
   const columns: ColumnDef<TrackingItemDto>[] = [
     {
@@ -313,7 +331,7 @@ export default function TrackingPage() {
             ) : (
               <>
                 <ListPageShell.Table<TrackingItemDto>
-                  state={list === null || itemsQ.isFetching ? 'loading' : rows.length === 0 ? 'empty' : 'ready'}
+                  state={list === null || itemsQ.isFetching || ranOut ? 'loading' : rows.length === 0 ? 'empty' : 'ready'}
                   fixedLayout
                   xuongDong
                   columns={columns}
