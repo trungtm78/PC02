@@ -8,7 +8,9 @@ import { DEADLINE_MANAGED_BY_FLOW } from '../processing-flow/records/deadline-ma
  * with stubs (no database); the old behaviour is covered by the neighbouring specs, which build the service without a
  * writer.
  */
-const STORED = new Date('2026-12-31T00:00:00.000Z');
+// 23:59:59.999 on 31/12/2026 in Vietnam, kept by the flow.
+const STORED = new Date('2026-12-31T16:59:59.999Z');
+const SAME_DAY_FROM_FORM = '2026-12-31T00:00:00.000Z';
 const VU_AN = {
   id: 'c1',
   sensitivity: 'NORMAL',
@@ -66,8 +68,10 @@ function build(managed: boolean | 'none') {
   return { service, tx, isManaged };
 }
 
+const written = (tx: { case: { update: jest.Mock } }) => (tx.case.update.mock.calls as unknown as Array<[{ data: Record<string, unknown> }]>)[0][0].data;
+
 describe('CasesService.update: the deadline of a record whose flow keeps it', () => {
-  it('a changed deadline of a managed record is refused with DEADLINE_MANAGED_BY_FLOW and nothing is written', async () => {
+  it('a different day for a managed record is refused with DEADLINE_MANAGED_BY_FLOW and nothing is written', async () => {
     const { service, tx, isManaged } = build(true);
     const attempt = service.update('c1', { deadline: '2027-02-01T00:00:00.000Z' } as never, 'u1');
     await expect(attempt).rejects.toBeInstanceOf(ConflictException);
@@ -76,21 +80,30 @@ describe('CasesService.update: the deadline of a record whose flow keeps it', ()
     expect(tx.case.update).not.toHaveBeenCalled();
   });
 
-  it('the same deadline sent back with another edit still saves for a managed record', async () => {
+  it('the same civil day with a different instant saves the other edits and leaves the deadline OUT of the data', async () => {
     const { service, tx } = build(true);
-    await service.update('c1', { name: 'Renamed', deadline: STORED.toISOString() } as never, 'u1');
+    await service.update('c1', { name: 'Renamed', deadline: SAME_DAY_FROM_FORM } as never, 'u1');
     expect(tx.case.update).toHaveBeenCalledTimes(1);
+    expect(written(tx).name).toBe('Renamed');
+    expect(written(tx)).not.toHaveProperty('deadline');
+  });
+
+  it('is judged against the deadline stored now in the transaction, not the snapshot read earlier (a flow extension in between)', async () => {
+    const { service, tx } = build(true);
+    tx.case.findUnique.mockResolvedValue({ ...VU_AN, deadline: new Date('2027-01-15T16:59:59.999Z') });
+    await expect(service.update('c1', { deadline: SAME_DAY_FROM_FORM } as never, 'u1')).rejects.toMatchObject({ response: { code: DEADLINE_MANAGED_BY_FLOW } });
+    expect(tx.case.update).not.toHaveBeenCalled();
   });
 
   it('a record that is not managed keeps the old behaviour (the deadline is written)', async () => {
     const { service, tx } = build(false);
     await service.update('c1', { deadline: '2027-02-01T00:00:00.000Z' } as never, 'u1');
-    expect((tx.case.update.mock.calls as unknown as Array<[{ data: { deadline: Date } }]>)[0][0].data.deadline).toEqual(new Date('2027-02-01T00:00:00.000Z'));
+    expect(written(tx).deadline).toEqual(new Date('2027-02-01T00:00:00.000Z'));
   });
 
   it('with no writer injected nothing is asked and the deadline is written', async () => {
     const { service, tx } = build('none');
     await service.update('c1', { deadline: '2027-02-01T00:00:00.000Z' } as never, 'u1');
-    expect((tx.case.update.mock.calls as unknown as Array<[{ data: { deadline: Date } }]>)[0][0].data.deadline).toEqual(new Date('2027-02-01T00:00:00.000Z'));
+    expect(written(tx).deadline).toEqual(new Date('2027-02-01T00:00:00.000Z'));
   });
 });

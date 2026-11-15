@@ -1032,16 +1032,16 @@ export class LegalWorkflowService {
           row,
           actor,
         );
-        // A governed action that moves the deadline of a record whose flow keeps it is refused before anything is
-        // written (`PRESERVE` and any action that lands on the stored value pass).
-        await assertDeadlineNotManaged(
-          this.deadlineWriter,
-          tx,
-          'CASE',
-          caseId,
-          deadlineEffect.deadline,
-          caseRecord.deadline,
-        );
+        // A governed action that moves the deadline of a record whose flow keeps it to another day is refused before
+        // anything is written; one that lands on the same day (`PRESERVE` included) does not write the column at all.
+        const writeDeadline =
+          (await assertDeadlineNotManaged(
+            this.deadlineWriter,
+            tx,
+            'CASE',
+            caseId,
+            deadlineEffect.deadline,
+          )) === 'WRITE';
         const decision = await tx.caseDecision.create({
           data: {
             caseId,
@@ -1170,7 +1170,7 @@ export class LegalWorkflowService {
             status: plan.status,
             investigationPhase: plan.investigationPhase,
             governanceRuleVersionId: rule.id,
-            deadline: deadlineEffect.deadline,
+            ...(writeDeadline ? { deadline: deadlineEffect.deadline } : {}),
             ...machMocGiaiQuyet(
               'case',
               caseRecord.status,

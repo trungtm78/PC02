@@ -64,6 +64,31 @@ describe('DeadlineScheduler and the records whose deadline a flow keeps', () => 
     for (const where of queries('petition')) expect(where.id).toEqual({ notIn: ['p-1'] });
   });
 
+  it('at exactly 5000 managed ids the query still carries notIn', async () => {
+    flags.isEnabled.mockResolvedValue(true);
+    const ids = Array.from({ length: 5000 }, (_, i) => `c-${i}`);
+    writer.managedRecordIds.mockImplementation((kind: string) => Promise.resolve(kind === 'CASE' ? ids : []));
+    const scheduler = await build(wired);
+    await scheduler.checkDeadlines();
+    for (const where of queries('case')) expect((where.id as { notIn: string[] }).notIn).toHaveLength(5000);
+  });
+
+  it('above 5000 managed ids there is no notIn: the rows are filtered in memory and the unmanaged ones are still reminded', async () => {
+    flags.isEnabled.mockResolvedValue(true);
+    const ids = Array.from({ length: 5001 }, (_, i) => `c-${i}`);
+    writer.managedRecordIds.mockImplementation((kind: string) => Promise.resolve(kind === 'CASE' ? ids : []));
+    const row = (id: string) => ({ id, name: id, investigatorId: 'u1', assignedTeamId: null, deadline: new Date('2026-04-20') });
+    // The same two rows come back for the overdue and the near query: one managed (excluded), one not.
+    mockPrisma.case.findMany.mockResolvedValue([row('c-17'), row('c-free')]);
+    mockPrisma.user.findMany.mockResolvedValue([]);
+    const scheduler = await build(wired);
+    await scheduler.checkDeadlines();
+    for (const where of queries('case')) expect(where).not.toHaveProperty('id');
+    const reminded = mockPrisma.notification.create.mock.calls.map((call) => (call[0] as { data: { metadata: { caseId: string } } }).data.metadata.caseId);
+    expect(reminded).toContain('c-free');
+    expect(reminded).not.toContain('c-17');
+  });
+
   it('with the switch ON but no managed record the queries carry no id condition at all', async () => {
     flags.isEnabled.mockResolvedValue(true);
     writer.managedRecordIds.mockResolvedValue([]);

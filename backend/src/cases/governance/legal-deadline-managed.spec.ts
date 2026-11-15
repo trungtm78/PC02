@@ -128,7 +128,7 @@ describe('CG-DL02 a governed action never moves the deadline a flow keeps', () =
       },
       document: { findFirst: jest.fn().mockResolvedValue({ id: 'doc' }) },
       caseDecision: { create: jest.fn().mockResolvedValue({ id: 'decision' }) },
-      case: { update: jest.fn() },
+      case: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ deadline: new Date('2099-01-01') }) },
       caseGovernanceTask: { upsert: jest.fn() },
       caseStatusHistory: { create: jest.fn() },
     };
@@ -169,6 +169,17 @@ describe('CG-DL02 a governed action never moves the deadline a flow keeps', () =
     expect(writer.isManaged).toHaveBeenCalledWith(tx, 'CASE', 'case');
     expect(tx.caseDecision.create).not.toHaveBeenCalled();
     expect(tx.case.update).not.toHaveBeenCalled();
+  });
+
+  it('a managed record: judged against the deadline stored now; an action that lands on the same civil day does not write the column', async () => {
+    const { service, tx } = fixture(true);
+    // The flow keeps 28/02/2026 17:00 in Vietnam; the action computes 28/02/2026 23:59:59.999 there: the same day.
+    tx.case.findUnique.mockResolvedValue({ deadline: new Date('2026-02-28T10:00:00.000Z') });
+    await service.execute('case', 'req', dto, { actorId: 'executor' });
+    expect(tx.case.update).toHaveBeenCalledTimes(1);
+    const data = (tx.case.update.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
+    expect(data).not.toHaveProperty('deadline');
+    expect(data.investigationPhase).toBe('REINVESTIGATION');
   });
 
   it('a record that is not managed: the action moves the deadline as before', async () => {

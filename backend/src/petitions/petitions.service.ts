@@ -1057,7 +1057,8 @@ export class PetitionsService {
     }
 
     // A record whose flow keeps the deadline takes it from a step, not from this form.
-    await assertDeadlineNotManaged(
+    // The value the screen showed is left out of the update; a different day is refused.
+    const deadlineDecision = await assertDeadlineNotManaged(
       this.deadlineWriter,
       this.prisma,
       'PETITION',
@@ -1067,7 +1068,6 @@ export class PetitionsService {
         : dto.deadline
           ? new Date(dto.deadline)
           : null,
-      existing.deadline,
     );
 
     const loaiVaNhomHan = await this.loaiVaNhomHanKhiSua(dto, existing);
@@ -1111,9 +1111,10 @@ export class PetitionsService {
       ...(dto.attachmentsNote !== undefined && {
         attachmentsNote: dto.attachmentsNote,
       }),
-      ...(dto.deadline !== undefined && {
-        deadline: dto.deadline ? new Date(dto.deadline) : null,
-      }),
+      ...(dto.deadline !== undefined &&
+        deadlineDecision === 'WRITE' && {
+          deadline: dto.deadline ? new Date(dto.deadline) : null,
+        }),
       ...(dto.assignedToId !== undefined && {
         assignedToId: dto.assignedToId,
       }),
@@ -1815,14 +1816,14 @@ export class PetitionsService {
     }
 
     // Only a deadline the assignment CHANGES is refused: assigning a managed record without one stays possible.
-    await assertDeadlineNotManaged(
-      this.deadlineWriter,
-      this.prisma,
-      'PETITION',
-      id,
-      dto.deadline ? new Date(dto.deadline) : undefined,
-      existing.deadline,
-    );
+    const writeDeadline =
+      (await assertDeadlineNotManaged(
+        this.deadlineWriter,
+        this.prisma,
+        'PETITION',
+        id,
+        dto.deadline ? new Date(dto.deadline) : undefined,
+      )) === 'WRITE' && !!dto.deadline;
 
     try {
       await this.prisma.petition.update({
@@ -1835,7 +1836,7 @@ export class PetitionsService {
         data: {
           assignedTeamId: dto.assignedTeamId,
           assignedToId: resolvedAssignedToId,
-          ...(dto.deadline ? { deadline: new Date(dto.deadline) } : {}),
+          ...(writeDeadline ? { deadline: new Date(dto.deadline!) } : {}),
         },
       });
     } catch (e) {

@@ -1,8 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional, type OnModuleInit } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import type { Prisma } from '@prisma/client';
+import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
+
+/**
+ * The switch that lets a record get its flow, and that makes its deadline the flow's. Defined here (and re-exported by
+ * the outbox) because the outbox imports the application of a flow, which imports this file.
+ */
+export const RECORDS_SWITCH = 'processing_flow_records';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -25,11 +33,41 @@ type Db = Prisma.TransactionClient | PrismaService;
  * column and the steps never disagree.
  */
 @Injectable()
-export class RecordDeadlineWriter {
+export class RecordDeadlineWriter implements OnModuleInit {
+  private readonly logger = new Logger(RecordDeadlineWriter.name);
+  /**
+   * The switch `processing_flow_records` as it was last read. While it is OFF the old ways of typing a deadline must
+   * work again even though flows may still exist in the database, so `isManaged` and `managedRecordIds` answer "no".
+   * `isManaged` runs INSIDE the transaction of a record being saved, where asking the flag service (which may take
+   * another connection from the pool) is not allowed: it reads this, and the tick keeps it current. Without a flag
+   * service (a spec that builds the writer by hand) the switch counts as ON.
+   */
+  private recordsOn = true;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: RecordGateway,
+    @Optional() private readonly flags?: FeatureFlagsService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.refreshSwitch().catch((error: unknown) => this.logger.warn(`Reading the switch failed: ${String(error)}`));
+  }
+
+  /** Reads the switch (outside any transaction) and remembers it. */
+  async refreshSwitch(): Promise<boolean> {
+    this.recordsOn = this.flags ? await this.flags.isEnabled(RECORDS_SWITCH) : true;
+    return this.recordsOn;
+  }
+
+  @Interval(10_000)
+  async tick(): Promise<void> {
+    try {
+      await this.refreshSwitch();
+    } catch (error) {
+      this.logger.warn(`Reading the switch failed: ${String(error)}`);
+    }
+  }
 
   /** The deadline the flow of the record keeps in the record's column, or `null` when the record keeps its own. */
   async managedDeadline(db: Db, kind: RecordKind, recordId: string): Promise<Date | null> {
@@ -45,6 +83,7 @@ export class RecordDeadlineWriter {
 
   /** Whether a person may no longer type the deadline of this record: its flow keeps it. */
   async isManaged(db: Db, kind: RecordKind, recordId: string): Promise<boolean> {
+    if (!this.recordsOn) return false;
     return (await this.managedDeadline(db, kind, recordId)) !== null;
   }
 
@@ -53,6 +92,7 @@ export class RecordDeadlineWriter {
    * query (the reminders of the old scheduler leave these records to the new ones).
    */
   async managedRecordIds(kind: RecordKind): Promise<string[]> {
+    if (!this.recordsOn) return [];
     const flows = await this.prisma.procRecordFlow.findMany({
       where: {
         recordKind: kind,

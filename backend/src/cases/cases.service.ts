@@ -2640,6 +2640,19 @@ export class CasesService {
         const flag = await tx.featureFlag.findUnique({
           where: { key: 'CASE_GOVERNANCE_V1' },
         });
+        // A record whose flow keeps the deadline takes it from a step, not from this form: a different day is refused,
+        // the value the screen showed is left out of the update (judged against the deadline stored now, under the
+        // lock, and before the governed-columns check below, which would otherwise see it as a change).
+        if (
+          (await assertDeadlineNotManaged(
+            this.deadlineWriter,
+            tx,
+            'CASE',
+            id,
+            updateData.deadline as Date | null | undefined,
+          )) === 'SKIP'
+        )
+          delete updateData.deadline;
         const adopted =
           !!currentCase.governanceRuleVersionId ||
           !!currentCase.fieldDefinitionVersionId ||
@@ -2696,15 +2709,6 @@ export class CasesService {
               'Use a governed legal action to change adopted legal dates, reasons or deadlines',
             );
         }
-        // A record whose flow keeps the deadline takes it from a step, not from this form.
-        await assertDeadlineNotManaged(
-          this.deadlineWriter,
-          tx,
-          'CASE',
-          id,
-          updateData.deadline as Date | null | undefined,
-          currentCase.deadline,
-        );
         const ownerChanged =
           (dto.investigatorId !== undefined &&
             dto.investigatorId !== existing.investigatorId) ||

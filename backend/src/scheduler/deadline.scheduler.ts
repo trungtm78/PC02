@@ -15,6 +15,9 @@ import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline
 /** The switch of the new reminders (a later change); while it is on they own the records whose deadline a flow keeps. */
 const REMINDERS_SWITCH = 'processing_flow_reminders';
 
+/** Above this many ids the exclusion is done in memory instead of with `NOT IN (...)`. */
+export const MAX_NOT_IN_IDS = 5000;
+
 const TERMINAL_CASE_STATUSES: CaseStatus[] = [
   CaseStatus.DINH_CHI,
   CaseStatus.TAM_DINH_CHI,
@@ -73,9 +76,20 @@ export class DeadlineScheduler {
     }
   }
 
-  /** `{ id: { notIn } }` for the ids to leave out, nothing at all when there are none. */
+  /**
+   * `{ id: { notIn } }` for the ids to leave out, nothing at all when there are none OR when there are too many for one
+   * query: a `NOT IN` list goes out as bind parameters, and tens of thousands of them exceed the driver's limit (the
+   * query would fail and that kind's reminders would be lost). A long list is applied in memory by `survivors`.
+   */
   private leaveOut(ids: string[] | undefined): { id?: { notIn: string[] } } {
-    return ids && ids.length > 0 ? { id: { notIn: ids } } : {};
+    return ids && ids.length > 0 && ids.length <= MAX_NOT_IN_IDS ? { id: { notIn: ids } } : {};
+  }
+
+  /** The rows left after a long exclusion list (see `leaveOut`); a short list was already applied by the query. These queries have no `take`, so a plain filter is complete. */
+  private survivors<T extends { id: string }>(rows: T[], ids: string[] | undefined): T[] {
+    if (!ids || ids.length <= MAX_NOT_IN_IDS) return rows;
+    const leftOut = new Set(ids);
+    return rows.filter((row) => !leftOut.has(row.id));
   }
 
   @Cron('0 7 * * *')
@@ -183,7 +197,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
-    for (const c of overdue) {
+    for (const c of this.survivors(overdue, leaveOutIds)) {
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId, 'Case');
       for (const userId of recipients) {
         if (await this.isDuped('case', c.id, userId)) continue;
@@ -217,7 +231,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true, deadline: true },
     });
 
-    for (const c of near) {
+    for (const c of this.survivors(near, leaveOutIds)) {
       const daysLeft = c.deadline ? differenceInDays(startOfDay(c.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(c.assignedTeamId, c.investigatorId, 'Case');
@@ -255,7 +269,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true },
     });
 
-    for (const inc of overdue) {
+    for (const inc of this.survivors(overdue, leaveOutIds)) {
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId, 'Incident');
       for (const userId of recipients) {
         if (await this.isDuped('incident', inc.id, userId)) continue;
@@ -289,7 +303,7 @@ export class DeadlineScheduler {
       select: { id: true, name: true, investigatorId: true, assignedTeamId: true, deadline: true },
     });
 
-    for (const inc of near) {
+    for (const inc of this.survivors(near, leaveOutIds)) {
       const daysLeft = inc.deadline ? differenceInDays(startOfDay(inc.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(inc.assignedTeamId, inc.investigatorId, 'Incident');
@@ -328,7 +342,7 @@ export class DeadlineScheduler {
       select: { id: true, senderName: true, enteredById: true, assignedTeamId: true },
     });
 
-    for (const p of overdue) {
+    for (const p of this.survivors(overdue, leaveOutIds)) {
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById, 'Petition');
       for (const userId of recipients) {
         if (await this.isDuped('petition', p.id, userId)) continue;
@@ -362,7 +376,7 @@ export class DeadlineScheduler {
       select: { id: true, senderName: true, enteredById: true, assignedTeamId: true, deadline: true },
     });
 
-    for (const p of near) {
+    for (const p of this.survivors(near, leaveOutIds)) {
       const daysLeft = p.deadline ? differenceInDays(startOfDay(p.deadline), startOfDay(today)) : 0;
       const dayStr = daysLeft <= 0 ? 'hôm nay' : `còn ${daysLeft} ngày`;
       const recipients = await this.getTeamRecipients(p.assignedTeamId, p.enteredById, 'Petition');
