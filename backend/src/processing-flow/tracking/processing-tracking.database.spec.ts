@@ -411,6 +411,19 @@ run('The tracking screen on PostgreSQL', () => {
       expect(await only('admin', { teamId: id.U, band: 'YELLOW' })).toEqual(['C-foreign-yellow', 'I-foreign-yellow', 'P-foreign-yellow']);
     });
 
+    it('the units of the filter are exactly the units holding work the person may see', async () => {
+      const unitsOf = async (who: Who) => (await tracking.teams(user(who))).filter((team) => team.name.startsWith(tag)).map((team) => team.name);
+      expect(await unitsOf('other')).toEqual([`${tag} Tổ U`]);
+      expect(await unitsOf('unpermitted')).toEqual([]);
+      // Every unit offered has rows, and every unit of a row is offered.
+      for (const who of ['admin', 'member', 'other'] as Who[]) {
+        const offered = (await tracking.teams(user(who))).map((team) => team.id).sort();
+        const inRows = [...new Set((await allItems(who)).flatMap((item) => (item.teamId ? [item.teamId] : [])))].sort();
+        expect(offered).toEqual(inRows);
+      }
+      expect((await tracking.teams(user('admin')))[0]).toEqual({ id: expect.any(String), name: expect.any(String), parentTeamId: null });
+    });
+
     it('"my work": named on it, or heading the unit when nobody is named', async () => {
       expect(await only('member', { mine: true })).toEqual(['C-named-green', 'I-named-green', 'P-named-green']);
       // The head answers for the work of the unit nobody is named on; work with a name on it is that person's.

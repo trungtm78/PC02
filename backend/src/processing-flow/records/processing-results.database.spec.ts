@@ -464,12 +464,12 @@ run('Results of a step on PostgreSQL', () => {
       const parties = (await commands.get('PETITION', recordId)).steps[0].parties;
       const partyOf = (role: string) => parties.find((p) => p.role === role)!.id;
 
-      expect(await viewerOf('worker')).toEqual({ canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: [partyOf('MAIN')] });
-      expect(await viewerOf('head')).toEqual({ canReport: true, opinionKinds: ['SUPERVISOR'], canApprove: true, memberOfPartyIds: [partyOf('MAIN')] });
-      expect(await viewerOf('checker')).toEqual({ canReport: false, opinionKinds: ['CHECK'], canApprove: true, memberOfPartyIds: [partyOf('CHECK')] });
-      expect(await viewerOf('coordinator')).toEqual({ canReport: true, opinionKinds: ['COORDINATE'], canApprove: true, memberOfPartyIds: [partyOf('COORDINATE')] });
+      expect(await viewerOf('worker')).toEqual({ canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: [partyOf('MAIN')], leaderOfPartyIds: [] });
+      expect(await viewerOf('head')).toEqual({ canReport: true, opinionKinds: ['SUPERVISOR'], canApprove: true, memberOfPartyIds: [partyOf('MAIN')], leaderOfPartyIds: [partyOf('MAIN')] });
+      expect(await viewerOf('checker')).toEqual({ canReport: false, opinionKinds: ['CHECK'], canApprove: true, memberOfPartyIds: [partyOf('CHECK')], leaderOfPartyIds: [] });
+      expect(await viewerOf('coordinator')).toEqual({ canReport: true, opinionKinds: ['COORDINATE'], canApprove: true, memberOfPartyIds: [partyOf('COORDINATE')], leaderOfPartyIds: [] });
       // A person with every permission and no part in the step: no report, no opinion. The decision has no role rule.
-      for (const who of ['outsider', 'admin', 'approver']) expect(await viewerOf(who)).toEqual({ canReport: false, opinionKinds: [], canApprove: true, memberOfPartyIds: [] });
+      for (const who of ['outsider', 'admin', 'approver']) expect(await viewerOf(who)).toEqual({ canReport: false, opinionKinds: [], canApprove: true, memberOfPartyIds: [], leaderOfPartyIds: [] });
 
       // The answers are the ones the write routes give.
       const stepKey = await key();
@@ -489,10 +489,10 @@ run('Results of a step on PostgreSQL', () => {
     it('a person only NAMED on a party reports but is not a member of it; a stopped unit gives nothing', async () => {
       const { recordId } = await withFlow([step()]);
       await scratch.db.procRecordStepParty.updateMany({ where: { recordStep: { recordId }, role: 'COORDINATE' }, data: { teamId: null, partyKind: 'RECORD_TEAM', assigneeUserId: user.outsider } });
-      expect((await commands.get('PETITION', recordId, user.outsider)).steps[0].viewer).toEqual({ canReport: true, opinionKinds: ['COORDINATE'], canApprove: true, memberOfPartyIds: [] });
+      expect((await commands.get('PETITION', recordId, user.outsider)).steps[0].viewer).toEqual({ canReport: true, opinionKinds: ['COORDINATE'], canApprove: true, memberOfPartyIds: [], leaderOfPartyIds: [] });
       await scratch.db.team.update({ where: { id: team.A }, data: { status: 'INACTIVE' } });
       try {
-        expect((await commands.get('PETITION', recordId, user.head)).steps[0].viewer).toEqual({ canReport: false, opinionKinds: [], canApprove: true, memberOfPartyIds: [] });
+        expect((await commands.get('PETITION', recordId, user.head)).steps[0].viewer).toEqual({ canReport: false, opinionKinds: [], canApprove: true, memberOfPartyIds: [], leaderOfPartyIds: [] });
       } finally {
         await scratch.db.team.update({ where: { id: team.A }, data: { status: 'ACTIVE' } });
       }

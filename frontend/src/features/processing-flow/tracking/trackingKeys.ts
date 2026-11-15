@@ -9,6 +9,7 @@ export const TRACKING_PAGE_SIZE = 20;
 
 export const TRACKING_QUERY_KEYS = {
   all: ['processing-tracking'] as const,
+  teams: ['processing-tracking', 'teams'] as const,
   summary: (filters: TrackingFilters) => ['processing-tracking', 'summary', filters] as const,
   items: (filters: TrackingFilters, band: TrackedBand | null, page: number, asOf: string) =>
     ['processing-tracking', 'items', filters, band, page, asOf] as const,

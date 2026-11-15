@@ -446,7 +446,8 @@ run('ProcessingCommandService on PostgreSQL', () => {
       await scratch.db.procFlow.update({ where: { id: proposed.flowId }, data: { isDefault: false } });
       try {
         expect(await failure(commands.reapplyFlow(actor, 'PETITION', recordId, { expectedRevision: proposed.revision }))).toEqual({ status: 409, code: 'NO_FLOW_FOR_RECORD' });
-        expect(await commands.get('PETITION', recordId)).toEqual(proposed);
+        // Read for the same person: the answer of a write says what its actor may do on each step.
+        expect(await commands.get('PETITION', recordId, actor)).toEqual(proposed);
       } finally {
         await scratch.db.procFlow.update({ where: { id: proposed.flowId }, data: { isDefault: true } });
       }

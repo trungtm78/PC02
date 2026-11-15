@@ -44,4 +44,11 @@ export class ProcessingTrackingController {
   items(@Query() query: TrackingItemsQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.tracking.items(gatewayUser(user), query);
   }
+
+  /** The units the filter offers: those holding work the person may see. Needs neither `read:Team` nor `read:User`. */
+  @Get('teams')
+  @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
+  teams(@CurrentUser() user: AuthenticatedUser) {
+    return this.tracking.teams(gatewayUser(user));
+  }
 }

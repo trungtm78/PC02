@@ -415,7 +415,7 @@ describe('"Kết luận chung"', () => {
 });
 
 describe('the role of the person on the step (viewer)', () => {
-  const VIEWER = { canReport: false, opinionKinds: [], canApprove: false, memberOfPartyIds: [] };
+  const VIEWER = { canReport: false, opinionKinds: [], canApprove: false, memberOfPartyIds: [], leaderOfPartyIds: [] };
   const parties = [party({ id: 'm', role: 'MAIN' }), party({ id: 'c', role: 'CHECK', teamId: 't4' })];
 
   it('a person with every permission and no part in the step is offered no report form and no opinion', async () => {

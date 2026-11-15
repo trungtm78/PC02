@@ -92,6 +92,8 @@ export interface StepViewerDto {
   canApprove: boolean;
   /** The parties of the step whose (active) unit the person belongs to: where they may take the work themself. */
   memberOfPartyIds: string[];
+  /** The parties of the step whose (active) unit the person heads: there they may name anybody of the unit. */
+  leaderOfPartyIds: string[];
 }
 
 export interface RecordFlowDto {

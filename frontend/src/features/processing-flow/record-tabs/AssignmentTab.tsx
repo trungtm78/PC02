@@ -8,7 +8,6 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { BTN_PRIMARY, BTN_SECONDARY } from '@/constants/styles';
-import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { formatVNDate, today, toDateInput } from '@/lib/dates';
 import { errorText, processingFlow as L } from '@/locales/processingFlow.vi';
 import { GanttChart } from '../components/GanttChart';
@@ -70,12 +69,8 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
   const flow = handle.flow;
   const perms = useStepPermissions();
   const write = useRecordWrite(kind, recordId, handle);
-  const officersQ = useOfficerOptions();
-  const officers = officersQ.data ?? [];
-  const personName = (userId: string): string | null => officers.find((o) => o.value === userId)?.label ?? null;
 
   const me = useCurrentUserId();
-  const myTeams = officers.find((o) => o.value === me)?.teams ?? [];
 
   const [panel, setPanel] = useState<PanelState | null>(null);
   /** The party a person is being chosen for, with the person picked so far. */
@@ -344,9 +339,7 @@ function AssignmentBody({ kind, recordId, handle }: BodyProps) {
                 step={step}
                 flow={flow}
                 position={index + 1}
-                personName={personName}
                 me={me}
-                myTeams={myTeams}
                 onAssign={openAssigning}
                 onTake={(s, p) => void (me && assignParty(s, p, me, R.done.taken))}
                 onUnassign={(s, p) => void assignParty(s, p, null, R.done.unassigned)}
@@ -469,10 +462,8 @@ interface RowProps {
   step: RecordStepDto;
   flow: RecordFlowDto;
   position: number;
-  personName: (userId: string) => string | null;
   /** The signed-in person and the units they belong to: what decides which assignment actions are offered. */
   me: string | null;
-  myTeams: Array<{ teamId: string; isLeader: boolean }>;
   onAssign: (step: RecordStepDto, party: RecordStepPartyDto) => void;
   onTake: (step: RecordStepDto, party: RecordStepPartyDto) => void;
   onUnassign: (step: RecordStepDto, party: RecordStepPartyDto) => void;
@@ -484,7 +475,7 @@ interface RowProps {
   onBackToRegulatory: (step: RecordStepDto) => void;
 }
 
-function StepRow({ step, flow, position, personName, me, myTeams, onAssign, onTake, onUnassign, locked, perms, onOpen, onComplete, onUnskip, onBackToRegulatory }: RowProps) {
+function StepRow({ step, flow, position, me, onAssign, onTake, onUnassign, locked, perms, onOpen, onComplete, onUnskip, onBackToRegulatory }: RowProps) {
   const key = step.stepKey;
   const worked = step.status === 'OPEN' || step.status === 'REPORTED';
   const badge = stepBadge(step, flow);
@@ -554,14 +545,17 @@ function StepRow({ step, flow, position, personName, me, myTeams, onAssign, onTa
         {step.parties.map((p) => {
           // The server decides; the screen only offers what the rule can allow: the permission, heading the unit, or
           // a member taking the work themself (and giving back what they took).
-          const mine = myTeams.find((t) => t.teamId === p.teamId);
+          // Who the person is on the party comes with the flow itself (`viewer`): the list of the office's users is not
+          // asked, so an officer who may not read it is still offered "Nhận việc".
+          const member = step.viewer?.memberOfPartyIds.includes(p.id) === true;
+          const leads = step.viewer?.leaderOfPartyIds.includes(p.id) === true;
           const open = step.status !== 'DONE' && step.status !== 'SKIPPED';
-          const names = open && (perms.canAssign || mine?.isLeader === true);
-          const canTake = open && !names && mine !== undefined && me !== null && p.assigneeUserId === null;
+          const names = open && (perms.canAssign || leads);
+          const canTake = open && !names && member && me !== null && p.assigneeUserId === null;
           const canUnassign = open && p.assigneeUserId !== null && (names || p.assigneeUserId === me);
           return (
             <div key={p.id} data-testid={`party-${p.id}`} className="mb-1 last:mb-0">
-              <div>{partyLine(p, personName)}</div>
+              <div>{partyLine(p)}</div>
               {!p.assigneeUserId && (
                 <div data-testid={`party-${p.id}-responsible`} className="text-xs text-slate-500">
                   {p.responsible.length > 0 ? R.assignee.heads(p.responsible.map((r) => r.name).join(', ')) : R.assignee.nobody}

@@ -94,6 +94,16 @@ const displayName = (user: { firstName: string | null; lastName: string | null; 
  *     this work names the person or an active unit of theirs (the rule by which that unit opens the record read-only), and
  *   - for a case, the governance rules as well (sensitivity, representation), which the step never lifts.
  */
+/** A unit of the filter of the tracking screen. */
+export interface TrackingTeam {
+  id: string;
+  name: string;
+  parentTeamId: string | null;
+}
+
+/** More units than this hold work only in a broken configuration; the filter is a short list. */
+const MAX_FILTER_TEAMS = 500;
+
 @Injectable()
 export class ProcessingTrackingService {
   /** The clock, replaceable by a spec. */
@@ -163,6 +173,23 @@ export class ProcessingTrackingService {
       ];
     });
     return { ...empty, items, total };
+  }
+
+  /**
+   * The units the filter of the screen offers: those that hold work (in any colour, now) this person may see. Asked of
+   * the same condition as the cards, so a unit offered always has rows, and a person who may not read the list of units
+   * of the office still filters their own work. One query, bounded.
+   */
+  async teams(user: GatewayUser): Promise<TrackingTeam[]> {
+    const reach = await this.reach(user);
+    if (!reach) return [];
+    const teams = await this.prisma.team.findMany({
+      where: { procRecordStepParties: { some: this.workWhere(user, {}, reach, null, this.now()) } },
+      select: { id: true, name: true, parentId: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: MAX_FILTER_TEAMS,
+    });
+    return teams.map((team) => ({ id: team.id, name: team.name, parentTeamId: team.parentId }));
   }
 
   private instant(asOf: string | undefined): Date {

@@ -25,6 +25,8 @@ export interface StepRoles {
   teamOf(role?: string): string | null;
   /** The parties whose ACTIVE unit the person is a member of: where they may take the work themself. */
   memberOfPartyIds(): string[];
+  /** The parties whose ACTIVE unit the person heads: where they may name anybody of the unit. */
+  leaderOfPartyIds(): string[];
 }
 
 /**
@@ -52,6 +54,7 @@ export function stepRolesOf(parties: RolePartyRow[]): StepRoles {
     leads: (role) => parties.some((p) => p.role === role && memberOf(p) && p.team?.members.some((m) => m.isLeader) === true),
     teamOf: (role) => parties.find((p) => !role || p.role === role)?.teamId ?? null,
     memberOfPartyIds: () => parties.filter(memberOf).map((p) => p.id),
+    leaderOfPartyIds: () => parties.filter((p) => memberOf(p) && p.team?.members.some((m) => m.isLeader) === true).map((p) => p.id),
   };
 }
 
@@ -89,6 +92,8 @@ export interface StepViewerDto {
   canApprove: boolean;
   /** The parties of the step whose (active) unit the person belongs to. */
   memberOfPartyIds: string[];
+  /** The parties of the step whose (active) unit the person heads. */
+  leaderOfPartyIds: string[];
 }
 
 export function stepViewerOf(roles: StepRoles): StepViewerDto {
@@ -97,6 +102,7 @@ export function stepViewerOf(roles: StepRoles): StepViewerDto {
     opinionKinds: SPEAKING_KINDS.filter((kind) => mayGiveOpinion(roles, kind)),
     canApprove: mayDecide(roles),
     memberOfPartyIds: roles.memberOfPartyIds(),
+    leaderOfPartyIds: roles.leaderOfPartyIds(),
   };
 }
 

@@ -52,3 +52,10 @@ export interface TrackingItemsDto {
   page: number;
   pageSize: number;
 }
+
+/** A unit the filter offers (`GET /processing/tracking/teams`). */
+export interface TrackingTeamDto {
+  id: string;
+  name: string;
+  parentTeamId: string | null;
+}

@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { TrackedBand, TrackingFilters, TrackingItemsDto, TrackingSummaryDto } from './types';
+import type { TrackedBand, TrackingFilters, TrackingItemsDto, TrackingSummaryDto, TrackingTeamDto } from './types';
 
 const data = <T>(r: { data: T }): T => r.data;
 
@@ -28,6 +28,9 @@ export interface TrackingItemsQuery extends TrackingFilters {
 export const trackingApi = {
   /** Asked with no `asOf`: the server uses its clock and says which instant that was. */
   summary: (filters: TrackingFilters) => api.get<TrackingSummaryDto>(`${BASE}/summary`, { params: filterParams(filters) }).then(data),
+
+  /** The units holding work the person may see: what the unit filter offers (no `read:Team` needed). */
+  teams: () => api.get<TrackingTeamDto[]>(`${BASE}/teams`).then(data),
 
   items: (query: TrackingItemsQuery) =>
     api

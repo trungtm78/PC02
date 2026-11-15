@@ -25,7 +25,6 @@ import { FeatureOffState } from '../components/FeatureOffState';
 import { explainError, isFeatureOff } from '../errors';
 import { recordTabHref } from '../record-tabs/recordLink';
 import type { RecordKind } from '../types';
-import { useTeamChoices } from '../useTeamChoices';
 import { trackingApi } from './api';
 import { TRACKING_PAGE_SIZE, TRACKING_QUERY_KEYS, TRACKING_URL_PREFIX, dueText } from './trackingKeys';
 import { TRACKED_BANDS, type TrackedBand, type TrackingFilters, type TrackingItemDto } from './types';
@@ -43,7 +42,9 @@ const rowId = (item: TrackingItemDto): string => item.id;
 
 export default function TrackingPage() {
   const url = useListPageUrlState(TRACKING_URL_PREFIX);
-  const teamsQ = useTeamChoices();
+  // The units that hold work this person may see, from the tracking route itself: an officer who may not read the
+  // office's list of units still gets a filter.
+  const teamsQ = useQuery({ queryKey: TRACKING_QUERY_KEYS.teams, queryFn: () => trackingApi.teams(), retry: false, staleTime: 60_000 });
 
   const askedBand = url.getParam('band');
   const band = TRACKED_BANDS.find((b) => b === askedBand) ?? null;

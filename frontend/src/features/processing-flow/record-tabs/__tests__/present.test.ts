@@ -35,9 +35,9 @@ describe('the badge of a step', () => {
 describe('the other words of a step', () => {
   it('writes a unit with its role and the person named', () => {
     const row = party({ id: 'pp-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'CHECK', assigneeUserId: 'u7' });
-    expect(partyLine(row, () => 'Trần B')).toBe('Tổ 3 · kiểm tra · Trần B');
-    expect(partyLine(row, () => null)).toBe('Tổ 3 · kiểm tra');
-    expect(partyLine({ ...row, partyKind: 'RECORD_TEAM', teamId: null, teamName: null, assigneeUserId: null }, () => null)).toBe(`${L.recordTeam} · kiểm tra`);
+    expect(partyLine({ ...row, assigneeName: 'Trần B' })).toBe('Tổ 3 · kiểm tra · Trần B');
+    expect(partyLine(row)).toBe('Tổ 3 · kiểm tra');
+    expect(partyLine({ ...row, partyKind: 'RECORD_TEAM', teamId: null, teamName: null, assigneeUserId: null })).toBe(`${L.recordTeam} · kiểm tra`);
   });
 
   it('the own target counts as adjusted only when it is earlier than the regulatory deadline', () => {

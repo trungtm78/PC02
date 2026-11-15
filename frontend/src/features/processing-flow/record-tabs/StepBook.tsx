@@ -241,7 +241,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
               )}
             </div>
             {o.content && <p className="whitespace-pre-wrap text-sm text-slate-800">{o.content}</p>}
-            {!o.withdrawnAt && o.kind !== 'APPROVAL' && perms.canOpine && o.authorId === userId && (!viewer || viewer.opinionKinds.includes(o.kind)) && (
+            {!o.withdrawnAt && o.kind !== 'APPROVAL' && perms.canOpine && o.authorId === userId && (!viewer || viewer.opinionKinds.some((k) => k === o.kind)) && (
               <div>
                 <button type="button" data-testid={`opinion-${o.id}-withdraw`} className={LINK_BUTTON} disabled={write.locked} onClick={() => withdrawOpinion(o)}>
                   {O.withdraw}
