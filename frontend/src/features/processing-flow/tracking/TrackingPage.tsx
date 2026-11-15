@@ -68,6 +68,8 @@ export default function TrackingPage() {
   });
 
   const counts = summaryQ.data?.counts ?? null;
+  /** Records whose flow is only a proposal: counted apart from the cards. An older server does not say. */
+  const unconfirmed = summaryQ.data?.unconfirmed ?? 0;
   const cards: StatCard[] = TRACKED_BANDS.map((b) => ({
     label: bandLabel(b),
     value: counts ? counts[b] : null,
@@ -164,6 +166,11 @@ export default function TrackingPage() {
               allowDeselect
               gridClassName="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-4"
             />
+            {unconfirmed > 0 && (
+              <p data-testid="tracking-unconfirmed" className="-mt-2 px-4 pb-3 text-sm text-slate-600">
+                {T.unconfirmed(unconfirmed)}
+              </p>
+            )}
 
             <div className="flex flex-wrap items-end gap-3 border-y border-slate-200 bg-white px-4 py-3">
               <div role="group" aria-label={T.scope.label} className="inline-flex overflow-hidden rounded-lg border border-slate-300">

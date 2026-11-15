@@ -95,9 +95,9 @@ run('The alert column of the three lists on PostgreSQL', () => {
     return recordId;
   };
 
-  const flowOn = async (kind: RecordKind, recordId: string, steps: Array<{ name: 'Verify' | 'Answer'; due: Date; status?: 'OPEN' | 'REPORTED' | 'DONE' }>): Promise<void> => {
+  const flowOn = async (kind: RecordKind, recordId: string, steps: Array<{ name: 'Verify' | 'Answer'; due: Date; status?: 'OPEN' | 'REPORTED' | 'DONE' }>, proposal = false): Promise<void> => {
     const { db } = scratch;
-    const flow = await db.procRecordFlow.create({ data: { recordKind: kind, recordId, ...recordLink(kind, recordId), flowId: flowConfig.flowId, versionId: flowConfig.versionId, match: 'MANUAL' } });
+    const flow = await db.procRecordFlow.create({ data: { recordKind: kind, recordId, ...recordLink(kind, recordId), flowId: flowConfig.flowId, versionId: flowConfig.versionId, match: proposal ? 'UNKNOWN_TYPE' : 'MANUAL', confirmed: !proposal } });
     for (const [order, spec] of steps.entries()) {
       await db.procRecordStep.create({
         data: {
@@ -164,6 +164,15 @@ run('The alert column of the three lists on PostgreSQL', () => {
     const finished = await record('flow-finished-stale', 'PETITION');
     await flowOn('PETITION', finished, [{ name: 'Verify', due: endOf(11) }]);
     await scratch.db.petition.update({ where: { id: finished }, data: { status: 'DA_GIAI_QUYET' } });
+    // ---- records whose flow is only a PROPOSAL (decision C10): its overdue step asserts nothing; the record's own deadline does.
+    await flowOn('PETITION', await record('proposal-own-today', 'PETITION', { deadline: day(10) }), [{ name: 'Verify', due: endOf(8) }], true);
+    await flowOn('PETITION', await record('proposal-own-none', 'PETITION', { deadline: null }), [{ name: 'Verify', due: endOf(8) }], true);
+    await flowOn('INCIDENT', await record('I-proposal-own-week', 'INCIDENT', { deadline: day(17) }), [{ name: 'Verify', due: endOf(11) }], true);
+    await flowOn('CASE', await record('C-proposal-own-overdue', 'CASE', { deadline: day(9) }), [{ name: 'Verify', due: endOf(13) }], true);
+    // A proposal whose stored alert is still that of its steps (made before the rule, or unconfirmed behind the worker's back).
+    const stale = await record('proposal-stale-alert', 'PETITION', { deadline: day(17) });
+    await flowOn('PETITION', stale, [{ name: 'Verify', due: endOf(8) }]);
+    await scratch.db.procRecordFlow.updateMany({ where: { recordId: stale }, data: { confirmed: false } });
     // ---- petitions without a flow: their own deadline, a calendar day
     await record('own-overdue', 'PETITION', { deadline: day(9) });
     await record('own-today', 'PETITION', { deadline: day(10) });
@@ -224,6 +233,35 @@ run('The alert column of the three lists on PostgreSQL', () => {
       expect(await alertOf('own-none')).toBeNull();
     });
 
+    it('a record whose flow is only a proposal shows its own deadline, as a record with no flow does: never that of the proposal, never nothing', async () => {
+      expect(await alertOf('proposal-own-today')).toEqual({ source: 'RECORD_DEADLINE', band: 'RED', remainingDays: 0, stepName: null, dueAt: endOf(10).toISOString() });
+      expect(await alertOf('proposal-own-none')).toBeNull();
+      expect(await alertOf('I-proposal-own-week')).toMatchObject({ source: 'RECORD_DEADLINE', band: 'YELLOW', remainingDays: 7, stepName: null });
+      expect(await alertOf('C-proposal-own-overdue')).toMatchObject({ source: 'RECORD_DEADLINE', band: 'OVERDUE', remainingDays: -1, stepName: null });
+      // Even while the stored alert of the proposal has not been emptied yet.
+      const stale = await scratch.db.procRecordFlow.findFirstOrThrow({ where: { recordId: records['proposal-stale-alert'].id } });
+      expect(stale.alertDueAt).not.toBeNull();
+      expect(await alertOf('proposal-stale-alert')).toMatchObject({ source: 'RECORD_DEADLINE', band: 'YELLOW', remainingDays: 7, stepName: null });
+      const foundIn = async (band: Band) => (await scratch.db.petition.count({ where: { AND: [{ id: records['proposal-stale-alert'].id }, alerts.where('PETITION', band, NOW)] } })) === 1;
+      expect({ OVERDUE: await foundIn('OVERDUE'), YELLOW: await foundIn('YELLOW') }).toEqual({ OVERDUE: false, YELLOW: true });
+      // The worker then empties the stored alert (it would otherwise still order the list), and nothing shown changes.
+      await scratch.db.$transaction((tx) => refreshRecordAlert(tx, gateway, 'PETITION', stale.recordId));
+      expect((await scratch.db.procRecordFlow.findUniqueOrThrow({ where: { id: stale.id } })).alertDueAt).toBeNull();
+      expect(await alertOf('proposal-stale-alert')).toMatchObject({ source: 'RECORD_DEADLINE', band: 'YELLOW' });
+    });
+
+    it('confirming the proposal shows the alert of its steps again', async () => {
+      const recordId = await record('proposal-then-confirmed', 'PETITION', { deadline: day(17) });
+      await flowOn('PETITION', recordId, [{ name: 'Verify', due: endOf(8) }], true);
+      expect(await alertOf('proposal-then-confirmed')).toMatchObject({ source: 'RECORD_DEADLINE', band: 'YELLOW' });
+      await scratch.db.procRecordFlow.updateMany({ where: { recordId }, data: { confirmed: true } });
+      await scratch.db.$transaction((tx) => refreshRecordAlert(tx, gateway, 'PETITION', recordId));
+      expect(await alertOf('proposal-then-confirmed')).toEqual({ source: 'FLOW', band: 'OVERDUE', remainingDays: -2, stepName: 'Verify', dueAt: endOf(8).toISOString() });
+      // Out of the way of the cases that follow: they pin the names of the overdue petitions.
+      await scratch.db.petition.update({ where: { id: recordId }, data: { deletedAt: NOW } });
+      delete records['proposal-then-confirmed'];
+    });
+
     it('a finished or suspended record has no alert, even while the stored alert of its flow has not been reconciled', async () => {
       const stale = await scratch.db.procRecordFlow.findFirstOrThrow({ where: { recordId: records['flow-finished-stale'].id } });
       expect(stale.alertDueAt).not.toBeNull();
@@ -267,6 +305,17 @@ run('The alert column of the three lists on PostgreSQL', () => {
       // And the table is not empty: every band holds something.
       const petitionBands = [...(await alerts.forRecords('PETITION', idsOf('PETITION'), NOW)).values()].flatMap((alert) => (alert ? [alert.band] : []));
       expect(new Set(petitionBands)).toEqual(new Set(['OVERDUE', 'RED', 'YELLOW', 'NONE']));
+      // The proposals are found by the band of their OWN deadline, in every kind, and not by the band of their steps.
+      const inBand = async (kind: RecordKind, band: Band) => {
+        const model = kind === 'PETITION' ? scratch.db.petition : kind === 'INCIDENT' ? scratch.db.incident : scratch.db.case;
+        const rows = await (model as typeof scratch.db.petition).findMany({ where: { AND: [{ id: { in: idsOf(kind) } }, alerts.where(kind, band, NOW)] }, select: { id: true } });
+        return rows.map((row) => nameOf(row.id));
+      };
+      expect(await inBand('PETITION', 'RED')).toContain('proposal-own-today');
+      expect(await inBand('PETITION', 'YELLOW')).toContain('proposal-stale-alert');
+      expect(await inBand('PETITION', 'OVERDUE')).toEqual(expect.not.arrayContaining(['proposal-own-today', 'proposal-own-none', 'proposal-stale-alert']));
+      expect(await inBand('INCIDENT', 'YELLOW')).toContain('I-proposal-own-week');
+      expect(await inBand('CASE', 'OVERDUE')).toContain('C-proposal-own-overdue');
     });
 
     it('the order by urgency: records with a flow by their earliest step deadline, then the others by their own, none last', async () => {
@@ -331,7 +380,7 @@ run('The alert column of the three lists on PostgreSQL', () => {
       const later = await listed('PETITION', { alertBand: 'OVERDUE', alertAsOf: new Date(endOf(11).getTime() + 1).toISOString() });
       expect(later.alertAsOf).toBe('2026-12-11T17:00:00.000Z');
       expect(later.own.map((row) => nameOf(row.id))).toEqual(expect.arrayContaining(['flow-red', 'own-today']));
-      expect((await listed('INCIDENT', { alertBand: 'YELLOW' })).own.map((row) => nameOf(row.id))).toEqual(['I-flow-yellow']);
+      expect((await listed('INCIDENT', { alertBand: 'YELLOW' })).own.map((row) => nameOf(row.id)).sort()).toEqual(['I-flow-yellow', 'I-proposal-own-week']);
       expect((await listed('CASE', { alertBand: 'GREEN' })).own.map((row) => nameOf(row.id))).toEqual(['C-flow-green']);
       expect((await listed('CASE', { alertBand: 'RED' })).own.map((row) => nameOf(row.id))).toEqual(['C-own-today']);
     });

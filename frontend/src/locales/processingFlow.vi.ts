@@ -645,6 +645,7 @@ export const processingFlow = {
     asOf: (time: string) => `Số liệu lúc ${time}`,
     changed: (time: string) => `Số liệu lúc ${time} đã thay đổi.`,
     refresh: 'Cập nhật số liệu',
+    unconfirmed: (records: number) => `Có ${records.toLocaleString('vi-VN')} hồ sơ chưa xác định quy trình (chưa tính vào các thẻ).`,
     tableTitle: 'Các bước đang mở',
     columns: {
       alert: 'Cảnh báo',
