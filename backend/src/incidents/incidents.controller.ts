@@ -294,7 +294,7 @@ export class IncidentsController {
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.incidentsService.getById(id, req.dataScope);
+    return this.incidentsService.getById(id, req.dataScope, (req.user as AuthUser)?.id);
   }
 
   // POST /api/v1/incidents — Tạo vụ việc mới

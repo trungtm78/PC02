@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Case, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RecordStepAccessService } from '../records/record-step-access.service';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
 import { CaseGovernanceService } from '../../cases/governance/case-governance.service';
 import { laKetThuc, laTamDinhChi } from '../../common/trang-thai/trang-thai-ket-thuc';
@@ -69,6 +70,7 @@ export class CaseAdapter implements RecordAdapter {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopes: UnitScopeService,
+    @Optional() private readonly stepAccess?: RecordStepAccessService,
   ) {}
 
   async load(id: string, tx: Reader = this.prisma): Promise<RecordSnapshot | null> {
@@ -88,11 +90,15 @@ export class CaseAdapter implements RecordAdapter {
     let record: Case;
     try {
       // Built by hand exactly as `CasesService` does: it holds no state, and asks the process's enforcement itself.
-      record = await new CaseGovernanceService(this.prisma).assertCaseReadable(this.prisma, id, { actorId: user.id });
+      record = await new CaseGovernanceService(this.prisma).assertCaseReadable(this.prisma, id, { actorId: user.id }, undefined, {
+        stepAssignee: async () => (await this.stepAccess?.mayOpen('CASE', id, user.id)) ?? false,
+      });
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof NotFoundException) return false;
       throw error;
     }
-    return recordReadable('Case', record, await requestScopeOf(this.scopes, user));
+    if (recordReadable('Case', record, await requestScopeOf(this.scopes, user))) return true;
+    // Not in the reader's scope: a step being worked on the case may still hand it to their unit (read-only).
+    return (await this.stepAccess?.mayOpen('CASE', id, user.id)) ?? false;
   }
 }

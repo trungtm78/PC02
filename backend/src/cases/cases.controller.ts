@@ -386,6 +386,8 @@ export class CasesController {
       id,
       req.dataScope,
       (req.user as AuthUser)?.id,
+      'read',
+      true,
     );
   }
 

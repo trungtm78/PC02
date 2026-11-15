@@ -1106,6 +1106,11 @@ export class CaseGovernanceService {
     caseId: string,
     actor: ActorContext,
     _dataScope?: DataScope | null,
+    /**
+     * `stepAssignee`: a step being worked on this case hands it to the reader's unit. Asked ONLY when the reader's own
+     * scope does not reach the case, and only by the detail route; the sensitivity and representation rules still run.
+     */
+    options?: { stepAssignee?: () => Promise<boolean> },
   ): Promise<Case> {
     void _dataScope;
     const user = await this.activeActor(tx, actor.actorId);
@@ -1116,12 +1121,16 @@ export class CaseGovernanceService {
     });
     if (!record) throw new NotFoundException('Case not found');
     await this.representation(tx, caseId, user, 'view');
-    assertParentInScope(
-      record,
-      await this.currentScope(tx, user),
-      'read',
-      'Case',
-    );
+    try {
+      assertParentInScope(
+        record,
+        await this.currentScope(tx, user),
+        'read',
+        'Case',
+      );
+    } catch (error) {
+      if (!(error instanceof ForbiddenException && options?.stepAssignee && (await options.stepAssignee()))) throw error;
+    }
     await this.sensitive(tx, record, user);
     return record;
   }

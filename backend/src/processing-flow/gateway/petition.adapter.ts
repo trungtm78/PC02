@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RecordStepAccessService } from '../records/record-step-access.service';
 import { UnitScopeService } from '../../auth/services/unit-scope.service';
 import { laKetThuc, laTamDinhChi } from '../../common/trang-thai/trang-thai-ket-thuc';
 import { recordReadable } from '../../common/utils/scope-filter.util';
@@ -68,6 +69,7 @@ export class PetitionAdapter implements RecordAdapter {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopes: UnitScopeService,
+    @Optional() private readonly stepAccess?: RecordStepAccessService,
   ) {}
 
   async load(id: string, tx: Reader = this.prisma): Promise<RecordSnapshot | null> {
@@ -87,6 +89,8 @@ export class PetitionAdapter implements RecordAdapter {
       select: { assignedTeamId: true, enteredById: true },
     });
     if (!row) return false;
-    return recordReadable('Petition', row, await requestScopeOf(this.scopes, user));
+    if (recordReadable('Petition', row, await requestScopeOf(this.scopes, user))) return true;
+    // Not in the reader's scope: a step being worked on the record may still hand it to their unit (read-only).
+    return (await this.stepAccess?.mayOpen('PETITION', id, user.id)) ?? false;
   }
 }

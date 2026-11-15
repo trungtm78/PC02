@@ -4,6 +4,7 @@ import type { Petition } from '@prisma/client';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import { OcrBinder } from '../ocr-import/binding/ocr-binder';
 import { ProcessingOutboxService } from '../processing-flow/records/processing-outbox.service';
+import { RecordStepAccessService } from '../processing-flow/records/record-step-access.service';
 import { RecordDeadlineWriter } from '../processing-flow/records/record-deadline-writer.service';
 import { assertDeadlineNotManaged } from '../processing-flow/records/deadline-managed.guard';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
@@ -328,6 +329,7 @@ export class PetitionsService {
     @Optional() private readonly ocrBinder?: OcrBinder,
     @Optional() private readonly processingOutbox?: ProcessingOutboxService,
     @Optional() private readonly deadlineWriter?: RecordDeadlineWriter,
+    @Optional() private readonly stepAccess?: RecordStepAccessService,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -563,6 +565,24 @@ export class PetitionsService {
     }
   }
 
+  /**
+   * The detail route's check: the record's own scope, or a step being worked on it that names a unit of the reader
+   * (read-only: every write check still looks at the reader's own scope). `stepReaderId` is passed by the plain GET
+   * only, never by exports or prints.
+   */
+  private async checkRecordOrStepAccess(
+    record: { id: string; enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope: DataScope | null | undefined,
+    stepReaderId?: string,
+  ) {
+    try {
+      this.checkRecordInScope(record, dataScope);
+    } catch (error) {
+      if (error instanceof ForbiddenException && stepReaderId && (await this.stepAccess?.mayOpen('PETITION', record.id, stepReaderId))) return;
+      throw error;
+    }
+  }
+
   // v0.37.1 PR-PICK — list Petitions eligible for linking from a new Case.
   // Returns only: not soft-deleted + not yet linked to any Case + in user's DataScope.
   // Used by CaseFormPage Petition picker (CaseProvenancePicker → /petitions/linkable).
@@ -666,7 +686,7 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string, dataScope?: DataScope | null) {
+  async getById(id: string, dataScope?: DataScope | null, stepReaderId?: string) {
     const record = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -701,7 +721,7 @@ export class PetitionsService {
       throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
     }
 
-    this.checkRecordInScope(record, dataScope);
+    await this.checkRecordOrStepAccess(record, dataScope, stepReaderId);
 
     return {
       success: true,
