@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../features/processing/my_work_screen.dart';
 import '../theme/app_theme.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -48,6 +49,18 @@ class AppDrawer extends ConsumerWidget {
               subtitle: _roleChip(user?['role']),
             ),
             const Divider(),
+            // Only once the summary call answered: the feature is behind a
+            // switch on the server and a permission.
+            if (ref.watch(myWorkSummaryProvider).valueOrNull != null)
+              ListTile(
+                key: const Key('drawer-my-work'),
+                leading: const Icon(Icons.assignment_outlined),
+                title: const Text('Việc của tôi'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/my-work');
+                },
+              ),
             const Spacer(),
             const Divider(),
             ListTile(
