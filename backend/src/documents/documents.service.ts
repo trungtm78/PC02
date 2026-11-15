@@ -693,6 +693,11 @@ export class DocumentsService {
             (dto.caseId || null) !== existing.caseId) ||
           (dto.incidentId !== undefined &&
             (dto.incidentId || null) !== existing.incidentId);
+        // A file attached to the report of a processing step belongs to that report's record: it is not moved.
+        if (changesParent && current.procStepReportId)
+          throw new ConflictException(
+            'An attachment of a step report stays with its record',
+          );
         if (
           changesParent &&
           existing.caseId &&

@@ -333,6 +333,13 @@ run('Attachments of a step report on PostgreSQL', () => {
     expect(await failure(attachments.openDownload(reader('coordinator'), 'PETITION', base.recordId, base.stepKey, reportId, first.id))).toEqual({ status: 404, code: 'ATTACHMENT_NOT_FOUND' });
     // Removing it twice finds nothing.
     expect(await failure(attachments.remove(user.coordinator, 'PETITION', base.recordId, base.stepKey, reportId, first.id))).toEqual({ status: 404, code: 'ATTACHMENT_NOT_FOUND' });
+
+    // A file that somehow sits under ANOTHER record is not this report's to remove or to open (found by Codex).
+    const other = await withFlow([step()]);
+    await scratch.db.document.update({ where: { id: second.id }, data: { petitionId: other.recordId } });
+    expect(await failure(attachments.remove(user.coordinator, 'PETITION', base.recordId, base.stepKey, reportId, second.id))).toEqual({ status: 404, code: 'ATTACHMENT_NOT_FOUND' });
+    expect(await failure(attachments.openDownload(reader('coordinator'), 'PETITION', base.recordId, base.stepKey, reportId, second.id))).toEqual({ status: 404, code: 'ATTACHMENT_NOT_FOUND' });
+    expect((await scratch.db.document.findUniqueOrThrow({ where: { id: second.id } })).deletedAt).toBeNull();
     expect(second.id).not.toBe(first.id);
   });
 

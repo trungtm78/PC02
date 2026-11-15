@@ -75,7 +75,8 @@ export class ProcessingAttachmentsService {
       const report = await this.writableReport(tx, actorId, kind, recordId, stepKey, reportId);
       // The document of THIS report only: an id of another record, another step, or a document that is no attachment
       // answers as one that does not exist.
-      const document = await tx.document.findFirst({ where: { id: documentId, procStepReportId: report.id, deletedAt: null }, select: { id: true, caseId: true, title: true, originalName: true } });
+      // ...and still a document of THIS record: one moved to another record is no longer this report's to remove.
+      const document = await tx.document.findFirst({ where: { id: documentId, procStepReportId: report.id, [PARENT_KEY[kind]]: recordId, deletedAt: null }, select: { id: true, caseId: true, title: true, originalName: true } });
       if (!document) throw refuse.notFound(PROCESSING_ERROR.ATTACHMENT_NOT_FOUND);
       await this.documents.deleteStepAttachment(tx, document, actorId, meta);
       return { id: document.id };

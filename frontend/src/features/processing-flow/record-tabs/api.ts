@@ -71,7 +71,10 @@ export const processingRecordApi = {
   attach: (kind: RecordKind, id: string, stepKey: string, reportId: string, file: File) => {
     const body = new FormData();
     body.append('file', file);
-    return api.post<ReportAttachmentDto>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments`, body).then(data);
+    // The shared client defaults to JSON, which would turn the form into `{"file":{}}`: a file goes as multipart.
+    return api
+      .post<ReportAttachmentDto>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments`, body, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then(data);
   },
   removeAttachment: (kind: RecordKind, id: string, stepKey: string, reportId: string, documentId: string) =>
     api.delete<{ id: string }>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments/${part(documentId)}`).then(data),
