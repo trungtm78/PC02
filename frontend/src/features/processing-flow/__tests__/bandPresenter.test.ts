@@ -37,20 +37,26 @@ describe('the alert of a row of a list', () => {
 
   it('from a flow: the colour, the days and the step the colour comes from', () => {
     expect(alert({})).toEqual({ tone: 'red', text: 'Đỏ · còn 1 ngày', step: 'Xác minh', sentence: 'Đỏ · còn 1 ngày · Xác minh' });
-    expect(alert({ band: 'OVERDUE', remainingDays: -2 }).sentence).toBe('Quá hạn 2 ngày · Xác minh');
-    expect(alert({ band: 'YELLOW', remainingDays: 3 }).sentence).toBe('Vàng · còn 3 ngày · Xác minh');
-    expect(alert({ band: 'GREEN', remainingDays: 5 }).sentence).toBe('Xanh · còn 5 ngày · Xác minh');
-    expect(alert({ band: 'NONE', remainingDays: 40 })).toMatchObject({ tone: 'neutral', sentence: 'Chưa tới ngưỡng · còn 40 ngày · Xác minh' });
+    expect(alert({ band: 'OVERDUE', remainingDays: -2 })?.sentence).toBe('Quá hạn 2 ngày · Xác minh');
+    expect(alert({ band: 'YELLOW', remainingDays: 3 })?.sentence).toBe('Vàng · còn 3 ngày · Xác minh');
+    expect(alert({ band: 'GREEN', remainingDays: 5 })?.sentence).toBe('Xanh · còn 5 ngày · Xác minh');
   });
 
   it('from the record own deadline: the same words with no step', () => {
     expect(alert({ source: 'RECORD_DEADLINE', stepName: null })).toEqual({ tone: 'red', text: 'Đỏ · còn 1 ngày', step: null, sentence: 'Đỏ · còn 1 ngày' });
-    expect(alert({ source: 'RECORD_DEADLINE', stepName: null, band: 'OVERDUE', remainingDays: -2 }).sentence).toBe('Quá hạn 2 ngày');
-    expect(alert({ source: 'RECORD_DEADLINE', stepName: null, band: 'RED', remainingDays: 0 }).sentence).toBe('Đỏ · hạn hôm nay');
+    expect(alert({ source: 'RECORD_DEADLINE', stepName: null, band: 'OVERDUE', remainingDays: -2 })?.sentence).toBe('Quá hạn 2 ngày');
+    expect(alert({ source: 'RECORD_DEADLINE', stepName: null, band: 'RED', remainingDays: 0 })?.sentence).toBe('Đỏ · hạn hôm nay');
   });
 
   it('a flow alert whose step is not named shows no dangling separator', () => {
-    expect(alert({ stepName: null }).sentence).toBe('Đỏ · còn 1 ngày');
-    expect(alert({ stepName: '  ' }).sentence).toBe('Đỏ · còn 1 ngày');
+    expect(alert({ stepName: null })?.sentence).toBe('Đỏ · còn 1 ngày');
+    expect(alert({ stepName: '  ' })?.sentence).toBe('Đỏ · còn 1 ngày');
+  });
+
+  it('a record that has not reached any threshold shows nothing, like a record with no alert (the approved wireframe)', () => {
+    expect(alert({ band: 'NONE', remainingDays: 40 })).toBeNull();
+    expect(alert({ source: 'RECORD_DEADLINE', band: 'NONE', remainingDays: 8, stepName: null })).toBeNull();
+    expect(alertBadge(null)).toBeNull();
+    expect(alertBadge(undefined)).toBeNull();
   });
 });

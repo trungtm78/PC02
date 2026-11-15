@@ -11,12 +11,13 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import { alertColumnSuite } from '@/features/processing-flow/alerts/__tests__/listPageSuite';
 import { IncidentListPageShell } from '../IncidentListPageShell';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), patch: vi.fn() } }));
 
-function renderAt(search: string) {
+function renderAt(search: string, flagOn: boolean) {
   const location = { current: '' };
   function LocationTracker() {
     const loc = useLocation();
@@ -26,6 +27,7 @@ function renderAt(search: string) {
     return null;
   }
   const view = render(
+    <FeatureFlagsProvider initialFlags={[{ key: 'processing_flow_records', label: 'records', description: null, enabled: flagOn, domain: null, rolloutPct: 100 }]}>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[`/incidents${search}`]}>
         <CompositeModalProvider>
@@ -37,7 +39,8 @@ function renderAt(search: string) {
           </DeleteResourceModalProvider>
         </CompositeModalProvider>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </FeatureFlagsProvider>,
   );
   return { getLocation: () => location.current, unmount: view.unmount };
 }

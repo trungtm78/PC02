@@ -5,12 +5,14 @@
  * The column exists only while the server answers alerts (the switch `processing_flow_records` is on: the answer then
  * carries `alertAsOf`, and every row an `alert`). While it is off the pages are exactly what they were.
  */
-import { createElement, useCallback, useRef, useState } from 'react';
-import type { ColumnDef } from '@/components/shared/ListPageShell';
+import { createElement, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import type { ColumnDef, ListSort } from '@/components/shared/ListPageShell';
 import type { FilterField } from '@/features/_shared/list-filters/registry';
+import { FeatureFlagsContext } from '@/lib/features/featureFlagsContextObject';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { bandLabel, type RecordAlertDto } from '../bandPresenter';
 import { BANDS } from '../record-tabs/codes';
+import { RECORDS_FEATURE_KEY } from '../record-tabs/tabAvailability';
 import { AlertCell } from './AlertCell';
 
 /** The key of the column in a saved layout, and of the value of `sortBy` that orders a list by its alert. */
@@ -74,8 +76,36 @@ export function alertBandFilterField<TValue extends { alertBand?: string }>(): F
   };
 }
 
+/**
+ * The filter value a page works with: while the list answers no alerts, a band left in the address (a link shared
+ * from a session where the switch was on) is NOT a filter. It is not sent, not counted, and an empty list is not
+ * blamed on it.
+ */
+export function effectiveFilters<TValue extends { alertBand?: string }>(applied: TValue, on: boolean): TValue {
+  if (on || !applied.alertBand) return applied;
+  const { alertBand: _dropped, ...rest } = applied;
+  void _dropped;
+  return rest as TValue;
+}
+
+/**
+ * The order a page works with: while the list answers no alerts, an alert order left in the address is NO order at
+ * all (the default order of the list). Sent as it stands, the server would not know the column and fall back to its
+ * default field ASCENDING: oldest first, which nobody asked for.
+ */
+export function effectiveSort(sort: ListSort, on: boolean): ListSort {
+  if (on || sort.sortBy !== ALERT_SORT_KEY) return sort;
+  return { ...sort, sortBy: undefined, sortOrder: 'desc', params: {} };
+}
+
 export interface ListAlerts {
-  /** The server answers alerts: draw the column and offer the filter. */
+  /**
+   * The list answers alerts: draw the column, offer the filter, honour the alert state of the address.
+   *
+   * Before the first answer this is what the feature flags of the app say of the switch (off when they do not know);
+   * after it, whether the answer carried `alertAsOf`. So the FIRST request of a page already carries a band or an
+   * alert order found in the address when the switch is known to be on, and never does while it is off.
+   */
   on: boolean;
   /** The filter fields to keep hidden right now (for `<Filters hiddenKeys>`). */
   hiddenFilterKeys: readonly string[];
@@ -87,29 +117,66 @@ export interface ListAlerts {
    * `listKey`: everything that makes it the same list (filters, search, order), without the page.
    */
   requestParams(listKey: string, page: number, byAlert: boolean): { alertAsOf?: string };
-  /** Tell the hook what a list request answered. */
-  onAnswer(listKey: string, page: number, answer: ListAnswerWithAlert): void;
+  /**
+   * Tell the hook what a list request answered. Answers `false` when the rows must NOT be drawn: the address holds
+   * alert state (`alertInAddress`) and the request was sent under the wrong guess of the switch, so it was filtered
+   * and ordered wrongly. `on` has just changed, the page asks again, and the table stays on its loading state
+   * meanwhile: no list in the wrong order is shown and then swapped.
+   */
+  onAnswer(listKey: string, page: number, answer: ListAnswerWithAlert, alertInAddress: boolean): boolean;
+  /**
+   * The instant the list `listKey` on screen was judged at, or `null` while it has not answered. The cards and the
+   * exports of a list filtered by band pass it, so they count and write the very rows the list shows.
+   */
+  clockOf(listKey: string): string | null;
 }
 
 const NO_KEYS: readonly string[] = [];
 const HIDDEN_WHILE_OFF: readonly string[] = [ALERT_BAND_FILTER_KEY];
 
+interface Clock {
+  listKey: string;
+  asOf: string;
+}
+
 export function useListAlerts(): ListAlerts {
-  const [on, setOn] = useState(false);
-  const clock = useRef<{ listKey: string; asOf: string } | null>(null);
+  const flags = useContext(FeatureFlagsContext);
+  const guessed = flags?.flags.get(RECORDS_FEATURE_KEY)?.enabled === true;
+  /** What the last answer said; `null` until a list answered. */
+  const [answered, setAnswered] = useState<boolean | null>(null);
+  const on = answered ?? guessed;
+
+  // The clock twice: the ref for the request that leaves in the same tick, the state for what is drawn from it.
+  const clock = useRef<Clock | null>(null);
+  const [held, setHeld] = useState<Clock | null>(null);
+  /** What `on` was when the last request left. */
+  const askedOn = useRef(on);
+  const onNow = useRef(on);
+  useEffect(() => {
+    onNow.current = on;
+  }, [on]);
 
   const requestParams = useCallback((listKey: string, page: number, byAlert: boolean) => {
-    const held = clock.current;
-    return byAlert && page > 1 && held && held.listKey === listKey ? { alertAsOf: held.asOf } : {};
+    askedOn.current = onNow.current;
+    const now = clock.current;
+    return byAlert && page > 1 && now && now.listKey === listKey ? { alertAsOf: now.asOf } : {};
   }, []);
 
-  const onAnswer = useCallback((listKey: string, page: number, answer: ListAnswerWithAlert) => {
+  const onAnswer = useCallback((listKey: string, page: number, answer: ListAnswerWithAlert, alertInAddress: boolean) => {
     const asOf = typeof answer.alertAsOf === 'string' ? answer.alertAsOf : null;
-    setOn(asOf !== null);
-    if (asOf === null) clock.current = null;
+    setAnswered(asOf !== null);
+    let next = clock.current;
+    if (asOf === null) next = null;
     // The first page sets the instant; a later page only does when none is held for this list (a link to page 3).
-    else if (page <= 1 || clock.current?.listKey !== listKey) clock.current = { listKey, asOf };
+    else if (page <= 1 || next?.listKey !== listKey) next = { listKey, asOf };
+    if (next !== clock.current) {
+      clock.current = next;
+      setHeld(next);
+    }
+    return !(alertInAddress && (asOf !== null) !== askedOn.current);
   }, []);
 
-  return { on, hiddenFilterKeys: on ? NO_KEYS : HIDDEN_WHILE_OFF, requestParams, onAnswer };
+  const clockOf = useCallback((listKey: string) => (held && held.listKey === listKey ? held.asOf : null), [held]);
+
+  return { on, hiddenFilterKeys: on ? NO_KEYS : HIDDEN_WHILE_OFF, requestParams, onAnswer, clockOf };
 }

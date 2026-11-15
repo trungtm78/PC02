@@ -84,6 +84,8 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import {
   ALERT_SORT_KEY,
+  effectiveFilters,
+  effectiveSort,
   exportableColumnKeys,
   useListAlerts,
   withAlertColumn,
@@ -304,7 +306,11 @@ function buildCasesCards(stats: CasesStatsResponse | null): StatCard[] {
 export function CaseListPageShell() {
   const navigate = useNavigate();
   const url = useListPageUrlState('cases');
-  const sort = useListSort('cases');
+  // The alert column of the processing flow. While the list answers no alerts, alert state left in the address (a
+  // band, an order by alert) is not honoured: `sort` and `appliedFilters` below are the EFFECTIVE ones.
+  const alerts = useListAlerts();
+  const sortInAddress = useListSort('cases');
+  const sort = effectiveSort(sortInAddress, alerts.on);
 
   // AUTO-FIX #5: validate URL status param immediately at trust boundary.
   const rawStatus = url.getParam('status');
@@ -388,7 +394,8 @@ export function CaseListPageShell() {
     prefix: 'cases',
     registry: casesListFilters,
   });
-  const appliedFilters = listFilters.applied;
+  const appliedFilters = useMemo(() => effectiveFilters(listFilters.applied, alerts.on), [listFilters.applied, alerts.on]);
+  const alertInAddress = Boolean(listFilters.applied.alertBand) || sortInAddress.sortBy === ALERT_SORT_KEY;
   const [governanceParams] = useSearchParams();
   const governanceQueryKey = JSON.stringify(governanceFilterParams(governanceParams));
 
@@ -434,11 +441,12 @@ export function CaseListPageShell() {
    */
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
-  // The alert column of the processing flow, only while the server answers alerts. `alertListKey` is what makes it
-  // the same list across pages: every page of a list filtered or ordered by alert is judged at ONE instant.
-  const alerts = useListAlerts();
+  // `alertListKey` is what makes it the same list across pages: every page of a list filtered or ordered by alert is
+  // judged at ONE instant, and so are the cards and the exports of a list filtered by band (`alertClock`).
   const byAlert = Boolean(appliedFilters.alertBand) || sort.sortBy === ALERT_SORT_KEY;
   const alertListKey = JSON.stringify([baseQueryKey, statusFilter, groupFilter, sort.sortBy, sort.sortOrder]);
+  const alertClock = appliedFilters.alertBand ? alerts.clockOf(alertListKey) : null;
+  const waitsForAlertClock = Boolean(appliedFilters.alertBand) && alertClock === null;
 
   const handleCardSelect = useCallback(
     (value: string | null) => {
@@ -484,7 +492,8 @@ export function CaseListPageShell() {
       })
       .then((listRes) => {
         if (ctrl.signal.aborted) return;
-        alerts.onAnswer(alertListKey, page, listRes.data);
+        // Asked under the wrong guess of the switch while the address holds alert state: not drawn, asked again.
+        if (!alerts.onAnswer(alertListKey, page, listRes.data, alertInAddress)) return;
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
@@ -525,8 +534,11 @@ export function CaseListPageShell() {
   // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh
   // sách. KHÔNG phụ thuộc groupFilter → bấm thẻ không refetch stats (tránh nháy skeleton).
   useEffect(() => {
+    // Filtered by alert band: the cards are counted at the instant the list was. Wait for the list to answer,
+    // then follow its clock (this effect runs again when the clock is known or changes).
+    if (waitsForAlertClock) return;
     const ctrl = new AbortController();
-    const statsParams = baseQueryParams;
+    const statsParams = { ...baseQueryParams, ...(alertClock && { alertAsOf: alertClock }) };
     api
       .get<CasesStatsResponse>('/cases/stats', {
         params: statsParams,
@@ -547,7 +559,7 @@ export function CaseListPageShell() {
     // `refetchCounter` cần có: xoá/đổi trạng thái hàng loạt mà chỉ refetch danh sách thì
     // thẻ giữ số cũ → lệch với danh sách.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseQueryKey, refetchCounter]);
+  }, [baseQueryKey, refetchCounter, alertClock, waitsForAlertClock]);
 
   const chipOptions = useMemo(
     () =>
@@ -1068,6 +1080,7 @@ export function CaseListPageShell() {
                   ...(statusFilter && { status: statusFilter }),
                   ...(groupFilter && { statusGroup: groupFilter }),
                   ...sort.params,
+                  ...(alertClock && { alertAsOf: alertClock }),
                 }}
                 // The export has no alert column: asking for it is a 400.
                 cot={exportableColumnKeys(visibleColumns.map((c) => c.key).filter((k) => k !== 'actions'))}
@@ -1084,6 +1097,7 @@ export function CaseListPageShell() {
                   ...(statusFilter && { status: statusFilter }),
                   ...(groupFilter && { statusGroup: groupFilter }),
                   ...sort.params,
+                  ...(alertClock && { alertAsOf: alertClock }),
                 }}
                 cot={[]}
                 boQuaCot

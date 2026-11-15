@@ -78,6 +78,8 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import {
   ALERT_SORT_KEY,
+  effectiveFilters,
+  effectiveSort,
   exportableColumnKeys,
   useListAlerts,
   withAlertColumn,
@@ -308,7 +310,11 @@ export function IncidentListPageShell({
 }: { view?: 'management' | 'intake' } = {}) {
   const navigate = useNavigate();
   const url = useListPageUrlState('incidents');
-  const sort = useListSort('incidents');
+  // The alert column of the processing flow. While the list answers no alerts, alert state left in the address (a
+  // band, an order by alert) is not honoured: `sort` and `appliedFilters` below are the EFFECTIVE ones.
+  const alerts = useListAlerts();
+  const sortInAddress = useListSort('incidents');
+  const sort = effectiveSort(sortInAddress, alerts.on);
 
   const rawStatus = url.getParam('status');
   const statusFilter = isValidIncidentStatus(rawStatus) ? rawStatus : null;
@@ -437,7 +443,8 @@ export function IncidentListPageShell({
     prefix: 'incidents',
     registry: incidentsListFilters,
   });
-  const appliedFilters = listFilters.applied;
+  const appliedFilters = useMemo(() => effectiveFilters(listFilters.applied, alerts.on), [listFilters.applied, alerts.on]);
+  const alertInAddress = Boolean(listFilters.applied.alertBand) || sortInAddress.sortBy === ALERT_SORT_KEY;
 
   /**
    * Param dùng CHUNG cho cả request danh sách lẫn thống kê — một nguồn duy nhất thì số
@@ -496,11 +503,12 @@ export function IncidentListPageShell({
   );
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
-  // The alert column of the processing flow, only while the server answers alerts. `alertListKey` is what makes it
-  // the same list across pages: every page of a list filtered or ordered by alert is judged at ONE instant.
-  const alerts = useListAlerts();
+  // `alertListKey` is what makes it the same list across pages: every page of a list filtered or ordered by alert is
+  // judged at ONE instant, and so are the cards and the exports of a list filtered by band (`alertClock`).
   const byAlert = Boolean(appliedFilters.alertBand) || sort.sortBy === ALERT_SORT_KEY;
   const alertListKey = JSON.stringify([baseQueryKey, statusFilter, phaseFilter, sort.sortBy, sort.sortOrder]);
+  const alertClock = appliedFilters.alertBand ? alerts.clockOf(alertListKey) : null;
+  const waitsForAlertClock = Boolean(appliedFilters.alertBand) && alertClock === null;
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -526,7 +534,8 @@ export function IncidentListPageShell({
       })
       .then((listRes) => {
         if (ctrl.signal.aborted) return;
-        alerts.onAnswer(alertListKey, page, listRes.data);
+        // Asked under the wrong guess of the switch while the address holds alert state: not drawn, asked again.
+        if (!alerts.onAnswer(alertListKey, page, listRes.data, alertInAddress)) return;
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
@@ -565,12 +574,15 @@ export function IncidentListPageShell({
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
+    // Filtered by alert band: the cards are counted at the instant the list was. Wait for the list to answer,
+    // then follow its clock (this effect runs again when the clock is known or changes).
+    if (waitsForAlertClock) return;
     const ctrl = new AbortController();
     setStats(null);
     // KHÔNG gửi `phase`: thẻ phải đếm toàn bộ, nếu lọc theo giai đoạn đang chọn thì 3 thẻ
     // kia về 0 và hết chỗ bấm sang. Backend cũng đã chặn `phase` ở DTO stats.
     // Nhưng PHẢI gửi các bộ lọc còn lại, nếu không số trên thẻ lệch khỏi danh sách.
-    const statsParams = baseQueryParams;
+    const statsParams = { ...baseQueryParams, ...(alertClock && { alertAsOf: alertClock }) };
     api
       .get<IncidentsStatsResponse>('/incidents/stats', {
         params: statsParams,
@@ -590,7 +602,7 @@ export function IncidentListPageShell({
     // Khoá theo GIÁ TRỊ (`baseQueryKey`) vì `appliedFilters` đổi identity mỗi lần URL đổi.
     // `refetchCounter`: xoá/đổi trạng thái hàng loạt cũng phải cập nhật lại số trên thẻ.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseQueryKey, refetchCounter]);
+  }, [baseQueryKey, refetchCounter, alertClock, waitsForAlertClock]);
 
   const chipOptions = useMemo(
     () =>
@@ -1162,6 +1174,7 @@ export function IncidentListPageShell({
                   ...(statusFilter && { status: statusFilter }),
                   ...(phaseFilter && { phase: phaseFilter }),
                   ...sort.params,
+                  ...(alertClock && { alertAsOf: alertClock }),
                 }}
                 // The export has no alert column: asking for it is a 400.
                 cot={exportableColumnKeys(visibleColumns.map((c) => c.key).filter((k) => k !== 'actions'))}
@@ -1179,6 +1192,7 @@ export function IncidentListPageShell({
                     ...(statusFilter && { status: statusFilter }),
                     ...(phaseFilter && { phase: phaseFilter }),
                     ...sort.params,
+                    ...(alertClock && { alertAsOf: alertClock }),
                   }}
                   cot={[]}
                   boQuaCot

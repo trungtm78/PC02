@@ -64,7 +64,13 @@ export interface AlertBadge {
   sentence: string;
 }
 
-export function alertBadge(alert: RecordAlertDto): AlertBadge {
+/**
+ * What the alert column of a list shows for a record, or `null` when it shows nothing: the record has no alert, or it
+ * has not reached any threshold yet (band `NONE`). The column is for what needs attention; a record that is not near
+ * its deadline leaves the cell empty, as the approved wireframe has it.
+ */
+export function alertBadge(alert: RecordAlertDto | null | undefined): AlertBadge | null {
+  if (!alert || alert.band === 'NONE') return null;
   const text = bandText(alert.band, alert.remainingDays);
   const step = alert.stepName?.trim() ? alert.stepName.trim() : null;
   return { tone: bandTone(alert.band), text, step, sentence: step ? `${text} · ${step}` : text };

@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import type { ReactNode } from 'react';
 import { act, render, renderHook, screen } from '@testing-library/react';
 import raw from '@/shared/processing/processing-codes.generated.json';
-import { apDungBoCuc, type BoCucCot, type ColumnDef } from '@/components/shared/ListPageShell';
+import { apDungBoCuc, type BoCucCot, type ColumnDef, type ListSort } from '@/components/shared/ListPageShell';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
 import { casesListFilters } from '@/features/cases/list-filters';
 import { incidentsListFilters } from '@/features/incidents/list-filters';
 import { petitionsListFilters } from '@/features/petitions/list-filters';
@@ -12,6 +15,8 @@ import {
   ALERT_COLUMN_KEY,
   alertBandFilterField,
   alertColumn,
+  effectiveFilters,
+  effectiveSort,
   exportableColumnKeys,
   useListAlerts,
   withAlertColumn,
@@ -32,6 +37,14 @@ describe('the alert cell', () => {
     render(<AlertCell alert={null} />);
     const cell = screen.getByTestId('alert-cell');
     expect(cell).toHaveTextContent(L.listAlert.none);
+    expect(cell).not.toHaveAttribute('data-band');
+    expect(cell.querySelector('.rounded-full')).toBeNull();
+  });
+
+  it('a record that has not reached any threshold shows the same dash, not a grey chip', () => {
+    render(<AlertCell alert={{ source: 'FLOW', band: 'NONE', remainingDays: 40, stepName: 'Xác minh', dueAt: '2027-01-20T16:59:59.999Z' }} />);
+    const cell = screen.getByTestId('alert-cell');
+    expect(cell.textContent).toBe(L.listAlert.none);
     expect(cell).not.toHaveAttribute('data-band');
     expect(cell.querySelector('.rounded-full')).toBeNull();
   });
@@ -117,37 +130,110 @@ describe('the filter by band', () => {
   });
 });
 
+describe('alert state of the address while the list answers no alerts', () => {
+  const sort = (sortBy: string | undefined, sortOrder: 'asc' | 'desc' = 'asc'): ListSort => ({ sortBy, sortOrder, onSort: () => undefined, params: sortBy ? { sortBy, sortOrder } : {} });
+
+  it('a band is no filter while off: dropped from the value, and the other fields are kept as they are', () => {
+    const applied = { fromDate: '2026-12-01', alertBand: 'RED' };
+    expect(effectiveFilters(applied, false)).toEqual({ fromDate: '2026-12-01' });
+    expect(Object.values(effectiveFilters(applied, false)).filter(Boolean)).toHaveLength(1);
+    expect(effectiveFilters(applied, true)).toBe(applied);
+    const none: { fromDate: string; alertBand?: string } = { fromDate: '2026-12-01' };
+    expect(effectiveFilters(none, false)).toBe(none);
+  });
+
+  it('an order by alert is no order while off: nothing is sent, so the server uses its default order', () => {
+    expect(effectiveSort(sort('alert'), false)).toMatchObject({ sortBy: undefined, sortOrder: 'desc', params: {} });
+    const byAlert = sort('alert');
+    expect(effectiveSort(byAlert, true)).toBe(byAlert);
+    const byDate = sort('createdAt');
+    expect(effectiveSort(byDate, false)).toBe(byDate);
+  });
+});
+
 describe('the clock of a list with alerts', () => {
-  it('is off until an answer carries `alertAsOf`, and off again when one does not', () => {
-    const { result } = renderHook(() => useListAlerts());
+  const flag = (enabled: boolean): FeatureFlag => ({ key: 'processing_flow_records', label: 'records', description: null, enabled, domain: null, rolloutPct: 100 });
+  const withFlag = (enabled: boolean) =>
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <FeatureFlagsProvider initialFlags={[flag(enabled)]}>{children}</FeatureFlagsProvider>;
+    };
+
+  it('before any answer it is what the feature flags say of the switch, and off when nothing says', () => {
+    expect(renderHook(() => useListAlerts()).result.current.on).toBe(false);
+    expect(renderHook(() => useListAlerts(), { wrapper: withFlag(false) }).result.current.on).toBe(false);
+    const known = renderHook(() => useListAlerts(), { wrapper: withFlag(true) });
+    expect(known.result.current.on).toBe(true);
+    expect(known.result.current.hiddenFilterKeys).toEqual([]);
+  });
+
+  it('after an answer it is what the answer said, whatever the flags say', () => {
+    const { result } = renderHook(() => useListAlerts(), { wrapper: withFlag(true) });
+    act(() => void result.current.onAnswer('a', 1, {}, false));
     expect(result.current.on).toBe(false);
     expect(result.current.hiddenFilterKeys).toEqual([ALERT_BAND_FILTER_KEY]);
-    act(() => result.current.onAnswer('a', 1, { alertAsOf: 't1' }));
+    act(() => void result.current.onAnswer('a', 1, { alertAsOf: 't1' }, false));
     expect(result.current.on).toBe(true);
-    expect(result.current.hiddenFilterKeys).toEqual([]);
-    act(() => result.current.onAnswer('a', 1, {}));
-    expect(result.current.on).toBe(false);
+    act(() => void result.current.onAnswer('a', 1, {}, false));
     expect(result.current.requestParams('a', 2, true)).toEqual({});
+    expect(result.current.clockOf('a')).toBeNull();
+  });
+
+  it('an answer asked under the wrong guess is not to be drawn when the address holds alert state, and is otherwise', () => {
+    // Guessed off, the server answers alerts.
+    const off = renderHook(() => useListAlerts());
+    off.result.current.requestParams('a', 1, false);
+    let usable = true;
+    act(() => void (usable = off.result.current.onAnswer('a', 1, { alertAsOf: 't1' }, true)));
+    expect(usable).toBe(false);
+    // Asked again, now under the right guess: drawn.
+    off.result.current.requestParams('b', 1, true);
+    act(() => void (usable = off.result.current.onAnswer('b', 1, { alertAsOf: 't2' }, true)));
+    expect(usable).toBe(true);
+
+    // Guessed on (a stale flag), the server answers none.
+    const stale = renderHook(() => useListAlerts(), { wrapper: withFlag(true) });
+    stale.result.current.requestParams('a', 1, true);
+    act(() => void (usable = stale.result.current.onAnswer('a', 1, {}, true)));
+    expect(usable).toBe(false);
+
+    // The same surprise with nothing about alerts in the address: the rows are right, only the column appears.
+    const plain = renderHook(() => useListAlerts());
+    plain.result.current.requestParams('a', 1, false);
+    act(() => void (usable = plain.result.current.onAnswer('a', 1, { alertAsOf: 't1' }, false)));
+    expect(usable).toBe(true);
   });
 
   it('passes the first page instant to later pages of the SAME list, only when the list is by alert', () => {
     const { result } = renderHook(() => useListAlerts());
     expect(result.current.requestParams('a', 1, true)).toEqual({});
-    act(() => result.current.onAnswer('a', 1, { alertAsOf: 't1' }));
+    act(() => void result.current.onAnswer('a', 1, { alertAsOf: 't1' }, false));
     expect(result.current.requestParams('a', 1, true)).toEqual({});
     expect(result.current.requestParams('a', 2, true)).toEqual({ alertAsOf: 't1' });
     expect(result.current.requestParams('a', 2, false)).toEqual({});
     expect(result.current.requestParams('b', 2, true)).toEqual({});
     // Page 2 answering does not move the instant; page 1 asked again does.
-    act(() => result.current.onAnswer('a', 2, { alertAsOf: 't1' }));
+    act(() => void result.current.onAnswer('a', 2, { alertAsOf: 't1' }, false));
     expect(result.current.requestParams('a', 3, true)).toEqual({ alertAsOf: 't1' });
-    act(() => result.current.onAnswer('a', 1, { alertAsOf: 't2' }));
+    act(() => void result.current.onAnswer('a', 1, { alertAsOf: 't2' }, false));
     expect(result.current.requestParams('a', 2, true)).toEqual({ alertAsOf: 't2' });
   });
 
   it('a list opened on a later page (a shared link) keeps the instant that page answered', () => {
     const { result } = renderHook(() => useListAlerts());
-    act(() => result.current.onAnswer('a', 3, { alertAsOf: 't3' }));
+    act(() => void result.current.onAnswer('a', 3, { alertAsOf: 't3' }, false));
     expect(result.current.requestParams('a', 4, true)).toEqual({ alertAsOf: 't3' });
+  });
+
+  it('tells the instant of the list on screen, for its cards and exports: none until it answered, none for another list', () => {
+    const { result } = renderHook(() => useListAlerts());
+    expect(result.current.clockOf('a')).toBeNull();
+    act(() => void result.current.onAnswer('a', 1, { alertAsOf: 't1' }, false));
+    expect(result.current.clockOf('a')).toBe('t1');
+    expect(result.current.clockOf('b')).toBeNull();
+    act(() => void result.current.onAnswer('a', 1, { alertAsOf: 't2' }, false));
+    expect(result.current.clockOf('a')).toBe('t2');
+    act(() => void result.current.onAnswer('b', 1, { alertAsOf: 't3' }, false));
+    expect(result.current.clockOf('a')).toBeNull();
+    expect(result.current.clockOf('b')).toBe('t3');
   });
 });
