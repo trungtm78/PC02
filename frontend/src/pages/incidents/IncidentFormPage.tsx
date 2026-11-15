@@ -63,6 +63,8 @@ import { buildIncidentPayload } from "./buildIncidentPayload";
 import { mergeIncidentApiToFormData } from "./mergeIncidentApiToFormData";
 import { computeIncidentErrors } from "./validate-incident";
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
+import { RecordTabBody, RecordTabButtons } from "@/features/processing-flow/record-tabs/RecordTabs";
+import { useRecordTabsAvailable, type RecordTabId } from "@/features/processing-flow/record-tabs/tabAvailability";
 import {
   LEGACY_TAB_LABEL,
   type LegacyTabId,
@@ -179,6 +181,8 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   const [recordCode, setRecordCode] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
+  // Hai tab "Phân công xử lý" / "Kết quả xử lý" nằm NGOÀI bộ 10 tab của hệ cũ: trạng thái riêng, không đụng tabDangMo.
+  const [tabQuyTrinh, setTabQuyTrinh] = useState<RecordTabId | null>(null);
 
   /**
    * Thay ô chữ trần bằng ô riêng cho hai chỗ hệ mới mạnh hơn hẳn.
@@ -360,6 +364,8 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const effectiveId = id ?? createdId;
+  const coTabQuyTrinh = useRecordTabsAvailable(effectiveId);
+  const tabQuyTrinhDangMo = coTabQuyTrinh ? tabQuyTrinh : null;
   const createRequestKeyRef = useRef(randomUUID());
   const duplicateReviewRef = useRef<RecordDuplicateReviewHandle>(null);
   const documentStageRef = useRef<PetitionStageHandle>(null);
@@ -962,10 +968,13 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
             <button
               key={t}
               type="button"
-              onClick={() => setTabDangMo(t)}
+              onClick={() => {
+                setTabDangMo(t);
+                setTabQuyTrinh(null);
+              }}
               data-testid={`tab-nut-${t}`}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                tabDangMo === t
+                tabQuyTrinhDangMo === null && tabDangMo === t
                   ? "border-blue-600 text-blue-700"
                   : "border-transparent text-slate-600 hover:text-slate-900"
               }`}
@@ -973,9 +982,12 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
               {LEGACY_TAB_LABEL[t]}
             </button>
           ))}
+          {coTabQuyTrinh && <RecordTabButtons active={tabQuyTrinhDangMo} onSelect={setTabQuyTrinh} />}
         </div>
 
-        {tabDangMo !== "info" && (
+        {coTabQuyTrinh && effectiveId && <RecordTabBody kind="INCIDENT" recordId={effectiveId} active={tabQuyTrinhDangMo} />}
+
+        {tabQuyTrinhDangMo === null && tabDangMo !== "info" && (
           <LegacyTabBody
             spec={INCIDENT_LEGACY_SPEC}
             tabId={tabDangMo}
@@ -991,7 +1003,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
 
         {/* Tab Thông tin luôn ở trong cây — ẩn bằng CSS chứ không tháo, để trạng thái ô nhập
             và ô tải tệp không bị dựng lại mỗi lần đổi tab. */}
-        <div className={tabDangMo === "info" ? "space-y-6" : "hidden"}>
+        <div className={tabQuyTrinhDangMo === null && tabDangMo === "info" ? "space-y-6" : "hidden"}>
           <LegacyTabBody
             spec={INCIDENT_LEGACY_SPEC}
             tabId="info"
