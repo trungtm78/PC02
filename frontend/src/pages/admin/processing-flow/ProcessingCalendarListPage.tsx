@@ -13,7 +13,8 @@ import { formatVNDate } from '@/lib/dates';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { processingCalendarApi } from '@/features/processing-flow/api';
 import { FeatureOffState } from '@/features/processing-flow/components/FeatureOffState';
-import { explainError, isFeatureOff } from '@/features/processing-flow/errors';
+import { explainError, isFeatureOff, isForbidden } from '@/features/processing-flow/errors';
+import { ForbiddenState } from '@/features/processing-flow/components/ForbiddenState';
 import { CALENDAR_PATH } from '@/features/processing-flow/menu';
 import { PROCESSING_QUERY_KEYS } from '@/features/processing-flow/queryKeys';
 import type { CalendarYearSummaryDto } from '@/features/processing-flow/types';
@@ -107,6 +108,7 @@ export default function ProcessingCalendarListPage() {
   const { coGhiDeBeRong, visibleColumns, toggleableColumns, isVisible, batTat, datBeRong, xoaBeRong, doiCho, datLai } = useBoCucCot('processing-calendar-years', columns);
 
   if (listQ.isError && isFeatureOff(listQ.error)) return <FeatureOffState />;
+  if (listQ.isError && isForbidden(listQ.error)) return <ForbiddenState />;
   const loadError = listQ.isError ? explainError(listQ.error).message : null;
   const yearOk = /^\d{4}$/.test(newYear);
 

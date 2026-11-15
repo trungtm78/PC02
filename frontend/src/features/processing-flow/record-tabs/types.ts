@@ -83,6 +83,21 @@ export interface RecordStepDto {
   parties: RecordStepPartyDto[];
   latestReport: { kind: string; summary: string; at: string; revision: number } | null;
   latestOpinion: { kind: string; verdict: string; at: string } | null;
+  /**
+   * What the person looking may do on the step BY THEIR ROLE on it (the rules the write routes refuse with). A form is
+   * offered only when the permission AND this allow it. Absent in an answer of an older server: permissions alone decide.
+   */
+  viewer?: StepViewerDto;
+}
+
+export interface StepViewerDto {
+  canReport: boolean;
+  opinionKinds: SpeakingKind[];
+  canApprove: boolean;
+  /** The parties of the step whose (active) unit the person belongs to: where they may take the work themself. */
+  memberOfPartyIds: string[];
+  /** The parties of the step whose (active) unit the person heads: there they may name anybody of the unit. */
+  leaderOfPartyIds: string[];
 }
 
 export interface RecordFlowDto {

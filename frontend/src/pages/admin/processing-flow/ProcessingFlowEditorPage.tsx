@@ -20,7 +20,8 @@ import { FlowMetaPanel } from '@/features/processing-flow/components/FlowMetaPan
 import { SchedulePreviewSection } from '@/features/processing-flow/components/SchedulePreviewSection';
 import { StepsTable } from '@/features/processing-flow/components/StepsTable';
 import { VersionHistoryPanel } from '@/features/processing-flow/components/VersionHistoryPanel';
-import { boundConflictsOf, explainError, inactiveTeamsOf, isFeatureOff, issuesOf } from '@/features/processing-flow/errors';
+import { boundConflictsOf, explainError, inactiveTeamsOf, isFeatureOff, isForbidden, issuesOf } from '@/features/processing-flow/errors';
+import { ForbiddenState } from '@/features/processing-flow/components/ForbiddenState';
 import { boundConflictLines, inactiveTeamLine, issueLine } from '@/features/processing-flow/issueText';
 import { PROCESSING_QUERY_KEYS } from '@/features/processing-flow/queryKeys';
 import { draftFromDto, isDirty, newStepFrom, toStepPayloads, unverifiedCount, type StepDraft } from '@/features/processing-flow/steps';
@@ -53,6 +54,7 @@ export default function ProcessingFlowEditorPage() {
   // A failed REFRESH (the flow was read before) must not take the form away: it holds what the person typed.
   if (flowQ.isError && !flowQ.data) {
     if (isFeatureOff(flowQ.error)) return <FeatureOffState />;
+    if (isForbidden(flowQ.error)) return <ForbiddenState />;
     return (
       <div data-testid="editor-load-error" role="alert" className="m-4 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
         <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" aria-hidden="true" />

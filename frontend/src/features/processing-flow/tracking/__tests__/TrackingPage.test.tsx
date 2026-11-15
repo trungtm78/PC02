@@ -8,10 +8,7 @@ import type { TrackingItemDto, TrackingItemsDto, TrackingSummaryDto } from '../t
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
 
-vi.mock('../api', () => ({ trackingApi: { summary: vi.fn(), items: vi.fn() } }));
-vi.mock('../../useTeamChoices', () => ({
-  useTeamChoices: () => ({ data: [{ id: 't1', name: 'Tổ 1' }, { id: 't3', name: 'Tổ 3' }] }),
-}));
+vi.mock('../api', () => ({ trackingApi: { summary: vi.fn(), items: vi.fn(), teams: vi.fn() } }));
 
 const api = vi.mocked(trackingApi);
 const T = L.tracking;
@@ -82,6 +79,10 @@ const lastItemsCall = () => api.items.mock.calls[api.items.mock.calls.length - 1
 beforeEach(() => {
   vi.resetAllMocks();
   api.summary.mockResolvedValue(summary());
+  api.teams.mockResolvedValue([
+    { id: 't1', name: 'Tổ 1', parentTeamId: null },
+    { id: 't3', name: 'Tổ 3', parentTeamId: null },
+  ]);
   api.items.mockResolvedValue(items([item(), item({ recordId: 'pet-2', recordCode: '2026-11902', band: 'OVERDUE', remainingDays: -2, stepName: 'Trả lời đơn' })], { total: 10 }));
 });
 
@@ -448,5 +449,21 @@ describe('a page that no longer exists', () => {
     renderPage('/theo-doi-xu-ly?tracking_page=2');
     expect(await screen.findByText(T.empty)).toBeInTheDocument();
     expect(where()).toBe('/theo-doi-xu-ly?tracking_page=2');
+  });
+});
+
+describe('the unit filter', () => {
+  it('offers the units of the tracking route itself, so a person who may not read the list of units still filters', async () => {
+    renderPage();
+    const select = screen.getByTestId('tracking-filter-team');
+    await waitFor(() => expect(within(select).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['', 't1', 't3']));
+    expect(api.teams).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed read of the units leaves the filter with "Tất cả" and the screen working', async () => {
+    api.teams.mockRejectedValue(new Error('down'));
+    renderPage();
+    await waitFor(() => expect(card('OVERDUE')).toBeInTheDocument());
+    expect(within(screen.getByTestId('tracking-filter-team')).getAllByRole('option')).toHaveLength(1);
   });
 });

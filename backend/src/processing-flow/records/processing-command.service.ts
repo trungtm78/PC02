@@ -77,11 +77,11 @@ export class ProcessingCommandService {
 
   // ---- reading
 
-  /** The flow of a record as the tab shows it. */
-  async get(kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
+  /** The flow of a record as the tab shows it; with `viewerId`, each step says what that person may do on it by their role. */
+  async get(kind: RecordKind, recordId: string, viewerId?: string): Promise<RecordFlowDto> {
     const row = await this.prisma.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
     if (!row) throw refuse.notFound(PROCESSING_ERROR.RECORD_FLOW_NOT_FOUND);
-    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row, this.now()));
+    return toRecordFlowDto(row, this.now(), await this.clockOf(this.prisma, kind, recordId), await loadFlowPeople(this.prisma, row, this.now(), viewerId));
   }
 
   // ---- the flow of the record
@@ -90,7 +90,7 @@ export class ProcessingCommandService {
   async apply(actorId: string, kind: RecordKind, recordId: string, input: { flowId?: string; idempotencyKey?: string }): Promise<{ outcome: ApplyOutcome; flow: RecordFlowDto | null }> {
     return this.keyed(kind, recordId, actorId, 'APPLY', input.idempotencyKey, async (tx) => {
       const outcome = await this.applier.applyIn(tx, { kind, recordId, reason: 'REAPPLY', actorId, flowId: input.flowId });
-      const flow = await this.read(tx, kind, recordId);
+      const flow = await this.read(tx, kind, recordId, actorId);
       return { outcome, flow };
     });
   }
@@ -147,7 +147,7 @@ export class ProcessingCommandService {
           actorId,
         },
       });
-      return { outcome, flow: await this.read(tx, kind, recordId) };
+      return { outcome, flow: await this.read(tx, kind, recordId, actorId) };
     });
   }
 
@@ -270,7 +270,8 @@ export class ProcessingCommandService {
         },
         tx,
       );
-      return this.read(tx, kind, recordId);
+      // The answer is the actor's: it says what THEY may do next on each step.
+      return this.read(tx, kind, recordId, actorId);
     });
   }
 
@@ -341,9 +342,9 @@ export class ProcessingCommandService {
     return { suspended: snapshot !== null && snapshot.isSuspended && !snapshot.isFinished, finished: snapshot !== null && snapshot.isFinished };
   }
 
-  async read(tx: Tx, kind: RecordKind, recordId: string): Promise<RecordFlowDto> {
+  async read(tx: Tx, kind: RecordKind, recordId: string, viewerId?: string): Promise<RecordFlowDto> {
     const row = await tx.procRecordFlow.findUnique({ where: { recordKind_recordId: { recordKind: kind, recordId } }, include: RECORD_FLOW_INCLUDE });
-    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row, this.now())) : (null as unknown as RecordFlowDto);
+    return row ? toRecordFlowDto(row, this.now(), await this.clockOf(tx, kind, recordId), await loadFlowPeople(tx, row, this.now(), viewerId)) : (null as unknown as RecordFlowDto);
   }
 
   transition(step: StepRow, event: StepEvent, context: { anchorAvailable?: boolean } = {}) {

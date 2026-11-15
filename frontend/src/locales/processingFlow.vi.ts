@@ -12,6 +12,8 @@ export const processingFlow = {
     loading: 'Đang tải…',
     retry: 'Thử lại',
     reload: 'Tải lại',
+    forbiddenTitle: 'Bạn chưa có quyền xem màn này',
+    forbidden: 'Tài khoản của bạn chưa được cấp quyền xem màn này. Liên hệ quản trị viên để được cấp quyền.',
     cancel: 'Thôi',
     close: 'Đóng',
     save: 'Lưu',
@@ -292,6 +294,9 @@ export const processingFlow = {
   conflict: {
     title: 'Người khác vừa sửa mục này.',
     body: 'Phần bạn đang sửa vẫn hiện bên dưới để bạn đối chiếu, nhưng chưa lưu được. Bấm "Tải lại bản mới nhất" để lấy bản của người kia (phần bạn sửa sẽ mất) rồi sửa lại.',
+    /** The record tabs KEEP what the person typed when the newer data is taken (the settings screens above do not). */
+    bodyKeepsText:
+      'Phần bạn vừa nhập chưa gửi được. Bấm "Tải lại bản mới nhất" để lấy dữ liệu mới của người kia; phần bạn đã nhập vẫn được giữ lại để bạn xem lại và gửi lần nữa.',
     reload: 'Tải lại bản mới nhất',
     reloading: 'Đang tải bản mới nhất…',
     refreshFailed: 'Chưa tải được bản mới nhất. Bấm để thử lại.',

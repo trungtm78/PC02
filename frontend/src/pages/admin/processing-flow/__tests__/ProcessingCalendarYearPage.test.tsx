@@ -262,3 +262,24 @@ describe('errors and the switch', () => {
     expect(screen.queryByTestId('calendar-save')).toBeNull();
   });
 });
+
+describe('how a day is shown', () => {
+  it('shows the special days as dd/mm/yyyy, the same civil day, never the ISO form', async () => {
+    api.get.mockResolvedValue({ year: 2026, stored: yearDto({ days: [{ date: '2026-01-01', kind: 'OFF', label: 'Tết Dương lịch' }, { date: '2026-12-31', kind: 'WORKING', label: null }] }) });
+    renderPage();
+    const first = await screen.findByTestId('day-row-2026-01-01');
+    expect(first).toHaveTextContent('01/01/2026');
+    expect(first).not.toHaveTextContent('2026-01-01');
+    expect(screen.getByTestId('day-row-2026-12-31')).toHaveTextContent('31/12/2026');
+  });
+});
+
+describe('a person without read:ProcessingCalendar', () => {
+  it('sees the plain "no permission" state, not an error with a retry', async () => {
+    api.get.mockRejectedValue(Object.assign(new Error('403'), { isAxiosError: true, response: { status: 403, data: { success: false, error: { message: 'Insufficient permissions' } } } }));
+    renderPage();
+    expect(await screen.findByTestId('processing-flow-forbidden')).toBeInTheDocument();
+    expect(screen.queryByTestId('calendar-load-error')).toBeNull();
+    expect(document.body).not.toHaveTextContent(/Insufficient permissions/i);
+  });
+});

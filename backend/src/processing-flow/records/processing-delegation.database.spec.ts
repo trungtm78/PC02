@@ -466,6 +466,29 @@ run('Delegation of processing work, on PostgreSQL', () => {
     });
   });
 
+  describe('what the screen is told the delegate may do (viewer)', () => {
+    it('offers the report form through the delegation, the head’s opinion only to the delegate of the head, and never taking or naming: those stay the person’s own', async () => {
+      const { recordId, get } = await record();
+      const viewerOf = async (who: string) => (await commands.get('PETITION', recordId, user[who])).steps[0].viewer;
+      const main = (await get()).steps[0].parties[0].id;
+      expect(await viewerOf('standin')).toEqual({ canReport: false, opinionKinds: [], canApprove: true, memberOfPartyIds: [], leaderOfPartyIds: [] });
+      expect(await viewerOf('worker')).toEqual({ canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: [main], leaderOfPartyIds: [] });
+
+      await delegate(); // worker -> standin
+      await delegations.create(user.head, { toUserId: user.worker, validFrom: '2026-12-09', validTo: '2026-12-09' });
+      // The stand-in is offered the worker's report form; the party is still not theirs to take.
+      expect(await viewerOf('standin')).toEqual({ canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: [], leaderOfPartyIds: [] });
+      // The worker speaks as the head they act for, and still does not name people of the unit.
+      expect(await viewerOf('worker')).toEqual({ canReport: true, opinionKinds: ['SUPERVISOR'], canApprove: true, memberOfPartyIds: [main], leaderOfPartyIds: [] });
+      // The answer of a write is the actor's: the delegate keeps the form after reporting.
+      const after = await results.submitReport(user.standin, 'PETITION', recordId, (await get()).steps[0].stepKey, { expectedRevision: (await get()).revision, kind: 'PROGRESS', doneWork: 'For the worker' });
+      expect(after.steps[0].viewer).toMatchObject({ canReport: true, memberOfPartyIds: [] });
+
+      clock = new Date('2026-12-10T17:00:00.000Z');
+      expect(await viewerOf('standin')).toEqual({ canReport: false, opinionKinds: [], canApprove: true, memberOfPartyIds: [], leaderOfPartyIds: [] });
+    });
+  });
+
   describe('the tracking list', () => {
     it('names the person who acts for the responsible one, and nobody once the delegation gives nothing', async () => {
       const { recordId } = await record();

@@ -69,7 +69,7 @@ export class ProcessingRecordsController {
   @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
   async get(@Param('kind') kind: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     // The only route that may open a record by a step alone: it reads. Every write below keeps the record's own scope.
-    return this.commands.get(await this.readable(kind, id, user, true), id);
+    return this.commands.get(await this.readable(kind, id, user, true), id, user.id);
   }
 
   @Post(':kind/:id/apply')

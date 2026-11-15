@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssignmentTab } from '../AssignmentTab';
+import type { StepViewerDto } from '../types';
+import { RecordNotices } from '../RecordNotices';
 import { processingRecordApi } from '../api';
 import { processingFlow as L, errorText } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
@@ -24,10 +26,6 @@ vi.mock('../api', () => ({
     candidates: vi.fn(),
   },
 }));
-const officers = vi.hoisted(() => ({ value: [] as Array<{ value: string; label: string; teams: Array<{ teamId: string; teamName: string; isLeader: boolean; laDiaBan: boolean }> }> }));
-vi.mock('@/hooks/useOfficerOptions', () => ({
-  useOfficerOptions: () => ({ data: officers.value }),
-}));
 const me = vi.hoisted(() => ({ value: null as string | null }));
 vi.mock('../useCurrentUserId', () => ({ useCurrentUserId: () => me.value }));
 const held = vi.hoisted(() => ({ value: null as string[] | null }));
@@ -48,7 +46,6 @@ function renderTab() {
 beforeEach(() => {
   vi.resetAllMocks();
   held.value = ALL_STEP_PERMISSIONS;
-  officers.value = [{ value: 'u7', label: 'Trần B', teams: [] }];
   me.value = null;
 });
 
@@ -138,7 +135,7 @@ describe('the rows', () => {
         dueAt: '2026-12-16T00:00:00.000Z',
         extensionsUsed: 1,
         parties: [
-          party({ id: 'pa-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: 'u7' }),
+          party({ id: 'pa-1', partyKind: 'TEAM', teamId: 't3', teamName: 'Tổ 3', role: 'MAIN', assigneeUserId: 'u7', assigneeName: 'Trần B' }),
           party({ id: 'pa-2', partyKind: 'TEAM', teamId: 't5', teamName: 'Tổ 5', role: 'COORDINATE', assigneeUserId: null }),
         ],
         latestReport: { kind: 'PROGRESS', summary: 'Đã lấy lời khai hai người làm chứng', at: '2026-12-05T01:00:00.000Z', revision: 1 },
@@ -409,11 +406,16 @@ describe('loading and failing', () => {
 describe('the person who answers for a party', () => {
   const heads = [{ userId: 'u1', name: 'Lê A' }];
   const oneParty = (over: Parameters<typeof party>[0] = {}, step: Parameters<typeof recStep>[0] = {}) =>
-    recFlow({}, [recStep({ stepKey: 'b', parties: [party({ id: 'pm', responsible: heads, ...over })], ...step })]);
+    recFlow({}, [recStep({ stepKey: 'b', parties: [party({ id: 'pm', responsible: heads, ...over })], ...(viewer ? { viewer } : {}), ...step })]);
+  /** What the server says of the person on the step: a member (or the head) of the unit of party `pm`. */
+  let viewer: StepViewerDto | undefined;
   const memberOf = (isLeader: boolean) => {
     me.value = 'u7';
-    officers.value = [{ value: 'u7', label: 'Trần B', teams: [{ teamId: 't3', teamName: 'Tổ 3', isLeader, laDiaBan: false }] }];
+    viewer = { canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: ['pm'], leaderOfPartyIds: isLeader ? ['pm'] : [] };
   };
+  beforeEach(() => {
+    viewer = undefined;
+  });
 
   it('with nobody named, shows the heads of the unit as the ones who answer', async () => {
     api.get.mockResolvedValue(oneParty());
@@ -496,8 +498,8 @@ describe('the person who answers for a party', () => {
     memberOf(true);
     api.get.mockResolvedValue(
       recFlow({}, [
-        recStep({ stepKey: 'b', parties: [party({ id: 'pm' }), party({ id: 'po', teamId: 't9', teamName: 'Tổ 9', role: 'COORDINATE' })] }),
-        recStep({ stepKey: 'd', status: 'DONE', parties: [party({ id: 'pd' })] }),
+        recStep({ stepKey: 'b', viewer, parties: [party({ id: 'pm' }), party({ id: 'po', teamId: 't9', teamName: 'Tổ 9', role: 'COORDINATE' })] }),
+        recStep({ stepKey: 'd', status: 'DONE', viewer: { ...viewer!, memberOfPartyIds: ['pd'], leaderOfPartyIds: ['pd'] }, parties: [party({ id: 'pd' })] }),
       ]),
     );
     renderTab();
@@ -514,5 +516,60 @@ describe('the person who answers for a party', () => {
     fireEvent.click(await screen.findByTestId('party-pm-unassign'));
     await waitFor(() => expect(screen.getByTestId('party-pm-unassign')).toBeDisabled());
     expect(screen.getByTestId('party-pm-assign')).toBeDisabled();
+  });
+});
+
+describe('"Gia hạn" when no extension is left', () => {
+  it('is not offered once every extension was used, nor on a step that allows none', async () => {
+    api.get.mockResolvedValue(
+      recFlow({}, [
+        recStep({ stepKey: 'left', extensionsAllowed: 2, extensionsUsed: 1 }),
+        recStep({ stepKey: 'used', extensionsAllowed: 2, extensionsUsed: 2 }),
+        recStep({ stepKey: 'none', extensionsAllowed: 0, extensionsUsed: 0 }),
+      ]),
+    );
+    renderTab();
+    expect(await screen.findByTestId('step-left-extend')).toBeInTheDocument();
+    expect(screen.queryByTestId('step-used-extend')).toBeNull();
+    expect(screen.queryByTestId('step-none-extend')).toBeNull();
+  });
+});
+
+describe('the sentence of a conflict on the record tabs', () => {
+  it('says the typed text is kept, not lost', () => {
+    render(<RecordNotices testPrefix="assignment" message={null} error={null} conflict refreshing={false} refreshFailed={false} onTakeNewer={() => undefined} />);
+    const notice = screen.getByTestId('assignment-conflict');
+    expect(notice).toHaveTextContent(L.conflict.bodyKeepsText);
+    expect(notice).not.toHaveTextContent('sẽ mất');
+    expect(L.conflict.bodyKeepsText).toContain('giữ lại');
+  });
+});
+
+describe('an officer who may not read the list of users', () => {
+  it('reads the names from the flow and never asks for the users of the office', async () => {
+    held.value = ['read:ProcessingStep'];
+    me.value = 'u7';
+    api.get.mockResolvedValue(
+      recFlow({}, [
+        recStep({
+          stepKey: 'b',
+          viewer: { canReport: true, opinionKinds: [], canApprove: true, memberOfPartyIds: ['pm'], leaderOfPartyIds: [] },
+          parties: [party({ id: 'pm' }), party({ id: 'pn', teamId: 't9', teamName: 'Tổ 9', role: 'CHECK', assigneeUserId: 'u2', assigneeName: 'Ngô C' })],
+        }),
+      ]),
+    );
+    renderTab();
+    expect(await screen.findByTestId('party-pm-take')).toBeInTheDocument();
+    expect(screen.getByTestId('party-pn')).toHaveTextContent('Ngô C');
+    expect(screen.queryByTestId('party-pn-take')).toBeNull();
+  });
+
+  it('an answer without viewer offers "Nhận việc" to nobody (the server would have to be asked)', async () => {
+    held.value = ['read:ProcessingStep'];
+    me.value = 'u7';
+    api.get.mockResolvedValue(recFlow({}, [recStep({ stepKey: 'b', parties: [party({ id: 'pm' })] })]));
+    renderTab();
+    await screen.findByTestId('party-pm');
+    expect(screen.queryByTestId('party-pm-take')).toBeNull();
   });
 });

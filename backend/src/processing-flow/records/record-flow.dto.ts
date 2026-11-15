@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { bandOf, completionClass, remainingDays } from '../engine/bands';
 import type { Band, CompletionClass, StepStatus } from '../engine/types';
 import { delegatesOf } from './processing-delegation';
+import { loadStepViewers, type StepViewerDto } from './step-roles';
 
 /** The flow of a record with everything the tab shows, read in one query. */
 export const RECORD_FLOW_INCLUDE = {
@@ -65,6 +66,8 @@ export interface FlowPeople {
   names: Map<string, string>;
   /** By from-user: the person who acts for them now. */
   delegates: Map<string, { toUserId: string; name: string; until: Date }>;
+  /** What the person the answer is for may do on each step by their role, keyed by the step's row. Absent: nobody is looking. */
+  viewers?: Map<string, StepViewerDto>;
 }
 
 const NOBODY: FlowPeople = { names: new Map(), delegates: new Map() };
@@ -81,21 +84,22 @@ export function displayNameOf(user: NamedUser): string {
 }
 
 /**
- * Reads the people a flow names and its rows do not carry: the names of the persons named on a party, and who acts for
- * each responsible person at `now` (the application clock).
+ * Reads the people a flow names and its rows do not carry: the names of the persons named on a party, who acts for each
+ * responsible person at `now` (the application clock) and, when the answer is for a person, what that person may do on
+ * each step by their role, a delegation included (`step-roles.ts`).
  */
-export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam'>, row: RecordFlowRow, now: Date): Promise<FlowPeople> {
+export async function loadFlowPeople(db: Pick<Prisma.TransactionClient, 'user' | 'procDelegation' | 'userTeam' | 'procRecordStepParty'>, row: RecordFlowRow, now: Date, viewerId?: string): Promise<FlowPeople> {
   const parties = row.steps.flatMap((step) => step.parties);
   const named = [...new Set(parties.flatMap((party) => (party.assigneeUserId ? [party.assigneeUserId] : [])))];
   const heads = parties.flatMap((party) => (party.team?.status === 'ACTIVE' ? party.team.members.map((member) => member.userId) : []));
   const given = await delegatesOf(db, [...named, ...heads], now);
   const wanted = [...new Set([...named, ...[...given.values()].map((delegate) => delegate.toUserId)])];
-  if (wanted.length === 0) return NOBODY;
-  const users = await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, firstName: true, lastName: true, username: true } });
+  const users = wanted.length === 0 ? [] : await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, firstName: true, lastName: true, username: true } });
   const names = new Map(users.map((user) => [user.id, displayNameOf(user)]));
   // Who counts as a substitute is the resolver's answer (`delegatesOf`), the same one that lets the delegate act.
   const delegates = new Map([...given].map(([fromUserId, delegate]) => [fromUserId, { toUserId: delegate.toUserId, name: names.get(delegate.toUserId) ?? '', until: delegate.until }]));
-  return { names, delegates };
+  if (viewerId === undefined) return { names, delegates };
+  return { names, delegates, viewers: await loadStepViewers(db, row.steps.map((step) => step.id), viewerId, now) };
 }
 
 export interface RecordStepDto {
@@ -144,6 +148,11 @@ export interface RecordStepDto {
   /** The newest report still standing, cut short, and the newest opinion: the summary line of the step. */
   latestReport: { kind: string; summary: string; at: string; revision: number } | null;
   latestOpinion: { kind: string; verdict: string; at: string } | null;
+  /**
+   * What the person this answer is for may do on the step BY THEIR ROLE on it (the same rules the write routes refuse
+   * with). The screen offers a form only when the permission AND this allow it. Absent when the answer is for nobody.
+   */
+  viewer?: StepViewerDto;
 }
 
 export interface RecordFlowDto {
@@ -241,6 +250,7 @@ export function toRecordFlowDto(row: RecordFlowRow, now: Date, clock: RecordCloc
         revision: step.revision,
         latestReport: step.reports[0] ? { kind: step.reports[0].kind, summary: step.reports[0].doneWork.slice(0, 200), at: step.reports[0].createdAt.toISOString(), revision: step.reports[0].revision } : null,
         latestOpinion: step.opinions[0] ? { kind: step.opinions[0].kind, verdict: step.opinions[0].verdict, at: step.opinions[0].createdAt.toISOString() } : null,
+        ...(people.viewers ? { viewer: people.viewers.get(step.id) } : {}),
         parties: step.parties.map((party) => {
           const assigneeName = party.assigneeUserId ? (people.names.get(party.assigneeUserId) ?? null) : null;
           const person = (userId: string, name: string): ResponsiblePersonDto => {
