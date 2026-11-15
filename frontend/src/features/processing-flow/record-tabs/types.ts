@@ -104,6 +104,15 @@ export interface DocumentRef {
   date?: string;
 }
 
+/** A file attached to a report: a document of the record, listed under the report it was attached to. */
+export interface ReportAttachmentDto {
+  id: string;
+  fileName: string;
+  size: number;
+  uploadedAt: string;
+  uploaderName: string | null;
+}
+
 export interface ReportDto {
   id: string;
   kind: string;
@@ -123,6 +132,8 @@ export interface ReportDto {
   createdAt: string;
   /** Somebody has given an opinion on it: it can no longer be edited or taken back. */
   answered: boolean;
+  /** Its files, oldest first (removed ones are not listed). */
+  attachments: ReportAttachmentDto[];
 }
 
 export interface OpinionDto {

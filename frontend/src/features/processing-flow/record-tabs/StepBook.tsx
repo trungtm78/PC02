@@ -10,6 +10,7 @@ import { processingRecordApi } from './api';
 import { draftKeys, hasDraft } from './draftStore';
 import { DecisionForm, OpinionForm } from './OpinionForms';
 import { proposalLabel, speakingKinds } from './present';
+import { ReportAttachments } from './ReportAttachments';
 import { ReportForm } from './ReportForm';
 import { LINK_BUTTON } from './styles';
 import type { OpinionDto, RecordKind, RecordStepDto, ReportDto } from './types';
@@ -175,6 +176,7 @@ export function StepBook({ kind, recordId, step, revision, write, perms, userId 
                 )}
               </div>
               <ReportBody report={r} recordKind={kind} />
+              <ReportAttachments kind={kind} recordId={recordId} stepKey={key} report={r} canManage={canEdit(r)} locked={write.locked} />
               {(canEdit(r) || canWithdraw(r)) && (
                 <div className="flex gap-3">
                   {canEdit(r) && (

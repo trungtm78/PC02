@@ -85,6 +85,7 @@ export const report = (over: Partial<ReportDto> = {}): ReportDto => ({
   supersededAt: null,
   createdAt: '2026-12-05T01:00:00.000Z',
   answered: false,
+  attachments: [],
   ...over,
 });
 

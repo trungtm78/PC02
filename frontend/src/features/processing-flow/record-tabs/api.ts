@@ -10,6 +10,7 @@ import type {
   ReasonBody,
   RecordFlowDto,
   RecordKind,
+  ReportAttachmentDto,
   ResultsDto,
   SubmitReportBody,
   WriteBase,
@@ -63,6 +64,20 @@ export const processingRecordApi = {
     post(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/edit`, body),
   withdrawReport: (kind: RecordKind, id: string, stepKey: string, reportId: string, body: WriteBase) =>
     post(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/withdraw`, body),
+  /**
+   * The files of a report. Not commands on the flow: they answer the file (or its id), never a new flow, and carry no
+   * revision. One file per call.
+   */
+  attach: (kind: RecordKind, id: string, stepKey: string, reportId: string, file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return api.post<ReportAttachmentDto>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments`, body).then(data);
+  },
+  removeAttachment: (kind: RecordKind, id: string, stepKey: string, reportId: string, documentId: string) =>
+    api.delete<{ id: string }>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments/${part(documentId)}`).then(data),
+  /** The whole response: the name of the file is in its Content-Disposition header. */
+  downloadAttachment: (kind: RecordKind, id: string, stepKey: string, reportId: string, documentId: string) =>
+    api.get<Blob>(`${stepPath(kind, id, stepKey)}/reports/${part(reportId)}/attachments/${part(documentId)}/download`, { responseType: 'blob' }),
   addOpinion: (kind: RecordKind, id: string, stepKey: string, body: OpinionBody) => post(`${stepPath(kind, id, stepKey)}/opinions`, body),
   withdrawOpinion: (kind: RecordKind, id: string, stepKey: string, opinionId: string, body: WriteBase) =>
     post(`${stepPath(kind, id, stepKey)}/opinions/${part(opinionId)}/withdraw`, body),
