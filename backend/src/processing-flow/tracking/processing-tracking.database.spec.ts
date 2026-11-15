@@ -553,6 +553,44 @@ run('The tracking screen on PostgreSQL', () => {
         await scratch.db.petition.update({ where: { id: recordId }, data: { status: 'DA_GIAI_QUYET' } });
         expect((await summaryOf('member')).unconfirmed).toBe(base.member);
       });
+
+      it('a proposal none of whose steps is being worked yet still waits for a person: counted, until it is confirmed or its record is finished or deleted (found by Codex)', async () => {
+        const filter = { kind: 'PETITION' as const, teamId: id.T };
+        const count = async (who: Who, over: Record<string, unknown> = filter) => (await summaryOf(who, over)).unconfirmed;
+        const recordId = await record('PETITION');
+        // The flow starts at a date nobody has recorded: its only step waits, and a later one is done already.
+        await flowOn('PETITION', recordId, [{ due: DUE.NONE, status: 'WAITING_ANCHOR', parties: [{ teamId: id.T }] }, { due: DUE.OVERDUE, status: 'DONE', parties: [{ teamId: id.T }] }]);
+        const setStatus = (data: Record<string, unknown>) => scratch.db.petition.update({ where: { id: recordId }, data: data as never });
+        // Confirmed: not counted.
+        const base = { admin: await count('admin'), member: await count('member', {}), leaderMine: await count('leader', { mine: true }), other: await count('other', {}), adminU: await count('admin', { teamId: id.U }), incident: await count('admin', { kind: 'INCIDENT' }) };
+
+        await confirm(recordId, false);
+        expect(await count('admin')).toBe(base.admin + 1);
+        expect(await count('member', {})).toBe(base.member + 1);
+        // Nobody is named on it: the head of the unit answers for it.
+        expect(await count('leader', { mine: true })).toBe(base.leaderMine + 1);
+        expect(await count('admin', { teamId: id.U })).toBe(base.adminU);
+        expect(await count('admin', { kind: 'INCIDENT' })).toBe(base.incident);
+        // Outside the reach: a person of another unit no step names, and a person with no read permission.
+        expect(await count('other', {})).toBe(base.other);
+        expect(await count('unpermitted', {})).toBe(0);
+        // It is in no card all the while.
+        expect(await seenBy('admin', recordId)).toBe(0);
+
+        // A suspended record still waits for its flow to be confirmed; a finished or a deleted one does not.
+        await setStatus({ status: 'TAM_DINH_CHI' });
+        expect(await count('admin')).toBe(base.admin + 1);
+        await setStatus({ status: 'DA_GIAI_QUYET' });
+        expect(await count('admin')).toBe(base.admin);
+        await setStatus({ status: 'DANG_XU_LY', deletedAt: NOW });
+        expect(await count('admin')).toBe(base.admin);
+        await setStatus({ deletedAt: null });
+        expect(await count('admin')).toBe(base.admin + 1);
+
+        await confirm(recordId, true);
+        expect(await count('admin')).toBe(base.admin);
+        expect(await count('member', {})).toBe(base.member);
+      });
     });
 
     it('an open pause stops the work at once, even while the stored alert has not followed', async () => {

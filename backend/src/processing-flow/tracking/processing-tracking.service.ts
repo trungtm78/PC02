@@ -8,7 +8,7 @@ import { bandAt, remainingDays } from '../engine/bands';
 import type { Band } from '../engine/types';
 import { holdsReadPermission, requestScopeOf } from '../gateway/read-access';
 import { RECORD_KINDS, type GatewayUser, type RecordKind } from '../gateway/record-snapshot';
-import { clocklessStatuses, COUNTED_STEP_STATUSES, RECORD_LINK } from '../records/record-alert';
+import { clocklessStatuses, COUNTED_STEP_STATUSES, finishedStatuses, RECORD_LINK } from '../records/record-alert';
 import { partyNamesUser } from '../records/record-step-access.service';
 import { bandConditions, TRACKED_BANDS, type TrackedBand } from './band-conditions';
 import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
@@ -27,8 +27,10 @@ export interface TrackingSummary {
   asOf: string;
   counts: Record<TrackedBand, number>;
   /**
-   * The RECORDS within the same reach and the same filters whose flow is only a proposal (`confirmed = false`): their
-   * work asserts no deadline, so it is in none of the four counts. Counted apart, in records and not in pieces of work.
+   * The RECORDS within the same reach and the same filters whose flow is only a proposal (`confirmed = false`) and
+   * still waits for a person to confirm it: the record is not deleted and not finished (a suspended one still waits),
+   * whatever the status of its steps. Their work asserts no deadline, so it is in none of the four counts. Counted
+   * apart, in records and not in pieces of work.
    */
   unconfirmed: number;
 }
@@ -118,8 +120,8 @@ export class ProcessingTrackingService {
     let unconfirmed = 0;
     if (reach) {
       for (const band of TRACKED_BANDS) counts[band] = await this.prisma.procRecordStepParty.count({ where: this.workWhere(user, filter, reach, band, asOf) });
-      // The same work, of the flows nobody has confirmed, whatever its dates say: counted by record.
-      unconfirmed = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: this.proposedWorkWhere(user, filter, reach) } } } } });
+      // The flows nobody has confirmed, whatever their steps and dates say: counted by record.
+      unconfirmed = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: this.proposalWhere(user, filter, reach) } } } } });
     }
     return { asOf: asOf.toISOString(), counts, unconfirmed };
   }
@@ -185,30 +187,35 @@ export class ProcessingTrackingService {
    * `summary` and `items` both build their queries here and nowhere else.
    */
   workWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere, band: Band | null, asOf: Date): WorkWhere {
-    return { AND: [...this.workParts(user, filter, reach, true), { recordStep: bandConditions(band, asOf).step }] };
-  }
-
-  /**
-   * The work of the flows that are only a proposal, for these filters and this person: what `workWhere` would count if
-   * those flows were confirmed, in any band or none (a proposal asserts no deadline, so its dates are not asked).
-   */
-  proposedWorkWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere): WorkWhere {
-    return { AND: this.workParts(user, filter, reach, false) };
-  }
-
-  /** What a piece of work is, whose it is and who may see it: everything but the band. */
-  private workParts(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere, confirmed: boolean): WorkWhere[] {
     const parts: WorkWhere[] = [
       { role: 'MAIN' },
       // A step being worked, of a record whose clock runs. Asked of the record, its pauses and its flow as they are NOW,
       // not of the stored alert: a record's own service finishes, suspends or deletes it without telling the flow, and
       // the stored alert follows only at the worker's next look.
-      { recordStep: { status: { in: [...COUNTED_STEP_STATUSES] }, recordFlow: clockRuns(confirmed), ...(filter.kind ? { recordKind: filter.kind } : {}) } },
+      { recordStep: { status: { in: [...COUNTED_STEP_STATUSES] }, recordFlow: clockRuns(), ...(filter.kind ? { recordKind: filter.kind } : {}) } },
+      { recordStep: bandConditions(band, asOf).step },
       reach,
     ];
     if (filter.teamId) parts.push({ teamId: filter.teamId });
     if (filter.mine) parts.push(mineWhere(user.id));
-    return parts;
+    return { AND: parts };
+  }
+
+  /**
+   * A party row through which a flow that is only a PROPOSAL is found, for these filters and this person. NOT a piece
+   * of work: a proposal waits to be confirmed whether or not a step of it is being worked (its steps may all still
+   * wait for a date nobody has recorded), so no status of a step and no date is asked.
+   *
+   * `reach` is the very condition of the cards, unchanged: it is written over party rows and asks nothing of a step's
+   * status, so the record must be in the person's scope, or THIS step must name the person or a unit of theirs. The
+   * unit and "my work" filters ask for a MAIN party of any step; without them any party row of the flow will do.
+   */
+  proposalWhere(user: GatewayUser, filter: TrackingFilter, reach: WorkWhere): WorkWhere {
+    const parts: WorkWhere[] = [{ recordStep: { recordFlow: awaitsConfirmation(), ...(filter.kind ? { recordKind: filter.kind } : {}) } }, reach];
+    if (filter.teamId || filter.mine) parts.push({ role: 'MAIN' });
+    if (filter.teamId) parts.push({ teamId: filter.teamId });
+    if (filter.mine) parts.push(mineWhere(user.id));
+    return { AND: parts };
   }
 
   /**
@@ -302,10 +309,19 @@ export function mineWhere(userId: string): WorkWhere {
 }
 
 /**
- * The flow of a record that is alive and at work, with no pause open. `confirmed: true`: the only flows whose steps
- * count down. `false`: the proposals, which would count down if a person confirmed them and assert nothing until then.
+ * A flow that is only a proposal, of a record that is not deleted and not finished: it waits for a person to confirm
+ * it. A suspended record, or a paused clock, changes nothing to that: the flow is still to be decided.
  */
-function clockRuns(confirmed: boolean): Prisma.ProcRecordFlowWhereInput {
+function awaitsConfirmation(): Prisma.ProcRecordFlowWhereInput {
+  const alive = (kind: RecordKind) => ({ [RECORD_LINK[kind].relation]: { is: { deletedAt: null, status: { notIn: finishedStatuses(kind) } } } });
+  return { confirmed: false, OR: RECORD_KINDS.map(alive) } as Prisma.ProcRecordFlowWhereInput;
+}
+
+/**
+ * The CONFIRMED flow of a record that is alive and at work, with no pause open: the only flows whose steps count down.
+ * A flow that is only a proposal asserts no deadline (decision C10).
+ */
+function clockRuns(): Prisma.ProcRecordFlowWhereInput {
   const atWork = (kind: RecordKind) => ({ [RECORD_LINK[kind].relation]: { is: { deletedAt: null, status: { notIn: clocklessStatuses(kind) } } } });
-  return { confirmed, pauses: { none: { to: null } }, OR: RECORD_KINDS.map(atWork) } as Prisma.ProcRecordFlowWhereInput;
+  return { confirmed: true, pauses: { none: { to: null } }, OR: RECORD_KINDS.map(atWork) } as Prisma.ProcRecordFlowWhereInput;
 }

@@ -23,6 +23,11 @@ export function clocklessStatuses(kind: RecordKind): string[] {
   return [...TRANG_THAI_KET_THUC[key], ...TRANG_THAI_TAM_DINH_CHI[key]];
 }
 
+/** The statuses of a record of each kind in which the unit is done with it (a suspended record is not). */
+export function finishedStatuses(kind: RecordKind): string[] {
+  return [...TRANG_THAI_KET_THUC[RECORD_LINK[kind].statuses]];
+}
+
 /** What a new flow stores to reach its record: `recordId` again, in the column of the record's kind. */
 export function recordLink(kind: RecordKind, recordId: string): { petitionId?: string; incidentId?: string; caseId?: string } {
   return { [RECORD_LINK[kind].column]: recordId };
