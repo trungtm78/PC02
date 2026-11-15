@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/models/incident.dart';
+import '../../shared/widgets/band_chip.dart';
 import '../../shared/widgets/deadline_badge.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/offline_banner.dart';
@@ -170,7 +171,12 @@ class _IncidentList extends ConsumerWidget {
                             StatusChip(status: inc.status),
                           ],
                         ),
-                        if (inc.deadline != null) ...[
+                        // The alert the server computed wins; the local deadline badge is
+                        // only for a row that carries none (the switch is off).
+                        if (inc.alert != null) ...[
+                          const SizedBox(height: 8),
+                          BandChip.forAlert(inc.alert),
+                        ] else if (inc.deadline != null) ...[
                           const SizedBox(height: 8),
                           DeadlineBadge(deadline: inc.deadline),
                         ],

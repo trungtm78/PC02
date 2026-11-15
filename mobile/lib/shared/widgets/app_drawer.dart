@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../features/processing/my_work_screen.dart';
 import '../theme/app_theme.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -48,6 +49,7 @@ class AppDrawer extends ConsumerWidget {
               subtitle: _roleChip(user?['role']),
             ),
             const Divider(),
+            const MyWorkDrawerEntry(),
             const Spacer(),
             const Divider(),
             ListTile(
