@@ -28,7 +28,7 @@ const COLUMNS: ColumnDef<TrackingItemDto>[] = [
         data-testid="tracking-band"
         className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold ${TONE_CLASS[bandTone(item.band)]}`}
       >
-        {bandText(item.band, item.remainingDays)}
+        {item.dueAt === null ? T.noDeadline : bandText(item.band, item.remainingDays)}
       </span>
     ),
   },
@@ -80,7 +80,7 @@ const COLUMNS: ColumnDef<TrackingItemDto>[] = [
     header: T.columns.due,
     width: '9rem',
     cellClassName: 'px-4 py-3 align-top text-sm text-slate-800 tabular-nums',
-    render: (item) => dueText(item.dueAt),
+    render: (item) => (item.dueAt === null ? T.noDeadline : dueText(item.dueAt)),
   },
 ];
 

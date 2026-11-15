@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { FeatureFlag } from '../../feature-flags/decorators/feature-flag.decorator';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
-import { TrackingItemsQueryDto, TrackingQueryDto } from './dto/tracking.dto';
+import { TrackingItemsQueryDto, TrackingQueryDto, TrackingTeamsQueryDto } from './dto/tracking.dto';
 import { ProcessingTrackingService } from './processing-tracking.service';
 
 interface AuthenticatedUser {
@@ -48,7 +48,7 @@ export class ProcessingTrackingController {
   /** The units the filter offers: those holding work the person may see. Needs neither `read:Team` nor `read:User`. */
   @Get('teams')
   @RequirePermissions({ action: 'read', subject: 'ProcessingStep' })
-  teams(@CurrentUser() user: AuthenticatedUser) {
-    return this.tracking.teams(gatewayUser(user));
+  teams(@Query() query: TrackingTeamsQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.tracking.teams(gatewayUser(user), query);
   }
 }

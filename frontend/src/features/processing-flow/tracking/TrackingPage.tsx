@@ -2,6 +2,10 @@
  * /theo-doi-xu-ly — "Theo dõi xử lý": the work (a step × the unit that works it) in an alert band. Four cards with
  * the counts, and under them the list; clicking a card lists that band, clicking it again lists every colour.
  *
+ * A fifth card, "Chờ tôi duyệt", is shown to a person who holds `approve:ProcessingStep`: the work that waits for
+ * THEIR decision, as the server counts it by the rule of the decision route. It is exclusive with the band cards (it
+ * lists that work whatever its colour), and its number is compared with its own rows, not with the bands.
+ *
  * The number on a card equals the rows of its list because both are judged at ONE instant: the summary answers the
  * instant it used (`asOf`) and every list call passes it back. The data may still change between the two calls (a
  * step is finished meanwhile); the screen then SAYS the figures of hh:mm changed and offers to take a new instant
@@ -10,12 +14,13 @@
  * The card and the filters live in the address (a link can be shared, Back works); the instant does not (a link
  * opened tomorrow must be judged tomorrow).
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, AlertCircle, AlertOctagon, AlertTriangle, CheckCircle2, Clock, RefreshCw, ShieldOff, type LucideIcon } from 'lucide-react';
+import { Activity, AlertCircle, AlertOctagon, AlertTriangle, CheckCircle2, Clock, RefreshCw, ShieldOff, Stamp, type LucideIcon } from 'lucide-react';
 import { ListPageShell, useListPageUrlState } from '@/components/shared/ListPageShell';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { A11Y_FOCUS_RING, BTN_SECONDARY } from '@/constants/styles';
+import { usePermission } from '@/hooks/usePermission';
 import { formatVNTime } from '@/lib/dates';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { TONE_CARD_CLASS, bandLabel, bandTone } from '../bandPresenter';
@@ -23,34 +28,67 @@ import { RECORD_KINDS } from '../codes';
 import { FeatureOffState } from '../components/FeatureOffState';
 import { explainError, isFeatureOff } from '../errors';
 import type { RecordKind } from '../types';
+import { PERMISSION } from '../usePermissions';
 import { trackingApi } from './api';
 import { TrackingItemsTable } from './TrackingItemsTable';
 import { TRACKING_PAGE_SIZE, TRACKING_QUERY_KEYS, TRACKING_URL_PREFIX } from './trackingKeys';
-import { TRACKED_BANDS, type TrackedBand, type TrackingFilters } from './types';
+import { DEFAULT_TRACKING_ROLE, SEARCH_MAX, SEARCH_MIN, TRACKED_BANDS, TRACKING_ROLES, type TrackedBand, type TrackingFilters } from './types';
 
 const T = L.tracking;
 
 /** The icon of each card. Its NAME and its colours come from the one band presenter. */
 const CARD_ICON: Record<TrackedBand, LucideIcon> = { OVERDUE: AlertOctagon, RED: AlertTriangle, YELLOW: Clock, GREEN: CheckCircle2 };
 
+/** The value the card "Chờ tôi duyệt" has among the cards of the strip. */
+const APPROVAL_CARD = 'APPROVAL';
+/** How long the search box waits after the last key before it asks. */
+const SEARCH_DELAY_MS = 300;
+/** The search as it is sent: trimmed, bounded; `null` when it is too short to be one. */
+const searchOf = (text: string | null): string | null => {
+  const trimmed = (text ?? '').trim().slice(0, SEARCH_MAX);
+  return trimmed.length >= SEARCH_MIN ? trimmed : null;
+};
+
 const SELECT = 'rounded border border-slate-300 bg-white px-3 py-2 text-sm';
 const LINK = `text-sm text-blue-700 hover:underline ${A11Y_FOCUS_RING}`;
 
 export default function TrackingPage() {
   const url = useListPageUrlState(TRACKING_URL_PREFIX);
-  // The units that hold work this person may see, from the tracking route itself: an officer who may not read the
-  // office's list of units still gets a filter.
-  const teamsQ = useQuery({ queryKey: TRACKING_QUERY_KEYS.teams, queryFn: () => trackingApi.teams(), retry: false, staleTime: 60_000 });
-
+  // The profile not loaded yet lets the card show for a moment, as every control of this feature does.
+  const { permissions } = usePermission();
+  const mayApprove = permissions === null || permissions.includes(PERMISSION.stepApprove);
+  /** The card "Chờ tôi duyệt" is chosen: only for a person who may approve (an address cannot ask it for another). */
+  const awaiting = mayApprove && url.getParam('awaiting') === '1';
   const askedBand = url.getParam('band');
-  const band = TRACKED_BANDS.find((b) => b === askedBand) ?? null;
+  const band = awaiting ? null : (TRACKED_BANDS.find((b) => b === askedBand) ?? null);
+  const askedRole = url.getParam('role');
+  const role = TRACKING_ROLES.find((r) => r === askedRole) ?? DEFAULT_TRACKING_ROLE;
+  const urlSearch = url.getParam('q');
+  const q = searchOf(urlSearch);
   const askedKind = url.getParam('kind');
   const kind: RecordKind | null = RECORD_KINDS.find((k) => k === askedKind) ?? null;
   const teamId = url.getParam('team');
   const mine = url.getParam('mine') === '1';
   const page = Math.max(1, url.getNumberParam('page', 1));
 
-  const filters: TrackingFilters = useMemo(() => ({ mine, teamId, kind }), [mine, teamId, kind]);
+  const filters: TrackingFilters = useMemo(() => ({ mine, teamId, kind, role, q }), [mine, teamId, kind, role, q]);
+
+  /** What is in the box. It follows the address (Back, a shared link, "Xóa lọc") and is written to it after a pause. */
+  const [typed, setTyped] = useState(urlSearch ?? '');
+  const [seenUrlSearch, setSeenUrlSearch] = useState(urlSearch);
+  if (seenUrlSearch !== urlSearch) {
+    setSeenUrlSearch(urlSearch);
+    // The address changed under the box: show what it says, unless it is what the box itself just wrote.
+    if (searchOf(typed) !== q) setTyped(urlSearch ?? '');
+  }
+  const typedSearch = searchOf(typed);
+  const { setParams } = url;
+  useEffect(() => {
+    // Also when the address holds something that is not a search as it is sent (too short, untrimmed): it is rewritten.
+    if (typedSearch === (urlSearch ?? null)) return undefined;
+    const timer = window.setTimeout(() => setParams({ q: typedSearch, page: null }), SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [typedSearch, urlSearch, setParams]);
 
   const summaryQ = useQuery({
     queryKey: TRACKING_QUERY_KEYS.summary(filters),
@@ -58,12 +96,20 @@ export default function TrackingPage() {
     staleTime: 30_000,
     retry: false,
   });
+  // The units that hold the work the screen lists (its role, or the work waiting for this person's decision), from
+  // the tracking route itself: an officer who may not read the office's list of units still gets a filter.
+  const teamsQ = useQuery({
+    queryKey: TRACKING_QUERY_KEYS.teams(role, awaiting),
+    queryFn: () => trackingApi.teams({ role, awaiting }),
+    retry: false,
+    staleTime: 60_000,
+  });
   /** The instant everything on the screen is judged at; none until the cards answered. */
   const asOf = summaryQ.data?.asOf ?? null;
 
   const itemsQ = useQuery({
-    queryKey: TRACKING_QUERY_KEYS.items(filters, band, page, asOf ?? ''),
-    queryFn: () => trackingApi.items({ ...filters, band, asOf: asOf ?? '', page, pageSize: TRACKING_PAGE_SIZE }),
+    queryKey: TRACKING_QUERY_KEYS.items(filters, band, awaiting, page, asOf ?? ''),
+    queryFn: () => trackingApi.items({ ...filters, band, awaiting, asOf: asOf ?? '', page, pageSize: TRACKING_PAGE_SIZE }),
     enabled: asOf !== null,
     retry: false,
   });
@@ -71,17 +117,28 @@ export default function TrackingPage() {
   const counts = summaryQ.data?.counts ?? null;
   /** Records whose flow is only a proposal: counted apart from the cards. An older server does not say. */
   const unconfirmed = summaryQ.data?.unconfirmed ?? 0;
-  const cards: StatCard[] = TRACKED_BANDS.map((b) => ({
-    label: bandLabel(b),
-    value: counts ? counts[b] : null,
-    filterValue: b,
-    testId: `tracking-card-${b}`,
-    icon: CARD_ICON[b],
-    ...TONE_CARD_CLASS[bandTone(b)],
-  }));
+  /** The work waiting for this person's decision, as the server counts it; `null` when it does not say (an older one). */
+  const awaitingCount = summaryQ.data?.awaitingMyApproval ?? null;
+  const showApprovalCard = mayApprove && awaitingCount !== null;
+  const cards: StatCard[] = [
+    ...TRACKED_BANDS.map((b) => ({
+      label: bandLabel(b),
+      value: counts ? counts[b] : null,
+      filterValue: b,
+      testId: `tracking-card-${b}`,
+      icon: CARD_ICON[b],
+      ...TONE_CARD_CLASS[bandTone(b)],
+    })),
+    ...(showApprovalCard
+      ? [{ label: T.awaiting.card, value: awaitingCount, filterValue: APPROVAL_CARD, testId: `tracking-card-${APPROVAL_CARD}`, icon: Stamp, ...TONE_CARD_CLASS.blue }]
+      : []),
+  ];
 
-  /** What the cards promise for the list on screen: the chosen card, or the four together when none is chosen. */
-  const promised = counts === null ? null : band ? counts[band] : TRACKED_BANDS.reduce((sum, b) => sum + counts[b], 0);
+  /**
+   * What the cards promise for the list on screen: the chosen card (a band, or the work waiting for a decision), or
+   * the four bands together when none is chosen.
+   */
+  const promised = awaiting ? awaitingCount : counts === null ? null : band ? counts[band] : TRACKED_BANDS.reduce((sum, b) => sum + counts[b], 0);
   const list = itemsQ.data ?? null;
   const rows = list?.items ?? [];
   const total = list?.total ?? 0;
@@ -101,7 +158,9 @@ export default function TrackingPage() {
   /** Any change of what is listed starts again at the first page: the page key is REMOVED, not set to 1. */
   const setFilter = (updates: Record<string, string | null>) => url.setParams({ ...updates, page: null });
   // A card is a deliberate step people expect Back to undo; a filter is a refinement and replaces.
-  const selectCard = (value: string | null) => url.setParams({ band: value, page: null }, { history: 'push' });
+  // The band cards and the card "Chờ tôi duyệt" are exclusive: choosing one drops the other.
+  const selectCard = (value: string | null) =>
+    url.setParams({ band: value === APPROVAL_CARD ? null : value, awaiting: value === APPROVAL_CARD ? '1' : null, page: null }, { history: 'push' });
   /**
    * A new instant for the cards and the list. It starts again at the first page: the page being looked at may not
    * exist any more once the figures are new (page 3 of a list that shrank to one page is an empty table).
@@ -116,7 +175,9 @@ export default function TrackingPage() {
   const summaryError = summaryQ.isError ? explainError(summaryQ.error) : null;
   const listError = itemsQ.isError ? explainError(itemsQ.error) : null;
   const forbidden = summaryError?.status === 403 || listError?.status === 403;
-  const hasFilters = band !== null || mine || teamId !== null || kind !== null;
+  const hasFilters = band !== null || awaiting || mine || teamId !== null || kind !== null || role !== DEFAULT_TRACKING_ROLE || q !== null;
+  /** Something is typed that is too short to be a search: say so, rather than seem to ignore the person. */
+  const tooShort = typed.trim() !== '' && typedSearch === null;
 
   const teams = teamsQ.data ?? [];
   const teamKnown = teamId === null || teams.some((t) => t.id === teamId);
@@ -162,10 +223,10 @@ export default function TrackingPage() {
             <StatsCardsStrip
               cards={cards}
               loading={counts === null}
-              activeValue={band}
+              activeValue={awaiting ? APPROVAL_CARD : band}
               onCardSelect={selectCard}
               allowDeselect
-              gridClassName="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-4"
+              gridClassName={`grid grid-cols-2 gap-3 px-4 py-4 ${showApprovalCard ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}
             />
             {unconfirmed > 0 && (
               <p data-testid="tracking-unconfirmed" className="-mt-2 px-4 pb-3 text-sm text-slate-600">
@@ -229,6 +290,39 @@ export default function TrackingPage() {
                   ))}
                 </select>
               </label>
+              <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600">
+                {T.filters.role}
+                <select
+                  data-testid="tracking-filter-role"
+                  className={SELECT}
+                  value={role}
+                  onChange={(e) => setFilter({ role: e.target.value === DEFAULT_TRACKING_ROLE ? null : e.target.value })}
+                >
+                  {TRACKING_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {T.roles[r]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600">
+                {T.search.label}
+                <input
+                  type="search"
+                  data-testid="tracking-search"
+                  className={`${SELECT} w-56 max-w-full`}
+                  value={typed}
+                  maxLength={SEARCH_MAX}
+                  placeholder={T.search.placeholder}
+                  aria-describedby={tooShort ? 'tracking-search-hint' : undefined}
+                  onChange={(e) => setTyped(e.target.value)}
+                />
+              </label>
+              {tooShort && (
+                <p id="tracking-search-hint" data-testid="tracking-search-hint" className="py-2 text-xs text-slate-500">
+                  {T.search.tooShort}
+                </p>
+              )}
               {hasFilters && (
                 <button type="button" data-testid="tracking-clear-filters" className={`${LINK} py-2`} onClick={() => url.clearAll()}>
                   {T.filters.clear}
@@ -240,10 +334,10 @@ export default function TrackingPage() {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 {list !== null && !listError && (
                   <b data-testid="tracking-count" className="text-sm text-slate-800">
-                    {band ? T.countByCard(total, bandLabel(band)) : T.count(total)}
+                    {awaiting ? T.awaiting.count(total) : band ? T.countByCard(total, bandLabel(band)) : T.count(total)}
                   </b>
                 )}
-                {band && (
+                {(band || awaiting) && (
                   <button type="button" data-testid="tracking-clear-card" className={LINK} onClick={() => selectCard(null)}>
                     {T.clearCard}
                   </button>

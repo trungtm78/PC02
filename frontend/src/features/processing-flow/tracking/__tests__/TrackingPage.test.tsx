@@ -9,6 +9,9 @@ import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { apiError } from '../../__tests__/fixtures';
 
 vi.mock('../api', () => ({ trackingApi: { summary: vi.fn(), items: vi.fn(), teams: vi.fn() } }));
+/** What the account holds; `null`: the profile has not loaded yet. */
+const account = vi.hoisted(() => ({ permissions: null as string[] | null }));
+vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ permissions: account.permissions }) }));
 
 const api = vi.mocked(trackingApi);
 const T = L.tracking;
@@ -78,6 +81,7 @@ const lastItemsCall = () => api.items.mock.calls[api.items.mock.calls.length - 1
 
 beforeEach(() => {
   vi.resetAllMocks();
+  account.permissions = ['read:ProcessingStep', 'approve:ProcessingStep'];
   api.summary.mockResolvedValue(summary());
   api.teams.mockResolvedValue([
     { id: 't1', name: 'Tổ 1', parentTeamId: null },
@@ -97,8 +101,8 @@ describe('the cards and the list behind them', () => {
     expect(card('GREEN')).toHaveTextContent('4');
 
     expect(await screen.findByTestId('tracking-row-pet-1-s2')).toBeInTheDocument();
-    expect(api.summary).toHaveBeenCalledWith({ mine: false, teamId: null, kind: null });
-    expect(api.items).toHaveBeenCalledWith({ mine: false, teamId: null, kind: null, band: null, asOf: AS_OF, page: 1, pageSize: 20 });
+    expect(api.summary).toHaveBeenCalledWith({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null });
+    expect(api.items).toHaveBeenCalledWith({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null, band: null, awaiting: false, asOf: AS_OF, page: 1, pageSize: 20 });
     // Ten rows in all = the sum of the four cards: nothing to say.
     expect(screen.queryByTestId('tracking-changed')).toBeNull();
     expect(screen.getByTestId('tracking-count')).toHaveTextContent('10 dòng');
@@ -235,13 +239,160 @@ describe('records whose flow nobody has confirmed', () => {
   });
 });
 
+describe('the card "Chờ tôi duyệt"', () => {
+  const approvalCard = () => screen.getByTestId('tracking-card-APPROVAL');
+
+  it('shows the number of the server to a person who may approve, and lists exactly those steps when clicked', async () => {
+    api.summary.mockResolvedValue(summary({ awaitingMyApproval: 2 }));
+    renderPage();
+    await waitFor(() => expect(approvalCard()).toHaveTextContent('2'));
+    expect(approvalCard()).toHaveTextContent(T.awaiting.card);
+    api.items.mockResolvedValue(items([item({ id: 'w1' }), item({ id: 'w2', recordId: 'pet-9', dueAt: null, band: 'NONE', remainingDays: null })]));
+    fireEvent.click(approvalCard());
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_awaiting=1'));
+    await waitFor(() => expect(lastItemsCall()).toEqual({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null, band: null, awaiting: true, asOf: AS_OF, page: 1, pageSize: 20 }));
+    await waitFor(() => expect(screen.getByTestId('tracking-count')).toHaveTextContent(T.awaiting.count(2)));
+    // A step with no deadline still waits: it says so instead of a colour and a date.
+    const noDeadline = within(await screen.findByTestId('tracking-row-w2'));
+    expect(noDeadline.getByTestId('tracking-band')).toHaveTextContent(T.noDeadline);
+    // The number is the rows: nothing changed.
+    expect(screen.queryByTestId('tracking-changed')).not.toBeInTheDocument();
+  });
+
+  it('is exclusive with the band cards, both ways, and clicking it again lists every colour', async () => {
+    api.summary.mockResolvedValue(summary({ awaitingMyApproval: 2 }));
+    renderPage('/theo-doi-xu-ly?tracking_band=RED&tracking_page=2');
+    await waitFor(() => expect(approvalCard()).toHaveTextContent('2'));
+    fireEvent.click(approvalCard());
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_awaiting=1'));
+    fireEvent.click(card('OVERDUE'));
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_band=OVERDUE'));
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ band: 'OVERDUE', awaiting: false }));
+    fireEvent.click(approvalCard());
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_awaiting=1'));
+    fireEvent.click(approvalCard());
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ band: null, awaiting: false }));
+  });
+
+  it('says the figures changed when the rows are not the number of THIS card (not the sum of the bands)', async () => {
+    // The bands add up to 10, as the default list does; the card says 2 and its list has 1.
+    api.summary.mockResolvedValue(summary({ awaitingMyApproval: 2 }));
+    api.items.mockResolvedValue(items([item()], { total: 1 }));
+    renderPage('/theo-doi-xu-ly?tracking_awaiting=1');
+    expect(await screen.findByTestId('tracking-changed')).toHaveTextContent('09:30');
+    api.summary.mockResolvedValue(summary({ asOf: AS_OF_2, awaitingMyApproval: 1 }));
+    fireEvent.click(screen.getByTestId('tracking-refresh'));
+    await waitFor(() => expect(screen.queryByTestId('tracking-changed')).not.toBeInTheDocument());
+    expect(lastItemsCall()).toMatchObject({ awaiting: true, asOf: AS_OF_2 });
+  });
+
+  it('a person who does not hold the permission has no card, and an address that asks for it lists every colour', async () => {
+    account.permissions = ['read:ProcessingStep'];
+    api.summary.mockResolvedValue(summary({ awaitingMyApproval: 0 }));
+    renderPage('/theo-doi-xu-ly?tracking_awaiting=1');
+    await waitFor(() => expect(card('OVERDUE')).toHaveTextContent('2'));
+    expect(screen.queryByTestId('tracking-card-APPROVAL')).not.toBeInTheDocument();
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ awaiting: false, band: null }));
+  });
+
+  it('an older server that does not say the number shows no card', async () => {
+    renderPage();
+    await waitFor(() => expect(card('OVERDUE')).toHaveTextContent('2'));
+    expect(screen.queryByTestId('tracking-card-APPROVAL')).not.toBeInTheDocument();
+  });
+});
+
+describe('the units of the filter follow what the screen lists', () => {
+  it('asks them with the role of the screen: a unit that only checks can be picked when the checking work is listed', async () => {
+    api.teams.mockImplementation((asked) =>
+      Promise.resolve(asked.role === 'CHECK' ? [{ id: 't9', name: 'Tổ kiểm tra', parentTeamId: null }] : [{ id: 't1', name: 'Tổ 1', parentTeamId: null }]),
+    );
+    renderPage();
+    const picker = screen.getByTestId('tracking-filter-team');
+    await waitFor(() => expect(within(picker).getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    expect(api.teams).toHaveBeenLastCalledWith({ role: 'MAIN', awaiting: false });
+    fireEvent.change(screen.getByTestId('tracking-filter-role'), { target: { value: 'CHECK' } });
+    await waitFor(() => expect(within(picker).getByRole('option', { name: 'Tổ kiểm tra' })).toBeInTheDocument());
+    expect(api.teams).toHaveBeenLastCalledWith({ role: 'CHECK', awaiting: false });
+    expect(within(picker).queryByRole('option', { name: 'Tổ 1' })).not.toBeInTheDocument();
+  });
+
+  it('with the card "Chờ tôi duyệt" chosen, asks the units of that work', async () => {
+    api.summary.mockResolvedValue(summary({ awaitingMyApproval: 2 }));
+    renderPage('/theo-doi-xu-ly?tracking_awaiting=1&tracking_role=COORDINATE');
+    await waitFor(() => expect(api.teams).toHaveBeenCalledWith({ role: 'COORDINATE', awaiting: true }));
+  });
+});
+
+describe('the role filter and the search box', () => {
+  it('the role is read from the address and sent with the cards and the list; MAIN is the default and is not written', async () => {
+    renderPage('/theo-doi-xu-ly?tracking_role=CHECK&tracking_page=2');
+    await waitFor(() => expect(api.items).toHaveBeenCalled());
+    expect(api.summary).toHaveBeenCalledWith(expect.objectContaining({ role: 'CHECK' }));
+    expect(lastItemsCall()).toMatchObject({ role: 'CHECK', page: 2 });
+    const select = screen.getByTestId('tracking-filter-role') as HTMLSelectElement;
+    expect(select.value).toBe('CHECK');
+    fireEvent.change(select, { target: { value: 'COORDINATE' } });
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_role=COORDINATE'));
+    fireEvent.change(select, { target: { value: 'MAIN' } });
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'MAIN' })));
+  });
+
+  it('a role the contract does not know is MAIN', async () => {
+    renderPage('/theo-doi-xu-ly?tracking_role=INFORM');
+    await waitFor(() => expect(api.items).toHaveBeenCalled());
+    expect(lastItemsCall()).toMatchObject({ role: 'MAIN' });
+  });
+
+  it('the search is sent, trimmed, a moment after typing stops; it is kept in the address and drops the page key', async () => {
+    renderPage('/theo-doi-xu-ly?tracking_page=3');
+    await waitFor(() => expect(api.items).toHaveBeenCalled());
+    const box = screen.getByTestId('tracking-search') as HTMLInputElement;
+    fireEvent.change(box, { target: { value: ' 2026-11' } });
+    fireEvent.change(box, { target: { value: ' 2026-119 ' } });
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_q=2026-119'));
+    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith(expect.objectContaining({ q: '2026-119' })));
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ q: '2026-119', page: 1 }));
+    // Only the last text was asked: the one typed on the way was never sent.
+    expect(api.summary.mock.calls.some(([filters]) => filters.q === '2026-11')).toBe(false);
+  });
+
+  it('one character is no search; emptying the box removes the key', async () => {
+    renderPage('/theo-doi-xu-ly?tracking_q=2026-119');
+    await waitFor(() => expect(api.items).toHaveBeenCalled());
+    const box = screen.getByTestId('tracking-search') as HTMLInputElement;
+    expect(box.value).toBe('2026-119');
+    expect(lastItemsCall()).toMatchObject({ q: '2026-119' });
+    fireEvent.change(box, { target: { value: '2' } });
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith(expect.objectContaining({ q: null })));
+    expect(screen.getByTestId('tracking-search-hint')).toHaveTextContent(T.search.tooShort);
+  });
+
+  it('a search of the address shorter than two characters is not sent, and clearing the filters empties the box', async () => {
+    renderPage('/theo-doi-xu-ly?tracking_q=x');
+    await waitFor(() => expect(api.items).toHaveBeenCalled());
+    expect(lastItemsCall()).toMatchObject({ q: null });
+    // What is not a search does not stay in the address.
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    fireEvent.change(screen.getByTestId('tracking-search'), { target: { value: 'Phạm Văn' } });
+    await waitFor(() => expect(lastItemsCall()).toMatchObject({ q: 'Phạm Văn' }));
+    expect(where()).toContain('tracking_q=');
+    fireEvent.click(screen.getByTestId('tracking-clear-filters'));
+    await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly'));
+    expect((screen.getByTestId('tracking-search') as HTMLInputElement).value).toBe('');
+  });
+});
+
 describe('the filters live in the address', () => {
   it('reads the card, my work, the unit, the kind and the page from the address', async () => {
     api.items.mockResolvedValue(items([item()], { band: 'YELLOW', total: 3, page: 2 }));
     renderPage('/theo-doi-xu-ly?tracking_band=YELLOW&tracking_mine=1&tracking_team=t3&tracking_kind=CASE&tracking_page=2');
     await waitFor(() => expect(api.items).toHaveBeenCalled());
-    expect(api.summary).toHaveBeenCalledWith({ mine: true, teamId: 't3', kind: 'CASE' });
-    expect(lastItemsCall()).toEqual({ mine: true, teamId: 't3', kind: 'CASE', band: 'YELLOW', asOf: AS_OF, page: 2, pageSize: 20 });
+    expect(api.summary).toHaveBeenCalledWith({ mine: true, teamId: 't3', kind: 'CASE', role: 'MAIN', q: null });
+    expect(lastItemsCall()).toEqual({ mine: true, teamId: 't3', kind: 'CASE', role: 'MAIN', q: null, band: 'YELLOW', awaiting: false, asOf: AS_OF, page: 2, pageSize: 20 });
     expect(screen.getByTestId('tracking-scope-mine')).toHaveAttribute('aria-pressed', 'true');
     expect((screen.getByTestId('tracking-filter-team') as HTMLSelectElement).value).toBe('t3');
     expect((screen.getByTestId('tracking-filter-kind') as HTMLSelectElement).value).toBe('CASE');
@@ -258,14 +409,14 @@ describe('the filters live in the address', () => {
     await waitFor(() => expect(api.items).toHaveBeenCalled());
     fireEvent.change(screen.getByTestId('tracking-filter-kind'), { target: { value: 'INCIDENT' } });
     await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_kind=INCIDENT'));
-    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith({ mine: false, teamId: null, kind: 'INCIDENT' }));
+    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith({ mine: false, teamId: null, kind: 'INCIDENT', role: 'MAIN', q: null }));
 
     fireEvent.change(screen.getByTestId('tracking-filter-team'), { target: { value: 't1' } });
     await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_kind=INCIDENT&tracking_team=t1'));
 
     fireEvent.click(screen.getByTestId('tracking-scope-mine'));
     await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_kind=INCIDENT&tracking_team=t1&tracking_mine=1'));
-    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith({ mine: true, teamId: 't1', kind: 'INCIDENT' }));
+    await waitFor(() => expect(api.summary).toHaveBeenLastCalledWith({ mine: true, teamId: 't1', kind: 'INCIDENT', role: 'MAIN', q: null }));
 
     fireEvent.click(screen.getByTestId('tracking-scope-all'));
     await waitFor(() => expect(where()).toBe('/theo-doi-xu-ly?tracking_kind=INCIDENT&tracking_team=t1'));

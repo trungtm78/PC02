@@ -343,7 +343,7 @@ run('The tracking screen on PostgreSQL', () => {
 
     it('a person whose role holds no read permission of any kind finds nothing, even in the unit that holds the records', async () => {
       expect(mine(await allItems('unpermitted'))).toEqual([]);
-      expect(await tracking.summary(user('unpermitted'), {})).toEqual({ asOf: NOW.toISOString(), counts: { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 }, unconfirmed: 0 });
+      expect(await tracking.summary(user('unpermitted'), {})).toEqual({ asOf: NOW.toISOString(), counts: { OVERDUE: 0, RED: 0, YELLOW: 0, GREEN: 0 }, unconfirmed: 0, awaitingMyApproval: 0 });
     });
 
     it('a member of the unit that holds the records finds its work, and nothing of another unit', async () => {

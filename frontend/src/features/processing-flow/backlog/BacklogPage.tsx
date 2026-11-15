@@ -11,20 +11,26 @@
  * list is asked per unit): un-roll to open a unit's own number. `holding` counts distinct records, which two units may
  * share, so a rolled-up row gives it as "≥" a lower bound.
  *
+ * The column "Chưa áp quy trình" counts the open records a unit HOLDS that have no flow yet. Its number opens the list
+ * of exactly those records (one kind at a time: a chooser shows when the unit has several kinds), which the server
+ * answers from the same condition. Such a record is held by ONE unit, so a rolled-up row carries the true sum.
+ *
  * The filters, the roll-up and the chosen cell live in the address; the instant does not.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Download, RefreshCw, ShieldOff, Table2, X } from 'lucide-react';
 import { ListPageShell, useListPageUrlState } from '@/components/shared/ListPageShell';
 import { parseBlobError } from '@/features/document-templates/export.api';
 import { A11Y_FOCUS_RING, BTN_SECONDARY } from '@/constants/styles';
-import { formatVNTime } from '@/lib/dates';
+import { formatVNDate, formatVNTime } from '@/lib/dates';
 import { processingFlow as L } from '@/locales/processingFlow.vi';
 import { TONE_CLASS, bandLabel, bandTone } from '../bandPresenter';
 import { RECORD_KINDS } from '../codes';
 import { FeatureOffState } from '../components/FeatureOffState';
 import { explainError, isFeatureOff } from '../errors';
+import { recordTabHref } from '../record-tabs/recordLink';
 import { TrackingItemsTable } from '../tracking/TrackingItemsTable';
 import { dueText } from '../tracking/trackingKeys';
 import type { RecordKind } from '../types';
@@ -32,7 +38,7 @@ import { backlogApi } from './api';
 import { BACKLOG_PAGE_SIZE, BACKLOG_QUERY_KEYS, BACKLOG_URL_PREFIX, dayParam, monthOf } from './backlogKeys';
 import { OnTimeSection } from './OnTimeSection';
 import { treeOrder } from './tree';
-import { BACKLOG_BANDS, DEFAULT_ROLE, WORK_ROLES, type BacklogBand, type BacklogCell, type BacklogFilters, type BandCounts } from './types';
+import { BACKLOG_BANDS, DEFAULT_ROLE, WORK_ROLES, type BacklogBand, type BacklogCell, type BacklogFilters, type BandCounts, type UnappliedCell } from './types';
 
 const T = L.backlog;
 
@@ -53,6 +59,8 @@ interface DisplayRow extends BandCounts {
   descendants: number;
   holding: number;
   holdingIsLowerBound: boolean;
+  unapplied: number;
+  unappliedByKind: Partial<Record<RecordKind, number>>;
   oldestDueAt: string | null;
   oldestDays: number | null;
 }
@@ -75,6 +83,10 @@ export default function BacklogPage() {
   const cellTeam = url.getParam('team');
   const askedBand = url.getParam('band');
   const cellBand: BacklogBand | null = BACKLOG_BANDS.find((b) => b === askedBand) ?? null;
+  const unitId = url.getParam('unit') || null;
+  /** The number of the column "Chưa áp quy trình" that is open: its unit and, of the kinds it has, the one listed. */
+  const noFlowTeam = url.getParam('noflow') || null;
+  const askedNoFlowKind = url.getParam('noflow_kind');
   const page = Math.max(1, url.getNumberParam('page', 1));
   // The current month in Vietnam, asked of the clock at every render: a page left open across the end of a month must
   // not keep asking the month it was opened in.
@@ -82,7 +94,7 @@ export default function BacklogPage() {
   const askedPeriodFrom = dayParam(url.getParam('period_from'));
   const askedPeriodTo = dayParam(url.getParam('period_to'));
 
-  const filters: BacklogFilters = useMemo(() => ({ kind, role, from, to }), [kind, role, from, to]);
+  const filters: BacklogFilters = useMemo(() => ({ kind, role, from, to, unitId }), [kind, role, from, to, unitId]);
   const cell: BacklogCell | null = useMemo(() => (cellTeam && cellBand ? { teamId: cellTeam, band: cellBand } : null), [cellTeam, cellBand]);
 
   const unitsQ = useQuery({
@@ -101,6 +113,30 @@ export default function BacklogPage() {
     retry: false,
   });
 
+  /**
+   * The units the filter offers, from the backlog itself: every unit a row of the table may be about, also one that
+   * only holds records with no flow, and the units above them (needs no `read:Team`).
+   */
+  const teamsQ = useQuery({ queryKey: BACKLOG_QUERY_KEYS.teams, queryFn: () => backlogApi.teams(), staleTime: 60_000, retry: false });
+  const unitOptions = useMemo(() => {
+    const offered = teamsQ.data ?? [];
+    // A unit named by the address stays selectable even when the list does not (or not yet) offer it.
+    const named = unitId !== null && !offered.some((team) => team.id === unitId) ? [{ id: unitId, name: unitsQ.data?.rows.find((row) => row.teamId === unitId)?.teamName || unitId }] : [];
+    return [...named, ...offered.map((team) => ({ id: team.id, name: team.name }))];
+  }, [teamsQ.data, unitId, unitsQ.data]);
+
+  const noFlowUnit = noFlowTeam && unitsQ.data ? (unitsQ.data.rows.find((r) => r.teamId === noFlowTeam) ?? null) : null;
+  /** The kinds the open unit has records of, in the order of the contract. */
+  const noFlowKinds = RECORD_KINDS.filter((k) => (noFlowUnit?.unappliedByKind?.[k] ?? 0) > 0);
+  const noFlowKind: RecordKind | null = noFlowTeam === null ? null : (RECORD_KINDS.find((k) => k === askedNoFlowKind) ?? noFlowKinds[0] ?? null);
+  const noFlow: UnappliedCell | null = useMemo(() => (noFlowTeam && noFlowKind ? { teamId: noFlowTeam, kind: noFlowKind } : null), [noFlowTeam, noFlowKind]);
+  const noFlowQ = useQuery({
+    queryKey: BACKLOG_QUERY_KEYS.unapplied(noFlow, page, asOf ?? ''),
+    queryFn: () => backlogApi.unapplied(noFlow ?? { teamId: '', kind: 'PETITION' }, page, BACKLOG_PAGE_SIZE),
+    enabled: asOf !== null && noFlow !== null,
+    retry: false,
+  });
+
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -108,8 +144,9 @@ export default function BacklogPage() {
   const display: DisplayRow[] = useMemo(() => {
     if (table === null) return [];
     // Rolled up, the rows ARE the top units as the server summed them.
-    if (rolledUp) return table.rows.map((row) => ({ ...row, depth: 0, descendants: row.descendants ?? 0, holdingIsLowerBound: row.holdingIsLowerBound ?? false }));
-    return treeOrder(table.rows).map(({ row, depth }) => ({ ...row, depth, descendants: 0, holdingIsLowerBound: false }));
+    const noFlowOf = (row: { unapplied?: number; unappliedByKind?: Partial<Record<RecordKind, number>> }) => ({ unapplied: row.unapplied ?? 0, unappliedByKind: row.unappliedByKind ?? {} });
+    if (rolledUp) return table.rows.map((row) => ({ ...row, ...noFlowOf(row), depth: 0, descendants: row.descendants ?? 0, holdingIsLowerBound: row.holdingIsLowerBound ?? false }));
+    return treeOrder(table.rows).map(({ row, depth }) => ({ ...row, ...noFlowOf(row), depth, descendants: 0, holdingIsLowerBound: false }));
   }, [table, rolledUp]);
 
   const cellUnit = cell && table ? (table.rows.find((r) => r.teamId === cell.teamId) ?? null) : null;
@@ -125,8 +162,14 @@ export default function BacklogPage() {
   /** The rows no longer are what the number said: something was finished, or came due, between the two calls. */
   const changed = list !== null && !itemsQ.isFetching && !unitsQ.isFetching && promised !== null && list.total !== promised;
 
+  const noFlowList = noFlow === null ? null : (noFlowQ.data ?? null);
+  /** What the table promises for the open number of "Chưa áp quy trình": the unit's own figure of that kind. */
+  const noFlowPromised = noFlow === null || table === null ? null : noFlowUnit !== null && (noFlowUnit.descendants ?? 0) === 0 ? (noFlowUnit.unappliedByKind?.[noFlow.kind] ?? 0) : rolledUp ? null : 0;
+  const noFlowChanged = noFlowList !== null && !noFlowQ.isFetching && !unitsQ.isFetching && noFlowPromised !== null && noFlowList.total !== noFlowPromised;
+
   /** The page asked for ran out (the list shrank, or a link named a page that does not exist): back to the first. */
-  const ranOut = list !== null && !itemsQ.isFetching && page > 1 && rows.length === 0;
+  const ranOut =
+    (list !== null && !itemsQ.isFetching && page > 1 && rows.length === 0) || (noFlowList !== null && !noFlowQ.isFetching && page > 1 && noFlowList.items.length === 0);
   const { setParam } = url;
   useEffect(() => {
     if (ranOut) setParam('page', null);
@@ -135,8 +178,11 @@ export default function BacklogPage() {
   /** Any change of what is counted starts the open cell again at its first page. */
   const setFilter = (updates: Record<string, string | null>) => url.setParams({ ...updates, page: null });
   // Opening a cell is a deliberate step people expect Back to undo.
+  // One list at a time: opening a cell closes the list of records with no flow, and the other way round.
   const openCell = (next: BacklogCell | null) =>
-    url.setParams({ team: next?.teamId ?? null, band: next?.band ?? null, page: null }, { history: 'push' });
+    url.setParams({ team: next?.teamId ?? null, band: next?.band ?? null, noflow: null, noflow_kind: null, page: null }, { history: 'push' });
+  const openNoFlow = (teamId: string | null, ofKind: RecordKind | null = null) =>
+    url.setParams({ noflow: teamId, noflow_kind: ofKind, team: null, band: null, page: null }, { history: 'push' });
   /** A new instant for the table and, through it, for the rows of the open cell. */
   const refresh = () => {
     if (page > 1) url.setParam('page', null);
@@ -160,7 +206,34 @@ export default function BacklogPage() {
   const unitsError = unitsQ.isError ? explainError(unitsQ.error) : null;
   const listError = itemsQ.isError ? explainError(itemsQ.error) : null;
   const forbidden = unitsError?.status === 403 || listError?.status === 403;
-  const hasFilters = kind !== null || role !== DEFAULT_ROLE || from !== null || to !== null;
+  const hasFilters = kind !== null || role !== DEFAULT_ROLE || from !== null || to !== null || unitId !== null;
+  const noFlowError = noFlowQ.isError ? explainError(noFlowQ.error) : null;
+
+  const noFlowCell = (row: DisplayRow) => {
+    const value = row.unapplied;
+    const testId = `backlog-unapplied-${row.teamId}`;
+    // Nothing behind a zero; a rolled-up sum is the records of several units, and the list is asked per unit.
+    if (value === 0 || row.descendants > 0) {
+      return (
+        <span data-testid={testId} className={value === 0 ? 'text-slate-400' : `${CHIP} border-slate-300 bg-slate-50 text-slate-800`}>
+          {count(value)}
+        </span>
+      );
+    }
+    const open = noFlowTeam === row.teamId;
+    return (
+      <button
+        type="button"
+        data-testid={testId}
+        aria-pressed={open}
+        aria-label={T.openUnapplied(row.teamName, value)}
+        className={`${CHIP} border-slate-300 bg-slate-50 text-slate-800 hover:underline ${open ? 'ring-2 ring-blue-600 ring-offset-1' : ''} ${A11Y_FOCUS_RING}`}
+        onClick={() => openNoFlow(open ? null : row.teamId)}
+      >
+        {count(value)}
+      </button>
+    );
+  };
 
   const numberCell = (row: DisplayRow, band: BacklogBand) => {
     const value = row[band];
@@ -244,6 +317,17 @@ export default function BacklogPage() {
                 </select>
               </label>
               <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600">
+                {T.filters.unit}
+                <select data-testid="backlog-filter-unit" className={SELECT} value={unitId ?? ''} onChange={(e) => setFilter({ unit: e.target.value || null })}>
+                  <option value="">{T.filters.all}</option>
+                  {unitOptions.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600">
                 {T.filters.role}
                 <select
                   data-testid="backlog-filter-role"
@@ -295,7 +379,7 @@ export default function BacklogPage() {
                   type="button"
                   data-testid="backlog-clear-filters"
                   className={`${LINK} py-2`}
-                  onClick={() => setFilter({ kind: null, role: null, from: null, to: null })}
+                  onClick={() => setFilter({ kind: null, role: null, from: null, to: null, unit: null })}
                 >
                   {T.filters.clear}
                 </button>
@@ -350,6 +434,9 @@ export default function BacklogPage() {
                             {bandLabel(band)}
                           </th>
                         ))}
+                        <th scope="col" className={`${TH} text-right`} title={T.unappliedHint}>
+                          {T.columns.unapplied}
+                        </th>
                         <th scope="col" className={`${TH} text-left`}>
                           {T.columns.oldest}
                         </th>
@@ -374,6 +461,7 @@ export default function BacklogPage() {
                               {numberCell(row, band)}
                             </td>
                           ))}
+                          <td className={`${TD} text-right`}>{noFlowCell(row)}</td>
                           <td className={`${TD} whitespace-nowrap text-left`} data-testid={`backlog-oldest-${row.teamId}`}>
                             {oldestText(row.oldestDueAt, row.oldestDays)}
                           </td>
@@ -391,6 +479,9 @@ export default function BacklogPage() {
                             {count(table.totals[band])}
                           </td>
                         ))}
+                        <td className={`${TD} text-right`} data-testid="backlog-total-unapplied">
+                          {count(table.totals.unapplied ?? 0)}
+                        </td>
                         <td className={TD} />
                       </tr>
                     </tfoot>
@@ -448,9 +539,117 @@ export default function BacklogPage() {
               </section>
             )}
 
+            {noFlowTeam !== null && !unitsError && table !== null && (
+              <section data-testid="backlog-unapplied-panel" aria-labelledby="backlog-unapplied-title" className="mt-4 border-t border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h2 id="backlog-unapplied-title" className="text-sm font-semibold text-slate-800">
+                      {T.unapplied.title(noFlowUnit?.teamName ?? T.cell.unknownUnit)}
+                    </h2>
+                    {noFlowList !== null && !noFlowError && (
+                      <b data-testid="backlog-unapplied-count" className="text-sm text-slate-800">
+                        {T.unapplied.count(noFlowList.total)}
+                      </b>
+                    )}
+                    <button type="button" data-testid="backlog-unapplied-close" className={`${LINK} inline-flex items-center gap-1`} onClick={() => openNoFlow(null)}>
+                      <X className="h-4 w-4" aria-hidden="true" />
+                      {T.cell.close}
+                    </button>
+                  </div>
+                  {noFlowChanged && (
+                    <p data-testid="backlog-unapplied-changed" role="status" className="flex flex-wrap items-center gap-2 text-xs text-amber-800">
+                      {T.unapplied.changed}
+                      <button type="button" data-testid="backlog-unapplied-refresh" className={`${LINK} !text-xs font-semibold`} onClick={refresh}>
+                        {T.refresh}
+                      </button>
+                    </p>
+                  )}
+                </div>
+                {noFlowKinds.length > 1 && (
+                  <div role="group" aria-label={T.unapplied.kinds} className="flex flex-wrap items-center gap-2 px-4 pb-2">
+                    {noFlowKinds.map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        data-testid={`backlog-unapplied-kind-${k}`}
+                        aria-pressed={noFlowKind === k}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${noFlowKind === k ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700'} ${A11Y_FOCUS_RING}`}
+                        onClick={() => url.setParams({ noflow_kind: k, page: null })}
+                      >
+                        {T.unapplied.kindCount(L.recordKinds[k], noFlowUnit?.unappliedByKind?.[k] ?? 0)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {noFlowError ? (
+                  <div data-testid="backlog-unapplied-error" role="alert" className="m-4 flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" aria-hidden="true" />
+                    <p className="min-w-0 flex-1 text-sm text-red-700">{noFlowError.message || L.common.loadFailed}</p>
+                    <button type="button" data-testid="backlog-unapplied-retry" className={BTN_SECONDARY} onClick={() => void noFlowQ.refetch()}>
+                      {L.common.retry}
+                    </button>
+                  </div>
+                ) : noFlow === null || noFlowList === null ? (
+                  <p data-testid="backlog-unapplied-loading" role="status" className="px-4 py-4 text-sm text-slate-500">
+                    {noFlow === null && !unitsQ.isFetching ? T.unapplied.empty : L.common.loading}
+                  </p>
+                ) : noFlowList.items.length === 0 ? (
+                  <p data-testid="backlog-unapplied-empty" className="px-4 py-4 text-sm text-slate-600">
+                    {T.unapplied.empty}
+                  </p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table aria-label={T.unapplied.tableTitle} data-testid="backlog-unapplied-table" className="w-full border-collapse bg-white">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th scope="col" className={`${TH} text-left`}>
+                              {T.unapplied.columns.record}
+                            </th>
+                            <th scope="col" className={`${TH} text-left`}>
+                              {T.unapplied.columns.deadline}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {noFlowList.items.map((record) => {
+                            const code = record.recordCode ?? L.tracking.noCode;
+                            return (
+                              <tr key={record.recordId} data-testid={`backlog-unapplied-row-${record.recordId}`} className="border-t border-slate-200">
+                                <td className={`${TD} text-left`}>
+                                  <Link
+                                    to={recordTabHref(record.recordKind, record.recordId)}
+                                    aria-label={T.unapplied.open(code)}
+                                    className={`font-semibold text-blue-800 hover:underline ${A11Y_FOCUS_RING}`}
+                                  >
+                                    {code}
+                                  </Link>
+                                  {record.recordLabel && <span className="text-slate-700"> · {record.recordLabel}</span>}
+                                  <div className="text-xs text-slate-500">{L.recordKinds[record.recordKind]}</div>
+                                </td>
+                                <td className={`${TD} whitespace-nowrap text-left`}>{record.deadline ? formatVNDate(record.deadline) : T.unapplied.noDeadline}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <ListPageShell.Pagination
+                      page={page}
+                      totalPages={Math.max(1, Math.ceil(noFlowList.total / BACKLOG_PAGE_SIZE))}
+                      totalCount={noFlowList.total}
+                      onPageChange={(next) => url.setParam('page', next > 1 ? String(next) : null)}
+                    />
+                  </>
+                )}
+              </section>
+            )}
+
             <OnTimeSection
               kind={kind}
               role={role}
+              unitId={unitId}
+              rolledUp={rolledUp}
               from={askedPeriodFrom ?? month.from}
               to={askedPeriodTo ?? month.to}
               customPeriod={askedPeriodFrom !== null || askedPeriodTo !== null}

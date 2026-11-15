@@ -16,7 +16,7 @@ import { ProcessingTrackingService } from './processing-tracking.service';
  */
 describe('ProcessingTrackingController (HTTP, real guards)', () => {
   let app: INestApplication;
-  const tracking = { summary: jest.fn(), items: jest.fn() };
+  const tracking = { summary: jest.fn(), items: jest.fn(), teams: jest.fn() };
   let switchedOn = true;
   let held: string[] = ['read:ProcessingStep'];
   const asked: string[] = [];
@@ -111,6 +111,26 @@ describe('ProcessingTrackingController (HTTP, real guards)', () => {
     expect(tracking.items).toHaveBeenCalledWith(expect.anything(), { band: 'NONE', role: 'CHECK', teamId: 't1', from: '2026-12-01', to: '2026-12-31' });
   });
 
+  it('the units of the filter take the role and the card of the screen, and nothing else', async () => {
+    tracking.teams.mockReset().mockResolvedValue([]);
+    await get('/processing/tracking/teams?role=CHECK').expect(200);
+    expect(tracking.teams).toHaveBeenLastCalledWith(expect.anything(), { role: 'CHECK' });
+    await get('/processing/tracking/teams?awaiting=approval').expect(200);
+    expect(tracking.teams).toHaveBeenLastCalledWith(expect.anything(), { awaiting: 'approval' });
+    await get('/processing/tracking/teams').expect(200);
+    expect(tracking.teams).toHaveBeenLastCalledWith(expect.anything(), {});
+    tracking.teams.mockClear();
+    for (const path of ['/processing/tracking/teams?role=INFORM', '/processing/tracking/teams?awaiting=all', '/processing/tracking/teams?teamId=t1']) await get(path).expect(400);
+    expect(tracking.teams).not.toHaveBeenCalled();
+  });
+
+  it('the search (trimmed) and the card "waiting for my approval" reach the service as sent', async () => {
+    await get('/processing/tracking/items?awaiting=approval&q=%20%202026-119%20&role=CHECK').expect(200);
+    expect(tracking.items).toHaveBeenCalledWith(expect.anything(), { awaiting: 'approval', q: '2026-119', role: 'CHECK' });
+    await get('/processing/tracking/summary?q=ab').expect(200);
+    expect(tracking.summary).toHaveBeenCalledWith(expect.anything(), { q: 'ab' });
+  });
+
   it.each([
     '/processing/tracking/items?role=INFORM',
     '/processing/tracking/items?from=2026-02-31',
@@ -122,6 +142,11 @@ describe('ProcessingTrackingController (HTTP, real guards)', () => {
     '/processing/tracking/items?pageSize=101',
     '/processing/tracking/items?pageSize=ten',
     '/processing/tracking/items?userId=somebody-else',
+    '/processing/tracking/items?q=x',
+    '/processing/tracking/items?q=%20%20x%20%20',
+    `/processing/tracking/items?q=${'a'.repeat(101)}`,
+    '/processing/tracking/items?awaiting=everything',
+    '/processing/tracking/summary?awaiting=approval',
     '/processing/tracking/summary?band=RED',
     '/processing/tracking/summary?page=2',
   ])('%s is refused before the service is asked', async (path) => {

@@ -12,8 +12,9 @@ import { civilDayOf } from '../engine/civil-day';
 import type { Band } from '../engine/types';
 import { RecordGateway } from '../gateway/record-gateway';
 import type { RecordKind } from '../gateway/record-snapshot';
+import { delegatesOf, effectiveDelegations } from '../records/processing-delegation';
 import { COUNTED_STEP_STATUSES, effectiveDue } from '../records/record-alert';
-import { clockRuns } from '../tracking/processing-tracking.service';
+import { clockRuns, displayName } from '../tracking/processing-tracking.service';
 
 /** The switch of these reminders, read at run time by every tick, every claim and the nudge (C16). */
 export const REMINDERS_SWITCH = 'processing_flow_reminders';
@@ -78,6 +79,8 @@ interface Wanted {
   dedupeKey: string;
   /** The civil day of a reminder repeated daily: it is true on that day only. */
   day?: number;
+  /** Set when the recipient is told as the DELEGATE of this person (R8), not in their own right. */
+  onBehalfOfUserId?: string;
 }
 
 type ReminderRow = Prisma.ProcReminderGetPayload<object>;
@@ -86,6 +89,8 @@ interface PlanContext {
   heads: Map<string, Promise<string[]>>;
   /** After how many civil days overdue a step escalates when its flow does not say; `null`: never. */
   escalation: { parent: number | null; leadership: number | null };
+  /** The delegate of every person who has one at the instant of this tick (`effectiveDelegations`); read once, when first asked. */
+  delegates: Promise<Map<string, string>> | null;
 }
 
 interface ReminderPayload {
@@ -98,6 +103,8 @@ interface ReminderPayload {
   day?: number;
   message?: string;
   byUserId?: string;
+  /** The person this row's recipient is told for, as their delegate: the delegation is asked again when delivering. */
+  onBehalfOfUserId?: string;
 }
 
 export interface TickResult {
@@ -129,7 +136,11 @@ const NOTHING_DELIVERED: DeliverResult = { sent: 0, dropped: 0, retried: 0, dead
  * (`deadlineRevision` goes up with every change, so A -> B -> A too) is reminded again.
  *
  * WHO. For the MAIN and CHECK parties of the step: the person named, otherwise the active heads of the (active) unit.
- * INFORM parties are told once per band, never daily. Escalation, after the civil days overdue the step of the flow
+ * INFORM parties are told once per band, never daily. A DELEGATE in force (R8; the one resolver
+ * `effectiveDelegations`, at the application clock of the tick) of any of these people is told as well, in words that say
+ * for whom; the person they act for is still told (they stay responsible). A delegate who is also told in their own right
+ * gets that one notice and no second. The delegation is asked again when delivering: ended or revoked meanwhile, the row
+ * ends STALE, unsent. Escalation recipients are NOT extended to their delegates. Escalation, after the civil days overdue the step of the flow
  * says (`escalateAfterDays`, `escalateLeadershipAfterDays`) or, when it says nothing, the two system settings
  * (defaults 3 and 7; 0 or empty = never): once the heads of the PARENT unit of the main unit, and once the people who
  * hold `approve:ProcessingStep`. Every recipient must be an active person who may OPEN the record
@@ -212,7 +223,7 @@ export class ProcessingReminderService {
    */
   async plan(now: Date): Promise<{ planned: number; state: 'DONE' | 'PARTIAL' | 'BUSY' }> {
     const started = Date.now();
-    const context: PlanContext = { heads: new Map(), escalation: await this.escalationDefaults() };
+    const context: PlanContext = { heads: new Map(), escalation: await this.escalationDefaults(), delegates: null };
     let planned = 0;
     let seen = 0;
     for (;;) {
@@ -292,20 +303,34 @@ export class ProcessingReminderService {
     const dueAt = effectiveDue(step) as Date;
     const today = civilDayOf(now);
     const wanted = new Map<string, Wanted>();
-    const want = (recipientId: string, kind: ReminderKind, what: string, day?: number) => {
+    const want = (recipientId: string, kind: ReminderKind, what: string, day?: number, onBehalfOfUserId?: string) => {
       const dedupeKey = `${step.id}:${step.deadlineRevision}:${what}:${recipientId}`;
-      if (!wanted.has(dedupeKey)) wanted.set(dedupeKey, { recipientId, kind, dedupeKey, day });
+      if (!wanted.has(dedupeKey)) wanted.set(dedupeKey, { recipientId, kind, dedupeKey, day, onBehalfOfUserId });
     };
-
-    // The people who answer for the work (MAIN, CHECK) first: somebody who is one of them is not also "informed".
+    // A person is told about the band ONCE. Every DIRECT recipient is registered first, in their own right and with the
+    // cadence of their own role (MAIN, CHECK: daily when overdue; INFORM: once per band). A delegate gets a row only
+    // when they are NOT a direct recipient: a delegation never changes the key, the cadence or the payload of a row a
+    // person is owed themself (so revoking it cannot make their own reminder stale).
+    const told = new Set<string>();
+    const tell = (userId: string, daily: boolean, onBehalfOfUserId?: string) => {
+      if (told.has(userId)) return;
+      told.add(userId);
+      if (daily && band === 'OVERDUE') want(userId, REMINDER_KIND.BAND, `OVERDUE:${today}`, today, onBehalfOfUserId);
+      else want(userId, REMINDER_KIND.BAND, band, undefined, onBehalfOfUserId);
+    };
+    const delegates = await this.delegatesAt(context, now);
     const responsible = await this.responsible(step, ['MAIN', 'CHECK'], heads);
-    for (const userId of responsible) {
-      if (band === 'OVERDUE') want(userId, REMINDER_KIND.BAND, `OVERDUE:${today}`, today);
-      else want(userId, REMINDER_KIND.BAND, band);
-    }
-    for (const userId of await this.responsible(step, ['INFORM'], heads)) {
-      if (!responsible.includes(userId)) want(userId, REMINDER_KIND.BAND, band);
-    }
+    const informed = await this.responsible(step, ['INFORM'], heads);
+    for (const userId of responsible) tell(userId, true);
+    for (const userId of informed) tell(userId, false);
+    const tellDelegatesOf = (people: string[], daily: boolean) => {
+      for (const userId of people) {
+        const delegate = delegates.get(userId);
+        if (delegate) tell(delegate, daily, userId);
+      }
+    };
+    tellDelegatesOf(responsible, true);
+    tellDelegatesOf(informed, false);
 
     if (band === 'OVERDUE') {
       const overdueDays = today - civilDayOf(dueAt);
@@ -350,7 +375,7 @@ export class ProcessingReminderService {
           band,
           deadlineRevision: step.deadlineRevision,
           recipientId: row.recipientId,
-          payload: { ...payload, ...(row.day === undefined ? {} : { day: row.day }) } as unknown as Prisma.InputJsonValue,
+          payload: { ...payload, ...(row.day === undefined ? {} : { day: row.day }), ...(row.onBehalfOfUserId ? { onBehalfOfUserId: row.onBehalfOfUserId } : {}) } as unknown as Prisma.InputJsonValue,
           // The application's clock, never the column default: the database's NOW() is not the clock rows are claimed by.
           availableAt: now,
           createdAt: now,
@@ -360,6 +385,16 @@ export class ProcessingReminderService {
       });
       return written.count;
     });
+  }
+
+  /**
+   * The delegate of every person who has one at `now`: THE resolver (`effectiveDelegations`: in force at the application
+   * clock, not revoked, both accounts active, the two still in one active unit), asked once per tick whatever the number
+   * of steps.
+   */
+  private delegatesAt(context: PlanContext, now: Date): Promise<Map<string, string>> {
+    context.delegates ??= effectiveDelegations(this.prisma, {}, now).then((rows) => new Map(rows.map((row) => [row.fromUserId, row.toUserId])));
+    return context.delegates;
   }
 
   /** The people who answer for the parties of these roles: the person named, otherwise the active heads of the unit. */
@@ -496,6 +531,18 @@ export class ProcessingReminderService {
       if (bandOfStep(step, now) !== row.band) return REMINDER_OUTCOME.STALE;
       if (typeof payload.day === 'number' && payload.day !== civilDayOf(now)) return REMINDER_OUTCOME.STALE;
     }
+    // Told as a delegate: the delegation must still give something NOW (ended, revoked, an account closed or the shared
+    // unit lost since the row was decided = nothing to say to this person).
+    let onBehalfOfName: string | undefined;
+    const onBehalfOfUserId = typeof payload.onBehalfOfUserId === 'string' ? payload.onBehalfOfUserId : null;
+    if (onBehalfOfUserId) {
+      const given = await delegatesOf(this.prisma, [onBehalfOfUserId], now);
+      if (given.get(onBehalfOfUserId)?.toUserId !== row.recipientId) return REMINDER_OUTCOME.STALE;
+      const from = await this.prisma.user.findUnique({ where: { id: onBehalfOfUserId }, select: { firstName: true, lastName: true, username: true } });
+      if (!from) return REMINDER_OUTCOME.STALE;
+      onBehalfOfName = displayName(from);
+    }
+    // The rule of the route that shows the flow, WITH the step rule: for a delegate it counts the delegation in force.
     if (!(await this.readers(kind, row.recordId, [row.recipientId])).has(row.recipientId)) return REMINDER_OUTCOME.NOT_READABLE;
 
     const overdue = row.band === 'OVERDUE';
@@ -503,9 +550,9 @@ export class ProcessingReminderService {
     return {
       toUserId: row.recipientId,
       type: row.kind === REMINDER_KIND.NUDGE ? NotificationType.SYSTEM : NOTICE_TYPE[kind][overdue ? 'overdue' : 'near'],
-      ...wording(row.kind as ReminderKind, kind, row.band, payload),
+      ...wording(row.kind as ReminderKind, kind, row.band, payload, onBehalfOfName),
       link: stepLink(kind, row.recordId),
-      metadata: { [idKey]: row.recordId, stepKey: row.stepKey, reminderId: row.id, reminderKind: row.kind, band: row.band },
+      metadata: { [idKey]: row.recordId, stepKey: row.stepKey, reminderId: row.id, reminderKind: row.kind, band: row.band, ...(onBehalfOfUserId ? { onBehalfOfUserId } : {}) },
     };
   }
 
@@ -557,8 +604,16 @@ export class ProcessingReminderService {
     if (await this.prisma.procReminder.findFirst({ where: { ...marks, createdAt: { gt: new Date(now.getTime() - NUDGE_COOLDOWN_MS) } }, select: { id: true } })) throw tooSoon();
 
     const responsible = (await this.responsible(step, ['MAIN', 'CHECK'], new Map())).filter((userId) => userId !== actorId);
-    const readers = await this.readers(kind, recordId, responsible);
-    const recipients = responsible.filter((userId) => readers.has(userId));
+    // The delegate in force of each of them is told as well (R8), unless they are the one who nudges or are told already.
+    const given = await delegatesOf(this.prisma, responsible, now);
+    const onBehalfOf = new Map<string, string>();
+    for (const fromUserId of responsible) {
+      const delegate = given.get(fromUserId)?.toUserId;
+      if (delegate && delegate !== actorId && !responsible.includes(delegate) && !onBehalfOf.has(delegate)) onBehalfOf.set(delegate, fromUserId);
+    }
+    const asked = [...responsible, ...onBehalfOf.keys()];
+    const readers = await this.readers(kind, recordId, asked);
+    const recipients = asked.filter((userId) => readers.has(userId));
     const payload = await this.payloadOf(step, now, { message: text, byUserId: actorId });
     const markKey = `${step.id}:${REMINDER_KIND.NUDGE}:${actorId}:${Math.floor(now.getTime() / NUDGE_COOLDOWN_MS)}`;
     const base = { recordStepId: step.id, recordKind: kind, recordId, stepKey, band: null, deadlineRevision: step.deadlineRevision, availableAt: now, createdAt: now };
@@ -571,7 +626,7 @@ export class ProcessingReminderService {
         });
         if (recipients.length > 0) {
           await tx.procReminder.createMany({
-            data: recipients.map((recipientId) => ({ ...base, dedupeKey: `${markKey}:${recipientId}`, kind: REMINDER_KIND.NUDGE, recipientId, payload: payload as unknown as Prisma.InputJsonValue })),
+            data: recipients.map((recipientId) => ({ ...base, dedupeKey: `${markKey}:${recipientId}`, kind: REMINDER_KIND.NUDGE, recipientId, payload: { ...payload, ...(onBehalfOf.has(recipientId) ? { onBehalfOfUserId: onBehalfOf.get(recipientId) } : {}) } as unknown as Prisma.InputJsonValue })),
           });
         }
         // The opinion book of the step (R4): everybody who reads the results of the step reads the nudge. It names no
@@ -622,7 +677,13 @@ const BAND_NAME: Record<string, string> = { RED: 'Đỏ', YELLOW: 'Vàng', GREEN
  * The words of a notice. Vietnamese text written by the server, as every notification of this system is (a
  * notification row stores its title and message; there is no code a client could translate).
  */
-function wording(kind: ReminderKind, recordKind: RecordKind, band: string | null, payload: Partial<ReminderPayload>): { title: string; message: string } {
+function wording(kind: ReminderKind, recordKind: RecordKind, band: string | null, payload: Partial<ReminderPayload>, onBehalfOfName?: string): { title: string; message: string } {
+  const own = ownWording(kind, recordKind, band, payload);
+  // A delegate reads for whom they are told: the work is still the other person's, they do it in their place.
+  return onBehalfOfName ? { title: own.title, message: `${own.message} (nhận thay ${onBehalfOfName} theo uỷ quyền)` } : own;
+}
+
+function ownWording(kind: ReminderKind, recordKind: RecordKind, band: string | null, payload: Partial<ReminderPayload>): { title: string; message: string } {
   const what = `Bước "${payload.stepName ?? ''}" của ${RECORD_NOUN[recordKind]}${payload.recordCode ? ` ${payload.recordCode}` : ''}`;
   const days = payload.remainingDays ?? 0;
   const late = days < 0 ? `đã quá hạn ${-days} ngày` : 'đã quá hạn';

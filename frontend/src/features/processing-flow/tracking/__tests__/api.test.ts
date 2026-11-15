@@ -15,26 +15,42 @@ beforeEach(() => {
 
 describe('the tracking routes', () => {
   it('asks the cards with only the filters that are set, and never with an instant', async () => {
-    await trackingApi.summary({ mine: false, teamId: null, kind: null });
+    await trackingApi.summary({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null });
     expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/summary', { params: {} });
-    await trackingApi.summary({ mine: true, teamId: 't3', kind: 'CASE' });
+    await trackingApi.summary({ mine: true, teamId: 't3', kind: 'CASE', role: 'MAIN', q: null });
     expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/summary', { params: { mine: true, teamId: 't3', kind: 'CASE' } });
   });
 
   it('asks the list with the instant of the cards, the card and the page', async () => {
-    await trackingApi.items({ mine: false, teamId: null, kind: null, band: 'RED', asOf: '2026-12-10T02:30:00.000Z', page: 2, pageSize: 20 });
+    await trackingApi.items({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null, awaiting: false, band: 'RED', asOf: '2026-12-10T02:30:00.000Z', page: 2, pageSize: 20 });
     expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/items', {
       params: { band: 'RED', asOf: '2026-12-10T02:30:00.000Z', page: 2, pageSize: 20 },
     });
-    await trackingApi.items({ mine: true, teamId: 't1', kind: 'PETITION', band: null, asOf: 'x', page: 1, pageSize: 20 });
+    await trackingApi.items({ mine: true, teamId: 't1', kind: 'PETITION', role: 'MAIN', q: null, awaiting: false, band: null, asOf: 'x', page: 1, pageSize: 20 });
     expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/items', {
       params: { mine: true, teamId: 't1', kind: 'PETITION', asOf: 'x', page: 1, pageSize: 20 },
     });
   });
 
+  it('sends a role other than the default, the search, and the card "waiting for my approval" in place of a band', async () => {
+    await trackingApi.summary({ mine: false, teamId: null, kind: null, role: 'CHECK', q: '2026-119' });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/summary', { params: { role: 'CHECK', q: '2026-119' } });
+    await trackingApi.items({ mine: false, teamId: null, kind: null, role: 'COORDINATE', q: null, awaiting: true, band: 'RED', asOf: 'x', page: 1, pageSize: 20 });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/items', { params: { role: 'COORDINATE', awaiting: 'approval', asOf: 'x', page: 1, pageSize: 20 } });
+  });
+
+  it('asks the units of the filter with the role of the screen (the default left out) and the card "waiting for my approval"', async () => {
+    await trackingApi.teams({ role: 'MAIN', awaiting: false });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/teams', { params: {} });
+    await trackingApi.teams({ role: 'CHECK', awaiting: false });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/teams', { params: { role: 'CHECK' } });
+    await trackingApi.teams({ role: 'COORDINATE', awaiting: true });
+    expect(http.get).toHaveBeenLastCalledWith('/processing/tracking/teams', { params: { role: 'COORDINATE', awaiting: 'approval' } });
+  });
+
   it('returns the body, not the axios response', async () => {
     http.get.mockResolvedValueOnce({ data: { asOf: 'x', counts: {} } });
-    await expect(trackingApi.summary({ mine: false, teamId: null, kind: null })).resolves.toEqual({ asOf: 'x', counts: {} });
+    await expect(trackingApi.summary({ mine: false, teamId: null, kind: null, role: 'MAIN', q: null })).resolves.toEqual({ asOf: 'x', counts: {} });
   });
 
   it('the bands with a card are the colours of the contract, not a copy', () => {

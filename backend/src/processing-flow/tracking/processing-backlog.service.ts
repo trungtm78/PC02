@@ -6,15 +6,54 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { remainingDays } from '../engine/bands';
 import { BANDS } from '../contract/processing-codes';
 import type { Band } from '../engine/types';
-import type { GatewayUser, RecordKind } from '../gateway/record-snapshot';
+import { RECORD_KINDS, type GatewayUser, type RecordKind } from '../gateway/record-snapshot';
+import { clocklessStatuses } from '../records/record-alert';
 import { rollUpUnits } from './backlog-rollup';
-import type { WorkRole } from './band-conditions';
-import { ANY_WORK, periodOf, ProcessingTrackingService, type TrackingFilter } from './processing-tracking.service';
+import { WORK_ROLES, type WorkRole } from './band-conditions';
+import { TRACKING_DEFAULT_PAGE_SIZE, TRACKING_MAX_PAGE_SIZE } from './dto/tracking.dto';
+import { ANY_WORK, periodOf, ProcessingTrackingService, type TrackingFilter, type TrackingTeam } from './processing-tracking.service';
 
 export type BacklogFilter = Pick<TrackingFilter, 'asOf' | 'kind' | 'role' | 'from' | 'to'> & {
   /** The table rolled up to its top units (`rollUpUnits`): what the screen shows with "Gộp lên tổ cha" on. */
   rollup?: boolean;
+  /** Only this unit; with `rollup`, the unit and every unit under it. */
+  teamId?: string;
 };
+
+type KindCounts = Record<RecordKind, number>;
+const zeroKinds = (): KindCounts => ({ PETITION: 0, INCIDENT: 0, CASE: 0 });
+
+/**
+ * THE condition of a record that has NO FLOW YET (R6, the column "Chưa áp quy trình"): an OPEN record (not deleted,
+ * not finished, not suspended) of one kind, within `onList` (the records the LIST of that kind shows the person:
+ * `ProcessingTrackingService.recordScopes`; for a case that is the representation capability `list`, not `view`), held by a unit (`assignedTeamId`), with no flow at all (a
+ * proposed flow is a flow: it is counted apart on the tracking screen). The number of a unit and the list behind it
+ * (`ProcessingBacklogService.unapplied`) are both this condition and nothing else. No clock is asked: nothing in it
+ * depends on the instant. The role and the period of the table do not apply (they are about steps; there is none).
+ */
+export function unappliedWhere(kind: RecordKind, onList: object, teamIds: readonly string[] | null): Record<string, unknown> {
+  return { AND: [onList, { deletedAt: null, status: { notIn: clocklessStatuses(kind) }, procFlow: { is: null }, assignedTeamId: teamIds ? { in: [...teamIds] } : { not: null } }] };
+}
+
+/** A record with no flow yet, as the list behind a number of the column shows it. */
+export interface UnappliedRecord {
+  recordKind: RecordKind;
+  recordId: string;
+  recordCode: string | null;
+  /** The name next to the code on the list; `null` for a case (its fields have a policy of their own). */
+  recordLabel: string | null;
+  /** The record's own deadline, the one it shows while it has no flow; `null` without one, and for a case. */
+  deadline: string | null;
+}
+
+export interface UnappliedRecords {
+  kind: RecordKind;
+  teamId: string;
+  items: UnappliedRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 type BandCounts = Record<Band, number>;
 
@@ -25,6 +64,9 @@ export interface BacklogUnitRow extends BandCounts {
   parentTeamId: string | null;
   /** How many distinct RECORDS have a step this unit is working. */
   holding: number;
+  /** Open records this unit HOLDS (`assignedTeamId`) that have no flow yet (`unappliedWhere`), in all and per kind. */
+  unapplied: number;
+  unappliedByKind: KindCounts;
   /** The earliest deadline among the unit's work; `null` when none of it has a deadline. */
   oldestDueAt: string | null;
   /** Civil days (Vietnam) that deadline is past at `asOf`; 0 while it is not past; `null` with `oldestDueAt`. */
@@ -40,7 +82,7 @@ export interface BacklogUnits {
   asOf: string;
   rows: BacklogUnitRow[];
   /** The band columns add up; `holding` is the number of distinct records over all units (a record two units work is one). */
-  totals: BandCounts & { holding: number };
+  totals: BandCounts & { holding: number; unapplied: number };
 }
 
 export interface OnTimeRow {
@@ -89,10 +131,11 @@ export function backlogSheetLines(table: BacklogUnits, rolledUp: boolean): Array
     escapeXlsxCell(row.teamName),
     row.holdingIsLowerBound ? `≥ ${row.holding}` : row.holding,
     ...BANDS.map((band) => row[band]),
+    row.unapplied,
     row.oldestDueAt ?? '',
     row.oldestDays ?? '',
   ]);
-  lines.push(['Tổng cộng', table.totals.holding, ...BANDS.map((band) => table.totals[band]), '', '']);
+  lines.push(['Tổng cộng', table.totals.holding, ...BANDS.map((band) => table.totals[band]), table.totals.unapplied, '', '']);
   if (rolledUp) lines.push([ROLLED_UP_NOTE]);
   return lines;
 }
@@ -106,6 +149,7 @@ const EXPORT_COLUMNS: Array<{ header: string; key: keyof BacklogUnitRow; width: 
   { header: 'Vàng', key: 'YELLOW', width: 10 },
   { header: 'Xanh', key: 'GREEN', width: 10 },
   { header: 'Chưa tới ngưỡng', key: 'NONE', width: 16 },
+  { header: 'Chưa áp quy trình', key: 'unapplied', width: 18 },
   { header: 'Hạn cũ nhất', key: 'oldestDueAt', width: 22 },
   { header: 'Số ngày quá hạn', key: 'oldestDays', width: 16 },
 ];
@@ -118,7 +162,8 @@ const EXPORT_COLUMNS: Array<{ header: string; key: keyof BacklogUnitRow; width: 
  * condition of `GET /processing/tracking/items?teamId=&band=&role=&asOf=` (+ the same kind / from / to): the number in
  * the cell is the `total` of that list.
  *
- * Units of counting: `holding` counts RECORDS (distinct), the band columns count WORK (step x party of the role).
+ * Units of counting: `holding` counts RECORDS (distinct), the band columns count WORK (step x party of the role),
+ * `unapplied` counts RECORDS with no flow by the unit that holds them (`unappliedWhere`; its list is `unapplied()`).
  */
 @Injectable()
 export class ProcessingBacklogService {
@@ -129,7 +174,7 @@ export class ProcessingBacklogService {
 
   async units(user: GatewayUser, filter: BacklogFilter): Promise<BacklogUnits> {
     const asOf = this.tracking.instant(filter.asOf);
-    const empty: BacklogUnits = { asOf: asOf.toISOString(), rows: [], totals: { ...zeroBands(), holding: 0 } };
+    const empty: BacklogUnits = { asOf: asOf.toISOString(), rows: [], totals: { ...zeroBands(), holding: 0, unapplied: 0 } };
     // The same reach as the tracking list a cell opens: the steps a delegation gives the person count here too.
     const acting = await this.tracking.acting(user);
     const reach = await this.tracking.reach(user, filter.kind, acting);
@@ -139,24 +184,40 @@ export class ProcessingBacklogService {
     const row = (teamId: string): BacklogUnitRow => {
       let found = rows.get(teamId);
       if (!found) {
-        found = { teamId, teamName: '', parentTeamId: null, holding: 0, ...zeroBands(), oldestDueAt: null, oldestDays: null };
+        found = { teamId, teamName: '', parentTeamId: null, holding: 0, unapplied: 0, unappliedByKind: zeroKinds(), ...zeroBands(), oldestDueAt: null, oldestDays: null };
         rows.set(teamId, found);
       }
       return found;
     };
-    const ofAUnit = { teamId: { not: null } };
+    const only = await this.unitsOfFilter(filter);
+    const ofAUnit: Prisma.ProcRecordStepPartyWhereInput = { teamId: only ? { in: only } : { not: null } };
+    // The unit filter is `ofAUnit` (one unit, or it and the units under it): `workWhere` is asked without a unit.
+    const work: BacklogFilter = { ...filter, teamId: undefined };
 
     // The band columns: the count of the SAME condition the list of a cell uses, grouped by unit.
     for (const band of BANDS) {
-      const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [this.tracking.workWhere(user, filter, reach, band, asOf, acting), ofAUnit] }, _count: { _all: true } });
+      const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [this.tracking.workWhere(user, work, reach, band, asOf, acting), ofAUnit] }, _count: { _all: true } });
       for (const group of groups) if (group.teamId) row(group.teamId)[band] = group._count._all;
     }
 
     // "Holding" and the oldest deadline: every piece of work of the unit, whatever its band. Both are computed by
     // PostgreSQL, per unit: no row of work is read here, so the table costs the same whatever the size of the backlog.
-    const everyWork: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, filter, reach, ANY_WORK, asOf, acting), ofAUnit] };
+    const everyWork: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, work, reach, ANY_WORK, asOf, acting), ofAUnit] };
     const working = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: everyWork, _count: { _all: true } });
     for (const group of working) if (group.teamId) row(group.teamId);
+
+    // "No flow yet": the open records each unit holds that carry no flow, under the person's OWN record scope (there is
+    // no step to reach them by). One grouped count per kind over the record table; no row is read.
+    const scopes = await this.tracking.recordScopes(user, filter.kind);
+    for (const kind of RECORD_KINDS) {
+      const scope = scopes[kind];
+      if (!scope) continue;
+      for (const group of await this.unappliedByUnit(kind, unappliedWhere(kind, scope.onList, only))) {
+        const found = row(group.teamId);
+        found.unappliedByKind[kind] = group.count;
+        found.unapplied += group.count;
+      }
+    }
     const workOf = (teamId: string): Prisma.ProcRecordStepPartyWhereInput => ({ AND: [everyWork, { teamId }] });
     const held = new Map<string, number>();
     const oldest = new Map<string, Date>();
@@ -178,7 +239,7 @@ export class ProcessingBacklogService {
     const everyRecord = await this.prisma.procRecordFlow.count({ where: { steps: { some: { parties: { some: everyWork } } } } });
 
     const teams = await this.teamsOf([...rows.keys()]);
-    const totals = { ...zeroBands(), holding: everyRecord };
+    const totals = { ...zeroBands(), holding: everyRecord, unapplied: 0 };
     for (const found of rows.values()) {
       const team = teams.get(found.teamId);
       found.teamName = team?.name ?? '';
@@ -190,11 +251,108 @@ export class ProcessingBacklogService {
         found.oldestDays = due.getTime() < asOf.getTime() ? Math.max(-remainingDays(asOf, due), 0) : 0;
       }
       for (const band of BANDS) totals[band] += found[band];
+      totals.unapplied += found.unapplied;
     }
-    // A unit all of whose work vanished between the queries has nothing to show.
-    const shown = [...rows.values()].filter((found) => found.holding > 0 || BANDS.some((band) => found[band] > 0));
+    // A unit all of whose work vanished between the queries has nothing to show; one that only holds records with no
+    // flow is shown.
+    const shown = [...rows.values()].filter((found) => found.holding > 0 || found.unapplied > 0 || BANDS.some((band) => found[band] > 0));
     shown.sort((a, b) => a.teamName.localeCompare(b.teamName, 'vi') || a.teamId.localeCompare(b.teamId));
     return { asOf: asOf.toISOString(), rows: filter.rollup ? rollUpUnits(shown) : shown, totals };
+  }
+
+  /**
+   * The records ONE number of the column "Chưa áp quy trình" counts (a unit, a kind): `unappliedWhere`, the very
+   * condition `units` groups by unit, so `total` here is that number at the same moment. The most urgent first (the
+   * record's own deadline, the one it shows while it has no flow), the id settling ties.
+   */
+  async unapplied(user: GatewayUser, filter: { kind: RecordKind; teamId: string; page?: number; pageSize?: number }): Promise<UnappliedRecords> {
+    const page = Math.max(filter.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(filter.pageSize ?? TRACKING_DEFAULT_PAGE_SIZE, 1), TRACKING_MAX_PAGE_SIZE);
+    const answer: UnappliedRecords = { kind: filter.kind, teamId: filter.teamId, items: [], total: 0, page, pageSize };
+    const scope = (await this.tracking.recordScopes(user, filter.kind))[filter.kind];
+    if (!scope) return answer;
+    const where = unappliedWhere(filter.kind, scope.onList, [filter.teamId]) as never;
+    const paging = { where, orderBy: [{ deadline: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }] as never, skip: (page - 1) * pageSize, take: pageSize };
+    const day = (deadline: Date | null) => deadline?.toISOString() ?? null;
+    if (filter.kind === 'PETITION') {
+      const [rows, total] = await Promise.all([this.prisma.petition.findMany({ ...paging, select: { id: true, stt: true, senderName: true, deadline: true } }), this.prisma.petition.count({ where })]);
+      return { ...answer, total, items: rows.map((row) => ({ recordKind: 'PETITION', recordId: row.id, recordCode: row.stt, recordLabel: row.senderName, deadline: day(row.deadline) })) };
+    }
+    if (filter.kind === 'INCIDENT') {
+      const [rows, total] = await Promise.all([this.prisma.incident.findMany({ ...paging, select: { id: true, code: true, name: true, deadline: true } }), this.prisma.incident.count({ where })]);
+      return { ...answer, total, items: rows.map((row) => ({ recordKind: 'INCIDENT', recordId: row.id, recordCode: row.code, recordLabel: row.name, deadline: day(row.deadline) })) };
+    }
+    // The code only, and only where the case's schema lets this person read it (`caseCodeWhere`): the name and the
+    // deadline of a case are fields its schema may restrict too, and they are never shown here.
+    const [rows, total] = await Promise.all([this.prisma.case.findMany({ ...paging, select: { id: true } }), this.prisma.case.count({ where })]);
+    const coded = await this.prisma.case.findMany({ where: { AND: [{ id: { in: rows.map((row) => row.id) } }, await this.tracking.caseCodeWhere(user, 'read')] }, select: { id: true, caseCode: true } });
+    const codeOf = new Map(coded.map((row) => [row.id, row.caseCode]));
+    return { ...answer, total, items: rows.map((row) => ({ recordKind: 'CASE', recordId: row.id, recordCode: codeOf.get(row.id) ?? null, recordLabel: null, deadline: null })) };
+  }
+
+  /**
+   * The units the filter of the screen offers: exactly the units a row of the (unfiltered) table may be about. Those
+   * that work a step the person may see, in any of the three roles (`workWhere`, any band), and those that hold a
+   * record with no flow the list of its kind shows the person (`unappliedWhere`), plus the units ABOVE those (names
+   * only: the filter by a unit with the roll-up reaches the units under it). Grouped counts only, no row of work or record.
+   */
+  async teams(user: GatewayUser): Promise<TrackingTeam[]> {
+    const ids = new Set<string>();
+    const acting = await this.tracking.acting(user);
+    const reach = await this.tracking.reach(user, undefined, acting);
+    if (reach) {
+      const now = this.tracking.instant(undefined);
+      for (const role of WORK_ROLES) {
+        const groups = await this.prisma.procRecordStepParty.groupBy({ by: ['teamId'], where: { AND: [this.tracking.workWhere(user, { role }, reach, ANY_WORK, now, acting), { teamId: { not: null } }] }, _count: { _all: true } });
+        for (const group of groups) if (group.teamId) ids.add(group.teamId);
+      }
+    }
+    const scopes = await this.tracking.recordScopes(user);
+    for (const kind of RECORD_KINDS) {
+      const scope = scopes[kind];
+      if (scope) for (const group of await this.unappliedByUnit(kind, unappliedWhere(kind, scope.onList, null))) ids.add(group.teamId);
+    }
+    // And the units above them: a person filters by a unit that works nothing itself to see the units under it.
+    for (let wave = [...ids]; wave.length > 0; ) {
+      const above = [...(await this.teamsOf(wave)).values()].flatMap((team) => (team.parentId && !ids.has(team.parentId) ? [team.parentId] : []));
+      wave = [...new Set(above)];
+      for (const parent of wave) ids.add(parent);
+    }
+    const teams = await this.teamsOf([...ids]);
+    return [...teams.entries()]
+      .map(([id, team]) => ({ id, name: team.name, parentTeamId: team.parentId }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi') || a.id.localeCompare(b.id));
+  }
+
+  /** The records of a kind that meet `where`, counted per holding unit by PostgreSQL. */
+  private async unappliedByUnit(kind: RecordKind, where: Record<string, unknown>): Promise<Array<{ teamId: string; count: number }>> {
+    const args = { by: ['assignedTeamId'], where, _count: { _all: true } } as never;
+    let groups: Array<{ assignedTeamId: string | null; _count: { _all: number } }>;
+    if (kind === 'PETITION') groups = await this.prisma.petition.groupBy(args);
+    else if (kind === 'INCIDENT') groups = await this.prisma.incident.groupBy(args);
+    else groups = await this.prisma.case.groupBy(args);
+    return groups.flatMap((group) => (group.assignedTeamId ? [{ teamId: group.assignedTeamId, count: group._count._all }] : []));
+  }
+
+  /**
+   * The units the filter `teamId` names: that unit, and with `rollup` every unit under it (the table then rolls them up
+   * into it). `null`: no filter. The units of the office are a short table: read once, walked in memory.
+   */
+  private async unitsOfFilter(filter: Pick<BacklogFilter, 'teamId' | 'rollup'>): Promise<string[] | null> {
+    if (!filter.teamId) return null;
+    if (!filter.rollup) return [filter.teamId];
+    const teams = await this.prisma.team.findMany({ select: { id: true, parentId: true } });
+    const found = new Set<string>([filter.teamId]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const team of teams) {
+        if (team.parentId && found.has(team.parentId) && !found.has(team.id)) {
+          found.add(team.id);
+          grew = true;
+        }
+      }
+    }
+    return [...found];
   }
 
   /**
@@ -215,9 +373,11 @@ export class ProcessingBacklogService {
 
     const kind: { recordKind?: RecordKind } = filter.kind ? { recordKind: filter.kind } : {};
     const role: WorkRole = filter.role ?? 'MAIN';
-    const done: Prisma.ProcRecordStepPartyWhereInput = { AND: [{ role, teamId: { not: null } }, { recordStep: { status: 'DONE', doneAt: period ?? { not: null }, ...kind } }, reach] };
+    const only = await this.unitsOfFilter(filter);
+    const ofAUnit: Prisma.ProcRecordStepPartyWhereInput = { teamId: only ? { in: only } : { not: null } };
+    const done: Prisma.ProcRecordStepPartyWhereInput = { AND: [{ role }, ofAUnit, { recordStep: { status: 'DONE', doneAt: period ?? { not: null }, ...kind } }, reach] };
     // Still open: the work of the backlog table, started no later than the end of the period.
-    const open: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, { kind: filter.kind, role, to: filter.to }, reach, ANY_WORK, asOf, acting), { teamId: { not: null } }] };
+    const open: Prisma.ProcRecordStepPartyWhereInput = { AND: [this.tracking.workWhere(user, { kind: filter.kind, role, to: filter.to }, reach, ANY_WORK, asOf, acting), ofAUnit] };
 
     // `completionClass` against the EARLIER of the two deadlines, written as conditions PostgreSQL judges: "not after the
     // earlier" is "not after either that exists". Written without NOT: a missing deadline is NULL, and NOT of NULL drops the row.
