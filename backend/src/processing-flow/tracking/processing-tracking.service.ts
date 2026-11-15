@@ -93,7 +93,7 @@ const ITEM_SELECT = {
   },
 } satisfies Prisma.ProcRecordStepPartySelect;
 
-const displayName = (user: { firstName: string | null; lastName: string | null; username: string }): string => [user.lastName, user.firstName].filter((part) => part && part.trim() !== '').join(' ') || user.username;
+export const displayName = (user: { firstName: string | null; lastName: string | null; username: string }): string => [user.lastName, user.firstName].filter((part) => part && part.trim() !== '').join(' ') || user.username;
 
 /**
  * The tracking screen ("Theo dõi xử lý"): how much WORK is overdue, red, yellow, green, and which.

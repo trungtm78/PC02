@@ -91,6 +91,8 @@ run('The reminders of the processing flow on PostgreSQL', () => {
   let flowConfig = { flowId: '', versionId: '' };
   const stepConfig: Record<string, string> = {};
   let counter = 0;
+  /** The clock of the step rule (`RecordStepAccessService`): the tests live in December, the wall clock does not. */
+  let stepClock: Date = NOW;
 
   const petition = async (over: Record<string, unknown> = {}): Promise<string> => {
     const n = ++counter;
@@ -186,6 +188,8 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     await person('boss', leadership.id, { canDispatch: true });
     await person('bossElsewhere', leadership.id);
     await person('actor', officer.id, { canDispatch: true });
+    await person('delegate', officer.id);
+    await db.user.update({ where: { id: id.member }, data: { firstName: 'An', lastName: 'Nguyen' } });
 
     const team = async (code: string, parentId?: string) => {
       id[code] = (await db.team.create({ data: { code: `${tag}-${code}`, name: `${tag} unit ${code}`, parentId } })).id;
@@ -206,6 +210,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
         { userId: id.checkLead, teamId: id.C, isLeader: true },
         { userId: id.bareLead, teamId: id.B, isLeader: true },
         { userId: id.bossElsewhere, teamId: id.E },
+        { userId: id.delegate, teamId: id.T },
       ],
     });
 
@@ -221,6 +226,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     const scopes = new UnitScopeService(prisma, new TeamsService(prisma, new AuditService(prisma), {} as never));
     const stepAccess = new RecordStepAccessService(prisma, { isEnabled: () => Promise.resolve(true) } as never);
     await stepAccess.refreshSwitch();
+    stepAccess.now = () => stepClock;
     gateway = new RecordGateway(new PetitionAdapter(prisma, scopes, stepAccess), new IncidentAdapter(prisma, scopes, stepAccess), new CaseAdapter(prisma, scopes, stepAccess));
     await db.featureFlag.createMany({ data: [{ key: SWITCH, label: SWITCH, enabled: true }, { key: RECORDS, label: RECORDS, enabled: true }] });
     const casePolicy = new CaseNotificationPolicyService(prisma);
@@ -235,6 +241,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     const people = Object.entries(id).filter(([name]) => name.length > 1).map(([, value]) => value);
     const flows = { flowId: flowConfig.flowId };
     await db.procReminder.deleteMany({ where: { recordId: { in: recordIds } } });
+    await db.procDelegation.deleteMany({ where: { createdById: { in: people } } });
     await db.featureFlag.deleteMany({ where: { key: { in: [SWITCH, RECORDS] } } });
     await db.notification.deleteMany({ where: { userId: { in: people } } });
     await db.procStepChange.deleteMany({ where: { recordId: { in: recordIds } } });
@@ -263,6 +270,7 @@ run('The reminders of the processing flow on PostgreSQL', () => {
     // No escalation unless a test says so: the tests of the bands count notices.
     settings = { [SETTINGS_KEY.NHAC_VIEC_DON_DOC_CAP_TREN_NGAY]: '0', [SETTINGS_KEY.NHAC_VIEC_DON_DOC_LANH_DAO_NGAY]: '0' };
     bell.mockClear();
+    stepClock = NOW;
   });
 
   describe('each band once, and only the band the step is in', () => {
@@ -665,6 +673,119 @@ run('The reminders of the processing flow on PostgreSQL', () => {
       } finally {
         await scratch.db.notificationPreference.delete({ where: { id: preference.id } });
       }
+    });
+  });
+
+  describe('a delegate in force (R8)', () => {
+    const delegation = (from: Date, to: Date, over: Record<string, unknown> = {}) =>
+      scratch.db.procDelegation.create({ data: { fromUserId: id.member, toUserId: id.delegate, validFrom: from, validTo: to, createdById: id.owner, ...over } });
+    /** A tick at an instant, with the step rule of the gateway on the same clock. */
+    const tickAt = (when: Date) => {
+      stepClock = when;
+      return reminders.tick(when);
+    };
+    /** Held by another unit: the member reaches it by the step alone, the delegate by the step AND the delegation. */
+    const named = (spec: StepSpec = {}) => work({ parties: [{ assigneeUserId: id.member }], ...spec }, { assignedTeamId: id.O });
+
+    afterEach(async () => {
+      await scratch.db.procDelegation.deleteMany({ where: { createdById: id.owner } });
+    });
+
+    it('gets one reminder per band alongside the person they act for, in words that say for whom', async () => {
+      await delegation(at(9), endOf(20));
+      const { recordId } = await named({ due: endOf(13) });
+      await tickAt(NOW);
+      await tickAt(at(10, 9));
+      expect(await toWhom(recordId)).toEqual(['delegate', 'member']);
+      await tickAt(at(11));
+      await tickAt(at(11, 5));
+      expect(await toWhom(recordId)).toEqual(['delegate', 'delegate', 'member', 'member']);
+
+      const notices = await noticesOf(recordId);
+      const mine = notices.filter((notice) => notice.to === 'delegate');
+      expect(mine.map((notice) => notice.metadata.band)).toEqual(['GREEN', 'YELLOW']);
+      expect(mine[0].message).toContain('Nguyen An');
+      expect(mine[0].message).toContain('uỷ quyền');
+      expect(mine[0].metadata).toMatchObject({ onBehalfOfUserId: id.member });
+      for (const notice of notices.filter((row) => row.to === 'member')) expect(notice.message).not.toContain('uỷ quyền');
+    });
+
+    it('gets none before the period and none after it', async () => {
+      await delegation(at(11, 0), at(11, 12));
+      const { recordId } = await named({ due: endOf(13) });
+      await tickAt(NOW);
+      expect(await toWhom(recordId)).toEqual(['member']);
+      await tickAt(at(11));
+      expect(await toWhom(recordId)).toEqual(['delegate', 'member', 'member']);
+      await tickAt(at(12));
+      expect(await toWhom(recordId)).toEqual(['delegate', 'member', 'member', 'member']);
+    });
+
+    it('gets none after a revoke', async () => {
+      await delegation(at(9), endOf(20), { revokedAt: at(9, 5), revokedById: id.owner });
+      const { recordId } = await named();
+      await tickAt(NOW);
+      expect(await toWhom(recordId)).toEqual(['member']);
+      expect(await rowsOf(recordId)).toHaveLength(1);
+    });
+
+    it('a delegation that ends between planning and delivery: the row of the delegate ends STALE, unsent; the person they acted for is still told', async () => {
+      const row = await delegation(at(9), endOf(20));
+      const { recordId } = await named();
+      stepClock = NOW;
+      await reminders.plan(NOW);
+      expect(await rowsOf(recordId)).toHaveLength(2);
+      await scratch.db.procDelegation.update({ where: { id: row.id }, data: { revokedAt: NOW, revokedById: id.owner } });
+      await reminders.deliver(NOW);
+      const rows = await rowsOf(recordId);
+      expect(rows.filter((reminder) => reminder.recipientId === id.delegate)).toMatchObject([{ status: 'DONE', outcome: 'STALE' }]);
+      expect(rows.filter((reminder) => reminder.recipientId === id.member)).toMatchObject([{ status: 'DONE', outcome: 'SENT' }]);
+      expect(await toWhom(recordId)).toEqual(['member']);
+    });
+
+    it('a delegate who is ALSO a recipient in their own right gets one reminder, in their own name', async () => {
+      await delegation(at(9), endOf(20));
+      const { recordId } = await named({ parties: [{ assigneeUserId: id.member }, { role: 'CHECK', assigneeUserId: id.delegate }] });
+      await tickAt(NOW);
+      await tickAt(at(10, 9));
+      expect(await toWhom(recordId)).toEqual(['delegate', 'member']);
+      expect(await rowsOf(recordId)).toHaveLength(2);
+      const [own] = (await noticesOf(recordId)).filter((notice) => notice.to === 'delegate');
+      expect(own.message).not.toContain('uỷ quyền');
+      expect(own.metadata.onBehalfOfUserId).toBeUndefined();
+    });
+
+    it('a delegate who no longer shares an active unit with the person gets nothing', async () => {
+      await delegation(at(9), endOf(20));
+      const { recordId } = await named();
+      await scratch.db.userTeam.deleteMany({ where: { userId: id.delegate, teamId: id.T } });
+      try {
+        await tickAt(NOW);
+        expect(await toWhom(recordId)).toEqual(['member']);
+        expect(await rowsOf(recordId)).toHaveLength(1);
+      } finally {
+        await scratch.db.userTeam.create({ data: { userId: id.delegate, teamId: id.T } });
+      }
+    });
+
+    it('a nudge tells the delegate of a person who answers for the step as well; one revoked before the delivery is not told', async () => {
+      const row = await delegation(at(9), endOf(20));
+      const told = await named({ due: endOf(25) });
+      stepClock = NOW;
+      expect(await reminders.nudge(id.actor, 'PETITION', told.recordId, 'k1', { message: 'Please report' }, NOW)).toEqual({ notified: 2 });
+      const notices = await noticesOf(told.recordId);
+      expect(notices.map((notice) => notice.to).sort()).toEqual(['delegate', 'member']);
+      expect(notices.find((notice) => notice.to === 'delegate')?.message).toContain('Nguyen An');
+
+      // The delegate is the one who nudges: they are not told about their own nudge.
+      const own = await named({ due: endOf(25) });
+      expect(await reminders.nudge(id.delegate, 'PETITION', own.recordId, 'k1', { message: 'Please report' }, NOW)).toEqual({ notified: 1 });
+      expect(await toWhom(own.recordId)).toEqual(['member']);
+
+      await scratch.db.procDelegation.update({ where: { id: row.id }, data: { revokedAt: NOW, revokedById: id.owner } });
+      const after = await named({ due: endOf(25) });
+      expect(await reminders.nudge(id.actor, 'PETITION', after.recordId, 'k1', { message: 'Please report' }, NOW)).toEqual({ notified: 1 });
+      expect(await toWhom(after.recordId)).toEqual(['member']);
     });
   });
 
