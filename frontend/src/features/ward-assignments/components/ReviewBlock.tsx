@@ -4,7 +4,7 @@
  * follow-up officer defaulting to the reviewer, follow-up team to the reviewer's team). The reverse actions (revoke a
  * return, cancel an approval) ask for a reason. Everybody else, the ward unit included, reads the decision in force.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, FIELD_ERROR_TEXT, LABEL_BASE, SELECT_BASE, TEXTAREA_BASE } from '@/constants/styles';
 import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 import { wardAssignmentsApi } from '../api';
@@ -71,6 +71,28 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
   const choices = useFollowUpChoices(deciding && !!can.approve);
   const pc02Officers = (choices.data?.people ?? []).map((p) => ({ value: p.id, label: p.name }));
   const teamsOfChoice = choices.data?.teams ?? [];
+  // The units the chosen follower belongs to: the follow-up unit is one of them (the server checks the same).
+  const unitsOfFollower = (userId: string) => choices.data?.people.find((p) => p.id === userId)?.unitIds ?? null;
+  const teamsForFollower = (() => {
+    const own = unitsOfFollower(followUpUserId);
+    return own ? teamsOfChoice.filter((t) => own.includes(t.id)) : teamsOfChoice;
+  })();
+  // An administrator holds no PC02 unit (and anybody else outside PC02): the reviewer as default follower only
+  // stands when the list of PC02 people has them; otherwise the follower is chosen, and the unit follows from it.
+  useEffect(() => {
+    if (!choices.data) return;
+    if (followUpUserId && !choices.data.people.some((p) => p.id === followUpUserId)) {
+      setFollowUpUserId('');
+      setFollowUpTeamId('');
+    }
+  }, [choices.data, followUpUserId]);
+  const pickFollower = (userId: string) => {
+    setFollowUpUserId(userId);
+    const own = unitsOfFollower(userId);
+    if (!own) return;
+    // Their only unit, or the one already chosen when it is theirs; otherwise to be chosen.
+    setFollowUpTeamId((current) => (own.includes(current) ? current : own.length === 1 ? own[0] : ''));
+  };
   const active = investigators.filter((i) => i.isActive || i.id === assignedId);
   const stamp = detail.updatedAt;
 
@@ -100,6 +122,10 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
     if (!checkRequirements()) return;
     if (!assignedId) {
       setProblem(L.errors.WARD_ASSIGNMENT_INVESTIGATOR_UNKNOWN);
+      return;
+    }
+    if (!followUpUserId) {
+      setProblem(L.errors.WARD_FOLLOW_UP_USER_REQUIRED);
       return;
     }
     if (!followUpTeamId) {
@@ -168,7 +194,7 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
               </select>
             </Field>
             <Field label={R.followUpUser}>
-              <select data-testid="ward-follow-up-user" className={SELECT_BASE} value={followUpUserId} onChange={(e) => setFollowUpUserId(e.target.value)}>
+              <select data-testid="ward-follow-up-user" className={SELECT_BASE} value={followUpUserId} onChange={(e) => pickFollower(e.target.value)}>
                 <option value="">{R.followUpUserPick}</option>
                 {/* The reviewer stays choosable even before the officer list loads. */}
                 {followUpUserId && !pc02Officers.some((o) => o.value === followUpUserId) && <option value={followUpUserId}>{officerName(followUpUserId) || followUpUserId}</option>}
@@ -182,7 +208,7 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
             <Field label={R.followUpTeam}>
               <select data-testid="ward-follow-up-team" className={SELECT_BASE} value={followUpTeamId} onChange={(e) => setFollowUpTeamId(e.target.value)}>
                 <option value="">{R.followUpTeamPick}</option>
-                {teamsOfChoice.map((t) => (
+                {teamsForFollower.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>

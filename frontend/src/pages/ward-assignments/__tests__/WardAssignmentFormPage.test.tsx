@@ -282,6 +282,35 @@ describe('a waiting request, reviewed by PC02', () => {
     );
   });
 
+  it('an administrator (in no PC02 unit) is not their own follower: the follower is chosen, the unit follows from them', async () => {
+    api.followUpChoices.mockResolvedValue({
+      teams: [{ id: 'd1', name: 'Đội 1' }, { id: 'd2', name: 'Đội 2' }],
+      people: [{ id: 'u-rev', name: 'Đặng Văn K', unitIds: ['d1'] }, { id: 'u-two', name: 'Lê Thị M', unitIds: ['d1', 'd2'] }],
+    });
+    api.get.mockResolvedValue(detail({ viewerId: 'u-admin', can: { ...NO, review: true, returnIt: true, approve: true } }));
+    api.approve.mockResolvedValue({});
+    renderAt('/ho-so-phan-cong/w1');
+    const approve = await screen.findByTestId('ward-approve');
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-user')).toHaveValue(''));
+    await waitFor(() => expect(within(screen.getByTestId('ward-follow-up-team')).getByText('Đội 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator')).toHaveValue('i1'));
+    // No follower yet: refused on the screen, nothing sent.
+    fireEvent.click(approve);
+    expect(await screen.findByTestId('ward-review-problem')).toHaveTextContent(L.errors.WARD_FOLLOW_UP_USER_REQUIRED);
+    expect(api.approve).not.toHaveBeenCalled();
+    // A person with one unit: the unit is filled in.
+    fireEvent.change(screen.getByTestId('ward-follow-up-user'), { target: { value: 'u-rev' } });
+    expect(screen.getByTestId('ward-follow-up-team')).toHaveValue('d1');
+    // A person with two units: the unit is chosen among theirs only.
+    fireEvent.change(screen.getByTestId('ward-follow-up-user'), { target: { value: 'u-two' } });
+    expect(within(screen.getByTestId('ward-follow-up-team')).getByText('Đội 2')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('ward-follow-up-team'), { target: { value: 'd2' } });
+    fireEvent.click(approve);
+    await waitFor(() =>
+      expect(api.approve).toHaveBeenCalledWith('w1', expect.objectContaining({ assignedInvestigatorId: 'i1', followUpUserId: 'u-two', followUpTeamId: 'd2' }), '2026-11-13T03:00:00.000Z'),
+    );
+  });
+
   it('a return needs a reason, then sends the reason and the requirements', async () => {
     api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
     api.returnIt.mockResolvedValue({});
