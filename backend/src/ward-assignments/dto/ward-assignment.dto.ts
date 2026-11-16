@@ -12,6 +12,9 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { IntersectionType, OmitType } from '@nestjs/mapped-types';
+import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
+import { CotXuatDto } from '../../common/xuat-danh-sach/cot-xuat.dto';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 import { ALERT_LEVELS, type AlertLevel } from '../ward-alerts';
 
@@ -106,7 +109,13 @@ export class ExpectedStampDto {
 }
 
 export class ListWardAssignmentsQuery {
+  /** The tags of the search box: `key~value`, repeated. An unknown key answers 400 (`common/tim-kiem/dieu-kien.ts`). */
+  @TheTimKiem() tk?: string[];
+  /** The old search box: read as the tag "every column". */
   @IsOptional() @IsString() @MaxLength(200) q?: string;
+  /** A column of the list to sort by; one that is not sortable is ignored (the list keeps its own order). */
+  @IsOptional() @IsString() @MaxLength(50) sortBy?: string;
+  @IsOptional() @Transform(({ value }) => (value === 'asc' ? 'asc' : 'desc')) sortOrder?: 'asc' | 'desc';
   @IsOptional() @IsIn(['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED']) status?: 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'APPROVED';
   @IsOptional() @Transform(({ value }) => value === true || value === 'true') @IsBoolean() archived?: boolean;
   // Filters of lane D (the statistics open the list with them): the deadline alert, the unit, the crime, the kinds.
@@ -122,6 +131,12 @@ export class ListWardAssignmentsQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) pageSize?: number;
 }
+
+/** The filters of the list without what a card stands for (status, archived) nor paging nor order: `GET /ward-assignments/list-stats`. */
+export class WardListStatsQuery extends OmitType(ListWardAssignmentsQuery, ['status', 'archived', 'page', 'pageSize', 'sortBy', 'sortOrder'] as const) {}
+
+/** The filters and the order of the list plus the columns shown: `GET /ward-assignments/export/danh-sach`. */
+export class WardListExportQuery extends IntersectionType(ListWardAssignmentsQuery, CotXuatDto) {}
 
 export class ListWardInvestigatorsQuery {
   @IsString() @MaxLength(100) teamId!: string;

@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequireAnyPermissions, RequirePermissions } from '../auth/decorators/permissions.decorator';
@@ -19,6 +21,8 @@ import {
   CreateWardInvestigatorDto,
   ExpectedStampDto,
   ListWardAssignmentsQuery,
+  WardListExportQuery,
+  WardListStatsQuery,
   ListWardInvestigatorsQuery,
   UpdateWardAssignmentDto,
   UpdateWardInvestigatorDto,
@@ -77,6 +81,22 @@ export class WardAssignmentsController {
   @RequirePermissions({ action: 'write', subject: 'WardAssignment' })
   unitChoices(@Req() req: ScopedRequest) {
     return this.queries.unitChoices(scopeOf(req));
+  }
+
+  /** The numbers of the list's cards, under the list's own filters. Before `:id`. */
+  @Get('list-stats')
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  listStats(@Query() query: WardListStatsQuery, @Req() req: ScopedRequest) {
+    return this.queries.listStats(scopeOf(req), query);
+  }
+
+  /** The list as an Excel file: the filters, the order and the columns of the screen. Before `:id`. */
+  @Get('export/danh-sach')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async exportList(@Query() query: WardListExportQuery, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest, @Res() res: Response): Promise<void> {
+    await this.queries.exportList(scopeOf(req), query, res, { userId: user.id, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
   }
 
   @Get()

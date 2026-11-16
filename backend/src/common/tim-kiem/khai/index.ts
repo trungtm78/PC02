@@ -3,6 +3,7 @@ import { KHAI_TIM_KIEM_ANH_XA_DIA_CHI } from './anh-xa-dia-chi.khai';
 import { KHAI_TIM_KIEM_DANH_MUC } from './danh-muc.khai';
 import { KHAI_TIM_KIEM_DOI_TUONG } from './doi-tuong.khai';
 import { KHAI_TIM_KIEM_DON_THU } from './don-thu.khai';
+import { KHAI_TIM_KIEM_HO_SO_PHAN_CONG } from './ho-so-phan-cong.khai';
 import { KHAI_TIM_KIEM_HUONG_DAN } from './huong-dan.khai';
 import { KHAI_TIM_KIEM_KIEN_NGHI } from './kien-nghi.khai';
 import { KHAI_TIM_KIEM_LUAT_SU } from './luat-su.khai';
@@ -35,4 +36,5 @@ export const KHAI_TIM_KIEM: readonly KhaiThucThe[] = [
   KHAI_TIM_KIEM_UY_THAC,
   KHAI_TIM_KIEM_TRAO_DOI,
   KHAI_TIM_KIEM_TOI_DANH,
+  KHAI_TIM_KIEM_HO_SO_PHAN_CONG,
 ];
