@@ -5,6 +5,7 @@ import { recordInActionScope, recordInScope, recordReadable, scopeConditions } f
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { editableByUnit, submittable } from './ward-assignment.rules';
+import { wardBody } from './ward-errors';
 
 export interface WardAssignmentListQuery {
   /** Code or summary contains (case and accents as written). */
@@ -67,7 +68,7 @@ export class WardAssignmentQueryService {
       },
     });
     if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
-      throw new NotFoundException({ code: WARD_ERROR.NOT_FOUND });
+      throw new NotFoundException(wardBody(WARD_ERROR.NOT_FOUND));
     }
     const reach = { assignedTeamId: row.assignedTeamId, ownerId: row.enteredById };
     const changes = recordInScope(reach, scope, 'write', 'WardAssignment') && !row.archivedAt;

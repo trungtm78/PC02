@@ -17,6 +17,7 @@ import {
   UpdateWardInvestigatorDto,
 } from './dto/ward-assignment.dto';
 import { WARD_ERROR } from './ward-assignment.codes';
+import { wardBody } from './ward-errors';
 import { WardAssignmentCommandService } from './ward-assignment-command.service';
 import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { WardInvestigatorsService } from './ward-investigators.service';
@@ -27,7 +28,7 @@ import { WardInvestigatorsService } from './ward-investigators.service';
  * module must never be opened by a scope that was not resolved.
  */
 function scopeOf(req: ScopedRequest): DataScope | null {
-  if (req.dataScope === undefined) throw new ForbiddenException({ code: WARD_ERROR.FORBIDDEN });
+  if (req.dataScope === undefined) throw new ForbiddenException(wardBody(WARD_ERROR.FORBIDDEN));
   return req.dataScope;
 }
 

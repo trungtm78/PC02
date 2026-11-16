@@ -6,6 +6,7 @@ import { recordInActionScope, recordInScope, recordReadable, teamInScope } from 
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ASSIGNMENT_NUMBER_SERIES, WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
+import { sameStamp, wardBody } from './ward-errors';
 import {
   afterWithdrawal,
   editableByUnit,
@@ -60,12 +61,24 @@ const blank = (v: string | null | undefined): string | null => {
 function dayOf(value: string | null | undefined): Date | null {
   const v = blank(value);
   if (v === null) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new BadRequestException({ code: WARD_ERROR.DATE_INVALID, field: 'discoveredOn' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new BadRequestException(wardBody(WARD_ERROR.DATE_INVALID, { field: 'discoveredOn' }));
   const day = new Date(`${v}T00:00:00.000Z`);
   if (Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== v) {
-    throw new BadRequestException({ code: WARD_ERROR.DATE_INVALID, field: 'discoveredOn' });
+    throw new BadRequestException(wardBody(WARD_ERROR.DATE_INVALID, { field: 'discoveredOn' }));
   }
   return day;
+}
+
+/**
+ * The ward unit's team, locked for share for the rest of the transaction: a merge or an archive of the team (which
+ * lock it for update first) either waits for this transaction, or has already happened and is seen here. A request
+ * or an investigator is never written into a team that was merged away or archived meanwhile.
+ */
+export async function lockedWardTeam(tx: Tx, teamId: string): Promise<{ id: string }> {
+  const [team] = await tx.$queryRaw<{ id: string; wardId: string | null; status: string }[]>`
+    SELECT id, "wardId", status FROM "teams" WHERE id = ${teamId} FOR SHARE`;
+  if (!team || team.wardId === null || team.status !== 'ACTIVE') throw new BadRequestException(wardBody(WARD_ERROR.UNIT_NOT_WARD));
+  return { id: team.id };
 }
 
 /**
@@ -86,11 +99,10 @@ export class WardAssignmentCommandService {
 
   async create(actor: Actor, scope: DataScope | null | undefined, input: WardAssignmentInput): Promise<WardAssignment> {
     const teamId = input.assignedTeamId ?? scope?.wardTeamId ?? null;
-    if (!teamId) throw new BadRequestException({ code: WARD_ERROR.UNIT_REQUIRED });
+    if (!teamId) throw new BadRequestException(wardBody(WARD_ERROR.UNIT_REQUIRED));
     return this.prisma.$transaction(async (tx) => {
-      const team = await tx.team.findUnique({ where: { id: teamId }, select: { id: true, wardId: true, status: true } });
-      if (!team || team.wardId === null || team.status !== 'ACTIVE') throw new BadRequestException({ code: WARD_ERROR.UNIT_NOT_WARD });
-      if (!teamInScope(team.id, scope, 'write', 'WardAssignment')) throw new ForbiddenException({ code: WARD_ERROR.UNIT_OUT_OF_REACH });
+      const team = await lockedWardTeam(tx, teamId);
+      if (!teamInScope(team.id, scope, 'write', 'WardAssignment')) throw new ForbiddenException(wardBody(WARD_ERROR.UNIT_OUT_OF_REACH));
       const member = await tx.userTeam.findFirst({ where: { userId: actor.id, teamId: team.id }, select: { userId: true } });
       const content = await this.checkedContent(tx, team.id, input, null);
       const created = await tx.wardAssignment.create({
@@ -124,7 +136,7 @@ export class WardAssignmentCommandService {
   ): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedForChange(tx, scope, id, input.expectedUpdatedAt);
-      if (!editableByUnit(row.status)) throw new ConflictException({ code: WARD_ERROR.NOT_EDITABLE, status: row.status });
+      if (!editableByUnit(row.status)) throw new ConflictException(wardBody(WARD_ERROR.NOT_EDITABLE, { status: row.status }));
       const content = await this.checkedContent(tx, row.assignedTeamId, input, row.id);
       await tx.wardAssignmentSubject.deleteMany({ where: { assignmentId: row.id } });
       const updated = await tx.wardAssignment.update({
@@ -143,10 +155,13 @@ export class WardAssignmentCommandService {
   async submit(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedForChange(tx, scope, id, expectedUpdatedAt);
-      if (!submittable(row.status)) throw new ConflictException({ code: WARD_ERROR.NOT_SUBMITTABLE, status: row.status });
+      if (!submittable(row.status)) throw new ConflictException(wardBody(WARD_ERROR.NOT_SUBMITTABLE, { status: row.status }));
       const subjects = await tx.wardAssignmentSubject.findMany({ where: { assignmentId: row.id }, orderBy: { position: 'asc' } });
       const missing = missingForSubmission({ ...row, subjectCount: subjects.length });
-      if (missing.length > 0) throw new BadRequestException({ code: WARD_ERROR.INCOMPLETE, missing });
+      if (missing.length > 0) throw new BadRequestException(wardBody(WARD_ERROR.INCOMPLETE, ...missing.map((field) => ({ field }))));
+      // What the draft names may have changed since it was saved: checked again, the investigator's row locked so that
+      // stopping them waits for this submission or this submission sees them stopped.
+      await this.checkedReferences(tx, row.assignedTeamId, row, row.id);
 
       const code = row.code ?? (await this.numbers.commitWithTx(WARD_ASSIGNMENT_NUMBER_SERIES, { userId: actor.id }, tx, { documentId: row.id })).number;
       const rounds = await tx.wardAssignmentRound.findMany({ where: { assignmentId: row.id }, select: { sequence: true, submissionNo: true, status: true, submittedAt: true } });
@@ -182,7 +197,7 @@ export class WardAssignmentCommandService {
       const rounds = await tx.wardAssignmentRound.findMany({ where: { assignmentId: row.id }, orderBy: { sequence: 'asc' } });
       const pending = rounds.at(-1);
       if (row.status !== 'SUBMITTED' || !pending || pending.status !== 'PENDING') {
-        throw new ConflictException({ code: WARD_ERROR.NOTHING_TO_WITHDRAW, status: row.status });
+        throw new ConflictException(wardBody(WARD_ERROR.NOTHING_TO_WITHDRAW, { status: row.status }));
       }
       await tx.wardAssignmentRound.update({ where: { id: pending.id }, data: { status: 'WITHDRAWN', withdrawnAt: new Date(), withdrawnById: actor.id } });
       const left = afterWithdrawal(rounds, pending.sequence);
@@ -203,7 +218,7 @@ export class WardAssignmentCommandService {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedForChange(tx, scope, id, expectedUpdatedAt);
       const rounds = await tx.wardAssignmentRound.count({ where: { assignmentId: row.id } });
-      if (row.status !== 'DRAFT' || rounds > 0 || row.code !== null) throw new ConflictException({ code: WARD_ERROR.DELETE_SUBMITTED });
+      if (row.status !== 'DRAFT' || rounds > 0 || row.code !== null) throw new ConflictException(wardBody(WARD_ERROR.DELETE_SUBMITTED));
       await tx.wardAssignmentSubject.deleteMany({ where: { assignmentId: row.id } });
       await tx.wardAssignment.delete({ where: { id: row.id } });
       await this.audit.log(
@@ -218,9 +233,9 @@ export class WardAssignmentCommandService {
   async archive(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedForReview(tx, scope, id, expectedUpdatedAt);
-      if (row.archivedAt) throw new ConflictException({ code: WARD_ERROR.ALREADY_ARCHIVED });
+      if (row.archivedAt) throw new ConflictException(wardBody(WARD_ERROR.ALREADY_ARCHIVED));
       const rounds = await tx.wardAssignmentRound.count({ where: { assignmentId: row.id } });
-      if (rounds === 0) throw new ConflictException({ code: WARD_ERROR.ARCHIVE_DRAFT });
+      if (rounds === 0) throw new ConflictException(wardBody(WARD_ERROR.ARCHIVE_DRAFT));
       const updated = await tx.wardAssignment.update({ where: { id: row.id }, data: { archivedAt: new Date(), archivedById: actor.id } });
       await this.audit.log({ userId: actor.id, action: WARD_AUDIT.ARCHIVED, subject: 'WardAssignment', subjectId: row.id, metadata: { status: row.status } }, tx);
       return updated;
@@ -231,7 +246,7 @@ export class WardAssignmentCommandService {
   async restore(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedForReview(tx, scope, id, expectedUpdatedAt);
-      if (!row.archivedAt) throw new ConflictException({ code: WARD_ERROR.NOT_ARCHIVED });
+      if (!row.archivedAt) throw new ConflictException(wardBody(WARD_ERROR.NOT_ARCHIVED));
       const updated = await tx.wardAssignment.update({ where: { id: row.id }, data: { archivedAt: null, archivedById: null } });
       await this.audit.log({ userId: actor.id, action: WARD_AUDIT.RESTORED, subject: 'WardAssignment', subjectId: row.id, metadata: { status: row.status } }, tx);
       return updated;
@@ -245,24 +260,24 @@ export class WardAssignmentCommandService {
     await tx.$queryRaw`SELECT id FROM "ward_assignments" WHERE id = ${id} FOR UPDATE`;
     const row = await tx.wardAssignment.findUnique({ where: { id } });
     if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
-      throw new NotFoundException({ code: WARD_ERROR.NOT_FOUND });
+      throw new NotFoundException(wardBody(WARD_ERROR.NOT_FOUND));
     }
-    if (row.updatedAt.toISOString() !== expectedUpdatedAt) throw new ConflictException({ code: WARD_ERROR.CONFLICT, updatedAt: row.updatedAt.toISOString() });
+    if (!sameStamp(row.updatedAt, expectedUpdatedAt)) throw new ConflictException(wardBody(WARD_ERROR.CONFLICT, { updatedAt: row.updatedAt.toISOString() }));
     return row;
   }
 
   /** For the ward unit's commands: within the reach of changing, and not archived. */
   private async lockedForChange(tx: Tx, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     const row = await this.locked(tx, scope, id, expectedUpdatedAt);
-    if (!recordInScope(reachOf(row), scope, 'write', 'WardAssignment')) throw new ForbiddenException({ code: WARD_ERROR.FORBIDDEN });
-    if (row.archivedAt) throw new ConflictException({ code: WARD_ERROR.ARCHIVED });
+    if (!recordInScope(reachOf(row), scope, 'write', 'WardAssignment')) throw new ForbiddenException(wardBody(WARD_ERROR.FORBIDDEN));
+    if (row.archivedAt) throw new ConflictException(wardBody(WARD_ERROR.ARCHIVED));
     return row;
   }
 
   /** For PC02's commands: within the reach of reviewing. */
   private async lockedForReview(tx: Tx, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     const row = await this.locked(tx, scope, id, expectedUpdatedAt);
-    if (!recordInActionScope(reachOf(row), scope, 'WardAssignment', 'review')) throw new ForbiddenException({ code: WARD_ERROR.FORBIDDEN });
+    if (!recordInActionScope(reachOf(row), scope, 'WardAssignment', 'review')) throw new ForbiddenException(wardBody(WARD_ERROR.FORBIDDEN));
     return row;
   }
 
@@ -279,29 +294,15 @@ export class WardAssignmentCommandService {
     try {
       subjects = normaliseSubjects(input.subjects ?? [], new Date().getFullYear());
     } catch (e) {
-      if (e instanceof WardRuleError) throw new BadRequestException({ code: e.code, ...e.detail });
+      if (e instanceof WardRuleError) throw new BadRequestException(wardBody(e.code, e.detail));
       throw e;
     }
-    if (input.subjectsUnknown && subjects.length > 0) throw new BadRequestException({ code: WARD_ERROR.SUBJECTS_UNKNOWN_WITH_ROWS });
+    if (input.subjectsUnknown && subjects.length > 0) throw new BadRequestException(wardBody(WARD_ERROR.SUBJECTS_UNKNOWN_WITH_ROWS));
 
     const crimeId = blank(input.crimeId);
-    if (crimeId && !(await tx.crime.findUnique({ where: { id: crimeId }, select: { id: true } }))) {
-      throw new BadRequestException({ code: WARD_ERROR.CRIME_UNKNOWN });
-    }
     const investigatorId = blank(input.proposedInvestigatorId);
-    if (investigatorId) {
-      const investigator = await tx.wardInvestigator.findUnique({ where: { id: investigatorId }, select: { teamId: true, isActive: true } });
-      if (!investigator || investigator.teamId !== teamId || !investigator.isActive) throw new BadRequestException({ code: WARD_ERROR.INVESTIGATOR_UNKNOWN });
-    }
     const previousId = blank(input.previousAssignmentId);
-    if (previousId && input.kind !== 'REASSIGN') throw new BadRequestException({ code: WARD_ERROR.PREVIOUS_ONLY_FOR_REASSIGN });
-    if (previousId) {
-      // A request of the same ward unit that PC02 approved: re-assignment is of an assignment that was made.
-      const previous = await tx.wardAssignment.findUnique({ where: { id: previousId }, select: { assignedTeamId: true, status: true } });
-      if (!previous || previousId === selfId || previous.assignedTeamId !== teamId || previous.status !== 'APPROVED') {
-        throw new BadRequestException({ code: WARD_ERROR.PREVIOUS_UNKNOWN });
-      }
-    }
+    await this.checkedReferences(tx, teamId, { crimeId, proposedInvestigatorId: investigatorId, previousAssignmentId: previousId, kind: input.kind }, selfId);
     return {
       fields: {
         caseType: input.caseType,
@@ -322,6 +323,35 @@ export class WardAssignmentCommandService {
       },
       subjects,
     };
+  }
+
+  /**
+   * The records block 1 names, checked against the database: the crime exists; the proposed investigator is one of the
+   * ward unit's own and not stopped (their row locked for share, so stopping them waits for this transaction); a
+   * re-assignment names an approved request of the same ward unit.
+   */
+  private async checkedReferences(
+    tx: Tx,
+    teamId: string,
+    refs: { crimeId: string | null; proposedInvestigatorId: string | null; previousAssignmentId: string | null; kind: string },
+    selfId: string | null,
+  ): Promise<void> {
+    if (refs.crimeId && !(await tx.crime.findUnique({ where: { id: refs.crimeId }, select: { id: true } }))) {
+      throw new BadRequestException(wardBody(WARD_ERROR.CRIME_UNKNOWN));
+    }
+    if (refs.proposedInvestigatorId) {
+      const [investigator] = await tx.$queryRaw<{ teamId: string; isActive: boolean }[]>`
+        SELECT "teamId", "isActive" FROM "ward_investigators" WHERE id = ${refs.proposedInvestigatorId} FOR SHARE`;
+      if (!investigator || investigator.teamId !== teamId || !investigator.isActive) throw new BadRequestException(wardBody(WARD_ERROR.INVESTIGATOR_UNKNOWN));
+    }
+    if (refs.previousAssignmentId && refs.kind !== 'REASSIGN') throw new BadRequestException(wardBody(WARD_ERROR.PREVIOUS_ONLY_FOR_REASSIGN));
+    if (refs.previousAssignmentId) {
+      // A request of the same ward unit that PC02 approved: re-assignment is of an assignment that was made.
+      const previous = await tx.wardAssignment.findUnique({ where: { id: refs.previousAssignmentId }, select: { assignedTeamId: true, status: true } });
+      if (!previous || refs.previousAssignmentId === selfId || previous.assignedTeamId !== teamId || previous.status !== 'APPROVED') {
+        throw new BadRequestException(wardBody(WARD_ERROR.PREVIOUS_UNKNOWN));
+      }
+    }
   }
 
   /** What a round keeps of the request as it was submitted (block 1 and the subjects). */

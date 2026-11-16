@@ -9,6 +9,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
@@ -81,7 +82,8 @@ export class CreateWardInvestigatorDto {
 }
 
 export class UpdateWardInvestigatorDto {
-  @IsOptional() @IsString() @MaxLength(200) fullName?: string;
+  /** Absent: unchanged. Present: a name (null is refused, a name cannot be emptied). */
+  @ValidateIf((o: UpdateWardInvestigatorDto) => o.fullName !== undefined) @IsString() @MaxLength(200) fullName?: string;
   @IsOptional() @IsString() @MaxLength(100) rank?: string | null;
   @IsOptional() @IsString() @MaxLength(200) position?: string | null;
   @IsOptional() @IsString() @MaxLength(100) grade?: string | null;

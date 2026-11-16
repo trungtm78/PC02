@@ -29,8 +29,8 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
   });
 
   // Structural regression guards — catch accidental duplicate / dropped entries.
-  it('contains exactly 12 templates (6 legacy + 4 v0.47 + 1 UTDT + 1 BIEN_NHAN)', () => {
-    expect(TEMPLATES).toHaveLength(12);
+  it('contains exactly 13 templates (6 legacy + 4 v0.47 + 1 UTDT + 1 BIEN_NHAN + 1 WARD_ASSIGNMENT)', () => {
+    expect(TEMPLATES).toHaveLength(13);
   });
 
   it('every documentType is unique', () => {
@@ -52,15 +52,15 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
       value?: string;
     }>;
 
-    it.each(['PETITION', 'INCIDENT', 'CASE'])('%s: không có tiền tố', (documentType) => {
+    it.each(['PETITION', 'INCIDENT', 'CASE', 'WARD_ASSIGNMENT'])('%s: không có tiền tố', (documentType) => {
       expect(TEMPLATES.find((t) => t.documentType === documentType)?.prefix).toBe('');
     });
 
-    it.each(['PETITION', 'INCIDENT', 'CASE'])('%s: đệm 1 — không thêm số 0', (documentType) => {
+    it.each(['PETITION', 'INCIDENT', 'CASE', 'WARD_ASSIGNMENT'])('%s: đệm 1 — không thêm số 0', (documentType) => {
       expect(TEMPLATES.find((t) => t.documentType === documentType)?.padding).toBe(1);
     });
 
-    it.each(['PETITION', 'INCIDENT', 'CASE'])(
+    it.each(['PETITION', 'INCIDENT', 'CASE', 'WARD_ASSIGNMENT'])(
       '%s: đoạn mã là [năm, số thứ tự] — không có đoạn LITERAL',
       (documentType) => {
         const spec = TEMPLATES.find((t) => t.documentType === documentType);

@@ -5,7 +5,8 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { recordInActionScope, teamInScope } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
-import type { Actor } from './ward-assignment-command.service';
+import { lockedWardTeam, type Actor } from './ward-assignment-command.service';
+import { sameStamp, wardBody } from './ward-errors';
 
 export interface InvestigatorInput {
   fullName?: string;
@@ -32,7 +33,7 @@ export class WardInvestigatorsService {
   ) {}
 
   async list(scope: DataScope | null | undefined, teamId: string, includeStopped = false): Promise<WardInvestigator[]> {
-    if (!teamInScope(teamId, scope, 'read', 'WardAssignment')) throw new ForbiddenException({ code: WARD_ERROR.INVESTIGATOR_OUT_OF_REACH });
+    if (!teamInScope(teamId, scope, 'read', 'WardAssignment')) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
     return this.prisma.wardInvestigator.findMany({
       where: { teamId, ...(includeStopped ? {} : { isActive: true }) },
       orderBy: [{ isActive: 'desc' }, { fullName: 'asc' }],
@@ -41,11 +42,10 @@ export class WardInvestigatorsService {
 
   async create(actor: Actor, scope: DataScope | null | undefined, input: InvestigatorInput & { teamId: string }): Promise<WardInvestigator> {
     const fullName = input.fullName?.trim();
-    if (!fullName) throw new BadRequestException({ code: WARD_ERROR.INVESTIGATOR_NAME_REQUIRED });
+    if (!fullName) throw new BadRequestException(wardBody(WARD_ERROR.INVESTIGATOR_NAME_REQUIRED));
     return this.prisma.$transaction(async (tx) => {
-      const team = await tx.team.findUnique({ where: { id: input.teamId }, select: { id: true, wardId: true, status: true } });
-      if (!team || team.wardId === null || team.status !== 'ACTIVE') throw new BadRequestException({ code: WARD_ERROR.UNIT_NOT_WARD });
-      if (!this.keeps(scope, team.id)) throw new ForbiddenException({ code: WARD_ERROR.INVESTIGATOR_OUT_OF_REACH });
+      const team = await lockedWardTeam(tx, input.teamId);
+      if (!this.keeps(scope, team.id)) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
       const created = await tx.wardInvestigator.create({
         data: { teamId: team.id, fullName, rank: blank(input.rank) ?? null, position: blank(input.position) ?? null, grade: blank(input.grade) ?? null, createdById: actor.id },
       });
@@ -56,7 +56,7 @@ export class WardInvestigatorsService {
 
   async update(actor: Actor, scope: DataScope | null | undefined, id: string, input: InvestigatorInput & { expectedUpdatedAt: string }): Promise<WardInvestigator> {
     const fullName = input.fullName === undefined ? undefined : input.fullName.trim();
-    if (fullName === '') throw new BadRequestException({ code: WARD_ERROR.INVESTIGATOR_NAME_REQUIRED });
+    if (fullName === '') throw new BadRequestException(wardBody(WARD_ERROR.INVESTIGATOR_NAME_REQUIRED));
     return this.change(actor, scope, id, input.expectedUpdatedAt, WARD_AUDIT.INVESTIGATOR_UPDATED, {
       ...(fullName !== undefined && { fullName }),
       ...(input.rank !== undefined && { rank: blank(input.rank) }),
@@ -80,12 +80,14 @@ export class WardInvestigatorsService {
     data: Partial<Pick<WardInvestigator, 'fullName' | 'rank' | 'position' | 'grade' | 'isActive'>>,
   ): Promise<WardInvestigator> {
     return this.prisma.$transaction(async (tx) => {
+      // Locked BEFORE its unit is read: a merge that moves the name to another unit either waits for this transaction or
+      // has moved it already, and the reach is checked against the unit it is in now.
+      await tx.$queryRaw`SELECT id FROM "ward_investigators" WHERE id = ${id} FOR UPDATE`;
       const current = await tx.wardInvestigator.findUnique({ where: { id } });
-      if (!current || !teamInScope(current.teamId, scope, 'read', 'WardAssignment')) throw new NotFoundException({ code: WARD_ERROR.INVESTIGATOR_NOT_FOUND });
-      if (!this.keeps(scope, current.teamId)) throw new ForbiddenException({ code: WARD_ERROR.INVESTIGATOR_OUT_OF_REACH });
-      const stamp = new Date(expectedUpdatedAt);
-      const { count } = await tx.wardInvestigator.updateMany({ where: { id, updatedAt: stamp }, data });
-      if (count === 0) throw new ConflictException({ code: WARD_ERROR.INVESTIGATOR_CHANGED });
+      if (!current || !teamInScope(current.teamId, scope, 'read', 'WardAssignment')) throw new NotFoundException(wardBody(WARD_ERROR.INVESTIGATOR_NOT_FOUND));
+      if (!this.keeps(scope, current.teamId)) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
+      if (!sameStamp(current.updatedAt, expectedUpdatedAt)) throw new ConflictException(wardBody(WARD_ERROR.INVESTIGATOR_CHANGED));
+      await tx.wardInvestigator.update({ where: { id }, data });
       await this.audit.log({ userId: actor.id, action, subject: 'WardInvestigator', subjectId: id, metadata: { teamId: current.teamId, fields: Object.keys(data) } }, tx);
       return tx.wardInvestigator.findUniqueOrThrow({ where: { id } });
     });

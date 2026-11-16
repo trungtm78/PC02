@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { NOTHING, type PreciseScope } from '../common/utils/precise-scope';
+import { Client } from 'pg';
 import { openScratchDatabase, type ScratchDatabase } from '../common/testing/scratch-database';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
@@ -34,6 +35,9 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
   let commands: WardAssignmentCommandService;
   let queries: WardAssignmentQueryService;
   let investigators: WardInvestigatorsService;
+  /** A session of the suite's own that holds locks, as a concurrent merge or archive would; another that watches. */
+  let holder: Client;
+  let waiter: Client;
   const tag = `wac-${randomUUID().slice(0, 8)}`;
   const id: Record<string, string> = {};
   const scope: Record<string, DataScope | null> = {};
@@ -84,8 +88,27 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     }
   };
 
+  /** Resolves once `n` sessions wait for a row lock of `table` (polls the lock table; gives up after 20 s). */
+  const waitersOn = async (table: string, n: number) => {
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      const { rows } = await waiter.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+          WHERE NOT l.granted AND a.wait_event_type = 'Lock' AND a.query ILIKE $1`,
+        [`%${table}%`],
+      );
+      if (rows[0].n >= n) return;
+      if (Date.now() > deadline) throw new Error(`nobody waited for ${table}`);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  };
+
   beforeAll(async () => {
     scratch = await openScratchDatabase(url!);
+    waiter = new Client({ connectionString: url! });
+    await waiter.connect();
+    holder = new Client({ connectionString: url! });
+    await holder.connect();
     const { db } = scratch;
     const role = await db.role.create({ data: { name: `${tag}-officer` } });
     for (const name of ['wardy', 'otherWard', 'reviewer', 'pc02']) {
@@ -95,6 +118,8 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     id.W = (await db.team.create({ data: { code: `${tag}-W`, name: `${tag} CAP Vườn Lài`, wardId: await ward('w') } })).id;
     id.V = (await db.team.create({ data: { code: `${tag}-V`, name: `${tag} CAP Tân Định`, wardId: await ward('v') } })).id;
     id.P = (await db.team.create({ data: { code: `${tag}-P`, name: `${tag} Đội 1 PC02` } })).id;
+    // A ward unit that a merge archives while a request is being written into it.
+    id.U = (await db.team.create({ data: { code: `${tag}-U`, name: `${tag} CAP sắp gộp`, wardId: await ward('u') } })).id;
     await db.userTeam.createMany({
       data: [
         { userId: id.wardy, teamId: id.W },
@@ -110,6 +135,7 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     id.investigatorV = await investigator(id.V, `${tag} Hồ Văn E`);
 
     scope.wardy = enforced(id.wardy, { read: tree([id.W], []), write: tree([id.W], []) }, id.W);
+    scope.wardyOfU = enforced(id.wardy, { read: tree([id.U], []), write: tree([id.U], []) }, id.U);
     scope.otherWard = enforced(id.otherWard, { read: tree([id.V], []), write: tree([id.V], []) }, id.V);
     scope.reviewer = enforced(id.reviewer, { read: ALL, write: NOTHING, review: ALL }, null);
     // PC02 entering on a ward unit's behalf (a grant to write every ward unit's requests).
@@ -160,6 +186,8 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     await db.directory.deleteMany({ where: { code: { startsWith: tag } } });
     await db.user.deleteMany({ where: { username: { startsWith: tag } } });
     await db.role.deleteMany({ where: { name: { startsWith: tag } } });
+    await holder.end();
+    await waiter.end();
     await scratch.close();
   });
 
@@ -233,7 +261,7 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       const made = await commands.create({ id: id.wardy }, scope.wardy, input({ summary: '', proposedInvestigatorId: null, subjects: [] }));
       expect(await fails(commands.submit({ id: id.wardy }, scope.wardy, made.id, made.updatedAt.toISOString()))).toMatchObject({
         status: 400,
-        body: { code: WARD_ERROR.INCOMPLETE, missing: ['summary', 'proposedInvestigatorId', 'subjects'] },
+        body: { code: WARD_ERROR.INCOMPLETE, details: [{ field: 'summary' }, { field: 'proposedInvestigatorId' }, { field: 'subjects' }] },
       });
     });
 
@@ -269,14 +297,32 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     it('two submissions at the same moment: one is kept, the other told the request changed', async () => {
       const made = await commands.create({ id: id.wardy }, scope.wardy, input());
       const stamp = made.updatedAt.toISOString();
-      const results = await Promise.allSettled([
-        commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp),
-        commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp),
-      ]);
-      expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+      // Both are made to wait at the row lock, then let go together: they meet exactly where the lock decides.
+      await holder.query('BEGIN');
+      await holder.query('SELECT id FROM ward_assignments WHERE id = $1 FOR UPDATE', [made.id]);
+      const both = [commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp), commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp)].map(fails);
+      await waitersOn('ward_assignments', 2);
+      await holder.query('COMMIT');
+      const outcomes = await Promise.all(both);
+      expect(outcomes.filter((o) => o === 'resolved')).toHaveLength(1);
+      expect(outcomes.filter((o) => o !== 'resolved')).toEqual([{ status: 409, body: { code: WARD_ERROR.CONFLICT, details: [{ updatedAt: expect.any(String) }] } }]);
       expect(await scratch.db.wardAssignmentRound.count({ where: { assignmentId: made.id } })).toBe(1);
-      const codes = await codeOf(made.id);
-      expect(codes).not.toBeNull();
+      expect(await codeOf(made.id)).not.toBeNull();
+    });
+
+    it('a request whose proposed investigator was stopped since the draft cannot be submitted', async () => {
+      const extra = await investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Tạm` });
+      const made = await commands.create({ id: id.wardy }, scope.wardy, input({ proposedInvestigatorId: extra.id }));
+      await investigators.setActive({ id: id.wardy }, scope.wardy, extra.id, false, extra.updatedAt.toISOString());
+      expect(await fails(commands.submit({ id: id.wardy }, scope.wardy, made.id, made.updatedAt.toISOString()))).toMatchObject({ status: 400, body: { code: WARD_ERROR.INVESTIGATOR_UNKNOWN } });
+      expect(await scratch.db.wardAssignmentRound.count({ where: { assignmentId: made.id } })).toBe(0);
+    });
+
+    it('a stamp that is not an instant is refused, never compared; the same instant with another offset is the same form', async () => {
+      const made = await commands.create({ id: id.wardy }, scope.wardy, input());
+      expect(await fails(commands.submit({ id: id.wardy }, scope.wardy, made.id, '2026-W47-1'))).toMatchObject({ status: 400, body: { code: WARD_ERROR.STAMP_INVALID } });
+      const shifted = new Date(made.updatedAt.getTime() + 7 * 3_600_000).toISOString().replace('Z', '+07:00');
+      expect(await commands.submit({ id: id.wardy }, scope.wardy, made.id, shifted)).toMatchObject({ status: 'SUBMITTED' });
     });
   });
 
@@ -311,6 +357,33 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     });
   });
 
+  describe('writing while the ward unit is merged away', () => {
+    it('a request being written into a ward unit that a merge archives meanwhile is refused, not left behind', async () => {
+      // The merge holds the team (as TeamMergeService.readPair does); the request waits; the merge archives the team.
+      await holder.query('BEGIN');
+      await holder.query('SELECT id FROM teams WHERE id = $1 FOR UPDATE', [id.U]);
+      const creating = fails(commands.create({ id: id.wardy }, scope.wardyOfU, input({ assignedTeamId: id.U, proposedInvestigatorId: null })));
+      await waitersOn('teams', 1);
+      await holder.query(`UPDATE teams SET status = 'ARCHIVED' WHERE id = $1`, [id.U]);
+      await holder.query('COMMIT');
+      expect(await creating).toMatchObject({ status: 400, body: { code: WARD_ERROR.UNIT_NOT_WARD } });
+      expect(await scratch.db.wardAssignment.count({ where: { assignedTeamId: id.U } })).toBe(0);
+    });
+
+    it('a change to an investigator is checked against the unit they are in once the move is done', async () => {
+      const moving = await investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Sắp chuyển` });
+      await holder.query('BEGIN');
+      await holder.query('SELECT id FROM ward_investigators WHERE id = $1 FOR UPDATE', [moving.id]);
+      const stopping = fails(investigators.setActive({ id: id.wardy }, scope.wardy, moving.id, false, moving.updatedAt.toISOString()));
+      await waitersOn('ward_investigators', 1);
+      // A merge moves the name to ward V without touching its stamp.
+      await holder.query('UPDATE ward_investigators SET "teamId" = $2 WHERE id = $1', [moving.id, id.V]);
+      await holder.query('COMMIT');
+      expect(await stopping).toMatchObject({ status: 404, body: { code: WARD_ERROR.INVESTIGATOR_NOT_FOUND } });
+      expect((await scratch.db.wardInvestigator.findUniqueOrThrow({ where: { id: moving.id } })).isActive).toBe(true);
+    });
+  });
+
   describe('a re-assignment', () => {
     it('names an approved request of the same ward unit, and why', async () => {
       const first = await commands.create({ id: id.wardy }, scope.wardy, input());
@@ -332,6 +405,7 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       expect(added).toMatchObject({ teamId: id.W, isActive: true });
       expect(await fails(investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.V, fullName: 'x' }))).toMatchObject({ status: 403, body: { code: WARD_ERROR.INVESTIGATOR_OUT_OF_REACH } });
       const fixed = await investigators.update({ id: id.wardy }, scope.wardy, added.id, { fullName: `${tag} Võ Văn Khoa`, rank: 'Thượng tá', expectedUpdatedAt: added.updatedAt.toISOString() });
+      expect(await fails(investigators.update({ id: id.wardy }, scope.wardy, added.id, { fullName: '  ', expectedUpdatedAt: fixed.updatedAt.toISOString() }))).toMatchObject({ status: 400, body: { code: WARD_ERROR.INVESTIGATOR_NAME_REQUIRED } });
       expect(fixed).toMatchObject({ fullName: `${tag} Võ Văn Khoa`, rank: 'Thượng tá', position: 'Phó trưởng Công an phường' });
       const stopped = await investigators.setActive({ id: id.wardy }, scope.wardy, added.id, false, fixed.updatedAt.toISOString());
       expect(stopped.isActive).toBe(false);
