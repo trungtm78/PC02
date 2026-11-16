@@ -77,6 +77,22 @@ async function call(token, method, url, body) {
   try { json = JSON.parse(text); } catch { /* not JSON */ }
   return { status: res.status, body: json, text };
 }
+/** A download: status, type and the first bytes (a .docx is a zip: "PK"). */
+async function fetchFile(token, url) {
+  const res = await fetch(`${BASE}${url}`, { headers: { Authorization: `Bearer ${token}` } });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return { status: res.status, type: res.headers.get('content-type') ?? '', bytes };
+}
+async function upload(token, url, name, type, bytes) {
+  const form = new FormData();
+  form.append('file', new Blob([bytes], { type }), name);
+  const res = await fetch(`${BASE}${url}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { /* not JSON */ }
+  return { status: res.status, body: json, text };
+}
+const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 const refused = (res, status, code) => res.status === status && JSON.stringify(res.body ?? '').includes(code);
 const rowsOf = (body) => body?.data ?? body?.items ?? (Array.isArray(body) ? body : []);
 const ymd = (v) => (v ? String(v).slice(0, 10) : null);
@@ -135,7 +151,7 @@ async function enforce(admin, admin2) {
   check('AUTHZ', 'mẫu phường/xã: xem, thêm, sửa, xoá hồ sơ của đơn vị mình (Cả tổ), KHÔNG có quyền thẩm định', ['read', 'write', 'edit', 'delete'].every((a) => sub[`${a}:WardAssignment`] === 'TEAM_TREE') && !sub['review:WardAssignment'], sub);
   check('AUTHZ', 'mẫu PC02: xem và thẩm định Toàn bộ, KHÔNG sửa nội dung hồ sơ', rev['read:WardAssignment'] === 'ALL' && rev['review:WardAssignment'] === 'ALL' && !rev['edit:WardAssignment'] && !rev['write:WardAssignment'], rev);
   const given = [];
-  for (const [team, tpl] of [[T.WA, submitT.id], [T.WB, submitT.id], [T.P, reviewT.id]]) given.push((await call(admin, 'PUT', `/authz/teams/${team}`, { mode: 'EXPLICIT', memberTemplateId: tpl, expectedRevision: 0 })).status);
+  for (const [team, tpl] of [[T.WA, submitT.id], [T.WB, submitT.id], [T.P, reviewT.id]]) given.push((await call(admin, 'PUT', `/authz/teams/${team}`, { mode: 'EXPLICIT', memberTemplateId: tpl, expectedRevision: 0, reason: 'UAT phân công phường/xã' })).status);
   check('AUTHZ', 'áp mẫu cho hai tổ phường/xã và tổ PC02', given.every((s) => s === 200), given);
   const fingerprint = async (token) => (await call(token, 'GET', '/authz/mode/comparison')).body?.fingerprint;
   const asked = await call(admin, 'POST', '/authz/mode/requests', { reason: 'UAT phân công phường/xã', acknowledge: await fingerprint(admin) });
@@ -248,8 +264,8 @@ async function journeys(tk) {
     const seen = (await get(tk.a1)).body;
     const last = seen?.rounds?.at(-1)?.decisions?.at(-1);
     check('RETURN', `lượt ${round}: phường A thấy lý do và đúng 3 yêu cầu theo thứ tự`, last?.kind === 'RETURN' && last?.reasonCode === 'THIEU_TAI_LIEU' && JSON.stringify(last?.requirements) === JSON.stringify(requirements), last);
-    const blocked = await call(tk.a1, 'POST', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: back.body?.updatedAt, resultText: 'x' });
-    if (round === 1) check('A2', 'phường/xã không ghi được khối 3 (kết quả) qua HTTP', blocked.status === 403 || blocked.status === 404, [blocked.status, blocked.body]);
+    const blocked = await call(tk.a1, 'PATCH', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: back.body?.updatedAt, resultText: 'x' });
+    if (round === 1) check('A2', 'phường/xã không ghi được khối 3 (kết quả) qua HTTP (403 vì quyền, không phải route vắng)', blocked.status === 403, [blocked.status, blocked.body]);
     const edited = await call(tk.a1, 'PATCH', `/ward-assignments/${id}`, { ...content({ summary: `UAT ${RUN} đã bổ sung lần ${round}` }), expectedUpdatedAt: back.body?.updatedAt });
     check('EDIT', `lượt ${round}: phường A sửa được hồ sơ bị trả về`, edited.status === 200, [edited.status, edited.body]);
     const again = await call(tk.a1, 'POST', `/ward-assignments/${id}/submit`, { expectedUpdatedAt: edited.body?.updatedAt });
@@ -258,7 +274,7 @@ async function journeys(tk) {
   }
   const history = (await get(tk.rev)).body;
   check('Q1', 'lịch sử có 5 lượt (1 đã rút + 4 lượt trình), mỗi lượt giữ bản chụp nội dung lúc trình', history?.rounds?.length === 5 && history.rounds.filter((r) => r.status === 'WITHDRAWN').length === 1 && history.rounds.every((r) => r.snapshot && typeof r.snapshot === 'object'), history?.rounds?.map((r) => [r.sequence, r.submissionNo, r.status]));
-  check('Q1', 'bản chụp lượt 2 giữ trích yếu cũ, lượt 4 giữ trích yếu đã sửa lần 2', JSON.stringify(history?.rounds?.[1]?.snapshot).includes('Nhóm đánh bạc tại hẻm 12') && JSON.stringify(history?.rounds?.[3]?.snapshot).includes('đã bổ sung lần 2'), [history?.rounds?.[1]?.snapshot?.summary, history?.rounds?.[3]?.snapshot?.summary]);
+  check('Q1', 'bản chụp lượt 2 giữ trích yếu cũ, lượt 4 giữ trích yếu đã sửa lần 2', String(JSON.stringify(history?.rounds?.[1]?.snapshot)).includes('Nhóm đánh bạc tại hẻm 12') && String(JSON.stringify(history?.rounds?.[3]?.snapshot)).includes('đã bổ sung lần 2'), [history?.rounds?.[1]?.snapshot?.summary, history?.rounds?.[3]?.snapshot?.summary]);
 
   // Approve and assign (owner: the ĐTV + the PC02 follower and unit; due = received + 2 months)
   const stale = await call(tk.rev, 'POST', `/ward-assignments/${id}/approve`, { expectedUpdatedAt: sub2.body.updatedAt, assignedInvestigatorId: I2 });
@@ -270,12 +286,54 @@ async function journeys(tk) {
   check('A11', `ngày nhận lại mặc định = hôm nay (${today}), hạn báo kết quả = nhận lại + 2 tháng (${due})`, ymd(ok.body?.receivedOn) === today && ymd(ok.body?.resultDueOn) === due, [ymd(ok.body?.receivedOn), ymd(ok.body?.resultDueOn)]);
   const wardAfter = (await get(tk.a1)).body;
   check('A2', 'sau duyệt, phường A thấy ĐTV được phân công nhưng không có nút ghi khối 2–3', wardAfter?.assignedInvestigatorId === I2 && wardAfter?.can?.followUp === false && wardAfter?.can?.extend === false && wardAfter?.can?.edit === false, wardAfter?.can);
-  const wardExtend = await call(tk.a1, 'POST', `/ward-assignments/${id}/deadline/extend`, { expectedUpdatedAt: ok.body?.updatedAt, newDueOn: addDays(due, 30), reason: 'x' });
-  check('A2', 'phường A không gia hạn được (403)', wardExtend.status === 403 || wardExtend.status === 404, [wardExtend.status, wardExtend.body]);
+  // Request slips (owner: printed both when returned and when approved; a reprint is the slip issued then)
+  const decisionsNow = ((await get(tk.rev)).body?.rounds ?? []).flatMap((r) => r.decisions ?? []);
+  const firstReturn = decisionsNow.find((d) => d.kind === 'RETURN');
+  const approval = decisionsNow.find((d) => d.kind === 'APPROVE' && !d.revokedAt);
+  const wardIssue = await call(tk.a1, 'POST', `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`, {});
+  check('SLIP', 'cán bộ phường/xã không phát hành được phiếu yêu cầu', wardIssue.status === 403 || wardIssue.status === 404, [wardIssue.status, wardIssue.body]);
+  const slip1 = await call(tk.rev, 'POST', `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`, {});
+  check('SLIP', 'PC02 phát hành phiếu của lượt trả về đầu tiên: có số dạng n/PYC-PC02-Đ1', slip1.status === 200 && /^\d+\/PYC-PC02-Đ1$/.test(slip1.body?.slipNumber ?? ''), [slip1.status, slip1.body?.slipNumber ?? slip1.body]);
+  const slip1again = await call(tk.rev, 'POST', `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`, {});
+  check('SLIP', 'phát hành lại lần nữa (bấm hai lần): cùng một số, không cấp số mới', slip1again.status === 200 && slip1again.body?.slipNumber === slip1.body?.slipNumber, [slip1again.status, slip1again.body?.slipNumber]);
+  // A number written by hand, like "1949A" on the owner's Word slip (a new one each run: numbers are unique in the year).
+  const manual = `${1000 + (parseInt(RUN.slice(0, 4), 16) % 9000)}A`;
+  const slipA = await call(tk.rev, 'POST', `/ward-assignments/${id}/decisions/${approval?.id}/slip`, { slipNumber: manual });
+  check('SLIP', `phiếu của lượt duyệt với số ghi tay "${manual}" → ${manual}/PYC-PC02-Đ1`, slipA.status === 200 && slipA.body?.slipNumber === `${manual}/PYC-PC02-Đ1`, [slipA.status, slipA.body?.slipNumber ?? slipA.body]);
+  const otherReturn = decisionsNow.filter((d) => d.kind === 'RETURN')[1];
+  const reused = await call(tk.rev, 'POST', `/ward-assignments/${id}/decisions/${otherReturn?.id}/slip`, { slipNumber: manual });
+  check('A8', 'số phiếu ghi tay đã dùng trong năm thì bị từ chối', refused(reused, 409, 'WARD_SLIP_NUMBER_TAKEN'), [reused.status, reused.body]);
+  const fileR = await fetchFile(tk.rev, `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`);
+  const fileW = await fetchFile(tk.a1, `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`);
+  check('SLIP', 'phiếu tải về là tệp Word; phường A tải được đúng tệp PC02 đã phát hành', fileR.status === 200 && fileR.bytes.subarray(0, 2).toString() === 'PK' && fileW.status === 200 && fileW.bytes.equals(fileR.bytes), [fileR.status, fileR.type, fileW.status, fileR.bytes.length, fileW.bytes.length]);
+  const fileB = await fetchFile(tk.b1, `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`);
+  check('A5', 'phường B không tải được phiếu của phường A (404)', fileB.status === 404, fileB.status);
+
+  // Result files (owner: "nhiều tệp kết quả"; PC02 enters the result)
+  const wardUp = await upload(tk.a1, `/ward-assignments/${id}/files`, 'ket-qua.pdf', 'application/pdf', PDF);
+  check('FILES', 'cán bộ phường/xã không tải tệp kết quả lên được', wardUp.status === 403 || wardUp.status === 404, [wardUp.status, wardUp.body]);
+  const up1 = await upload(tk.rev, `/ward-assignments/${id}/files`, 'Quyết định khởi tố.pdf', 'application/pdf', PDF);
+  const up2 = await upload(tk.rev, `/ward-assignments/${id}/files`, 'Biên bản.pdf', 'application/pdf', PDF);
+  const filesA = await call(tk.a1, 'GET', `/ward-assignments/${id}/files`);
+  const names = rowsOf(filesA.body).map((f) => f.originalName ?? f.name);
+  check('FILES', 'PC02 tải lên 2 tệp kết quả; phường A thấy đủ 2 tệp, tên tiếng Việt giữ nguyên', [200, 201].includes(up1.status) && [200, 201].includes(up2.status) && names.includes('Quyết định khởi tố.pdf') && names.includes('Biên bản.pdf'), [up1.status, up2.status, names]);
+  const fileId = up1.body?.id;
+  const dl = await fetchFile(tk.a1, `/ward-assignments/${id}/files/${fileId}/download`);
+  check('FILES', 'phường A tải về được tệp kết quả, đúng nội dung', dl.status === 200 && dl.bytes.equals(PDF), [dl.status, dl.bytes.length]);
+  const filesB = await call(tk.b1, 'GET', `/ward-assignments/${id}/files`);
+  check('A5', 'phường B không xem được tệp kết quả của phường A', filesB.status === 404 || filesB.status === 403, filesB.status);
+  const rm = await call(tk.rev, 'DELETE', `/ward-assignments/${id}/files/${up2.body?.id}`);
+  const after2 = rowsOf((await call(tk.rev, 'GET', `/ward-assignments/${id}/files`)).body).length;
+  check('FILES', 'PC02 gỡ một tệp: còn 1 tệp', rm.status === 200 && after2 === 1, [rm.status, after2]);
+  const cancelWithFile = await call(tk.rev, 'POST', `/ward-assignments/${id}/approval/cancel`, { expectedUpdatedAt: (await get(tk.rev)).body?.updatedAt, reason: 'x' });
+  check('C7', 'còn tệp kết quả thì không huỷ duyệt được; màn hình cũng không hiện nút Huỷ duyệt', refused(cancelWithFile, 409, 'WARD_APPROVAL_HAS_RESULT') && (await get(tk.rev)).body?.can?.cancelApproval === false, [cancelWithFile.status, cancelWithFile.body]);
+
+  const wardExtend = await call(tk.a1, 'POST', `/ward-assignments/${id}/deadline/extend`, { expectedUpdatedAt: await stampOf(), newDueOn: addDays(due, 30), reason: 'x' });
+  check('A2', 'phường A không gia hạn được (403)', wardExtend.status === 403, [wardExtend.status, wardExtend.body]);
 
   // Block 3: received, deadline follows it; extension with a reason (R6); result, completion, reopening (C7)
   const received = addDays(today, -3);
-  const moved = await call(tk.rev, 'POST', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: ok.body?.updatedAt, receivedOn: received });
+  const moved = await call(tk.rev, 'PATCH', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: await stampOf(), receivedOn: received });
   check('A11', `đổi ngày nhận lại thành ${received}: hạn tự = ${addMonths(received, 2)}`, moved.status === 200 && ymd(moved.body?.resultDueOn) === addMonths(received, 2), [moved.status, ymd(moved.body?.resultDueOn)]);
   const noReasonExt = await call(tk.rev, 'POST', `/ward-assignments/${id}/deadline/extend`, { expectedUpdatedAt: moved.body?.updatedAt, newDueOn: addDays(addMonths(received, 2), 15), reason: '  ' });
   check('R6', 'gia hạn không lý do bị từ chối', refused(noReasonExt, 400, 'WARD_REASON_REQUIRED'), [noReasonExt.status, noReasonExt.body]);
@@ -285,11 +343,11 @@ async function journeys(tk) {
   const ext = await call(tk.rev, 'POST', `/ward-assignments/${id}/deadline/extend`, { expectedUpdatedAt: moved.body?.updatedAt, newDueOn: newDue, reason: 'Chờ kết luận giám định' });
   const extSeen = (await get(tk.rev)).body;
   check('R6', `gia hạn tới ${newDue} có lý do: lưu lịch sử (cũ, mới, lý do, người)`, ext.status === 200 && ymd(ext.body?.resultDueOn) === newDue && extSeen?.deadlineChanges?.length === 1 && extSeen.deadlineChanges[0].reason === 'Chờ kết luận giám định' && ymd(extSeen.deadlineChanges[0].oldDueOn) === addMonths(received, 2), [ext.status, extSeen?.deadlineChanges]);
-  const after = await call(tk.rev, 'POST', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: ext.body?.updatedAt, receivedOn: addDays(today, -1) });
+  const after = await call(tk.rev, 'PATCH', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: ext.body?.updatedAt, receivedOn: addDays(today, -1) });
   check('R6', 'đã gia hạn thì đổi ngày nhận lại không kéo hạn về +2 tháng', after.status === 200 && ymd(after.body?.resultDueOn) === newDue, [after.status, ymd(after.body?.resultDueOn)]);
   const noResult = await call(tk.rev, 'POST', `/ward-assignments/${id}/complete`, { expectedUpdatedAt: after.body?.updatedAt, completedOn: today });
   check('C7', 'ghi hoàn thành khi chưa có kết quả bị từ chối', refused(noResult, 400, 'WARD_RESULT_REQUIRED'), [noResult.status, noResult.body]);
-  const result = await call(tk.rev, 'POST', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: after.body?.updatedAt, resultText: 'Đã khởi tố vụ án, khởi tố bị can Nguyễn Văn An' });
+  const result = await call(tk.rev, 'PATCH', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: after.body?.updatedAt, resultText: 'Đã khởi tố vụ án, khởi tố bị can Nguyễn Văn An' });
   const cancelWithResult = await call(tk.rev, 'POST', `/ward-assignments/${id}/approval/cancel`, { expectedUpdatedAt: result.body?.updatedAt, reason: 'x' });
   check('C7', 'huỷ duyệt khi đã có kết quả bị từ chối (giữ kết quả)', refused(cancelWithResult, 409, 'WARD_APPROVAL_HAS_RESULT'), [cancelWithResult.status, cancelWithResult.body]);
   const future = await call(tk.rev, 'POST', `/ward-assignments/${id}/complete`, { expectedUpdatedAt: result.body?.updatedAt, completedOn: addDays(today, 1) });
@@ -297,7 +355,7 @@ async function journeys(tk) {
   const done = await call(tk.rev, 'POST', `/ward-assignments/${id}/complete`, { expectedUpdatedAt: result.body?.updatedAt, completedOn: today });
   const doneSeen = (await get(tk.rev)).body;
   check('TIMELY', `hoàn thành ${today} trước hạn ${newDue}: "Đúng hạn"`, done.status === 200 && doneSeen?.timeliness?.onTime === true && doneSeen?.timeliness?.lateDays === 0, [done.status, doneSeen?.timeliness]);
-  const rewrite = await call(tk.rev, 'POST', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: done.body?.updatedAt, resultText: null });
+  const rewrite = await call(tk.rev, 'PATCH', `/ward-assignments/${id}/follow-up`, { expectedUpdatedAt: done.body?.updatedAt, resultText: null });
   check('C7', 'đã hoàn thành thì không xoá / sửa được kết quả khi chưa Mở lại', refused(rewrite, 409, 'WARD_ALREADY_COMPLETED'), [rewrite.status, rewrite.body]);
   const reopenNo = await call(tk.rev, 'POST', `/ward-assignments/${id}/complete/reopen`, { expectedUpdatedAt: done.body?.updatedAt, reason: '' });
   check('R3', 'mở lại không có lý do bị từ chối', refused(reopenNo, 400, 'WARD_REASON_REQUIRED'), [reopenNo.status, reopenNo.body]);
@@ -349,13 +407,20 @@ async function journeys(tk) {
   const impact = await call(tk.admin, 'GET', `/ward-assignments/${id2}/deletion-impact`);
   check('DELETE', 'quản trị thấy số bản ghi sẽ mất: 1 đối tượng, 1 lượt, 3 quyết định (duyệt đã huỷ, trả về đã thu hồi, trả về)', impact.status === 200 && impact.body?.code === s2.body?.code && impact.body?.subjects === 1 && impact.body?.rounds === 1 && impact.body?.decisions === 3, [impact.status, impact.body]);
   const cur2 = (await call(tk.admin, 'GET', `/ward-assignments/${id2}`)).body;
-  const wrong = await call(tk.admin, 'POST', `/ward-assignments/${id2}/with-data`, { expectedUpdatedAt: cur2?.updatedAt, confirmCode: 'sai-ma' });
+  const wrong = await call(tk.admin, 'DELETE', `/ward-assignments/${id2}/with-data`, { expectedUpdatedAt: cur2?.updatedAt, confirmCode: 'sai-ma' });
   check('DELETE', 'gõ sai mã xác nhận: không xoá', refused(wrong, 400, 'WARD_DELETE_CONFIRM_MISMATCH'), [wrong.status, wrong.body]);
-  const revDel = await call(tk.rev, 'POST', `/ward-assignments/${id2}/with-data`, { expectedUpdatedAt: cur2?.updatedAt, confirmCode: s2.body?.code });
+  const revDel = await call(tk.rev, 'DELETE', `/ward-assignments/${id2}/with-data`, { expectedUpdatedAt: cur2?.updatedAt, confirmCode: s2.body?.code });
   check('DELETE', 'người không phải quản trị không xoá kèm dữ liệu được', revDel.status === 403, [revDel.status, revDel.body]);
-  const gone = await call(tk.admin, 'POST', `/ward-assignments/${id2}/with-data`, { expectedUpdatedAt: cur2?.updatedAt, confirmCode: s2.body?.code });
+  const gone = await call(tk.admin, 'DELETE', `/ward-assignments/${id2}/with-data`, { expectedUpdatedAt: cur2?.updatedAt, confirmCode: s2.body?.code });
   const goneGet = await call(tk.admin, 'GET', `/ward-assignments/${id2}`);
   check('DELETE', 'gõ đúng mã: hồ sơ và mọi dữ liệu của nó bị xoá, không còn tệp sót', [200, 201].includes(gone.status) && goneGet.status === 404 && Array.isArray(gone.body?.filesNotRemoved) && gone.body.filesNotRemoved.length === 0, [gone.status, gone.body, goneGet.status]);
+
+  // Statistics (owner's "dashboard"): the numbers of this unit equal the rows they open
+  const stats = await call(tk.rev, 'GET', `/ward-assignments/stats?teamId=${T.WA}`);
+  const rowsAll = await call(tk.rev, 'GET', `/ward-assignments?submitted=true&teamId=${T.WA}&pageSize=200`);
+  check('STATS', 'thống kê của phường A trả lời; tổng số = số dòng danh sách mở ra từ nó', stats.status === 200 && JSON.stringify(stats.body).length > 2 && rowsAll.status === 200 && (stats.body?.cards?.total ?? stats.body?.total) === rowsAll.body?.total, [stats.status, stats.body?.cards, rowsAll.body?.total]);
+  const statsWard = await call(tk.b1, 'GET', `/ward-assignments/stats?teamId=${T.WA}`);
+  check('A5', 'phường B xem thống kê của phường A: không thấy hồ sơ nào', statsWard.status === 403 || ((statsWard.body?.cards?.total ?? statsWard.body?.total) === 0), [statsWard.status, statsWard.body?.cards]);
 
   // Investigator stop ⇄ use again (project rule: every one-way action has its way back)
   const invNow = rowsOf((await call(tk.a1, 'GET', `/ward-investigators?teamId=${T.WA}`)).body).find((r) => r.id === I1);

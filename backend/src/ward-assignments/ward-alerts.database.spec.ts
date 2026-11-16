@@ -266,6 +266,49 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
         matching.conclude(scope.wardy, id.wardy, id.A, { subjectPosition: 1, otherSource: 'WARD_ASSIGNMENT', otherRecordId: id.B, samePerson: false }),
       ).rejects.toMatchObject({ status: 403 });
     });
+
+    /** Runs `meanwhile` in the gap between the check of the pair and the write of the conclusion (the race Codex named). */
+    const inTheGap = (meanwhile: () => Promise<unknown>) => {
+      const service = matching as unknown as { matchesIgnoringConclusions: (...a: unknown[]) => Promise<unknown> };
+      const real = service.matchesIgnoringConclusions.bind(matching);
+      const spy = jest.spyOn(service, 'matchesIgnoringConclusions').mockImplementationOnce(async (...a: unknown[]) => {
+        const found = await real(...a);
+        await meanwhile();
+        return found;
+      });
+      return spy;
+    };
+
+    it('the subjects rewritten between the check and the write: 409, nothing recorded about the person replaced', async () => {
+      const row = await request('gapEdit', id.W, [{ fullName: 'Nguyễn Văn Gap', fullNameNorm: 'nguyen van gap', birthYear: 1990, idNumberNorm: `${tag}GAP1` }]);
+      await request('gapOther', id.W, [{ fullName: 'Nguyễn Văn Gap', fullNameNorm: 'nguyen van gap', birthYear: 1990, idNumberNorm: `${tag}GAP1` }]);
+      const other = await db.wardAssignment.findFirstOrThrow({ where: { code: `${tag}-gapOther` } });
+      const spy = inTheGap(async () => {
+        const old = await db.wardAssignmentSubject.findFirstOrThrow({ where: { assignmentId: row.id, position: 1 } });
+        await db.wardAssignmentSubject.delete({ where: { id: old.id } });
+        await db.wardAssignmentSubject.create({ data: { assignmentId: row.id, position: 1, fullName: 'Người khác', fullNameNorm: 'nguoi khac', createdAt: new Date(Date.now() + 1000) } });
+      });
+      await expect(
+        matching.conclude(scope.reviewerMatch, id.reviewerMatch, row.id, { subjectPosition: 1, otherSource: 'WARD_ASSIGNMENT', otherRecordId: other.id, samePerson: false }),
+      ).rejects.toMatchObject({ status: 409 });
+      spy.mockRestore();
+      expect(await db.wardSubjectMatchConclusion.count({ where: { assignmentId: row.id } })).toBe(0);
+    });
+
+    it('the request deleted between the check and the write: no conclusion is left behind it', async () => {
+      const row = await request('gapDel', id.W, [{ fullName: 'Trần Văn Gap', fullNameNorm: 'tran van gap', birthYear: 1991, idNumberNorm: `${tag}GAP2` }]);
+      await request('gapDelOther', id.W, [{ fullName: 'Trần Văn Gap', fullNameNorm: 'tran van gap', birthYear: 1991, idNumberNorm: `${tag}GAP2` }]);
+      const other = await db.wardAssignment.findFirstOrThrow({ where: { code: `${tag}-gapDelOther` } });
+      const spy = inTheGap(async () => {
+        await db.wardAssignmentSubject.deleteMany({ where: { assignmentId: row.id } });
+        await db.wardAssignment.delete({ where: { id: row.id } });
+      });
+      await expect(
+        matching.conclude(scope.reviewerMatch, id.reviewerMatch, row.id, { subjectPosition: 1, otherSource: 'WARD_ASSIGNMENT', otherRecordId: other.id, samePerson: true }),
+      ).rejects.toMatchObject({ status: 404 });
+      spy.mockRestore();
+      expect(await db.wardSubjectMatchConclusion.count({ where: { assignmentId: row.id } })).toBe(0);
+    });
   });
 
   describe('the deadline alert of the list: the filter count is the rows, each row carries the level filtered on', () => {

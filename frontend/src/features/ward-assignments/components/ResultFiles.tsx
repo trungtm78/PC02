@@ -10,6 +10,8 @@ export interface ResultFilesProps {
   assignmentId: string;
   /** PC02 with the review reach on an approved request: upload and remove. Everybody else only lists and downloads. */
   canWrite: boolean;
+  /** After a file is added or removed: what the request allows depends on its files ("Huỷ duyệt" is refused while one is there). */
+  onChanged?: () => void;
 }
 
 function errorText(error: unknown): string {
@@ -30,7 +32,7 @@ function uploaderName(file: WardFile): string {
 }
 
 /** "Kết quả": the result files of a ward assignment request — list, upload with progress, download, remove with confirm. */
-export function ResultFiles({ assignmentId, canWrite }: ResultFilesProps) {
+export function ResultFiles({ assignmentId, canWrite, onChanged }: ResultFilesProps) {
   const [files, setFiles] = useState<WardFile[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ name: string; percent: number } | null>(null);
@@ -60,6 +62,7 @@ export function ResultFiles({ assignmentId, canWrite }: ResultFilesProps) {
       await wardDocsApi.uploadFile(assignmentId, file, (percent) => setProgress({ name: file.name, percent }));
       setMessage({ kind: 'ok', text: t.files.uploaded(file.name) });
       await load();
+      onChanged?.();
     } catch (error) {
       setMessage({ kind: 'error', text: errorText(error) });
     } finally {
@@ -88,6 +91,7 @@ export function ResultFiles({ assignmentId, canWrite }: ResultFilesProps) {
       setConfirming(null);
       setMessage({ kind: 'ok', text: t.files.removed(file.originalName) });
       await load();
+      onChanged?.();
     } catch (error) {
       setConfirming(null);
       setMessage({ kind: 'error', text: errorText(error) });

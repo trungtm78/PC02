@@ -1,7 +1,7 @@
 # PROGRESS
 
 # ACTIVE EPIC (16/11/2026): ward assignment requests ("Hồ sơ phân công Công an cấp phường/xã")
-Cập nhật: 2026-11-16 (evening) | Milestone: M1/5 | Task: PR 2 of 8 (máy chủ lõi)
+Cập nhật: 2026-11-17 00:15 | Milestone: M2–M5 in ONE integrated PR (deadline 05:00) | Task: integration branch `feat/ward-assignments-integration`
 Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md`; inside it the section "SỬA ĐỔI SAU /plan-eng-review (16/11/2026)" WINS over anything above it (decisions A1–A15, Q1–Q2, P1–P2, R1–R8, C1–C8; order PR 0–8; tasks T1–T14). Requirement files: `docs/Requirements/trinh phân công.xlsx`, `docs/Requirements/YCĐT 1949A CAP.Vườn Lài 321.docx` (folder git-ignored). Protocol: the AUTONOMOUS EXECUTION PROTOCOL the owner pasted 16/11 (no stopping to ask; DoD of 6 points; review + Codex per task; UAT 100% at the end).
 
 ## Milestones
@@ -23,6 +23,18 @@ Lanes (worktrees with junctioned node_modules, base `3449ca1a`; contract `.gstac
 - C (agent, `C:/PC02/wt-wa-docs`, branch `feat/ward-docs`): result files + request slip (template platform 4th entity).
 - D (agent, `C:/PC02/wt-wa-alerts`, branch `feat/ward-alerts`): matching, alerts, reminders, notifications, statistics (+ migration `20261127100000_ward_alerts`).
 Integration plan: merge A + C + D + B into ONE branch (one PR, one CI, one deploy), mount C/D components in B's form, register D's stats route, call D's notification function from A's review commands, add D's new tables to `deleteWithData`'s order; full suites; one Codex pass on the whole; CI; deploy by ~04:00; UAT over HTTP + browser; switch ON on production by 05:00 for the owner to check (templates NOT applied to teams: that stays on the owner's order; ADMIN accounts can try it).
+
+## Đang làm dở — integration (PR 3–8 in one PR, owner's deadline)
+Branch `feat/ward-assignments-integration` (from main `e5713e45`):
+- `3cac4cd0` refactor (locks/stamps/reach in `ward-locks.ts`) · `b4630468` lane A review · `77d8135d` Codex fixes of lane A (5: completed request frozen until reopen, files removed from the CURRENT storage root, reopening reason in `ward_assignment_reopenings` not the audit, can.cancelApproval counts result files, populated deletion test; each fix seeded out → red).
+- Lane C (result files + request slip, 4th entity of the template platform, series `PHIEU_YEU_CAU` `<n>/PYC-PC02-Đ1`, docx from the owner's Word file): `fabd8b4f`, `ac1eabaa`, Codex `918d56a3`.
+- Lane D (matching with per-source reach, alerts 7/3/0, 07:00 reminders through marks + notices in one transaction, bell types, statistics + page): `c1e001dd`, Codex `466d0b35`; migration `20261127100000_ward_alerts`.
+- Lane B (menu between Đơn thư and Uỷ thác, list, three-block form, round history + diff, investigator directory): `1b37cba0`, Codex `8fa8af5c`.
+- `eb220ce5` wiring: review commands notify inside the decision's transaction, ring after commit; delete-with-data removes lane D rows; UAT script `tools/uat-phan-cong/workflow.cjs`.
+- `a17d7a5c` one screen: ResultFiles + RequestSlipButton + SubjectMatches + AlertBadge mounted; `can.issueSlip`; stats route + menu; list reads the statistics drill-down filters.
+- Tests on the integrated tree: backend ward + documents + templates + merge + notifications + prisma seeds 1117/1117 on PostgreSQL; frontend feature + gates 271/271; `tsc` both sides exit 0.
+BƯỚC TIẾP THEO: Codex pass on the integrated diff (running) → UAT on local stack (`pc02_uat_phan_cong`, backend :3917) → full suites in background → PR → CI → merge → deploy → production read-only check → switch `ward-assignments` ON on production for the owner (templates NOT applied to teams: owner's order).
+Known limits stated by the lanes (not hidden): incidents not matched (free-text suspects); petitions matched only where `suspected_person_bd` is filled; PC02 review clock R2 and "most frequent return reasons" R1 not built; 7/3-day thresholds are constants; generic `/documents/:id` refuses ward readers (ward files go through the module routes).
 
 ## Đang làm dở (history of PR 2)
 Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased onto main after #694)

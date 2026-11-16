@@ -61,7 +61,8 @@ describe('ResultFiles', () => {
   it('uploads with the multipart field "file", then lists again; a refusal shows the translated code', async () => {
     mGet.mockResolvedValue({ data: [] } as never);
     mPost.mockRejectedValueOnce(serverError(409, 'WARD_FILES_NOT_APPROVED'));
-    render(<ResultFiles assignmentId="wa1" canWrite />);
+    const changed = vi.fn();
+    render(<ResultFiles assignmentId="wa1" canWrite onChanged={changed} />);
     await screen.findByText('Chưa có tệp kết quả nào.');
     const input = screen.getByTestId('ward-file-input') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(['x'], 'kq.pdf', { type: 'application/pdf' })] } });
@@ -69,17 +70,22 @@ describe('ResultFiles', () => {
     const [url, body] = mPost.mock.calls[0];
     expect(url).toBe('/ward-assignments/wa1/files');
     expect((body as FormData).get('file')).toBeInstanceOf(File);
+    // A refused upload changes nothing on the request.
+    expect(changed).not.toHaveBeenCalled();
 
     mPost.mockResolvedValueOnce({ data: FILE } as never);
     mGet.mockResolvedValue({ data: [FILE] } as never);
     fireEvent.change(input, { target: { files: [new File(['x'], 'kq.pdf', { type: 'application/pdf' })] } });
     expect(await screen.findByText('Báo cáo kết quả.pdf')).toBeTruthy();
+    // The request is read again: "Huỷ duyệt" is no longer offered once a result file is there.
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
   });
 
   it('removes only after the confirm', async () => {
     mGet.mockResolvedValue({ data: [FILE] } as never);
     mDelete.mockResolvedValue({ data: { id: 'f1' } } as never);
-    render(<ResultFiles assignmentId="wa1" canWrite />);
+    const changed = vi.fn();
+    render(<ResultFiles assignmentId="wa1" canWrite onChanged={changed} />);
     fireEvent.click(await screen.findByLabelText('Gỡ Báo cáo kết quả.pdf'));
     expect(mDelete).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog')).toBeTruthy();
@@ -87,6 +93,7 @@ describe('ResultFiles', () => {
     fireEvent.click(screen.getByText('Gỡ tệp'));
     await waitFor(() => expect(mDelete).toHaveBeenCalledWith('/ward-assignments/wa1/files/f1'));
     expect(await screen.findByText('Chưa có tệp kết quả nào.')).toBeTruthy();
+    expect(changed).toHaveBeenCalledTimes(1);
   });
 
   it('a list that fails to load says so (not "no files") and offers to retry', async () => {

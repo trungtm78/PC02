@@ -504,7 +504,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
       {submitted && detail && (
         <>
           <ReviewBlock key={`review-${detail.updatedAt}`} detail={detail} investigators={investigators} defaultFollowUpTeamId={defaultFollowUpTeamId} run={run} busy={busy} />
-          <FollowUpBlock key={`follow-${detail.updatedAt}`} detail={detail} run={run} busy={busy} />
+          <FollowUpBlock key={`follow-${detail.updatedAt}`} detail={detail} run={run} busy={busy} onFilesChanged={reload} />
         </>
       )}
       {detail && (

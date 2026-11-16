@@ -22,9 +22,11 @@ export interface FollowUpBlockProps {
   detail: WardAssignmentDetail;
   run: RunAction;
   busy: boolean;
+  /** Reads the request again (its `can` follows its result files). */
+  onFilesChanged?: () => void;
 }
 
-export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
+export function FollowUpBlock({ detail, run, busy, onFilesChanged }: FollowUpBlockProps) {
   const can = detail.can;
   const approved = detail.status === 'APPROVED';
   const approval = [...detail.rounds].sort((a, b) => b.sequence - a.sequence).map((r) => decisionInForce(r.decisions)).find((d) => d?.kind === 'APPROVE');
@@ -108,7 +110,7 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
             <span className={LABEL_BASE}>{F.resultText}</span>
             <textarea data-testid="ward-result-text" rows={3} className={TEXTAREA_BASE} readOnly={!editable} value={resultText} onChange={(e) => setResultText(e.target.value)} />
           </label>
-          <ResultFiles assignmentId={detail.id} canWrite={!!(detail.can.followUp || detail.can.reopen)} />
+          <ResultFiles assignmentId={detail.id} canWrite={!!(detail.can.followUp || detail.can.reopen)} onChanged={onFilesChanged} />
           {dirty && (
             <p data-testid="ward-follow-up-save-first" className="text-xs text-amber-700">
               {F.saveFirst}

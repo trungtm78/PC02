@@ -35,6 +35,8 @@ export const BANG_HOP_LE = new Set([
   // Quy trình & hạn xử lý (PR 5): danh sách quy trình và danh sách năm của lịch làm việc.
   'processing-flows',
   'processing-calendar-years',
+  // Hồ sơ phân công phường/xã (WardAssignmentListPage.tsx): chọn cột, độ rộng, thứ tự cột.
+  'ward-assignments',
 ]);
 
 /**

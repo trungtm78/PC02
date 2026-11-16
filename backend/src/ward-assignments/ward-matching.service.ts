@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma, type WardMatchSource } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
@@ -129,7 +129,22 @@ export class WardMatchingService {
       throw new NotFoundException(wardBody(WARD_ALERT_ERROR.MATCH_NOT_FOUND));
     }
     const key = { assignmentId: row.id, subjectPosition: input.subjectPosition, otherSource: input.otherSource, otherRecordId: input.otherRecordId };
+    const seen = subjects.find((x) => x.position === input.subjectPosition)!;
+    const seenOther = visible.find((m) => m.subjectPosition === input.subjectPosition && m.source === input.otherSource && m.recordId === input.otherRecordId)?.otherSince;
     return this.prisma.$transaction(async (tx) => {
+      // The requests concluded about, locked for share (in id order) for the rest of the transaction: an edit of their
+      // subjects or a delete with data (which lock them for update) either waits for this conclusion or has already
+      // happened and is seen below. Never a conclusion about a person replaced meanwhile, nor one left behind a deleted request.
+      const ids = [...new Set([row.id, ...(input.otherSource === 'WARD_ASSIGNMENT' ? [input.otherRecordId] : [])])].sort();
+      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "ward_assignments" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR SHARE`;
+      if (!locked.some((l) => l.id === row.id)) throw new NotFoundException(wardBody(WARD_ERROR.NOT_FOUND));
+      if (locked.length !== ids.length) throw new NotFoundException(wardBody(WARD_ALERT_ERROR.MATCH_NOT_FOUND));
+      const now = await tx.wardAssignmentSubject.findFirst({ where: { assignmentId: row.id, position: input.subjectPosition }, select: { createdAt: true } });
+      if (!now || now.createdAt.getTime() !== seen.createdAt.getTime()) throw new ConflictException(wardBody(WARD_ERROR.CONFLICT));
+      if (input.otherSource === 'WARD_ASSIGNMENT' && seenOther) {
+        const other = await tx.wardAssignmentSubject.findFirst({ where: { assignmentId: input.otherRecordId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+        if (!other || other.createdAt.getTime() > seenOther.getTime()) throw new ConflictException(wardBody(WARD_ERROR.CONFLICT));
+      }
       const saved = await tx.wardSubjectMatchConclusion.upsert({
         where: { assignmentId_subjectPosition_otherSource_otherRecordId: key },
         create: { ...key, samePerson: input.samePerson, decidedById: actorId },
