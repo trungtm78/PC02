@@ -21,12 +21,13 @@ import { chuanHoaLuaChon, type LuaChonInChungTu } from './chuan-hoa-lua-chon.uti
  */
 
 /**
- * Ba thực thể có popup In chứng từ — khai tường minh, không nhận khoá tuỳ ý.
+ * Ba thực thể có popup In chứng từ — khai tường minh, không nhận khoá tuỳ ý. (`HO_SO_PHAN_CONG`, the fourth entity
+ * type of the template platform, is listed too so that every table keyed by entity type has every key.)
  *
  * Không chặn thì mỗi lỗi đánh máy ở giao diện sinh một hàng rác vĩnh viễn, và bảng trở thành chỗ
  * nhét dữ liệu tuỳ ý theo tài khoản.
  */
-export const THUC_THE_HOP_LE = new Set(['DON_THU', 'VU_VIEC', 'VU_AN']);
+export const THUC_THE_HOP_LE = new Set(['DON_THU', 'VU_VIEC', 'VU_AN', 'HO_SO_PHAN_CONG']);
 
 @Injectable()
 export class UserExportPreferencesService {

@@ -12,11 +12,19 @@ import * as path from 'path';
  * counted, a ward unit's request moved to another unit.
  */
 const SRC = path.resolve(__dirname, '..');
-const MODULE_WRITERS = ['ward-assignments/ward-assignment-command.service.ts', 'ward-assignments/ward-investigators.service.ts', 'ward-assignments/ward-review.service.ts'];
+const MODULE_WRITERS = [
+  'ward-assignments/ward-assignment-command.service.ts',
+  'ward-assignments/ward-investigators.service.ts',
+  'ward-assignments/ward-review.service.ts',
+  // The request slip: the slip columns of a decision only (asserted below), under a row lock of the decision.
+  'ward-assignments/ward-slip.service.ts',
+];
+/** The columns of `ward_assignment_decisions` the slip service may write, and nothing else. */
+const SLIP_COLUMNS = ['signers', 'slipDocumentId', 'slipIssuedAt', 'slipIssuedById', 'slipNumber', 'slipYear'];
 /** Outside the module: the team merge, through its strategy table (dynamic SQL a pattern cannot see; asserted below). */
 const MERGE = 'teams/team-merge.service.ts';
-const WARD_TABLES = ['ward_assignments', 'ward_assignment_subjects', 'ward_assignment_rounds', 'ward_assignment_decisions', 'ward_assignment_deadline_changes', 'ward_investigators'];
-const WRITE = /\.(wardAssignment|wardAssignmentSubject|wardAssignmentRound|wardAssignmentDecision|wardAssignmentDeadlineChange|wardInvestigator)\s*\.\s*(create|createMany|createManyAndReturn|update|updateMany|updateManyAndReturn|upsert|delete|deleteMany)\s*\(/g;
+const WARD_TABLES = ['ward_assignments', 'ward_assignment_subjects', 'ward_assignment_rounds', 'ward_assignment_decisions', 'ward_assignment_deadline_changes', 'ward_assignment_reopenings', 'ward_investigators'];
+const WRITE = /\.(wardAssignment|wardAssignmentSubject|wardAssignmentRound|wardAssignmentDecision|wardAssignmentDeadlineChange|wardAssignmentReopening|wardInvestigator)\s*\.\s*(create|createMany|createManyAndReturn|update|updateMany|updateManyAndReturn|upsert|delete|deleteMany)\s*\(/g;
 const RAW = new RegExp(`(INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+"?(${WARD_TABLES.join('|')})\\b`, 'gi');
 
 function sourcesUnder(dir: string): string[] {
@@ -54,8 +62,22 @@ describe('GATE: the ward assignment tables have known writers only', () => {
     expect(writesIn('prisma.wardAssignment.findMany({})')).toEqual([]);
   });
 
-  it('no file but the command services writes them', () => {
+  it('no file but the command services and the slip service writes them', () => {
     expect([...writers.keys()].sort()).toEqual([...MODULE_WRITERS].sort());
+  });
+
+  it('the slip service writes decisions only, and only their slip columns', () => {
+    const file = MODULE_WRITERS[2];
+    expect(new Set(writers.get(file))).toEqual(new Set(['wardAssignmentDecision.update']));
+    const text = fs.readFileSync(path.join(SRC, file), 'utf8');
+    const blocks = [...text.matchAll(/wardAssignmentDecision\.update\(\{[\s\S]*?data:\s*\{([\s\S]*?)\}\s*,?\s*\}\)/g)].map((m) => m[1]);
+    // Every write is one of the blocks read here (a write the pattern could not read is not a write it approved).
+    expect(blocks.length).toBe(writers.get(file)!.length);
+    for (const data of blocks) {
+      const columns = [...data.matchAll(/(?:^|[,{\s])([A-Za-z]+)\s*:/g)].map((m) => m[1]);
+      expect(columns.length).toBeGreaterThan(0);
+      for (const column of columns) expect(SLIP_COLUMNS).toContain(column);
+    }
   });
 
   it('the team merge is the one writer outside: by its strategy table, for the team columns only', () => {

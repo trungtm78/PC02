@@ -29,8 +29,8 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
   });
 
   // Structural regression guards — catch accidental duplicate / dropped entries.
-  it('contains exactly 13 templates (6 legacy + 4 v0.47 + 1 UTDT + 1 BIEN_NHAN + 1 WARD_ASSIGNMENT)', () => {
-    expect(TEMPLATES).toHaveLength(13);
+  it('contains exactly 14 templates (6 legacy + 4 v0.47 + 1 UTDT + 1 BIEN_NHAN + 1 WARD_ASSIGNMENT + 1 PHIEU_YEU_CAU)', () => {
+    expect(TEMPLATES).toHaveLength(14);
   });
 
   it('every documentType is unique', () => {
@@ -107,6 +107,27 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
   describe('HUONG_DAN (HD)', () => {
     it('exists with prefix "HD-PC02-Đ1"', () => {
       expect(TEMPLATES.find((t) => t.documentType === 'HUONG_DAN')?.prefix).toBe('HD-PC02-Đ1');
+    });
+  });
+
+  describe('PHIEU_YEU_CAU (PYC) — request slip of a ward assignment decision', () => {
+    const spec = () => TEMPLATES.find((t) => t.documentType === 'PHIEU_YEU_CAU');
+    const buildSegments = (seedModule as any).buildSegmentsForTest as (s: any) => any[];
+
+    it('exists with prefix "PYC-PC02-Đ1", "/" separator, yearly, no zero padding', () => {
+      const s = spec()!;
+      expect(s.prefix).toBe('PYC-PC02-Đ1');
+      expect(s.separator).toBe('/');
+      expect(s.resetPeriod).toBe('YEARLY');
+      expect(s.padding).toBe(1);
+    });
+
+    it('is a [COUNTER, LITERAL] series: the first slip of a year is "1/PYC-PC02-Đ1"', () => {
+      const s = spec()!;
+      const segments = buildSegments(s);
+      expect(segments).toEqual([{ type: 'COUNTER' }, { type: 'LITERAL', value: 'PYC-PC02-Đ1' }]);
+      const rendered = segments.map((seg) => (seg.type === 'COUNTER' ? String(1).padStart(s.padding, '0') : seg.value)).join(s.separator);
+      expect(rendered).toBe('1/PYC-PC02-Đ1');
     });
   });
 

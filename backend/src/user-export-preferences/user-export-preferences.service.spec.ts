@@ -22,8 +22,8 @@ function dungService() {
 }
 
 describe('UserExportPreferencesService', () => {
-  it('khai đủ ba thực thể có popup In chứng từ', () => {
-    expect([...THUC_THE_HOP_LE].sort()).toEqual(['DON_THU', 'VU_AN', 'VU_VIEC']);
+  it('khai đủ các loại hồ sơ của nền tảng mẫu (ba có popup In chứng từ + HO_SO_PHAN_CONG)', () => {
+    expect([...THUC_THE_HOP_LE].sort()).toEqual(['DON_THU', 'HO_SO_PHAN_CONG', 'VU_AN', 'VU_VIEC']);
   });
 
   describe('list', () => {

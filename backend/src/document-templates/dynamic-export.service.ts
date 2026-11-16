@@ -33,7 +33,7 @@ import { CaseChildAccessService } from '../case-child-access/case-child-access.s
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
+type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU' | 'HO_SO_PHAN_CONG';
 
 /**
  * Bảng + cột FK render-log/cấp số theo loại hồ sơ (row-lock + commitWithTx idKey + renderLog).
@@ -42,18 +42,24 @@ type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
  * một tên cột khác nhau — thiếu map này thì tên file mất phần mã, đúng cái bug cần sửa:
  *   Petition.stt (DT-2026-36679) · Case.caseCode (NULLABLE) · Incident.code
  */
-const ENTITY_DB: Record<
+export const ENTITY_DB: Record<
   EntityType,
   {
     table: string;
-    idField: 'caseId' | 'incidentId' | 'petitionId';
+    idField: 'caseId' | 'incidentId' | 'petitionId' | 'wardAssignmentId';
     codeField: string;
   }
 > = {
   VU_AN: { table: 'cases', idField: 'caseId', codeField: 'caseCode' },
   VU_VIEC: { table: 'incidents', idField: 'incidentId', codeField: 'code' },
   DON_THU: { table: 'petitions', idField: 'petitionId', codeField: 'stt' },
+  HO_SO_PHAN_CONG: { table: 'ward_assignments', idField: 'wardAssignmentId', codeField: 'code' },
 };
+
+/** A number allocated before the render (the request slip's, issued once per decision): rendered as it is. */
+export interface IssuedNumber {
+  documentNumber: string;
+}
 
 /** 1 dòng manifest = 1 cặp (hồ sơ × mẫu). `code` BẮT BUỘC: cùng 1 `id` xuất hiện M lần. */
 interface BatchManifestItem {
@@ -341,6 +347,12 @@ export class DynamicExportService {
     manualValues: Record<string, string>,
     /** Người đang đăng nhập — để các dòng ký in tên NGƯỜI IN, không phải người tạo hồ sơ. */
     ctx?: ResolveContext,
+    /**
+     * A number the caller allocated already (issued once, kept for every re-render). Given: no number is allocated
+     * here, whatever the template says, and this one is what `soVanBan` prints. Left out: the behaviour of every
+     * existing export, unchanged.
+     */
+    issued?: IssuedNumber,
   ): Promise<RenderedTemplate> {
     record = await this.authorizedRecord(
       entityType,
@@ -349,8 +361,11 @@ export class DynamicExportService {
       actorId,
       tx,
     );
-    let documentNumber: string | undefined;
-    if (template.needsNumber) {
+    let documentNumber: string | undefined = issued?.documentNumber;
+    if (issued) {
+      if (!issued.documentNumber.trim())
+        throw new BadRequestException('Issued number is empty');
+    } else if (template.needsNumber) {
       // [codex P2] needsNumber bật mà thiếu series = template cấu hình sai → fail, không render câm.
       if (!template.numberSeriesId) {
         throw new BadRequestException(
@@ -430,6 +445,42 @@ export class DynamicExportService {
         documentNumber,
       }),
     };
+  }
+
+  /**
+   * One document whose number was allocated by the caller, rendered inside the caller's transaction: the request
+   * slip of a ward assignment decision (issued once; a reissue renders again with the same number). Same render, same
+   * render log as every export; the only difference is that the number is given, never allocated nor dropped.
+   * Required fields are checked as for every export (fail closed before anything is written).
+   */
+  async renderIssuedInTx(
+    tx: Prisma.TransactionClient,
+    input: {
+      entityType: EntityType;
+      entityId: string;
+      record: Record<string, unknown>;
+      template: DocumentTemplate;
+      actorId: string;
+      issued: IssuedNumber;
+      manualValues?: Record<string, string>;
+    },
+  ): Promise<{ buffer: Buffer; fileSha: string; filename: string; documentNumber: string }> {
+    const ctx = await this.loadActorContext(input.actorId);
+    const { soVanBan: _ignored, ...manualValues } = input.manualValues ?? {};
+    void _ignored;
+    this.assertRequiredSatisfied(input.entityType, input.record, [input.template], manualValues, ctx);
+    const rendered = await this.renderTemplateInTx(
+      tx,
+      input.entityType,
+      input.entityId,
+      input.record,
+      input.template,
+      input.actorId,
+      manualValues,
+      ctx,
+      input.issued,
+    );
+    return { buffer: rendered.buffer, fileSha: rendered.fileSha, filename: rendered.filename, documentNumber: input.issued.documentNumber };
   }
 
   async exportEntityDocuments(

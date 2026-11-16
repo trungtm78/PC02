@@ -7,10 +7,11 @@ import { WardAssignmentCommandService } from './ward-assignment-command.service'
 import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { WardAssignmentsController, WardInvestigatorsController } from './ward-assignments.controller';
 import { WardInvestigatorsService } from './ward-investigators.service';
+import { WardDocsModule } from './ward-docs.module';
 import { WardReviewService } from './ward-review.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditModule, DocumentNumbersModule],
+  imports: [PrismaModule, AuthModule, AuditModule, DocumentNumbersModule, WardDocsModule],
   controllers: [WardAssignmentsController, WardInvestigatorsController],
   providers: [WardAssignmentCommandService, WardAssignmentQueryService, WardInvestigatorsService, WardReviewService],
   exports: [WardAssignmentQueryService],
