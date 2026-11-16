@@ -127,6 +127,13 @@ export class WardDocsController {
     return this.slips.issue(user, scopeOf(req), id, decisionId, body);
   }
 
+  /** What the print dialog shows before issuing (default signers, template in use, what the slip would print empty). */
+  @Get(':id/decisions/:decisionId/slip/defaults')
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  slipDefaults(@Param('id') id: string, @Param('decisionId') decisionId: string, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.slips.defaults(user, scopeOf(req), id, decisionId);
+  }
+
   @Get(':id/decisions/:decisionId/slip')
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
   async downloadSlip(@Param('id') id: string, @Param('decisionId') decisionId: string, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest, @Res() res: Response) {

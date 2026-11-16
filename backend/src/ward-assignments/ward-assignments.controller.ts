@@ -72,10 +72,17 @@ export class WardAssignmentsController {
     return this.queries.followUpChoices();
   }
 
+  /** The ward units the person may enter a request for (what `create` accepts). Before `:id`. */
+  @Get('unit-choices')
+  @RequirePermissions({ action: 'write', subject: 'WardAssignment' })
+  unitChoices(@Req() req: ScopedRequest) {
+    return this.queries.unitChoices(scopeOf(req));
+  }
+
   @Get()
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
-  list(@Query() query: ListWardAssignmentsQuery, @Req() req: ScopedRequest) {
-    return this.queries.list(scopeOf(req), query);
+  list(@Query() query: ListWardAssignmentsQuery, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.queries.list(scopeOf(req), query, new Date(), user.id);
   }
 
   @Get(':id')

@@ -28,6 +28,7 @@ const MAN_CO_COT_THAO_TAC = [
   'pages/incidents/IncidentListPageShell.tsx',
   'pages/cases/CaseListPageShell.tsx',
   'pages/cases/ComprehensiveListPageShell.tsx',
+  'pages/ward-assignments/WardAssignmentListPage.tsx',
 ];
 
 describe('biến CSS bề rộng cột Thao tác', () => {

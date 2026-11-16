@@ -32,6 +32,18 @@ export interface SlipSigners {
   lanhDaoPhong?: string;
 }
 
+/** What the print dialog is told before issuing (`GET …/slip/defaults`). */
+export interface WardSlipDefaults {
+  decisionId: string;
+  kind: 'RETURN' | 'APPROVE';
+  revoked: boolean;
+  slipNumber: string | null;
+  signers: SlipSigners;
+  templateReady: boolean;
+  /** Fields of the request the slip would print empty (`discoveredOn`, `place`). */
+  missing: string[];
+}
+
 /** A file as the browser saves it: the bytes and the name the server gave. */
 export interface DownloadedFile {
   blob: Blob;
@@ -84,6 +96,9 @@ export const wardDocsApi = {
 
   issueSlip: (assignmentId: string, decisionId: string, body: { slipNumber?: string; signers?: SlipSigners } = {}) =>
     api.post<WardSlipDecision>(`${base(assignmentId)}/decisions/${encodeURIComponent(decisionId)}/slip`, body).then((r) => r.data),
+
+  slipDefaults: (assignmentId: string, decisionId: string) =>
+    api.get<WardSlipDefaults>(`${base(assignmentId)}/decisions/${encodeURIComponent(decisionId)}/slip/defaults`).then((r) => r.data),
 
   downloadSlip: (assignmentId: string, decisionId: string) =>
     download(`${base(assignmentId)}/decisions/${encodeURIComponent(decisionId)}/slip`, 'Phieu-yeu-cau.docx'),

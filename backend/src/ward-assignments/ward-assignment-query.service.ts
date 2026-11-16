@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { recordInActionScope, recordInScope, recordReadable, scopeConditions } from '../common/utils/scope-filter.util';
+import { recordInActionScope, recordInScope, recordReadable, scopeConditions, teamInScope } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { alertOf, alertWhere, firstSubmittedWhere, type AlertLevel } from './ward-alerts';
@@ -44,7 +44,7 @@ export class WardAssignmentQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** `now`: the clock the alert levels are judged on (the filter and the field of every row use the same "today"). */
-  async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date()) {
+  async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date(), actorId?: string) {
     const reach = scopeConditions(scope, 'read', 'WardAssignment');
     if (reach !== null && reach.length === 0) return { data: [], total: 0 };
     const today = vnDay(now);
@@ -72,11 +72,46 @@ export class WardAssignmentQueryService {
         orderBy: [{ submittedAt: { sort: 'desc', nulls: 'first' } }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: { assignedTeam: { select: { id: true, name: true } }, crime: { select: { id: true, name: true } } },
+        include: {
+          assignedTeam: { select: { id: true, name: true } },
+          crime: { select: { id: true, name: true } },
+          // What the row's buttons need: whether it was ever submitted, and the decision whose slip is printed.
+          rounds: { select: { decisions: { select: { id: true, kind: true, decidedAt: true, revokedAt: true, slipNumber: true } } } },
+        },
       }),
       this.prisma.wardAssignment.count({ where }),
     ]);
-    return { data: data.map((row) => ({ ...row, alert: alertOf(row, today) })), total };
+    // The person's own units, read once: PC02 does not decide (nor print the slip of) its own ward unit's request.
+    const own = actorId ? new Set((await this.prisma.userTeam.findMany({ where: { userId: actorId }, select: { teamId: true } })).map((m) => m.teamId)) : new Set<string>();
+    return {
+      data: data.map(({ rounds, ...row }) => {
+        const reach = { assignedTeamId: row.assignedTeamId, ownerId: row.enteredById };
+        const changes = recordInScope(reach, scope, 'write', 'WardAssignment') && !row.archivedAt;
+        const decides = recordInActionScope(reach, scope, 'WardAssignment', 'review') && !own.has(row.assignedTeamId) && !row.archivedAt;
+        const latest = rounds
+          .flatMap((r) => r.decisions)
+          .filter((d) => !d.revokedAt)
+          .sort((a, b) => b.decidedAt.getTime() - a.decidedAt.getTime())[0];
+        return {
+          ...row,
+          alert: alertOf(row, today),
+          // The same rules as `get` (and as the commands): the list offers a button only where the form would.
+          can: {
+            edit: changes && editableByUnit(row.status),
+            delete: changes && row.status === 'DRAFT' && rounds.length === 0,
+            issueSlip: decides,
+          },
+          latestDecision: latest ? { id: latest.id, kind: latest.kind, slipNumber: latest.slipNumber } : null,
+        };
+      }),
+      total,
+    };
+  }
+
+  /** The active ward units the person may enter a request for: exactly those `create` accepts (ward unit, write reach). */
+  async unitChoices(scope: DataScope | null | undefined) {
+    const teams = await this.prisma.team.findMany({ where: { wardId: { not: null }, status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
+    return teams.filter((t) => teamInScope(t.id, scope, 'write', 'WardAssignment'));
   }
 
   /** The active PC02 units (no ward units) and their active members: who may follow an approval, and in which unit. */

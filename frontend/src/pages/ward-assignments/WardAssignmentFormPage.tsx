@@ -10,13 +10,16 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Save, Send } from 'lucide-react';
 import { CheDoXemProvider, useCheDoXem } from '@/components/form/CheDoXem';
 import { CrimeSelect } from '@/components/CrimeSelect';
+import { FKSelect } from '@/components/FKSelect';
 import { FormActionBar } from '@/components/shared/FormActionBar';
 import { ConfirmModal, Modal } from '@/components/shared/Modal';
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE, LABEL_BASE, LABEL_REQUIRED_MARKER, SELECT_BASE, TEXTAREA_BASE } from '@/constants/styles';
+import { BTN_DANGER, BTN_ICON_BLUE, BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE, LABEL_BASE, LABEL_REQUIRED_MARKER, SELECT_BASE, TEXTAREA_BASE } from '@/constants/styles';
 import { useFormShortcuts } from '@/hooks/useFormShortcuts';
+import { useFormErrorNavigation } from '@/hooks/useFormErrorNavigation';
+import { useDauHieuDangSua } from '@/lib/cap-nhat/formDoDang';
 import { useCrimeOptions } from '@/hooks/useCrimeOptions';
 import { formatVNDate } from '@/lib/dates';
 import { authStore } from '@/stores/auth.store';
@@ -33,13 +36,15 @@ import {
   toPayload,
   type WardFormState,
 } from '@/features/ward-assignments/formModel';
-import type { WardAssignmentDetail, WardCaseType, WardKind } from '@/features/ward-assignments/types';
+import type { WardAssignmentDetail, WardCaseType, WardInvestigator, WardKind } from '@/features/ward-assignments/types';
 import { WardStatusBadge } from '@/features/ward-assignments/components/WardStatusBadge';
 import { SubjectsTable } from '@/features/ward-assignments/components/SubjectsTable';
 import { ReviewBlock, type RunAction } from '@/features/ward-assignments/components/ReviewBlock';
 import { FollowUpBlock } from '@/features/ward-assignments/components/FollowUpBlock';
 import { RoundHistory, type DescribeValue } from '@/features/ward-assignments/components/RoundHistory';
 import { InvestigatorDirectoryDialog } from '@/features/ward-assignments/components/InvestigatorDirectoryDialog';
+import { InvestigatorQuickDialog } from '@/features/ward-assignments/components/InvestigatorQuickDialog';
+import { RequestSlipDialog } from '@/features/ward-assignments/components/RequestSlipDialog';
 import { useApprovedOfUnit, useUnitInvestigators, useWardUnits } from '@/features/ward-assignments/useWardChoices';
 import { SubjectMatches } from '@/features/ward-assignments/components/SubjectMatches';
 
@@ -131,9 +136,32 @@ interface FormProps {
   /** Kept by the page: the form starts again on every new stamp, and the outcome of an action must survive it. */
   banner: Banner;
   setBanner: (b: Banner) => void;
+  /** Kept by the page for the same reason: the slip dialog opens after a decision, which starts the form again. */
+  slipOpen: boolean;
+  setSlipOpen: (open: boolean) => void;
 }
 
-function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: FormProps) {
+/** What a submission needs, in the order of the screen: the field's `data-testid` and its label. */
+function missingForSubmit(form: WardFormState, needsUnit: boolean): { testId: string; label: string }[] {
+  const out: { testId: string; label: string }[] = [];
+  const need = (missing: boolean, testId: string, label: string) => {
+    if (missing) out.push({ testId, label });
+  };
+  need(needsUnit && !form.assignedTeamId, 'ward-unit', F.unit);
+  if (form.kind === 'REASSIGN') {
+    need(!form.previousAssignmentId, 'ward-previous', F.previous);
+    need(!form.reassignReason.trim(), 'ward-reassign-reason', F.reassignReason);
+  }
+  need(!form.crimeId && !form.crimeOther.trim(), 'ward-crime', F.crime);
+  need(!form.summary.trim(), 'ward-summary', F.summary);
+  need(!form.content.trim(), 'ward-content', F.content);
+  need(!form.subjectsUnknown && form.subjects.every((s) => !s.fullName?.trim()), 'ward-subjects', F.subjects);
+  need(!form.proposedInvestigatorId, 'ward-proposed-investigator', F.proposedInvestigator);
+  need(!form.entryOfficerName.trim(), 'ward-entry-officer', F.entryOfficerName);
+  return out;
+}
+
+function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, slipOpen, setSlipOpen }: FormProps) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isNew = !detail;
@@ -145,6 +173,12 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
   const [confirm, setConfirm] = useState<null | 'withdraw' | 'delete' | 'archive' | 'restore'>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [purgeOpen, setPurgeOpen] = useState(false);
+  /** The small dialog of the "ĐTV đề xuất" field: a new investigator (with the name typed) or the chosen one, corrected. */
+  const [quick, setQuick] = useState<null | { investigator: WardInvestigator | null; suggestedName?: string }>(null);
+  const [problems, setProblems] = useState<{ testId: string; label: string }[]>([]);
+  // What the form started from: leaving is asked about only when something was typed since.
+  const [startedFrom] = useState(() => JSON.stringify(form));
+  const dirty = JSON.stringify(form) !== startedFrom;
 
   const teamId = detail?.assignedTeamId ?? (wardOfficer ? user!.wardTeam!.id : form.assignedTeamId);
   const units = useWardUnits(isNew && !wardOfficer);
@@ -155,6 +189,8 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
   const set = <K extends keyof WardFormState>(key: K, value: WardFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const afterChange = useCallback(() => qc.invalidateQueries({ queryKey: WARD_QUERY_KEYS.all }), [qc]);
+  /** A slip issued: the history shows its number. The banner stays (the dialog says what happened). */
+  const reloadQuietly = () => void afterChange();
 
   const fail = (err: unknown) => setBanner(bannerOf(err));
 
@@ -207,15 +243,25 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
   const onSaveDraft = () =>
     exclusive(async () => {
       setBanner(null);
+      setProblems([]);
       const saved = await save();
       if (!saved) return;
       await afterChange();
-      navigate(WARD_PATHS.view(saved.id), { replace: isNew });
+      // As the petition form does: saved, back to the list.
+      navigate(WARD_PATHS.list);
     });
 
   const onSubmit = () =>
     exclusive(async () => {
       setBanner(null);
+      // What a submission needs is said before anything is sent, each on its field (the server checks the same).
+      const missing = editing ? missingForSubmit(form, isNew && !wardOfficer) : [];
+      setProblems(missing);
+      if (missing.length > 0) {
+        // By its test id, not through the list of problems: that list is the state just set, not yet the one read.
+        focusField(missing[0].testId);
+        return;
+      }
       const target = editing ? await save() : detail ? { id: detail.id, updatedAt: detail.updatedAt } : null;
       if (!target) return;
       try {
@@ -229,7 +275,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
         return;
       }
       await afterChange();
-      if (editing || isNew) navigate(WARD_PATHS.view(target.id), { replace: isNew });
+      if (editing || isNew) navigate(WARD_PATHS.list);
       else setBanner({ kind: 'ok', text: L.form.submitted });
     });
 
@@ -245,12 +291,34 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
   };
 
   const goList = () => navigate(WARD_PATHS.list);
+  /** "Hủy": what was typed and not saved is lost, so it is asked about; nothing typed, nothing asked. */
+  const onCancel = () => {
+    if (editing && dirty && !window.confirm(L.form.cancelConfirm)) return;
+    goList();
+  };
+  const onReset = () => {
+    if (!window.confirm(L.form.resetConfirm)) return;
+    setForm(emptyForm(user));
+    setProblems([]);
+    setBanner(null);
+  };
   const submittable = isNew || !!can?.submit;
+  // The decision in force whose slip is printed: the latest one PC02 has not revoked.
+  const latestDecision =
+    (detail?.rounds ?? [])
+      .flatMap((r) => r.decisions)
+      .filter((d) => !d.revokedAt)
+      .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt))[0] ?? null;
+  const printable = !!detail && !!latestDecision && (!!can?.issueSlip || !!latestDecision.slipNumber);
+  const { focusField, handleFormKeyDown } = useFormErrorNavigation(() => problems.map((p) => p.testId));
+  useDauHieuDangSua(editing && dirty);
   useFormShortcuts({
     onSave: editing ? () => void onSaveDraft() : undefined,
-    onCancel: goList,
+    onCancel,
+    onExportDocs: printable ? () => setSlipOpen(true) : undefined,
     onDelete: () => setConfirm('delete'),
     canDelete: !!can?.delete,
+    onReset: isNew ? onReset : undefined,
   });
 
   const describe: DescribeValue = (field, value) => {
@@ -265,57 +333,74 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
   const returned = detail?.status === 'RETURNED';
   const lastReturn = returned ? [...detail.rounds].sort((a, b) => b.sequence - a.sequence)[0]?.decisions.filter((d) => !d.revokedAt).at(-1) : null;
   const activeInvestigators = investigators.filter((i) => i.isActive || i.id === form.proposedInvestigatorId);
+  const chosenInvestigator = investigators.find((i) => i.id === form.proposedInvestigatorId) ?? null;
   const defaultFollowUpTeamId = user?.teams?.find((t) => t.teamId !== user.wardTeam?.id)?.teamId ?? null;
 
-  const actions = (
+  /** The buttons of one action bar. The page has two (top and bottom, as the petition form): `at` keeps their test ids apart. */
+  const actions = (at: '' | '-bottom') => (
     <>
-      {editing && (
-        <button type="button" data-testid="ward-save-draft" className={BTN_SECONDARY} disabled={busy} onClick={() => void onSaveDraft()}>
-          {busy ? A.saving : isNew || detail?.status === 'DRAFT' ? A.saveDraft : A.save}
-        </button>
-      )}
-      {submittable && (
-        <button type="button" data-testid="ward-submit" className={BTN_PRIMARY} disabled={busy} onClick={() => void onSubmit()}>
-          {resubmit ? A.resubmit : A.submit}
-        </button>
-      )}
       {can?.withdraw && (
-        <button type="button" data-testid="ward-withdraw" className={BTN_SECONDARY} disabled={busy} onClick={() => setConfirm('withdraw')}>
+        <button type="button" data-testid={`ward-withdraw${at}`} className={BTN_SECONDARY} disabled={busy} onClick={() => setConfirm('withdraw')}>
           {A.withdraw}
         </button>
       )}
       {can?.archive && (
-        <button type="button" data-testid="ward-archive" className={BTN_SECONDARY} disabled={busy} onClick={() => setConfirm('archive')}>
+        <button type="button" data-testid={`ward-archive${at}`} className={BTN_SECONDARY} disabled={busy} onClick={() => setConfirm('archive')}>
           {A.archive}
         </button>
       )}
       {can?.restore && (
-        <button type="button" data-testid="ward-restore" className={BTN_SECONDARY} disabled={busy} onClick={() => setConfirm('restore')}>
+        <button type="button" data-testid={`ward-restore${at}`} className={BTN_SECONDARY} disabled={busy} onClick={() => setConfirm('restore')}>
           {A.restore}
         </button>
       )}
       {can?.delete && (
-        <button type="button" data-testid="ward-delete" className={BTN_DANGER} disabled={busy} onClick={() => setConfirm('delete')}>
+        <button type="button" data-testid={`ward-delete${at}`} className={BTN_DANGER} disabled={busy} onClick={() => setConfirm('delete')}>
           {A.delete}
         </button>
       )}
       {can?.deleteWithData && (
-        <button type="button" data-testid="ward-delete-with-data" className={BTN_DANGER} disabled={busy} onClick={() => setPurgeOpen(true)}>
+        <button type="button" data-testid={`ward-delete-with-data${at}`} className={BTN_DANGER} disabled={busy} onClick={() => setPurgeOpen(true)}>
           {A.deleteWithData}
+        </button>
+      )}
+      {editing && (
+        <button type="button" data-testid={`ward-save-draft${at}`} className={`${BTN_PRIMARY} flex min-h-[44px] items-center gap-2 disabled:opacity-50`} disabled={busy} onClick={() => void onSaveDraft()}>
+          <Save className="h-4 w-4" aria-hidden="true" />
+          {busy ? A.saving : isNew ? A.saveDraft : A.save}
+        </button>
+      )}
+      {submittable && (
+        <button
+          type="button"
+          data-testid={`ward-submit${at}`}
+          className="flex min-h-[44px] items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          disabled={busy}
+          onClick={() => void onSubmit()}
+        >
+          <Send className="h-4 w-4" aria-hidden="true" />
+          {resubmit ? A.resubmit : A.submit}
         </button>
       )}
     </>
   );
+  const editAction = (at: '' | '-bottom') =>
+    mode === 'view' && can?.edit ? { label: A.edit, testId: `ward-edit${at}`, onClick: () => navigate(WARD_PATHS.edit(detail!.id)) } : undefined;
+  const printAction = (at: '' | '-bottom') => (printable ? { label: A.print, testId: `ward-print${at}`, onClick: () => setSlipOpen(true) } : undefined);
+  const count = L.form.submissionCount(detail?.submissionCount ?? 0);
 
   return (
-    <div data-testid="ward-assignment-form-page" className="space-y-4 p-4 sm:p-6">
+    // Not a form element (the update-when-idle rule reads forms by its own mark, `useDauHieuDangSua`); the key handler
+    // is the "next error" shortcut of the data-entry forms.
+    <div data-testid="ward-assignment-form-page" className="space-y-4 p-4 sm:p-6" onKeyDown={handleFormKeyDown}>
       <FormActionBar
-        title={isNew ? L.form.titleNew : L.form.titleView(detail.code)}
-        subtitle={[detail?.code ? null : L.form.codeLater, L.form.submissionCount(detail?.submissionCount ?? 0)].filter(Boolean).join(' · ')}
-        onBack={goList}
-        onCancel={goList}
-        editAction={mode === 'view' && can?.edit ? { label: A.edit, testId: 'ward-edit', onClick: () => navigate(WARD_PATHS.edit(detail!.id)) } : undefined}
-        saveAction={actions}
+        title={isNew ? L.form.titleNew : editing ? L.form.titleEdit : L.form.titleView}
+        subtitle={isNew ? `${L.form.subtitleNew} · ${L.form.codeLater}` : `${editing ? L.form.subtitleEdit(detail.code) : L.form.subtitleView(detail.code)} · ${count}`}
+        onBack={onCancel}
+        onCancel={onCancel}
+        editAction={editAction('')}
+        printAction={printAction('')}
+        saveAction={actions('')}
       />
       <div className="flex flex-wrap items-center gap-2">
         <WardStatusBadge status={status} testId="ward-status" />
@@ -327,6 +412,21 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
       </div>
 
       <BannerView banner={banner} onReload={reload} />
+      {problems.length > 0 && (
+        <div data-testid="validation-errors" role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <p className="font-semibold">{L.form.checkErrors}</p>
+          <ul className="list-disc pl-5">
+            {problems.map((p) => (
+              <li key={p.testId}>{L.form.required(p.label)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {mode === 'view' && can?.edit && (
+        <p data-testid="ward-viewing" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          {L.form.viewing}
+        </p>
+      )}
       {detail?.archivedAt && <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">{L.form.archivedBanner}</p>}
       {returned && (
         <div data-testid="ward-returned-banner" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -357,26 +457,31 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
             {L.form.block1}
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <span className={LABEL_BASE}>
-                {F.unit}
-                <span className={LABEL_REQUIRED_MARKER}> *</span>
-              </span>
-              {isNew && !wardOfficer ? (
-                <select data-testid="ward-unit" aria-label={F.unit} className={SELECT_BASE} value={form.assignedTeamId} onChange={(e) => setForm((f) => ({ ...f, assignedTeamId: e.target.value, proposedInvestigatorId: '', previousAssignmentId: '' }))}>
-                  <option value="">{F.unitPick}</option>
-                  {units.data.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
+            {isNew && !wardOfficer ? (
+              // Type to find, as "Nguồn đơn/Đơn vị giao" of the petition form. A unit is not created here: it is a
+              // team of the organisation (bound to a ward and to permissions), made in the administration screens.
+              <FKSelect
+                label={F.unit}
+                required
+                testId="ward-unit"
+                value={form.assignedTeamId}
+                options={units.data.map((u) => ({ value: u.id, label: u.name }))}
+                loading={units.isLoading}
+                placeholder={F.unitPick}
+                searchPlaceholder={F.unitSearch}
+                onChange={(v) => setForm((f) => ({ ...f, assignedTeamId: v, proposedInvestigatorId: '', previousAssignmentId: '' }))}
+              />
+            ) : (
+              <div>
+                <span className={LABEL_BASE}>
+                  {F.unit}
+                  <span className={LABEL_REQUIRED_MARKER}> *</span>
+                </span>
                 <p data-testid="ward-unit-fixed" className="py-2.5 text-sm font-medium text-slate-800">
                   {detail?.assignedTeam?.name ?? user?.wardTeam?.name ?? ''}
                 </p>
-              )}
-            </div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-6">
               <div>
                 <span className={LABEL_BASE}>
@@ -457,32 +562,42 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <span className={LABEL_BASE}>
-                {F.proposedInvestigator}
-                <span className={LABEL_REQUIRED_MARKER}> *</span>
-              </span>
-              <div className="flex gap-2">
-                <select
-                  data-testid="ward-proposed-investigator"
-                  aria-label={F.proposedInvestigator}
-                  className={SELECT_BASE}
-                  disabled={!editing || !teamId}
-                  value={form.proposedInvestigatorId}
-                  onChange={(e) => set('proposedInvestigatorId', e.target.value)}
-                >
-                  <option value="">{F.investigatorPick}</option>
-                  {activeInvestigators.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {investigatorLabel(i)}
-                    </option>
-                  ))}
-                </select>
-                {(editing || !!can?.review) && (
-                  <button type="button" data-testid="ward-open-directory" className={BTN_SECONDARY} disabled={!teamId} title={L.investigators.open} onClick={() => setDirectoryOpen(true)}>
-                    {L.investigators.open}
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  {/* Type to find; nobody of that name → Enter (or "Tạo mới") opens the dialog with the name typed. */}
+                  <FKSelect
+                    label={F.proposedInvestigator}
+                    required
+                    testId="ward-proposed-investigator"
+                    value={form.proposedInvestigatorId}
+                    options={activeInvestigators.map((i) => ({ value: i.id, label: investigatorLabel(i) }))}
+                    loading={investigatorsQ.isLoading}
+                    disabled={!teamId}
+                    placeholder={teamId ? F.investigatorPick : F.investigatorPickUnitFirst}
+                    searchPlaceholder={F.investigatorSearch}
+                    onChange={(v) => set('proposedInvestigatorId', v)}
+                    canCreate={editing && !!teamId}
+                    onCreateNew={(typed) => setQuick({ investigator: null, suggestedName: typed })}
+                  />
+                </div>
+                {editing && chosenInvestigator && (
+                  <button
+                    type="button"
+                    data-testid="ward-edit-investigator"
+                    className={`${BTN_ICON_BLUE} mb-1.5`}
+                    title={F.investigatorEdit}
+                    aria-label={F.investigatorEdit}
+                    onClick={() => setQuick({ investigator: chosenInvestigator })}
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </button>
                 )}
               </div>
+              {(editing || !!can?.review) && (
+                <button type="button" data-testid="ward-open-directory" className="mt-1 text-sm text-blue-700 hover:underline disabled:text-slate-400" disabled={!teamId} onClick={() => setDirectoryOpen(true)}>
+                  {L.investigators.open}
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Labelled label={F.entryOfficerName} required>
@@ -503,7 +618,16 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
 
       {submitted && detail && (
         <>
-          <ReviewBlock key={`review-${detail.updatedAt}`} detail={detail} investigators={investigators} defaultFollowUpTeamId={defaultFollowUpTeamId} run={run} busy={busy} />
+          <ReviewBlock
+            key={`review-${detail.updatedAt}`}
+            detail={detail}
+            investigators={investigators}
+            defaultFollowUpTeamId={defaultFollowUpTeamId}
+            run={run}
+            busy={busy}
+            // Returned or approved: the slip of that decision is what PC02 prints next.
+            onDecided={() => setSlipOpen(true)}
+          />
           <FollowUpBlock key={`follow-${detail.updatedAt}`} detail={detail} run={run} busy={busy} onFilesChanged={reload} />
         </>
       )}
@@ -515,6 +639,30 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
         />
       )}
 
+      <FormActionBar actionsOnly testId="form-action-bar-bottom" cancelTestId="form-action-cancel-bottom" onCancel={onCancel} editAction={editAction('-bottom')} printAction={printAction('-bottom')} saveAction={actions('-bottom')} />
+
+      {quick && (
+        <InvestigatorQuickDialog
+          teamId={teamId}
+          investigator={quick.investigator}
+          suggestedName={quick.suggestedName}
+          known={investigators}
+          onClose={() => setQuick(null)}
+          onSaved={(inv) => {
+            // Created, or corrected and still in use: the field names them. Stopped: the field lets go of them.
+            if (editing) set('proposedInvestigatorId', inv.isActive ? inv.id : '');
+          }}
+        />
+      )}
+      {slipOpen && detail && latestDecision && (
+        <RequestSlipDialog
+          assignmentId={detail.id}
+          decision={{ id: latestDecision.id, kind: latestDecision.kind, slipNumber: latestDecision.slipNumber }}
+          canIssue={!!can?.issueSlip}
+          onClose={() => setSlipOpen(false)}
+          onChanged={reloadQuietly}
+        />
+      )}
       <InvestigatorDirectoryDialog
         open={directoryOpen}
         teamId={teamId}
@@ -611,6 +759,7 @@ export default function WardAssignmentFormPage({ mode }: { mode: 'view' | 'edit'
   const location = useLocation();
   // A banner handed over by the page that moved here (a new draft saved, its submission refused).
   const [banner, setBanner] = useState<Banner>(() => (location.state as { banner?: Banner } | null)?.banner ?? null);
+  const [slipOpen, setSlipOpen] = useState(false);
   const detailQ = useQuery({
     queryKey: WARD_QUERY_KEYS.detail(id ?? ''),
     queryFn: () => wardAssignmentsApi.get(id!),
@@ -653,6 +802,8 @@ export default function WardAssignmentFormPage({ mode }: { mode: 'view' | 'edit'
       user={user}
       banner={banner}
       setBanner={setBanner}
+      slipOpen={slipOpen}
+      setSlipOpen={setSlipOpen}
       reload={() => {
         setBanner(null);
         void detailQ.refetch();

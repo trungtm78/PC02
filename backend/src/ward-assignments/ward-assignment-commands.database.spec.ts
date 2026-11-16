@@ -273,6 +273,40 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       const all = await queries.list(scope.reviewer, { q: tag });
       expect(new Set(all.data.map((r) => r.assignedTeamId))).toEqual(new Set([id.W, id.V]));
     });
+
+    it('a row of the list says what its buttons may do, as the request itself does', async () => {
+      const draft = await commands.create({ id: id.wardy }, scope.wardy, input({ summary: `${tag} dòng nháp` }));
+      const sent = await commands.create({ id: id.wardy }, scope.wardy, input({ summary: `${tag} dòng đã trình` }));
+      await commands.submit({ id: id.wardy }, scope.wardy, sent.id, sent.updatedAt.toISOString());
+      const mine = (await queries.list(scope.wardy, { q: tag, pageSize: 200 }, new Date(), id.wardy)).data;
+      const rowOf = (rows: typeof mine, rowId: string) => rows.find((r) => r.id === rowId)!;
+      // A draft never submitted: its unit edits and deletes it. Submitted: neither, while PC02 holds it.
+      expect(rowOf(mine, draft.id)).toMatchObject({ can: { edit: true, delete: true, issueSlip: false }, latestDecision: null });
+      expect(rowOf(mine, sent.id)).toMatchObject({ can: { edit: false, delete: false, issueSlip: false }, latestDecision: null });
+      expect(rowOf(mine, draft.id)).not.toHaveProperty('rounds');
+      for (const row of mine) {
+        const one = await queries.get(scope.wardy, id.wardy, row.id);
+        expect({ id: row.id, edit: row.can.edit, delete: row.can.delete }).toEqual({ id: row.id, edit: one.can.edit, delete: one.can.delete });
+      }
+      // PC02 with the review reach prints the slips; it edits nothing of the unit's.
+      const theirs = (await queries.list(scope.reviewer, { q: tag, pageSize: 200 }, new Date(), id.reviewer)).data;
+      expect(rowOf(theirs, sent.id)).toMatchObject({ can: { edit: false, delete: false, issueSlip: true } });
+      // A reviewer who is a member of the request's own ward unit does not (segregation of duties).
+      const both = enforced(id.wardy, { read: ALL, write: NOTHING, review: ALL }, id.W);
+      expect(rowOf((await queries.list(both, { q: tag, pageSize: 200 }, new Date(), id.wardy)).data, sent.id).can.issueSlip).toBe(false);
+    });
+
+    it('the units offered for a new request are the ward units the person may enter for, and no PC02 unit', async () => {
+      expect((await queries.unitChoices(scope.wardy)).map((t) => t.id)).toEqual([id.W]);
+      const all = (await queries.unitChoices(scope.pc02)).map((t) => t.id);
+      expect(all).toEqual(expect.arrayContaining([id.W, id.V]));
+      expect(all).not.toContain(id.P);
+      // Reading everything is not entering for everybody.
+      expect(await queries.unitChoices(scope.reviewer)).toEqual([]);
+      // Every unit offered is one `create` accepts.
+      const made = await commands.create({ id: id.pc02 }, scope.pc02, input({ assignedTeamId: id.V, proposedInvestigatorId: id.investigatorV }));
+      expect(made.assignedTeamId).toBe(id.V);
+    });
   });
 
   describe('submitting', () => {
@@ -436,6 +470,42 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       const resumed = await investigators.setActive({ id: id.wardy }, scope.wardy, added.id, true, stopped.updatedAt.toISOString());
       expect(resumed.isActive).toBe(true);
       expect(await fails(investigators.setActive({ id: id.wardy }, scope.wardy, added.id, false, stopped.updatedAt.toISOString()))).toMatchObject({ status: 409, body: { code: WARD_ERROR.INVESTIGATOR_CHANGED } });
+    });
+
+    it('a name the unit already lists is refused, with its holder, unless the person says it is another one', async () => {
+      const first = await investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Trần Văn Trùng` });
+      // Case and spacing do not make another person.
+      expect(await fails(investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `  ${tag}   trần văn TRÙNG ` }))).toMatchObject({
+        status: 409,
+        body: { code: WARD_ERROR.INVESTIGATOR_DUPLICATE, details: [{ existingId: first.id, isActive: true }] },
+      });
+      // Another unit may list the same name.
+      expect((await investigators.create({ id: id.otherWard }, scope.otherWard, { teamId: id.V, fullName: `${tag} Trần Văn Trùng` })).teamId).toBe(id.V);
+      // Two people of one unit with one name: said, then accepted.
+      const second = await investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Trần Văn Trùng`, rank: 'Đại uý', allowSameName: true });
+      expect(second.id).not.toBe(first.id);
+      // A stopped name still holds its place: it is resumed, not doubled.
+      const other = await investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Lý Văn Ngừng` });
+      const stopped = await investigators.setActive({ id: id.wardy }, scope.wardy, other.id, false, other.updatedAt.toISOString());
+      expect(await fails(investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Lý Văn Ngừng` }))).toMatchObject({
+        status: 409,
+        body: { code: WARD_ERROR.INVESTIGATOR_DUPLICATE, details: [{ existingId: other.id, isActive: false }] },
+      });
+      // Renaming onto a listed name is the same clash; correcting the rank of a name is not.
+      expect(await fails(investigators.update({ id: id.wardy }, scope.wardy, stopped.id, { fullName: `${tag} Lê Văn C`, expectedUpdatedAt: stopped.updatedAt.toISOString() }))).toMatchObject({
+        status: 409,
+        body: { code: WARD_ERROR.INVESTIGATOR_DUPLICATE },
+      });
+      const ranked = await investigators.update({ id: id.wardy }, scope.wardy, second.id, { rank: 'Thiếu tá', expectedUpdatedAt: second.updatedAt.toISOString() });
+      expect(ranked.rank).toBe('Thiếu tá');
+    });
+
+    it('two people adding the same name at the same moment: one is refused, the unit is not left with a silent double', async () => {
+      const name = `${tag} Đồng Thời`;
+      const outcomes = await Promise.all([1, 2, 3, 4].map(() => fails(investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: name }))));
+      expect(outcomes.filter((o) => o === 'resolved')).toHaveLength(1);
+      for (const o of outcomes.filter((x) => x !== 'resolved')) expect(o).toMatchObject({ status: 409, body: { code: WARD_ERROR.INVESTIGATOR_DUPLICATE } });
+      expect(await scratch.db.wardInvestigator.count({ where: { teamId: id.W, fullName: name } })).toBe(1);
     });
 
     it('PC02 reviewers may add an investigator to a ward unit (to assign one the unit did not propose)', async () => {

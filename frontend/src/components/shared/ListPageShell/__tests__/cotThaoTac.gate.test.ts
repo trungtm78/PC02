@@ -14,6 +14,7 @@ const NGUON = import.meta.glob(
     '../../../../pages/incidents/IncidentListPageShell.tsx',
     '../../../../pages/cases/CaseListPageShell.tsx',
     '../../../../pages/cases/ComprehensiveListPageShell.tsx',
+    '../../../../pages/ward-assignments/WardAssignmentListPage.tsx',
   ],
   { eager: true, query: '?raw', import: 'default' },
 ) as Record<string, string>;
@@ -24,8 +25,8 @@ describe('cột Thao tác', () => {
     expect(TABLE_CELL_WRAP).toMatch(/\boverflow-hidden\b/);
   });
 
-  it('bốn màn danh sách hồ sơ dùng CHUNG hằng số bề rộng cột Thao tác (không số viết tay)', () => {
-    expect(Object.keys(NGUON)).toHaveLength(4);
+  it('năm màn danh sách hồ sơ dùng CHUNG hằng số bề rộng cột Thao tác (không số viết tay)', () => {
+    expect(Object.keys(NGUON)).toHaveLength(5);
     for (const [tep, ma] of Object.entries(NGUON)) {
       const i = ma.indexOf("key: 'actions'");
       expect(i, tep).toBeGreaterThan(0);

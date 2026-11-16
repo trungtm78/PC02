@@ -134,6 +134,8 @@ export class CreateWardInvestigatorDto {
   @IsOptional() @IsString() @MaxLength(100) rank?: string | null;
   @IsOptional() @IsString() @MaxLength(200) position?: string | null;
   @IsOptional() @IsString() @MaxLength(100) grade?: string | null;
+  /** The unit already lists somebody of this name and the person says this is another one. */
+  @IsOptional() @IsBoolean() allowSameName?: boolean;
 }
 
 export class UpdateWardInvestigatorDto {
@@ -142,5 +144,6 @@ export class UpdateWardInvestigatorDto {
   @IsOptional() @IsString() @MaxLength(100) rank?: string | null;
   @IsOptional() @IsString() @MaxLength(200) position?: string | null;
   @IsOptional() @IsString() @MaxLength(100) grade?: string | null;
+  @IsOptional() @IsBoolean() allowSameName?: boolean;
   @IsNgayThat() expectedUpdatedAt!: string;
 }

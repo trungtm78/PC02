@@ -1,34 +1,23 @@
 /** The choices the ward assignment form offers: units, PC02 teams, investigators of a unit, return reasons. */
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import { wardAssignmentsApi, wardInvestigatorsApi, WARD_QUERY_KEYS } from './api';
 import type { WardAssignmentRow } from './types';
 
 const APPROVED_PAGE = 200;
 
-interface TeamOption {
-  id: string;
-  name: string;
-  wardId?: string | null;
-}
-
-/** `GET /teams/options` (active teams, a plain array): the ward police units a person entering for a unit may choose. */
-function useTeamOptions(enabled: boolean) {
-  return useQuery({
-    queryKey: ['ward-assignments', 'team-options'],
-    queryFn: async (): Promise<TeamOption[]> => {
-      const res = await api.get('/teams/options');
-      return Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-    },
+/**
+ * The ward police units a person entering for a unit may choose: the module's own list, which holds exactly the
+ * units the server accepts a new request for (the general list of teams offered units the server then refused).
+ */
+export function useWardUnits(enabled = true) {
+  const q = useQuery({
+    queryKey: ['ward-assignments', 'unit-choices'],
+    queryFn: () => wardAssignmentsApi.unitChoices(),
     enabled,
     staleTime: 10 * 60_000,
     retry: false,
   });
-}
-
-export function useWardUnits(enabled = true) {
-  const q = useTeamOptions(enabled);
-  return { ...q, data: (q.data ?? []).filter((t) => t.wardId != null).map((t) => ({ id: t.id, name: t.name })) };
+  return { ...q, data: q.data ?? [] };
 }
 
 /** The unit's investigators, the stopped ones too: a request may name one who has since been stopped. */

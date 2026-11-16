@@ -25,6 +25,8 @@ export interface ReviewBlockProps {
   /** The reviewer's own PC02 team, the default follow-up team. */
   defaultFollowUpTeamId?: string | null;
   run: RunAction;
+  /** PC02 has just returned or approved: the page offers the request slip of that decision. */
+  onDecided?: () => void;
   busy: boolean;
 }
 
@@ -37,7 +39,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run, busy }: ReviewBlockProps) {
+export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run, busy, onDecided }: ReviewBlockProps) {
   const can = detail.can;
   const deciding = detail.status === 'SUBMITTED' && !!(can.returnIt || can.approve);
   const reviewer = deciding || !!can.review;
@@ -115,7 +117,7 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
     void run(
       () => wardAssignmentsApi.returnIt(detail.id, { reasonCode: reasonCode || null, reasonText: reasonText.trim() || null, requirements: trimLines(requirements) }, stamp),
       R.returned,
-    );
+    ).then((ok) => ok && onDecided?.());
   };
 
   const onApprove = () => {
@@ -147,7 +149,7 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
           stamp,
         ),
       R.approved,
-    );
+    ).then((ok) => ok && onDecided?.());
   };
 
   const officerName = (id: string | null) => (id ? pc02Officers.find((o) => o.value === id)?.label ?? '' : '');

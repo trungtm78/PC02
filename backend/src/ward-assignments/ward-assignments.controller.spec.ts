@@ -30,6 +30,7 @@ describe('the routes of ward assignment requests', () => {
     ['restore', 'review:WardAssignment'],
     ['returnReasons', 'read:WardAssignment'],
     ['followUpChoices', 'review:WardAssignment'],
+    ['unitChoices', 'write:WardAssignment'],
     ['returnIt', 'review:WardAssignment'],
     ['revokeReturn', 'review:WardAssignment'],
     ['approve', 'review:WardAssignment'],
@@ -59,7 +60,7 @@ describe('the routes of ward assignment requests', () => {
 
   function build() {
     const commands = { create: jest.fn(), update: jest.fn(), submit: jest.fn(), withdraw: jest.fn(), remove: jest.fn(), archive: jest.fn(), restore: jest.fn() };
-    const queries = { list: jest.fn(), get: jest.fn() };
+    const queries = { list: jest.fn(), get: jest.fn(), unitChoices: jest.fn() };
     const investigators = { list: jest.fn(), create: jest.fn(), update: jest.fn(), setActive: jest.fn() };
     const review = {
       returnReasons: jest.fn(), returnIt: jest.fn(), revokeReturn: jest.fn(), approve: jest.fn(), cancelApproval: jest.fn(), followUp: jest.fn(),
@@ -78,7 +79,8 @@ describe('the routes of ward assignment requests', () => {
   it('every route hands the service the scope of the request and the person acting', () => {
     const { requests, names, commands, queries, investigators } = build();
     const req = withScope(scope);
-    requests.list({}, req);
+    requests.list({}, user, req);
+    requests.unitChoices(req);
     requests.get('a', user, req);
     requests.create({} as never, user, req);
     requests.update('a', stamp as never, user, req);
@@ -92,7 +94,9 @@ describe('the routes of ward assignment requests', () => {
     names.update('i', stamp, user, req);
     names.deactivate('i', stamp, user, req);
     names.reactivate('i', stamp, user, req);
-    expect(queries.list).toHaveBeenCalledWith(scope, {});
+    // The list is told who reads it: the buttons of a row follow the person (PC02 does not decide its own unit's).
+    expect(queries.list).toHaveBeenCalledWith(scope, {}, expect.any(Date), 'u-1');
+    expect(queries.unitChoices).toHaveBeenCalledWith(scope);
     expect(queries.get).toHaveBeenCalledWith(scope, 'u-1', 'a');
     for (const m of ['submit', 'withdraw', 'remove', 'archive', 'restore'] as const) expect(commands[m]).toHaveBeenCalledWith(user, scope, 'a', stamp.expectedUpdatedAt);
     expect(commands.create).toHaveBeenCalledWith(user, scope, {});
@@ -128,15 +132,16 @@ describe('the routes of ward assignment requests', () => {
 
   it('an administrator\'s scope (null) is passed on as it is', () => {
     const { requests, queries } = build();
-    requests.list({}, withScope(null));
-    expect(queries.list).toHaveBeenCalledWith(null, {});
+    requests.list({}, user, withScope(null));
+    expect(queries.list).toHaveBeenCalledWith(null, {}, expect.any(Date), 'u-1');
   });
 
   it('a request that carries no resolved scope is refused before any service is asked', () => {
     const { requests, names, commands, queries, investigators } = build();
     const req = withScope(undefined);
     const refused = { response: { code: WARD_ERROR.FORBIDDEN, details: [] } };
-    expect(() => requests.list({}, req)).toThrow(expect.objectContaining(refused) as Error);
+    expect(() => requests.list({}, user, req)).toThrow(expect.objectContaining(refused) as Error);
+    expect(() => requests.unitChoices(req)).toThrow(expect.objectContaining(refused) as Error);
     expect(() => requests.submit('a', stamp, user, req)).toThrow(expect.objectContaining(refused) as Error);
     expect(() => names.list({ teamId: 't' }, req)).toThrow(expect.objectContaining(refused) as Error);
     expect(queries.list).not.toHaveBeenCalled();
