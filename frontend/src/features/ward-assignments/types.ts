@@ -227,7 +227,7 @@ export interface WardListQuery {
 /** Who may follow an approval and in which unit (`GET /ward-assignments/follow-up-choices`). */
 export interface WardFollowUpChoices {
   teams: { id: string; name: string }[];
-  people: { id: string; name: string; teamIds: string[] }[];
+  people: { id: string; name: string; unitIds: string[] }[];
 }
 
 export interface WardReturnReason {

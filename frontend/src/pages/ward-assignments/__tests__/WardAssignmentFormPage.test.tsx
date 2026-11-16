@@ -92,7 +92,7 @@ beforeEach(() => {
   who.user = WARD_USER;
   invApi.list.mockResolvedValue([investigator]);
   api.returnReasons.mockResolvedValue([{ code: 'THIEU_TAI_LIEU', name: 'Thiếu tài liệu' }]);
-  api.followUpChoices.mockResolvedValue({ teams: [{ id: 'd1', name: 'Đội 1' }], people: [{ id: 'u-rev', name: 'Đặng Văn K', teamIds: ['d1'] }] });
+  api.followUpChoices.mockResolvedValue({ teams: [{ id: 'd1', name: 'Đội 1' }], people: [{ id: 'u-rev', name: 'Đặng Văn K', unitIds: ['d1'] }] });
   api.list.mockResolvedValue({ data: [], total: 0 });
 });
 

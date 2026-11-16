@@ -86,11 +86,11 @@ export class WardAssignmentQueryService {
       where: { team: { wardId: null, status: 'ACTIVE' }, user: { isActive: true } },
       select: { teamId: true, user: { select: { id: true, firstName: true, lastName: true, username: true } } },
     });
-    const people = new Map<string, { id: string; name: string; teamIds: string[] }>();
+    const people = new Map<string, { id: string; name: string; unitIds: string[] }>();
     for (const m of members) {
       const name = [m.user.lastName, m.user.firstName].filter(Boolean).join(' ').trim() || m.user.username;
-      const person = people.get(m.user.id) ?? { id: m.user.id, name, teamIds: [] };
-      person.teamIds.push(m.teamId);
+      const person = people.get(m.user.id) ?? { id: m.user.id, name, unitIds: [] };
+      person.unitIds.push(m.teamId);
       people.set(m.user.id, person);
     }
     return { teams, people: [...people.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi')) };
