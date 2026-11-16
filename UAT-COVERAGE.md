@@ -50,8 +50,12 @@ The first runs found two real defects the HTTP UAT could not see, both fixed wit
   only once the loaded profile holds `read:Case`.
 Screenshots: `docs/test-evidence/ward-assignments/01..06-*.png` (local, git-ignored).
 
+## Monkey run (once, at the end), 17/11/2026 00:45 — profile `tools/monkey-test/profiles/ho-so-phan-cong.json`
+List, new request, an approved request (view and edit), statistics. Seed 101 Chromium 1600×1000: 5 screens · 125 actions · **0
+suspicious · 0 NOT CHECKED**. Seed 102 Chromium + WebKit 390×844: 10 screens · 250 actions · **0 suspicious · 0 NOT CHECKED**.
+
 **Not covered (stated, not counted):** a full click-through of every button (approve, block 3, slips, files) in the browser — those
-are covered over HTTP above and by vitest; the monkey run; the 07:00 reminder run on the real scheduler; incidents as a matching
+are covered over HTTP above and by vitest; the 07:00 reminder run on the real scheduler; incidents as a matching
 source (not built: free-text suspects).
 
 ---
