@@ -74,6 +74,42 @@ describe('readersOf: who may be told about a record', () => {
   });
 });
 
+describe('readersOf: a ward assignment is told only to those who may open it', () => {
+  afterEach(() => setEnforcement(null));
+
+  it('nothing enforced: nobody is told (no earlier rule to keep, and the lists of a role cannot tell wards apart)', () => {
+    const W_RECORD = { assignedTeamId: 'W', ownerId: 'wardy' };
+    expect(readersOf(['wardy', 'stranger'], 'WardAssignment', W_RECORD)).toEqual([]);
+    expect(mayBeToldAbout('wardy', 'WardAssignment')).toBe(false);
+    setEnforcement({ scopeOf: () => undefined, keysOf: () => undefined, unconditionalKeysOf: () => undefined, keysOrNone: () => undefined, holdersOf: () => undefined });
+    expect(readersOf(['wardy', 'stranger'], 'WardAssignment', W_RECORD)).toEqual([]);
+    expect(mayBeToldAbout('wardy', 'WardAssignment')).toBe(false);
+    // The old subjects keep their rule.
+    expect(readersOf(['wardy', 'stranger'], 'Petition', W_RECORD)).toEqual(['wardy', 'stranger']);
+    expect(mayBeToldAbout('wardy', 'Petition')).toBe(true);
+  });
+
+  const wardScope = (userId: string, ward: PreciseScope, extra: Partial<DataScope> = {}): DataScope =>
+    ({
+      ...scopeFor(userId, NONE),
+      ...extra,
+      precise: {
+        userId,
+        subjects: { Case: { read: NONE, write: NONE }, Incident: { read: NONE, write: NONE }, Petition: { read: NONE, write: NONE }, WardAssignment: { read: ward, write: NONE } },
+      },
+    }) as unknown as DataScope;
+
+  it('a dispatcher of PC02 who does not reach the ward is not told; somebody of the ward is', () => {
+    const W = { ...NONE, tree: { teamIds: ['W'], userIds: ['wardy'], includeUnassigned: false } };
+    enforce({
+      wardy: { keys: ['read:WardAssignment'], scope: wardScope('wardy', W) },
+      dispatcher: { keys: ['read:WardAssignment'], scope: wardScope('dispatcher', { ...NONE, own: true }, { canDispatch: true }) },
+      noPermission: { keys: ['read:Petition'], scope: wardScope('noPermission', { ...NONE, all: true }) },
+    });
+    expect(readersOf(['wardy', 'dispatcher', 'noPermission'], 'WardAssignment', { assignedTeamId: 'W', ownerId: 'wardy' })).toEqual(['wardy']);
+  });
+});
+
 describe('mayBeToldAbout: a notice that a record of some kind was assigned to somebody', () => {
   afterEach(() => setEnforcement(null));
 

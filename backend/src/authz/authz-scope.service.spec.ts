@@ -102,6 +102,47 @@ describe('AuthzScopeService', () => {
     expect(s.keysOf('boss')).toEqual(['read:Case', 'write:Role']);
   });
 
+  it('enforced: reviewing a ward assignment reaches as far as review:WardAssignment, never as far as edit:WardAssignment', () => {
+    const snap = snapshot('ENFORCE', {
+      users: [person(), person({ id: 'mate' }), person({ id: 'wardy', memberships: [{ teamId: 'W', isLeader: false }] })],
+      configs: [explicit('A', 'reviewer'), explicit('W', 'ward')],
+      templates: {
+        reviewer: { 'read:WardAssignment': 'ALL', 'review:WardAssignment': 'ALL', 'matchSubjects:WardAssignment': 'ALL' },
+        ward: { 'read:WardAssignment': 'TEAM_TREE', 'edit:WardAssignment': 'TEAM_TREE' },
+      },
+    });
+    const s = service(snap);
+    const reviewer = s.scopeOf('me')!.precise!.subjects.WardAssignment;
+    expect(reviewer.read.all).toBe(true);
+    // Holding the review permission gives no editing at all...
+    expect(reviewer.write).toEqual({ all: false, own: false, exactTeamIds: [], tree: null });
+    // ...and the review has a scope of its own.
+    expect(reviewer.actions?.review).toEqual({ all: true, own: false, exactTeamIds: [], tree: null });
+    expect(reviewer.actions?.matchSubjects).toEqual({ all: true, own: false, exactTeamIds: [], tree: null });
+
+    const ward = s.scopeOf('wardy')!.precise!.subjects.WardAssignment;
+    expect(ward.write.tree).toEqual({ teamIds: ['W'], userIds: ['wardy'], includeUnassigned: false });
+    // Editing gives no review.
+    expect(ward.actions?.review).toEqual({ all: false, own: false, exactTeamIds: [], tree: null });
+  });
+
+  it('enforced: every scoped action is measured by its own permission (review without matching, editing without either)', () => {
+    const snap = snapshot('ENFORCE', {
+      users: [person()],
+      configs: [explicit('A', 't')],
+      templates: { t: { 'read:WardAssignment': 'ALL', 'edit:WardAssignment': 'TEAM_TREE', 'review:WardAssignment': 'ALL' } },
+    });
+    const ward = service(snap).scopeOf('me')!.precise!.subjects.WardAssignment;
+    expect(ward.actions?.review?.all).toBe(true);
+    expect(ward.actions?.matchSubjects).toEqual({ all: false, own: false, exactTeamIds: [], tree: null });
+    expect(ward.write.all).toBe(false);
+  });
+
+  it('enforced: the old subjects carry no scoped actions', () => {
+    const scope = service(snapshot('ENFORCE', { users: [person()] })).scopeOf('me')!;
+    for (const subject of ['Case', 'Incident', 'Petition'] as const) expect(scope.precise!.subjects[subject].actions).toBeUndefined();
+  });
+
   it('enforced: the dispatcher flag and the ward team travel with the scope; a ward officer gets no unassigned records', async () => {
     const snap = snapshot('ENFORCE', { users: [person({ id: 'wardy', canDispatch: true, memberships: [{ teamId: 'W', isLeader: false }] })] });
     const scope = (service(snap).scopeOf('wardy'))!;

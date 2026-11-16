@@ -68,6 +68,16 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
     sensitive: ['export_full:Petition'],
   },
   {
+    // Hồ sơ phân công Công an cấp phường/xã. Reviewing and cross-unit matching are scoped actions of the subject
+    // (`SCOPED_ACTIONS`): they reach records as far as their own grant does, not as far as editing.
+    key: 'wardAssignments',
+    group: 'business',
+    basic: { view: 'read:WardAssignment', create: 'write:WardAssignment', edit: 'edit:WardAssignment', delete: 'delete:WardAssignment' },
+    extras: { reviewAssignment: 'review:WardAssignment', matchSubjects: 'matchSubjects:WardAssignment' },
+    recordScope: { kind: 'own', subject: 'WardAssignment', ownerField: 'enteredById' },
+    sensitive: ['matchSubjects:WardAssignment'],
+  },
+  {
     key: 'incidents',
     group: 'business',
     basic: { view: 'read:Incident', create: 'write:Incident', edit: 'edit:Incident', delete: 'delete:Incident' },

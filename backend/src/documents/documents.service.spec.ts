@@ -281,6 +281,7 @@ describe('DocumentsService', () => {
             Case: { read: all, write: nothing },
             Incident: { read: nothing, write: nothing },
             Petition: { read: nothing, write: nothing },
+            WardAssignment: { read: nothing, write: nothing },
           },
         },
       };

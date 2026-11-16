@@ -1,6 +1,62 @@
 # PROGRESS
 
-# ACTIVE EPIC (15/11/2026): processing flow and deadlines per information type ("Quy trình & hạn xử lý")
+# ACTIVE EPIC (16/11/2026): ward assignment requests ("Hồ sơ phân công Công an cấp phường/xã")
+Cập nhật: 2026-11-16 | Milestone: M1/5 | Task: PR 1 of 8 (lõi phân quyền)
+Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md`; inside it the section "SỬA ĐỔI SAU /plan-eng-review (16/11/2026)" WINS over anything above it (decisions A1–A15, Q1–Q2, P1–P2, R1–R8, C1–C8; order PR 0–8; tasks T1–T14). Requirement files: `docs/Requirements/trinh phân công.xlsx`, `docs/Requirements/YCĐT 1949A CAP.Vườn Lài 321.docx` (folder git-ignored). Protocol: the AUTONOMOUS EXECUTION PROTOCOL the owner pasted 16/11 (no stopping to ask; DoD of 6 points; review + Codex per task; UAT 100% at the end).
+
+## Milestones
+- M1 = PR 1 (authz core: fourth record subject, scoped action `review`, catalogue, templates, regression contract) + PR 2 (backend core: model, migration with the switch `ward-assignments` OFF, command layer, draft/edit/delete/archive, submit ⇄ withdraw, investigator directory, re-assignment link).
+- M2 = PR 3 (review rounds, requirements, return reasons, approve + assign, revoke, cancel approval, segregation of duties, result block, extension, result files) + PR 4 (two-tier subject matching with per-source authorization).
+- M3 = PR 5 (web: menu, list, three-block form, round history, compare two submissions).
+- M4 = PR 6 (request slip: fourth entity of the template platform + list gate, issued per round, stored file, number) + PR 7 (deadline warnings, review clock, notifications through an outbox, statistics).
+- M5 = PR 8 (UAT over HTTP, browser pass with a ward account and a PC02 account, one monkey run; switch on; templates applied to teams ONLY on the owner's order).
+
+## Đã hoàn thành
+- (nothing merged yet for this epic)
+
+## Đang làm dở
+Task: PR 1 — branch `feat/ward-assignment-authz` (from origin/main 88dfaaaf)
+Đã làm:
+- `2dbb0a65` regression contract `backend/src/common/utils/scope-golden.spec.ts` + snapshot, RECORDED ON THE OLD CODE (14 scopes × 3 subjects × 25 records × every helper; scopeOf of 5 kinds of person). Must stay byte-identical.
+- `precise-scope.ts`: `RECORD_SUBJECTS` += `WardAssignment`; `SCOPED_ACTIONS = { WardAssignment: ['review', 'matchSubjects'] }`; `SubjectScopes.actions` (absent = nothing).
+- `scope-filter.util.ts`: owner field `enteredById` + exported `ownerFieldOf`; dispatcher exception limited to Case/Incident/Petition (`DISPATCH_SUBJECTS`); `recordInActionScope`, `actionConditions`; legacy list check factored into `listsAllow` (same conditions).
+- `authz-scope.service.ts`: each scoped action reaches by `${action}:${subject}` measured as a write (C1), never borrowed from `edit`.
+- `prisma/permission-resources.ts` resource `wardAssignments` (+ extras `reviewAssignment`, `matchSubjects`, the latter sensitive); `prisma/seed-permissions.ts` six pairs.
+- `authz/admin/starter-templates.ts`: STARTER_WARD_SUBMIT (TEAM_TREE), STARTER_WARD_REVIEW (ALL, no edit); leadership += `read:WardAssignment`.
+- Gates: owner field and subjects agree with the catalogue; every scoped action is a catalogue pair at every depth; every catalogue resource/extra has a label in `frontend/src/locales/permissions.vi.ts` (read from the file; the frontend gate checks a hand-written copy).
+- Codex pass 2 (3 findings, all accepted): readersOf/mayBeToldAbout told everybody about a ward request when nothing is enforced -> nobody (`TOLD_AS_BEFORE` = the three old subjects); two fixtures that let wrong implementations pass -> strengthened.
+- Codex pass 1 (2 findings, both accepted and fixed): ward isolation through a team's people (High) -> team-bound subject; matching not proven independent of review (Medium) -> tests with different reaches per action. Five seeded faults each caught.
+- Tests: `ward-assignment-scope.spec.ts`, `authz/ward-assignment-scope.database.spec.ts` (real PostgreSQL, templates as rows), additions to `authz-scope.service.spec.ts`, `record-readers.spec.ts`, `starter-templates.spec.ts`. Three seeded faults each caught (dispatcher bypass, review borrowed from edit, wrong owner field).
+BƯỚC TIẾP THEO: full backend suite (running), frontend vitest of `src/features/permissions` + `npx tsc -b`; /review of the diff; one Codex pass; commit; PR; CI; merge; deploy; read-only production check (`prod-lists` before/after identical; nobody but ADMIN holds the new pairs).
+File liên quan: backend/src/common/utils/{precise-scope,scope-filter.util}.ts, backend/src/authz/{authz-scope.service,admin/starter-templates}.ts, backend/prisma/{permission-resources,seed-permissions}.ts, frontend/src/locales/permissions.vi.ts
+
+## Hàng đợi task kế tiếp
+1. PR 2 backend core (T2, T3 partly, T8) — branch `feat/ward-assignment-core`.
+2. PR 3 review (T2 rest, T3, T6, T7 part, T13); PR 4 matching (T4); PR 5 web (T9); PR 6 slip (T5, T12); PR 7 (T7, T11, T14); PR 8 UAT.
+
+## Quyết định kiến trúc
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|---|---|---|---|
+| 16/11 | `review` and `matchSubjects` are scoped actions with their own reach | a reviewer holds no `edit`; a ward officer holds `edit` and must not decide (Codex C1) | `PreciseScopes.subjects[s].actions` |
+| 16/11 | the dispatcher exception (19/09/2026) does not extend to ward requests | which ward requests PC02 people see is decided by those permissions alone | `DISPATCH_SUBJECTS` |
+| 16/11 | a ward request is TEAM-BOUND: reached by its team, never through the people of a team (`TEAM_BOUND_SUBJECTS`, enforced and not enforced alike); OWN stays a grant of its own | Codex (PR 1): TEAM_TREE reaches members' records, so somebody in wards W and V who entered for V exposed it to all of W | ward isolation does not depend on an administrator picking the right reach |
+| 16/11 | no database migration in PR 1 | permissions reach the database by `seed-quyen.ts` at deploy (ADMIN only); templates are made by the existing "starter templates" button | nobody but ADMIN gains anything until an admin applies a template |
+
+## Assumption đã tự quyết
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ trong spec |
+|---|---|---|
+| a leadership template already created on production | not changed; `read:WardAssignment` is in new leadership templates only | starter templates are ordinary templates once created (`starter-templates.ts` header) |
+| reach of a scoped action when nothing is enforced | as far as changing reaches (write lists), no dispatcher exception | plan A2 + C1; fail closed |
+
+## Trạng thái test
+Full suite (PR 1, 16/11 evening, local): unit 10 976 passed, 2 timeouts of `monthly-report-export.service.spec.ts` under full load (pass alone, 13/13; unrelated Excel rendering); database gate in band all green after removing the rows of a run I interrupted (`blg-49435c59`); `officer-read-grant` green on `pc02_goiy_scope_test` (the database CI uses) | Patch coverage: 67/67 executable changed lines (100%) | Regression snapshot: unchanged byte for byte | Test fail: none
+
+## Nợ kỹ thuật / rủi ro
+- `frontend/src/features/permissions/__tests__/fixtures.ts` is a hand-written copy of the catalogue that already lacks the processing-flow resources; the new backend gate reads the real catalogue against the locale file instead. Removing the copy is outside this epic.
+
+---
+
+# PREVIOUS EPIC (15/11/2026): processing flow and deadlines per information type ("Quy trình & hạn xử lý") — merged and switched on 15/11 19:21
 Updated: 2026-11-15 (evening) | Milestone: M5/5 | Task: PR 16 (UAT + switch on). All product PRs are merged; the three switches are still OFF.
 Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md`, and inside it the section "SỬA ĐỔI SAU /plan-eng-review (15/11/2026)" WINS over anything above it (decisions C1–C16, R3–R11; the PR table "Trình tự mới" replaces the old one). Protocol = AUTONOMOUS EXECUTION PROTOCOL (pasted again by the owner 15/11: no questions; stop only for done + UAT 100%, a real blocker after two attempts, or an irreversible / security action). The owner's standing rule for this epic: deepest governance, best extensibility, never reduce scope, scope may grow.
 

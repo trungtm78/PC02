@@ -1,6 +1,14 @@
 import { Injectable, OnApplicationBootstrap, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { RECORD_SUBJECTS, type PreciseScope, type PreciseScopes, type RecordSubject } from '../common/utils/precise-scope';
+import {
+  RECORD_SUBJECTS,
+  SCOPED_ACTIONS,
+  type PreciseScope,
+  type PreciseScopes,
+  type RecordSubject,
+  type ScopedAction,
+  type SubjectScopes,
+} from '../common/utils/precise-scope';
 import { AuthzService, type AuthzSnapshot } from './authz.service';
 import { enforcement, setEnforcement, type Enforcement } from './enforcement';
 import { recordScope } from './engine/scope';
@@ -9,6 +17,9 @@ import type { RecordScope } from './engine/types';
 /** The permission that decides how far a person SEES records of a subject, and the one for CHANGING them. */
 const READ = (subject: RecordSubject) => `read:${subject}`;
 const WRITE = (subject: RecordSubject) => `edit:${subject}`;
+/** The scoped actions of a subject (`SCOPED_ACTIONS`); the old subjects have none. */
+const actionsOf = (subject: RecordSubject): readonly ScopedAction[] =>
+  (SCOPED_ACTIONS as Partial<Record<RecordSubject, readonly ScopedAction[]>>)[subject] ?? [];
 
 const toPrecise = (scope: RecordScope): PreciseScope =>
   scope.all
@@ -26,7 +37,9 @@ const teamsOf = (scope: PreciseScope): string[] => [...new Set([...scope.exactTe
  * snapshot's own, so a scope is never computed from one moment's mode and another moment's configuration.
  *
  * Reaching records for changing follows the "edit" permission of the subject: deleting, restoring and assigning
- * reach as far as editing does (each can still be switched off on its own by its permission).
+ * reach as far as editing does (each can still be switched off on its own by its permission). A scoped action of a
+ * subject (`SCOPED_ACTIONS`: reviewing a ward unit's request) reaches as far as its OWN permission does: it is
+ * measured like a change (data access grants count only when they allow changing), and never borrowed from `edit`.
  */
 @Injectable()
 export class AuthzScopeService implements Enforcement, OnApplicationBootstrap, OnModuleDestroy {
@@ -79,10 +92,17 @@ export class AuthzScopeService implements Enforcement, OnApplicationBootstrap, O
 
     const subjects = {} as PreciseScopes['subjects'];
     for (const subject of RECORD_SUBJECTS) {
-      subjects[subject] = {
+      const entry: SubjectScopes = {
         read: toPrecise(recordScope(snapshot.org, effective, READ(subject), 'read')),
         write: toPrecise(recordScope(snapshot.org, effective, WRITE(subject), 'write')),
       };
+      const actions = actionsOf(subject);
+      if (actions.length > 0) {
+        entry.actions = Object.fromEntries(
+          actions.map((action) => [action, toPrecise(recordScope(snapshot.org, effective, `${action}:${subject}`, 'write'))]),
+        );
+      }
+      subjects[subject] = entry;
     }
     const cases = subjects.Case;
     return {

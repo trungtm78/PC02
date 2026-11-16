@@ -10,6 +10,8 @@ import {
   RequirePermissions,
 } from '../auth/decorators/permissions.decorator';
 import { SEED_PERMISSIONS } from '../../prisma/seed-permissions';
+import { RECORD_SUBJECTS, SCOPED_ACTIONS, type RecordSubject } from '../common/utils/precise-scope';
+import { ownerFieldOf } from '../common/utils/scope-filter.util';
 import {
   allowedDepths,
   BASIC_CAPABILITIES,
@@ -192,6 +194,46 @@ describe('the catalogue is well formed', () => {
     expect(allowedDepths('edit:Document')).toEqual(PERMISSION_DEPTHS);
     expect(allowedDepths('write:User')).toEqual(['NONE', 'ALL']);
     expect(allowedDepths('made:Up')).toEqual(['NONE', 'ALL']);
+  });
+
+  it('GATE: every record subject of the scope filters is one resource of the catalogue, with the same owner field', () => {
+    const own = PERMISSION_RESOURCES.flatMap((r) => (r.recordScope?.kind === 'own' ? [r.recordScope] : []));
+    expect([...own.map((s) => s.subject)].sort()).toEqual([...RECORD_SUBJECTS].sort());
+    for (const s of own) expect(s.ownerField).toBe(ownerFieldOf(s.subject as RecordSubject));
+  });
+
+  it('GATE: every scoped action of a subject is a pair of the catalogue that can be limited to records', () => {
+    const declared = Object.entries(SCOPED_ACTIONS).flatMap(([subject, actions]) => (actions ?? []).map((a) => `${a}:${subject}`));
+    expect(declared.length).toBeGreaterThan(0);
+    for (const pair of declared) {
+      expect(resourceOfPermission(pair)).toBeDefined();
+      expect(allowedDepths(pair)).toEqual(PERMISSION_DEPTHS);
+    }
+  });
+
+  it('the ward assignment: its own record subject, every pair at every depth, cross-unit matching marked sensitive', () => {
+    const ward = resourceByKey('wardAssignments') as PermissionResource;
+    expect(scopeSubjectOf(ward)).toBe('WardAssignment');
+    for (const pair of pairsOf(ward)) expect(allowedDepths(pair)).toEqual(PERMISSION_DEPTHS);
+    expect(isSensitivePermission('matchSubjects:WardAssignment')).toBe(true);
+    expect(isSensitivePermission('review:WardAssignment')).toBe(false);
+  });
+
+  it('GATE: every resource and every extra of the real catalogue has a label on the screen', () => {
+    // Read from the locale file itself: the frontend's own gate checks a hand-written copy of the catalogue, which a
+    // resource added here does not reach.
+    const locale = fs.readFileSync(path.resolve(SRC, '../../frontend/src/locales/permissions.vi.ts'), 'utf8');
+    const labels = (table: string): Map<string, string> => {
+      const start = locale.indexOf(`\n  ${table}: {`);
+      expect(start).toBeGreaterThan(-1);
+      const body = locale.slice(start, locale.indexOf('\n  }', start));
+      return new Map([...body.matchAll(/^\s+(\w+):\s*'([^']*)'/gm)].map((m) => [m[1], m[2]]));
+    };
+    const resources = labels('resources');
+    const extras = labels('extras');
+    expect(resources.size).toBeGreaterThan(15);
+    expect(PERMISSION_RESOURCES.map((r) => r.key).filter((k) => !resources.get(k))).toEqual([]);
+    expect(PERMISSION_RESOURCES.flatMap((r) => Object.keys(r.extras ?? {})).filter((k) => !extras.get(k))).toEqual([]);
   });
 
   it('depths are ordered from none to all', () => {

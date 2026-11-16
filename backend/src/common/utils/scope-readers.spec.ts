@@ -25,7 +25,7 @@ const both = (read: PreciseScope, write: PreciseScope = read) => ({ read, write 
 const precise = (over: Partial<PreciseScopes['subjects']> = {}, extra: Partial<DataScope> = {}): DataScope => ({
   // Lists that say "everything": a helper still reading them would be caught.
   teamIds: ['A', 'B', 'Z'], userIds: [ME, 'mate', 'stranger'], writableTeamIds: ['A', 'B', 'Z'], writableUserIds: [ME, 'mate', 'stranger'],
-  precise: { userId: ME, subjects: { Case: both(NOTHING), Incident: both(NOTHING), Petition: both(NOTHING), ...over } },
+  precise: { userId: ME, subjects: { Case: both(NOTHING), Incident: both(NOTHING), Petition: both(NOTHING), WardAssignment: both(NOTHING), ...over } },
   ...extra,
 });
 
