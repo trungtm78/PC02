@@ -4,8 +4,12 @@ import {
   preciseAllows,
   preciseAllowsCreator,
   preciseConditions,
+  NOTHING,
+  TEAM_BOUND_SUBJECTS,
+  teamBound,
   type PreciseScope,
   type RecordSubject,
+  type ScopedAction,
 } from './precise-scope';
 
 export const FORBIDDEN_MSG = 'Bạn không có quyền truy cập bản ghi này';
@@ -34,9 +38,16 @@ function recordDenial(resource: string): void {
  */
 export type ThaoTacPhamVi = 'read' | 'write' | 'assign';
 
-/** Điều phối viên được bỏ qua phạm vi ở thao tác này không. */
-function dieuPhoiBoQua(scope: DataScope, op: ThaoTacPhamVi): boolean {
-  return !!scope.canDispatch && op !== 'write';
+/**
+ * The kinds of record the dispatcher exception of 19/09/2026 covers. A ward unit's request for an assignment is not
+ * one of them: a dispatcher of PC02 reads and assigns petitions, incidents and cases across units, but which ward
+ * requests a person of PC02 sees is decided by the permissions for those requests alone.
+ */
+const DISPATCH_SUBJECTS: ReadonlySet<RecordSubject> = new Set<RecordSubject>(['Case', 'Incident', 'Petition']);
+
+/** Điều phối viên được bỏ qua phạm vi ở thao tác này không (helpers of the old subjects pass no subject). */
+function dieuPhoiBoQua(scope: DataScope, op: ThaoTacPhamVi, subject?: RecordSubject): boolean {
+  return !!scope.canDispatch && op !== 'write' && (subject === undefined || DISPATCH_SUBJECTS.has(subject));
 }
 
 /**
@@ -370,8 +381,27 @@ export function assertSourceInScope(
 // the truth once permissions by team are enforced: `scope.precise` is.
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The precise scope of `subject` for reading or changing, as the record helpers must apply it: a team-bound subject
+ * (`TEAM_BOUND_SUBJECTS`) without its reach through people. Every helper below reads a subject's scope through here.
+ */
+function subjectScope(scope: DataScope, subject: RecordSubject, op: 'read' | 'write'): PreciseScope {
+  const raw = scope.precise!.subjects[subject][op];
+  return TEAM_BOUND_SUBJECTS.has(subject) ? teamBound(raw) : raw;
+}
+
 /** The field that says who owns a record of each subject. */
-const OWNER_FIELD: Record<RecordSubject, string> = { Case: 'investigatorId', Incident: 'investigatorId', Petition: 'enteredById' };
+const OWNER_FIELD: Record<RecordSubject, 'investigatorId' | 'enteredById'> = {
+  Case: 'investigatorId',
+  Incident: 'investigatorId',
+  Petition: 'enteredById',
+  WardAssignment: 'enteredById',
+};
+
+/** The column that says who owns a record of `subject` (the permission catalogue must say the same: a gate checks). */
+export function ownerFieldOf(subject: RecordSubject): 'investigatorId' | 'enteredById' {
+  return OWNER_FIELD[subject];
+}
 
 /**
  * The conditions (to be OR-ed) under which a record of `subject` is within the scope for `op`.
@@ -384,12 +414,21 @@ export function scopeConditions(
   subject: RecordSubject,
 ): Record<string, unknown>[] | null {
   if (!scope) return null;
-  if (dieuPhoiBoQua(scope, op)) return null;
+  if (dieuPhoiBoQua(scope, op, subject)) return null;
   const ownerField = OWNER_FIELD[subject];
-  if (scope.precise) return preciseConditions(scope.precise.subjects[subject][preciseOp(op)], scope.precise.userId, ownerField);
+  if (scope.precise) return preciseConditions(subjectScope(scope, subject, preciseOp(op)), scope.precise.userId, ownerField);
+  return listsConditions(scope, op, subject);
+}
+
+/**
+ * The conditions the lists of a scope that is not enforced allow (no dispatcher exception here). A team-bound subject
+ * is not reached through the people of the lists.
+ */
+function listsConditions(scope: DataScope, op: ThaoTacPhamVi, subject: RecordSubject): Record<string, unknown>[] {
   const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
+  const ownerField = OWNER_FIELD[subject];
   const conditions: Record<string, unknown>[] = [];
-  if (userIds.length > 0) conditions.push({ [ownerField]: { in: userIds } });
+  if (userIds.length > 0 && !TEAM_BOUND_SUBJECTS.has(subject)) conditions.push({ [ownerField]: { in: userIds } });
   if (teamIds.length > 0) {
     conditions.push({ assignedTeamId: { in: teamIds } });
     if (!scope.isWardOfficer) conditions.push({ assignedTeamId: null });
@@ -408,12 +447,62 @@ export function recordInScope(
   subject: RecordSubject,
 ): boolean {
   if (!scope) return true;
-  if (scope.canDispatch && op === 'read') return true;
-  if (scope.precise) return preciseAllows(scope.precise.subjects[subject][op], scope.precise.userId, record);
+  if (scope.canDispatch && op === 'read' && DISPATCH_SUBJECTS.has(subject)) return true;
+  if (scope.precise) return preciseAllows(subjectScope(scope, subject, op), scope.precise.userId, record);
+  return listsAllow(record, scope, op, subject);
+}
+
+/** A record against the lists of a scope that is not enforced (no dispatcher exception here; team-bound: no people). */
+function listsAllow(
+  record: { assignedTeamId?: string | null; ownerId?: string | null },
+  scope: DataScope,
+  op: 'read' | 'write',
+  subject: RecordSubject,
+): boolean {
   const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
-  if (record.ownerId && userIds.includes(record.ownerId)) return true;
+  if (record.ownerId && userIds.includes(record.ownerId) && !TEAM_BOUND_SUBJECTS.has(subject)) return true;
   if (record.assignedTeamId && teamIds.includes(record.assignedTeamId)) return true;
   return !record.assignedTeamId && teamIds.length > 0 && scope.isWardOfficer !== true;
+}
+
+/** The scope of a scoped action, or nothing at all when the scope does not carry it. */
+function actionScope(scope: DataScope, subject: RecordSubject, action: ScopedAction): PreciseScope {
+  const raw = scope.precise!.subjects[subject].actions?.[action] ?? NOTHING;
+  return TEAM_BOUND_SUBJECTS.has(subject) ? teamBound(raw) : raw;
+}
+
+/**
+ * Whether a person may carry out a scoped action (`SCOPED_ACTIONS`) on one record: reviewing a ward unit's request.
+ * Enforced: as far as the action's own permission reaches, never as far as editing does. Not enforced: an action
+ * changes a record, so it reaches as far as changing does. A dispatcher gets nothing more; an admin everything.
+ *
+ * This answers the reach only. Whether the person holds the permission at all is the route guard's question, and the
+ * caller still checks that the person may READ the record.
+ */
+export function recordInActionScope(
+  record: { assignedTeamId?: string | null; ownerId?: string | null },
+  scope: DataScope | null | undefined,
+  subject: RecordSubject,
+  action: ScopedAction,
+): boolean {
+  if (!scope) return true;
+  if (scope.precise) return preciseAllows(actionScope(scope, subject, action), scope.precise.userId, record);
+  return listsAllow(record, scope, 'write', subject);
+}
+
+/**
+ * The conditions (to be OR-ed) under which a record of `subject` is within the reach of a scoped action: the list of
+ * the requests a reviewer may decide. `null` = no restriction; `[]` = nothing at all. Same rule as
+ * `recordInActionScope`.
+ */
+export function actionConditions(
+  scope: DataScope | null | undefined,
+  subject: RecordSubject,
+  action: ScopedAction,
+): Record<string, unknown>[] | null {
+  if (!scope) return null;
+  if (scope.precise) return preciseConditions(actionScope(scope, subject, action), scope.precise.userId, OWNER_FIELD[subject]);
+  return listsConditions(scope, 'write', subject);
 }
 
 /**
@@ -428,7 +517,7 @@ export function recordReadable(
   record: { assignedTeamId?: string | null; investigatorId?: string | null; enteredById?: string | null },
   scope: DataScope | null | undefined,
 ): boolean {
-  const ownerId = subject === 'Petition' ? record.enteredById : record.investigatorId;
+  const ownerId = OWNER_FIELD[subject] === 'enteredById' ? record.enteredById : record.investigatorId;
   return recordInScope({ assignedTeamId: record.assignedTeamId, ownerId }, scope, 'read', subject);
 }
 
@@ -466,12 +555,13 @@ export function teamInScope(teamId: string, scope: DataScope | null | undefined,
 export function userInScope(userId: string, scope: DataScope | null | undefined, op: 'read' | 'write', subject: RecordSubject): boolean {
   if (!scope) return true;
   if (scope.precise) {
-    const p = scope.precise.subjects[subject][op];
+    const p = subjectScope(scope, subject, op);
     if (p.all) return true;
     if (p.own && userId === scope.precise.userId) return true;
     return p.tree?.userIds.includes(userId) ?? false;
   }
-  return phamViTheoThaoTac(scope, op).userIds.includes(userId);
+  // A team-bound subject is never reached through a person by the lists.
+  return !TEAM_BOUND_SUBJECTS.has(subject) && phamViTheoThaoTac(scope, op).userIds.includes(userId);
 }
 
 /**

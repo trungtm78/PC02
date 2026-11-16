@@ -25,7 +25,7 @@ const WARD_TREE: PreciseScope = { ...NOTHING, tree: { teamIds: ['W'], userIds: [
 
 const both = (read: PreciseScope, write: PreciseScope = read) => ({ read, write });
 function precise(over: Partial<PreciseScopes['subjects']> = {}): PreciseScopes {
-  return { userId: ME, subjects: { Case: both(NOTHING), Incident: both(NOTHING), Petition: both(NOTHING), ...over } };
+  return { userId: ME, subjects: { Case: both(NOTHING), Incident: both(NOTHING), Petition: both(NOTHING), WardAssignment: both(NOTHING), ...over } };
 }
 /** The legacy lists say "everything of team A": a helper that still read them instead of `precise` would be caught. */
 const scopeWith = (p: PreciseScopes, extra: Partial<DataScope> = {}): DataScope => ({

@@ -67,6 +67,21 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'edit', subject: 'Petition' },
   { action: 'delete', subject: 'Petition' },
 
+  // ── WardAssignment (Hồ sơ phân công Công an cấp phường/xã) ──────────────
+  // A ward unit submits a request for an investigator to be assigned; PC02 reviews it. Granted to ADMIN by the
+  // grant-all block of `seed-quyen.ts`; other people get these through a permission template of their team
+  // ("Phường/xã: trình phân công", "PC02: thẩm định phân công"), never through a role.
+  { action: 'read', subject: 'WardAssignment', description: 'Xem hồ sơ phân công phường/xã' },
+  { action: 'write', subject: 'WardAssignment', description: 'Lập và trình hồ sơ phân công phường/xã' },
+  { action: 'edit', subject: 'WardAssignment', description: 'Sửa, trình lại, rút lại hồ sơ phân công phường/xã' },
+  { action: 'delete', subject: 'WardAssignment', description: 'Xoá hồ sơ phân công phường/xã chưa từng trình' },
+  { action: 'review', subject: 'WardAssignment', description: 'Thẩm định, duyệt, trả về hồ sơ phân công; ghi kết quả' },
+  /*
+    Seeing that a person named in a ward unit's request also appears in records of OTHER units (other requests,
+    petitions, incidents, cases). A permission of its own: it reveals that records exist outside the person's units.
+  */
+  { action: 'matchSubjects', subject: 'WardAssignment', description: 'Xem đối tượng trùng ở hồ sơ của đơn vị khác' },
+
   // ── Incident (Vụ việc) ─────────────────────────────────────────────────
   { action: 'read', subject: 'Incident' },
   { action: 'write', subject: 'Incident' },

@@ -12,17 +12,35 @@ const views = new Set(PERMISSION_RESOURCES.flatMap((r) => (r.basic.view ? [r.bas
 const problemsOf = (entries: Record<string, Reach>) => entryProblems(new Map(Object.entries(entries)));
 
 describe('starter templates', () => {
-  it('there are four, with distinct codes and names', () => {
-    expect(STARTER_TEMPLATES.map((t) => t.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
-    expect(new Set(STARTER_TEMPLATES.map((t) => t.name)).size).toBe(4);
+  it('there are six, with distinct codes and names', () => {
+    expect(STARTER_TEMPLATES.map((t) => t.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW']);
+    expect(new Set(STARTER_TEMPLATES.map((t) => t.name)).size).toBe(6);
   });
 
   it('the leadership template sees every kind of record at ALL, holds the steps of the flows, and holds nothing that writes', () => {
     const entries = starterTemplates(['read:Petition']).STARTER_LEADERSHIP.entries;
-    expect(entries).toEqual({ 'read:Petition': 'ALL', 'read:Incident': 'ALL', 'read:Case': 'ALL', 'read:ProcessingStep': 'ALL' });
+    expect(entries).toEqual({ 'read:Petition': 'ALL', 'read:Incident': 'ALL', 'read:Case': 'ALL', 'read:ProcessingStep': 'ALL', 'read:WardAssignment': 'ALL' });
     for (const permission of Object.keys(entries)) expect(permission.startsWith('read:')).toBe(true);
     // The same whatever the officer role holds: it is not built from it.
     expect(starterTemplates([]).STARTER_LEADERSHIP.entries).toEqual(entries);
+  });
+
+  it('the ward template: a ward unit submits and keeps its own requests (its team, its people), and decides nothing', () => {
+    const entries = starterTemplates([]).STARTER_WARD_SUBMIT.entries;
+    expect(entries).toEqual({
+      'read:WardAssignment': 'TEAM_TREE',
+      'write:WardAssignment': 'TEAM_TREE',
+      'edit:WardAssignment': 'TEAM_TREE',
+      'delete:WardAssignment': 'TEAM_TREE',
+    });
+    expect(problemsOf(entries)).toEqual([]);
+  });
+
+  it('the PC02 review template: sees and decides every request, sees matches in other units, and edits no request', () => {
+    const entries = starterTemplates([]).STARTER_WARD_REVIEW.entries;
+    expect(entries).toEqual({ 'read:WardAssignment': 'ALL', 'review:WardAssignment': 'ALL', 'matchSubjects:WardAssignment': 'ALL' });
+    expect(entries['edit:WardAssignment']).toBeUndefined();
+    expect(problemsOf(entries)).toEqual([]);
   });
 
   it('the catalogue has both kinds of permission, or the assertions below would prove nothing', () => {
@@ -70,10 +88,10 @@ describe('starter templates', () => {
   });
 
   it('a role that holds nothing gives empty templates, not an error', () => {
-    // The three built from the role are empty; the leadership template is not built from it (it is tested above).
-    const { STARTER_LEADERSHIP, ...fromTheRole } = starterTemplates([]);
+    // The three built from the role are empty; the leadership and ward templates are not built from it (tested above).
+    const { STARTER_LEADERSHIP, STARTER_WARD_SUBMIT, STARTER_WARD_REVIEW, ...fromTheRole } = starterTemplates([]);
     for (const doc of Object.values(fromTheRole)) expect(doc.entries).toEqual({});
-    expect(Object.keys(STARTER_LEADERSHIP.entries).length).toBeGreaterThan(0);
+    for (const doc of [STARTER_LEADERSHIP, STARTER_WARD_SUBMIT, STARTER_WARD_REVIEW]) expect(Object.keys(doc.entries).length).toBeGreaterThan(0);
   });
 });
 
@@ -99,23 +117,23 @@ describe('AuthzAdminService.createStarterTemplates', () => {
     expect(actorId).toBe('admin-1');
     expect(kind).toBe('STARTER_TEMPLATES_CREATED');
     expect(options).toMatchObject({ reason: expect.any(String) as unknown, meta: { ipAddress: '10.0.0.1' } });
-    expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
+    expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW']);
     expect((wanted[1].after as { entries: Record<string, string> }).entries).toEqual({ 'edit:Petition': 'OWN', 'read:Petition': 'OWN' });
     expect((wanted[2].after as { entries: Record<string, string> }).entries).toEqual({ 'read:Petition': 'TEAM_TREE' });
-    expect(result.created.map((c) => c.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
-    expect(new Set(result.created.map((c) => c.id)).size).toBe(4);
+    expect(result.created.map((c) => c.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW']);
+    expect(new Set(result.created.map((c) => c.id)).size).toBe(6);
     expect(result.existing).toEqual([]);
   });
 
   it('one that exists already (also renamed or archived: the code is what counts) is left alone', async () => {
     const { service, commit } = build({ existingCodes: ['STARTER_OWN_ONLY'] });
     const result = await service.createStarterTemplates('admin-1');
-    expect(commit.mock.calls[0][2].map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP']);
+    expect(commit.mock.calls[0][2].map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW']);
     expect(result.existing).toEqual(['STARTER_OWN_ONLY']);
   });
 
-  it('all four exist: nothing is written and it says so', async () => {
-    const { service, commit } = build({ existingCodes: ['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP'] });
+  it('all six exist: nothing is written and it says so', async () => {
+    const { service, commit } = build({ existingCodes: ['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW'] });
     await expect(service.createStarterTemplates('admin-1')).resolves.toMatchObject({ changed: false, created: [], changeSetId: null });
     expect(commit).not.toHaveBeenCalled();
   });

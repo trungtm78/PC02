@@ -48,6 +48,7 @@ export const permissions = {
   } as Record<string, string>,
   resources: {
     petitions: 'Đơn thư',
+    wardAssignments: 'Hồ sơ phân công phường/xã',
     incidents: 'Vụ việc',
     cases: 'Vụ án',
     subjects: 'Đối tượng',
@@ -112,6 +113,8 @@ export const permissions = {
     approveStep: 'Duyệt kết quả bước',
     extendStep: 'Gia hạn bước',
     nudgeStep: 'Đôn đốc bước',
+    reviewAssignment: 'Thẩm định, duyệt và trả về hồ sơ phân công',
+    matchSubjects: 'Xem đối tượng trùng ở đơn vị khác',
   } as Record<string, string>,
   reaches: {
     OWN: 'Chỉ của mình',

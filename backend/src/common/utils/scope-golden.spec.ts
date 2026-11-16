@@ -70,7 +70,7 @@ const SCOPES: Record<string, DataScope | null> = {
   wardOfficer: { teamIds: ['W'], userIds: [ME, 'wardy'], writableTeamIds: ['W'], writableUserIds: [ME, 'wardy'], isWardOfficer: true, wardTeamId: 'W' },
   dispatcher: { teamIds: ['A'], userIds: [ME], writableTeamIds: ['A'], writableUserIds: [ME], canDispatch: true },
   nobody: { teamIds: [], userIds: [], writableTeamIds: [], writableUserIds: [] },
-  missingWriteLists: { teamIds: ['A'], userIds: [ME] },
+  missingWriteLists: { teamIds: ['A'], userIds: [ME] } as unknown as DataScope,
   preciseNothing: precise({}),
   preciseOwn: precise(everyOld(OWN)),
   preciseTeam: precise(everyOld(TEAM_A)),

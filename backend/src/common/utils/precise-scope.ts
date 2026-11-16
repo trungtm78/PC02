@@ -18,14 +18,49 @@ export interface PreciseScope {
   tree: { teamIds: string[]; userIds: string[]; includeUnassigned: boolean } | null;
 }
 
-export const RECORD_SUBJECTS = ['Case', 'Incident', 'Petition'] as const;
+/**
+ * The kinds of record that carry a team and an owner of their own. `WardAssignment` is a ward or commune police unit's
+ * request for an investigator to be assigned, decided by PC02: its team is the ward unit's, its owner the person who
+ * entered it. Each subject is one resource of the permission catalogue (gate: `permission-resources.gate.spec.ts`).
+ */
+export const RECORD_SUBJECTS = ['Case', 'Incident', 'Petition', 'WardAssignment'] as const;
 export type RecordSubject = (typeof RECORD_SUBJECTS)[number];
+
+/**
+ * Operations of a subject that reach records as far as THEIR OWN permission does (`review:WardAssignment`), not as
+ * far as editing does. Reviewing a ward unit's request is a decision of PC02 over records it does not edit: a reviewer
+ * holds `review` over every ward unit and no `edit` at all, and a ward officer holds `edit` over its own unit's
+ * requests and no `review`. Deriving the reach of a review from `edit` would give the first nothing and the second the
+ * power to decide on their own request.
+ */
+export const SCOPED_ACTIONS = { WardAssignment: ['review', 'matchSubjects'] } as const satisfies Partial<Record<RecordSubject, readonly string[]>>;
+export type ScopedAction = (typeof SCOPED_ACTIONS)[keyof typeof SCOPED_ACTIONS][number];
+
+/**
+ * Subjects whose records are reached by their TEAM, never by who entered them: being a member of a team does not
+ * carry into it the records that member entered for another unit. A ward unit's request belongs to the ward unit;
+ * somebody who sits in wards W and V and enters a request for V must not hand it to everybody of W ("as today" of the
+ * other subjects reaches the records of the team's people). "Own records only" (OWN) remains a grant of its own.
+ */
+export const TEAM_BOUND_SUBJECTS: ReadonlySet<RecordSubject> = new Set<RecordSubject>(['WardAssignment']);
+
+/** A precise scope with its reach through people removed: what a team-bound subject is reached by. */
+export function teamBound(scope: PreciseScope): PreciseScope {
+  return scope.tree ? { ...scope, tree: { ...scope.tree, userIds: [] } } : scope;
+}
+
+/** The reach of one subject: for seeing, for changing, and for each scoped action it has (absent = nothing). */
+export interface SubjectScopes {
+  read: PreciseScope;
+  write: PreciseScope;
+  actions?: Partial<Record<ScopedAction, PreciseScope>>;
+}
 
 /** Present on a `DataScope` only when permissions by team are enforced. */
 export interface PreciseScopes {
   /** The person the scopes were computed for: "own records" are theirs. */
   userId: string;
-  subjects: Record<RecordSubject, { read: PreciseScope; write: PreciseScope }>;
+  subjects: Record<RecordSubject, SubjectScopes>;
 }
 
 export const NOTHING: PreciseScope = { all: false, own: false, exactTeamIds: [], tree: null };
