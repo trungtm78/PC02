@@ -1,3 +1,45 @@
+# UAT coverage — ward assignment requests ("Hồ sơ phân công Công an cấp phường/xã")
+
+Oracle: the owner's decisions of 16/11/2026 (statuses Trình duyệt → Đã duyệt / Trả về, resubmission counted, PC02 enters block 3 with
+defaults: due = received + 2 months, the real completion day, a slip printed on return and on approval, structured subjects,
+approval = investigator + PC02 follower and unit) and the plan's decisions (A2, A3, A5, A8, A11, A14, A15, R1, R3–R6, C2, C4, C7).
+The calendar arithmetic is the script's own; nothing expected is read back from the product.
+
+Evidence: `tools/uat-phan-cong/workflow.cjs`, run 17/11/2026 00:12 over HTTP against a local stack built from
+`feat/ward-assignments-integration` (`df13bb2d` + the two checks added after it), on a fresh database `pc02_uat_phan_cong`
+(`prisma db push` + `tools/uat-quy-trinh/install-triggers.cjs` + the deploy seeds + the data parts of the ward migrations), in
+**ENFORCE** mode switched on by two administrators, with the starter templates "Phường/xã: trình phân công" on two ward units and
+"PC02: thẩm định phân công" on a PC02 unit (as the owner would apply them). Checks: **103 PASS, 0 FAIL, 0 NOT RUN**.
+
+| Requirement | What it says | Checks | Layer | Status | Note |
+|---|---|---|---|---|---|
+| FLAG | switch OFF: the routes do not answer; ON: they do | PC-002..003 | HTTP | PASS | — |
+| AUTHZ | the two starter templates hold what the plan says; applied with a reason (sensitive); ENFORCE on and back OFF | PC-004..008, last | HTTP | PASS | — |
+| INV | ward directory of investigators: add, another ward cannot add; stop ⇄ use again | PC-010..011, last block | HTTP | PASS | — |
+| DRAFT / CRUD | a draft saves incomplete; submitting names the missing fields; a never-submitted draft is deleted; a submitted one is not | PC-013..016, C7 block | HTTP | PASS | — |
+| A5 | another ward unit sees nothing: request (404), list, directory, slip, files, matches, statistics | 8 checks | HTTP | PASS | — |
+| SUBMIT / A15 | code `năm-số`; withdrawal does not count; resubmission after withdrawal keeps the count and the code | PC-019..024 | HTTP | PASS | — |
+| A14 | a stale form: 409 on submit and on approve | 2 checks | HTTP | PASS | two people at the same instant: covered by the PostgreSQL specs, not here |
+| A2 / A3 | a ward officer neither reviews nor writes block 3 nor extends (403); a person in both the ward and PC02 cannot decide, and the screen offers no button | 6 checks | HTTP | PASS | — |
+| RETURN / COUNT | three returns with catalogue reason and 3 numbered requirements; the ward sees them in order, corrects, resubmits: count 2, 3, 4 | 17 checks | HTTP | PASS | — |
+| Q1 | every round keeps a snapshot of what was submitted | PC-044..045 | HTTP | PASS | the "what changed" view is a web feature: vitest only |
+| APPROVE / A11 | approval with another investigator; follower = reviewer, unit = their PC02 unit; received today, due + 2 months; a new received day moves the due | 5 checks | HTTP | PASS | month-end clamp (31/12 → 28/02) in the rules spec, not here |
+| SLIP / A8 | slips of a return and of an approval; issued once (same number twice); a number by hand `nnnnA/PYC-PC02-Đ1`; reuse refused; the download is the Word file, the same bytes for the ward | 6 checks | HTTP | PASS | the content of the slip field by field: PostgreSQL spec `ward-docs.database.spec.ts` (PizZip), not here |
+| FILES / C2 | PC02 uploads two result files (Vietnamese names kept), the ward lists and downloads them, cannot upload; PC02 removes one | 4 checks | HTTP | PASS | — |
+| R6 | extension needs a reason and a later day; history kept; an extended deadline is not pulled back by a new received day | 4 checks | HTTP | PASS | — |
+| C7 / R3 | completion needs a result, not in the future; on time; a completed request is frozen until reopened with a reason; cancel approval refused with a result or a file, allowed without; take a return back while the ward has not touched it, refused after | 12 checks | HTTP | PASS | — |
+| ARCHIVE | PC02 archives (out of the list, in the archive list, not editable) ⇄ restores | 3 checks | HTTP | PASS | — |
+| R5 | a re-assignment needs the previous approved request of the unit and a reason | 3 checks | HTTP | PASS | — |
+| R4 | same ID number in two requests of the unit: "certain"; PC02 sees it; "not the same person" hides it | 3 checks | HTTP | PASS | petitions and cases as sources: PostgreSQL spec only |
+| NOTIFY / A12 | the ward unit is told of each return and the approval; PC02 of the submission and the resubmission; another ward of nothing | 3 checks | HTTP | PASS | the 07:00 deadline reminders: PostgreSQL spec with a fake clock, not here |
+| DELETE | delete with data: administrators only, impact counts, the code typed again | 5 checks | HTTP | PASS | — |
+| STATS | the statistics total of a unit = the rows its link opens | 1 check | HTTP | PASS | per-month and per-crime tables: PostgreSQL spec only |
+
+**Not covered by this UAT (stated, not counted):** a browser click-through of the screens; the monkey run; the 07:00 reminder run on the
+real scheduler; incidents as a matching source (not built: free-text suspects).
+
+---
+
 # UAT coverage — processing flow and deadlines per information type ("Quy trình & hạn xử lý")
 
 Oracle: the top part of the plan `t-i-m-n-h-nh-danh-twinkling-acorn.md` (the owner's rules, sections 1–4, decisions C1–C16, R3–R11) and the engine rules listed in `PROGRESS.md`. Expected values are computed by the script, never read back from the product.

@@ -367,6 +367,26 @@ async function journeys(tk) {
   const m2 = await call(tk.a2, 'POST', '/ward-assignments', content({ summary: `UAT ${RUN} hồ sơ thứ hai`, caseType: 'INCIDENT' }));
   const s2 = await call(tk.a2, 'POST', `/ward-assignments/${m2.body?.id}/submit`, { expectedUpdatedAt: m2.body?.updatedAt });
   const id2 = s2.body?.id;
+
+  // Subject matching (owner's Sheet1 "dò trùng đối tượng"; plan A5, C4, R4): both requests name the same ID number
+  const mA = await call(tk.a1, 'GET', `/ward-assignments/${id}/subject-matches`);
+  check('R4', 'cùng CCCD trong hai hồ sơ của phường A: phường A thấy "Trùng chắc chắn" với hồ sơ thứ hai', mA.status === 200 && rowsOf(mA.body).some((m) => m.recordId === id2 && m.level === 'CERTAIN'), [mA.status, mA.body]);
+  const mR = await call(tk.rev, 'GET', `/ward-assignments/${id}/subject-matches`);
+  check('R4', 'PC02 thẩm định cũng thấy cặp trùng đó', mR.status === 200 && rowsOf(mR.body).some((m) => m.recordId === id2), [mR.status, mR.body]);
+  const mB = await call(tk.b1, 'GET', `/ward-assignments/${id}/subject-matches`);
+  check('A5', 'phường B hỏi trùng đối tượng của hồ sơ phường A: 404, không lộ con số nào', mB.status === 404, [mB.status, mB.body]);
+  const concl = await call(tk.rev, 'POST', `/ward-assignments/${id}/subject-matches/conclusions`, { subjectPosition: rowsOf(mR.body).find((m) => m.recordId === id2)?.subjectPosition ?? 1, otherSource: 'WARD_ASSIGNMENT', otherRecordId: id2, samePerson: false });
+  const mAfter = await call(tk.rev, 'GET', `/ward-assignments/${id}/subject-matches`);
+  check('R4', 'PC02 kết luận "khác người": cặp đó không báo lại', [200, 201].includes(concl.status) && !rowsOf(mAfter.body).some((m) => m.recordId === id2), [concl.status, concl.body, mAfter.body]);
+
+  // Bell notices (plan §6): the ward unit was told of the returns and of the approval of the first request
+  const bell = await call(tk.a2, 'GET', '/notifications?limit=100');
+  const kinds = rowsOf(bell.body).filter((n) => JSON.stringify(n).includes(id)).map((n) => n.type);
+  check('NOTIFY', 'cán bộ khác của phường A nhận thông báo "bị trả về" (3 lượt) và "đã được duyệt" của hồ sơ', bell.status === 200 && kinds.filter((k) => k === 'WARD_ASSIGNMENT_RETURNED').length === 3 && kinds.includes('WARD_ASSIGNMENT_APPROVED'), [bell.status, kinds]);
+  const bellB = await call(tk.b1, 'GET', '/notifications?limit=100');
+  check('A12', 'phường B không nhận thông báo nào về hồ sơ phường A', bellB.status === 200 && !JSON.stringify(bellB.body).includes(id), bellB.status);
+  const bellRev = await call(tk.rev, 'GET', '/notifications?limit=100');
+  check('NOTIFY', 'PC02 thẩm định nhận thông báo hồ sơ mới trình và hồ sơ trình lại', rowsOf(bellRev.body).some((n) => n.type === 'WARD_ASSIGNMENT_SUBMITTED' && JSON.stringify(n).includes(id)) && rowsOf(bellRev.body).some((n) => n.type === 'WARD_ASSIGNMENT_RESUBMITTED' && JSON.stringify(n).includes(id)), rowsOf(bellRev.body).map((n) => n.type));
   const a2ok = await call(tk.rev, 'POST', `/ward-assignments/${id2}/approve`, { expectedUpdatedAt: s2.body?.updatedAt, assignedInvestigatorId: I1 });
   const cancelNo = await call(tk.rev, 'POST', `/ward-assignments/${id2}/approval/cancel`, { expectedUpdatedAt: a2ok.body?.updatedAt, reason: ' ' });
   check('R3', 'huỷ duyệt không lý do bị từ chối', refused(cancelNo, 400, 'WARD_REASON_REQUIRED'), [cancelNo.status, cancelNo.body]);
