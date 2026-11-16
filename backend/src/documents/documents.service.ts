@@ -1106,11 +1106,15 @@ export class DocumentsService {
   ) {
     const { file } = input;
     this.assertServerFileName(file.filename);
+    // The count and the insert of one request's files, one transaction at a time: two uploads at once never both
+    // pass a quota that has room for one (the request row itself is only share-locked by the caller).
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`ward-files:${input.wardAssignmentId}`}))) AS l`;
     const maxPerEntity = this.maxDocumentsPerEntity();
     if (
       maxPerEntity > 0 &&
       (await tx.document.count({
-        where: { deletedAt: null, wardAssignmentId: input.wardAssignmentId },
+        // The issued slips are not result files: they never take a result file's place.
+        where: { deletedAt: null, wardAssignmentId: input.wardAssignmentId, wardSlipOf: null },
       })) >= maxPerEntity
     )
       throw new BadRequestException({
@@ -1170,23 +1174,37 @@ export class DocumentsService {
     this.assertServerFileName(fileName);
     fs.mkdirSync(this.uploadDir, { recursive: true });
     // `wx`: fails rather than overwrite (the store never replaces the bytes of a file on record).
-    fs.writeFileSync(path.join(this.uploadDir, fileName), input.buffer, {
-      flag: 'wx',
-    });
-    const document = await tx.document.create({
-      data: {
-        title: input.title.slice(0, 255),
-        fileName,
-        originalName: input.originalName,
-        mimeType: input.mimeType,
-        size: input.buffer.length,
-        filePath: path.join(this.uploadDir, fileName),
-        documentType: 'VAN_BAN',
-        wardAssignmentId: input.wardAssignmentId,
-        uploadedById: input.actorId,
-      },
-      select: { id: true, fileName: true },
-    });
+    const fullPath = path.join(this.uploadDir, fileName);
+    let document: { id: string; fileName: string };
+    let created = false;
+    try {
+      // The descriptor is opened exclusively: a name that exists already is never touched (not even on cleanup).
+      const fd = fs.openSync(fullPath, 'wx');
+      created = true;
+      try {
+        fs.writeFileSync(fd, input.buffer);
+      } finally {
+        fs.closeSync(fd);
+      }
+      document = await tx.document.create({
+        data: {
+          title: input.title.slice(0, 255),
+          fileName,
+          originalName: input.originalName,
+          mimeType: input.mimeType,
+          size: input.buffer.length,
+          filePath: fullPath,
+          documentType: 'VAN_BAN',
+          wardAssignmentId: input.wardAssignmentId,
+          uploadedById: input.actorId,
+        },
+        select: { id: true, fileName: true },
+      });
+    } catch (error) {
+      // Written here and not on record: the bytes go (the caller only cleans up what this method returned).
+      if (created) fs.rmSync(fullPath, { force: true });
+      throw error;
+    }
     return { document, fileName };
   }
 
@@ -1237,6 +1255,8 @@ export class DocumentsService {
     wardAssignmentId: string,
     actor: { userId: string; ipAddress?: string; userAgent?: string },
     authorize: () => Promise<void>,
+    /** The SHA-256 the bytes had when they were stored (an issued slip's render), when it is on record. */
+    expectedSha256?: string,
   ): Promise<{ stream: Readable; originalName: string; mimeType: string }> {
     const find = () =>
       this.prisma.document.findFirst({
@@ -1256,7 +1276,7 @@ export class DocumentsService {
       throw new NotFoundException({ code: WARD_DOCS_ERROR.FILE_NOT_FOUND, details: [] });
     let file: Awaited<ReturnType<typeof openEvidenceFile>>;
     try {
-      file = await openEvidenceFile(this.uploadDir, before.fileName);
+      file = await openEvidenceFile(this.uploadDir, before.fileName, expectedSha256);
     } catch {
       throw new ConflictException({ code: WARD_DOCS_ERROR.FILE_UNAVAILABLE, details: [] });
     }

@@ -53,6 +53,29 @@ export function writesIn(text: string): string[] {
   return [...[...text.matchAll(WRITE)].map((m) => `${m[1]}.${m[2]}`), ...[...text.matchAll(RAW)].map((m) => `${m[1].toUpperCase()} ${m[2]}`)];
 }
 
+/**
+ * The columns an object literal (its inside) writes: each top-level entry must be `column: value`. Anything else (a
+ * spread, a shorthand, a computed key) comes back marked `?…`, which no allow-list contains.
+ */
+export function columnsOf(inside: string): string[] {
+  const entries: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of inside) {
+    if ('([{'.includes(ch)) depth++;
+    if (')]}'.includes(ch)) depth--;
+    if (ch === ',' && depth === 0) {
+      entries.push(current);
+      current = '';
+    } else current += ch;
+  }
+  entries.push(current);
+  return entries
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .map((e) => /^([A-Za-z_]\w*)\s*:/.exec(e)?.[1] ?? `?${e}`);
+}
+
 const relative = (file: string) => path.relative(SRC, file).split(path.sep).join('/');
 
 describe('GATE: the ward assignment tables have known writers only', () => {
@@ -85,7 +108,7 @@ describe('GATE: the ward assignment tables have known writers only', () => {
     // Every write is one of the blocks read here (a write the pattern could not read is not a write it approved).
     expect(blocks.length).toBe(writers.get(file)!.length);
     for (const data of blocks) {
-      const columns = [...data.matchAll(/(?:^|[,{\s])([A-Za-z]+)\s*:/g)].map((m) => m[1]);
+      const columns = columnsOf(data);
       expect(columns.length).toBeGreaterThan(0);
       for (const column of columns) expect(SLIP_COLUMNS).toContain(column);
     }
@@ -105,6 +128,13 @@ describe('GATE: the ward assignment tables have known writers only', () => {
     );
     // Negative control: the pattern sees a write of these tables.
     expect([...'tx.wardAssignmentReminder.create({'.matchAll(ALERT_WRITE)]).toHaveLength(1);
+  });
+
+  it('negative control: a spread, a shorthand or a computed key in the data of a write is never read as allowed', () => {
+    expect(columnsOf(' slipYear: year, slipNumber ')).toEqual(['slipYear', '?slipNumber']);
+    expect(columnsOf('slipYear: year, ...extra')).toEqual(['slipYear', '?...extra']);
+    expect(columnsOf('[key]: 1')).toEqual(['?[key]: 1']);
+    expect(columnsOf('signers: stateJson(a, b, c), slipDocumentId: x.id')).toEqual(['signers', 'slipDocumentId']);
   });
 
   it('the team merge is the one writer outside: by its strategy table, for the team columns only', () => {

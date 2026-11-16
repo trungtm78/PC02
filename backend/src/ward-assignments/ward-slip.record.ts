@@ -73,6 +73,25 @@ export function signersOf(value: Prisma.JsonValue | null | undefined): Partial<W
   return out;
 }
 
+/**
+ * What a slip printed of the records it names (the unit, the crime, the investigator), kept on the decision when the
+ * slip is issued: a reissue prints the same names even if a record was renamed since (C6), and the hash of the file
+ * stored lets a download refuse bytes that changed on the disk.
+ */
+export interface WardSlipUsed {
+  unitName: string;
+  crimeName: string | null;
+  investigator: WardSlipRecord['investigator'];
+}
+
+/** The JSON stored in `WardAssignmentDecision.signers`: the three names, what the slip printed, the file's hash. */
+export function slipStateOf(value: Prisma.JsonValue | null | undefined): { used: WardSlipUsed | null; fileSha: string | null } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { used: null, fileSha: null };
+  const v = value as Record<string, unknown>;
+  const used = v.used && typeof v.used === 'object' && !Array.isArray(v.used) ? (v.used as unknown as WardSlipUsed) : null;
+  return { used, fileSha: typeof v.fileSha === 'string' ? v.fileSha : null };
+}
+
 /** What a round's snapshot holds of block 1 (see `snapshotOf` in the command service). */
 interface Snapshot {
   caseType?: string;
@@ -89,44 +108,54 @@ interface Snapshot {
 
 type Tx = Prisma.TransactionClient;
 
-/** The slip record of a decision, read in the caller's transaction. */
-export async function buildSlipRecord(
-  tx: Tx,
-  input: {
-    assignment: { id: string; code: string | null; assignedTeamId: string };
-    round: { submittedAt: Date; submissionNo: number; snapshot: Prisma.JsonValue };
-    decision: {
-      kind: string;
-      decidedAt: Date;
-      reasonCode: string | null;
-      reasonText: string | null;
-      requirements: Prisma.JsonValue;
-      assignedInvestigatorId: string | null;
-    };
-    slipNumber: string;
-    slipIssuedAt: Date;
-    signers: WardSlipSigners;
-  },
-): Promise<WardSlipRecord> {
-  const snap = (input.round.snapshot && typeof input.round.snapshot === 'object' && !Array.isArray(input.round.snapshot)
-    ? input.round.snapshot
-    : {}) as Snapshot;
+interface SlipInput {
+  assignment: { id: string; code: string | null; assignedTeamId: string };
+  round: { submittedAt: Date; submissionNo: number; snapshot: Prisma.JsonValue };
+  decision: {
+    kind: string;
+    decidedAt: Date;
+    reasonCode: string | null;
+    reasonText: string | null;
+    requirements: Prisma.JsonValue;
+    assignedInvestigatorId: string | null;
+  };
+  slipNumber: string;
+  slipIssuedAt: Date;
+  signers: WardSlipSigners;
+  /** What the first issue printed: a reissue prints the same, whatever the records say now. */
+  used?: WardSlipUsed | null;
+}
+
+const snapshotOf = (value: Prisma.JsonValue): Snapshot =>
+  (value && typeof value === 'object' && !Array.isArray(value) ? value : {}) as Snapshot;
+
+async function reasonName(tx: Tx, code: string | null): Promise<string | null> {
+  if (!code) return null;
+  const row = await tx.directory.findFirst({ where: { type: 'LY_DO_TRA_VE', code }, select: { name: true } });
+  return row?.name ?? null;
+}
+
+/** What the slip prints of the records it names, read now (the first issue of a decision). */
+export async function usedNow(tx: Tx, input: Pick<SlipInput, 'assignment' | 'round' | 'decision'>): Promise<WardSlipUsed> {
+  const snap = snapshotOf(input.round.snapshot);
   const team = await tx.team.findUnique({ where: { id: input.assignment.assignedTeamId }, select: { name: true } });
   const crime = snap.crimeId ? await tx.crime.findUnique({ where: { id: snap.crimeId }, select: { name: true } }) : null;
   // An approval names the investigator PC02 assigned; a return, the one the ward unit proposed.
-  const investigatorId = input.decision.kind === 'APPROVE' ? input.decision.assignedInvestigatorId ?? snap.proposedInvestigatorId : snap.proposedInvestigatorId;
+  const investigatorId = input.decision.kind === 'APPROVE' ? (input.decision.assignedInvestigatorId ?? snap.proposedInvestigatorId) : snap.proposedInvestigatorId;
   const investigator = investigatorId
     ? await tx.wardInvestigator.findUnique({ where: { id: investigatorId }, select: { fullName: true, rank: true, position: true, grade: true } })
     : null;
-  const reason = input.decision.reasonCode
-    ? await tx.directory.findFirst({ where: { type: 'LY_DO_TRA_VE', code: input.decision.reasonCode }, select: { name: true } })
-    : null;
+  return { unitName: team?.name ?? '', crimeName: crimeAsQuoted(crime?.name), investigator };
+}
+
+function recordOf(input: SlipInput, used: WardSlipUsed, reason: string | null): WardSlipRecord {
+  const snap = snapshotOf(input.round.snapshot);
   return {
     id: input.assignment.id,
     code: input.assignment.code,
     caseType: snap.caseType ?? null,
-    unitName: team?.name ?? '',
-    crimeName: crimeAsQuoted(crime?.name),
+    unitName: used.unitName,
+    crimeName: used.crimeName,
     crimeOther: snap.crimeOther ?? null,
     summary: snap.summary ?? '',
     content: snap.content ?? '',
@@ -136,11 +165,11 @@ export async function buildSlipRecord(
     subjects: (snap.subjects ?? []).map((s) => ({ fullName: (s.fullName ?? '').trim() })).filter((s) => s.fullName),
     submittedAt: input.round.submittedAt,
     submissionNo: input.round.submissionNo,
-    investigator,
+    investigator: used.investigator,
     decision: {
       kind: input.decision.kind,
       decidedAt: input.decision.decidedAt,
-      reasonName: reason?.name ?? null,
+      reasonName: reason,
       reasonText: input.decision.reasonText,
       requirements: requirementTexts(input.decision.requirements),
       slipNumber: input.slipNumber,
@@ -148,4 +177,13 @@ export async function buildSlipRecord(
     },
     signers: input.signers,
   };
+}
+
+/**
+ * The slip record of a decision, read in the caller's transaction, and what it printed of the records it names
+ * (`used`: kept on the decision by the caller). Given `input.used`, those names are printed again as they were.
+ */
+export async function buildSlipRecord(tx: Tx, input: SlipInput): Promise<{ record: WardSlipRecord; used: WardSlipUsed }> {
+  const used = input.used ?? (await usedNow(tx, input));
+  return { record: recordOf(input, used, await reasonName(tx, input.decision.reasonCode)), used };
 }

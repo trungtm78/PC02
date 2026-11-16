@@ -19,7 +19,7 @@ import {
 } from './ward-docs.codes';
 import { readableRequest, requestForDocsWrite, requestForRead } from './ward-docs.locks';
 import { wardBody } from './ward-errors';
-import { buildSlipRecord, SIGNER_KEYS, signersOf, type WardSlipSigners } from './ward-slip.record';
+import { buildSlipRecord, SIGNER_KEYS, signersOf, slipStateOf, type WardSlipSigners, type WardSlipUsed } from './ward-slip.record';
 
 type Tx = Prisma.TransactionClient;
 type Scope = DataScope | null | undefined;
@@ -28,7 +28,7 @@ const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 const SIGNER_MAX = 120;
 const REASON_MAX = 500;
 /** How many numbers of the series are tried when the next ones were already written by hand. */
-const AUTO_NUMBER_TRIES = 20;
+const AUTO_NUMBER_TRIES = 500;
 
 export interface SlipSignersInput {
   canBoThamDinh?: string | null;
@@ -65,6 +65,10 @@ function checkedSigners(input: SlipSignersInput | undefined): Partial<WardSlipSi
   }
   return out;
 }
+
+/** The JSON kept in `signers`: the three names, what the slip printed of the records it names, the stored file's hash. */
+const stateJson = (signers: WardSlipSigners, used: WardSlipUsed, fileSha: string): Prisma.InputJsonValue =>
+  ({ ...signers, used, fileSha }) as unknown as Prisma.InputJsonValue;
 
 const isUniqueViolation = (e: unknown): boolean => (e as { code?: string })?.code === 'P2002';
 
@@ -120,7 +124,7 @@ export class WardSlipService {
           throw new ConflictException(wardBody(WARD_DOCS_ERROR.SLIP_NUMBER_TAKEN, { slipNumber: manual }));
         }
         const signers = { ...(await this.defaultSigners(tx, actor.id)), ...signersAsked };
-        const rendered = await this.render(tx, actor.id, assignment, decision, template, slipNumber, issuedAt, signers);
+        const rendered = await this.render(tx, actor.id, assignment, decision, template, slipNumber, issuedAt, signers, null);
         const stored = await this.documents.storeWardGeneratedFile(tx, {
           wardAssignmentId: assignment.id,
           buffer: rendered.buffer,
@@ -134,11 +138,11 @@ export class WardSlipService {
           where: { id: decision.id },
           data: {
             slipYear: year,
-            slipNumber,
+            slipNumber: slipNumber,
             slipIssuedAt: issuedAt,
             slipIssuedById: actor.id,
             slipDocumentId: stored.document.id,
-            signers: signers as unknown as Prisma.InputJsonValue,
+            signers: stateJson(signers, rendered.used, rendered.fileSha),
           },
         });
         await this.audit.log(
@@ -191,7 +195,17 @@ export class WardSlipService {
         const template = await this.activeTemplate(tx);
         const signers = { ...(await this.defaultSigners(tx, actor.id)), ...signersOf(decision.signers), ...signersAsked };
         // Same number, same date of issue: the slip is the same slip, corrected.
-        const rendered = await this.render(tx, actor.id, assignment, decision, template, decision.slipNumber, decision.slipIssuedAt, signers);
+        const rendered = await this.render(
+          tx,
+          actor.id,
+          assignment,
+          decision,
+          template,
+          decision.slipNumber,
+          decision.slipIssuedAt,
+          signers,
+          slipStateOf(decision.signers).used,
+        );
         const previous = await tx.document.findUnique({
           where: { id: decision.slipDocumentId },
           select: { id: true, originalName: true },
@@ -207,7 +221,7 @@ export class WardSlipService {
         written.push(stored.fileName);
         const updated = await tx.wardAssignmentDecision.update({
           where: { id: decision.id },
-          data: { slipDocumentId: stored.document.id, signers: signers as unknown as Prisma.InputJsonValue },
+          data: { slipDocumentId: stored.document.id, signers: stateJson(signers, rendered.used, rendered.fileSha) },
         });
         // The file it replaces stays on record (row and bytes), out of the lists.
         if (previous) {
@@ -257,7 +271,7 @@ export class WardSlipService {
       const current = await this.prisma.wardAssignmentDecision.findUnique({ where: { id: decisionId }, select: { slipDocumentId: true } });
       // Reissued meanwhile: the file asked for is not the slip any more.
       if (current?.slipDocumentId !== documentId) throw new ConflictException(wardBody(WARD_DOCS_ERROR.SLIP_NOT_ISSUED));
-    });
+    }, slipStateOf(decision.signers).fileSha ?? undefined);
   }
 
   // ── inside ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -334,16 +348,18 @@ export class WardSlipService {
     slipNumber: string,
     issuedAt: Date,
     signers: WardSlipSigners,
+    used: WardSlipUsed | null,
   ) {
-    const record = await buildSlipRecord(tx, {
+    const { record, used: printed } = await buildSlipRecord(tx, {
       assignment,
       round: decision.round,
       decision,
       slipNumber,
       slipIssuedAt: issuedAt,
       signers,
+      used,
     });
-    return this.renderer.renderIssuedInTx(tx, {
+    const rendered = await this.renderer.renderIssuedInTx(tx, {
       entityType: 'HO_SO_PHAN_CONG',
       entityId: assignment.id,
       record: record as unknown as Record<string, unknown>,
@@ -351,5 +367,6 @@ export class WardSlipService {
       actorId,
       issued: { documentNumber: slipNumber },
     });
+    return { ...rendered, used: printed };
   }
 }

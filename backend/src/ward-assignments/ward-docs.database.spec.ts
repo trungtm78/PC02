@@ -342,6 +342,25 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       expect(await fails(documents.update(id.file, { title: 'đổi' }, id.reviewer, {}, scope.reviewer))).toMatchObject({ status: 409 });
     });
 
+    it('two uploads at once never both pass a quota that has room for one', async () => {
+      const before = process.env.MAX_DOCUMENTS_PER_ENTITY;
+      process.env.MAX_DOCUMENTS_PER_ENTITY = '2'; // one file on record: room for one more
+      try {
+        const results = await Promise.allSettled([
+          files.add({ id: id.reviewer }, scope.reviewer, id.A, multerFile('q1.txt', 'a')),
+          files.add({ id: id.reviewer }, scope.reviewer, id.A, multerFile('q2.txt', 'b')),
+        ]);
+        expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+        const refused = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+        expect((refused.reason as { getResponse: () => unknown }).getResponse()).toMatchObject({ code: WARD_DOCS_ERROR.FILES_TOO_MANY });
+        const extra = (results.find((r) => r.status === 'fulfilled') as PromiseFulfilledResult<{ id: string }>).value.id;
+        await files.remove({ id: id.reviewer }, scope.reviewer, id.A, extra);
+      } finally {
+        if (before === undefined) delete process.env.MAX_DOCUMENTS_PER_ENTITY;
+        else process.env.MAX_DOCUMENTS_PER_ENTITY = before;
+      }
+    });
+
     it('PC02 removes a file: soft deleted (row and bytes kept), gone from the list', async () => {
       await expect(files.remove({ id: id.reviewer }, scope.reviewer, id.A, id.file)).resolves.toEqual({ id: id.file });
       expect(await files.list(scope.wardy, id.A)).toEqual([]);
@@ -444,6 +463,8 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
         body: { code: WARD_DOCS_ERROR.SLIP_REASON_REQUIRED },
       });
       expect(await fails(slips.reissue({ id: id.reviewer }, scope.reviewer, id.B, id.dB, { reason: 'x' }))).toMatchObject({ status: 409, body: { code: WARD_DOCS_ERROR.SLIP_NOT_ISSUED } });
+      // The investigator is renamed after the slip was issued: the reissue still prints the name the slip printed.
+      await scratch.db.wardInvestigator.update({ where: { id: id.investigator }, data: { fullName: 'Tên Đã Đổi' } });
       const re = await slips.reissue({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn, { reason: 'Sửa tên chỉ huy', signers: { chiHuyDoi: 'Thiếu tá Lê Văn Mới' } });
       expect(re.slipNumber).toBe(returnSlip.number);
       expect(re.slipDocumentId).not.toBe(returnSlip.documentId);
@@ -452,7 +473,10 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       const text = docxText(await bytesOf((await slips.download({ id: id.wardy }, scope.wardy, id.A, id.dReturn)).stream));
       expect(text).toContain(`Số: ${returnSlip.number}`);
       expect(text).toContain('Thiếu tá Lê Văn Mới');
-      const audit = await scratch.db.auditLog.findMany({ where: { subjectId: id.A, action: WARD_DOCS_AUDIT.SLIP_REISSUED } });
+      expect(text).toContain('Thượng tá Mai Trọng Hạnh');
+      expect(text).not.toContain('Tên Đã Đổi');
+      await scratch.db.wardInvestigator.update({ where: { id: id.investigator }, data: { fullName: 'Mai Trọng Hạnh' } });
+      const audit =await scratch.db.auditLog.findMany({ where: { subjectId: id.A, action: WARD_DOCS_AUDIT.SLIP_REISSUED } });
       expect(audit).toHaveLength(1);
       expect(audit[0].metadata).toMatchObject({ decisionId: id.dReturn, slipNumber: returnSlip.number, replacedDocumentId: returnSlip.documentId });
       // Metadata only: never the requirements nor the subjects of the request.
@@ -461,6 +485,22 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
         expect(JSON.stringify(a.metadata)).not.toContain('Nguyễn Chí Kiệt');
         expect(JSON.stringify(a.metadata)).not.toContain('Bổ sung lời khai');
       }
+    });
+
+    it('a slip whose bytes changed on the disk (same length) is refused, never served', async () => {
+      const decision = await scratch.db.wardAssignmentDecision.findUniqueOrThrow({ where: { id: id.dApprove } });
+      const doc = await scratch.db.document.findUniqueOrThrow({ where: { id: decision.slipDocumentId! } });
+      const full = path.join(uploadRoot, 'uploads', 'documents', doc.fileName);
+      const original = fs.readFileSync(full);
+      const tampered = Buffer.from(original);
+      tampered[tampered.length - 10] ^= 0xff;
+      fs.writeFileSync(full, tampered);
+      try {
+        expect(await fails(slips.download({ id: id.wardy }, scope.wardy, id.A, id.dApprove))).toMatchObject({ status: 409, body: { code: WARD_DOCS_ERROR.FILE_UNAVAILABLE } });
+      } finally {
+        fs.writeFileSync(full, original);
+      }
+      await expect(slips.download({ id: id.wardy }, scope.wardy, id.A, id.dApprove)).resolves.toBeTruthy();
     });
 
     it('a revoked decision gets no slip', async () => {
