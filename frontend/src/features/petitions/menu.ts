@@ -6,6 +6,8 @@ export const petitionsMenu: FeatureMenuEntry[] = [
     id: 'petitions',
     label: 'Đơn thư',
     icon: 'FileText',
+    // Explicit: "Hồ sơ phân công phường/xã" (101) goes right after it, "Ủy thác điều tra" (102) after that.
+    order: 100,
     children: [
       { section: 'business', id: 'petitions-list', label: 'Danh sách đơn thư', path: '/petitions', quyen: ['read:Petition'] },
       { section: 'business', id: 'petitions-new', label: 'Tiếp nhận đơn mới', path: '/petitions/new', quyen: ['write:Petition'] },
