@@ -25,6 +25,7 @@ export const MAN_BAM_DONG = {
   VU_AN: 'BAM_DONG_VU_AN',
   TONG_HOP: 'BAM_DONG_TONG_HOP',
   UY_THAC: 'BAM_DONG_UY_THAC',
+  HO_SO_PHAN_CONG: 'BAM_DONG_HO_SO_PHAN_CONG',
 } as const;
 
 export type ManBamDong = keyof typeof MAN_BAM_DONG;
@@ -41,6 +42,7 @@ export const BAM_DONG_MAC_DINH: Record<KhoaBamDong, BamDongGiaTri> = {
   BAM_DONG_VU_AN: 'XEM',
   BAM_DONG_TONG_HOP: 'XEM',
   BAM_DONG_UY_THAC: 'XEM',
+  BAM_DONG_HO_SO_PHAN_CONG: 'KHONG',
 };
 
 export function laGiaTriBamDong(v: unknown): v is BamDongGiaTri {

@@ -83,6 +83,13 @@ export class WardAssignmentsController {
     return this.queries.unitChoices(scopeOf(req));
   }
 
+  /** The ward units the list's filter offers (those with a request the person may read). Before `:id`. */
+  @Get('filter-units')
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  filterUnits(@Req() req: ScopedRequest) {
+    return this.queries.filterUnits(scopeOf(req));
+  }
+
   /** The numbers of the list's cards, under the list's own filters. Before `:id`. */
   @Get('list-stats')
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })

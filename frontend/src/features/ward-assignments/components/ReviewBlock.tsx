@@ -27,6 +27,8 @@ export interface ReviewBlockProps {
   run: RunAction;
   /** PC02 has just returned or approved: the page offers the request slip of that decision. */
   onDecided?: () => void;
+  /** Told whether PC02 has typed something not yet sent (requirements, a reason, a note): leaving asks first. */
+  onDirtyChange?: (dirty: boolean) => void;
   busy: boolean;
 }
 
@@ -39,7 +41,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run, busy, onDecided }: ReviewBlockProps) {
+export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run, busy, onDecided, onDirtyChange }: ReviewBlockProps) {
   const can = detail.can;
   const deciding = detail.status === 'SUBMITTED' && !!(can.returnIt || can.approve);
   const reviewer = deciding || !!can.review;
@@ -65,6 +67,14 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
   const [followUpTeamId, setFollowUpTeamId] = useState(defaultFollowUpTeamId ?? '');
   const [pc02Note, setPc02Note] = useState(detail.pc02Note ?? '');
   const [problem, setProblem] = useState<string | null>(null);
+  // What PC02 TYPED and would lose (the choices that default from the request are not typing).
+  const typed = requirements.some((r) => r.trim() !== '') || reasonText.trim() !== '' || pc02Note !== (detail.pc02Note ?? '');
+  useEffect(() => {
+    onDirtyChange?.(typed);
+    return () => onDirtyChange?.(false);
+    // The parent's function is a new one on every render of the parent: only the answer is followed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typed]);
   const [dialog, setDialog] = useState<'revokeReturn' | 'cancelApproval' | null>(null);
 
   // The ward unit reading a return sees the reason's name, not its code.

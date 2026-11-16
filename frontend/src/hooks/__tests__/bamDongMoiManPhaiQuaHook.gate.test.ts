@@ -84,6 +84,7 @@ describe('mọi hành động bấm-vào-dòng đi qua useBamDong', () => {
       'pages/cases/CaseListPageShell.tsx': 'VU_AN',
       'pages/cases/ComprehensiveListPageShell.tsx': 'TONG_HOP',
       'features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx': 'UY_THAC',
+      'pages/ward-assignments/WardAssignmentListPage.tsx': 'HO_SO_PHAN_CONG',
     };
     for (const [tep, khoa] of Object.entries(man)) {
       const t = TEP.find((x) => x.ten === tep);

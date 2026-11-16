@@ -3,7 +3,7 @@
  * the result deadline (shown; changed only by "Gia hạn" with a reason, kept in a history), the result in words, the
  * completion day with "on time / late N days", and "Mở lại" (with a reason) to undo a completion.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ResultFiles } from './ResultFiles';
 import { BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE, LABEL_BASE, TEXTAREA_BASE } from '@/constants/styles';
 import { formatVNDateTime } from '@/lib/dates';
@@ -24,9 +24,11 @@ export interface FollowUpBlockProps {
   busy: boolean;
   /** Reads the request again (its `can` follows its result files). */
   onFilesChanged?: () => void;
+  /** Told whether a result is typed and not yet saved: leaving asks first. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function FollowUpBlock({ detail, run, busy, onFilesChanged }: FollowUpBlockProps) {
+export function FollowUpBlock({ detail, run, busy, onFilesChanged, onDirtyChange }: FollowUpBlockProps) {
   const can = detail.can;
   const approved = detail.status === 'APPROVED';
   const approval = [...detail.rounds].sort((a, b) => b.sequence - a.sequence).map((r) => decisionInForce(r.decisions)).find((d) => d?.kind === 'APPROVE');
@@ -41,6 +43,11 @@ export function FollowUpBlock({ detail, run, busy, onFilesChanged }: FollowUpBlo
   // Unsaved result fields: every other action of the block starts it again from the server (new stamp), which would
   // throw them away. Those actions wait until the fields are saved.
   const dirty = editable && (receivedOn !== (dayOf(detail.receivedOn) || (approval ? vnDayOf(approval.decidedAt) : '')) || resultText !== (detail.resultText ?? ''));
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty]);
   const held = busy || dirty;
   const changes = [...(detail.deadlineChanges ?? [])].sort((a, b) => b.changedAt.localeCompare(a.changedAt));
 

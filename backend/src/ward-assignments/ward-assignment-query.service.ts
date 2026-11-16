@@ -223,6 +223,17 @@ export class WardAssignmentQueryService {
     };
   }
 
+  /**
+   * The ward units the list's filter offers: those that have a request the person may read (archived ones too), by
+   * name. Never a unit the person reaches nothing of: the filter does not say which units exist.
+   */
+  async filterUnits(scope: DataScope | null | undefined) {
+    const reach = scopeConditions(scope, 'read', 'WardAssignment');
+    if (reach !== null && reach.length === 0) return [];
+    const groups = await this.prisma.wardAssignment.groupBy({ by: ['assignedTeamId'], where: reach ? { OR: reach as Prisma.WardAssignmentWhereInput[] } : {} });
+    return this.prisma.team.findMany({ where: { id: { in: groups.map((g) => g.assignedTeamId) } }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
+  }
+
   /** The active ward units the person may enter a request for: exactly those `create` accepts (ward unit, write reach). */
   async unitChoices(scope: DataScope | null | undefined) {
     const teams = await this.prisma.team.findMany({ where: { wardId: { not: null }, status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } });

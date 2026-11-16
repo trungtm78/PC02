@@ -7,6 +7,7 @@ import ts from 'typescript';
 import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
+import hoSoPhanCong from '../ward-assignments/WardAssignmentListPage.tsx?raw';
 
 // Đọc thẳng bằng Node: Vite chặn `?raw` ngoài thư mục frontend, và mở `server.fs.allow` ra thư mục cha
 // thì máy chủ dev phục vụ được cả `backend/.env`.
@@ -17,6 +18,7 @@ const tepMayChu = (duong: string) =>
 const xuatDonThu = tepMayChu('petitions/xuat-danh-sach-don-thu.ts');
 const xuatVuAn = tepMayChu('cases/xuat-danh-sach-vu-an.ts');
 const xuatVuViec = tepMayChu('incidents/xuat-danh-sach-vu-viec.ts');
+const xuatHoSoPhanCong = tepMayChu('ward-assignments/xuat-danh-sach-ho-so-phan-cong.ts');
 
 /**
  * CỔNG hai phía: mỗi cột HIỆN ĐƯỢC trên bảng phải có khai cột xuất Excel ở máy chủ với CÙNG khoá, và
@@ -27,6 +29,7 @@ const MAN = [
   ['Đơn thư', donThu, xuatDonThu, 'KHAI_COT_XUAT_DON_THU'],
   ['Vụ án', vuAn, xuatVuAn, 'KHAI_COT_XUAT_VU_AN'],
   ['Vụ việc', vuViec, xuatVuViec, 'KHAI_COT_XUAT_VU_VIEC'],
+  ['Hồ sơ phân công', hoSoPhanCong, xuatHoSoPhanCong, 'KHAI_COT_XUAT_HO_SO_PHAN_CONG'],
 ] as const;
 
 /** Khoá cột dữ liệu trên bảng (bỏ cột thao tác). */

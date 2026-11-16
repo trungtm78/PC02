@@ -32,6 +32,7 @@ describe('the routes of ward assignment requests', () => {
     ['followUpChoices', 'review:WardAssignment'],
     ['unitChoices', 'write:WardAssignment'],
     ['listStats', 'read:WardAssignment'],
+    ['filterUnits', 'read:WardAssignment'],
     ['exportList', 'read:WardAssignment'],
     ['returnIt', 'review:WardAssignment'],
     ['revokeReturn', 'review:WardAssignment'],

@@ -153,6 +153,8 @@ export interface WardAssignmentRow {
   can?: Partial<WardCan>;
   /** The decision in force whose request slip the row prints, when PC02 has decided. */
   latestDecision?: { id: string; kind: WardDecisionKind; slipNumber: string | null } | null;
+  place?: string | null;
+  entryOfficerName?: string | null;
   /** Lane D: the deadline alert of the row. */
   alert?: { level: 'NONE' | 'YELLOW' | 'RED' | 'OVERDUE' | 'DONE'; dueOn: string | null; daysLeft: number | null } | null;
 }
@@ -212,7 +214,11 @@ export interface WardContentInput {
 }
 
 export interface WardListQuery {
+  /** The tags of the search box (`key~value`). */
+  tk?: string[];
   q?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   status?: WardStatus;
   archived?: boolean;
   /** The filters a number of the statistics page opens (`wardListLink`): the server applies the same period rule. */
@@ -226,6 +232,13 @@ export interface WardListQuery {
   alert?: string;
   page?: number;
   pageSize?: number;
+}
+
+/** The numbers of the list's six cards (`GET /ward-assignments/list-stats`). */
+export interface WardListStats {
+  all: number;
+  byStatus: Record<WardStatus, number>;
+  archived: number;
 }
 
 /** Who may follow an approval and in which unit (`GET /ward-assignments/follow-up-choices`). */

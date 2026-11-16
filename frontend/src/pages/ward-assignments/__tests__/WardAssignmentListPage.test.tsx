@@ -10,7 +10,7 @@ import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 
 vi.mock('@/features/ward-assignments/api', async (orig) => {
   const real = await orig<typeof import('@/features/ward-assignments/api')>();
-  return { ...real, wardAssignmentsApi: { list: vi.fn(), remove: vi.fn() } };
+  return { ...real, wardAssignmentsApi: { list: vi.fn(), listStats: vi.fn(), filterUnits: vi.fn(), remove: vi.fn() } };
 });
 vi.mock('@/features/ward-assignments/api/docs', async (orig) => {
   const real = await orig<typeof import('@/features/ward-assignments/api/docs')>();
@@ -19,7 +19,14 @@ vi.mock('@/features/ward-assignments/api/docs', async (orig) => {
 const api = vi.mocked(wardAssignmentsApi);
 const docs = vi.mocked(wardDocsApi);
 const held = vi.hoisted(() => ({ value: null as string[] | null }));
-vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ permissions: held.value }) }));
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: () => ({
+    permissions: held.value,
+    // As the real hook: the screen's resource and action become the server's `action:Subject`.
+    hasPermission: (resource: string, action: string) => held.value === null || (resource === 'wardAssignments' && held.value.includes(`${action === 'view' ? 'read' : action}:WardAssignment`)),
+    canDispatch: false,
+  }),
+}));
 
 function row(over: Partial<WardAssignmentRow> = {}): WardAssignmentRow {
   return {
@@ -74,22 +81,25 @@ beforeEach(() => {
   vi.resetAllMocks();
   held.value = null;
   api.list.mockImplementation(async (q: WardListQuery) => {
-    if (q.pageSize === 1) {
-      // The counts of the cards.
-      if (q.archived) return { data: [], total: 2 };
-      const total = q.status ? rows.filter((r) => r.status === q.status).length : rows.length;
-      return { data: [], total };
-    }
     const data = rows.filter((r) => !q.status || r.status === q.status);
     return { data, total: data.length };
   });
+  // The six cards in ONE answer.
+  api.listStats.mockResolvedValue({ all: 4, byStatus: { DRAFT: 1, SUBMITTED: 2, RETURNED: 0, APPROVED: 1 }, archived: 2 });
+  api.filterUnits.mockResolvedValue([{ id: 't1', name: 'CAP Vườn Lài' }, { id: 't2', name: 'CAX Bình Mỹ' }]);
 });
+
+/** The last list request the screen sent. */
+const lastList = () => api.list.mock.calls.at(-1)![0];
 
 describe('the list of ward assignment requests', () => {
   it('shows the ten default columns with their values', async () => {
     renderPage();
     const first = await screen.findByTestId('ward-row-w1');
-    for (const header of Object.values(L.list.columns)) expect(screen.getAllByText(header).length).toBeGreaterThan(0);
+    const { place, entryOfficerName, ...shown } = L.list.columns;
+    for (const header of Object.values(shown)) expect(screen.getAllByText(header).length).toBeGreaterThan(0);
+    // Two more columns are there to be shown, hidden until asked for.
+    for (const header of [place, entryOfficerName]) expect(screen.queryByRole('columnheader', { name: header })).not.toBeInTheDocument();
     expect(within(first).getByText('2026-00186')).toBeInTheDocument();
     expect(within(first).getByText('14/11/2026')).toBeInTheDocument();
     expect(within(first).getByText('CAP Vườn Lài')).toBeInTheDocument();
@@ -120,33 +130,99 @@ describe('the list of ward assignment requests', () => {
     await waitFor(() => expect(submitted).toHaveTextContent('2'));
     expect(screen.getByTestId('ward-card-all')).toHaveTextContent('4');
     expect(screen.getByTestId('ward-card-archived')).toHaveTextContent('2');
+    // One request for the six numbers, not one per card.
+    expect(api.listStats).toHaveBeenCalledTimes(1);
+    expect(api.list.mock.calls.every(([q]) => q.pageSize === 20)).toBe(true);
     fireEvent.click(screen.getByTestId('ward-card-APPROVED'));
-    await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ status: 'APPROVED', pageSize: 50 })));
+    await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ status: 'APPROVED', pageSize: 20 })));
     await waitFor(() => expect(screen.queryByTestId('ward-row-w1')).not.toBeInTheDocument());
     expect(screen.getByTestId('ward-row-w4')).toBeInTheDocument();
   });
 
   it('the archived card lists the archived requests', async () => {
     renderPage();
-    fireEvent.click(await screen.findByTestId('ward-card-archived'));
-    await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ archived: true, pageSize: 50 })));
+    // The cards are buttons once their numbers have come.
+    await waitFor(() => expect(screen.getByTestId('ward-card-archived')).toHaveTextContent('2'));
+    fireEvent.click(screen.getByTestId('ward-card-archived'));
+    await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ archived: true, pageSize: 20 })));
   });
 
-  it('searches by the words typed, for the rows and the counts alike', async () => {
-    renderPage();
+  it('tags of the search box go to the rows and to the cards alike; the cards are not told which card is open', async () => {
+    renderPage('/ho-so-phan-cong?hspc_tk=trichYeu~xe%20m%C3%A1y&hspc_tk=loaiHoSo~CASE&hspc_the=SUBMITTED');
     await screen.findByTestId('ward-row-w1');
-    fireEvent.change(screen.getByTestId('ward-search'), { target: { value: '  2026-00185 ' } });
-    fireEvent.keyDown(screen.getByTestId('ward-search'), { key: 'Enter' });
-    await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ q: '2026-00185', pageSize: 50 })));
-    expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ q: '2026-00185', pageSize: 1 }));
+    expect(lastList()).toMatchObject({ tk: ['trichYeu~xe máy', 'loaiHoSo~CASE'], status: 'SUBMITTED' });
+    const counted = api.listStats.mock.calls.at(-1)![0];
+    expect(counted).toMatchObject({ tk: ['trichYeu~xe máy', 'loaiHoSo~CASE'] });
+    // The api client strips what a card stands for; the screen hands it the filters and nothing of the page.
+    expect(counted).not.toHaveProperty('page');
+    expect(counted).not.toHaveProperty('status');
+    // The tags are shown, each by the label of its column.
+    expect(screen.getAllByText(/Trích yếu/).length).toBeGreaterThan(1);
   });
 
-  it('the search button searches too', async () => {
-    renderPage();
+  it('an address of the old search box (hspc_q) still opens: as the tag "every column"', async () => {
+    renderPage('/ho-so-phan-cong?hspc_q=2026-00185');
     await screen.findByTestId('ward-row-w1');
-    fireEvent.change(screen.getByTestId('ward-search'), { target: { value: 'xe máy' } });
-    fireEvent.click(screen.getByTestId('ward-search-go'));
-    await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ q: 'xe máy', pageSize: 50 })));
+    expect(lastList()).toMatchObject({ tk: ['*~2026-00185'] });
+    expect(lastList()).not.toHaveProperty('q');
+  });
+
+  it('a column header sorts: first click one way, the request carries the column; the page goes back to 1', async () => {
+    renderPage('/ho-so-phan-cong?hspc_page=2');
+    await screen.findByTestId('ward-row-w1');
+    expect(lastList()).not.toHaveProperty('sortBy');
+    fireEvent.click(await screen.findByTestId('sort-code'));
+    await waitFor(() => expect(lastList()).toMatchObject({ sortBy: 'code', page: 1 }));
+    const first = lastList().sortOrder;
+    fireEvent.click(await screen.findByTestId('sort-code'));
+    await waitFor(() => expect(lastList().sortOrder).not.toBe(first));
+    // The columns that sort are the ones the server sorts by; the unit (a relation) is not offered.
+    await screen.findByTestId('ward-row-w1');
+    for (const key of ['submittedAt', 'resultDueOn', 'status', 'submissionCount', 'summary']) expect(screen.getByTestId(`sort-${key}`)).toBeInTheDocument();
+    expect(screen.queryByTestId('sort-unit')).not.toBeInTheDocument();
+  });
+
+  it('the filter panel: unit, kinds, alert and the first submission day, applied together, counted, and taken back in one click', async () => {
+    renderPage('/ho-so-phan-cong?hspc_don_vi=t2&hspc_loai_ho_so=INCIDENT&hspc_canh_bao=OVERDUE&hspc_from_date=2026-11-01&hspc_to_date=2026-11-30&hspc_the=APPROVED&hspc_sort=code');
+    await screen.findByTestId('ward-row-w4');
+    const filters = { teamId: 't2', caseType: 'INCIDENT', alert: 'OVERDUE', from: '2026-11-01', to: '2026-11-30' };
+    expect(lastList()).toMatchObject({ ...filters, status: 'APPROVED', sortBy: 'code' });
+    expect(api.listStats.mock.calls.at(-1)![0]).toMatchObject(filters);
+    // Five filters and the card.
+    expect(await screen.findByTestId('list-page-shell-filter-count')).toHaveTextContent('6');
+    fireEvent.click(screen.getByTestId('list-page-shell-reset-filters'));
+    await waitFor(() => expect(lastList()).toEqual({ page: 1, pageSize: 20 }));
+  });
+
+  it('the unit filter offers the units the server names (those with a request the person may read)', async () => {
+    renderPage('/ho-so-phan-cong?hspc_don_vi=t2');
+    await screen.findByTestId('ward-row-w1');
+    const unit = await screen.findByTestId('filter-don-vi');
+    await waitFor(() => expect(within(unit).getByText('CAX Bình Mỹ')).toBeInTheDocument());
+    expect(unit).toHaveValue('t2');
+  });
+
+  it('Excel: the button sends the filters, the card, the order and the columns shown, and nothing of the page', async () => {
+    const { api: http } = await import('@/lib/api');
+    // Only the export answers: the other calls of the screen (saved layout, settings) stay what they are in a test.
+    const get = vi.spyOn(http, 'get').mockImplementation(((u: string) =>
+      u.startsWith('/ward-assignments/export') ? Promise.resolve({ data: new Blob(['x']), headers: {} }) : Promise.reject(new Error('offline'))) as never);
+    renderPage('/ho-so-phan-cong?hspc_tk=trichYeu~xe&hspc_the=SUBMITTED&hspc_sort=code&hspc_dir=asc&hspc_loai_ho_so=CASE');
+    await screen.findByTestId('ward-row-w1');
+    fireEvent.click(screen.getByTestId('btn-xuat-dang-xem'));
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/ward-assignments/export/danh-sach', expect.anything()));
+    const sent = get.mock.calls.find(([u]) => u === '/ward-assignments/export/danh-sach')![1] as { params: Record<string, unknown> };
+    expect(sent.params).toMatchObject({ tk: ['trichYeu~xe'], status: 'SUBMITTED', sortBy: 'code', sortOrder: 'asc', caseType: 'CASE' });
+    expect(sent.params).not.toHaveProperty('page');
+    expect(sent.params).not.toHaveProperty('pageSize');
+    // The columns shown, in their order, without the actions column and without the two hidden ones.
+    expect(sent.params.cot).toBe('code,submittedAt,unit,caseType,kind,crime,summary,status,submissionCount,resultDueOn');
+    // "Every column": no column list, the server writes all it declares.
+    get.mockClear();
+    fireEvent.click(screen.getByTestId('btn-xuat-day-du'));
+    await waitFor(() => expect(get.mock.calls.some(([u]) => u === '/ward-assignments/export/danh-sach')).toBe(true));
+    expect((get.mock.calls.find(([u]) => u === '/ward-assignments/export/danh-sach')![1] as { params: Record<string, unknown> }).params.cot).toBeUndefined();
+    get.mockRestore();
   });
 
   it('offers "Tạo mới" only to whoever may create a request', async () => {
@@ -175,13 +251,12 @@ describe('opened from a number of the statistics page', () => {
     const drill = { submitted: 'true', from: '2026-11-01', to: '2026-11-30', teamId: 't1', alert: 'OVERDUE' };
     const asked = api.list.mock.calls.map(([q]) => q);
     // The rows: the status of the number is the card shown.
-    expect(asked).toContainEqual(expect.objectContaining({ ...drill, status: 'APPROVED', pageSize: 50 }));
-    // Every card counts within the same filters.
-    expect(asked.filter((q) => q.pageSize === 1).every((q) => q.teamId === 't1' && q.alert === 'OVERDUE' && q.from === '2026-11-01')).toBe(true);
+    expect(asked).toContainEqual(expect.objectContaining({ ...drill, status: 'APPROVED', pageSize: 20 }));
+    // The cards count within the same filters.
+    expect(api.listStats.mock.calls.at(-1)![0]).toMatchObject(drill);
     fireEvent.click(screen.getByTestId('ward-drill-clear'));
     await waitFor(() => expect(screen.queryByTestId('ward-drill')).toBeNull());
-    const last = api.list.mock.calls.map(([q]) => q).filter((q) => q.pageSize === 50).at(-1);
-    expect(last).toEqual({ page: 1, pageSize: 50 });
+    await waitFor(() => expect(lastList()).toEqual({ page: 1, pageSize: 20 }));
   });
 
   it('a deadline alert shows beside the due day; no badge when the server judged none', async () => {
@@ -196,6 +271,12 @@ describe('opened from a number of the statistics page', () => {
             total: 2,
           },
     );
+    // A request past its deadline stands out as an overdue petition does; one in time does not.
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('ward-row-late')).toBeTruthy());
+    expect(screen.getByTestId('ward-row-late').className).toMatch(/red/);
+    expect(screen.getByTestId('ward-row-calm').className).not.toMatch(/red/);
+    document.body.innerHTML = '';
     renderPage();
     await waitFor(() => expect(screen.getByTestId('ward-due-late')).toBeTruthy());
     expect(within(screen.getByTestId('ward-due-late')).getByTestId('ward-alert-badge').getAttribute('data-level')).toBe('OVERDUE');
@@ -223,13 +304,12 @@ describe('the list works as the petition list does', () => {
     expect(screen.queryByTestId('where')).not.toBeInTheDocument();
   });
 
-  it('Alt+R reads the list again; the search box is the one Ctrl+K goes to', async () => {
+  it('Alt+R reads the list again', async () => {
     renderPage();
     await screen.findByTestId('ward-row-w1');
     const before = api.list.mock.calls.length;
     fireEvent.keyDown(document.body, { key: 'r', code: 'KeyR', altKey: true });
     await waitFor(() => expect(api.list.mock.calls.length).toBeGreaterThan(before));
-    expect(screen.getByTestId('ward-search')).toHaveAttribute('role', 'searchbox');
   });
 
   describe('the actions of a row are the server’s answer for that row', () => {
@@ -323,5 +403,45 @@ describe('the list works as the petition list does', () => {
       await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledWith(file));
       expect(docs.issueSlip).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('several rows at once', () => {
+  const some = [
+    row({ id: 'd1', code: null, status: 'DRAFT', submittedAt: null, submissionCount: 0, updatedAt: '2026-11-15T01:00:00.000Z', can: { edit: true, delete: true, issueSlip: false }, latestDecision: null }),
+    row({ id: 'd2', code: null, status: 'DRAFT', submittedAt: null, submissionCount: 0, updatedAt: '2026-11-15T02:00:00.000Z', can: { edit: true, delete: true, issueSlip: false }, latestDecision: null }),
+    row({ id: 's1', code: '2026-00200', status: 'SUBMITTED', can: { edit: false, delete: false, issueSlip: false }, latestDecision: null }),
+  ];
+  beforeEach(() => {
+    api.list.mockResolvedValue({ data: some, total: some.length });
+  });
+
+  it('whoever may not delete is offered no boxes to tick', async () => {
+    held.value = ['read:WardAssignment', 'edit:WardAssignment'];
+    renderPage();
+    await screen.findByTestId('ward-row-d1');
+    expect(within(screen.getByTestId('ward-row-d1')).queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('drafts ticked are deleted one by one, each with its own stamp; the outcome is said and the list read again', async () => {
+    api.remove.mockResolvedValueOnce({ id: 'd1' });
+    const { AxiosError, AxiosHeaders } = await import('axios');
+    const headers = new AxiosHeaders();
+    api.remove.mockRejectedValueOnce(new AxiosError('x', 'ERR', { headers }, null, { status: 409, statusText: '', headers, config: { headers }, data: { error: { code: 'WARD_ASSIGNMENT_CHANGED', details: [] } } }));
+    renderPage();
+    for (const id of ['d1', 'd2']) fireEvent.click(within(await screen.findByTestId(`ward-row-${id}`)).getByRole('checkbox'));
+    // The row that is not a draft cannot be ticked into the deletion... it is ticked here, and skipped by the action.
+    // The bar's button carries the word; the rows' own delete buttons are icons (named by a label only).
+    fireEvent.click(await screen.findByText(L.list.bulk.delete, { selector: 'button' }));
+    // The shared bar asks before it acts.
+    fireEvent.click(await screen.findByRole('button', { name: 'Xác nhận' }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledTimes(2));
+    expect(api.remove.mock.calls).toEqual([
+      ['d1', '2026-11-15T01:00:00.000Z'],
+      ['d2', '2026-11-15T02:00:00.000Z'],
+    ]);
+    const notice = await screen.findByTestId('ward-list-notice');
+    expect(notice).toHaveTextContent(L.list.bulk.deleted(1));
+    expect(notice).toHaveTextContent(L.list.bulk.skipped(1));
   });
 });

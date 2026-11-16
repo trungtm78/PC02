@@ -378,6 +378,14 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
         expect(await queries.listStats(nobody, filters)).toMatchObject({ all: 0, archived: 0 });
       });
 
+      it('the units the filter offers are those with a request the person may read, and no other', async () => {
+        expect((await queries.filterUnits(scope.wardy)).map((t) => t.id)).toEqual([id.W]);
+        expect((await queries.filterUnits(scope.reviewer)).map((t) => t.id)).toEqual(expect.arrayContaining([id.W, id.V]));
+        // A unit with no request is not named; somebody who reaches nothing is offered nothing.
+        expect((await queries.filterUnits(scope.reviewer)).map((t) => t.id)).not.toContain(id.U);
+        expect(await queries.filterUnits(enforced(id.pc02, { read: NOTHING, write: NOTHING }, null))).toEqual([]);
+      });
+
       it('Excel: the rows, the order and the columns of the screen, within reach, and the export is audited', async () => {
         const read = async (who: DataScope | null, query: object, actor: string) => {
           const stream = new PassThrough();
