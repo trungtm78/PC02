@@ -49,6 +49,17 @@ const TEMPLATES: TemplateSpec[] = [
     yearPattern: 'YYYY',
   },
   {
+    // Mã hồ sơ phân công phường/xã: `năm-số` (vd 2026-186), như đơn thư và vụ việc. Cấp ở lần trình đầu tiên.
+    name: 'Mã hồ sơ phân công phường/xã',
+    documentType: 'WARD_ASSIGNMENT',
+    prefix: '',
+    separator: '-',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 1,
+    yearPattern: 'YYYY',
+  },
+  {
     // Mã hồ sơ theo hệ cũ: `năm-stt` (vd 2026-9893). Không tiền tố, không đệm số 0.
     // Trước đây là `VA-<năm>-<STT đệm 5>`; đổi để thống nhất với đơn thư và vụ việc, và để
     // khớp 1.652/1.672 vụ án di trú vốn đã mang dạng `năm-stt`.
@@ -234,6 +245,14 @@ async function getMaxSeqForYear(prisma: PrismaClient, documentType: string, year
         select: { stt: true },
       });
       return extractMax(rows.map((r: { stt: string }) => r.stt));
+    }
+
+    if (documentType === 'WARD_ASSIGNMENT') {
+      const rows = await prisma.wardAssignment.findMany({
+        where: { code: { startsWith: dangMoi } },
+        select: { code: true },
+      });
+      return extractMax(rows.flatMap((r: { code: string | null }) => (r.code ? [r.code] : [])));
     }
 
     if (documentType === 'CASE') {

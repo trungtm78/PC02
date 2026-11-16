@@ -68,6 +68,13 @@ run('Team merge on PostgreSQL', () => {
     await db.dynReport.deleteMany({ where: { code: { startsWith: tag } } });
     await db.dataAccessGrant.deleteMany({ where: { teamId: { in: ids } } });
     await db.petition.deleteMany({ where: { senderName: { startsWith: tag } } });
+    const wards = await db.wardAssignment.findMany({ where: { summary: { startsWith: tag } }, select: { id: true } });
+    const wardIds = wards.map((w) => w.id);
+    await db.wardAssignmentDecision.deleteMany({ where: { round: { assignmentId: { in: wardIds } } } });
+    await db.wardAssignmentRound.deleteMany({ where: { assignmentId: { in: wardIds } } });
+    await db.wardAssignment.deleteMany({ where: { id: { in: wardIds } } });
+    await db.wardInvestigator.deleteMany({ where: { fullName: { startsWith: tag } } });
+    await db.directory.deleteMany({ where: { code: { startsWith: tag } } });
     await db.userTeam.deleteMany({ where: { teamId: { in: ids } } });
     // children first
     await db.team.deleteMany({ where: { code: { startsWith: tag }, parentId: { not: null } } });
@@ -169,6 +176,45 @@ run('Team merge on PostgreSQL', () => {
         status: 'APPLIED', sourceTeamId: s.S.id, targetTeamId: s.T.id, sourcePreviousStatus: 'ACTIVE',
       });
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'TEAM_MERGED', subjectId: s.S.id }));
+    });
+
+    it('a ward unit merged into another: its requests, its investigators and the PC02 unit following go with it; a decision taken stays as it was; undo puts them back', async () => {
+      // Wards are merged by administrative reform. Two ward units; another PC02 unit follows the second ward's request.
+      const ward = async (key: string) => (await db.directory.create({ data: { type: 'WARD', code: `${tag}-${key}-${++n}`, name: key } })).id;
+      const S = await team({ wardId: await ward('s') });
+      const T = await team({ wardId: await ward('t') });
+      const followT = await team({});
+      const investigator = await db.wardInvestigator.create({ data: { teamId: S.id, fullName: `${tag} ĐTV`, createdById: u1 } });
+      const request = await db.wardAssignment.create({
+        data: {
+          assignedTeamId: S.id, enteredById: u1, caseType: 'CASE', summary: `${tag} request`, content: 'c',
+          entryOfficerName: 'x', status: 'APPROVED', followUpTeamId: S.id, assignedInvestigatorId: investigator.id,
+        },
+      });
+      const round = await db.wardAssignmentRound.create({
+        data: { assignmentId: request.id, sequence: 1, submissionNo: 1, status: 'DECIDED', priorStatus: 'DRAFT', submittedById: u1, snapshot: {} },
+      });
+      const decision = await db.wardAssignmentDecision.create({
+        data: { roundId: round.id, kind: 'APPROVE', decidedById: u1, requirements: [], followUpTeamId: S.id, assignedInvestigatorId: investigator.id },
+      });
+      // A request of the other ward and the other PC02 unit are not touched.
+      const other = await db.wardAssignment.create({
+        data: { assignedTeamId: T.id, enteredById: u1, caseType: 'INCIDENT', summary: `${tag} other`, content: 'c', entryOfficerName: 'x', followUpTeamId: followT.id },
+      });
+
+      const { operationId } = await service.merge(S.id, T.id, 'actor');
+
+      expect((await db.wardAssignment.findUniqueOrThrow({ where: { id: request.id } })).assignedTeamId).toBe(T.id);
+      expect((await db.wardAssignment.findUniqueOrThrow({ where: { id: request.id } })).followUpTeamId).toBe(T.id);
+      expect((await db.wardInvestigator.findUniqueOrThrow({ where: { id: investigator.id } })).teamId).toBe(T.id);
+      // The decision records what was decided, as it was decided.
+      expect((await db.wardAssignmentDecision.findUniqueOrThrow({ where: { id: decision.id } })).followUpTeamId).toBe(S.id);
+      expect(await db.wardAssignment.findUniqueOrThrow({ where: { id: other.id } })).toMatchObject({ assignedTeamId: T.id, followUpTeamId: followT.id });
+
+      await service.undo(operationId, 'actor2');
+      expect(await db.wardAssignment.findUniqueOrThrow({ where: { id: request.id } })).toMatchObject({ assignedTeamId: S.id, followUpTeamId: S.id });
+      expect((await db.wardInvestigator.findUniqueOrThrow({ where: { id: investigator.id } })).teamId).toBe(S.id);
+      expect((await db.wardAssignment.findUniqueOrThrow({ where: { id: other.id } })).assignedTeamId).toBe(T.id);
     });
 
     it('the preview reports exactly what the merge then does', async () => {

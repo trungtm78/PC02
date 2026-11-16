@@ -109,6 +109,13 @@ export class DocumentNumbersService {
         WHERE stt LIKE ${prefixLike} OR stt LIKE ${middleLike}`;
       return Number(r?.[0]?.max_suffix ?? 0);
     }
+    if (documentType === 'WARD_ASSIGNMENT') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
+        FROM ward_assignments
+        WHERE code LIKE ${prefixLike} OR code LIKE ${middleLike}`;
+      return Number(r?.[0]?.max_suffix ?? 0);
+    }
     // Loại hồ sơ không có bảng mã đối chiếu → bộ đếm là nguồn sự thật duy nhất.
     return null;
   }

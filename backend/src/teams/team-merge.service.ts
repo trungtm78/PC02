@@ -42,6 +42,13 @@ const STRATEGY: Record<string, Strategy> = {
   'proc_record_step_parties.teamId': 'repoint',
   // What a team gives its people is that team's own setting: the people who move get what the target gives.
   'team_permission_configs.teamId': 'own-settings',
+  // Ward assignment requests. Wards ARE merged (administrative reform): the requests of the merged-away ward unit, and
+  // its list of investigators, go with it to the target, like `petitions.assignedTeamId`; so does the PC02 unit that
+  // follows a request. A decision PC02 took records what was decided and stays as it was (history, D09).
+  'ward_assignments.assignedTeamId': 'repoint',
+  'ward_assignments.followUpTeamId': 'repoint',
+  'ward_investigators.teamId': 'repoint',
+  'ward_assignment_decisions.followUpTeamId': 'history',
 };
 const keyOf = (ref: TeamReference) => `${ref.table}.${ref.column}`;
 

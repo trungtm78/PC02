@@ -256,6 +256,18 @@ model User {
   dynReportCommentsAuthored         DynReportComment[]
   dynReportPeriodsFinalized         DynReportPeriod[]
   dynReportExportsRequested         DynReportExport[]
+  // Ward assignment requests (Hồ sơ phân công Công an cấp phường/xã)
+  wardAssignmentsEntered            WardAssignment[]             @relation("WardAssignmentEnteredBy")
+  wardAssignmentsFollowed           WardAssignment[]             @relation("WardAssignmentFollowUpUser")
+  wardAssignmentsArchived           WardAssignment[]             @relation("WardAssignmentArchivedBy")
+  wardRoundsSubmitted               WardAssignmentRound[]        @relation("WardRoundSubmittedBy")
+  wardRoundsWithdrawn               WardAssignmentRound[]        @relation("WardRoundWithdrawnBy")
+  wardDecisionsMade                 WardAssignmentDecision[]     @relation("WardDecisionDecidedBy")
+  wardDecisionsRevoked              WardAssignmentDecision[]     @relation("WardDecisionRevokedBy")
+  wardDecisionsFollowed             WardAssignmentDecision[]     @relation("WardDecisionFollowUpUser")
+  wardSlipsIssued                   WardAssignmentDecision[]     @relation("WardDecisionSlipIssuedBy")
+  wardDeadlineChanges               WardAssignmentDeadlineChange[]
+  wardInvestigatorsCreated          WardInvestigator[]
 
   @@map("users")
 }
@@ -385,6 +397,7 @@ model Crime {
   casesChinh     Case[]     @relation("CaseCrimeChinh") // vụ án gắn tội danh chính
   incidentsChinh Incident[] @relation("IncidentCrimeChinh") // vụ việc gắn tội danh chính
   casesKhoiTo    Case[]     @relation("CaseCrimeKhoiTo") // vụ án gắn tội danh chính khi khởi tố
+  wardAssignments WardAssignment[] // ward units' requests for an assignment, by crime
 
   @@index([pc02Relevant])
   @@index([chapter])
@@ -1822,6 +1835,10 @@ model Document {
   // v0.52: Restrict (không SetNull như Case/Incident) — evidence integrity cho đơn thư.
   // Petition soft-delete (deletedAt) bình thường; hard-delete bị chặn nếu còn Document.
   petition                Petition?             @relation(fields: [petitionId], references: [id], onDelete: Restrict)
+  /// A file of a ward assignment request (its result files, its issued request slips).
+  wardAssignmentId        String?
+  wardAssignment          WardAssignment?       @relation(fields: [wardAssignmentId], references: [id], onDelete: Restrict)
+  wardSlipOf              WardAssignmentDecision? @relation("WardDecisionSlip")
   uploadedBy              User                  @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   deadlineRuleAttachments DeadlineRuleVersion[] @relation("DeadlineRuleAttachment")
   dispositionReceipts CaseDispositionRequest[] @relation("DispositionReceiptDocument")
@@ -1833,6 +1850,7 @@ model Document {
   @@index([caseId])
   @@index([incidentId])
   @@index([petitionId])
+  @@index([wardAssignmentId])
   @@index([procStepReportId])
   @@index([uploadedById])
   @@index([documentType])
@@ -2387,6 +2405,10 @@ model Team {
   dynReportAssignments     DynReportAssignment[] @relation("DynReportAssignmentTeam")
   procFlowStepParties      ProcFlowStepParty[] // Processing flow: a step names this unit as a party
   procRecordStepParties    ProcRecordStepParty[] // Processing flow: a unit that works a step of a record
+  wardAssignments          WardAssignment[]           @relation("WardAssignmentTeam") // requests this ward unit submitted
+  wardAssignmentsFollowed  WardAssignment[]           @relation("WardAssignmentFollowUpTeam") // requests this PC02 unit follows
+  wardDecisionsFollowed    WardAssignmentDecision[]   @relation("WardDecisionFollowUpTeam")
+  wardInvestigators        WardInvestigator[] // investigators of this ward unit
 
   @@index([parentId])
   @@index([level])
@@ -3131,6 +3153,8 @@ model DocumentRenderLog {
   id              String    @id @default(cuid())
   petitionId      String?
   petition        Petition? @relation(fields: [petitionId], references: [id], onDelete: Cascade)
+  wardAssignmentId String?
+  wardAssignment   WardAssignment? @relation(fields: [wardAssignmentId], references: [id], onDelete: Restrict)
   caseId          String?
   case            Case?     @relation(fields: [caseId], references: [id], onDelete: Cascade)
   incidentId      String?
@@ -3146,6 +3170,7 @@ model DocumentRenderLog {
   @@index([petitionId, documentType, renderedAt(sort: Desc)])
   @@index([caseId, documentType])
   @@index([incidentId, documentType])
+  @@index([wardAssignmentId, documentType])
   @@index([renderedById])
   @@map("document_render_logs")
 }
@@ -5817,4 +5842,245 @@ model ProcStepOpinion {
   @@index([recordStepId, createdAt])
   @@index([reportId])
   @@map("proc_step_opinions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Ward assignment requests — "Hồ sơ phân công Công an cấp phường/xã"
+//
+// A ward or commune police unit asks PC02 to assign an investigator to an incident or a case of theirs. PC02 reviews
+// each submission: it returns it with requirements, or approves it and names the investigator who will act and the
+// PC02 unit that follows it. After approval PC02 records when the unit received the file back, the deadline for the
+// result (received + 2 months unless changed), the result and the day it was completed.
+//
+// Every state change goes through WardAssignmentCommandService (the only writer: gate in the module). A submission is
+// a ROUND, kept with a snapshot of what was submitted; a decision of PC02 on a round is kept even when revoked.
+// The record is team-bound for permissions (TEAM_BOUND_SUBJECTS): it belongs to its ward unit's team.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+enum WardAssignmentStatus {
+  DRAFT // being written by the ward unit; never decided
+  SUBMITTED // a round is waiting for PC02
+  RETURNED // PC02 returned the last round; the ward unit corrects and submits again
+  APPROVED // PC02 approved and assigned
+}
+
+/// "Loại hồ sơ": what kind of file the ward unit asks an investigator for.
+enum WardCaseType {
+  INCIDENT // Vụ việc
+  CASE // Vụ án
+}
+
+/// "Phân công": a first assignment, or a new assignment for a file assigned before.
+enum WardAssignmentKind {
+  NEW
+  REASSIGN
+}
+
+enum WardRoundStatus {
+  PENDING // waiting for PC02
+  WITHDRAWN // taken back by the ward unit before PC02 decided; does not count as a submission
+  DECIDED // PC02 decided (see its decisions; the latest not revoked is in force)
+}
+
+enum WardDecisionKind {
+  RETURN
+  APPROVE
+}
+
+model WardAssignment {
+  id                   String               @id @default(cuid())
+  /// "Mã": năm-số, given at the first submission (a draft has none).
+  code                 String?              @unique
+  status               WardAssignmentStatus @default(DRAFT)
+  /// The ward unit's team. Team-bound: the record is reached through this team only.
+  assignedTeamId       String
+  assignedTeam         Team                 @relation("WardAssignmentTeam", fields: [assignedTeamId], references: [id], onDelete: Restrict)
+  enteredById          String
+  enteredBy            User                 @relation("WardAssignmentEnteredBy", fields: [enteredById], references: [id], onDelete: Restrict)
+  /// Entered by PC02 on the ward unit's behalf.
+  enteredOnBehalf      Boolean              @default(false)
+  caseType             WardCaseType
+  kind                 WardAssignmentKind   @default(NEW)
+  /// A re-assignment names the request it re-assigns (same ward unit) and why.
+  previousAssignmentId String?
+  previousAssignment   WardAssignment?      @relation("WardReassignment", fields: [previousAssignmentId], references: [id], onDelete: Restrict)
+  reassignments        WardAssignment[]     @relation("WardReassignment")
+  reassignReason       String?
+  crimeId              String?
+  crime                Crime?               @relation(fields: [crimeId], references: [id], onDelete: Restrict)
+  /// A crime that is not in the catalogue, written as it is.
+  crimeOther           String?
+  summary              String // "Trích yếu"
+  content              String // "Nội dung"
+  discoveredOn         DateTime?            @db.Date // "Ngày phát hiện" (the request slip needs it)
+  place                String? // "Nơi xảy ra"
+  subjectsUnknown      Boolean              @default(false) // "Chưa xác định đối tượng"
+  proposedInvestigatorId String?
+  proposedInvestigator WardInvestigator?    @relation("WardProposedInvestigator", fields: [proposedInvestigatorId], references: [id], onDelete: Restrict)
+  entryOfficerName     String // "Cán bộ nhập"
+  entryOfficerPhone    String? // "SĐT"
+  unitNote             String? // "Ghi chú đơn vị"
+  /// Submissions that count (rounds not withdrawn): "Lần trình".
+  submissionCount      Int                  @default(0)
+  /// When the round now in force was submitted ("Ngày trình").
+  submittedAt          DateTime?
+  // ── after approval (written by PC02) ──
+  assignedInvestigatorId String?
+  assignedInvestigator WardInvestigator?    @relation("WardAssignedInvestigator", fields: [assignedInvestigatorId], references: [id], onDelete: Restrict)
+  followUpUserId       String?
+  followUpUser         User?                @relation("WardAssignmentFollowUpUser", fields: [followUpUserId], references: [id], onDelete: Restrict)
+  followUpTeamId       String?
+  followUpTeam         Team?                @relation("WardAssignmentFollowUpTeam", fields: [followUpTeamId], references: [id], onDelete: Restrict)
+  pc02Note             String? // "Ghi chú PC02"
+  receivedOn           DateTime?            @db.Date // "Ngày nhận lại"
+  resultDueOn          DateTime?            @db.Date // "Hạn báo kết quả"
+  completedOn          DateTime?            @db.Date // "Ngày hoàn thành"
+  resultText           String? // "Kết quả"
+  archivedAt           DateTime?
+  archivedById         String?
+  archivedBy           User?                @relation("WardAssignmentArchivedBy", fields: [archivedById], references: [id], onDelete: Restrict)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  subjects        WardAssignmentSubject[]
+  rounds          WardAssignmentRound[]
+  deadlineChanges WardAssignmentDeadlineChange[]
+  documents       Document[]
+  renderLogs      DocumentRenderLog[]
+
+  @@index([assignedTeamId, status])
+  @@index([status, resultDueOn])
+  @@index([enteredById])
+  @@index([submittedAt])
+  @@map("ward_assignments")
+}
+
+/// "Đối tượng": the people the request is about, one row each, normalised for matching.
+model WardAssignmentSubject {
+  id           String         @id @default(cuid())
+  assignmentId String
+  assignment   WardAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  position     Int
+  fullName     String
+  /// Lower case, without diacritics, single spaces: what matching compares.
+  fullNameNorm String
+  birthYear    Int?
+  idNumber     String?
+  /// Digits only.
+  idNumberNorm String?
+  address      String?
+  createdAt    DateTime       @default(now())
+
+  @@unique([assignmentId, position])
+  @@index([idNumberNorm])
+  @@index([fullNameNorm, birthYear])
+  @@map("ward_assignment_subjects")
+}
+
+/// One submission of a request, with what was submitted. Never edited after PC02 decides; never deleted.
+model WardAssignmentRound {
+  id             String          @id @default(cuid())
+  assignmentId   String
+  assignment     WardAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  /// Order of the rounds, withdrawn ones included.
+  sequence       Int
+  /// "Lần trình" of this round: rounds withdrawn before it do not count.
+  submissionNo   Int
+  status         WardRoundStatus @default(PENDING)
+  /// The record's status before this round was submitted (a withdrawal goes back to it).
+  priorStatus    WardAssignmentStatus
+  submittedAt    DateTime        @default(now())
+  submittedById  String
+  submittedBy    User            @relation("WardRoundSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
+  /// What was submitted: the fields of block 1 and the subjects, as they were.
+  snapshot       Json
+  withdrawnAt    DateTime?
+  withdrawnById  String?
+  withdrawnBy    User?           @relation("WardRoundWithdrawnBy", fields: [withdrawnById], references: [id], onDelete: Restrict)
+  decisions      WardAssignmentDecision[]
+
+  @@unique([assignmentId, sequence])
+  @@index([assignmentId, status])
+  @@map("ward_assignment_rounds")
+}
+
+/// A decision of PC02 on a round. A revoked decision stays, marked; the round's decision in force is the latest not revoked.
+model WardAssignmentDecision {
+  id                     String           @id @default(cuid())
+  roundId                String
+  round                  WardAssignmentRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  kind                   WardDecisionKind
+  decidedAt              DateTime         @default(now())
+  decidedById            String
+  decidedBy              User             @relation("WardDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  /// Return: a code of the catalogue of return reasons (Directory type LY_DO_TRA_VE) and the reason in words.
+  reasonCode             String?
+  reasonText             String?
+  /// "Yêu cầu": the numbered requirements of the request slip, in order.
+  requirements           Json
+  // Approval: who acts and who follows (copied to the record while the approval is in force).
+  assignedInvestigatorId String?
+  assignedInvestigator   WardInvestigator? @relation("WardDecisionInvestigator", fields: [assignedInvestigatorId], references: [id], onDelete: Restrict)
+  followUpUserId         String?
+  followUpUser           User?            @relation("WardDecisionFollowUpUser", fields: [followUpUserId], references: [id], onDelete: Restrict)
+  followUpTeamId         String?
+  followUpTeam           Team?            @relation("WardDecisionFollowUpTeam", fields: [followUpTeamId], references: [id], onDelete: Restrict)
+  revokedAt              DateTime?
+  revokedById            String?
+  revokedBy              User?            @relation("WardDecisionRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+  revokeReason           String?
+  // The request slip of this decision ("Phiếu yêu cầu"): issued once, its number kept for reprints.
+  slipYear               Int?
+  slipNumber             String?
+  slipIssuedAt           DateTime?
+  slipIssuedById         String?
+  slipIssuedBy           User?            @relation("WardDecisionSlipIssuedBy", fields: [slipIssuedById], references: [id], onDelete: Restrict)
+  /// The issued file, kept in the record's documents: "reprint" downloads it.
+  slipDocumentId         String?          @unique
+  slipDocument           Document?        @relation("WardDecisionSlip", fields: [slipDocumentId], references: [id], onDelete: Restrict)
+  /// Signers named on the slip.
+  signers                Json?
+
+  @@unique([slipYear, slipNumber])
+  @@index([roundId])
+  @@map("ward_assignment_decisions")
+}
+
+/// "Gia hạn": every change of the result deadline after approval, with its reason.
+model WardAssignmentDeadlineChange {
+  id           String         @id @default(cuid())
+  assignmentId String
+  assignment   WardAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  oldDueOn     DateTime?      @db.Date
+  newDueOn     DateTime       @db.Date
+  reason       String
+  changedById  String
+  changedBy    User           @relation(fields: [changedById], references: [id], onDelete: Restrict)
+  changedAt    DateTime       @default(now())
+
+  @@index([assignmentId])
+  @@map("ward_assignment_deadline_changes")
+}
+
+/// The investigators a ward unit may propose ("ĐTV thừa uỷ quyền"): not necessarily people with an account.
+model WardInvestigator {
+  id          String   @id @default(cuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  fullName    String
+  rank        String? // "Cấp bậc"
+  position    String? // "Chức vụ"
+  grade       String? // "Ngạch Điều tra viên"
+  isActive    Boolean  @default(true)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  proposedIn  WardAssignment[]         @relation("WardProposedInvestigator")
+  assignedIn  WardAssignment[]         @relation("WardAssignedInvestigator")
+  decisions   WardAssignmentDecision[] @relation("WardDecisionInvestigator")
+
+  @@index([teamId, isActive])
+  @@map("ward_investigators")
 }

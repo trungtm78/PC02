@@ -25,6 +25,7 @@ import { CALENDAR_MANIFEST } from '../calendar/feature.manifest';
 import { REPORTS_MANIFEST } from '../reports/feature.manifest';
 import { PROPOSALS_MANIFEST } from '../proposals/feature.manifest';
 import { GUIDANCE_MANIFEST } from '../guidance/feature.manifest';
+import { WARD_ASSIGNMENTS_MANIFEST } from '../ward-assignments/feature.manifest';
 import { EXCHANGES_MANIFEST } from '../exchanges/feature.manifest';
 import { DELEGATIONS_MANIFEST } from '../delegations/feature.manifest';
 import { CONCLUSIONS_MANIFEST } from '../conclusions/feature.manifest';
@@ -101,6 +102,8 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   PROCESSING_FLOW_MANIFEST, // the configuration screens and routes
   PROCESSING_FLOW_RECORDS_MANIFEST, // steps and actions on each record (later change)
   PROCESSING_FLOW_REMINDERS_MANIFEST, // reminders and escalations by step (later change)
+  // Ward assignment requests: inserted OFF by its migration.
+  WARD_ASSIGNMENTS_MANIFEST,
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {
