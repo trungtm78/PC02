@@ -20,6 +20,7 @@ import { WARD_PATHS } from '@/features/ward-assignments/menu';
 import { displayStatus, formatDay } from '@/features/ward-assignments/formModel';
 import { WARD_STATUSES, type WardAssignmentRow, type WardListQuery, type WardStatus } from '@/features/ward-assignments/types';
 import { WardStatusBadge } from '@/features/ward-assignments/components/WardStatusBadge';
+import { AlertBadge } from '@/features/ward-assignments/components/AlertBadge';
 
 const PAGE_SIZE = 50;
 /** URL keys, prefixed so that they never collide with another screen's (`hspc_page` is cleared with the filters). */
@@ -35,14 +36,23 @@ function queryOfCard(card: CardKey, q: string): WardListQuery {
   };
 }
 
-/**
- * The "Hạn báo kết quả" cell. Lane D replaces its content by the deadline alert (`AlertBadge`, from `row.alert`);
- * until then it shows the plain due date.
- */
+/** The filters a number of the statistics page opens, read as the statistics page writes them (`wardListLink`). */
+const DRILL_KEYS = ['submitted', 'from', 'to', 'teamId', 'crimeId', 'caseType', 'kind', 'alert'] as const;
+function drillOf(params: URLSearchParams): Partial<WardListQuery> {
+  const out: Record<string, string> = {};
+  for (const key of DRILL_KEYS) {
+    const v = params.get(key);
+    if (v) out[key] = v;
+  }
+  return out as Partial<WardListQuery>;
+}
+
+/** The "Hạn báo kết quả" cell: the due day, coloured by the deadline alert the server judged (`row.alert`). */
 function ResultDueCell({ row }: { row: WardAssignmentRow }) {
   return (
-    <span data-testid={`ward-due-${row.id}`} className="tabular-nums text-slate-700">
+    <span data-testid={`ward-due-${row.id}`} className="inline-flex items-center gap-2 tabular-nums text-slate-700">
       {formatDay(row.resultDueOn)}
+      {row.alert && row.alert.level !== 'NONE' && <AlertBadge alert={row.alert} />}
     </span>
   );
 }
@@ -62,12 +72,16 @@ export default function WardAssignmentListPage() {
   const { permissions } = usePermission();
   const canCreate = permissions === null || permissions.includes('write:WardAssignment');
 
-  const card = (CARD_KEYS as readonly string[]).includes(params.get(P.card) ?? '') ? (params.get(P.card) as CardKey) : 'all';
+  // A number of the statistics page opens the list with its status: that is the card shown, unless one is chosen.
+  const cardParam = params.get(P.card) ?? params.get('status') ?? '';
+  const card = (CARD_KEYS as readonly string[]).includes(cardParam) ? (cardParam as CardKey) : 'all';
+  const drill = drillOf(params);
+  const drilled = Object.keys(drill).length > 0;
   const q = (params.get(P.q) ?? '').trim();
   const page = Math.max(1, Number(params.get(P.page)) || 1);
   const [typed, setTyped] = useState(q);
 
-  const listQuery: WardListQuery = { ...queryOfCard(card, q), page, pageSize: PAGE_SIZE };
+  const listQuery: WardListQuery = { ...queryOfCard(card, q), ...drill, page, pageSize: PAGE_SIZE };
   const listQ = useQuery({
     queryKey: WARD_QUERY_KEYS.list(listQuery),
     queryFn: () => wardAssignmentsApi.list(listQuery),
@@ -78,7 +92,7 @@ export default function WardAssignmentListPage() {
   // One count per card, with the same search as the rows: a card's number is the number of rows it shows.
   const counts = useQueries({
     queries: CARD_KEYS.map((key) => {
-      const query = { ...queryOfCard(key, q), page: 1, pageSize: 1 };
+      const query = { ...queryOfCard(key, q), ...drill, page: 1, pageSize: 1 };
       return {
         queryKey: WARD_QUERY_KEYS.count(query),
         queryFn: () => wardAssignmentsApi.list(query),
@@ -90,6 +104,8 @@ export default function WardAssignmentListPage() {
 
   const update = (next: Partial<Record<keyof typeof P, string | null>>) => {
     const p = new URLSearchParams(params);
+    // A card chosen replaces the status a number of the statistics page opened with.
+    if ('card' in next) p.delete('status');
     for (const [k, v] of Object.entries(next) as [keyof typeof P, string | null][]) {
       if (v) p.set(P[k], v);
       else p.delete(P[k]);
@@ -158,6 +174,25 @@ export default function WardAssignmentListPage() {
             </div>
           }
         />
+
+        {drilled && (
+          <div data-testid="ward-drill" className="flex flex-wrap items-center gap-3 border-b border-blue-100 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+            <span className="flex-1">{L.list.drill.active}</span>
+            <button
+              type="button"
+              data-testid="ward-drill-clear"
+              className={BTN_SECONDARY}
+              onClick={() => {
+                const p = new URLSearchParams(params);
+                for (const key of [...DRILL_KEYS, 'status']) p.delete(key);
+                p.delete(P.page);
+                setParams(p, { replace: true });
+              }}
+            >
+              {L.list.drill.clear}
+            </button>
+          </div>
+        )}
 
         <StatsCardsStrip
           cards={cards}

@@ -126,6 +126,8 @@ export interface WardCan {
   complete?: boolean;
   reopen?: boolean;
   deleteWithData?: boolean;
+  /** PC02 deciding this request: issues and reissues the request slips of its decisions. */
+  issueSlip?: boolean;
 }
 
 /** A row of the list. */
@@ -206,6 +208,15 @@ export interface WardListQuery {
   q?: string;
   status?: WardStatus;
   archived?: boolean;
+  /** The filters a number of the statistics page opens (`wardListLink`): the server applies the same period rule. */
+  submitted?: 'true';
+  from?: string;
+  to?: string;
+  teamId?: string;
+  crimeId?: string;
+  caseType?: string;
+  kind?: string;
+  alert?: string;
   page?: number;
   pageSize?: number;
 }

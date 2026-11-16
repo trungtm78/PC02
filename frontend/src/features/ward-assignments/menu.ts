@@ -4,6 +4,7 @@ import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 export const WARD_PATHS = {
   list: '/ho-so-phan-cong',
   create: '/ho-so-phan-cong/new',
+  stats: '/ho-so-phan-cong/thong-ke',
   view: (id: string) => `/ho-so-phan-cong/${encodeURIComponent(id)}`,
   edit: (id: string) => `/ho-so-phan-cong/${encodeURIComponent(id)}/edit`,
 } as const;
@@ -24,6 +25,7 @@ export const wardAssignmentsMenu: FeatureMenuEntry[] = [
     children: [
       { section: 'business', id: 'ward-assignments-list', label: L.menu.list, path: WARD_PATHS.list, quyen: ['read:WardAssignment'] },
       { section: 'business', id: 'ward-assignments-new', label: L.menu.create, path: WARD_PATHS.create, quyen: ['write:WardAssignment'] },
+      { section: 'business', id: 'ward-assignments-stats', label: L.menu.stats, path: WARD_PATHS.stats, quyen: ['read:WardAssignment'] },
     ],
   },
 ];

@@ -121,6 +121,8 @@ export class WardAssignmentQueryService {
         extend: decides && approved && !row.completedOn,
         complete: decides && approved && !row.completedOn && !!row.resultText,
         reopen: decides && approved && !!row.completedOn,
+        // The request slip of a decision: PC02 deciding this request (the slip service checks the same).
+        issueSlip: decides,
         deleteWithData: scope === null,
         edit: changes && editableByUnit(row.status),
         submit: changes && submittable(row.status),

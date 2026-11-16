@@ -4,6 +4,7 @@
  * completion day with "on time / late N days", and "Mở lại" (with a reason) to undo a completion.
  */
 import { useState } from 'react';
+import { ResultFiles } from './ResultFiles';
 import { BTN_PRIMARY, BTN_SECONDARY, INPUT_BASE, LABEL_BASE, TEXTAREA_BASE } from '@/constants/styles';
 import { formatVNDateTime } from '@/lib/dates';
 import { hoTen } from '@/lib/hoTen';
@@ -107,8 +108,7 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
             <span className={LABEL_BASE}>{F.resultText}</span>
             <textarea data-testid="ward-result-text" rows={3} className={TEXTAREA_BASE} readOnly={!editable} value={resultText} onChange={(e) => setResultText(e.target.value)} />
           </label>
-          {/* Mount point of lane C's `ResultFiles` (the result attachments: upload, list, download, remove). */}
-          <section data-slot="ward-result-files" data-assignment-id={detail.id} />
+          <ResultFiles assignmentId={detail.id} canWrite={!!(detail.can.followUp || detail.can.reopen)} />
           {dirty && (
             <p data-testid="ward-follow-up-save-first" className="text-xs text-amber-700">
               {F.saveFirst}

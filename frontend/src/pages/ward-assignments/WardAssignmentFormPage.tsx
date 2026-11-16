@@ -41,6 +41,7 @@ import { FollowUpBlock } from '@/features/ward-assignments/components/FollowUpBl
 import { RoundHistory, type DescribeValue } from '@/features/ward-assignments/components/RoundHistory';
 import { InvestigatorDirectoryDialog } from '@/features/ward-assignments/components/InvestigatorDirectoryDialog';
 import { useApprovedOfUnit, useUnitInvestigators, useWardUnits } from '@/features/ward-assignments/useWardChoices';
+import { SubjectMatches } from '@/features/ward-assignments/components/SubjectMatches';
 
 const F = L.form.fields;
 const A = L.form.actions;
@@ -451,8 +452,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
               onRowsChange={(rows) => set('subjects', rows)}
               onUnknownChange={(v) => set('subjectsUnknown', v)}
             />
-            {/* Mount point of lane D's `SubjectMatches` (subjects of other requests and records that may be the same person). */}
-            <section data-slot="ward-subject-matches" data-assignment-id={detail?.id ?? ''} />
+            {detail?.id && <SubjectMatches assignmentId={detail.id} canConclude={detail.can.review} />}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -507,7 +507,13 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
           <FollowUpBlock key={`follow-${detail.updatedAt}`} detail={detail} run={run} busy={busy} />
         </>
       )}
-      {detail && <RoundHistory rounds={detail.rounds} describe={describe} />}
+      {detail && (
+        <RoundHistory
+          rounds={detail.rounds}
+          describe={describe}
+          slip={{ assignmentId: detail.id, canIssue: !!detail.can.issueSlip, onChanged: reload }}
+        />
+      )}
 
       <InvestigatorDirectoryDialog
         open={directoryOpen}

@@ -10,6 +10,7 @@ export const wardAssignments = {
     group: 'Hồ sơ phân công phường/xã',
     list: 'Danh sách',
     create: 'Trình mới',
+    stats: 'Thống kê',
   },
   title: 'Hồ sơ phân công Công an cấp phường/xã',
   subtitle: 'Phường/xã trình xin phân công Điều tra viên; PC02 thẩm định, duyệt hoặc trả về, theo dõi hạn báo kết quả.',
@@ -27,6 +28,10 @@ export const wardAssignments = {
   kind: { NEW: 'Mới', REASSIGN: 'Lại' } satisfies Record<WardKind, string>,
 
   list: {
+    drill: {
+      active: 'Đang xem đúng các hồ sơ của một ô trên trang Thống kê.',
+      clear: 'Bỏ lọc thống kê',
+    },
     cards: {
       all: 'Tất cả',
       DRAFT: 'Nháp',
@@ -272,6 +277,11 @@ export const wardAssignments = {
     WARD_ASSIGNMENT_NOT_FOUND: 'Không tìm thấy hồ sơ, hoặc tài khoản không có quyền với hồ sơ này.',
     WARD_ASSIGNMENT_FORBIDDEN: 'Tài khoản không có quyền thực hiện thao tác này.',
     WARD_ASSIGNMENT_DATE_INVALID: 'Ngày không hợp lệ.',
+    WARD_REASON_REQUIRED: 'Cần ghi lý do cho thao tác này.',
+    WARD_RETURN_REASON_UNKNOWN: 'Lý do trả về không có trong danh mục (hoặc đã ngừng dùng). Chọn lại lý do.',
+    WARD_EXTEND_NOT_LATER: 'Hạn mới phải sau hạn báo kết quả hiện tại.',
+    WARD_COMPLETED_IN_FUTURE: 'Ngày hoàn thành không được sau hôm nay.',
+    WARD_RESULT_REQUIRED: 'Cần ghi kết quả trước khi ghi ngày hoàn thành.',
     WARD_ASSIGNMENT_STAMP_INVALID: 'Hồ sơ đã thay đổi. Hãy tải lại rồi thao tác lại.',
     WARD_REVIEW_OWN_UNIT_FORBIDDEN: 'Không thẩm định được hồ sơ của chính đơn vị mình.',
     WARD_ASSIGNMENT_CHANGED: 'Hồ sơ vừa được người khác thay đổi. Hãy tải lại rồi thao tác lại.',

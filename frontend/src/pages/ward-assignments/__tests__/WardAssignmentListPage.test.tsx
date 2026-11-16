@@ -160,3 +160,38 @@ describe('the list of ward assignment requests', () => {
     expect(await screen.findByTestId('ward-list-error')).toHaveTextContent(L.list.loadFailed);
   });
 });
+
+describe('opened from a number of the statistics page', () => {
+  it('sends the same filters as the number (rows and card counts), shows that the list is filtered, and the filter is cleared in one click', async () => {
+    renderPage('/ho-so-phan-cong?submitted=true&from=2026-11-01&to=2026-11-30&teamId=t1&alert=OVERDUE&status=APPROVED');
+    await waitFor(() => expect(screen.getByTestId('ward-drill')).toBeTruthy());
+    const drill = { submitted: 'true', from: '2026-11-01', to: '2026-11-30', teamId: 't1', alert: 'OVERDUE' };
+    const asked = api.list.mock.calls.map(([q]) => q);
+    // The rows: the status of the number is the card shown.
+    expect(asked).toContainEqual(expect.objectContaining({ ...drill, status: 'APPROVED', pageSize: 50 }));
+    // Every card counts within the same filters.
+    expect(asked.filter((q) => q.pageSize === 1).every((q) => q.teamId === 't1' && q.alert === 'OVERDUE' && q.from === '2026-11-01')).toBe(true);
+    fireEvent.click(screen.getByTestId('ward-drill-clear'));
+    await waitFor(() => expect(screen.queryByTestId('ward-drill')).toBeNull());
+    const last = api.list.mock.calls.map(([q]) => q).filter((q) => q.pageSize === 50).at(-1);
+    expect(last).toEqual({ page: 1, pageSize: 50 });
+  });
+
+  it('a deadline alert shows beside the due day; no badge when the server judged none', async () => {
+    api.list.mockImplementation(async (q: WardListQuery) =>
+      q.pageSize === 1
+        ? { data: [], total: 2 }
+        : {
+            data: [
+              row({ id: 'late', status: 'APPROVED', resultDueOn: '2026-11-10T00:00:00.000Z', alert: { level: 'OVERDUE', dueOn: '2026-11-10', daysLeft: -6 } }),
+              row({ id: 'calm', status: 'APPROVED', resultDueOn: '2027-01-10T00:00:00.000Z', alert: { level: 'NONE', dueOn: '2027-01-10', daysLeft: 55 } }),
+            ],
+            total: 2,
+          },
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('ward-due-late')).toBeTruthy());
+    expect(within(screen.getByTestId('ward-due-late')).getByTestId('ward-alert-badge').getAttribute('data-level')).toBe('OVERDUE');
+    expect(within(screen.getByTestId('ward-due-calm')).queryByTestId('ward-alert-badge')).toBeNull();
+  });
+});

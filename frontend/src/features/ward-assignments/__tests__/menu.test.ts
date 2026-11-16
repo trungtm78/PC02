@@ -26,12 +26,13 @@ describe('the menu of the ward assignment requests', () => {
     expect(order.at(-1)).toBe('subjects');
   });
 
-  it('has the list and the new-request entries, each behind its own permission', () => {
+  it('has the list, the new-request and the statistics entries, each behind its own permission', () => {
     const [group] = wardAssignmentsMenu;
     expect(group.label).toBe('Hồ sơ phân công phường/xã');
     expect(group.children?.map((c) => [c.path, c.quyen])).toEqual([
       [WARD_PATHS.list, ['read:WardAssignment']],
       [WARD_PATHS.create, ['write:WardAssignment']],
+      ['/ho-so-phan-cong/thong-ke', ['read:WardAssignment']],
     ]);
   });
 });

@@ -4,6 +4,7 @@
  * after the first can show what changed against the round PC02 last saw (`baselineRoundOf` + `diffSnapshots`).
  */
 import { useState } from 'react';
+import { RequestSlipButton } from './RequestSlipButton';
 import { formatVNDateTime } from '@/lib/dates';
 import { hoTen } from '@/lib/hoTen';
 import { wardAssignments as L } from '@/locales/wardAssignments.vi';
@@ -53,7 +54,14 @@ function defaultWording(field: SnapshotField, value: unknown): string {
 
 const who = (p: PersonRef | null | undefined): string => (p ? hoTen(p) : '');
 
-function DecisionItem({ decision }: { decision: WardDecision }) {
+/** Who may issue a slip: PC02 deciding this request (`can.*` of the request, from the server). */
+interface SlipContext {
+  assignmentId: string;
+  canIssue: boolean;
+  onChanged?: () => void;
+}
+
+function DecisionItem({ decision, slip }: { decision: WardDecision; slip?: SlipContext }) {
   const revoked = !!decision.revokedAt;
   const requirements = decision.requirements ?? [];
   const reason = [decision.reasonCode, decision.reasonText].filter(Boolean).join(' · ');
@@ -88,13 +96,14 @@ function DecisionItem({ decision }: { decision: WardDecision }) {
           {decision.revokeReason}
         </p>
       )}
-      {/* Mount point of lane C's `RequestSlipButton` for this decision (issue / reprint / reissue the request slip). */}
-      <section data-slot="ward-request-slip" data-decision-id={decision.id} />
+      {slip && (
+        <RequestSlipButton assignmentId={slip.assignmentId} decisionId={decision.id} slipNumber={decision.slipNumber ?? null} canIssue={slip.canIssue && !decision.revokedAt} onChanged={slip.onChanged} />
+      )}
     </div>
   );
 }
 
-function RoundItem({ round, rounds, describe }: { round: WardRound; rounds: readonly WardRound[]; describe?: DescribeValue }) {
+function RoundItem({ round, rounds, describe, slip }: { round: WardRound; rounds: readonly WardRound[]; describe?: DescribeValue; slip?: SlipContext }) {
   const [open, setOpen] = useState(false);
   const baseline = baselineRoundOf(rounds, round);
   const changes = baseline ? diffSnapshots(baseline.snapshot, round.snapshot) : [];
@@ -151,13 +160,13 @@ function RoundItem({ round, rounds, describe }: { round: WardRound; rounds: read
         </div>
       )}
       {round.decisions.map((d) => (
-        <DecisionItem key={d.id} decision={d} />
+        <DecisionItem key={d.id} decision={d} slip={slip} />
       ))}
     </li>
   );
 }
 
-export function RoundHistory({ rounds, describe }: { rounds: readonly WardRound[]; describe?: DescribeValue }) {
+export function RoundHistory({ rounds, describe, slip }: { rounds: readonly WardRound[]; describe?: DescribeValue; slip?: SlipContext }) {
   const ordered = [...rounds].sort((a, b) => b.sequence - a.sequence);
   return (
     <section data-testid="ward-round-history" aria-labelledby="ward-round-history-title" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -169,7 +178,7 @@ export function RoundHistory({ rounds, describe }: { rounds: readonly WardRound[
       ) : (
         <ol className="space-y-4">
           {ordered.map((r) => (
-            <RoundItem key={r.id} round={r} rounds={rounds} describe={describe} />
+            <RoundItem key={r.id} round={r} rounds={rounds} describe={describe} slip={slip} />
           ))}
         </ol>
       )}
