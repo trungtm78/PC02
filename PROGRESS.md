@@ -28,6 +28,33 @@ Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased o
 BƯỚC TIẾP THEO: push; PR; CI; merge; deploy; read-only production check (switch row present and OFF; lists unchanged). Then PR 3.
 File liên quan: backend/prisma/schema.prisma, backend/prisma/migrations/20261126100000_ward_assignments/, backend/src/ward-assignments/*, backend/src/teams/team-merge.service.ts
 
+## PR 3 — design fixed 16/11 (before code), so a cleared session resumes without asking
+Branch `feat/ward-assignment-review` from `feat/ward-assignment-core` (rebase `--onto origin/main` once #695 is squashed).
+Pure rules first (`ward-review.rules.ts` + spec from the owner's decisions), then the commands in `WardAssignmentCommandService`
+(same lock / stamp / reach / audit pattern), then PostgreSQL specs, then routes.
+- **Segregation of duties (A3)**: a member of the request's ward team never decides it (`WARD_REVIEW_OWN_UNIT_FORBIDDEN`), ADMIN included.
+  Every PC02 command needs the review reach (`recordInActionScope(..., 'review')`) AND read reach.
+- **Return** (SUBMITTED, round PENDING): reason required (`reasonCode` from Directory type `LY_DO_TRA_VE` and/or `reasonText`),
+  requirements = ordered non-empty strings (<= 50). Decision RETURN on the round; round DECIDED; record RETURNED.
+  **Revoke a return** ("Thu hồi trả về"): only while the ward unit has not changed the request since the decision
+  (record.updatedAt <= decision.decidedAt) and not resubmitted; reason required; decision revoked; round PENDING; record SUBMITTED.
+- **Approve + assign** (SUBMITTED, round PENDING): investigator required (of the ward team, active, row share-locked);
+  follow-up user defaults to the actor, follow-up team to the actor's one non-ward team (several: must choose; must be non-ward, active);
+  requirements optional. Decision APPROVE; record APPROVED with assignedInvestigatorId / followUp* copied; receivedOn defaults to the
+  approval day (VN civil day, `cases/governance/case-civil-day.ts`), resultDueOn = receivedOn + 2 months (end-of-month clamp).
+  **Cancel the approval** ("Huỷ duyệt"): reason required; refused while resultText / completedOn / result files exist
+  (`WARD_APPROVAL_HAS_RESULT`); decision revoked; round PENDING; record SUBMITTED; assigned/followUp/received/due cleared
+  (old values in the audit metadata).
+- **Block 3** (APPROVED, review reach): set receivedOn (due recomputed only if never set or not yet extended); **extend** = new due + reason,
+  one `WardAssignmentDeadlineChange` row (R6); result text; **complete** (completedOn; on-time / late N days is derived) ⇄ **reopen**.
+- **Result files (C2)**: module routes upload / list / download / remove under the request (review reach to write, read reach to list
+  and download), stored through the documents storage with `wardAssignmentId`; teach `documents.service.ts` the fourth parent.
+- **Admin delete with data** (moved from PR 2): ADMIN only (scope null), body `confirmCode` must equal the code, preview route with
+  counts (subjects, rounds, decisions, deadline changes, files); deletes children first in one transaction; audit metadata counts.
+- Return reasons catalogue: seed Directory type `LY_DO_TRA_VE` (a few starters, editable by admins) through an idempotent seed.
+- Tests: rules spec; PostgreSQL: every command and its reverse, segregation (a person in both the ward and PC02), revoke after the unit
+  edited refused, cancel with a result refused, due +2 months on 31/12 and 29/02, extension history, files reach, delete-with-data order.
+
 ## Hàng đợi task kế tiếp
 1. PR 3 review (+ admin delete with data, moved from PR 2) (T2 rest, T3, T6, T7 part, T13); PR 4 matching (T4); PR 5 web (T9); PR 6 slip (T5, T12); PR 7 (T7, T11, T14); PR 8 UAT.
 

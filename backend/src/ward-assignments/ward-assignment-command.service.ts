@@ -1,12 +1,13 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import type { Prisma, WardAssignment } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { recordInActionScope, recordInScope, recordReadable, teamInScope } from '../common/utils/scope-filter.util';
+import { teamInScope } from '../common/utils/scope-filter.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ASSIGNMENT_NUMBER_SERIES, WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
-import { sameStamp, wardBody } from './ward-errors';
+import { wardBody } from './ward-errors';
+import { lockedForChange, lockedForReview, lockedWardTeam } from './ward-locks';
 import {
   afterWithdrawal,
   editableByUnit,
@@ -49,9 +50,6 @@ export interface WardAssignmentInput {
 
 type Tx = Prisma.TransactionClient;
 
-/** The record helpers' view of a request: its team, and its owner (the person who entered it). */
-const reachOf = (row: Pick<WardAssignment, 'assignedTeamId' | 'enteredById'>) => ({ assignedTeamId: row.assignedTeamId, ownerId: row.enteredById });
-
 const blank = (v: string | null | undefined): string | null => {
   const t = v?.trim();
   return t ? t : null;
@@ -67,18 +65,6 @@ function dayOf(value: string | null | undefined): Date | null {
     throw new BadRequestException(wardBody(WARD_ERROR.DATE_INVALID, { field: 'discoveredOn' }));
   }
   return day;
-}
-
-/**
- * The ward unit's team, locked for share for the rest of the transaction: a merge or an archive of the team (which
- * lock it for update first) either waits for this transaction, or has already happened and is seen here. A request
- * or an investigator is never written into a team that was merged away or archived meanwhile.
- */
-export async function lockedWardTeam(tx: Tx, teamId: string): Promise<{ id: string }> {
-  const [team] = await tx.$queryRaw<{ id: string; wardId: string | null; status: string }[]>`
-    SELECT id, "wardId", status FROM "teams" WHERE id = ${teamId} FOR SHARE`;
-  if (!team || team.wardId === null || team.status !== 'ACTIVE') throw new BadRequestException(wardBody(WARD_ERROR.UNIT_NOT_WARD));
-  return { id: team.id };
 }
 
 /**
@@ -135,7 +121,7 @@ export class WardAssignmentCommandService {
     input: WardAssignmentInput & { expectedUpdatedAt: string },
   ): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.lockedForChange(tx, scope, id, input.expectedUpdatedAt);
+      const row = await lockedForChange(tx, scope, id, input.expectedUpdatedAt);
       if (!editableByUnit(row.status)) throw new ConflictException(wardBody(WARD_ERROR.NOT_EDITABLE, { status: row.status }));
       const content = await this.checkedContent(tx, row.assignedTeamId, input, row.id);
       await tx.wardAssignmentSubject.deleteMany({ where: { assignmentId: row.id } });
@@ -154,7 +140,7 @@ export class WardAssignmentCommandService {
   /** "Trình" / "Trình lại": a new round with what is submitted; the code at the first submission. */
   async submit(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.lockedForChange(tx, scope, id, expectedUpdatedAt);
+      const row = await lockedForChange(tx, scope, id, expectedUpdatedAt);
       if (!submittable(row.status)) throw new ConflictException(wardBody(WARD_ERROR.NOT_SUBMITTABLE, { status: row.status }));
       const subjects = await tx.wardAssignmentSubject.findMany({ where: { assignmentId: row.id }, orderBy: { position: 'asc' } });
       const missing = missingForSubmission({ ...row, subjectCount: subjects.length });
@@ -193,7 +179,7 @@ export class WardAssignmentCommandService {
   /** "Rút lại": the round waiting for PC02 is taken back; it does not count; the request goes back where it was. */
   async withdraw(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.lockedForChange(tx, scope, id, expectedUpdatedAt);
+      const row = await lockedForChange(tx, scope, id, expectedUpdatedAt);
       const rounds = await tx.wardAssignmentRound.findMany({ where: { assignmentId: row.id }, orderBy: { sequence: 'asc' } });
       const pending = rounds.at(-1);
       if (row.status !== 'SUBMITTED' || !pending || pending.status !== 'PENDING') {
@@ -216,7 +202,7 @@ export class WardAssignmentCommandService {
   /** A draft that was never submitted is deleted with its subjects. Anything ever submitted is archived instead. */
   async remove(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<{ id: string }> {
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.lockedForChange(tx, scope, id, expectedUpdatedAt);
+      const row = await lockedForChange(tx, scope, id, expectedUpdatedAt);
       const rounds = await tx.wardAssignmentRound.count({ where: { assignmentId: row.id } });
       if (row.status !== 'DRAFT' || rounds > 0 || row.code !== null) throw new ConflictException(wardBody(WARD_ERROR.DELETE_SUBMITTED));
       await tx.wardAssignmentSubject.deleteMany({ where: { assignmentId: row.id } });
@@ -232,7 +218,7 @@ export class WardAssignmentCommandService {
   /** "Lưu trữ" (PC02): hidden from the lists, kept whole; nothing is done to it until it is restored. */
   async archive(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.lockedForReview(tx, scope, id, expectedUpdatedAt);
+      const row = await lockedForReview(tx, scope, id, expectedUpdatedAt);
       if (row.archivedAt) throw new ConflictException(wardBody(WARD_ERROR.ALREADY_ARCHIVED));
       const rounds = await tx.wardAssignmentRound.count({ where: { assignmentId: row.id } });
       if (rounds === 0) throw new ConflictException(wardBody(WARD_ERROR.ARCHIVE_DRAFT));
@@ -245,40 +231,12 @@ export class WardAssignmentCommandService {
   /** "Khôi phục": the way back from "Lưu trữ". */
   async restore(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.lockedForReview(tx, scope, id, expectedUpdatedAt);
+      const row = await lockedForReview(tx, scope, id, expectedUpdatedAt);
       if (!row.archivedAt) throw new ConflictException(wardBody(WARD_ERROR.NOT_ARCHIVED));
       const updated = await tx.wardAssignment.update({ where: { id: row.id }, data: { archivedAt: null, archivedById: null } });
       await this.audit.log({ userId: actor.id, action: WARD_AUDIT.RESTORED, subject: 'WardAssignment', subjectId: row.id, metadata: { status: row.status } }, tx);
       return updated;
     });
-  }
-
-  // ── reading the row under lock ────────────────────────────────────────────────────────────────────────────────────
-
-  /** The row, locked for the rest of the transaction; absent for somebody who may not read it. */
-  private async locked(tx: Tx, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
-    await tx.$queryRaw`SELECT id FROM "ward_assignments" WHERE id = ${id} FOR UPDATE`;
-    const row = await tx.wardAssignment.findUnique({ where: { id } });
-    if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
-      throw new NotFoundException(wardBody(WARD_ERROR.NOT_FOUND));
-    }
-    if (!sameStamp(row.updatedAt, expectedUpdatedAt)) throw new ConflictException(wardBody(WARD_ERROR.CONFLICT, { updatedAt: row.updatedAt.toISOString() }));
-    return row;
-  }
-
-  /** For the ward unit's commands: within the reach of changing, and not archived. */
-  private async lockedForChange(tx: Tx, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
-    const row = await this.locked(tx, scope, id, expectedUpdatedAt);
-    if (!recordInScope(reachOf(row), scope, 'write', 'WardAssignment')) throw new ForbiddenException(wardBody(WARD_ERROR.FORBIDDEN));
-    if (row.archivedAt) throw new ConflictException(wardBody(WARD_ERROR.ARCHIVED));
-    return row;
-  }
-
-  /** For PC02's commands: within the reach of reviewing. */
-  private async lockedForReview(tx: Tx, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
-    const row = await this.locked(tx, scope, id, expectedUpdatedAt);
-    if (!recordInActionScope(reachOf(row), scope, 'WardAssignment', 'review')) throw new ForbiddenException(wardBody(WARD_ERROR.FORBIDDEN));
-    return row;
   }
 
   // ── the content of block 1 ────────────────────────────────────────────────────────────────────────────────────────

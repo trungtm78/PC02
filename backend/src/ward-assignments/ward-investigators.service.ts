@@ -5,7 +5,8 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { recordInActionScope, teamInScope } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
-import { lockedWardTeam, type Actor } from './ward-assignment-command.service';
+import type { Actor } from './ward-assignment-command.service';
+import { lockedWardTeam } from './ward-locks';
 import { sameStamp, wardBody } from './ward-errors';
 
 export interface InvestigatorInput {
