@@ -315,6 +315,7 @@ export const wardAssignments = {
     WARD_APPROVAL_HAS_RESULT: 'Hồ sơ đã có kết quả hoặc ngày hoàn thành: phải xoá kết quả trước khi huỷ duyệt.',
     WARD_NOT_APPROVED: 'Hồ sơ chưa được duyệt.',
     WARD_FOLLOW_UP_TEAM_REQUIRED: 'Phải chọn tổ theo dõi.',
+    WARD_FOLLOW_UP_USER_REQUIRED: 'Phải chọn cán bộ PC02 theo dõi hồ sơ (tài khoản quản trị không thuộc tổ PC02 nào nên không tự theo dõi).',
     WARD_FOLLOW_UP_TEAM_INVALID: 'Tổ theo dõi phải là một tổ của PC02 đang hoạt động.',
     WARD_REQUIREMENT_EMPTY: 'Có yêu cầu đang để trống.',
     WARD_REQUIREMENTS_TOO_MANY: 'Quá nhiều yêu cầu.',
