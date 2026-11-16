@@ -20,6 +20,20 @@ export const wardAssignmentDocs = {
   },
   slip: {
     issue: 'Phát hành phiếu yêu cầu',
+    dialogTitle: 'In phiếu yêu cầu',
+    forDecision: { RETURN: 'Phiếu của lượt Trả về', APPROVE: 'Phiếu của lượt Duyệt' } as Record<string, string>,
+    print: 'In phiếu',
+    printing: 'Đang in…',
+    printed: (n: string) => `Đã phát hành phiếu số ${n} và tải về.`,
+    printedNotSaved: (n: string) => `Đã phát hành phiếu số ${n} nhưng chưa tải về được. Bấm Tải phiếu.`,
+    loadingDefaults: 'Đang tải thông tin phiếu…',
+    defaultsFailed: 'Không tải được thông tin phiếu. Vẫn có thể in: ô người ký để trống sẽ lấy tên trên phiếu gần nhất.',
+    templateMissing: 'Chưa có mẫu Phiếu yêu cầu đang dùng nên chưa in được. Hãy báo quản trị kích hoạt mẫu ở Cấu hình → Mẫu chứng từ.',
+    missingTitle: 'Phiếu sẽ để trống các mục sau (hồ sơ chưa có):',
+    missing: { discoveredOn: 'Ngày phát hiện', place: 'Nơi xảy ra' } as Record<string, string>,
+    revoked: 'Kết luận này đã bị thu hồi nên không phát hành phiếu được.',
+    close: 'Đóng',
+    signersTitle: 'Người ký trên phiếu',
     issuing: 'Đang phát hành…',
     issued: (n: string) => `Đã phát hành phiếu số ${n}.`,
     number: (n: string) => `Phiếu số ${n}`,
@@ -38,6 +52,7 @@ export const wardAssignmentDocs = {
       chiHuyDoi: 'Ban chỉ huy Đội',
       lanhDaoPhong: 'Lãnh đạo Phòng',
       hint: 'Để trống thì dùng tên trên phiếu bạn phát hành gần nhất.',
+      prefilled: 'Đã điền sẵn tên của phiếu gần nhất; sửa nếu cần.',
     },
   },
   /** Error codes of the server (`backend/src/ward-assignments/ward-docs.codes.ts` and the module's own). */
@@ -59,6 +74,7 @@ export const wardAssignmentDocs = {
     WARD_SLIP_REASON_REQUIRED: 'Cần ghi lý do phát hành lại (tối đa 500 ký tự).',
     WARD_SLIP_SIGNER_TOO_LONG: 'Tên người ký quá dài (tối đa 120 ký tự).',
     WARD_SLIP_TEMPLATE_MISSING: 'Chưa có mẫu Phiếu yêu cầu đang dùng. Hãy báo quản trị.',
+    HTTP_400: 'Hồ sơ còn thiếu thông tin bắt buộc của mẫu phiếu. Bổ sung hồ sơ rồi in lại.',
     WARD_ASSIGNMENT_NOT_FOUND: 'Không tìm thấy hồ sơ.',
     WARD_ASSIGNMENT_FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này.',
     WARD_REVIEW_OWN_UNIT_FORBIDDEN: 'Người thuộc đơn vị trình hồ sơ không thực hiện thao tác của PC02 trên hồ sơ này.',
@@ -72,5 +88,7 @@ export const wardAssignmentDocs = {
 export function wardDocsErrorText(code: string | undefined, status?: number): string {
   if (code && wardAssignmentDocs.errors[code]) return wardAssignmentDocs.errors[code];
   if (status === 413) return wardAssignmentDocs.errors.HTTP_413;
+  // A template that marks a field required refuses the render without a code of this module.
+  if (status === 400 && !code) return wardAssignmentDocs.errors.HTTP_400;
   return wardAssignmentDocs.errors.fallback;
 }

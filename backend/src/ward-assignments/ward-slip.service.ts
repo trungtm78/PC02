@@ -254,6 +254,36 @@ export class WardSlipService {
     }
   }
 
+  /**
+   * What the "In phiếu yêu cầu" dialog shows before anything is issued: the names the slip would be signed with when
+   * the reviewer writes none, whether a slip template is in use, and what the slip would print empty. Reads only.
+   */
+  async defaults(actor: { id: string }, scope: Scope, assignmentId: string, decisionId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const assignment = await requestForDocsWrite(tx, scope, actor.id, assignmentId);
+      const decision = await this.decisionOf(tx, assignmentId, decisionId);
+      const template = await tx.documentTemplate.findFirst({
+        where: { entityType: 'HO_SO_PHAN_CONG', code: WARD_SLIP_TEMPLATE_CODE, status: 'active', deletedAt: null },
+        select: { id: true },
+      });
+      const stored = signersOf(decision.signers);
+      const fallback = await this.defaultSigners(tx, actor.id);
+      const missing: string[] = [];
+      if (!assignment.discoveredOn) missing.push('discoveredOn');
+      if (!assignment.place?.trim()) missing.push('place');
+      return {
+        decisionId: decision.id,
+        kind: decision.kind,
+        revoked: decision.revokedAt !== null,
+        slipNumber: decision.slipNumber,
+        // An issued slip shows the names it was issued with; one not issued yet, the names it would take.
+        signers: decision.slipDocumentId ? { ...fallback, ...stored } : fallback,
+        templateReady: template !== null,
+        missing,
+      };
+    });
+  }
+
   /** The stored slip of a decision, for whoever may read the request: never rendered again. */
   async download(
     actor: { id: string; ipAddress?: string; userAgent?: string },

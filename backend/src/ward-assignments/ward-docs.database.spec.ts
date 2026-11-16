@@ -374,6 +374,17 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
   describe('the request slip', () => {
     let returnSlip: { number: string; documentId: string; bytes: Buffer };
 
+    it('before issuing, the dialog is told the names the slip would take, that a template is in use, and nothing is written', async () => {
+      const before = await scratch.db.documentNumberLog.count({ where: { templateId: id.series } });
+      const told = await slips.defaults({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn);
+      expect(told).toMatchObject({ decisionId: id.dReturn, kind: 'RETURN', revoked: false, slipNumber: null, templateReady: true });
+      expect(told.signers.canBoThamDinh).toBe('Đại úy Nguyễn Văn A');
+      expect(Array.isArray(told.missing)).toBe(true);
+      expect(await scratch.db.documentNumberLog.count({ where: { templateId: id.series } })).toBe(before);
+      // The ward unit reads its request, but is not told (nor may issue).
+      expect(await fails(slips.defaults({ id: id.wardy }, scope.wardy, id.A, id.dReturn))).toMatchObject({ status: 403 });
+    });
+
     it('issued once: the next number of the series; asking again gives the same number and the same stored file', async () => {
       const first = await slips.issue({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn, {});
       expect(first.slipNumber).toBe(`1/${suffix}`);
@@ -387,6 +398,7 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       });
       const got = await slips.download({ id: id.wardy }, scope.wardy, id.A, id.dReturn);
       returnSlip = { number: first.slipNumber!, documentId: first.slipDocumentId!, bytes: await bytesOf(got.stream) };
+      expect(await slips.defaults({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn)).toMatchObject({ slipNumber: first.slipNumber, signers: { canBoThamDinh: 'Đại úy Nguyễn Văn A' } });
       expect(await scratch.db.documentNumberLog.count({ where: { templateId: id.series } })).toBe(1);
       const log = await scratch.db.documentRenderLog.findMany({ where: { wardAssignmentId: id.A } });
       expect(log).toEqual([expect.objectContaining({ documentType: 'PHIEU_YEU_CAU', generatedNumber: first.slipNumber })]);

@@ -4,14 +4,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import WardAssignmentListPage from '../WardAssignmentListPage';
 import { wardAssignmentsApi } from '@/features/ward-assignments/api';
+import { saveDownloadedFile, wardDocsApi } from '@/features/ward-assignments/api/docs';
 import type { WardAssignmentRow, WardListQuery } from '@/features/ward-assignments/types';
 import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 
 vi.mock('@/features/ward-assignments/api', async (orig) => {
   const real = await orig<typeof import('@/features/ward-assignments/api')>();
-  return { ...real, wardAssignmentsApi: { list: vi.fn() } };
+  return { ...real, wardAssignmentsApi: { list: vi.fn(), remove: vi.fn() } };
+});
+vi.mock('@/features/ward-assignments/api/docs', async (orig) => {
+  const real = await orig<typeof import('@/features/ward-assignments/api/docs')>();
+  return { ...real, saveDownloadedFile: vi.fn(), wardDocsApi: { slipDefaults: vi.fn(), issueSlip: vi.fn(), downloadSlip: vi.fn(), reissueSlip: vi.fn() } };
 });
 const api = vi.mocked(wardAssignmentsApi);
+const docs = vi.mocked(wardDocsApi);
 const held = vi.hoisted(() => ({ value: null as string[] | null }));
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ permissions: held.value }) }));
 
@@ -50,6 +56,7 @@ function renderPage(entry = '/ho-so-phan-cong') {
           <Route path="/ho-so-phan-cong" element={<WardAssignmentListPage />} />
           <Route path="/ho-so-phan-cong/new" element={<Where />} />
           <Route path="/ho-so-phan-cong/:id" element={<Where />} />
+          <Route path="/ho-so-phan-cong/:id/edit" element={<Where />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -142,7 +149,7 @@ describe('the list of ward assignment requests', () => {
     await waitFor(() => expect(api.list).toHaveBeenCalledWith(expect.objectContaining({ q: 'xe máy', pageSize: 50 })));
   });
 
-  it('offers "Trình mới" only to whoever may create a request', async () => {
+  it('offers "Tạo mới" only to whoever may create a request', async () => {
     held.value = ['read:WardAssignment'];
     const { unmount } = renderPage();
     await screen.findByTestId('ward-row-w1');
@@ -193,5 +200,120 @@ describe('opened from a number of the statistics page', () => {
     await waitFor(() => expect(screen.getByTestId('ward-due-late')).toBeTruthy());
     expect(within(screen.getByTestId('ward-due-late')).getByTestId('ward-alert-badge').getAttribute('data-level')).toBe('OVERDUE');
     expect(within(screen.getByTestId('ward-due-calm')).queryByTestId('ward-alert-badge')).toBeNull();
+  });
+});
+
+describe('the list works as the petition list does', () => {
+  it('the create button reads "Tạo mới" and carries its shortcut; Alt+N opens the new form', async () => {
+    renderPage();
+    const create = await screen.findByTestId('ward-create');
+    expect(create).toHaveTextContent('Tạo mới');
+    expect(create).not.toHaveTextContent('Trình mới');
+    // The shortcut chip of the petition list's button (hidden on small screens, absent when the person turned hints off).
+    expect(create.querySelector('kbd')).toHaveTextContent(/Alt\s*\+\s*N/i);
+    fireEvent.keyDown(document.body, { key: 'n', code: 'KeyN', altKey: true });
+    expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/new');
+  });
+
+  it('Alt+N does nothing for somebody who may not create', async () => {
+    held.value = ['read:WardAssignment'];
+    renderPage();
+    await screen.findByTestId('ward-row-w1');
+    fireEvent.keyDown(document.body, { key: 'n', code: 'KeyN', altKey: true });
+    expect(screen.queryByTestId('where')).not.toBeInTheDocument();
+  });
+
+  it('Alt+R reads the list again; the search box is the one Ctrl+K goes to', async () => {
+    renderPage();
+    await screen.findByTestId('ward-row-w1');
+    const before = api.list.mock.calls.length;
+    fireEvent.keyDown(document.body, { key: 'r', code: 'KeyR', altKey: true });
+    await waitFor(() => expect(api.list.mock.calls.length).toBeGreaterThan(before));
+    expect(screen.getByTestId('ward-search')).toHaveAttribute('role', 'searchbox');
+  });
+
+  describe('the actions of a row are the server’s answer for that row', () => {
+    const withActions = [
+      row({ id: 'w1', can: { edit: false, delete: false, issueSlip: false }, latestDecision: null }),
+      row({ id: 'w3', code: null, status: 'DRAFT', submittedAt: null, submissionCount: 0, can: { edit: true, delete: true, issueSlip: false }, latestDecision: null }),
+      row({ id: 'w4', code: '2026-00142', status: 'APPROVED', can: { edit: false, delete: false, issueSlip: true }, latestDecision: { id: 'd4', kind: 'APPROVE', slipNumber: null } }),
+      row({ id: 'w5', code: '2026-00143', status: 'RETURNED', can: { edit: true, delete: false, issueSlip: false }, latestDecision: { id: 'd5', kind: 'RETURN', slipNumber: '3/PYC-PC02-Đ1' } }),
+      row({ id: 'w6', code: '2026-00144', status: 'RETURNED', can: { edit: true, delete: false, issueSlip: false }, latestDecision: { id: 'd6', kind: 'RETURN', slipNumber: null } }),
+    ];
+    beforeEach(() => {
+      api.list.mockImplementation(async (q: WardListQuery) => (q.pageSize === 1 ? { data: [], total: withActions.length } : { data: withActions, total: withActions.length }));
+    });
+
+    it('every row opens; edit and delete only where the unit may; print only where there is a slip to print', async () => {
+      renderPage();
+      await screen.findByTestId('ward-row-w1');
+      const shown = (id: string) => ['view', 'edit', 'print', 'delete'].filter((a) => screen.queryByTestId(`btn-${a}-${id}`));
+      expect(shown('w1')).toEqual(['view']);
+      expect(shown('w3')).toEqual(['view', 'edit', 'delete']);
+      // PC02 issues the slip of its decision; the ward unit saves one already issued, and has nothing to print before.
+      expect(shown('w4')).toEqual(['view', 'print']);
+      expect(shown('w5')).toEqual(['view', 'edit', 'print']);
+      expect(shown('w6')).toEqual(['view', 'edit']);
+      fireEvent.click(screen.getByTestId('btn-edit-w3'));
+      expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w3/edit');
+    });
+
+    it('a row of an older answer (no `can`) still opens, and offers nothing it cannot vouch for', async () => {
+      api.list.mockImplementation(async (q: WardListQuery) => (q.pageSize === 1 ? { data: [], total: 1 } : { data: [row({ id: 'w1' })], total: 1 }));
+      renderPage();
+      await screen.findByTestId('ward-row-w1');
+      expect(screen.getByTestId('btn-view-w1')).toBeInTheDocument();
+      for (const a of ['edit', 'print', 'delete']) expect(screen.queryByTestId(`btn-${a}-w1`)).not.toBeInTheDocument();
+    });
+
+    it('deleting a draft asks first, sends the stamp of the row, then reads the list again', async () => {
+      api.remove.mockResolvedValue({ id: 'w3' });
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-delete-w3'));
+      expect(api.remove).not.toHaveBeenCalled();
+      expect(await screen.findByText(L.list.deleteConfirm(L.list.noCode))).toBeInTheDocument();
+      const before = api.list.mock.calls.length;
+      fireEvent.click(screen.getByRole('button', { name: L.form.actions.delete }));
+      await waitFor(() => expect(api.remove).toHaveBeenCalledWith('w3', '2026-11-14T03:00:00.000Z'));
+      expect(await screen.findByTestId('ward-list-notice')).toHaveTextContent(L.list.deleted);
+      await waitFor(() => expect(api.list.mock.calls.length).toBeGreaterThan(before));
+    });
+
+    it('a deletion the server refuses is said, not swallowed', async () => {
+      const { AxiosError, AxiosHeaders } = await import('axios');
+      const headers = new AxiosHeaders();
+      api.remove.mockRejectedValue(new AxiosError('x', 'ERR', { headers }, null, { status: 409, statusText: '', headers, config: { headers }, data: { error: { code: 'WARD_ASSIGNMENT_DELETE_SUBMITTED', details: [] } } }));
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-delete-w3'));
+      fireEvent.click(await screen.findByRole('button', { name: L.form.actions.delete }));
+      expect(await screen.findByTestId('ward-list-notice')).toHaveTextContent(L.errors.WARD_ASSIGNMENT_DELETE_SUBMITTED);
+    });
+
+    it('"In phiếu" on a row: PC02 issues and saves in one click; the ward unit saves the slip issued', async () => {
+      const file = { blob: new Blob(['x']), fileName: 'Phieu.docx' };
+      docs.slipDefaults.mockResolvedValue({ decisionId: 'd4', kind: 'APPROVE', revoked: false, slipNumber: null, signers: { canBoThamDinh: 'Đại úy K' }, templateReady: true, missing: [] });
+      docs.issueSlip.mockResolvedValue({ id: 'd4', kind: 'APPROVE', slipYear: 2026, slipNumber: '9/PYC-PC02-Đ1', slipIssuedAt: '2026-11-17T00:00:00Z', slipDocumentId: 'doc', signers: null });
+      docs.downloadSlip.mockResolvedValue(file);
+      renderPage();
+      fireEvent.click(await screen.findByTestId('btn-print-w4'));
+      const dialog = await screen.findByTestId('ward-slip-dialog');
+      await waitFor(() => expect(within(dialog).getByTestId('ward-slip-signer-canBoThamDinh')).toHaveValue('Đại úy K'));
+      fireEvent.click(screen.getByTestId('ward-slip-print'));
+      await waitFor(() => expect(docs.issueSlip).toHaveBeenCalledWith('w4', 'd4', expect.objectContaining({ signers: expect.objectContaining({ canBoThamDinh: 'Đại úy K' }) })));
+      await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledWith(file));
+      fireEvent.click(screen.getByTestId('ward-slip-close'));
+      await waitFor(() => expect(screen.queryByTestId('ward-slip-dialog')).not.toBeInTheDocument());
+
+      // The ward unit's row: the slip issued is saved, nothing is issued.
+      vi.mocked(saveDownloadedFile).mockClear();
+      docs.issueSlip.mockClear();
+      fireEvent.click(screen.getByTestId('btn-print-w5'));
+      expect(await screen.findByTestId('ward-slip-number')).toHaveTextContent('3/PYC-PC02-Đ1');
+      expect(screen.queryByTestId('ward-slip-print')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('ward-slip-download'));
+      await waitFor(() => expect(docs.downloadSlip).toHaveBeenLastCalledWith('w5', 'd5'));
+      await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledWith(file));
+      expect(docs.issueSlip).not.toHaveBeenCalled();
+    });
   });
 });

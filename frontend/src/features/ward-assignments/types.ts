@@ -149,6 +149,10 @@ export interface WardAssignmentRow {
   completedOn: string | null;
   archivedAt: string | null;
   updatedAt: string;
+  /** What the row's buttons may do (the same rules as the request's own `can`). Absent on an older server. */
+  can?: Partial<WardCan>;
+  /** The decision in force whose request slip the row prints, when PC02 has decided. */
+  latestDecision?: { id: string; kind: WardDecisionKind; slipNumber: string | null } | null;
   /** Lane D: the deadline alert of the row. */
   alert?: { level: 'NONE' | 'YELLOW' | 'RED' | 'OVERDUE' | 'DONE'; dueOn: string | null; daysLeft: number | null } | null;
 }

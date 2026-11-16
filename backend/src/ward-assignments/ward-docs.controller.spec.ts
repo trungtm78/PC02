@@ -26,6 +26,7 @@ describe('the routes of the result files and the request slips', () => {
     ['downloadFile', 'GET :id/files/:fileId/download', 'read:WardAssignment'],
     ['removeFile', 'DELETE :id/files/:fileId', 'review:WardAssignment'],
     ['issueSlip', 'POST :id/decisions/:decisionId/slip', 'review:WardAssignment'],
+    ['slipDefaults', 'GET :id/decisions/:decisionId/slip/defaults', 'review:WardAssignment'],
     ['downloadSlip', 'GET :id/decisions/:decisionId/slip', 'read:WardAssignment'],
     ['reissueSlip', 'POST :id/decisions/:decisionId/slip/reissue', 'review:WardAssignment'],
   ])('%s is %s and asks for %s', (method, path_, wanted) => {
@@ -35,7 +36,7 @@ describe('the routes of the result files and the request slips', () => {
 
   const build = () => {
     const files = { list: jest.fn(), add: jest.fn(), download: jest.fn(), remove: jest.fn() };
-    const slips = { issue: jest.fn(), download: jest.fn(), reissue: jest.fn() };
+    const slips = { issue: jest.fn(), download: jest.fn(), reissue: jest.fn(), defaults: jest.fn() };
     return { controller: new WardDocsController(files as never, slips as never), files, slips };
   };
   const noScope = { dataScope: undefined, headers: {} } as unknown as ScopedRequest;
@@ -44,6 +45,8 @@ describe('the routes of the result files and the request slips', () => {
     const { controller, files, slips } = build();
     expect(() => controller.listFiles('wa1', noScope)).toThrow(expect.objectContaining({ response: { code: WARD_ERROR.FORBIDDEN, details: [] } }));
     expect(() => controller.issueSlip('wa1', 'd1', {}, { id: 'u' }, noScope)).toThrow();
+    expect(() => controller.slipDefaults('wa1', 'd1', { id: 'u' }, noScope)).toThrow();
+    expect(slips.defaults).not.toHaveBeenCalled();
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wdc-'));
     const file = path.join(dir, 'a.txt');
     fs.writeFileSync(file, 'hello');

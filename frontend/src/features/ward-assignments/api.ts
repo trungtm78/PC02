@@ -47,6 +47,8 @@ export interface WardFollowUpInput {
 }
 
 export interface WardInvestigatorInput {
+  /** The unit already lists this name and the person says this is another one. */
+  allowSameName?: boolean;
   fullName: string;
   rank?: string | null;
   position?: string | null;
@@ -88,6 +90,8 @@ export const wardAssignmentsApi = {
 
   returnReasons: () => api.get<WardReturnReason[]>(`${BASE}/return-reasons`).then(data),
   followUpChoices: () => api.get<WardFollowUpChoices>(`${BASE}/follow-up-choices`).then(data),
+  /** The ward units the person may enter a request for (exactly those `create` accepts). */
+  unitChoices: () => api.get<{ id: string; name: string }[]>(`${BASE}/unit-choices`).then(data),
   deletionImpact: (id: string) => api.get<WardDeletionImpact>(`${at(id)}/deletion-impact`).then(data),
   removeWithData: (id: string, confirmCode: string, expectedUpdatedAt: string) =>
     api.delete(`${at(id)}/with-data`, { data: { confirmCode, expectedUpdatedAt } }).then(data),
