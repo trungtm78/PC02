@@ -10,6 +10,7 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { randomUUID } = require('node:crypto');
 
 const WEB = process.env.E2E_WEB || 'http://127.0.0.1:5173';
@@ -149,6 +150,35 @@ async function asPerson(browser, who, watch) {
     const after = await call(r.token, 'GET', `/ward-assignments/${id}`);
     check('bấm Trả về trên giao diện: hồ sơ ở trạng thái Trả về', after.body?.status === 'RETURNED', after.body?.status);
     await rev.page.screenshot({ path: path.join(OUT, '03-pc02-da-tra-ve.png'), fullPage: true });
+
+    // ── the request slip: the dialog opens by itself after the return; one click issues the slip and saves the file ──
+    const slipDialog = rev.page.getByTestId('ward-slip-dialog');
+    await slipDialog.waitFor({ timeout: 10000 }).catch(() => undefined);
+    check('sau khi Trả về, popup "In phiếu yêu cầu" tự mở', await slipDialog.isVisible().catch(() => false));
+    await rev.page.waitForFunction(() => (document.querySelector('[data-testid="ward-slip-signer-canBoThamDinh"]')?.value ?? '') !== '', null, { timeout: 10000 }).catch(() => undefined);
+    const signer = await rev.page.getByTestId('ward-slip-signer-canBoThamDinh').inputValue().catch(() => '');
+    check('popup in phiếu: ô Cán bộ thẩm định đã điền sẵn', signer.trim() !== '', signer);
+    const [slipFile] = await Promise.all([rev.page.waitForEvent('download', { timeout: 30000 }).catch(() => null), rev.page.getByTestId('ward-slip-print').click()]);
+    const savedSlip = path.join(os.tmpdir(), `${TAG}-phieu.docx`);
+    if (slipFile) await slipFile.saveAs(savedSlip);
+    check('bấm "In phiếu" MỘT lần: tệp .docx tải về', !!slipFile && /\.docx$/i.test(slipFile.suggestedFilename()) && fs.statSync(savedSlip).size > 2000, slipFile ? slipFile.suggestedFilename() : 'không có tệp');
+    const slipMessage = await rev.page.getByTestId('ward-slip-message').innerText().catch(() => '');
+    check('popup báo số phiếu đã phát hành', /phiếu số\s+\S+/i.test(slipMessage), slipMessage);
+    check('đã phát hành: popup không còn nút phát hành lần hai, có Tải phiếu', (await rev.page.getByTestId('ward-slip-print').count()) === 0 && (await rev.page.getByTestId('ward-slip-download').count()) === 1);
+    await rev.page.screenshot({ path: path.join(OUT, '03b-pc02-in-phieu.png'), fullPage: true });
+    await rev.page.getByTestId('ward-slip-close').click();
+
+    // ── the list: the buttons of the row ──
+    await rev.page.goto(`${WEB}/ho-so-phan-cong`);
+    await rev.page.getByTestId(`btn-view-${id}`).waitFor({ timeout: 15000 }).catch(() => undefined);
+    check('danh sách (PC02): dòng có nút Xem và In phiếu', (await rev.page.getByTestId(`btn-view-${id}`).count()) === 1 && (await rev.page.getByTestId(`btn-print-${id}`).count()) === 1);
+    check('danh sách (PC02): không có nút Sửa / Xoá trên hồ sơ của phường', (await rev.page.getByTestId(`btn-edit-${id}`).count()) === 0 && (await rev.page.getByTestId(`btn-delete-${id}`).count()) === 0);
+    await rev.page.getByTestId(`btn-print-${id}`).click();
+    await rev.page.getByTestId('ward-slip-download').waitFor({ timeout: 10000 }).catch(() => undefined);
+    const [slipAgain] = await Promise.all([rev.page.waitForEvent('download', { timeout: 30000 }).catch(() => null), rev.page.getByTestId('ward-slip-download').click()]);
+    check('danh sách (PC02): In phiếu trên dòng tải đúng phiếu đã phát hành', !!slipAgain, slipAgain ? slipAgain.suggestedFilename() : 'không có tệp');
+    await rev.page.screenshot({ path: path.join(OUT, '03c-pc02-danh-sach-thao-tac.png'), fullPage: true });
+    await rev.page.getByTestId('ward-slip-close').click();
     await rev.page.goto(`${WEB}/ho-so-phan-cong/thong-ke`);
     await rev.page.waitForLoadState('domcontentloaded');
     await rev.page.waitForTimeout(2500);
@@ -166,8 +196,74 @@ async function asPerson(browser, who, watch) {
     await ward.page.goto(`${WEB}/ho-so-phan-cong/new`);
     await ward.page.waitForTimeout(3000);
     const form = await ward.page.locator('body').innerText();
-    check('phường mở form Trình mới: có ô Trích yếu và ĐTV đề xuất', form.includes('Trích yếu') && form.includes('ĐTV'), form.slice(0, 300));
+    check('phường mở form Tạo mới: có ô Trích yếu và ĐTV đề xuất', form.includes('Trích yếu') && form.includes('ĐTV'), form.slice(0, 300));
     await ward.page.screenshot({ path: path.join(OUT, '06-phuong-trinh-moi.png'), fullPage: true });
+
+    // ── the form, as the petition form ──
+    const heading = await ward.page.getByTestId('ward-assignment-form-page').locator('h1').first().innerText().catch(() => '');
+    check('form mới có tiêu đề "Thêm mới Hồ sơ phân công"', heading.trim() === 'Thêm mới Hồ sơ phân công', heading);
+    check('form có hai thanh nút (trên và dưới)', (await ward.page.getByTestId('ward-save-draft').count()) === 1 && (await ward.page.getByTestId('ward-save-draft-bottom').count()) === 1);
+    // "ĐTV đề xuất": type to find, without accents.
+    await ward.page.getByTestId('ward-proposed-investigator-trigger').click();
+    await ward.page.getByTestId('ward-proposed-investigator-search').fill('le van cuong');
+    await ward.page.waitForTimeout(400);
+    check('ĐTV đề xuất: gõ không dấu "le van cuong" tìm ra Lê Văn Cường', (await ward.page.getByTestId(`ward-proposed-investigator-option-${inv.body?.id}`).count()) === 1);
+    const newName = `Trần Minh Mới ${RUN}`;
+    await ward.page.getByTestId('ward-proposed-investigator-search').fill(newName);
+    await ward.page.waitForTimeout(400);
+    await ward.page.keyboard.press('Enter');
+    await ward.page.getByTestId('ward-inv-quick').waitFor({ timeout: 8000 }).catch(() => undefined);
+    check('không ai tên đó: Enter mở popup tạo ĐTV, họ tên đã điền sẵn', (await ward.page.getByTestId('ward-inv-quick-fullName').inputValue().catch(() => '')) === newName);
+    const quickText = await ward.page.getByTestId('ward-inv-quick').innerText().catch(() => '');
+    check('popup có đủ Họ tên, Cấp bậc, Chức vụ, Ngạch ĐTV, Tình trạng', ['Họ tên', 'Cấp bậc', 'Chức vụ', 'Ngạch ĐTV', 'Tình trạng'].every((l) => quickText.includes(l)), quickText);
+    await ward.page.getByTestId('ward-inv-quick-rank').fill('Đại úy');
+    await ward.page.getByTestId('ward-inv-quick-position').fill('Cán bộ');
+    await ward.page.getByTestId('ward-inv-quick-grade').fill('Điều tra viên sơ cấp');
+    await ward.page.screenshot({ path: path.join(OUT, '07-phuong-tao-dtv.png'), fullPage: true });
+    await ward.page.getByTestId('ward-inv-quick-save').click();
+    await ward.page.getByTestId('ward-inv-quick').waitFor({ state: 'detached', timeout: 8000 }).catch(() => undefined);
+    const chosen = await ward.page.getByTestId('ward-proposed-investigator-trigger').innerText().catch(() => '');
+    check('tạo xong: ô ĐTV đề xuất tự chọn người vừa tạo, hiện "Cấp bậc – Chức vụ – Họ tên"', chosen.includes(newName) && chosen.includes('Đại úy'), chosen);
+    // The same name again: not doubled silently.
+    await ward.page.getByTestId('ward-proposed-investigator-trigger').click();
+    await ward.page.getByTestId('ward-proposed-investigator-search').fill(newName.toLowerCase());
+    await ward.page.getByTestId('ward-proposed-investigator-create-new').click();
+    await ward.page.getByTestId('ward-inv-quick-save').click();
+    await ward.page.getByTestId('ward-inv-quick-duplicate').waitFor({ timeout: 8000 }).catch(() => undefined);
+    check('tạo trùng tên: popup báo danh bạ đã có và mời dùng người đã có', (await ward.page.getByTestId('ward-inv-quick-duplicate').count()) === 1 && (await ward.page.getByTestId('ward-inv-quick-use-existing').count()) === 1);
+    await ward.page.getByTestId('ward-inv-quick-use-existing').click();
+    await ward.page.getByTestId('ward-inv-quick').waitFor({ state: 'detached', timeout: 8000 }).catch(() => undefined);
+    // The pencil corrects the one chosen.
+    await ward.page.getByTestId('ward-edit-investigator').click();
+    check('nút bút chì mở popup chỉnh sửa ĐTV đang chọn', (await ward.page.getByTestId('ward-inv-quick-fullName').inputValue().catch(() => '')) === newName);
+    await ward.page.getByTestId('ward-inv-quick-cancel').click();
+    // "Trình duyệt" on an incomplete form: said on the screen, nothing sent.
+    await ward.page.getByTestId('ward-submit').click();
+    const problems = await ward.page.getByTestId('validation-errors').innerText({ timeout: 5000 }).catch(() => '');
+    check('Trình duyệt khi còn thiếu: liệt kê ô còn thiếu, không gửi', problems.includes('Vui lòng kiểm tra các lỗi sau') && problems.includes('Trích yếu'), problems);
+    await ward.page.screenshot({ path: path.join(OUT, '08-phuong-thieu-thong-tin.png'), fullPage: true });
+    // "Hủy" asks before what was typed is lost.
+    let asked = '';
+    ward.page.once('dialog', (d) => { asked = d.message(); void d.accept(); });
+    await ward.page.getByTestId('form-action-cancel').click();
+    await ward.page.getByTestId('ward-assignment-list-page').waitFor({ timeout: 10000 }).catch(() => undefined);
+    check('Hủy khi đã nhập dở: hỏi lại rồi về danh sách', asked.includes('Dữ liệu chưa lưu sẽ bị mất') && ward.page.url().endsWith('/ho-so-phan-cong'), { asked, url: ward.page.url() });
+
+    // ── the list, for the ward officer ──
+    const createText = await ward.page.getByTestId('ward-create').innerText().catch(() => '');
+    check('danh sách: nút "Tạo mới" kèm phím tắt Alt+N', /Tạo mới/.test(createText) && /Alt\s*\+?\s*N/i.test(createText) && !/Trình mới/.test(createText), createText);
+    await ward.page.getByTestId(`btn-view-${id}`).waitFor({ timeout: 15000 }).catch(() => undefined);
+    check('danh sách (phường): hồ sơ bị trả về có Xem, Sửa, In phiếu; không có Xoá', (await ward.page.getByTestId(`btn-edit-${id}`).count()) === 1 && (await ward.page.getByTestId(`btn-print-${id}`).count()) === 1 && (await ward.page.getByTestId(`btn-delete-${id}`).count()) === 0);
+    await ward.page.getByTestId(`btn-print-${id}`).click();
+    await ward.page.getByTestId('ward-slip-download').waitFor({ timeout: 10000 }).catch(() => undefined);
+    check('phường: popup in phiếu chỉ cho tải phiếu đã phát hành (không phát hành)', (await ward.page.getByTestId('ward-slip-print').count()) === 0 && (await ward.page.getByTestId('ward-slip-reissue').count()) === 0);
+    const [wardSlip] = await Promise.all([ward.page.waitForEvent('download', { timeout: 30000 }).catch(() => null), ward.page.getByTestId('ward-slip-download').click()]);
+    check('phường tải được phiếu PC02 đã phát hành', !!wardSlip, wardSlip ? wardSlip.suggestedFilename() : 'không có tệp');
+    await ward.page.screenshot({ path: path.join(OUT, '09-phuong-danh-sach.png'), fullPage: true });
+    await ward.page.getByTestId('ward-slip-close').click();
+    await ward.page.keyboard.press('Alt+n');
+    await ward.page.waitForURL('**/ho-so-phan-cong/new', { timeout: 8000 }).catch(() => undefined);
+    check('Alt+N mở form tạo mới', ward.page.url().endsWith('/ho-so-phan-cong/new'), ward.page.url());
     await ward.context.close();
     await rev.context.close();
   } catch (err) {
