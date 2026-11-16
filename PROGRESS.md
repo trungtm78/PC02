@@ -1,7 +1,7 @@
 # PROGRESS
 
 # ACTIVE EPIC (16/11/2026): ward assignment requests ("Hồ sơ phân công Công an cấp phường/xã")
-Cập nhật: 2026-11-16 | Milestone: M1/5 | Task: PR 1 of 8 (lõi phân quyền)
+Cập nhật: 2026-11-16 (evening) | Milestone: M1/5 | Task: PR 2 of 8 (máy chủ lõi)
 Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md`; inside it the section "SỬA ĐỔI SAU /plan-eng-review (16/11/2026)" WINS over anything above it (decisions A1–A15, Q1–Q2, P1–P2, R1–R8, C1–C8; order PR 0–8; tasks T1–T14). Requirement files: `docs/Requirements/trinh phân công.xlsx`, `docs/Requirements/YCĐT 1949A CAP.Vườn Lài 321.docx` (folder git-ignored). Protocol: the AUTONOMOUS EXECUTION PROTOCOL the owner pasted 16/11 (no stopping to ask; DoD of 6 points; review + Codex per task; UAT 100% at the end).
 
 ## Milestones
@@ -12,27 +12,24 @@ Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-
 - M5 = PR 8 (UAT over HTTP, browser pass with a ward account and a PC02 account, one monkey run; switch on; templates applied to teams ONLY on the owner's order).
 
 ## Đã hoàn thành
-- (nothing merged yet for this epic)
+- [x] M1 PR 1 = #694 — authz core: `WardAssignment` record subject (team-bound), scoped actions `review` / `matchSubjects`, catalogue + six pairs, two starter templates, regression contract recorded on the old code — merged `c022c1d4`, CI 5/5 (the new PostgreSQL spec seen PASS in the Database Gate log) — patch coverage 67/67 lines. Production build `c022c1d4` (16/11 22:00; the first deploy run hung at rsync, its VM receivers were stopped and the run re-run), read-only check: the three lists identical before/after; the six `*:WardAssignment` pairs exist and only role ADMIN holds them; no template entry uses them.
 
 ## Đang làm dở
-Task: PR 1 — branch `feat/ward-assignment-authz` (from origin/main 88dfaaaf)
+Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased onto main after #694)
 Đã làm:
-- `2dbb0a65` regression contract `backend/src/common/utils/scope-golden.spec.ts` + snapshot, RECORDED ON THE OLD CODE (14 scopes × 3 subjects × 25 records × every helper; scopeOf of 5 kinds of person). Must stay byte-identical.
-- `precise-scope.ts`: `RECORD_SUBJECTS` += `WardAssignment`; `SCOPED_ACTIONS = { WardAssignment: ['review', 'matchSubjects'] }`; `SubjectScopes.actions` (absent = nothing).
-- `scope-filter.util.ts`: owner field `enteredById` + exported `ownerFieldOf`; dispatcher exception limited to Case/Incident/Petition (`DISPATCH_SUBJECTS`); `recordInActionScope`, `actionConditions`; legacy list check factored into `listsAllow` (same conditions).
-- `authz-scope.service.ts`: each scoped action reaches by `${action}:${subject}` measured as a write (C1), never borrowed from `edit`.
-- `prisma/permission-resources.ts` resource `wardAssignments` (+ extras `reviewAssignment`, `matchSubjects`, the latter sensitive); `prisma/seed-permissions.ts` six pairs.
-- `authz/admin/starter-templates.ts`: STARTER_WARD_SUBMIT (TEAM_TREE), STARTER_WARD_REVIEW (ALL, no edit); leadership += `read:WardAssignment`.
-- Gates: owner field and subjects agree with the catalogue; every scoped action is a catalogue pair at every depth; every catalogue resource/extra has a label in `frontend/src/locales/permissions.vi.ts` (read from the file; the frontend gate checks a hand-written copy).
-- Codex pass 2 (3 findings, all accepted): readersOf/mayBeToldAbout told everybody about a ward request when nothing is enforced -> nobody (`TOLD_AS_BEFORE` = the three old subjects); two fixtures that let wrong implementations pass -> strengthened.
-- Codex pass 1 (2 findings, both accepted and fixed): ward isolation through a team's people (High) -> team-bound subject; matching not proven independent of review (Medium) -> tests with different reaches per action. Five seeded faults each caught.
-- Tests: `ward-assignment-scope.spec.ts`, `authz/ward-assignment-scope.database.spec.ts` (real PostgreSQL, templates as rows), additions to `authz-scope.service.spec.ts`, `record-readers.spec.ts`, `starter-templates.spec.ts`. Three seeded faults each caught (dispatcher bypass, review borrowed from edit, wrong owner field).
-BƯỚC TIẾP THEO: full backend suite (running), frontend vitest of `src/features/permissions` + `npx tsc -b`; /review of the diff; one Codex pass; commit; PR; CI; merge; deploy; read-only production check (`prod-lists` before/after identical; nobody but ADMIN holds the new pairs).
-File liên quan: backend/src/common/utils/{precise-scope,scope-filter.util}.ts, backend/src/authz/{authz-scope.service,admin/starter-templates}.ts, backend/prisma/{permission-resources,seed-permissions}.ts, frontend/src/locales/permissions.vi.ts
+- Schema for the whole epic, fixed now so later PRs and parallel lanes never touch it again: `WardAssignment`, `WardAssignmentSubject`, `WardAssignmentRound` (sequence / submissionNo / priorStatus / snapshot / withdrawal), `WardAssignmentDecision` (return or approve, requirements, revocation, the slip: year, number, issued file, signers), `WardAssignmentDeadlineChange`, `WardInvestigator`; nullable `wardAssignmentId` on `documents` and `document_render_logs`. Migration `20261126100000_ward_assignments` (additive; switch `ward-assignments` inserted OFF).
+- `src/ward-assignments/`: pure rules (`ward-assignment.rules.ts`), the ONLY writer `WardAssignmentCommandService` (create, update, submit, withdraw, delete a never-submitted draft, archive ⇄ restore; row lock + `expectedUpdatedAt` + reach + state + audit metadata in one transaction), `WardAssignmentQueryService` (list, one request with `can`), `WardInvestigatorsService` (list, create, update, stop ⇄ resume), controllers behind `@FeatureFlag('ward-assignments')`, a missing request scope is refused (never read as "no restriction").
+- Code `năm-số` from the new series `WARD_ASSIGNMENT` (seed + allocator drift check + DTO list), given at the first submission.
+- Team merge knows the four new references (requests, follow-up unit, investigators move; a decision stays as history); the team archive-stamp gate now looks at writes to TEAMS only (it matched any `archivedById:`).
+- Tests: rules (14), commands on PostgreSQL (17: reach, on-behalf, rounds and counting, withdrawal, concurrency, delete vs archive, re-assignment, investigators), code series on PostgreSQL (2, one seeded fault caught), single-writer gate (3), ward merge on PostgreSQL (1). CI Database Gate list += `src/ward-assignments/.*\.database\.spec\.ts`.
+- Re-sequenced (not cut): "admin delete with data" moves to PR 3, with the result files it has to remove.
+- Codex pass 1 on PR 2: 9 findings (3 High, 4 Medium, 2 Low), all fixed in `cc17b55e` (team share lock on create, investigator row lock, references re-checked at submit, merge kind compatibility + undo refused on mixed units, `details` envelope, strict stamps, null name refused, exact concurrency loser via real lock interleaving, gate naming the writers). Full suite on `cc17b55e`: unit 11 022 passed (2 known Excel timeouts under load), database gate green (officer-read-grant needs `pc02_goiy_scope_test`, green there). Patch coverage 812/822 (98.8%; the 10 lines are the module declaration).
+- Codex pass 2 on PR 2: 7 of the 9 closed; 4 new findings (undo lock order could deadlock; undo did not re-check the unit kind; undo could separate a re-assignment from its previous request; lock tests without finally), all fixed: merge and undo lock ward rows requests-first like the commands (`lockWardRows`), undo refused whole on any ward conflict (`TEAM_MERGE_UNDO_WARD_CONFLICT`, details by kind), holder helper with rollback. Lock-order test seeded with the wrong order: fails. 85/85 module + merge, 503/503 teams + authz on PostgreSQL.
+BƯỚC TIẾP THEO: push; PR; CI; merge; deploy; read-only production check (switch row present and OFF; lists unchanged). Then PR 3.
+File liên quan: backend/prisma/schema.prisma, backend/prisma/migrations/20261126100000_ward_assignments/, backend/src/ward-assignments/*, backend/src/teams/team-merge.service.ts
 
 ## Hàng đợi task kế tiếp
-1. PR 2 backend core (T2, T3 partly, T8) — branch `feat/ward-assignment-core`.
-2. PR 3 review (T2 rest, T3, T6, T7 part, T13); PR 4 matching (T4); PR 5 web (T9); PR 6 slip (T5, T12); PR 7 (T7, T11, T14); PR 8 UAT.
+1. PR 3 review (+ admin delete with data, moved from PR 2) (T2 rest, T3, T6, T7 part, T13); PR 4 matching (T4); PR 5 web (T9); PR 6 slip (T5, T12); PR 7 (T7, T11, T14); PR 8 UAT.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

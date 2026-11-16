@@ -12,6 +12,15 @@ export const MERGE_ERROR = {
   TARGET_NOT_ACTIVE: 'TEAM_MERGE_TARGET_NOT_ACTIVE',
   CYCLE: 'TEAM_MERGE_CYCLE',
   NOT_UNDOABLE: 'TEAM_MERGE_NOT_UNDOABLE',
+  /** The source holds ward assignment requests or investigators: only another ward unit can take them. */
+  WARD_TARGET_NOT_WARD: 'TEAM_MERGE_WARD_TARGET_NOT_WARD',
+  /** The source follows ward requests for PC02: a ward unit cannot follow them. */
+  FOLLOW_UP_TARGET_WARD: 'TEAM_MERGE_FOLLOW_UP_TARGET_WARD',
+  /**
+   * Undoing would leave a ward request in a state the ward commands refuse (something was done since the merge): naming
+   * an investigator of another unit, in a unit of the wrong kind, or re-assigning a request of another ward unit.
+   */
+  UNDO_WARD_CONFLICT: 'TEAM_MERGE_UNDO_WARD_CONFLICT',
 } as const;
 
 /**
@@ -42,8 +51,53 @@ const STRATEGY: Record<string, Strategy> = {
   'proc_record_step_parties.teamId': 'repoint',
   // What a team gives its people is that team's own setting: the people who move get what the target gives.
   'team_permission_configs.teamId': 'own-settings',
+  // Ward assignment requests. Wards ARE merged (administrative reform): the requests of the merged-away ward unit, and
+  // its list of investigators, go with it to the target, like `petitions.assignedTeamId`; so does the PC02 unit that
+  // follows a request. A decision PC02 took records what was decided and stays as it was (history, D09). The target
+  // must be of the same kind (checkWardCompatibility), and an undo that would mix units is refused.
+  // These are the only writes to the ward tables outside `src/ward-assignments` (gate: ward-assignment-writers).
+  'ward_assignments.assignedTeamId': 'repoint',
+  'ward_assignments.followUpTeamId': 'repoint',
+  'ward_investigators.teamId': 'repoint',
+  'ward_assignment_decisions.followUpTeamId': 'history',
 };
 const keyOf = (ref: TeamReference) => `${ref.table}.${ref.column}`;
+
+/**
+ * The ward rows of these units, locked before a merge or an undo writes anything, requests first and investigators
+ * after: the order in which the ward commands lock them (a request, then the investigator it names). Taking them in the
+ * same order rules out a request and an investigator each held by one side and waited for by the other.
+ */
+async function lockWardRows(tx: Tx, teamIds: readonly string[]): Promise<void> {
+  await tx.$queryRaw`
+    SELECT id FROM ward_assignments
+     WHERE "assignedTeamId" = ANY(${teamIds}::text[]) OR "followUpTeamId" = ANY(${teamIds}::text[])
+     ORDER BY id FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM ward_investigators WHERE "teamId" = ANY(${teamIds}::text[]) ORDER BY id FOR UPDATE`;
+}
+
+/** Ward requests of these units that the ward commands would refuse as they stand, by kind of conflict. */
+async function wardConflicts(tx: Tx, teamIds: readonly string[]): Promise<{ kind: string; count: number }[]> {
+  const [row] = await tx.$queryRaw<{ investigator: number; unit_kind: number; previous: number }[]>`
+    SELECT
+      (SELECT count(*)::int FROM ward_assignments a
+         JOIN ward_investigators i ON i.id IN (a."proposedInvestigatorId", a."assignedInvestigatorId")
+        WHERE a."assignedTeamId" = ANY(${teamIds}::text[]) AND i."teamId" <> a."assignedTeamId") AS investigator,
+      (SELECT count(*)::int FROM ward_assignments a JOIN teams t ON t.id = a."assignedTeamId"
+        WHERE t.id = ANY(${teamIds}::text[]) AND t."wardId" IS NULL)
+      + (SELECT count(*)::int FROM ward_investigators i JOIN teams t ON t.id = i."teamId"
+        WHERE t.id = ANY(${teamIds}::text[]) AND t."wardId" IS NULL)
+      + (SELECT count(*)::int FROM ward_assignments a JOIN teams t ON t.id = a."followUpTeamId"
+        WHERE t.id = ANY(${teamIds}::text[]) AND t."wardId" IS NOT NULL) AS unit_kind,
+      (SELECT count(*)::int FROM ward_assignments a JOIN ward_assignments p ON p.id = a."previousAssignmentId"
+        WHERE (a."assignedTeamId" = ANY(${teamIds}::text[]) OR p."assignedTeamId" = ANY(${teamIds}::text[]))
+          AND a."assignedTeamId" <> p."assignedTeamId") AS previous`;
+  return [
+    { kind: 'INVESTIGATOR', count: Number(row.investigator) },
+    { kind: 'UNIT_KIND', count: Number(row.unit_kind) },
+    { kind: 'PREVIOUS', count: Number(row.previous) },
+  ].filter((c) => c.count > 0);
+}
 
 /** Tables whose rows a merge may delete (a duplicate) and later re-insert from the manifest. */
 const RESTORABLE_TABLES = ['user_teams', 'data_access_grants'] as const;
@@ -147,6 +201,7 @@ export class TeamMergeService {
   async merge(sourceId: string, targetId: string, actorId: string, meta?: Meta) {
     const { operationId, summary, sourceName, targetName } = await this.prisma.$transaction(async (tx) => {
       const { source, target } = await this.readPair(tx, sourceId, targetId, true);
+      await lockWardRows(tx, [source.id, target.id]);
       const refs = await this.supportedReferences(tx);
 
       const operation = await tx.teamMergeOperation.create({
@@ -206,7 +261,28 @@ export class TeamMergeService {
         SELECT t.id FROM teams t JOIN d ON t."parentId" = d.id
       ) SELECT count(*)::int AS n FROM d WHERE id = ${targetId}`;
     if (Number(underSource) > 0) throw new ConflictException({ code: MERGE_ERROR.CYCLE });
+    await this.checkWardCompatibility(db, sourceId, targetId);
     return { source, target };
+  }
+
+  /**
+   * A ward unit's requests and its list of investigators belong to a ward unit: they move only into another ward unit.
+   * The PC02 unit that follows requests is not a ward unit: it moves only into a unit that is not one. (Creating a
+   * request or an investigator refuses any other unit; a merge must not make what creation forbids.)
+   */
+  private async checkWardCompatibility(db: Tx | PrismaService, sourceId: string, targetId: string): Promise<void> {
+    const [row] = await db.$queryRaw<{ ward_refs: number; follow_refs: number; target_ward: boolean }[]>`
+      SELECT
+        (SELECT count(*)::int FROM ward_assignments WHERE "assignedTeamId" = ${sourceId})
+          + (SELECT count(*)::int FROM ward_investigators WHERE "teamId" = ${sourceId}) AS ward_refs,
+        (SELECT count(*)::int FROM ward_assignments WHERE "followUpTeamId" = ${sourceId}) AS follow_refs,
+        (SELECT "wardId" IS NOT NULL FROM teams WHERE id = ${targetId}) AS target_ward`;
+    if (Number(row.ward_refs) > 0 && !row.target_ward) {
+      throw new ConflictException({ code: MERGE_ERROR.WARD_TARGET_NOT_WARD, details: [{ count: Number(row.ward_refs) }] });
+    }
+    if (Number(row.follow_refs) > 0 && row.target_ward) {
+      throw new ConflictException({ code: MERGE_ERROR.FOLLOW_UP_TARGET_WARD, details: [{ count: Number(row.follow_refs) }] });
+    }
   }
 
   private async moveReference(tx: Tx, op: string, ref: TeamReference, S: string, T: string, summary: MergeSummary) {
@@ -303,6 +379,7 @@ export class TeamMergeService {
       const present = await tx.$queryRaw<{ id: string; status: TeamStatus }[]>`
         SELECT id, status FROM teams WHERE id IN (${S}, ${T}) ORDER BY id FOR UPDATE`;
       if (present.length < 2) throw new ConflictException({ code: MERGE_ERROR.NOT_UNDOABLE });
+      await lockWardRows(tx, [S, T]);
 
       let restored = 0;
       let skipped = 0;
@@ -383,7 +460,14 @@ export class TeamMergeService {
         tally(done, total, table);
       }
 
-      // 4. the source goes back to the state it had, if nobody has moved it since the merge archived it
+      // 4. a ward request is left only in a state the ward commands accept. Undo puts rows back one by one and leaves
+      // alone what changed since; what was made or edited since may no longer fit (an investigator who went back to
+      // the other unit, a unit whose kind was changed, a re-assignment of a request that went back). Such an undo is
+      // refused whole (the transaction rolls back): the person fixes the requests first, then undoes.
+      const conflicts = await wardConflicts(tx, [S, T]);
+      if (conflicts.length > 0) throw new ConflictException({ code: MERGE_ERROR.UNDO_WARD_CONFLICT, details: conflicts });
+
+      // 5. the source goes back to the state it had, if nobody has moved it since the merge archived it
       if (present.find((r) => r.id === S)?.status === 'ARCHIVED') {
         await this.lifecycle.applyStatus(tx, S, 'ACTIVE', actorId);
         if (op.sourcePreviousStatus === 'INACTIVE') await this.lifecycle.applyStatus(tx, S, 'INACTIVE', actorId);

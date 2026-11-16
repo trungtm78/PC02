@@ -27,6 +27,7 @@ const VALID_DOCUMENT_TYPES = [
   'PROPOSAL',
   'DELEGATION',
   'EVIDENCE',
+  'WARD_ASSIGNMENT',
 ] as const;
 
 const VALID_RESET_PERIODS = [
