@@ -55,7 +55,14 @@ type NotificationType =
   | 'DYN_REPORT_UNLOCK_GRANTED'
   | 'DYN_REPORT_UNLOCK_REQUESTED'
   | 'DYN_REPORT_PERIOD_FINALIZED'
-  | 'DYN_REPORT_DEADLINE_REMINDER';
+  | 'DYN_REPORT_DEADLINE_REMINDER'
+  // Ward assignment requests (Hồ sơ phân công phường/xã) — web bell only
+  | 'WARD_ASSIGNMENT_SUBMITTED'
+  | 'WARD_ASSIGNMENT_RESUBMITTED'
+  | 'WARD_ASSIGNMENT_RETURNED'
+  | 'WARD_ASSIGNMENT_APPROVED'
+  | 'WARD_ASSIGNMENT_DEADLINE_NEAR'
+  | 'WARD_ASSIGNMENT_OVERDUE';
 
 interface Notification {
   id: string;
@@ -163,6 +170,36 @@ const TYPE_CONFIG: Record<
   },
   DYN_REPORT_DEADLINE_REMINDER: {
     icon: <Clock className="w-4 h-4" />,
+    bg: 'bg-red-100',
+    text: 'text-red-600',
+  },
+  WARD_ASSIGNMENT_SUBMITTED: {
+    icon: <FileText className="w-4 h-4" />,
+    bg: 'bg-blue-100',
+    text: 'text-blue-600',
+  },
+  WARD_ASSIGNMENT_RESUBMITTED: {
+    icon: <FileText className="w-4 h-4" />,
+    bg: 'bg-violet-100',
+    text: 'text-violet-600',
+  },
+  WARD_ASSIGNMENT_RETURNED: {
+    icon: <FileText className="w-4 h-4" />,
+    bg: 'bg-amber-100',
+    text: 'text-amber-600',
+  },
+  WARD_ASSIGNMENT_APPROVED: {
+    icon: <FileText className="w-4 h-4" />,
+    bg: 'bg-green-100',
+    text: 'text-green-600',
+  },
+  WARD_ASSIGNMENT_DEADLINE_NEAR: {
+    icon: <Clock className="w-4 h-4" />,
+    bg: 'bg-amber-100',
+    text: 'text-amber-600',
+  },
+  WARD_ASSIGNMENT_OVERDUE: {
+    icon: <AlertTriangle className="w-4 h-4" />,
     bg: 'bg-red-100',
     text: 'text-red-600',
   },

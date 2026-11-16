@@ -1,5 +1,11 @@
-/** Loại thực thể gắn template chứng từ. */
-export const ENTITY_TYPES = ['VU_VIEC', 'VU_AN', 'DON_THU'] as const;
+/**
+ * Loại thực thể gắn template chứng từ.
+ *
+ * `HO_SO_PHAN_CONG`: a ward assignment request; its one document is the request slip ("Phiếu yêu cầu"), issued per
+ * decision by the ward module (never from the generic print popup). Every lookup table keyed by entity type must
+ * carry every key here: `entity-types.gate.spec.ts`.
+ */
+export const ENTITY_TYPES = ['VU_VIEC', 'VU_AN', 'DON_THU', 'HO_SO_PHAN_CONG'] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
 /** Danh mục mẫu chứng từ (nhóm hiển thị trong popup xuất file). */

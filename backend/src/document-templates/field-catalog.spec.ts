@@ -89,8 +89,8 @@ describe('field-catalog', () => {
     expect(catalogKeys('DON_THU')).toContain('soVanBan');
   });
 
-  it('FIELD_CATALOG có đủ 3 entityType', () => {
-    expect(Object.keys(FIELD_CATALOG).sort()).toEqual(['DON_THU', 'VU_AN', 'VU_VIEC']);
+  it('FIELD_CATALOG có đủ 4 entityType (HO_SO_PHAN_CONG: phiếu yêu cầu của hồ sơ phân công)', () => {
+    expect(Object.keys(FIELD_CATALOG).sort()).toEqual(['DON_THU', 'HO_SO_PHAN_CONG', 'VU_AN', 'VU_VIEC']);
   });
 });
 

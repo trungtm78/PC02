@@ -1,0 +1,12 @@
+{
+  "ten": "ho-so-phan-cong",
+  "moTa": "Hồ sơ phân công phường/xã: danh sách, form trình mới, một hồ sơ đã duyệt (khối thẩm định, kết quả, phiếu, tệp, đối tượng trùng), thống kê. Chỉ bất biến chung: không pageerror/5xx/màn trắng/màn lỗi. Cần MONKEY_WARD_ID (mã một hồ sơ thật gieo ở máy local).",
+  "tuyen": [
+    "/ho-so-phan-cong",
+    "/ho-so-phan-cong/new",
+    "/ho-so-phan-cong/{WARD_ID}",
+    "/ho-so-phan-cong/{WARD_ID}/edit",
+    "/ho-so-phan-cong/thong-ke"
+  ],
+  "batBien": []
+}

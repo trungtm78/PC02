@@ -1,7 +1,7 @@
 # PROGRESS
 
 # ACTIVE EPIC (16/11/2026): ward assignment requests ("Hồ sơ phân công Công an cấp phường/xã")
-Cập nhật: 2026-11-16 (evening) | Milestone: M1/5 | Task: PR 2 of 8 (máy chủ lõi)
+Cập nhật: 2026-11-17 00:15 | Milestone: M2–M5 in ONE integrated PR (deadline 05:00) | Task: integration branch `feat/ward-assignments-integration`
 Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-m-n-h-nh-danh-twinkling-acorn.md`; inside it the section "SỬA ĐỔI SAU /plan-eng-review (16/11/2026)" WINS over anything above it (decisions A1–A15, Q1–Q2, P1–P2, R1–R8, C1–C8; order PR 0–8; tasks T1–T14). Requirement files: `docs/Requirements/trinh phân công.xlsx`, `docs/Requirements/YCĐT 1949A CAP.Vườn Lài 321.docx` (folder git-ignored). Protocol: the AUTONOMOUS EXECUTION PROTOCOL the owner pasted 16/11 (no stopping to ask; DoD of 6 points; review + Codex per task; UAT 100% at the end).
 
 ## Milestones
@@ -14,7 +14,29 @@ Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-
 ## Đã hoàn thành
 - [x] M1 PR 1 = #694 — authz core: `WardAssignment` record subject (team-bound), scoped actions `review` / `matchSubjects`, catalogue + six pairs, two starter templates, regression contract recorded on the old code — merged `c022c1d4`, CI 5/5 (the new PostgreSQL spec seen PASS in the Database Gate log) — patch coverage 67/67 lines. Production build `c022c1d4` (16/11 22:00; the first deploy run hung at rsync, its VM receivers were stopped and the run re-run), read-only check: the three lists identical before/after; the six `*:WardAssignment` pairs exist and only role ADMIN holds them; no template entry uses them.
 
-## Đang làm dở
+- [x] M1 PR 2 = #695 — backend core — merged `e5713e45`, production build `e5713e45` (16/11 22:53), lists identical before/after; production: switch `ward-assignments` present and OFF, `ward_assignments` empty, series WARD_ASSIGNMENT seeded. (CI: one flaky frontend test `cases/governance/workspace.test.tsx` failed once at 1.1 s and passed on re-run; green locally.)
+
+## DEADLINE (owner 16/11 22:40): everything on production by 05:00 17/11; after 05:00 every change is a hotfix. Fastest = parallel lanes.
+Lanes (worktrees with junctioned node_modules, base `3449ca1a`; contract `.gstack/tmp/ward-contract.md`):
+- A (main session, branch `feat/ward-assignment-review`): PC02 review + block 3 + delete with data — `ward-review.service.ts`, routes, migration `20261127000000_ward_return_reasons`.
+- B (agent, `C:/PC02/wt-wa-web`, branch `feat/ward-web`): web screens.
+- C (agent, `C:/PC02/wt-wa-docs`, branch `feat/ward-docs`): result files + request slip (template platform 4th entity).
+- D (agent, `C:/PC02/wt-wa-alerts`, branch `feat/ward-alerts`): matching, alerts, reminders, notifications, statistics (+ migration `20261127100000_ward_alerts`).
+Integration plan: merge A + C + D + B into ONE branch (one PR, one CI, one deploy), mount C/D components in B's form, register D's stats route, call D's notification function from A's review commands, add D's new tables to `deleteWithData`'s order; full suites; one Codex pass on the whole; CI; deploy by ~04:00; UAT over HTTP + browser; switch ON on production by 05:00 for the owner to check (templates NOT applied to teams: that stays on the owner's order; ADMIN accounts can try it).
+
+## Đang làm dở — integration (PR 3–8 in one PR, owner's deadline)
+Branch `feat/ward-assignments-integration` (from main `e5713e45`):
+- `3cac4cd0` refactor (locks/stamps/reach in `ward-locks.ts`) · `b4630468` lane A review · `77d8135d` Codex fixes of lane A (5: completed request frozen until reopen, files removed from the CURRENT storage root, reopening reason in `ward_assignment_reopenings` not the audit, can.cancelApproval counts result files, populated deletion test; each fix seeded out → red).
+- Lane C (result files + request slip, 4th entity of the template platform, series `PHIEU_YEU_CAU` `<n>/PYC-PC02-Đ1`, docx from the owner's Word file): `fabd8b4f`, `ac1eabaa`, Codex `918d56a3`.
+- Lane D (matching with per-source reach, alerts 7/3/0, 07:00 reminders through marks + notices in one transaction, bell types, statistics + page): `c1e001dd`, Codex `466d0b35`; migration `20261127100000_ward_alerts`.
+- Lane B (menu between Đơn thư and Uỷ thác, list, three-block form, round history + diff, investigator directory): `1b37cba0`, Codex `8fa8af5c`.
+- `eb220ce5` wiring: review commands notify inside the decision's transaction, ring after commit; delete-with-data removes lane D rows; UAT script `tools/uat-phan-cong/workflow.cjs`.
+- `a17d7a5c` one screen: ResultFiles + RequestSlipButton + SubjectMatches + AlertBadge mounted; `can.issueSlip`; stats route + menu; list reads the statistics drill-down filters.
+- Tests on the integrated tree: backend ward + documents + templates + merge + notifications + prisma seeds 1117/1117 on PostgreSQL; frontend feature + gates 271/271; `tsc` both sides exit 0.
+BƯỚC TIẾP THEO: Codex pass on the integrated diff (running) → UAT on local stack (`pc02_uat_phan_cong`, backend :3917) → full suites in background → PR → CI → merge → deploy → production read-only check → switch `ward-assignments` ON on production for the owner (templates NOT applied to teams: owner's order).
+Known limits stated by the lanes (not hidden): incidents not matched (free-text suspects); petitions matched only where `suspected_person_bd` is filled; PC02 review clock R2 and "most frequent return reasons" R1 not built; 7/3-day thresholds are constants; generic `/documents/:id` refuses ward readers (ward files go through the module routes).
+
+## Đang làm dở (history of PR 2)
 Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased onto main after #694)
 Đã làm:
 - Schema for the whole epic, fixed now so later PRs and parallel lanes never touch it again: `WardAssignment`, `WardAssignmentSubject`, `WardAssignmentRound` (sequence / submissionNo / priorStatus / snapshot / withdrawal), `WardAssignmentDecision` (return or approve, requirements, revocation, the slip: year, number, issued file, signers), `WardAssignmentDeadlineChange`, `WardInvestigator`; nullable `wardAssignmentId` on `documents` and `document_render_logs`. Migration `20261126100000_ward_assignments` (additive; switch `ward-assignments` inserted OFF).
@@ -27,6 +49,33 @@ Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased o
 - Codex pass 2 on PR 2: 7 of the 9 closed; 4 new findings (undo lock order could deadlock; undo did not re-check the unit kind; undo could separate a re-assignment from its previous request; lock tests without finally), all fixed: merge and undo lock ward rows requests-first like the commands (`lockWardRows`), undo refused whole on any ward conflict (`TEAM_MERGE_UNDO_WARD_CONFLICT`, details by kind), holder helper with rollback. Lock-order test seeded with the wrong order: fails. 85/85 module + merge, 503/503 teams + authz on PostgreSQL.
 BƯỚC TIẾP THEO: push; PR; CI; merge; deploy; read-only production check (switch row present and OFF; lists unchanged). Then PR 3.
 File liên quan: backend/prisma/schema.prisma, backend/prisma/migrations/20261126100000_ward_assignments/, backend/src/ward-assignments/*, backend/src/teams/team-merge.service.ts
+
+## PR 3 — design fixed 16/11 (before code), so a cleared session resumes without asking
+Branch `feat/ward-assignment-review` from `feat/ward-assignment-core` (rebase `--onto origin/main` once #695 is squashed).
+Pure rules first (`ward-review.rules.ts` + spec from the owner's decisions), then the commands in `WardAssignmentCommandService`
+(same lock / stamp / reach / audit pattern), then PostgreSQL specs, then routes.
+- **Segregation of duties (A3)**: a member of the request's ward team never decides it (`WARD_REVIEW_OWN_UNIT_FORBIDDEN`), ADMIN included.
+  Every PC02 command needs the review reach (`recordInActionScope(..., 'review')`) AND read reach.
+- **Return** (SUBMITTED, round PENDING): reason required (`reasonCode` from Directory type `LY_DO_TRA_VE` and/or `reasonText`),
+  requirements = ordered non-empty strings (<= 50). Decision RETURN on the round; round DECIDED; record RETURNED.
+  **Revoke a return** ("Thu hồi trả về"): only while the ward unit has not changed the request since the decision
+  (record.updatedAt <= decision.decidedAt) and not resubmitted; reason required; decision revoked; round PENDING; record SUBMITTED.
+- **Approve + assign** (SUBMITTED, round PENDING): investigator required (of the ward team, active, row share-locked);
+  follow-up user defaults to the actor, follow-up team to the actor's one non-ward team (several: must choose; must be non-ward, active);
+  requirements optional. Decision APPROVE; record APPROVED with assignedInvestigatorId / followUp* copied; receivedOn defaults to the
+  approval day (VN civil day, `cases/governance/case-civil-day.ts`), resultDueOn = receivedOn + 2 months (end-of-month clamp).
+  **Cancel the approval** ("Huỷ duyệt"): reason required; refused while resultText / completedOn / result files exist
+  (`WARD_APPROVAL_HAS_RESULT`); decision revoked; round PENDING; record SUBMITTED; assigned/followUp/received/due cleared
+  (old values in the audit metadata).
+- **Block 3** (APPROVED, review reach): set receivedOn (due recomputed only if never set or not yet extended); **extend** = new due + reason,
+  one `WardAssignmentDeadlineChange` row (R6); result text; **complete** (completedOn; on-time / late N days is derived) ⇄ **reopen**.
+- **Result files (C2)**: module routes upload / list / download / remove under the request (review reach to write, read reach to list
+  and download), stored through the documents storage with `wardAssignmentId`; teach `documents.service.ts` the fourth parent.
+- **Admin delete with data** (moved from PR 2): ADMIN only (scope null), body `confirmCode` must equal the code, preview route with
+  counts (subjects, rounds, decisions, deadline changes, files); deletes children first in one transaction; audit metadata counts.
+- Return reasons catalogue: seed Directory type `LY_DO_TRA_VE` (a few starters, editable by admins) through an idempotent seed.
+- Tests: rules spec; PostgreSQL: every command and its reverse, segregation (a person in both the ward and PC02), revoke after the unit
+  edited refused, cancel with a result refused, due +2 months on 31/12 and 29/02, extension history, files reach, delete-with-data order.
 
 ## Hàng đợi task kế tiếp
 1. PR 3 review (+ admin delete with data, moved from PR 2) (T2 rest, T3, T6, T7 part, T13); PR 4 matching (T4); PR 5 web (T9); PR 6 slip (T5, T12); PR 7 (T7, T11, T14); PR 8 UAT.

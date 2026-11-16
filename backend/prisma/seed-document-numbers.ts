@@ -164,6 +164,19 @@ const TEMPLATES: TemplateSpec[] = [
     yearPattern: 'YYYY',
   },
   {
+    // Phiếu yêu cầu of a ward assignment decision: `<n>/PYC-PC02-Đ1` (no zero padding, as the slips PC02 writes today,
+    // e.g. `1949/PYC-PC02-Đ1`). Allocated once per decision when the slip is issued; a number written by hand
+    // (`1949A/PYC-PC02-Đ1`) does not consume one.
+    name: 'Số Phiếu yêu cầu (hồ sơ phân công phường/xã)',
+    documentType: 'PHIEU_YEU_CAU',
+    prefix: 'PYC-PC02-Đ1',
+    separator: '/',
+    inputMode: 'AUTO',
+    resetPeriod: 'YEARLY',
+    padding: 1,
+    yearPattern: 'YYYY',
+  },
+  {
     name: 'Số Biên nhận',
     documentType: 'BIEN_NHAN',
     prefix: 'BN-PC02-Đ1',
@@ -184,6 +197,7 @@ const NEW_V047_SERIES = new Set([
   'THONG_BAO',
   'HUONG_DAN',
   'BIEN_NHAN',
+  'PHIEU_YEU_CAU',
 ]);
 
 // Loại buộc cập-nhật-lại template khi seed (dù đã tồn tại) — để đổi chuẩn cũ sang chuẩn mới.

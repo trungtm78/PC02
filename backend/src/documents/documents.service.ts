@@ -22,6 +22,7 @@ import {
   assertPetitionParentInScope,
   buildScopeFilter,
   buildPetitionScopeFilter,
+  recordReadable,
 } from '../common/utils/scope-filter.util';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
@@ -30,6 +31,7 @@ import { CaseGovernanceService } from '../cases/governance/case-governance.servi
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import { openEvidenceFile } from '../cases/evidence-governance/evidence-file-integrity';
 import { Readable } from 'node:stream';
+import { WARD_DOCS_ERROR } from '../ward-assignments/ward-docs.codes';
 
 /** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
 const THAM_SO_CU_TAI_LIEU = { search: KHOA_TAT_CA } as const;
@@ -140,6 +142,10 @@ export class DocumentsService {
 
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
+      // The files of a ward assignment request are listed by the request's own route, under its own reach: the
+      // generic list (whose reach knows cases, incidents and petitions only) never shows them, not even to an
+      // administrator, so that one place says who sees them.
+      wardAssignmentId: null,
     };
     // Tìm kiếm và phạm vi là HAI điều kiện riêng trong AND. Trước đây cả hai cùng gán `where.OR`, nên
     // khối phạm vi chạy sau đè mất khối tìm — cán bộ có phạm vi gõ gì cũng ra mọi tài liệu.
@@ -396,7 +402,19 @@ export class DocumentsService {
           ),
         ));
 
-    if (!chaDonThuChoQua && !chaVuAnChoQua) {
+    if (record.wardAssignmentId) {
+      // A file of a ward assignment request (a result file or an issued request slip) is reached by the request's
+      // own rule only: the generic rules below read "no parent" as "anybody with a scope that passes", which would
+      // open it to every dispatcher and to nobody else consistently.
+      const ward = await database.wardAssignment.findUnique({
+        where: { id: record.wardAssignmentId },
+        select: { assignedTeamId: true, enteredById: true },
+      });
+      if (!ward || !recordReadable('WardAssignment', ward, currentScope))
+        throw new ForbiddenException(
+          'Bạn không có quyền truy cập tài liệu này',
+        );
+    } else if (!chaDonThuChoQua && !chaVuAnChoQua) {
       // Ném đúng lỗi của nhánh cha mà tệp thật sự có, để thông báo không lạc đề.
       if (record.petitionId !== null && !record.caseId && !record.incidentId)
         assertPetitionParentInScope(record.petition, currentScope);
@@ -643,6 +661,10 @@ export class DocumentsService {
           actorId,
           tx,
         );
+        if (existing.wardAssignmentId)
+          throw new ConflictException(
+            'A file of a ward assignment request is changed through its request',
+          );
         const parentIds = [existing.caseId, dto.caseId]
           .filter((value): value is string => !!value)
           .sort();
@@ -842,6 +864,12 @@ export class DocumentsService {
         )
           throw new ConflictException(
             'An attachment of a step report is removed through its step',
+          );
+        // A file of a ward assignment request is removed by the request's own rule (review reach, approved), and an
+        // issued request slip never: the generic write rules know neither.
+        if (existing.wardAssignmentId)
+          throw new ConflictException(
+            'A file of a ward assignment request is removed through its request',
           );
         if (existing.caseId) {
           await tx.$queryRaw(
@@ -1051,6 +1079,256 @@ export class DocumentsService {
       },
       tx,
     );
+  }
+
+  // ─────────────────────────────────────────────
+  // FILES OF A WARD ASSIGNMENT REQUEST (result files, issued request slips)
+  // ─────────────────────────────────────────────
+  /**
+   * A result file of a ward assignment request, written by multer to the immutable storage. WHO may add it is the
+   * ward module's question (review reach, approved), answered inside the transaction it passes; this writes the row
+   * under the store's quota and file-name rules, with the store's audit line.
+   */
+  async createWardFile(
+    tx: Prisma.TransactionClient,
+    input: {
+      wardAssignmentId: string;
+      file: {
+        filename: string;
+        originalname: string;
+        mimetype: string;
+        size: number;
+        documentType?: string;
+      };
+      actorId: string;
+      meta?: { ipAddress?: string; userAgent?: string };
+    },
+  ) {
+    const { file } = input;
+    this.assertServerFileName(file.filename);
+    // The count and the insert of one request's files, one transaction at a time: two uploads at once never both
+    // pass a quota that has room for one (the request row itself is only share-locked by the caller).
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`ward-files:${input.wardAssignmentId}`}))) AS l`;
+    const maxPerEntity = this.maxDocumentsPerEntity();
+    if (
+      maxPerEntity > 0 &&
+      (await tx.document.count({
+        // The issued slips are not result files: they never take a result file's place.
+        where: { deletedAt: null, wardAssignmentId: input.wardAssignmentId, wardSlipOf: null },
+      })) >= maxPerEntity
+    )
+      throw new BadRequestException({
+        code: WARD_DOCS_ERROR.FILES_TOO_MANY,
+        details: [{ max: maxPerEntity }],
+      });
+    const givenName = uploadedFileName(file.originalname);
+    const record = await tx.document.create({
+      data: {
+        title: givenName.slice(0, 255),
+        fileName: file.filename,
+        originalName: givenName,
+        mimeType: file.mimetype,
+        size: file.size,
+        filePath: path.join(this.uploadDir, file.filename),
+        documentType: file.documentType ?? 'VAN_BAN',
+        wardAssignmentId: input.wardAssignmentId,
+        uploadedById: input.actorId,
+      },
+    });
+    await this.audit.log(
+      {
+        userId: input.actorId,
+        action: 'DOCUMENT_CREATED',
+        subject: 'Document',
+        subjectId: record.id,
+        metadata: {
+          originalName: record.originalName,
+          size: record.size,
+          wardAssignmentId: record.wardAssignmentId,
+        },
+        ipAddress: input.meta?.ipAddress,
+        userAgent: input.meta?.userAgent,
+      },
+      tx,
+    );
+    return record;
+  }
+
+  /**
+   * A file the server made (an issued request slip): its bytes written to the immutable storage (never over an
+   * existing file), its row linked to the request. Returns the server name too: when the caller's transaction fails
+   * afterwards, the caller removes that file (`discardStoredFile`).
+   */
+  async storeWardGeneratedFile(
+    tx: Prisma.TransactionClient,
+    input: {
+      wardAssignmentId: string;
+      buffer: Buffer;
+      originalName: string;
+      mimeType: string;
+      title: string;
+      actorId: string;
+    },
+  ): Promise<{ document: { id: string; fileName: string }; fileName: string }> {
+    const fileName = this.generateFileName(input.originalName);
+    this.assertServerFileName(fileName);
+    fs.mkdirSync(this.uploadDir, { recursive: true });
+    // `wx`: fails rather than overwrite (the store never replaces the bytes of a file on record).
+    const fullPath = path.join(this.uploadDir, fileName);
+    let document: { id: string; fileName: string };
+    let created = false;
+    try {
+      // The descriptor is opened exclusively: a name that exists already is never touched (not even on cleanup).
+      const fd = fs.openSync(fullPath, 'wx');
+      created = true;
+      try {
+        fs.writeFileSync(fd, input.buffer);
+      } finally {
+        fs.closeSync(fd);
+      }
+      document = await tx.document.create({
+        data: {
+          title: input.title.slice(0, 255),
+          fileName,
+          originalName: input.originalName,
+          mimeType: input.mimeType,
+          size: input.buffer.length,
+          filePath: fullPath,
+          documentType: 'VAN_BAN',
+          wardAssignmentId: input.wardAssignmentId,
+          uploadedById: input.actorId,
+        },
+        select: { id: true, fileName: true },
+      });
+    } catch (error) {
+      // Written here and not on record: the bytes go (the caller only cleans up what this method returned).
+      if (created) fs.rmSync(fullPath, { force: true });
+      throw error;
+    }
+    return { document, fileName };
+  }
+
+  /** The bytes of a stored file whose row was never committed (the transaction that wrote it failed). */
+  discardStoredFile(fileName: string): void {
+    if (!fileName || /[\\/:]/.test(fileName) || fileName.includes('\0'))
+      return;
+    fs.rmSync(path.join(this.uploadDir, fileName), { force: true });
+  }
+
+  /** Soft delete of a result file of a ward assignment request, by the ward module's rule; what must be preserved still is. */
+  async deleteWardFile(
+    tx: Prisma.TransactionClient,
+    document: { id: string; originalName: string; wardAssignmentId: string },
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ): Promise<void> {
+    await this.assertRemovable(tx, document.id, null);
+    await tx.document.update({
+      where: { id: document.id },
+      data: { deletedAt: new Date() },
+    });
+    await this.audit.log(
+      {
+        userId: actorId,
+        action: 'DOCUMENT_DELETED',
+        subject: 'Document',
+        subjectId: document.id,
+        metadata: {
+          originalName: document.originalName,
+          softDelete: true,
+          wardAssignmentId: document.wardAssignmentId,
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * The bytes of a file of a ward assignment request, by the ward module's rule (`authorize` throws to refuse; asked
+   * before AND after the bytes are read, so a file removed or a reach lost meanwhile is not served). The bytes are
+   * read once, checked against the size on record and served from that snapshot; the download is audited.
+   */
+  async openWardFile(
+    id: string,
+    wardAssignmentId: string,
+    actor: { userId: string; ipAddress?: string; userAgent?: string },
+    authorize: () => Promise<void>,
+    /** The SHA-256 the bytes had when they were stored (an issued slip's render), when it is on record. */
+    expectedSha256?: string,
+  ): Promise<{ stream: Readable; originalName: string; mimeType: string }> {
+    const find = () =>
+      this.prisma.document.findFirst({
+        where: { id, wardAssignmentId, deletedAt: null },
+        select: {
+          id: true,
+          fileName: true,
+          originalName: true,
+          mimeType: true,
+          size: true,
+          updatedAt: true,
+        },
+      });
+    await authorize();
+    const before = await find();
+    if (!before)
+      throw new NotFoundException({ code: WARD_DOCS_ERROR.FILE_NOT_FOUND, details: [] });
+    let file: Awaited<ReturnType<typeof openEvidenceFile>>;
+    try {
+      file = await openEvidenceFile(this.uploadDir, before.fileName, expectedSha256);
+    } catch {
+      throw new ConflictException({ code: WARD_DOCS_ERROR.FILE_UNAVAILABLE, details: [] });
+    }
+    try {
+      const chunks: Buffer[] = [];
+      const hash = crypto.createHash('sha256');
+      let byteLength = 0;
+      for await (const chunk of file.handle.createReadStream({
+        start: 0,
+        autoClose: false,
+      })) {
+        chunks.push(chunk as Buffer);
+        hash.update(chunk as Buffer);
+        byteLength += (chunk as Buffer).length;
+      }
+      if (hash.digest('hex') !== file.sha256 || byteLength !== before.size)
+        throw new ConflictException({ code: WARD_DOCS_ERROR.FILE_UNAVAILABLE, details: [] });
+      await authorize();
+      const after = await find();
+      if (
+        !after ||
+        after.updatedAt.getTime() !== before.updatedAt.getTime() ||
+        after.fileName !== before.fileName
+      )
+        throw new ConflictException({ code: WARD_DOCS_ERROR.FILE_UNAVAILABLE, details: [] });
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'DOCUMENT_DOWNLOADED',
+        subject: 'Document',
+        subjectId: id,
+        metadata: { sha256: file.sha256, size: byteLength, wardAssignmentId },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+      return {
+        stream: Readable.from(Buffer.concat(chunks)),
+        originalName: before.originalName,
+        mimeType: before.mimeType,
+      };
+    } finally {
+      await file.handle.close();
+    }
+  }
+
+  private assertServerFileName(name: string): void {
+    if (
+      /[\\/:]/.test(name) ||
+      name.includes('\0') ||
+      name === '.' ||
+      name === '..'
+    )
+      throw new BadRequestException('Invalid server filename');
   }
 
   /** MAX_DOCUMENTS_PER_ENTITY: 0 = no limit; unset or malformed = 50 (fail closed). */

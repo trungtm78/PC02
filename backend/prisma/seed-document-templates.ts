@@ -406,6 +406,94 @@ export async function seedPetitionTemplates(
   return { created, skipped, updated };
 }
 
+/**
+ * The request slip of a ward assignment decision ("Phiếu yêu cầu", entity type HO_SO_PHAN_CONG), built from the Word
+ * file PC02 writes today by `tools/docx-templatize/build-ward-slip.mjs`.
+ *
+ * - Active at once: the slip is issued from a decision by the ward module, which takes the active template of this
+ *   code; a draft would leave PC02 unable to issue any slip after the deploy.
+ * - Not numbered by the platform (`needsNumber: false`): the ward module allocates the number once per decision from
+ *   `numberSeriesId` and hands it to the renderer.
+ * - Create-if-absent, like every seed of templates (an administrator's edit is kept). `SEED_TEMPLATES_FORCE_FILE=1`
+ *   with `SEED_TEMPLATES_FORCE_ONLY` naming PHIEU_YEU_CAU puts the file on disk back.
+ */
+export const WARD_SLIP_SEED = {
+  code: 'PHIEU_YEU_CAU',
+  name: 'Phiếu yêu cầu (hồ sơ phân công phường/xã)',
+  entityType: 'HO_SO_PHAN_CONG',
+  category: 'Khác',
+  numberSeriesId: 'PHIEU_YEU_CAU',
+  sortOrder: 10,
+} as const;
+
+/** The variables of the slip template: every placeholder is a catalogue field (refused otherwise: a typo would print blank). */
+export function wardSlipVariables(buffer: Buffer): Array<{ name: string; label: string; source: 'auto'; field: string; required: boolean }> {
+  return detectDocxVariables(buffer).map((name) => {
+    if (!isAutoPlaceholder(WARD_SLIP_SEED.entityType, name)) {
+      throw new Error(`PHIEU_YEU_CAU: placeholder {${name}} is not a field of HO_SO_PHAN_CONG`);
+    }
+    return { name, label: name, source: 'auto' as const, field: name, required: false };
+  });
+}
+
+export async function seedWardSlipTemplate(prisma: PrismaClient): Promise<{ created: number; updated: number; skipped: number }> {
+  const admin = await (prisma as any).user.findFirst({
+    where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN'] } } },
+    select: { id: true },
+  });
+  if (!admin) {
+    console.warn('⚠ No ADMIN — request slip template not seeded (non-fatal).');
+    return { created: 0, updated: 0, skipped: 0 };
+  }
+  const file = path.join(timThuMucMau(__dirname, 'ward-docx'), `${WARD_SLIP_SEED.code}.docx`);
+  if (!fs.existsSync(file)) {
+    console.warn(`⚠ Missing ${file} — request slip template not seeded.`);
+    return { created: 0, updated: 0, skipped: 0 };
+  }
+  const buffer = fs.readFileSync(file);
+  const variables = wardSlipVariables(buffer);
+  const fileSha = createHash('sha256').update(buffer).digest('hex');
+  const existing = await (prisma as any).documentTemplate.findFirst({
+    where: { entityType: WARD_SLIP_SEED.entityType, code: WARD_SLIP_SEED.code, deletedAt: null },
+    select: { id: true },
+  });
+  if (existing) {
+    const only = (process.env.SEED_TEMPLATES_FORCE_ONLY ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+    if (process.env.SEED_TEMPLATES_FORCE_FILE === '1' && (only.length === 0 || only.includes(WARD_SLIP_SEED.code))) {
+      await (prisma as any).documentTemplate.update({
+        where: { id: existing.id },
+        data: { fileBytes: buffer, fileSha, fileName: `${WARD_SLIP_SEED.code}.docx`, variables },
+      });
+      console.log(`  ⇪ ${WARD_SLIP_SEED.entityType}/${WARD_SLIP_SEED.code} file + mapping overwritten (force).`);
+      return { created: 0, updated: 1, skipped: 0 };
+    }
+    console.log(`  → ${WARD_SLIP_SEED.entityType}/${WARD_SLIP_SEED.code} exists — kept.`);
+    return { created: 0, updated: 0, skipped: 1 };
+  }
+  await (prisma as any).documentTemplate.create({
+    data: {
+      code: WARD_SLIP_SEED.code,
+      name: WARD_SLIP_SEED.name,
+      entityType: WARD_SLIP_SEED.entityType,
+      category: WARD_SLIP_SEED.category,
+      fileBytes: buffer,
+      fileSha,
+      fileName: `${WARD_SLIP_SEED.code}.docx`,
+      variables,
+      format: 'DOCX',
+      delimStart: '{',
+      delimEnd: '}',
+      needsNumber: false,
+      numberSeriesId: WARD_SLIP_SEED.numberSeriesId,
+      status: 'active',
+      sortOrder: WARD_SLIP_SEED.sortOrder,
+      createdById: admin.id,
+    },
+  });
+  console.log(`  ✔ ${WARD_SLIP_SEED.entityType}/${WARD_SLIP_SEED.code} created (${variables.length} variables).`);
+  return { created: 1, updated: 0, skipped: 0 };
+}
+
 // CLI entry
 if (require.main === module) {
   const connectionString = process.env['DATABASE_URL'];
@@ -421,8 +509,9 @@ if (require.main === module) {
     // Bộ mẫu HỆ CŨ — thứ khiến hệ mới in được mọi hồ sơ như hệ cũ. Bộ trên là mẫu quyết
     // định tố tụng, đòi trường mà phần lớn hồ sơ chưa có nên không thay thế được nó.
     const c = await seedLegacyTemplates(prisma);
+    const d = await seedWardSlipTemplate(prisma);
     console.log(
-      `\nDone: vu-an/vu-viec ${JSON.stringify(a)} | don-thu ${JSON.stringify(b)} | he-cu ${JSON.stringify(c)}`,
+      `\nDone: vu-an/vu-viec ${JSON.stringify(a)} | don-thu ${JSON.stringify(b)} | he-cu ${JSON.stringify(c)} | phieu-yeu-cau ${JSON.stringify(d)}`,
     );
   })()
     .catch((e: unknown) => {

@@ -267,6 +267,7 @@ model User {
   wardDecisionsFollowed             WardAssignmentDecision[]     @relation("WardDecisionFollowUpUser")
   wardSlipsIssued                   WardAssignmentDecision[]     @relation("WardDecisionSlipIssuedBy")
   wardDeadlineChanges               WardAssignmentDeadlineChange[]
+  wardReopenings                    WardAssignmentReopening[]
   wardInvestigatorsCreated          WardInvestigator[]
 
   @@map("users")
@@ -2287,6 +2288,13 @@ enum NotificationType {
   DYN_REPORT_UNLOCK_REQUESTED
   DYN_REPORT_PERIOD_FINALIZED
   DYN_REPORT_DEADLINE_REMINDER
+  // Ward assignment requests (web bell only: the mobile app has no screen for them yet)
+  WARD_ASSIGNMENT_SUBMITTED
+  WARD_ASSIGNMENT_RESUBMITTED
+  WARD_ASSIGNMENT_RETURNED
+  WARD_ASSIGNMENT_APPROVED
+  WARD_ASSIGNMENT_DEADLINE_NEAR
+  WARD_ASSIGNMENT_OVERDUE
 }
 
 model Notification {
@@ -5945,6 +5953,7 @@ model WardAssignment {
   subjects        WardAssignmentSubject[]
   rounds          WardAssignmentRound[]
   deadlineChanges WardAssignmentDeadlineChange[]
+  reopenings      WardAssignmentReopening[]
   documents       Document[]
   renderLogs      DocumentRenderLog[]
 
@@ -6062,6 +6071,21 @@ model WardAssignmentDeadlineChange {
   @@map("ward_assignment_deadline_changes")
 }
 
+/// "Mở lại": every completion taken back, with the day it had and the reason (the reason stays here, never in the audit log).
+model WardAssignmentReopening {
+  id           String         @id @default(cuid())
+  assignmentId String
+  assignment   WardAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  completedOn  DateTime       @db.Date
+  reason       String
+  reopenedById String
+  reopenedBy   User           @relation(fields: [reopenedById], references: [id], onDelete: Restrict)
+  reopenedAt   DateTime       @default(now())
+
+  @@index([assignmentId])
+  @@map("ward_assignment_reopenings")
+}
+
 /// The investigators a ward unit may propose ("ĐTV thừa uỷ quyền"): not necessarily people with an account.
 model WardInvestigator {
   id          String   @id @default(cuid())
@@ -6083,4 +6107,62 @@ model WardInvestigator {
 
   @@index([teamId, isActive])
   @@map("ward_investigators")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Ward assignment requests: subject matching, deadline reminders and notices (lane D).
+// Written only by ward-matching.service.ts (conclusions) and ward-notifier.ts (reminders): gate in the module.
+// No relation to ward_assignments on purpose (additive, the core models stay untouched): deleting a request with
+// its data removes these rows first (`deleteWardAlertRows`).
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/// Where a possible match of a subject was found.
+enum WardMatchSource {
+  WARD_ASSIGNMENT
+  PETITION
+  INCIDENT
+  CASE
+}
+
+/// A reviewer's conclusion on one match ("cùng người" / "khác người"): "not the same person" hides the pair afterwards.
+model WardSubjectMatchConclusion {
+  id              String          @id @default(cuid())
+  assignmentId    String
+  /// The subject of the request (its `position`).
+  subjectPosition Int
+  otherSource     WardMatchSource
+  otherRecordId   String
+  samePerson      Boolean
+  decidedById     String
+  decidedAt       DateTime        @default(now())
+
+  @@unique([assignmentId, subjectPosition, otherSource, otherRecordId])
+  @@map("ward_subject_match_conclusions")
+}
+
+enum WardReminderKind {
+  SUBMITTED // a new submission: the reviewers
+  RESUBMITTED // a submission after a return: the reviewer who returned it
+  RETURNED // the ward unit
+  APPROVED // the ward unit
+  DUE_YELLOW // ≤ 7 days left: once per deadline
+  DUE_RED // ≤ 3 days left: once per deadline
+  OVERDUE // once per day
+}
+
+/// The mark "this was told", written in ONE transaction with the notices it stands for: the unique key makes a second
+/// run (or a second call) add nothing, and a crash before the commit leaves neither the mark nor the notices.
+model WardAssignmentReminder {
+  id             String           @id @default(cuid())
+  /// kind + request + round/decision (events), or + approval + deadline [+ day for OVERDUE] (deadline levels).
+  dedupeKey      String           @unique
+  assignmentId   String
+  kind           WardReminderKind
+  dueOn          DateTime?        @db.Date
+  day            DateTime?        @db.Date
+  recipientCount Int              @default(0)
+  createdAt      DateTime         @default(now())
+
+  @@index([assignmentId])
+  @@map("ward_assignment_reminders")
 }

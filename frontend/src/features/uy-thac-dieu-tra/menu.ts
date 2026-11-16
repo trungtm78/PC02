@@ -6,6 +6,8 @@ export const uyThacDieuTraMenu: FeatureMenuEntry[] = [
     id: 'uy-thac-dieu-tra',
     label: 'Ủy Thác Điều Tra',
     icon: 'ArrowRightLeft',
+    // Right after "Hồ sơ phân công phường/xã" (101); see `features/ward-assignments/menu.ts`.
+    order: 102,
     children: [
       { section: 'business', id: 'utdt-list', label: 'Danh sách ủy thác', path: '/uy-thac-dieu-tra', quyen: ['read:Case'] },
       { section: 'business', id: 'utdt-new', label: 'Nhập ủy thác mới', path: '/uy-thac-dieu-tra/new', quyen: ['write:Case'] },

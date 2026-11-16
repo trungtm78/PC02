@@ -1,0 +1,76 @@
+/** Vietnamese strings of the result files and the request slip of a ward assignment request. */
+export const wardAssignmentDocs = {
+  files: {
+    title: 'Tệp kết quả',
+    empty: 'Chưa có tệp kết quả nào.',
+    loading: 'Đang tải danh sách tệp…',
+    loadFailed: 'Không tải được danh sách tệp. Hãy thử lại.',
+    retry: 'Thử lại',
+    upload: 'Tải tệp lên',
+    uploading: (name: string, percent: number) => `Đang tải "${name}" lên… ${percent}%`,
+    uploaded: (name: string) => `Đã tải lên "${name}".`,
+    download: 'Tải về',
+    remove: 'Gỡ',
+    confirmRemove: (name: string) => `Gỡ tệp "${name}" khỏi kết quả? Tệp được giữ trong nhật ký, không còn hiện ở đây.`,
+    confirm: 'Gỡ tệp',
+    cancel: 'Huỷ',
+    removed: (name: string) => `Đã gỡ "${name}".`,
+    uploadedBy: (name: string, at: string) => `${name} · ${at}`,
+    hint: 'Tối đa 10 MB mỗi tệp (ghi âm, ghi hình 100 MB): PDF, Word, Excel, ảnh, văn bản, âm thanh, video.',
+  },
+  slip: {
+    issue: 'Phát hành phiếu yêu cầu',
+    issuing: 'Đang phát hành…',
+    issued: (n: string) => `Đã phát hành phiếu số ${n}.`,
+    number: (n: string) => `Phiếu số ${n}`,
+    manualNumber: 'Số phiếu (để trống để lấy số tiếp theo)',
+    manualNumberPlaceholder: 'Ví dụ: 1949A',
+    download: 'Tải phiếu',
+    reissue: 'Phát hành lại',
+    reissueReason: 'Lý do phát hành lại (bắt buộc)',
+    reissueConfirm: 'Phát hành lại',
+    reissued: (n: string) => `Đã phát hành lại phiếu số ${n}.`,
+    notIssued: 'Chưa phát hành phiếu.',
+    cancel: 'Huỷ',
+    confirmIssue: 'Phát hành',
+    signers: {
+      canBoThamDinh: 'Cán bộ thẩm định',
+      chiHuyDoi: 'Ban chỉ huy Đội',
+      lanhDaoPhong: 'Lãnh đạo Phòng',
+      hint: 'Để trống thì dùng tên trên phiếu bạn phát hành gần nhất.',
+    },
+  },
+  /** Error codes of the server (`backend/src/ward-assignments/ward-docs.codes.ts` and the module's own). */
+  errors: {
+    WARD_FILES_NOT_APPROVED: 'Chỉ thêm hoặc gỡ tệp kết quả khi hồ sơ đã duyệt.',
+    WARD_FILE_NOT_FOUND: 'Không tìm thấy tệp (có thể đã bị gỡ).',
+    WARD_FILE_REQUIRED: 'Chưa chọn tệp.',
+    WARD_FILE_TYPE_REFUSED: 'Loại tệp không được nhận hoặc nội dung không khớp đuôi tệp.',
+    WARD_FILE_TOO_LARGE: 'Tệp vượt dung lượng cho phép.',
+    WARD_FILES_TOO_MANY: 'Hồ sơ đã đủ số tệp tối đa. Gỡ bớt tệp cũ trước khi tải thêm.',
+    WARD_FILE_UNAVAILABLE: 'Tệp không còn nguyên vẹn trên máy chủ. Hãy báo quản trị.',
+    WARD_FILE_IS_SLIP: 'Phiếu yêu cầu đã phát hành không gỡ được.',
+    WARD_SLIP_DECISION_NOT_FOUND: 'Không tìm thấy lượt thẩm định.',
+    WARD_SLIP_DECISION_REVOKED: 'Kết luận này đã bị thu hồi, không phát hành phiếu được.',
+    WARD_SLIP_NOT_ISSUED: 'Phiếu chưa được phát hành.',
+    WARD_SLIP_ALREADY_ISSUED: 'Phiếu của lượt này đã phát hành với số khác.',
+    WARD_SLIP_NUMBER_INVALID: 'Số phiếu không hợp lệ: chỉ gồm chữ số, có thể thêm tối đa 3 chữ cái (ví dụ 1949A).',
+    WARD_SLIP_NUMBER_TAKEN: 'Số phiếu này đã dùng trong năm.',
+    WARD_SLIP_REASON_REQUIRED: 'Cần ghi lý do phát hành lại (tối đa 500 ký tự).',
+    WARD_SLIP_SIGNER_TOO_LONG: 'Tên người ký quá dài (tối đa 120 ký tự).',
+    WARD_SLIP_TEMPLATE_MISSING: 'Chưa có mẫu Phiếu yêu cầu đang dùng. Hãy báo quản trị.',
+    WARD_ASSIGNMENT_NOT_FOUND: 'Không tìm thấy hồ sơ.',
+    WARD_ASSIGNMENT_FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này.',
+    WARD_REVIEW_OWN_UNIT_FORBIDDEN: 'Người thuộc đơn vị trình hồ sơ không thực hiện thao tác của PC02 trên hồ sơ này.',
+    WARD_ASSIGNMENT_ARCHIVED: 'Hồ sơ đang lưu trữ. Khôi phục trước khi thao tác.',
+    HTTP_413: 'Tệp vượt dung lượng cho phép.',
+    fallback: 'Có lỗi xảy ra. Hãy thử lại.',
+  } as Record<string, string>,
+};
+
+/** The sentence for an error code of these routes (or the fallback). */
+export function wardDocsErrorText(code: string | undefined, status?: number): string {
+  if (code && wardAssignmentDocs.errors[code]) return wardAssignmentDocs.errors[code];
+  if (status === 413) return wardAssignmentDocs.errors.HTTP_413;
+  return wardAssignmentDocs.errors.fallback;
+}

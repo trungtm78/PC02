@@ -11,6 +11,7 @@ import { CaseGovernanceService } from '../cases/governance/case-governance.servi
 import { CaseFieldSchemaService } from '../cases/governance/case-field-schema.service';
 import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import { partyNamesUser } from '../processing-flow/records/record-step-access.service';
+import { readersOf } from '../authz/record-readers';
 
 type Notice = Omit<Partial<Notification>, 'metadata'> & { metadata?: unknown };
 
@@ -97,6 +98,23 @@ export class CaseNotificationPolicyService {
     actorId: string,
     notice: T,
   ): Promise<T | null> {
+    // A notice about a ward assignment request is shown only while the person may still open the request (a
+    // reviewer moved off the ward, a request deleted): its title names the request.
+    if (String(notice.type ?? '').startsWith('WARD_ASSIGNMENT_')) {
+      const wardAssignmentId = this.metadata(notice).wardAssignmentId;
+      if (typeof wardAssignmentId !== 'string') return null;
+      const row = await this.prisma.wardAssignment.findUnique({
+        where: { id: wardAssignmentId },
+        select: { assignedTeamId: true, enteredById: true },
+      });
+      if (!row) return null;
+      return readersOf([actorId], 'WardAssignment', {
+        assignedTeamId: row.assignedTeamId,
+        ownerId: row.enteredById,
+      }).length > 0
+        ? notice
+        : null;
+    }
     const { caseId, packetId } = await this.reference(notice);
     if (!caseId && !packetId && !String(notice.type ?? '').startsWith('CASE_'))
       return notice;

@@ -6,7 +6,8 @@ export const subjectsMenu: FeatureMenuEntry[] = [
     id: 'subjects',
     label: 'Đối tượng liên quan',
     icon: 'UsersRound',
-    order: 101,
+    // Last of the business entries, after "Ủy thác điều tra" (102).
+    order: 103,
     children: [
       { section: 'business', id: 'subjects-objects', label: 'Danh sách đối tượng', path: '/objects', quyen: ['read:Subject'] },
       { section: 'business', id: 'subjects-suspects', label: 'Nghi phạm', path: '/people/suspects', quyen: ['read:Subject'] },

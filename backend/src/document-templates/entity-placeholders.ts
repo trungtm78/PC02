@@ -183,4 +183,6 @@ export const DYNAMIC_EXPORT_SAVABLE: Record<
     // trên giao diện mà lưu vào hai chỗ, đúng bẫy "hai chiều một quy ước".
     donViNhan: { column: 'donViGiaiQuyet', type: 'text' },
   },
+  // The request slip is issued by the ward module from a decision, never from the print popup: nothing to save back.
+  HO_SO_PHAN_CONG: {},
 };

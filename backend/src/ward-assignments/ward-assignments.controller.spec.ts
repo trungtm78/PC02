@@ -28,6 +28,18 @@ describe('the routes of ward assignment requests', () => {
     ['remove', 'delete:WardAssignment'],
     ['archive', 'review:WardAssignment'],
     ['restore', 'review:WardAssignment'],
+    ['returnReasons', 'read:WardAssignment'],
+    ['followUpChoices', 'review:WardAssignment'],
+    ['returnIt', 'review:WardAssignment'],
+    ['revokeReturn', 'review:WardAssignment'],
+    ['approve', 'review:WardAssignment'],
+    ['cancelApproval', 'review:WardAssignment'],
+    ['followUp', 'review:WardAssignment'],
+    ['extend', 'review:WardAssignment'],
+    ['complete', 'review:WardAssignment'],
+    ['reopen', 'review:WardAssignment'],
+    ['deletionImpact', 'delete:WardAssignment'],
+    ['deleteWithData', 'delete:WardAssignment'],
   ])('%s asks for %s', (method, wanted) => {
     expect((permissionsOf(WardAssignmentsController, method).all ?? []).map(pair)).toEqual([wanted]);
   });
@@ -49,8 +61,13 @@ describe('the routes of ward assignment requests', () => {
     const commands = { create: jest.fn(), update: jest.fn(), submit: jest.fn(), withdraw: jest.fn(), remove: jest.fn(), archive: jest.fn(), restore: jest.fn() };
     const queries = { list: jest.fn(), get: jest.fn() };
     const investigators = { list: jest.fn(), create: jest.fn(), update: jest.fn(), setActive: jest.fn() };
+    const review = {
+      returnReasons: jest.fn(), returnIt: jest.fn(), revokeReturn: jest.fn(), approve: jest.fn(), cancelApproval: jest.fn(), followUp: jest.fn(),
+      extend: jest.fn(), complete: jest.fn(), reopen: jest.fn(), deletionImpact: jest.fn(), deleteWithData: jest.fn(),
+    };
     return {
-      requests: new WardAssignmentsController(commands as never, queries as never),
+      review,
+      requests: new WardAssignmentsController(commands as never, queries as never, review as never),
       names: new WardInvestigatorsController(investigators as never),
       commands,
       queries,
@@ -85,6 +102,28 @@ describe('the routes of ward assignment requests', () => {
       [user, scope, 'i', false, stamp.expectedUpdatedAt],
       [user, scope, 'i', true, stamp.expectedUpdatedAt],
     ]);
+  });
+
+  it('the review routes hand the service the scope, the person and the body as received', () => {
+    const { requests, review } = build();
+    const req = withScope(scope);
+    const body = { expectedUpdatedAt: stamp.expectedUpdatedAt, reason: 'r' };
+    requests.returnIt('a', { ...body, requirements: [] }, user, req);
+    requests.revokeReturn('a', body, user, req);
+    requests.approve('a', { expectedUpdatedAt: stamp.expectedUpdatedAt, assignedInvestigatorId: 'i' }, user, req);
+    requests.cancelApproval('a', body, user, req);
+    requests.followUp('a', { expectedUpdatedAt: stamp.expectedUpdatedAt }, user, req);
+    requests.extend('a', { ...body, newDueOn: '2027-01-01' }, user, req);
+    requests.complete('a', { expectedUpdatedAt: stamp.expectedUpdatedAt, completedOn: '2026-11-16' }, user, req);
+    requests.reopen('a', body, user, req);
+    requests.deletionImpact('a', req);
+    requests.deleteWithData('a', { expectedUpdatedAt: stamp.expectedUpdatedAt, confirmCode: 'c' }, user, req);
+    for (const m of ['returnIt', 'revokeReturn', 'approve', 'cancelApproval', 'followUp', 'extend', 'complete', 'reopen', 'deleteWithData'] as const) {
+      expect(review[m]).toHaveBeenCalledWith(user, scope, 'a', expect.any(Object));
+    }
+    expect(review.deletionImpact).toHaveBeenCalledWith(scope, 'a');
+    requests.returnReasons();
+    expect(review.returnReasons).toHaveBeenCalled();
   });
 
   it('an administrator\'s scope (null) is passed on as it is', () => {

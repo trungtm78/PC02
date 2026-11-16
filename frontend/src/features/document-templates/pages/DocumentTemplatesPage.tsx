@@ -24,6 +24,7 @@ const ENTITY_LABEL: Record<string, string> = {
   VU_AN: 'Vụ án',
   VU_VIEC: 'Vụ việc',
   DON_THU: 'Đơn thư',
+  HO_SO_PHAN_CONG: 'Hồ sơ phân công phường/xã',
 };
 
 /** Trang admin quản lý mẫu chứng từ động (upload .docx, gán entity/category/cấp số). */
@@ -156,6 +157,7 @@ export default function DocumentTemplatesPage() {
           <option value="VU_AN">Vụ án</option>
           <option value="VU_VIEC">Vụ việc</option>
           <option value="DON_THU">Đơn thư</option>
+          <option value="HO_SO_PHAN_CONG">Hồ sơ phân công phường/xã</option>
         </select>
       </div>
 

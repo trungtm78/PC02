@@ -25,7 +25,7 @@ import { personName, rankName, abbrevName } from './ten-nguoi.util';
  * Catalog VU_AN/VU_VIEC giữ NGUYÊN hành vi caseMap/incidentMap cũ (tương thích ngược).
  */
 
-export type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
+export type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU' | 'HO_SO_PHAN_CONG';
 
 /**
  * Ngữ cảnh lúc render — dữ liệu KHÔNG nằm trong record.
@@ -1004,6 +1004,104 @@ const DON_THU_FIELDS: FieldDef[] = [
   SO_VAN_BAN,
 ];
 
+// ── HO_SO_PHAN_CONG (ward assignment request: the request slip "Phiếu yêu cầu") ──────────────────────────────
+//
+// The record is the one the ward module builds for ONE decision (`ward-slip.record.ts`): block 1 as the round
+// submitted it, the decision, the investigator and the signers. Never the live request: a reprint of an old decision
+// must say what that decision said.
+
+/** dd/MM/yyyy on the Viet Nam calendar; '' when there is no date. */
+function ngayDdMmYyyy(d: unknown): string {
+  if (!d) return '';
+  const date = d instanceof Date ? d : new Date(d as string);
+  const p = phanNgayVN(date);
+  if (!p) return '';
+  return `${String(p.ngay).padStart(2, '0')}/${String(p.thang).padStart(2, '0')}/${p.nam}`;
+}
+
+/** The investigator as the slip names them: "Thượng tá Mai Trọng Hạnh - Điều tra viên cao cấp là Trưởng Công an …". */
+function dieuTraVienTrenPhieu(r: any): string {
+  const n = r?.investigator;
+  if (!n?.fullName) return '';
+  const ten = [s(n.rank).trim(), s(n.fullName).trim()].filter(Boolean).join(' ');
+  const ngach = s(n.grade).trim();
+  const chucVu = s(n.position).trim();
+  return `${ten}${ngach ? ` - ${ngach}` : ''}${chucVu ? ` là ${chucVu}` : ''}`;
+}
+
+/** The requirements as one value: "1. …" per line, soft line breaks (`kieuXuongDong: 'mem'`). */
+export function yeuCauDanhSo(requirements: unknown): string {
+  const ds = Array.isArray(requirements) ? requirements : [];
+  return ds
+    .map((x) => s(x).trim())
+    .filter(Boolean)
+    .map((x, i) => `${i + 1}. ${x}`)
+    .join(DAU_XUONG_DONG);
+}
+
+const HO_SO_PHAN_CONG_FIELDS: FieldDef[] = [
+  { key: 'soVanBan', label: 'Số phiếu yêu cầu', group: 'Phiếu', resolve: (r) => s(r?.decision?.slipNumber) },
+  { key: 'ngayPhatHanh', label: 'Ngày phát hành (ngày … tháng … năm …)', group: 'Phiếu', resolve: (r) => fmtDate(r?.decision?.slipIssuedAt) },
+  { key: 'ngayPhatHanhNgan', label: 'Ngày phát hành (dd/MM/yyyy)', group: 'Phiếu', resolve: (r) => ngayDdMmYyyy(r?.decision?.slipIssuedAt) },
+  { key: 'ketLuan', label: 'Kết luận (Duyệt / Trả về)', group: 'Phiếu', resolve: (r) => (r?.decision?.kind === 'RETURN' ? 'Trả về' : r?.decision?.kind === 'APPROVE' ? 'Duyệt' : '') },
+  { key: 'yeuCau', label: 'Yêu cầu (đánh số, mỗi yêu cầu một dòng)', group: 'Phiếu', resolve: (r) => yeuCauDanhSo(r?.decision?.requirements) },
+  {
+    key: 'lyDoTraVe',
+    label: 'Lý do trả về',
+    group: 'Phiếu',
+    resolve: (r) => (r?.decision?.kind === 'RETURN' ? [s(r?.decision?.reasonName).trim(), s(r?.decision?.reasonText).trim()].filter(Boolean).join(': ') : ''),
+  },
+  {
+    // The line the slip of a return adds to its opening paragraph (a soft break, then the reason); nothing on an approval.
+    key: 'dongLyDoTraVe',
+    label: 'Dòng lý do trả về (chỉ phiếu trả về)',
+    group: 'Phiếu',
+    resolve: (r) => {
+      const lyDo = resolveField('HO_SO_PHAN_CONG', 'lyDoTraVe', r);
+      return lyDo ? `${DAU_XUONG_DONG}Lý do trả về: ${lyDo}.` : '';
+    },
+  },
+  { key: 'maHoSo', label: 'Mã hồ sơ', group: 'Hồ sơ', resolve: (r) => s(r?.code) },
+  { key: 'lanTrinh', label: 'Lần trình', group: 'Hồ sơ', resolve: (r) => s(r?.submissionNo) },
+  { key: 'ngayTrinh', label: 'Ngày trình (dd/MM/yyyy)', group: 'Hồ sơ', resolve: (r) => ngayDdMmYyyy(r?.submittedAt) },
+  { key: 'tenDonVi', label: 'Đơn vị trình (Công an phường/xã)', group: 'Hồ sơ', resolve: (r) => s(r?.unitName) },
+  { key: 'loaiHoSo', label: 'Loại hồ sơ (Vụ việc / Vụ án)', group: 'Hồ sơ', resolve: (r) => (r?.caseType === 'CASE' ? 'Vụ án' : r?.caseType === 'INCIDENT' ? 'Vụ việc' : '') },
+  {
+    key: 'loaiViec',
+    label: 'Việc được phân công (khởi tố, điều tra vụ án / giải quyết vụ việc)',
+    group: 'Hồ sơ',
+    resolve: (r) => (r?.caseType === 'CASE' ? 'khởi tố, điều tra vụ án' : r?.caseType === 'INCIDENT' ? 'giải quyết vụ việc' : ''),
+  },
+  { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => s(r?.crimeName ?? r?.crimeOther ?? '') },
+  { key: 'trichYeu', label: 'Trích yếu', group: 'Hồ sơ', resolve: (r) => s(r?.summary) },
+  { key: 'noiDung', label: 'Nội dung', group: 'Hồ sơ', resolve: (r) => s(r?.content) },
+  { key: 'ngayPhatHien', label: 'Ngày phát hiện (dd/MM/yyyy)', group: 'Hồ sơ', resolve: (r) => ngayDdMmYyyy(r?.discoveredOn) },
+  { key: 'noiXayRa', label: 'Nơi xảy ra', group: 'Hồ sơ', resolve: (r) => s(r?.place) },
+  {
+    key: 'doiTuong',
+    label: 'Đối tượng (họ tên, cách nhau dấu phẩy)',
+    group: 'Hồ sơ',
+    resolve: (r) => {
+      const ten = (Array.isArray(r?.subjects) ? r.subjects : []).map((x: any) => s(x?.fullName).trim()).filter(Boolean);
+      return ten.length ? ten.join(', ') : r?.subjectsUnknown ? 'đối tượng chưa xác định' : '';
+    },
+  },
+  { key: 'dieuTraVien', label: 'Điều tra viên (cấp bậc, họ tên - ngạch là chức vụ)', group: 'Điều tra viên', resolve: (r) => dieuTraVienTrenPhieu(r) },
+  {
+    key: 'dieuTraVienHienThi',
+    label: 'Điều tra viên (Cấp bậc – Chức vụ – Họ tên)',
+    group: 'Điều tra viên',
+    resolve: (r) => [r?.investigator?.rank, r?.investigator?.position, r?.investigator?.fullName].map((x) => s(x).trim()).filter(Boolean).join(' – '),
+  },
+  { key: 'capBacDieuTraVien', label: 'Cấp bậc ĐTV', group: 'Điều tra viên', resolve: (r) => s(r?.investigator?.rank) },
+  { key: 'hoTenDieuTraVien', label: 'Họ tên ĐTV', group: 'Điều tra viên', resolve: (r) => s(r?.investigator?.fullName) },
+  { key: 'chucVuDieuTraVien', label: 'Chức vụ ĐTV', group: 'Điều tra viên', resolve: (r) => s(r?.investigator?.position) },
+  { key: 'ngachDieuTraVien', label: 'Ngạch ĐTV', group: 'Điều tra viên', resolve: (r) => s(r?.investigator?.grade) },
+  { key: 'tenCanBoThamDinh', label: 'Cán bộ thẩm định (ký)', group: 'Người ký', resolve: (r) => s(r?.signers?.canBoThamDinh) },
+  { key: 'tenChiHuyDoi', label: 'Ban chỉ huy Đội (ký)', group: 'Người ký', resolve: (r) => s(r?.signers?.chiHuyDoi) },
+  { key: 'tenLanhDaoPhong', label: 'Lãnh đạo Phòng (ký)', group: 'Người ký', resolve: (r) => s(r?.signers?.lanhDaoPhong) },
+];
+
 /**
  * Catalog = khoá đặt tên theo hệ MỚI + khoá mang tên trường HỆ CŨ.
  *
@@ -1030,6 +1128,8 @@ export const FIELD_CATALOG: Record<EntityType, FieldDef[]> = {
     ...KHOA_HE_CU_NGOAI_PARITY,
     ...KHOA_HE_CU_RIENG_DON_THU,
   ],
+  // No legacy keys: the old system never had these requests.
+  HO_SO_PHAN_CONG: HO_SO_PHAN_CONG_FIELDS,
 };
 
 /** Tra FieldDef theo key (null nếu không thuộc catalog). Dùng Map nội bộ tránh prototype-lookup. */

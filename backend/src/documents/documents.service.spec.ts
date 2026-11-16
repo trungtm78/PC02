@@ -158,12 +158,15 @@ describe('DocumentsService', () => {
         expect.objectContaining({
           where: {
             deletedAt: null,
+            // The files of a ward assignment request are listed by the request's own route only.
+            wardAssignmentId: null,
             AND: [{ caseAssetVersion_document: { none: {} } }],
           },
           take: 20,
           skip: 0,
         }),
       );
+      expect(mockPrismaService.document.count).toHaveBeenCalledWith({ where: expect.objectContaining({ wardAssignmentId: null }) });
     });
 
     it('uses a stable ID tie-breaker when paging documents with the same timestamp', async () => {
