@@ -15,6 +15,7 @@ const ENTITY_OPTIONS: { value: string; label: string }[] = [
   { value: 'VU_AN', label: 'Vụ án' },
   { value: 'VU_VIEC', label: 'Vụ việc' },
   { value: 'DON_THU', label: 'Đơn thư' },
+  { value: 'HO_SO_PHAN_CONG', label: 'Hồ sơ phân công phường/xã' },
 ];
 const ENTITY_LABEL: Record<string, string> = Object.fromEntries(
   ENTITY_OPTIONS.map((o) => [o.value, o.label]),

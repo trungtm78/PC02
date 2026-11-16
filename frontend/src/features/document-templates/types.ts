@@ -1,4 +1,8 @@
-export type EntityType = 'VU_VIEC' | 'VU_AN' | 'DON_THU';
+/** The entity types of the template platform (backend ENTITY_TYPES). HO_SO_PHAN_CONG: the request slip of a ward assignment request. */
+export type EntityType = 'VU_VIEC' | 'VU_AN' | 'DON_THU' | 'HO_SO_PHAN_CONG';
+
+/** Every entity type, in the order the admin screen offers them (a gate compares it with the backend's list). */
+export const ENTITY_TYPE_LIST: readonly EntityType[] = ['VU_AN', 'VU_VIEC', 'DON_THU', 'HO_SO_PHAN_CONG'];
 
 export interface TemplateVariable {
   name: string;
