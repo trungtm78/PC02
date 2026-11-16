@@ -21,6 +21,17 @@ const MODULE_WRITERS = [
 ];
 /** The columns of `ward_assignment_decisions` the slip service may write, and nothing else. */
 const SLIP_COLUMNS = ['signers', 'slipDocumentId', 'slipIssuedAt', 'slipIssuedById', 'slipNumber', 'slipYear'];
+/**
+ * The tables of lane D (matching conclusions, reminder marks) and their writers: the matching service writes the
+ * conclusions; the notifier writes the marks with their notices in one transaction, and removes both kinds of rows
+ * of a request deleted with its data (`deleteWardAlertRows`).
+ */
+const ALERT_WRITERS: Record<string, string[]> = {
+  'ward-assignments/ward-matching.service.ts': ['wardSubjectMatchConclusion.upsert'],
+  'ward-assignments/ward-notifier.ts': ['wardAssignmentReminder.createMany', 'wardSubjectMatchConclusion.deleteMany', 'wardAssignmentReminder.deleteMany'],
+};
+const ALERT_WRITE = /\.(wardSubjectMatchConclusion|wardAssignmentReminder)\s*\.\s*(create|createMany|createManyAndReturn|update|updateMany|updateManyAndReturn|upsert|delete|deleteMany)\s*\(/g;
+const ALERT_RAW = /(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+"?(ward_subject_match_conclusions|ward_assignment_reminders)\b/gi;
 /** Outside the module: the team merge, through its strategy table (dynamic SQL a pattern cannot see; asserted below). */
 const MERGE = 'teams/team-merge.service.ts';
 const WARD_TABLES = ['ward_assignments', 'ward_assignment_subjects', 'ward_assignment_rounds', 'ward_assignment_decisions', 'ward_assignment_deadline_changes', 'ward_assignment_reopenings', 'ward_investigators'];
@@ -78,6 +89,22 @@ describe('GATE: the ward assignment tables have known writers only', () => {
       expect(columns.length).toBeGreaterThan(0);
       for (const column of columns) expect(SLIP_COLUMNS).toContain(column);
     }
+  });
+
+  it('the tables of matching and reminders: written by the matching service and the notifier only', () => {
+    const alertWrites = new Map(
+      files
+        .map((f) => {
+          const text = fs.readFileSync(f, 'utf8');
+          return [relative(f), [...[...text.matchAll(ALERT_WRITE)].map((m) => `${m[1]}.${m[2]}`), ...[...text.matchAll(ALERT_RAW)].map((m) => `${m[1].toUpperCase()} ${m[2]}`)]] as const;
+        })
+        .filter(([, w]) => w.length > 0),
+    );
+    expect(Object.fromEntries([...alertWrites.entries()].map(([file, w]) => [file, [...new Set(w)].sort()]))).toEqual(
+      Object.fromEntries(Object.entries(ALERT_WRITERS).map(([file, w]) => [file, [...w].sort()])),
+    );
+    // Negative control: the pattern sees a write of these tables.
+    expect([...'tx.wardAssignmentReminder.create({'.matchAll(ALERT_WRITE)]).toHaveLength(1);
   });
 
   it('the team merge is the one writer outside: by its strategy table, for the team columns only', () => {

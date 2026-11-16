@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import type { Prisma, WardAssignment } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ASSIGNMENT_NUMBER_SERIES, WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
 import { lockedForChange, lockedForReview, lockedWardTeam } from './ward-locks';
+import { WardNotifier } from './ward-notifier';
 import {
   afterWithdrawal,
   editableByUnit,
@@ -81,6 +82,7 @@ export class WardAssignmentCommandService {
     private readonly prisma: PrismaService,
     private readonly numbers: DocumentNumbersService,
     private readonly audit: AuditService,
+    @Optional() private readonly notifier?: WardNotifier,
   ) {}
 
   async create(actor: Actor, scope: DataScope | null | undefined, input: WardAssignmentInput): Promise<WardAssignment> {
@@ -139,7 +141,8 @@ export class WardAssignmentCommandService {
 
   /** "Trình" / "Trình lại": a new round with what is submitted; the code at the first submission. */
   async submit(actor: Actor, scope: DataScope | null | undefined, id: string, expectedUpdatedAt: string): Promise<WardAssignment> {
-    return this.prisma.$transaction(async (tx) => {
+    let ring: () => void = () => undefined;
+    const submitted = await this.prisma.$transaction(async (tx) => {
       const row = await lockedForChange(tx, scope, id, expectedUpdatedAt);
       if (!submittable(row.status)) throw new ConflictException(wardBody(WARD_ERROR.NOT_SUBMITTABLE, { status: row.status }));
       const subjects = await tx.wardAssignmentSubject.findMany({ where: { assignmentId: row.id }, orderBy: { position: 'asc' } });
@@ -153,7 +156,7 @@ export class WardAssignmentCommandService {
       const rounds = await tx.wardAssignmentRound.findMany({ where: { assignmentId: row.id }, select: { sequence: true, submissionNo: true, status: true, submittedAt: true } });
       const { sequence, submissionNo } = nextRoundNumbers(rounds);
       const now = new Date();
-      await tx.wardAssignmentRound.create({
+      const round = await tx.wardAssignmentRound.create({
         data: {
           assignmentId: row.id,
           sequence,
@@ -172,8 +175,12 @@ export class WardAssignmentCommandService {
         { userId: actor.id, action: WARD_AUDIT.SUBMITTED, subject: 'WardAssignment', subjectId: row.id, metadata: { code, sequence, submissionNo, priorStatus: row.status } },
         tx,
       );
+      // The reviewers (or, after a return, the reviewer who returned it) are told with the submission, not after it.
+      if (this.notifier) ring = await this.notifier.recordEvent(tx, { kind: 'SUBMITTED', assignmentId: row.id, roundId: round.id });
       return updated;
     });
+    ring();
+    return submitted;
   }
 
   /** "Rút lại": the round waiting for PC02 is taken back; it does not count; the request goes back where it was. */

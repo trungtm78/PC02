@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
+import { ALERT_LEVELS, type AlertLevel } from '../ward-alerts';
 
 /**
  * Shapes only. Every rule (who may, in which state, what must be filled in) is the service's, which answers with a
@@ -108,6 +109,12 @@ export class ListWardAssignmentsQuery {
   @IsOptional() @IsString() @MaxLength(200) q?: string;
   @IsOptional() @IsIn(['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED']) status?: 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'APPROVED';
   @IsOptional() @Transform(({ value }) => value === true || value === 'true') @IsBoolean() archived?: boolean;
+  // Filters of lane D (the statistics open the list with them): the deadline alert, the unit, the crime, the kinds.
+  @IsOptional() @IsIn([...ALERT_LEVELS]) alert?: AlertLevel;
+  @IsOptional() @IsString() @MaxLength(100) teamId?: string;
+  @IsOptional() @IsString() @MaxLength(100) crimeId?: string;
+  @IsOptional() @IsIn(['INCIDENT', 'CASE']) caseType?: 'INCIDENT' | 'CASE';
+  @IsOptional() @IsIn(['NEW', 'REASSIGN']) kind?: 'NEW' | 'REASSIGN';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) pageSize?: number;
 }

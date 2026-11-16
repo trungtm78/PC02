@@ -4,8 +4,9 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { recordInActionScope, recordInScope, recordReadable, scopeConditions } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
+import { alertOf, alertWhere, type AlertLevel } from './ward-alerts';
 import { editableByUnit, submittable } from './ward-assignment.rules';
-import { decisionInForce, returnRevocable, timeliness } from './ward-review.rules';
+import { decisionInForce, returnRevocable, timeliness, vnDay } from './ward-review.rules';
 import { wardBody } from './ward-errors';
 
 export interface WardAssignmentListQuery {
@@ -14,6 +15,13 @@ export interface WardAssignmentListQuery {
   status?: 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'APPROVED';
   /** The archived requests instead of the others. */
   archived?: boolean;
+  /** The deadline alert level (`ward-alerts.ts`), judged on today in Viet Nam. */
+  alert?: AlertLevel;
+  /** The ward unit. */
+  teamId?: string;
+  crimeId?: string;
+  caseType?: 'INCIDENT' | 'CASE';
+  kind?: 'NEW' | 'REASSIGN';
   page?: number;
   pageSize?: number;
 }
@@ -29,15 +37,22 @@ const PAGE_SIZE_MAX = 200;
 export class WardAssignmentQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery) {
+  /** `now`: the clock the alert levels are judged on (the filter and the field of every row use the same "today"). */
+  async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date()) {
     const reach = scopeConditions(scope, 'read', 'WardAssignment');
     if (reach !== null && reach.length === 0) return { data: [], total: 0 };
+    const today = vnDay(now);
     const q = query.q?.trim();
     const where: Prisma.WardAssignmentWhereInput = {
       AND: [
         ...(reach ? [{ OR: reach as Prisma.WardAssignmentWhereInput[] }] : []),
         query.archived ? { archivedAt: { not: null } } : { archivedAt: null },
         ...(query.status ? [{ status: query.status }] : []),
+        ...(query.alert ? [alertWhere(query.alert, today)] : []),
+        ...(query.teamId ? [{ assignedTeamId: query.teamId }] : []),
+        ...(query.crimeId ? [{ crimeId: query.crimeId }] : []),
+        ...(query.caseType ? [{ caseType: query.caseType }] : []),
+        ...(query.kind ? [{ kind: query.kind }] : []),
         ...(q ? [{ OR: [{ code: { contains: q, mode: 'insensitive' as const } }, { summary: { contains: q, mode: 'insensitive' as const } }] }] : []),
       ],
     };
@@ -53,7 +68,7 @@ export class WardAssignmentQueryService {
       }),
       this.prisma.wardAssignment.count({ where }),
     ]);
-    return { data, total };
+    return { data: data.map((row) => ({ ...row, alert: alertOf(row, today) })), total };
   }
 
   async get(scope: DataScope | null | undefined, actorId: string, id: string) {
