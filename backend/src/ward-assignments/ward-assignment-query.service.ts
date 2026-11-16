@@ -67,6 +67,7 @@ export class WardAssignmentQueryService {
         subjects: { orderBy: { position: 'asc' } },
         rounds: { orderBy: { sequence: 'asc' }, include: { decisions: { orderBy: { decidedAt: 'asc' } } } },
         deadlineChanges: { orderBy: { changedAt: 'asc' } },
+        reopenings: { orderBy: { reopenedAt: 'asc' } },
       },
     });
     if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
@@ -82,6 +83,8 @@ export class WardAssignmentQueryService {
     const member = await this.prisma.userTeam.findFirst({ where: { userId: actorId, teamId: row.assignedTeamId }, select: { userId: true } });
     const decides = reviews && !member && !row.archivedAt;
     const approved = row.status === 'APPROVED';
+    // The same predicate as the command: a result file (an active document that is not an issued slip) keeps the approval.
+    const resultFiles = approved ? await this.prisma.document.count({ where: { wardAssignmentId: row.id, deletedAt: null, wardSlipOf: null } }) : 0;
     return {
       ...row,
       viewerId: actorId,
@@ -90,8 +93,8 @@ export class WardAssignmentQueryService {
         returnIt: decides && row.status === 'SUBMITTED' && pending,
         approve: decides && row.status === 'SUBMITTED' && pending,
         revokeReturn: decides && returnRevocable(row, inForce),
-        cancelApproval: decides && approved && !row.resultText && !row.completedOn,
-        followUp: decides && approved,
+        cancelApproval: decides && approved && !row.resultText?.trim() && !row.completedOn && resultFiles === 0,
+        followUp: decides && approved && !row.completedOn,
         extend: decides && approved && !row.completedOn,
         complete: decides && approved && !row.completedOn && !!row.resultText,
         reopen: decides && approved && !!row.completedOn,

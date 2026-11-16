@@ -267,6 +267,7 @@ model User {
   wardDecisionsFollowed             WardAssignmentDecision[]     @relation("WardDecisionFollowUpUser")
   wardSlipsIssued                   WardAssignmentDecision[]     @relation("WardDecisionSlipIssuedBy")
   wardDeadlineChanges               WardAssignmentDeadlineChange[]
+  wardReopenings                    WardAssignmentReopening[]
   wardInvestigatorsCreated          WardInvestigator[]
 
   @@map("users")
@@ -5945,6 +5946,7 @@ model WardAssignment {
   subjects        WardAssignmentSubject[]
   rounds          WardAssignmentRound[]
   deadlineChanges WardAssignmentDeadlineChange[]
+  reopenings      WardAssignmentReopening[]
   documents       Document[]
   renderLogs      DocumentRenderLog[]
 
@@ -6060,6 +6062,21 @@ model WardAssignmentDeadlineChange {
 
   @@index([assignmentId])
   @@map("ward_assignment_deadline_changes")
+}
+
+/// "Mở lại": every completion taken back, with the day it had and the reason (the reason stays here, never in the audit log).
+model WardAssignmentReopening {
+  id           String         @id @default(cuid())
+  assignmentId String
+  assignment   WardAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  completedOn  DateTime       @db.Date
+  reason       String
+  reopenedById String
+  reopenedBy   User           @relation(fields: [reopenedById], references: [id], onDelete: Restrict)
+  reopenedAt   DateTime       @default(now())
+
+  @@index([assignmentId])
+  @@map("ward_assignment_reopenings")
 }
 
 /// The investigators a ward unit may propose ("ĐTV thừa uỷ quyền"): not necessarily people with an account.

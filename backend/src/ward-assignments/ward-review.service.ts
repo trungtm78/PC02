@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma, WardAssignment } from '@prisma/client';
 import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,6 +41,18 @@ export interface FollowUpInput {
 
 const blank = (v: string | null | undefined): string | null => v?.trim() || null;
 
+/** Where the stored files of documents live: the current release's uploads (linked to the shared storage). */
+export const DOCUMENT_STORAGE_ROOT = path.join(process.cwd(), 'uploads', 'documents');
+
+/**
+ * The file of a document under the storage root, from its stored name, never from the recorded path (that names the
+ * release which wrote it, gone after a later deploy). null for a name that is not a plain file name.
+ */
+export function storedFileOf(root: string, fileName: string | null | undefined): string | null {
+  if (!fileName || /[\\/:]/.test(fileName) || fileName.includes('\0') || fileName === '.' || fileName === '..') return null;
+  return path.join(root, fileName);
+}
+
 /** `YYYY-MM-DD` -> the calendar day (a date column, 00:00 UTC). */
 function dayOf(value: string | null | undefined, field: string): Date | null {
   const v = blank(value);
@@ -75,6 +88,9 @@ function requirementsOf(lines: readonly string[] | undefined): string[] {
 @Injectable()
 export class WardReviewService {
   private readonly logger = new Logger(WardReviewService.name);
+
+  /** The storage root the stored files are removed from (a test points it at a folder of its own). */
+  storageRoot = DOCUMENT_STORAGE_ROOT;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -203,6 +219,8 @@ export class WardReviewService {
     return this.prisma.$transaction(async (tx) => {
       const row = await lockedForDecision(tx, scope, actor.id, id, input.expectedUpdatedAt);
       if (row.status !== 'APPROVED') throw new ConflictException(wardBody(WARD_ERROR.NOT_APPROVED));
+      // A completed request is changed only after "Mở lại" (with its reason): its result and timeliness stand as completed.
+      if (row.completedOn) throw new ConflictException(wardBody(WARD_ERROR.ALREADY_COMPLETED));
       const data: Prisma.WardAssignmentUpdateInput = {};
       if (input.receivedOn !== undefined) {
         const receivedOn = dayOf(input.receivedOn, 'receivedOn');
@@ -262,8 +280,9 @@ export class WardReviewService {
       const row = await lockedForDecision(tx, scope, actor.id, id, input.expectedUpdatedAt);
       if (!row.completedOn) throw new ConflictException(wardBody(WARD_ERROR.NOT_COMPLETED));
       const updated = await tx.wardAssignment.update({ where: { id: row.id }, data: { completedOn: null } });
+      const reopening = await tx.wardAssignmentReopening.create({ data: { assignmentId: row.id, completedOn: row.completedOn, reason, reopenedById: actor.id, reopenedAt: updated.updatedAt } });
       await this.audit.log(
-        { userId: actor.id, action: WARD_AUDIT.REOPENED, subject: 'WardAssignment', subjectId: row.id, metadata: { completedOn: row.completedOn.toISOString().slice(0, 10), reason } },
+        { userId: actor.id, action: WARD_AUDIT.REOPENED, subject: 'WardAssignment', subjectId: row.id, metadata: { reopeningId: reopening.id, completedOn: row.completedOn.toISOString().slice(0, 10) } },
         tx,
       );
       return updated;
@@ -291,12 +310,13 @@ export class WardReviewService {
       const row = await lockedRequest(tx, scope, id, input.expectedUpdatedAt);
       if ((input.confirmCode ?? '').trim() !== (row.code ?? row.id)) throw new BadRequestException(wardBody(WARD_ERROR.DELETE_CONFIRM_MISMATCH));
       const counted = await this.counts(tx, row.id);
-      const docs = await tx.document.findMany({ where: { wardAssignmentId: row.id }, select: { id: true, filePath: true } });
+      const docs = await tx.document.findMany({ where: { wardAssignmentId: row.id }, select: { id: true, fileName: true } });
       const roundIds = (await tx.wardAssignmentRound.findMany({ where: { assignmentId: row.id }, select: { id: true } })).map((r) => r.id);
       // Children first: every relation is RESTRICT. Decisions name their slip documents, so decisions go before documents.
       await tx.wardAssignmentDecision.deleteMany({ where: { roundId: { in: roundIds } } });
       await tx.wardAssignmentRound.deleteMany({ where: { assignmentId: row.id } });
       await tx.wardAssignmentDeadlineChange.deleteMany({ where: { assignmentId: row.id } });
+      await tx.wardAssignmentReopening.deleteMany({ where: { assignmentId: row.id } });
       await tx.wardAssignmentSubject.deleteMany({ where: { assignmentId: row.id } });
       await tx.documentRenderLog.deleteMany({ where: { wardAssignmentId: row.id } });
       await tx.document.deleteMany({ where: { wardAssignmentId: row.id } });
@@ -310,8 +330,14 @@ export class WardReviewService {
     });
     const notRemoved: string[] = [];
     for (const doc of files) {
+      const file = storedFileOf(this.storageRoot, doc.fileName);
+      if (!file) {
+        this.logger.error(`file of deleted ward request not removed: document ${doc.id} has no plain stored name`);
+        notRemoved.push(doc.id);
+        continue;
+      }
       try {
-        await fs.unlink(doc.filePath);
+        await fs.unlink(file);
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code === 'ENOENT') continue;
         this.logger.error(`file of deleted ward request not removed: document ${doc.id}`, (e as Error).stack);
@@ -359,13 +385,14 @@ export class WardReviewService {
   }
 
   private async counts(db: Tx | PrismaService, id: string) {
-    const [subjects, rounds, decisions, deadlineChanges, files] = await Promise.all([
+    const [subjects, rounds, decisions, deadlineChanges, reopenings, files] = await Promise.all([
       db.wardAssignmentSubject.count({ where: { assignmentId: id } }),
       db.wardAssignmentRound.count({ where: { assignmentId: id } }),
       db.wardAssignmentDecision.count({ where: { round: { assignmentId: id } } }),
       db.wardAssignmentDeadlineChange.count({ where: { assignmentId: id } }),
+      db.wardAssignmentReopening.count({ where: { assignmentId: id } }),
       db.document.count({ where: { wardAssignmentId: id } }),
     ]);
-    return { subjects, rounds, decisions, deadlineChanges, files };
+    return { subjects, rounds, decisions, deadlineChanges, reopenings, files };
   }
 }

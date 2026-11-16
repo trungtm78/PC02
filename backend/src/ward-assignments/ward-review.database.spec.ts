@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
@@ -7,6 +10,7 @@ import { openScratchDatabase, type ScratchDatabase } from '../common/testing/scr
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
 import { WardAssignmentCommandService, type WardAssignmentInput } from './ward-assignment-command.service';
+import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { WardReviewService } from './ward-review.service';
 
 /**
@@ -29,6 +33,8 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
   let scratch: ScratchDatabase;
   let commands: WardAssignmentCommandService;
   let review: WardReviewService;
+  let queries: WardAssignmentQueryService;
+  let storage: string;
   const tag = `war-${randomUUID().slice(0, 8)}`;
   const id: Record<string, string> = {};
   const scope: Record<string, DataScope | null> = {};
@@ -113,6 +119,9 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
     const audit = new AuditService(db as never);
     commands = new WardAssignmentCommandService(db as never, ownNumbers as never, audit);
     review = new WardReviewService(db as never, audit);
+    queries = new WardAssignmentQueryService(db as never);
+    storage = await fs.mkdtemp(path.join(os.tmpdir(), `${tag}-files-`));
+    review.storageRoot = storage;
   });
 
   afterAll(async () => {
@@ -122,6 +131,10 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
     await db.wardAssignmentDecision.deleteMany({ where: { round: { assignmentId: { in: ids } } } });
     await db.wardAssignmentRound.deleteMany({ where: { assignmentId: { in: ids } } });
     await db.wardAssignmentDeadlineChange.deleteMany({ where: { assignmentId: { in: ids } } });
+    await db.wardAssignmentReopening.deleteMany({ where: { assignmentId: { in: ids } } });
+    await db.documentRenderLog.deleteMany({ where: { wardAssignmentId: { in: ids } } });
+    await db.document.deleteMany({ where: { wardAssignmentId: { in: ids } } });
+    await db.wardAssignment.updateMany({ where: { id: { in: ids } }, data: { previousAssignmentId: null } });
     await db.wardAssignmentSubject.deleteMany({ where: { assignmentId: { in: ids } } });
     await db.wardAssignment.deleteMany({ where: { id: { in: ids } } });
     await db.wardInvestigator.deleteMany({ where: { team: { code: { startsWith: tag } } } });
@@ -135,7 +148,14 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
     await db.user.deleteMany({ where: { username: { startsWith: tag } } });
     await db.role.deleteMany({ where: { name: { startsWith: tag } } });
     await scratch.close();
+    await fs.rm(storage, { recursive: true, force: true });
   });
+
+  /** A document row of the request, its file stored under `fileName`, its recorded path naming another (older) release. */
+  const fileOf = (assignmentId: string, fileName: string) =>
+    scratch.db.document.create({
+      data: { title: 'Kết quả', fileName, originalName: 'ket-qua.pdf', mimeType: 'application/pdf', size: 3, filePath: path.join('/home/pc02/releases/gone/backend/uploads/documents', fileName), wardAssignmentId: assignmentId, uploadedById: id.reviewer },
+    });
 
   describe('returning', () => {
     it('goes back to the ward unit with its reason and numbered requirements; the round is decided', async () => {
@@ -221,6 +241,18 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
       const withResult = await review.followUp({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(again), resultText: 'Đã khởi tố' });
       expect(await fails(review.cancelApproval({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(withResult), reason: 'x' }))).toMatchObject({ status: 409, body: { code: WARD_ERROR.APPROVAL_HAS_RESULT } });
     });
+
+    it('a result file keeps the approval too, and the request says so to the screen exactly as the command decides', async () => {
+      const done = await approved();
+      expect((await queries.get(scope.reviewer, id.reviewer, done.id)).can.cancelApproval).toBe(true);
+      const file = await fileOf(done.id, `${tag}-kq-${randomUUID()}.pdf`);
+      expect((await queries.get(scope.reviewer, id.reviewer, done.id)).can.cancelApproval).toBe(false);
+      expect(await fails(review.cancelApproval({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(done), reason: 'x' }))).toMatchObject({ status: 409, body: { code: WARD_ERROR.APPROVAL_HAS_RESULT } });
+      // The file removed (soft): the approval can be cancelled again, on the screen and by the command.
+      await scratch.db.document.update({ where: { id: file.id }, data: { deletedAt: new Date() } });
+      expect((await queries.get(scope.reviewer, id.reviewer, done.id)).can.cancelApproval).toBe(true);
+      expect(await review.cancelApproval({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(done), reason: 'Duyệt nhầm' })).toMatchObject({ status: 'SUBMITTED' });
+    });
   });
 
   describe('after approval: received, deadline, result, completion', () => {
@@ -247,9 +279,24 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
       const completed = await review.complete({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(written), completedOn: '2026-11-19' }, now);
       expect(completed.completedOn?.toISOString().slice(0, 10)).toBe('2026-11-19');
       expect(await fails(review.extend({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(completed), newDueOn: '2027-12-31', reason: 'x' }))).toMatchObject({ status: 409, body: { code: WARD_ERROR.ALREADY_COMPLETED } });
+      // Completed: the result, the received day (and so the deadline) are no longer changed, only after reopening.
+      for (const change of [{ resultText: null }, { resultText: 'Khác' }, { receivedOn: '2026-11-01' }, { pc02Note: 'x' }]) {
+        expect(await fails(review.followUp({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(completed), ...change }))).toMatchObject({ status: 409, body: { code: WARD_ERROR.ALREADY_COMPLETED } });
+      }
+      const seen = await queries.get(scope.reviewer, id.reviewer, done.id);
+      expect(seen.can).toMatchObject({ followUp: false, reopen: true, complete: false });
       const reopened = await review.reopen({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(completed), reason: 'Bổ sung kết quả' });
       expect(reopened.completedOn).toBeNull();
+      // The reason is kept in the history of the request; the audit line holds metadata only.
+      expect(await scratch.db.wardAssignmentReopening.findMany({ where: { assignmentId: done.id } })).toEqual([
+        expect.objectContaining({ reason: 'Bổ sung kết quả', reopenedById: id.reviewer, reopenedAt: reopened.updatedAt }),
+      ]);
+      expect((await scratch.db.wardAssignmentReopening.findFirstOrThrow({ where: { assignmentId: done.id } })).completedOn.toISOString().slice(0, 10)).toBe('2026-11-19');
+      const line = await scratch.db.auditLog.findFirstOrThrow({ where: { subjectId: done.id, action: WARD_AUDIT.REOPENED } });
+      expect(JSON.stringify(line.metadata)).not.toContain('Bổ sung kết quả');
+      expect((await queries.get(scope.reviewer, id.reviewer, done.id)).reopenings).toHaveLength(1);
       expect(await fails(review.reopen({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(reopened), reason: 'x' }))).toMatchObject({ status: 409, body: { code: WARD_ERROR.NOT_COMPLETED } });
+      expect((await review.followUp({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(reopened), resultText: 'Đã khởi tố, bổ sung' })).resultText).toBe('Đã khởi tố, bổ sung');
     });
   });
 
@@ -267,6 +314,46 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
       expect(await scratch.db.wardAssignment.findUnique({ where: { id: done.id } })).toBeNull();
       expect(await scratch.db.wardAssignmentRound.count({ where: { assignmentId: done.id } })).toBe(0);
       expect((await scratch.db.auditLog.findFirstOrThrow({ where: { subjectId: done.id, action: WARD_AUDIT.DELETED_WITH_DATA } })).metadata).toMatchObject({ rounds: 1, decisions: 1 });
+    });
+
+    it('a request full of data: subjects, files, print logs, a reopening, a later request naming it; files are removed from the CURRENT storage, failures named', async () => {
+      const made = await commands.create({ id: id.wardy }, scope.wardy, input({ subjectsUnknown: false, subjects: [{ fullName: 'Nguyễn Văn A', birthYear: 1990 }, { fullName: 'Trần Thị B' }] }));
+      const sent = await commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp(made));
+      const done = await review.approve({ id: id.reviewer }, scope.reviewer, sent.id, { expectedUpdatedAt: stamp(sent), assignedInvestigatorId: id.invW }, new Date('2026-11-16T03:00:00Z'));
+      const written = await review.followUp({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(done), resultText: 'Đã khởi tố' });
+      const completed = await review.complete({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(written), completedOn: '2026-11-17' }, new Date('2026-11-18T03:00:00Z'));
+      const reopened = await review.reopen({ id: id.reviewer }, scope.reviewer, done.id, { expectedUpdatedAt: stamp(completed), reason: 'Bổ sung' });
+      // A later request of the same unit re-assigns this one.
+      const later = await commands.create({ id: id.wardy }, scope.wardy, input({ kind: 'REASSIGN', previousAssignmentId: done.id, reassignReason: 'ĐTV chuyển công tác' }));
+      // Three files: one on disk (its recorded path names a release that is gone), one whose name is a folder (cannot be
+      // unlinked), one whose stored name is not a plain file name.
+      const onDisk = `${tag}-on-disk-${randomUUID()}.pdf`;
+      await fs.writeFile(path.join(storage, onDisk), 'pdf');
+      const folder = `${tag}-folder-${randomUUID()}`;
+      await fs.mkdir(path.join(storage, folder));
+      await fs.writeFile(path.join(storage, folder, 'inside.txt'), 'x');
+      const kept = await fileOf(done.id, onDisk);
+      const stuck = await fileOf(done.id, folder);
+      const odd = await fileOf(done.id, '../escape.pdf');
+      await scratch.db.documentRenderLog.create({ data: { wardAssignmentId: done.id, documentType: 'PHIEU_YEU_CAU', templateSha: 'sha', renderedById: id.reviewer } });
+      const current = await scratch.db.wardAssignment.findUniqueOrThrow({ where: { id: done.id } });
+      expect(current.updatedAt.getTime()).toBe(reopened.updatedAt.getTime());
+
+      expect(await review.deletionImpact(null, done.id)).toMatchObject({ subjects: 2, rounds: 1, decisions: 1, reopenings: 1, files: 3 });
+      const gone = await review.deleteWithData({ id: id.reviewer }, null, done.id, { confirmCode: current.code!, expectedUpdatedAt: stamp(current) });
+      expect(gone).toMatchObject({ subjects: 2, reopenings: 1, files: 3 });
+      expect([...gone.filesNotRemoved].sort()).toEqual([stuck.id, odd.id].sort());
+      expect(kept.id).not.toBe(stuck.id);
+      await expect(fs.stat(path.join(storage, onDisk))).rejects.toMatchObject({ code: 'ENOENT' });
+      for (const table of [
+        scratch.db.wardAssignmentSubject.count({ where: { assignmentId: done.id } }),
+        scratch.db.wardAssignmentReopening.count({ where: { assignmentId: done.id } }),
+        scratch.db.document.count({ where: { wardAssignmentId: done.id } }),
+        scratch.db.documentRenderLog.count({ where: { wardAssignmentId: done.id } }),
+      ]) expect(await table).toBe(0);
+      expect(await scratch.db.wardAssignment.findUnique({ where: { id: done.id } })).toBeNull();
+      // The later request stays, no longer naming the deleted one.
+      expect((await scratch.db.wardAssignment.findUniqueOrThrow({ where: { id: later.id } })).previousAssignmentId).toBeNull();
     });
   });
 
