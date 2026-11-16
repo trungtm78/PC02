@@ -45,7 +45,8 @@ function defaultWording(field: SnapshotField, value: unknown): string {
   if (field === 'subjects') {
     const list = value as WardSubject[];
     if (list.length === 0) return R.empty;
-    return list.map((s) => [s.fullName, s.birthYear, s.idNumber].filter((p) => p !== null && p !== undefined && p !== '').join(', ')).join('; ');
+    // Every part the comparison looks at, so that a change it reports is a change one can see.
+    return list.map((s) => [s.fullName, s.birthYear, s.idNumber, s.address].filter((p) => p !== null && p !== undefined && p !== '').join(', ')).join('; ');
   }
   return String(value);
 }

@@ -218,6 +218,7 @@ export const wardAssignments = {
     late: (days: number) => `Trễ ${days} ngày`,
     save: 'Lưu kết quả',
     onlyApproved: 'Mở khi hồ sơ đã được duyệt.',
+    saveFirst: 'Ngày nhận lại hoặc kết quả đang sửa dở: bấm "Lưu kết quả" trước khi gia hạn, ghi hoàn thành hoặc mở lại.',
   },
 
   rounds: {

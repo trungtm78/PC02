@@ -121,6 +121,20 @@ describe('a new request, by a ward officer', () => {
     expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w9');
   });
 
+  it('a second click while the save runs does not create a second draft', async () => {
+    let resolve: (v: WardAssignmentDetail) => void = () => {};
+    api.create.mockImplementation(() => new Promise((r) => (resolve = r)));
+    renderAt('/ho-so-phan-cong/new');
+    const save = await screen.findByTestId('ward-save-draft');
+    fireEvent.click(save);
+    fireEvent.click(save);
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    resolve(detail({ id: 'w9', status: 'DRAFT', code: null }));
+    expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w9');
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(api.submit).not.toHaveBeenCalled();
+  });
+
   it('"Trình duyệt" saves then submits with the stamp the save returned', async () => {
     api.create.mockResolvedValue(detail({ id: 'w9', status: 'DRAFT', code: null, updatedAt: '2026-11-16T05:00:00.000Z' }));
     api.submit.mockResolvedValue(detail({ id: 'w9' }));
@@ -223,6 +237,7 @@ describe('an existing request, read by the ward unit', () => {
     api.get.mockResolvedValue(
       detail({
         status: 'APPROVED', resultDueOn: '2027-01-16T00:00:00.000Z', receivedOn: '2026-11-16T00:00:00.000Z', assignedInvestigator: investigator, assignedInvestigatorId: 'i1',
+        followUpUserId: 'u-rev', followUpTeamId: 'd1',
         rounds: [{ id: 'r1', sequence: 1, submissionNo: 1, status: 'DECIDED', submittedAt: '2026-11-13T03:00:00Z', submittedById: 'u-ward', snapshot: {}, withdrawnAt: null, withdrawnById: null,
           decisions: [{ id: 'd1', kind: 'APPROVE', decidedAt: '2026-11-16T03:00:00Z', decidedById: 'u-rev', reasonCode: null, reasonText: null, requirements: ['Báo cáo kết quả'], assignedInvestigatorId: 'i1', followUpUserId: 'u-rev', followUpTeamId: 'd1', revokedAt: null, revokedById: null, revokeReason: null, slipNumber: null, slipIssuedAt: null }] }],
       }),
@@ -230,6 +245,9 @@ describe('an existing request, read by the ward unit', () => {
     renderAt('/ho-so-phan-cong/w1');
     const review = await screen.findByTestId('ward-block-review');
     expect(within(review).getByTestId('ward-decision-in-force')).toHaveTextContent('Lê Văn C');
+    // Who follows it, by name, for the ward unit too.
+    await waitFor(() => expect(within(review).getByTestId('ward-decision-in-force')).toHaveTextContent('Đội 1'));
+    expect(within(review).getByTestId('ward-decision-in-force')).toHaveTextContent('Đặng Văn K');
     expect(within(review).getByText('Báo cáo kết quả')).toBeInTheDocument();
     expect(screen.queryByTestId('ward-approve')).not.toBeInTheDocument();
     expect(screen.getByTestId('ward-result-due-on')).toHaveTextContent('16/01/2027');
@@ -294,6 +312,40 @@ describe('a waiting request, reviewed by PC02', () => {
     fireEvent.change(screen.getByTestId('ward-dialog-extend-reason'), { target: { value: 'Chờ giám định' } });
     fireEvent.click(screen.getByTestId('ward-dialog-extend-confirm'));
     await waitFor(() => expect(api.extendDeadline).toHaveBeenCalledWith('w1', '2027-02-16', 'Chờ giám định', '2026-11-13T03:00:00.000Z'));
+  });
+
+  it('holds the other result actions while the result is typed but not saved (they would throw it away)', async () => {
+    api.get.mockResolvedValue(detail({ status: 'APPROVED', resultDueOn: '2027-01-16T00:00:00.000Z', receivedOn: '2026-11-16T00:00:00.000Z', viewerId: 'u-rev', can: { ...NO, review: true, followUp: true, extend: true, complete: true } }));
+    api.followUp.mockResolvedValue({});
+    renderAt('/ho-so-phan-cong/w1');
+    const extend = await screen.findByTestId('ward-extend');
+    expect(extend).toBeEnabled();
+    fireEvent.change(screen.getByTestId('ward-result-text'), { target: { value: 'Đã khởi tố vụ án' } });
+    expect(extend).toBeDisabled();
+    expect(screen.getByTestId('ward-follow-up-save-first')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ward-follow-up-save'));
+    await waitFor(() =>
+      expect(api.followUp).toHaveBeenCalledWith('w1', { receivedOn: '2026-11-16', resultText: 'Đã khởi tố vụ án' }, '2026-11-13T03:00:00.000Z'),
+    );
+  });
+
+  it('reads the request again every time the page opens (fresh stamp and permissions)', async () => {
+    api.get.mockResolvedValue(detail({ can: { ...NO } }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5 * 60_000 } } });
+    const page = () => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/ho-so-phan-cong/w1']}>
+          <Routes>
+            <Route path="/ho-so-phan-cong/:id" element={<WardAssignmentFormPage mode="view" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const first = render(page());
+    await screen.findByTestId('ward-block-content');
+    first.unmount();
+    render(page());
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
   });
 
   it('shows "late N days" for a completion after the deadline', async () => {

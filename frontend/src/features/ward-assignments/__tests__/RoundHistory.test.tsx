@@ -99,6 +99,16 @@ describe('the round history', () => {
     expect(screen.getByTestId('ward-round-diff-r2')).toHaveTextContent('ĐTV i2');
   });
 
+  it('a change of a subject’s address alone shows the addresses before and after', () => {
+    const a = { ...snap, subjectsUnknown: false, subjects: [{ fullName: 'Trần Thị B', birthYear: 1992, idNumber: null, address: 'Quận 1' }] };
+    const b = { ...a, subjects: [{ ...a.subjects[0], address: 'Quận 3' }] };
+    render(<RoundHistory rounds={[round(1, 1, 'DECIDED', a), round(2, 2, 'PENDING', b)]} />);
+    fireEvent.click(screen.getByTestId('ward-round-compare-r2'));
+    const diff = screen.getByTestId('ward-round-diff-r2');
+    expect(diff).toHaveTextContent('Quận 1');
+    expect(diff).toHaveTextContent('Quận 3');
+  });
+
   it('the first round has nothing to compare with', () => {
     render(<RoundHistory rounds={[round(1, 1, 'PENDING', snap)]} />);
     expect(screen.queryByTestId('ward-round-compare-r1')).not.toBeInTheDocument();

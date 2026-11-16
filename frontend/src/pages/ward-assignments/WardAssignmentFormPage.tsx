@@ -7,7 +7,7 @@
  * server's answer (`can`), so the page offers exactly what the server would accept. Every write carries the stamp the
  * page read; a 409 offers to load the request again.
  */
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
@@ -157,21 +157,34 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
 
   const fail = (err: unknown) => setBanner(bannerOf(err));
 
-  const run: RunAction = async (fn, done) => {
+  // One write at a time: a second click or F2 while one runs would send it again with the same, soon stale, stamp
+  // (or create a second draft). A ref, not the `busy` state: two events in one frame both see the old state.
+  const inFlight = useRef(false);
+  const exclusive = async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    if (inFlight.current) return undefined;
+    inFlight.current = true;
     setBusy(true);
-    setBanner(null);
     try {
-      await fn();
-      await afterChange();
-      if (done) setBanner({ kind: 'ok', text: done });
-      return true;
-    } catch (err) {
-      fail(err);
-      return false;
+      return await fn();
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
+
+  const run: RunAction = async (fn, done) =>
+    (await exclusive(async () => {
+      setBanner(null);
+      try {
+        await fn();
+        await afterChange();
+        if (done) setBanner({ kind: 'ok', text: done });
+        return true;
+      } catch (err) {
+        fail(err);
+        return false;
+      }
+    })) ?? false;
 
   /** Saves block 1 (create or update) and answers the stored record; null when refused (the banner says why). */
   const save = async (): Promise<{ id: string; updatedAt: string } | null> => {
@@ -190,20 +203,18 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
     }
   };
 
-  const onSaveDraft = async () => {
-    setBusy(true);
-    setBanner(null);
-    const saved = await save();
-    setBusy(false);
-    if (!saved) return;
-    await afterChange();
-    navigate(WARD_PATHS.view(saved.id), { replace: isNew });
-  };
+  const onSaveDraft = () =>
+    exclusive(async () => {
+      setBanner(null);
+      const saved = await save();
+      if (!saved) return;
+      await afterChange();
+      navigate(WARD_PATHS.view(saved.id), { replace: isNew });
+    });
 
-  const onSubmit = async () => {
-    setBusy(true);
-    setBanner(null);
-    try {
+  const onSubmit = () =>
+    exclusive(async () => {
+      setBanner(null);
       const target = editing ? await save() : detail ? { id: detail.id, updatedAt: detail.updatedAt } : null;
       if (!target) return;
       try {
@@ -219,10 +230,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner }: F
       await afterChange();
       if (editing || isNew) navigate(WARD_PATHS.view(target.id), { replace: isNew });
       else setBanner({ kind: 'ok', text: L.form.submitted });
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const confirmed = async () => {
     if (!detail || !confirm) return;
@@ -602,6 +610,11 @@ export default function WardAssignmentFormPage({ mode }: { mode: 'view' | 'edit'
     queryFn: () => wardAssignmentsApi.get(id!),
     enabled: !!id,
     retry: false,
+    // Read fresh every time the page opens: its stamp and `can` are what every write is sent with. No refetch on
+    // window focus: a new stamp starts the form again, and that must not happen under the person's typing.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
   });
 
   if (id && detailQ.isLoading) {

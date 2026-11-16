@@ -2,6 +2,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { wardAssignmentsApi, wardInvestigatorsApi, WARD_QUERY_KEYS } from './api';
+import type { WardAssignmentRow } from './types';
+
+const APPROVED_PAGE = 200;
 
 interface TeamOption {
   id: string;
@@ -59,8 +62,20 @@ export function useApprovedOfUnit(teamId: string, enabled: boolean) {
   return useQuery({
     queryKey: WARD_QUERY_KEYS.approvedOfUnit(teamId),
     queryFn: async () => {
-      const res = await wardAssignmentsApi.list({ status: 'APPROVED', pageSize: 200 });
-      return res.data.filter((r) => r.assignedTeamId === teamId);
+      // The list has no unit filter: read every page (200 a page, the server's ceiling) and keep this unit's. Stops on a
+      // short page, on the total, or on a page that adds nothing (a server that ignores `page`).
+      const rows: WardAssignmentRow[] = [];
+      const seen = new Set<string>();
+      for (let page = 1; ; page += 1) {
+        const res = await wardAssignmentsApi.list({ status: 'APPROVED', page, pageSize: APPROVED_PAGE });
+        const fresh = res.data.filter((r) => !seen.has(r.id));
+        for (const r of fresh) {
+          seen.add(r.id);
+          rows.push(r);
+        }
+        if (res.data.length < APPROVED_PAGE || seen.size >= res.total || fresh.length === 0) break;
+      }
+      return rows.filter((r) => r.assignedTeamId === teamId);
     },
     enabled: enabled && !!teamId,
     staleTime: 60_000,

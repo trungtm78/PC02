@@ -72,6 +72,19 @@ describe('the investigator directory of a unit', () => {
     );
   });
 
+  it('an edit keeps the stamp it began with, even when the list is read again meanwhile (the server then says 409)', async () => {
+    api.update.mockResolvedValue(inv());
+    renderDialog();
+    const row = await screen.findByTestId('ward-inv-i1');
+    fireEvent.click(within(row).getByText(L.investigators.edit));
+    // Somebody else changed the investigator; the list is read again (here: showing the stopped ones too).
+    api.list.mockImplementation(async () => [inv({ updatedAt: '2026-11-16T09:00:00.000Z', rank: 'Đại tá' }), inv({ id: 'i2', isActive: false })]);
+    fireEvent.click(screen.getByTestId('ward-inv-show-stopped'));
+    await screen.findByTestId('ward-inv-i2');
+    fireEvent.click(screen.getByTestId('ward-inv-edit-save'));
+    await waitFor(() => expect(api.update).toHaveBeenCalledWith('i1', expect.anything(), '2026-11-16T01:00:00.000Z'));
+  });
+
   it('stops one in use and resumes a stopped one', async () => {
     api.deactivate.mockResolvedValue(inv({ isActive: false }));
     api.reactivate.mockResolvedValue(inv({ id: 'i2', isActive: true }));

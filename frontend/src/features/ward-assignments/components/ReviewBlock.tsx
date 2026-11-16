@@ -67,8 +67,10 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
   const [dialog, setDialog] = useState<'revokeReturn' | 'cancelApproval' | null>(null);
 
   const reasons = useReturnReasons(deciding);
-  const teams = usePc02Teams(reviewer);
-  const officers = useOfficerOptions(reviewer);
+  // Also for the ward unit reading an approval: the names of who follows it. A refused look-up leaves them blank.
+  const showsFollowUp = reviewer || inForce?.kind === 'APPROVE';
+  const teams = usePc02Teams(showsFollowUp);
+  const officers = useOfficerOptions(showsFollowUp);
   const pc02Officers = (officers.data ?? []).filter((o) => !o.teams.some((t) => t.laDiaBan));
   const active = investigators.filter((i) => i.isActive || i.id === assignedId);
   const stamp = detail.updatedAt;

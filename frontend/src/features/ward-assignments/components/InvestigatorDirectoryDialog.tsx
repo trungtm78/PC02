@@ -48,7 +48,8 @@ export function InvestigatorDirectoryDialog({ open, teamId, onClose, onCreated }
   const qc = useQueryClient();
   const [showStopped, setShowStopped] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [editing, setEditing] = useState<{ id: string; draft: Draft } | null>(null);
+  // The stamp is the one the row had when editing began: a refetch meanwhile must not lend the old draft a new stamp.
+  const [editing, setEditing] = useState<{ id: string; draft: Draft; stamp: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const listQ = useQuery({
@@ -71,7 +72,7 @@ export function InvestigatorDirectoryDialog({ open, teamId, onClose, onCreated }
     onError: fail,
   });
   const update = useMutation({
-    mutationFn: (v: { inv: WardInvestigator; draft: Draft }) => wardInvestigatorsApi.update(v.inv.id, toInput(v.draft), v.inv.updatedAt),
+    mutationFn: (v: { id: string; draft: Draft; stamp: string }) => wardInvestigatorsApi.update(v.id, toInput(v.draft), v.stamp),
     onSuccess: () => {
       setEditing(null);
       setError(null);
@@ -120,10 +121,10 @@ export function InvestigatorDirectoryDialog({ open, teamId, onClose, onCreated }
                 {rows.map((inv) =>
                   editing?.id === inv.id ? (
                     <tr key={inv.id} data-testid={`ward-inv-${inv.id}`}>
-                      <DraftInputs prefix="ward-inv-edit" draft={editing.draft} onChange={(d) => setEditing({ id: inv.id, draft: d })} />
+                      <DraftInputs prefix="ward-inv-edit" draft={editing.draft} onChange={(d) => setEditing({ ...editing, draft: d })} />
                       <td className="px-2 py-1">{inv.isActive ? T.active : T.stopped}</td>
                       <td className="space-x-2 px-2 py-1">
-                        <button type="button" data-testid="ward-inv-edit-save" className="text-blue-700 hover:underline" disabled={update.isPending} onClick={() => update.mutate({ inv, draft: editing.draft })}>
+                        <button type="button" data-testid="ward-inv-edit-save" className="text-blue-700 hover:underline" disabled={update.isPending} onClick={() => update.mutate(editing)}>
                           {T.save}
                         </button>
                         <button type="button" className="text-slate-600 hover:underline" onClick={() => setEditing(null)}>
@@ -142,7 +143,9 @@ export function InvestigatorDirectoryDialog({ open, teamId, onClose, onCreated }
                         <button
                           type="button"
                           className="text-blue-700 hover:underline"
-                          onClick={() => setEditing({ id: inv.id, draft: { fullName: inv.fullName, rank: inv.rank ?? '', position: inv.position ?? '', grade: inv.grade ?? '' } })}
+                          onClick={() =>
+                            setEditing({ id: inv.id, stamp: inv.updatedAt, draft: { fullName: inv.fullName, rank: inv.rank ?? '', position: inv.position ?? '', grade: inv.grade ?? '' } })
+                          }
                         >
                           {T.edit}
                         </button>

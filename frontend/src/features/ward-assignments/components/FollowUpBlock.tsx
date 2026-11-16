@@ -35,6 +35,10 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
   const stamp = detail.updatedAt;
   const editable = approved && !!can.followUp;
   const completed = !!detail.completedOn;
+  // Unsaved result fields: every other action of the block starts it again from the server (new stamp), which would
+  // throw them away. Those actions wait until the fields are saved.
+  const dirty = editable && (receivedOn !== (dayOf(detail.receivedOn) || (approval ? vnDayOf(approval.decidedAt) : '')) || resultText !== (detail.resultText ?? ''));
+  const held = busy || dirty;
   const changes = [...(detail.deadlineChanges ?? [])].sort((a, b) => b.changedAt.localeCompare(a.changedAt));
 
   return (
@@ -60,7 +64,7 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
               </p>
               <span className="block text-xs text-slate-500">{F.resultDueOnHint}</span>
               {can.extend && (
-                <button type="button" data-testid="ward-extend" className={`${BTN_SECONDARY} mt-2 text-sm`} disabled={busy} onClick={() => setDialog('extend')}>
+                <button type="button" data-testid="ward-extend" className={`${BTN_SECONDARY} mt-2 text-sm`} disabled={held} onClick={() => setDialog('extend')}>
                   {F.extend}
                 </button>
               )}
@@ -84,7 +88,7 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
                       type="button"
                       data-testid="ward-complete"
                       className={BTN_SECONDARY}
-                      disabled={busy || !completedOn}
+                      disabled={held || !completedOn}
                       onClick={() => void run(() => wardAssignmentsApi.complete(detail.id, completedOn, stamp))}
                     >
                       {F.complete}
@@ -93,7 +97,7 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
                 </div>
               )}
               {completed && can.reopen && (
-                <button type="button" data-testid="ward-reopen" className={`${BTN_SECONDARY} mt-2 text-sm`} disabled={busy} onClick={() => setDialog('reopen')}>
+                <button type="button" data-testid="ward-reopen" className={`${BTN_SECONDARY} mt-2 text-sm`} disabled={held} onClick={() => setDialog('reopen')}>
                   {F.reopen}
                 </button>
               )}
@@ -105,6 +109,11 @@ export function FollowUpBlock({ detail, run, busy }: FollowUpBlockProps) {
           </label>
           {/* Mount point of lane C's `ResultFiles` (the result attachments: upload, list, download, remove). */}
           <section data-slot="ward-result-files" data-assignment-id={detail.id} />
+          {dirty && (
+            <p data-testid="ward-follow-up-save-first" className="text-xs text-amber-700">
+              {F.saveFirst}
+            </p>
+          )}
           {editable && (
             <div className="flex justify-end">
               <button
