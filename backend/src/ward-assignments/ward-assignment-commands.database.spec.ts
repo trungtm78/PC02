@@ -103,6 +103,25 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     }
   };
 
+  /**
+   * Runs `body` while the holder session holds the lock of `sql`, then commits; on any failure the holder's
+   * transaction is rolled back first, so a broken test cannot leave a lock that hangs the cleanup. `body` hands back the
+   * work it started WRAPPED (`{ pending }`): returning the promise itself would make this wait for work that is
+   * waiting for the commit.
+   */
+  const holding = async <T>(sql: string, params: unknown[], body: () => Promise<{ pending: T }>): Promise<{ pending: T }> => {
+    await holder.query('BEGIN');
+    try {
+      await holder.query(sql, params);
+      const result = await body();
+      await holder.query('COMMIT');
+      return result;
+    } catch (e) {
+      await holder.query('ROLLBACK');
+      throw e;
+    }
+  };
+
   beforeAll(async () => {
     scratch = await openScratchDatabase(url!);
     waiter = new Client({ connectionString: url! });
@@ -298,12 +317,11 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       const made = await commands.create({ id: id.wardy }, scope.wardy, input());
       const stamp = made.updatedAt.toISOString();
       // Both are made to wait at the row lock, then let go together: they meet exactly where the lock decides.
-      await holder.query('BEGIN');
-      await holder.query('SELECT id FROM ward_assignments WHERE id = $1 FOR UPDATE', [made.id]);
-      const both = [commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp), commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp)].map(fails);
-      await waitersOn('ward_assignments', 2);
-      await holder.query('COMMIT');
-      const outcomes = await Promise.all(both);
+      const outcomes = await holding('SELECT id FROM ward_assignments WHERE id = $1 FOR UPDATE', [made.id], async () => {
+        const both = [commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp), commands.submit({ id: id.wardy }, scope.wardy, made.id, stamp)].map(fails);
+        await waitersOn('ward_assignments', 2);
+        return { pending: Promise.all(both) };
+      }).then(({ pending }) => pending);
       expect(outcomes.filter((o) => o === 'resolved')).toHaveLength(1);
       expect(outcomes.filter((o) => o !== 'resolved')).toEqual([{ status: 409, body: { code: WARD_ERROR.CONFLICT, details: [{ updatedAt: expect.any(String) }] } }]);
       expect(await scratch.db.wardAssignmentRound.count({ where: { assignmentId: made.id } })).toBe(1);
@@ -360,25 +378,25 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
   describe('writing while the ward unit is merged away', () => {
     it('a request being written into a ward unit that a merge archives meanwhile is refused, not left behind', async () => {
       // The merge holds the team (as TeamMergeService.readPair does); the request waits; the merge archives the team.
-      await holder.query('BEGIN');
-      await holder.query('SELECT id FROM teams WHERE id = $1 FOR UPDATE', [id.U]);
-      const creating = fails(commands.create({ id: id.wardy }, scope.wardyOfU, input({ assignedTeamId: id.U, proposedInvestigatorId: null })));
-      await waitersOn('teams', 1);
-      await holder.query(`UPDATE teams SET status = 'ARCHIVED' WHERE id = $1`, [id.U]);
-      await holder.query('COMMIT');
+      const creating = await holding('SELECT id FROM teams WHERE id = $1 FOR UPDATE', [id.U], async () => {
+        const pending = fails(commands.create({ id: id.wardy }, scope.wardyOfU, input({ assignedTeamId: id.U, proposedInvestigatorId: null })));
+        await waitersOn('teams', 1);
+        await holder.query(`UPDATE teams SET status = 'ARCHIVED' WHERE id = $1`, [id.U]);
+        return { pending };
+      }).then(({ pending }) => pending);
       expect(await creating).toMatchObject({ status: 400, body: { code: WARD_ERROR.UNIT_NOT_WARD } });
       expect(await scratch.db.wardAssignment.count({ where: { assignedTeamId: id.U } })).toBe(0);
     });
 
     it('a change to an investigator is checked against the unit they are in once the move is done', async () => {
       const moving = await investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: `${tag} Sắp chuyển` });
-      await holder.query('BEGIN');
-      await holder.query('SELECT id FROM ward_investigators WHERE id = $1 FOR UPDATE', [moving.id]);
-      const stopping = fails(investigators.setActive({ id: id.wardy }, scope.wardy, moving.id, false, moving.updatedAt.toISOString()));
-      await waitersOn('ward_investigators', 1);
-      // A merge moves the name to ward V without touching its stamp.
-      await holder.query('UPDATE ward_investigators SET "teamId" = $2 WHERE id = $1', [moving.id, id.V]);
-      await holder.query('COMMIT');
+      const stopping = await holding('SELECT id FROM ward_investigators WHERE id = $1 FOR UPDATE', [moving.id], async () => {
+        const pending = fails(investigators.setActive({ id: id.wardy }, scope.wardy, moving.id, false, moving.updatedAt.toISOString()));
+        await waitersOn('ward_investigators', 1);
+        // A merge moves the name to ward V without touching its stamp.
+        await holder.query('UPDATE ward_investigators SET "teamId" = $2 WHERE id = $1', [moving.id, id.V]);
+        return { pending };
+      }).then(({ pending }) => pending);
       expect(await stopping).toMatchObject({ status: 404, body: { code: WARD_ERROR.INVESTIGATOR_NOT_FOUND } });
       expect((await scratch.db.wardInvestigator.findUniqueOrThrow({ where: { id: moving.id } })).isActive).toBe(true);
     });

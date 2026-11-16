@@ -12,7 +12,7 @@ Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-
 - M5 = PR 8 (UAT over HTTP, browser pass with a ward account and a PC02 account, one monkey run; switch on; templates applied to teams ONLY on the owner's order).
 
 ## Đã hoàn thành
-- [x] M1 PR 1 = #694 — authz core: `WardAssignment` record subject (team-bound), scoped actions `review` / `matchSubjects`, catalogue + six pairs, two starter templates, regression contract recorded on the old code — merged `c022c1d4`, CI 5/5 (the new PostgreSQL spec seen PASS in the Database Gate log) — patch coverage 67/67 lines. Deploy + production check: see BƯỚC TIẾP THEO.
+- [x] M1 PR 1 = #694 — authz core: `WardAssignment` record subject (team-bound), scoped actions `review` / `matchSubjects`, catalogue + six pairs, two starter templates, regression contract recorded on the old code — merged `c022c1d4`, CI 5/5 (the new PostgreSQL spec seen PASS in the Database Gate log) — patch coverage 67/67 lines. Production build `c022c1d4` (16/11 22:00; the first deploy run hung at rsync, its VM receivers were stopped and the run re-run), read-only check: the three lists identical before/after; the six `*:WardAssignment` pairs exist and only role ADMIN holds them; no template entry uses them.
 
 ## Đang làm dở
 Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased onto main after #694)
@@ -23,7 +23,9 @@ Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased o
 - Team merge knows the four new references (requests, follow-up unit, investigators move; a decision stays as history); the team archive-stamp gate now looks at writes to TEAMS only (it matched any `archivedById:`).
 - Tests: rules (14), commands on PostgreSQL (17: reach, on-behalf, rounds and counting, withdrawal, concurrency, delete vs archive, re-assignment, investigators), code series on PostgreSQL (2, one seeded fault caught), single-writer gate (3), ward merge on PostgreSQL (1). CI Database Gate list += `src/ward-assignments/.*\.database\.spec\.ts`.
 - Re-sequenced (not cut): "admin delete with data" moves to PR 3, with the result files it has to remove.
-BƯỚC TIẾP THEO: full backend suite in the background (unit, then the database gate in band); one Codex pass on the PR 2 diff; fix; push; PR; CI; merge; deploy; read-only production check (switch row present and OFF; lists unchanged). Then PR 3.
+- Codex pass 1 on PR 2: 9 findings (3 High, 4 Medium, 2 Low), all fixed in `cc17b55e` (team share lock on create, investigator row lock, references re-checked at submit, merge kind compatibility + undo refused on mixed units, `details` envelope, strict stamps, null name refused, exact concurrency loser via real lock interleaving, gate naming the writers). Full suite on `cc17b55e`: unit 11 022 passed (2 known Excel timeouts under load), database gate green (officer-read-grant needs `pc02_goiy_scope_test`, green there). Patch coverage 812/822 (98.8%; the 10 lines are the module declaration).
+- Codex pass 2 on PR 2: 7 of the 9 closed; 4 new findings (undo lock order could deadlock; undo did not re-check the unit kind; undo could separate a re-assignment from its previous request; lock tests without finally), all fixed: merge and undo lock ward rows requests-first like the commands (`lockWardRows`), undo refused whole on any ward conflict (`TEAM_MERGE_UNDO_WARD_CONFLICT`, details by kind), holder helper with rollback. Lock-order test seeded with the wrong order: fails. 85/85 module + merge, 503/503 teams + authz on PostgreSQL.
+BƯỚC TIẾP THEO: push; PR; CI; merge; deploy; read-only production check (switch row present and OFF; lists unchanged). Then PR 3.
 File liên quan: backend/prisma/schema.prisma, backend/prisma/migrations/20261126100000_ward_assignments/, backend/src/ward-assignments/*, backend/src/teams/team-merge.service.ts
 
 ## Hàng đợi task kế tiếp
