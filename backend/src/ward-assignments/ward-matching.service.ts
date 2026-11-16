@@ -58,15 +58,19 @@ const digitsOf = (v: string | null | undefined) => (v ?? '').replace(/\D/g, '');
 /** 1 January of a year, 00:00 in Viet Nam (UTC+7, no daylight saving), as an instant. */
 const vnYearStart = (year: number) => new Date(Date.UTC(year, 0, 1) - 7 * 3_600_000);
 const vnYearOf = (instant: Date) => new Date(instant.getTime() + 7 * 3_600_000).getUTCFullYear();
-/** A regular expression that matches `name` as whole words (the name is letters, digits and spaces only). */
-const wordsPattern = (name: string) => `(^|[^a-z0-9])${name.replace(/[^a-z0-9 ]/g, '').replace(/ +/g, ' ')}($|[^a-z0-9])`;
+/** A regular expression that matches `name` as whole words, every character of the name taken literally. */
+export const wordsPattern = (name: string) => `(^|[^a-z0-9])${name.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&')}($|[^a-z0-9])`;
 
 interface SubjectRow {
   position: number;
   fullNameNorm: string;
   birthYear: number | null;
   idNumberNorm: string | null;
+  createdAt: Date;
 }
+
+/** A match as found, with when the other side's subject row was written (ward requests only). */
+type Found = SubjectMatch & { otherSince?: Date };
 
 @Injectable()
 export class WardMatchingService {
@@ -81,12 +85,20 @@ export class WardMatchingService {
     if (subjects.length === 0) return [];
     const found = await this.matchesIgnoringConclusions(scope, actorId, row, subjects);
     const conclusions = await this.prisma.wardSubjectMatchConclusion.findMany({ where: { assignmentId: row.id } });
-    const verdict = new Map(conclusions.map((c) => [`${c.subjectPosition}|${c.otherSource}|${c.otherRecordId}`, c.samePerson]));
+    const verdict = new Map(conclusions.map((c) => [`${c.subjectPosition}|${c.otherSource}|${c.otherRecordId}`, c]));
+    const since = new Map(subjects.map((s) => [s.position, s.createdAt]));
     // One line per (subject, record): the strongest level wins.
     const best = new Map<string, SubjectMatch>();
-    for (const match of found) {
+    for (const { otherSince, ...match } of found) {
       const key = `${match.subjectPosition}|${match.source}|${match.recordId}`;
-      const said = verdict.get(key);
+      const conclusion = verdict.get(key);
+      // A conclusion is about the people as they were: the request's subjects are rewritten on every edit (and the
+      // other request's too), so a subject row newer than the conclusion is another person until concluded again.
+      const current =
+        conclusion &&
+        conclusion.decidedAt >= (since.get(match.subjectPosition) ?? new Date(8.64e15)) &&
+        (!otherSince || conclusion.decidedAt >= otherSince);
+      const said = current ? conclusion.samePerson : undefined;
       if (said === false) continue;
       const kept = best.get(key);
       if (!kept || (kept.level === 'POSSIBLE' && match.level === 'CERTAIN')) best.set(key, { ...match, concludedSame: said === true });
@@ -137,7 +149,7 @@ export class WardMatchingService {
     });
   }
 
-  private async matchesIgnoringConclusions(scope: Scope, actorId: string, row: { id: string; assignedTeamId: string; enteredById: string }, subjects: SubjectRow[]): Promise<SubjectMatch[]> {
+  private async matchesIgnoringConclusions(scope: Scope, actorId: string, row: { id: string; assignedTeamId: string; enteredById: string }, subjects: SubjectRow[]): Promise<Found[]> {
     if (subjects.length === 0) return [];
     const crossReach = recordInActionScope(reachOf(row), scope, 'WardAssignment', 'matchSubjects');
     return [
@@ -155,14 +167,14 @@ export class WardMatchingService {
     }
     const subjects = await this.prisma.wardAssignmentSubject.findMany({
       where: { assignmentId: row.id },
-      select: { position: true, fullNameNorm: true, birthYear: true, idNumberNorm: true },
+      select: { position: true, fullNameNorm: true, birthYear: true, idNumberNorm: true, createdAt: true },
       orderBy: { position: 'asc' },
     });
     return { row, subjects };
   }
 
   /** Other ward requests: readable, and of the same unit or within the `matchSubjects` reach. */
-  private async wardMatches(scope: Scope, row: { id: string; assignedTeamId: string }, subjects: SubjectRow[]): Promise<SubjectMatch[]> {
+  private async wardMatches(scope: Scope, row: { id: string; assignedTeamId: string }, subjects: SubjectRow[]): Promise<Found[]> {
     const read = scopeConditions(scope, 'read', 'WardAssignment');
     if (read !== null && read.length === 0) return [];
     const cross = actionConditions(scope, 'WardAssignment', 'matchSubjects');
@@ -184,11 +196,13 @@ export class WardMatchingService {
         fullNameNorm: true,
         birthYear: true,
         idNumberNorm: true,
+        createdAt: true,
         assignment: { select: { id: true, code: true, assignedTeam: { select: { name: true } } } },
       },
+      orderBy: { createdAt: 'desc' },
       take: MATCHES_MAX * subjects.length,
     });
-    const out: SubjectMatch[] = [];
+    const out: Found[] = [];
     for (const s of subjects) {
       for (const o of others) {
         const level: MatchLevel | null =
@@ -203,6 +217,7 @@ export class WardMatchingService {
           unitName: o.assignment.assignedTeam.name,
           name: o.fullName,
           concludedSame: false,
+          otherSince: o.createdAt,
         });
       }
     }
@@ -233,8 +248,9 @@ export class WardMatchingService {
         ? []
         : await this.prisma.$queryRaw<{ id: string }[]>`
             SELECT s.id FROM "subjects" s
-            WHERE s."deletedAt" IS NULL AND s."idNumber" IS NOT NULL AND regexp_replace(s."idNumber", '\\D', '', 'g') IN (${Prisma.join(ids)})
-            LIMIT ${CASE_CANDIDATES_MAX}`;
+            WHERE s."deletedAt" IS NULL AND s."idNumber" IS NOT NULL AND regexp_replace(s."idNumber", '\\D', '', 'g') IN (${Prisma.join(ids)})`;
+    // No limit here: a limit before the case rule would let records the person cannot read push readable ones out
+    // (and the answer would then depend on them). The same identity number is a handful of rows.
     // By name and birth year, the case rule in the same query: the name's shadow column; a row whose shadow is not
     // filled yet by its birth year alone, its name compared below with the normalisation of the request's subjects.
     const byName: Prisma.SubjectWhereInput[] = named.map((s) => ({

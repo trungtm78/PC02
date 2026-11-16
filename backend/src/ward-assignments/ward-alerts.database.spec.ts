@@ -11,6 +11,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { AuditService } from '../audit/audit.service';
 import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { ALERT_LEVELS } from './ward-alerts';
+import { CaseNotificationPolicyService } from '../notifications/case-notification-policy.service';
 import { WardMatchingService } from './ward-matching.service';
 import { WardNotifier } from './ward-notifier';
 import { WardStatsService } from './ward-stats.service';
@@ -251,6 +252,15 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       await expect(
         matching.conclude(scope.reviewerMatch, id.reviewerMatch, id.A, { subjectPosition: 1, otherSource: 'PETITION', otherRecordId: id.P2, samePerson: false }),
       ).rejects.toMatchObject({ status: 404 });
+      // A conclusion is about the people as they were: A's subjects rewritten (every edit does) = asked again.
+      await matching.conclude(scope.reviewerMatch, id.reviewerMatch, id.A, { subjectPosition: 2, otherSource: 'WARD_ASSIGNMENT', otherRecordId: id.D, samePerson: false });
+      expect(seen(await matching.matches(scope.reviewerMatch, id.reviewerMatch, id.A))).not.toContain('2:WARD_ASSIGNMENT:D:POSSIBLE');
+      const old = await db.wardAssignmentSubject.findFirstOrThrow({ where: { assignmentId: id.A, position: 2 } });
+      await db.wardAssignmentSubject.delete({ where: { id: old.id } });
+      await db.wardAssignmentSubject.create({
+        data: { assignmentId: id.A, position: 2, fullName: old.fullName, fullNameNorm: old.fullNameNorm, birthYear: old.birthYear, createdAt: new Date(Date.now() + 1000) },
+      });
+      expect(seen(await matching.matches(scope.reviewerMatch, id.reviewerMatch, id.A))).toContain('2:WARD_ASSIGNMENT:D:POSSIBLE');
       // A ward officer has no review reach.
       await expect(
         matching.conclude(scope.wardy, id.wardy, id.A, { subjectPosition: 1, otherSource: 'WARD_ASSIGNMENT', otherRecordId: id.B, samePerson: false }),
@@ -328,6 +338,17 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       expect(await noticesOf(id.followUp, row.id)).toHaveLength(0);
       const [notice] = await noticesOf(id.reviewerMatch, row.id);
       expect(notice).toMatchObject({ type: 'WARD_ASSIGNMENT_SUBMITTED', link: `/ho-so-phan-cong/${row.id}`, pushNextRetryAt: null });
+      // The bell shows it only while the person may still open the request: moved off the ward, it is gone (and not counted).
+      const policy = new CaseNotificationPolicyService(db as unknown as PrismaService);
+      expect(await policy.serialize(id.reviewerMatch, notice)).not.toBeNull();
+      const kept = scope.reviewerMatch;
+      scope.reviewerMatch = shaped(id.reviewerMatch, { ward: { read: teams(id.V) } });
+      try {
+        expect(await policy.serialize(id.reviewerMatch, notice)).toBeNull();
+        expect(await db.notification.count({ where: { AND: [await policy.where(id.reviewerMatch), { id: notice.id }] } })).toBe(0);
+      } finally {
+        scope.reviewerMatch = kept;
+      }
     });
 
     it('returned: the ward unit; re-submitted: only the reviewer who returned it', async () => {
@@ -455,6 +476,14 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       expect(overdueList.total).toBe((await stats.stats(scope.statsReader, {}, now)).cards.overdue);
       const pendingList = await queries.list(scope.statsReader, { status: 'SUBMITTED', teamId: id.S1 }, now);
       expect(pendingList.total).toBe((await stats.stats(scope.statsReader, { teamId: id.S1 }, now)).cards.pending);
+      // The total of a period opens the same rows: submitted at least once, first submitted within the period.
+      for (const period of [{}, { from: '2026-10-01', to: '2026-10-31' }, { from: '2026-09-21', to: '2026-09-21' }, { from: '2026-10-06' }, { to: '2026-10-05' }]) {
+        const listed = await queries.list(scope.statsReader, { submitted: true, ...period, pageSize: 200 }, now);
+        expect({ period, rows: listed.total }).toEqual({ period, rows: (await stats.stats(scope.statsReader, period, now)).cards.total });
+      }
+      // s1b was first submitted on 05/10 (its second round on 10/10): not a request "first submitted from 06/10".
+      expect((await queries.list(scope.statsReader, { submitted: true, from: '2026-10-06' }, now)).data.map((r) => r.id)).not.toContain(id.s1b);
+      await expect(queries.list(scope.statsReader, { from: '2026-02-31' }, now)).rejects.toMatchObject({ status: 400 });
     });
   });
 });

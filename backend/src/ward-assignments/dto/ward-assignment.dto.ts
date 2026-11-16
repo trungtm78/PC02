@@ -115,6 +115,10 @@ export class ListWardAssignmentsQuery {
   @IsOptional() @IsString() @MaxLength(100) crimeId?: string;
   @IsOptional() @IsIn(['INCIDENT', 'CASE']) caseType?: 'INCIDENT' | 'CASE';
   @IsOptional() @IsIn(['NEW', 'REASSIGN']) kind?: 'NEW' | 'REASSIGN';
+  @IsOptional() @Transform(({ value }) => value === true || value === 'true') @IsBoolean() submitted?: boolean;
+  /** First submitted within [from, to] (calendar days; checked by the service). */
+  @IsOptional() @IsString() @MaxLength(10) from?: string;
+  @IsOptional() @IsString() @MaxLength(10) to?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) pageSize?: number;
 }

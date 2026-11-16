@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { scopeConditions } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { alertOf } from './ward-alerts';
+import { alertOf, firstSubmittedWhere } from './ward-alerts';
 import { WARD_ALERT_ERROR } from './ward-alerts.codes';
 import { wardBody } from './ward-errors';
 import { decisionInForce, vnDay } from './ward-review.rules';
@@ -33,7 +33,8 @@ export interface WardStatsQuery {
 const DAY_MS = 86_400_000;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-function dayOf(value: string | undefined): Date | null {
+/** A period bound `YYYY-MM-DD` as the calendar day, or a 400 with a code; nothing given, no bound. */
+export function periodDay(value: string | undefined): Date | null {
   if (!value) return null;
   const day = new Date(`${value}T00:00:00.000Z`);
   if (!DAY.test(value) || Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== value) throw new BadRequestException(wardBody(WARD_ALERT_ERROR.STATS_RANGE_INVALID));
@@ -65,8 +66,8 @@ export class WardStatsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async stats(scope: DataScope | null | undefined, query: WardStatsQuery, now: Date = new Date()) {
-    const from = dayOf(query.from);
-    const to = dayOf(query.to);
+    const from = periodDay(query.from);
+    const to = periodDay(query.to);
     if (from && to && from > to) throw new BadRequestException(wardBody(WARD_ALERT_ERROR.STATS_RANGE_INVALID));
     const today = vnDay(now);
     const reach = scopeConditions(scope, 'read', 'WardAssignment');
@@ -78,6 +79,7 @@ export class WardStatsService {
               AND: [
                 ...(reach ? [{ OR: reach as Prisma.WardAssignmentWhereInput[] }] : []),
                 { archivedAt: null, submissionCount: { gt: 0 } },
+                firstSubmittedWhere(from, to),
                 ...(query.teamId ? [{ assignedTeamId: query.teamId }] : []),
                 ...(query.crimeId ? [{ crimeId: query.crimeId }] : []),
                 ...(query.caseType ? [{ caseType: query.caseType }] : []),
@@ -110,7 +112,6 @@ export class WardStatsService {
       const first = row.rounds.reduce<Date | null>((min, r) => (!min || r.submittedAt < min ? r.submittedAt : min), null);
       if (!first) continue;
       const firstDay = vnDay(first);
-      if ((from && firstDay < from) || (to && firstDay > to)) continue;
 
       const reviewDays = row.rounds.flatMap((r) => {
         const inForce = r.status === 'DECIDED' ? decisionInForce(r.decisions) : null;

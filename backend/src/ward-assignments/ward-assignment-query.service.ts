@@ -4,7 +4,8 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { recordInActionScope, recordInScope, recordReadable, scopeConditions } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
-import { alertOf, alertWhere, type AlertLevel } from './ward-alerts';
+import { alertOf, alertWhere, firstSubmittedWhere, type AlertLevel } from './ward-alerts';
+import { periodDay } from './ward-stats.service';
 import { editableByUnit, submittable } from './ward-assignment.rules';
 import { decisionInForce, returnRevocable, timeliness, vnDay } from './ward-review.rules';
 import { wardBody } from './ward-errors';
@@ -22,6 +23,11 @@ export interface WardAssignmentListQuery {
   crimeId?: string;
   caseType?: 'INCIDENT' | 'CASE';
   kind?: 'NEW' | 'REASSIGN';
+  /** Submitted at least once (what the statistics count). */
+  submitted?: boolean;
+  /** First submitted within [from, to], `YYYY-MM-DD` on the Viet Nam calendar (the period of the statistics). */
+  from?: string;
+  to?: string;
   page?: number;
   pageSize?: number;
 }
@@ -53,6 +59,8 @@ export class WardAssignmentQueryService {
         ...(query.crimeId ? [{ crimeId: query.crimeId }] : []),
         ...(query.caseType ? [{ caseType: query.caseType }] : []),
         ...(query.kind ? [{ kind: query.kind }] : []),
+        ...(query.submitted ? [{ submissionCount: { gt: 0 } }] : []),
+        firstSubmittedWhere(periodDay(query.from), periodDay(query.to)),
         ...(q ? [{ OR: [{ code: { contains: q, mode: 'insensitive' as const } }, { summary: { contains: q, mode: 'insensitive' as const } }] }] : []),
       ],
     };

@@ -1,4 +1,19 @@
 import { ALERT_LEVELS, alertOf, alertWhere } from './ward-alerts';
+import { wordsPattern } from './ward-matching.service';
+
+describe('wordsPattern: a name taken literally, as whole words', () => {
+  const words = (name: string) => new RegExp(wordsPattern(name));
+  it('keeps punctuation of the name (Y-Hen Niê)', () => {
+    expect(words('y-hen nie').test(' y-hen nie va dong bon')).toBe(true);
+  });
+  it('a dot is a dot, not any character', () => {
+    expect(words('ng. van a').test(' ngx van a')).toBe(false);
+    expect(words('ng. van a').test(' ng. van a')).toBe(true);
+  });
+  it('part of a longer word is not the name', () => {
+    expect(words('nguyen van teo').test(' nguyen van teong')).toBe(false);
+  });
+});
 import { vnDay } from './ward-review.rules';
 
 /**

@@ -49,6 +49,27 @@ export function alertOf(row: AlertInput, today: Date): WardAlert {
   return { level, dueOn, daysLeft };
 }
 
+/** Rounds that count as a submission: all but those taken back before PC02 decided. */
+const COUNTED_ROUND = { status: { not: 'WITHDRAWN' as const } };
+const VN_OFFSET_MS = 7 * 3_600_000;
+
+/**
+ * The requests first submitted within [from, to], calendar days in Viet Nam (either bound may be left open): a counted
+ * round submitted within the period, and none before it. The statistics and the list filter use this one condition,
+ * so a number of the statistics opens exactly its rows.
+ */
+export function firstSubmittedWhere(from: Date | null, to: Date | null): Prisma.WardAssignmentWhereInput {
+  const start = from ? new Date(from.getTime() - VN_OFFSET_MS) : null;
+  const end = to ? new Date(to.getTime() + DAY_MS - VN_OFFSET_MS) : null;
+  if (!start && !end) return {};
+  return {
+    rounds: {
+      some: { ...COUNTED_ROUND, submittedAt: { ...(start ? { gte: start } : {}), ...(end ? { lt: end } : {}) } },
+      ...(start ? { none: { ...COUNTED_ROUND, submittedAt: { lt: start } } } : {}),
+    },
+  };
+}
+
 /**
  * The condition of the rows of one level, for `WardAssignment` queries: the same rule as `alertOf`, written so that
  * every row satisfies exactly one level (the levels partition the table).
