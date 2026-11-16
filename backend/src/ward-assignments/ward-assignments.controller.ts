@@ -8,6 +8,13 @@ import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface'
 import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import {
+  ApproveDto,
+  CompleteDto,
+  DeleteWithDataDto,
+  ExtendDto,
+  FollowUpDto,
+  ReasonDto,
+  ReturnDto,
   CreateWardAssignmentDto,
   CreateWardInvestigatorDto,
   ExpectedStampDto,
@@ -21,6 +28,7 @@ import { wardBody } from './ward-errors';
 import { WardAssignmentCommandService } from './ward-assignment-command.service';
 import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { WardInvestigatorsService } from './ward-investigators.service';
+import { WardReviewService } from './ward-review.service';
 
 /**
  * The scope the request interceptor resolved: null for an administrator, a scope for everybody else. A request that
@@ -44,7 +52,15 @@ export class WardAssignmentsController {
   constructor(
     private readonly commands: WardAssignmentCommandService,
     private readonly queries: WardAssignmentQueryService,
+    private readonly review: WardReviewService,
   ) {}
+
+  /** The catalogue of return reasons. Declared before `:id` so that it is not read as an id. */
+  @Get('return-reasons')
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  returnReasons() {
+    return this.review.returnReasons();
+  }
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
@@ -103,6 +119,78 @@ export class WardAssignmentsController {
   @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
   restore(@Param('id') id: string, @Body() body: ExpectedStampDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
     return this.commands.restore(user, scopeOf(req), id, body.expectedUpdatedAt);
+  }
+
+  // ── PC02's review and the follow-up after approval ──
+
+  @Post(':id/return')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  returnIt(@Param('id') id: string, @Body() body: ReturnDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.returnIt(user, scopeOf(req), id, body);
+  }
+
+  @Post(':id/return/revoke')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  revokeReturn(@Param('id') id: string, @Body() body: ReasonDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.revokeReturn(user, scopeOf(req), id, body);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  approve(@Param('id') id: string, @Body() body: ApproveDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.approve(user, scopeOf(req), id, body);
+  }
+
+  @Post(':id/approval/cancel')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  cancelApproval(@Param('id') id: string, @Body() body: ReasonDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.cancelApproval(user, scopeOf(req), id, body);
+  }
+
+  @Patch(':id/follow-up')
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  followUp(@Param('id') id: string, @Body() body: FollowUpDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.followUp(user, scopeOf(req), id, body);
+  }
+
+  @Post(':id/deadline/extend')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  extend(@Param('id') id: string, @Body() body: ExtendDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.extend(user, scopeOf(req), id, body);
+  }
+
+  @Post(':id/complete')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  complete(@Param('id') id: string, @Body() body: CompleteDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.complete(user, scopeOf(req), id, body);
+  }
+
+  @Post(':id/complete/reopen')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  reopen(@Param('id') id: string, @Body() body: ReasonDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.reopen(user, scopeOf(req), id, body);
+  }
+
+  // ── administrators: delete with data ──
+
+  @Get(':id/deletion-impact')
+  @RequirePermissions({ action: 'delete', subject: 'WardAssignment' })
+  deletionImpact(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.review.deletionImpact(scopeOf(req), id);
+  }
+
+  @Delete(':id/with-data')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'delete', subject: 'WardAssignment' })
+  deleteWithData(@Param('id') id: string, @Body() body: DeleteWithDataDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.review.deleteWithData(user, scopeOf(req), id, body);
   }
 }
 

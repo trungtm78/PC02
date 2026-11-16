@@ -56,6 +56,50 @@ export class UpdateWardAssignmentDto extends WardAssignmentContentDto {
   @IsNgayThat() expectedUpdatedAt!: string;
 }
 
+export class ReturnDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsOptional() @IsString() @MaxLength(100) reasonCode?: string | null;
+  @IsOptional() @IsString() @MaxLength(5000) reasonText?: string | null;
+  @IsString({ each: true }) @ArrayMaxSize(50) requirements!: string[];
+}
+
+export class ApproveDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsString() @MaxLength(100) assignedInvestigatorId!: string;
+  @IsOptional() @IsString() @MaxLength(100) followUpUserId?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) followUpTeamId?: string | null;
+  @IsOptional() @IsString({ each: true }) @ArrayMaxSize(50) requirements?: string[];
+  @IsOptional() @IsString() @MaxLength(5000) pc02Note?: string | null;
+}
+
+export class ReasonDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsString() @MaxLength(2000) reason!: string;
+}
+
+export class FollowUpDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsOptional() @IsNgayThat() receivedOn?: string | null;
+  @IsOptional() @IsString() @MaxLength(20000) resultText?: string | null;
+  @IsOptional() @IsString() @MaxLength(5000) pc02Note?: string | null;
+}
+
+export class ExtendDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsNgayThat() newDueOn!: string;
+  @IsString() @MaxLength(2000) reason!: string;
+}
+
+export class CompleteDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsNgayThat() completedOn!: string;
+}
+
+export class DeleteWithDataDto {
+  @IsNgayThat() expectedUpdatedAt!: string;
+  @IsString() @MaxLength(100) confirmCode!: string;
+}
+
 export class ExpectedStampDto {
   @IsNgayThat() expectedUpdatedAt!: string;
 }

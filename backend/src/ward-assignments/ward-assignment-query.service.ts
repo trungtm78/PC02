@@ -5,6 +5,7 @@ import { recordInActionScope, recordInScope, recordReadable, scopeConditions } f
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { editableByUnit, submittable } from './ward-assignment.rules';
+import { decisionInForce, returnRevocable, timeliness } from './ward-review.rules';
 import { wardBody } from './ward-errors';
 
 export interface WardAssignmentListQuery {
@@ -65,6 +66,7 @@ export class WardAssignmentQueryService {
         assignedInvestigator: true,
         subjects: { orderBy: { position: 'asc' } },
         rounds: { orderBy: { sequence: 'asc' }, include: { decisions: { orderBy: { decidedAt: 'asc' } } } },
+        deadlineChanges: { orderBy: { changedAt: 'asc' } },
       },
     });
     if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
@@ -74,10 +76,26 @@ export class WardAssignmentQueryService {
     const changes = recordInScope(reach, scope, 'write', 'WardAssignment') && !row.archivedAt;
     const reviews = recordInActionScope(reach, scope, 'WardAssignment', 'review');
     const pending = row.rounds.at(-1)?.status === 'PENDING';
+    const lastCounted = [...row.rounds].reverse().find((r) => r.status !== 'WITHDRAWN');
+    const inForce = lastCounted ? decisionInForce(lastCounted.decisions) : null;
+    // PC02 decides only what is not its own ward unit's (segregation of duties), and nothing of an archived request.
+    const member = await this.prisma.userTeam.findFirst({ where: { userId: actorId, teamId: row.assignedTeamId }, select: { userId: true } });
+    const decides = reviews && !member && !row.archivedAt;
+    const approved = row.status === 'APPROVED';
     return {
       ...row,
       viewerId: actorId,
+      timeliness: row.completedOn && row.resultDueOn ? timeliness(row.completedOn, row.resultDueOn) : null,
       can: {
+        returnIt: decides && row.status === 'SUBMITTED' && pending,
+        approve: decides && row.status === 'SUBMITTED' && pending,
+        revokeReturn: decides && returnRevocable(row, inForce),
+        cancelApproval: decides && approved && !row.resultText && !row.completedOn,
+        followUp: decides && approved,
+        extend: decides && approved && !row.completedOn,
+        complete: decides && approved && !row.completedOn && !!row.resultText,
+        reopen: decides && approved && !!row.completedOn,
+        deleteWithData: scope === null,
         edit: changes && editableByUnit(row.status),
         submit: changes && submittable(row.status),
         withdraw: changes && row.status === 'SUBMITTED' && pending,

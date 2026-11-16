@@ -14,7 +14,17 @@ Spec = TOP section of the plan file `C:\Users\Than Minh Trung\.claude\plans\t-i-
 ## Đã hoàn thành
 - [x] M1 PR 1 = #694 — authz core: `WardAssignment` record subject (team-bound), scoped actions `review` / `matchSubjects`, catalogue + six pairs, two starter templates, regression contract recorded on the old code — merged `c022c1d4`, CI 5/5 (the new PostgreSQL spec seen PASS in the Database Gate log) — patch coverage 67/67 lines. Production build `c022c1d4` (16/11 22:00; the first deploy run hung at rsync, its VM receivers were stopped and the run re-run), read-only check: the three lists identical before/after; the six `*:WardAssignment` pairs exist and only role ADMIN holds them; no template entry uses them.
 
-## Đang làm dở
+- [x] M1 PR 2 = #695 — backend core — merged `e5713e45`, production build `e5713e45` (16/11 22:53), lists identical before/after; production: switch `ward-assignments` present and OFF, `ward_assignments` empty, series WARD_ASSIGNMENT seeded. (CI: one flaky frontend test `cases/governance/workspace.test.tsx` failed once at 1.1 s and passed on re-run; green locally.)
+
+## DEADLINE (owner 16/11 22:40): everything on production by 05:00 17/11; after 05:00 every change is a hotfix. Fastest = parallel lanes.
+Lanes (worktrees with junctioned node_modules, base `3449ca1a`; contract `.gstack/tmp/ward-contract.md`):
+- A (main session, branch `feat/ward-assignment-review`): PC02 review + block 3 + delete with data — `ward-review.service.ts`, routes, migration `20261127000000_ward_return_reasons`.
+- B (agent, `C:/PC02/wt-wa-web`, branch `feat/ward-web`): web screens.
+- C (agent, `C:/PC02/wt-wa-docs`, branch `feat/ward-docs`): result files + request slip (template platform 4th entity).
+- D (agent, `C:/PC02/wt-wa-alerts`, branch `feat/ward-alerts`): matching, alerts, reminders, notifications, statistics (+ migration `20261127100000_ward_alerts`).
+Integration plan: merge A + C + D + B into ONE branch (one PR, one CI, one deploy), mount C/D components in B's form, register D's stats route, call D's notification function from A's review commands, add D's new tables to `deleteWithData`'s order; full suites; one Codex pass on the whole; CI; deploy by ~04:00; UAT over HTTP + browser; switch ON on production by 05:00 for the owner to check (templates NOT applied to teams: that stays on the owner's order; ADMIN accounts can try it).
+
+## Đang làm dở (history of PR 2)
 Task: M1 PR 2 — backend core — branch `feat/ward-assignment-core` (rebased onto main after #694)
 Đã làm:
 - Schema for the whole epic, fixed now so later PRs and parallel lanes never touch it again: `WardAssignment`, `WardAssignmentSubject`, `WardAssignmentRound` (sequence / submissionNo / priorStatus / snapshot / withdrawal), `WardAssignmentDecision` (return or approve, requirements, revocation, the slip: year, number, issued file, signers), `WardAssignmentDeadlineChange`, `WardInvestigator`; nullable `wardAssignmentId` on `documents` and `document_render_logs`. Migration `20261126100000_ward_assignments` (additive; switch `ward-assignments` inserted OFF).

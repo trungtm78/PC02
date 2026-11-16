@@ -5,14 +5,14 @@ import * as path from 'path';
  * GATE: the tables of ward assignment requests have known writers, and only those.
  *
  * Every state change of a request must lock its row, compare the form the person acted on, check reach and state,
- * and write an audit line, together. Inside the module that is the two command services; the query service and the
- * rules never write. Outside the module there is one writer, the team merge, which moves the team columns of the
+ * and write an audit line, together. Inside the module that is the command services (the ward unit's, the
+ * investigators', PC02's review); the query service and the rules never write. Outside the module there is one writer, the team merge, which moves the team columns of the
  * merged-away unit by its strategy table (`ward_assignments.assignedTeamId` …) and is tested for these tables in
  * `teams/team-merge.database.spec.ts`. Any other writer is a request approved without a round, a submission not
  * counted, a ward unit's request moved to another unit.
  */
 const SRC = path.resolve(__dirname, '..');
-const MODULE_WRITERS = ['ward-assignments/ward-assignment-command.service.ts', 'ward-assignments/ward-investigators.service.ts'];
+const MODULE_WRITERS = ['ward-assignments/ward-assignment-command.service.ts', 'ward-assignments/ward-investigators.service.ts', 'ward-assignments/ward-review.service.ts'];
 /** Outside the module: the team merge, through its strategy table (dynamic SQL a pattern cannot see; asserted below). */
 const MERGE = 'teams/team-merge.service.ts';
 const WARD_TABLES = ['ward_assignments', 'ward_assignment_subjects', 'ward_assignment_rounds', 'ward_assignment_decisions', 'ward_assignment_deadline_changes', 'ward_investigators'];
@@ -54,7 +54,7 @@ describe('GATE: the ward assignment tables have known writers only', () => {
     expect(writesIn('prisma.wardAssignment.findMany({})')).toEqual([]);
   });
 
-  it('no file but the two command services writes them', () => {
+  it('no file but the command services writes them', () => {
     expect([...writers.keys()].sort()).toEqual([...MODULE_WRITERS].sort());
   });
 

@@ -1,4 +1,5 @@
 import { caseCivilDay } from '../cases/governance/case-civil-day';
+import { WARD_ERROR } from './ward-assignment.codes';
 import { WardRuleError } from './ward-assignment.rules';
 
 /**
@@ -47,11 +48,11 @@ export const REQUIREMENT_LENGTH_MAX = 2000;
  * than 2 000 characters.
  */
 export function normaliseRequirements(lines: readonly string[]): string[] {
-  if (lines.length > REQUIREMENTS_MAX) throw new WardRuleError('WARD_REQUIREMENTS_TOO_MANY', { max: REQUIREMENTS_MAX });
+  if (lines.length > REQUIREMENTS_MAX) throw new WardRuleError(WARD_ERROR.REQUIREMENTS_TOO_MANY, { max: REQUIREMENTS_MAX });
   return lines.map((line, index) => {
     const text = (line ?? '').trim();
-    if (!text) throw new WardRuleError('WARD_REQUIREMENT_EMPTY', { position: index + 1 });
-    if (text.length > REQUIREMENT_LENGTH_MAX) throw new WardRuleError('WARD_REQUIREMENT_TOO_LONG', { position: index + 1, max: REQUIREMENT_LENGTH_MAX });
+    if (!text) throw new WardRuleError(WARD_ERROR.REQUIREMENT_EMPTY, { position: index + 1 });
+    if (text.length > REQUIREMENT_LENGTH_MAX) throw new WardRuleError(WARD_ERROR.REQUIREMENT_TOO_LONG, { position: index + 1, max: REQUIREMENT_LENGTH_MAX });
     return text;
   });
 }
