@@ -101,7 +101,8 @@ describe('GATE: the ward assignment tables have known writers only', () => {
   });
 
   it('the slip service writes decisions only, and only their slip columns', () => {
-    const file = MODULE_WRITERS[2];
+    const file = 'ward-assignments/ward-slip.service.ts';
+    expect(MODULE_WRITERS).toContain(file);
     expect(new Set(writers.get(file))).toEqual(new Set(['wardAssignmentDecision.update']));
     const text = fs.readFileSync(path.join(SRC, file), 'utf8');
     const blocks = [...text.matchAll(/wardAssignmentDecision\.update\(\{[\s\S]*?data:\s*\{([\s\S]*?)\}\s*,?\s*\}\)/g)].map((m) => m[1]);

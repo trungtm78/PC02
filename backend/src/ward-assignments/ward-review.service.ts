@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma, WardAssignment } from '@prisma/client';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
@@ -10,6 +10,7 @@ import { WardRuleError } from './ward-assignment.rules';
 import type { Actor } from './ward-assignment-command.service';
 import { wardBody } from './ward-errors';
 import { lockedForDecision, lockedRequest } from './ward-locks';
+import { deleteWardAlertRows, WardNotifier } from './ward-notifier';
 import { decisionInForce, normaliseRequirements, resultDueFrom, returnRevocable, vnDay } from './ward-review.rules';
 
 type Tx = Prisma.TransactionClient;
@@ -95,6 +96,7 @@ export class WardReviewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly notifier?: WardNotifier,
   ) {}
 
   returnReasons() {
@@ -107,7 +109,8 @@ export class WardReviewService {
 
   /** "Trả về": the round waiting for PC02 goes back to the ward unit with its requirements. */
   async returnIt(actor: Actor, scope: Scope, id: string, input: ReturnInput): Promise<WardAssignment> {
-    return this.prisma.$transaction(async (tx) => {
+    let ring: () => void = () => undefined;
+    const returned = await this.prisma.$transaction(async (tx) => {
       const row = await lockedForDecision(tx, scope, actor.id, id, input.expectedUpdatedAt);
       const round = await this.pendingRound(tx, row);
       const reasonText = blank(input.reasonText);
@@ -126,8 +129,12 @@ export class WardReviewService {
         { userId: actor.id, action: WARD_AUDIT.RETURNED, subject: 'WardAssignment', subjectId: row.id, metadata: { decisionId: decision.id, round: round.sequence, reasonCode, requirements: requirements.length } },
         tx,
       );
+      // The ward unit is told with the decision (rolled back with it), the bells ring after the commit.
+      if (this.notifier) ring = await this.notifier.recordEvent(tx, { kind: 'RETURNED', assignmentId: row.id, decisionId: decision.id });
       return updated;
     });
+    ring();
+    return returned;
   }
 
   /** "Thu hồi trả về": only while the ward unit has done nothing with the request since. */
@@ -147,7 +154,8 @@ export class WardReviewService {
 
   /** "Duyệt và phân công": the investigator who acts, the PC02 person and unit who follow; the deadline starts. */
   async approve(actor: Actor, scope: Scope, id: string, input: ApproveInput, now: Date = new Date()): Promise<WardAssignment> {
-    return this.prisma.$transaction(async (tx) => {
+    let ring: () => void = () => undefined;
+    const approved = await this.prisma.$transaction(async (tx) => {
       const row = await lockedForDecision(tx, scope, actor.id, id, input.expectedUpdatedAt);
       const round = await this.pendingRound(tx, row);
       const [investigator] = await tx.$queryRaw<{ teamId: string; isActive: boolean }[]>`
@@ -180,8 +188,11 @@ export class WardReviewService {
         { userId: actor.id, action: WARD_AUDIT.APPROVED, subject: 'WardAssignment', subjectId: row.id, metadata: { decisionId: decision.id, round: round.sequence, followUpTeamId, requirements: requirements.length } },
         tx,
       );
+      if (this.notifier) ring = await this.notifier.recordEvent(tx, { kind: 'APPROVED', assignmentId: row.id, decisionId: decision.id });
       return updated;
     });
+    ring();
+    return approved;
   }
 
   /** "Huỷ duyệt": back to waiting for PC02, refused once a result is recorded (the result would lose its approval). */
@@ -313,6 +324,9 @@ export class WardReviewService {
       const docs = await tx.document.findMany({ where: { wardAssignmentId: row.id }, select: { id: true, fileName: true } });
       const roundIds = (await tx.wardAssignmentRound.findMany({ where: { assignmentId: row.id }, select: { id: true } })).map((r) => r.id);
       // Children first: every relation is RESTRICT. Decisions name their slip documents, so decisions go before documents.
+      // What was removed, not what was counted a moment before (a match about this request may be recorded meanwhile).
+      const alerts = await deleteWardAlertRows(tx, row.id);
+      Object.assign(counted, { matchConclusions: alerts.conclusions, reminders: alerts.reminders });
       await tx.wardAssignmentDecision.deleteMany({ where: { roundId: { in: roundIds } } });
       await tx.wardAssignmentRound.deleteMany({ where: { assignmentId: row.id } });
       await tx.wardAssignmentDeadlineChange.deleteMany({ where: { assignmentId: row.id } });
@@ -385,14 +399,16 @@ export class WardReviewService {
   }
 
   private async counts(db: Tx | PrismaService, id: string) {
-    const [subjects, rounds, decisions, deadlineChanges, reopenings, files] = await Promise.all([
+    const [subjects, rounds, decisions, deadlineChanges, reopenings, files, matchConclusions, reminders] = await Promise.all([
       db.wardAssignmentSubject.count({ where: { assignmentId: id } }),
       db.wardAssignmentRound.count({ where: { assignmentId: id } }),
       db.wardAssignmentDecision.count({ where: { round: { assignmentId: id } } }),
       db.wardAssignmentDeadlineChange.count({ where: { assignmentId: id } }),
       db.wardAssignmentReopening.count({ where: { assignmentId: id } }),
       db.document.count({ where: { wardAssignmentId: id } }),
+      db.wardSubjectMatchConclusion.count({ where: { OR: [{ assignmentId: id }, { otherSource: 'WARD_ASSIGNMENT', otherRecordId: id }] } }),
+      db.wardAssignmentReminder.count({ where: { assignmentId: id } }),
     ]);
-    return { subjects, rounds, decisions, deadlineChanges, reopenings, files };
+    return { subjects, rounds, decisions, deadlineChanges, reopenings, files, matchConclusions, reminders };
   }
 }

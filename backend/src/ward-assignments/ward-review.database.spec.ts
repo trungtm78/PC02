@@ -132,6 +132,8 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
     await db.wardAssignmentRound.deleteMany({ where: { assignmentId: { in: ids } } });
     await db.wardAssignmentDeadlineChange.deleteMany({ where: { assignmentId: { in: ids } } });
     await db.wardAssignmentReopening.deleteMany({ where: { assignmentId: { in: ids } } });
+    await db.wardSubjectMatchConclusion.deleteMany({ where: { assignmentId: { in: ids } } });
+    await db.wardAssignmentReminder.deleteMany({ where: { assignmentId: { in: ids } } });
     await db.documentRenderLog.deleteMany({ where: { wardAssignmentId: { in: ids } } });
     await db.document.deleteMany({ where: { wardAssignmentId: { in: ids } } });
     await db.wardAssignment.updateMany({ where: { id: { in: ids } }, data: { previousAssignmentId: null } });
@@ -336,12 +338,18 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
       const stuck = await fileOf(done.id, folder);
       const odd = await fileOf(done.id, '../escape.pdf');
       await scratch.db.documentRenderLog.create({ data: { wardAssignmentId: done.id, documentType: 'PHIEU_YEU_CAU', templateSha: 'sha', renderedById: id.reviewer } });
+      // Lane D's rows: its own match conclusion, another request's conclusion about it, a reminder mark.
+      await scratch.db.wardSubjectMatchConclusion.create({ data: { assignmentId: done.id, subjectPosition: 0, otherSource: 'PETITION', otherRecordId: `${tag}-p1`, samePerson: false, decidedById: id.reviewer } });
+      await scratch.db.wardSubjectMatchConclusion.create({ data: { assignmentId: later.id, subjectPosition: 0, otherSource: 'WARD_ASSIGNMENT', otherRecordId: done.id, samePerson: true, decidedById: id.reviewer } });
+      await scratch.db.wardAssignmentReminder.create({ data: { dedupeKey: `${tag}-APPROVED:${done.id}`, assignmentId: done.id, kind: 'APPROVED' } });
       const current = await scratch.db.wardAssignment.findUniqueOrThrow({ where: { id: done.id } });
       expect(current.updatedAt.getTime()).toBe(reopened.updatedAt.getTime());
 
-      expect(await review.deletionImpact(null, done.id)).toMatchObject({ subjects: 2, rounds: 1, decisions: 1, reopenings: 1, files: 3 });
+      expect(await review.deletionImpact(null, done.id)).toMatchObject({ subjects: 2, rounds: 1, decisions: 1, reopenings: 1, files: 3, matchConclusions: 2, reminders: 1 });
       const gone = await review.deleteWithData({ id: id.reviewer }, null, done.id, { confirmCode: current.code!, expectedUpdatedAt: stamp(current) });
-      expect(gone).toMatchObject({ subjects: 2, reopenings: 1, files: 3 });
+      expect(gone).toMatchObject({ subjects: 2, reopenings: 1, files: 3, matchConclusions: 2, reminders: 1 });
+      expect(await scratch.db.wardSubjectMatchConclusion.count({ where: { OR: [{ assignmentId: done.id }, { otherRecordId: done.id }] } })).toBe(0);
+      expect(await scratch.db.wardAssignmentReminder.count({ where: { assignmentId: done.id } })).toBe(0);
       expect([...gone.filesNotRemoved].sort()).toEqual([stuck.id, odd.id].sort());
       expect(kept.id).not.toBe(stuck.id);
       await expect(fs.stat(path.join(storage, onDisk))).rejects.toMatchObject({ code: 'ENOENT' });
@@ -355,6 +363,34 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
       // The later request stays, no longer naming the deleted one.
       expect((await scratch.db.wardAssignment.findUniqueOrThrow({ where: { id: later.id } })).previousAssignmentId).toBeNull();
     });
+  });
+
+  it('the ward unit is told of a return and of an approval: with the decision, in its transaction; the bells ring after the commit', async () => {
+    const told: { kind: string; decisionId: string; decisionVisible: boolean }[] = [];
+    const rang: string[] = [];
+    const notifier = {
+      recordEvent: async (tx: Prisma.TransactionClient, event: { kind: string; decisionId: string }) => {
+        // Inside the transaction: the decision is already there for the notifier to read.
+        told.push({ ...event, decisionVisible: !!(await tx.wardAssignmentDecision.findUnique({ where: { id: event.decisionId } })) });
+        return () => rang.push(event.kind);
+      },
+    };
+    const telling = new WardReviewService(scratch.db as never, new AuditService(scratch.db as never), notifier as never);
+    const sent = await submitted();
+    const back = await telling.returnIt({ id: id.reviewer }, scope.reviewer, sent.id, { expectedUpdatedAt: stamp(sent), reasonText: 'Thiếu', requirements: [] });
+    const again = await commands.submit({ id: id.wardy }, scope.wardy, sent.id, stamp(back));
+    const done = await telling.approve({ id: id.reviewer }, scope.reviewer, sent.id, { expectedUpdatedAt: stamp(again), assignedInvestigatorId: id.invW });
+    const decisions = await scratch.db.wardAssignmentDecision.findMany({ where: { round: { assignmentId: sent.id } }, orderBy: { decidedAt: 'asc' } });
+    expect(told).toEqual([
+      { kind: 'RETURNED', assignmentId: sent.id, decisionId: decisions[0].id, decisionVisible: true },
+      { kind: 'APPROVED', assignmentId: sent.id, decisionId: decisions[1].id, decisionVisible: true },
+    ]);
+    expect(rang).toEqual(['RETURNED', 'APPROVED']);
+    expect(done.status).toBe('APPROVED');
+    // A refused decision tells nobody.
+    const before = told.length;
+    expect(await fails(telling.approve({ id: id.reviewer }, scope.reviewer, sent.id, { expectedUpdatedAt: stamp(done), assignedInvestigatorId: id.invW }))).toMatchObject({ status: 409 });
+    expect(told).toHaveLength(before);
   });
 
   it('the catalogue of return reasons lists the active ones', async () => {
