@@ -268,9 +268,13 @@ export class WardSlipService {
       });
       const stored = signersOf(decision.signers);
       const fallback = await this.defaultSigners(tx, actor.id);
+      // The slip prints block 1 as the decision's round submitted it, not as the request reads today: a place filled
+      // in after a return does not reach that return's slip.
+      const submitted = (decision.round.snapshot ?? null) as { discoveredOn?: unknown; place?: unknown } | null;
+      const printed = submitted && typeof submitted === 'object' ? submitted : { discoveredOn: assignment.discoveredOn, place: assignment.place };
       const missing: string[] = [];
-      if (!assignment.discoveredOn) missing.push('discoveredOn');
-      if (!assignment.place?.trim()) missing.push('place');
+      if (!printed.discoveredOn) missing.push('discoveredOn');
+      if (typeof printed.place !== 'string' || !printed.place.trim()) missing.push('place');
       return {
         decisionId: decision.id,
         kind: decision.kind,

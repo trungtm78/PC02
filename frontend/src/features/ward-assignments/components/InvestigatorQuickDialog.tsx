@@ -61,6 +61,9 @@ function duplicateOf(err: unknown): { existingId: string } | null {
 export function InvestigatorQuickDialog({ teamId, investigator, suggestedName, known, onClose, onSaved }: InvestigatorQuickDialogProps) {
   const qc = useQueryClient();
   const editing = !!investigator;
+  // What the server holds now: a save that wrote the name and then failed on the status is retried from here, with
+  // the stamp of what was written (and a creation that succeeded is not sent a second time).
+  const [stored, setStored] = useState<WardInvestigator | null>(investigator ?? null);
   const [draft, setDraft] = useState<Draft>(() => draftOf(investigator, suggestedName));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,9 +87,11 @@ export function InvestigatorQuickDialog({ teamId, investigator, suggestedName, k
     setError(null);
     try {
       const body = { ...inputOf(draft), ...(allowSameName ? { allowSameName: true } : {}) };
-      let saved = investigator ? await wardInvestigatorsApi.update(investigator.id, body, investigator.updatedAt) : await wardInvestigatorsApi.create(teamId, body);
+      let saved = stored ? await wardInvestigatorsApi.update(stored.id, body, stored.updatedAt) : await wardInvestigatorsApi.create(teamId, body);
+      setStored(saved);
       if (saved.isActive !== draft.isActive) {
         saved = draft.isActive ? await wardInvestigatorsApi.reactivate(saved.id, saved.updatedAt) : await wardInvestigatorsApi.deactivate(saved.id, saved.updatedAt);
+        setStored(saved);
       }
       await done(saved);
     } catch (err) {
@@ -141,7 +146,7 @@ export function InvestigatorQuickDialog({ teamId, investigator, suggestedName, k
               {/* Correcting somebody onto a listed name: there is nobody else to "use", only to keep both or rename. */}
               {existing && !editing && (
                 <button type="button" data-testid="ward-inv-quick-use-existing" className={BTN_PRIMARY} disabled={busy} onClick={() => void takeExisting()}>
-                  {Q.takeExisting}
+                  {Q.useExisting}
                 </button>
               )}
             </>

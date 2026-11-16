@@ -258,6 +258,14 @@ describe('the list works as the petition list does', () => {
       expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w3/edit');
     });
 
+    it('a button the route would refuse is not offered: reach without the permission of the action', async () => {
+      held.value = ['read:WardAssignment', 'edit:WardAssignment'];
+      renderPage();
+      await screen.findByTestId('ward-row-w3');
+      expect(screen.getByTestId('btn-edit-w3')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-delete-w3')).not.toBeInTheDocument();
+    });
+
     it('a row of an older answer (no `can`) still opens, and offers nothing it cannot vouch for', async () => {
       api.list.mockImplementation(async (q: WardListQuery) => (q.pageSize === 1 ? { data: [], total: 1 } : { data: [row({ id: 'w1' })], total: 1 }));
       renderPage();

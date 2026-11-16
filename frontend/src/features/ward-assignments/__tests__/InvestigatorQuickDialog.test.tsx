@@ -69,6 +69,9 @@ describe('the dialog of the "ĐTV đề xuất" field', () => {
     fireEvent.click(screen.getByTestId('ward-inv-quick-save'));
     expect(await screen.findByTestId('ward-inv-quick-duplicate')).toHaveTextContent('Lê Văn C');
     expect(onSaved).not.toHaveBeenCalled();
+    // The buttons say what they do (a label read from a key that does not exist renders an empty button).
+    expect(screen.getByTestId('ward-inv-quick-use-existing')).toHaveTextContent('Dùng người đã có');
+    expect(screen.getByTestId('ward-inv-quick-anyway')).toHaveTextContent('Vẫn tạo người mới');
     fireEvent.click(screen.getByTestId('ward-inv-quick-use-existing'));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(inv()));
     // Nothing was created, and the one listed is in use already: nothing to resume.
@@ -125,6 +128,27 @@ describe('the dialog of the "ĐTV đề xuất" field', () => {
     // The stamp of the correction, not the one the dialog opened with.
     await waitFor(() => expect(api.deactivate).toHaveBeenCalledWith('i1', '2026-11-17T00:00:00Z'));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(stopped));
+  });
+
+  it('the name was written and the status refused: the next save goes on from what was written, and creates nobody twice', async () => {
+    const headers = new AxiosHeaders();
+    const refused = new AxiosError('x', 'ERR', { headers }, null, { status: 409, statusText: '', headers, config: { headers }, data: { error: { code: 'WARD_INVESTIGATOR_CHANGED', details: [] } } });
+    const created = inv({ id: 'i9', fullName: 'Phạm Văn Mới', updatedAt: '2026-11-17T00:00:00Z' });
+    const renamed = { ...created, updatedAt: '2026-11-17T00:00:05Z' };
+    api.create.mockResolvedValue(created);
+    api.deactivate.mockRejectedValueOnce(refused);
+    api.update.mockResolvedValue(renamed);
+    api.deactivate.mockResolvedValueOnce({ ...renamed, isActive: false });
+    const { onSaved } = open({ suggestedName: 'Phạm Văn Mới' });
+    fireEvent.change(screen.getByTestId('ward-inv-quick-status'), { target: { value: 'stopped' } });
+    fireEvent.click(screen.getByTestId('ward-inv-quick-save'));
+    expect(await screen.findByTestId('ward-inv-quick-error')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ward-inv-quick-save'));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ ...renamed, isActive: false }));
+    expect(api.create).toHaveBeenCalledTimes(1);
+    // The one created is corrected with ITS stamp, then stopped with the stamp of that correction.
+    expect(api.update).toHaveBeenCalledWith('i9', expect.objectContaining({ fullName: 'Phạm Văn Mới' }), '2026-11-17T00:00:00Z');
+    expect(api.deactivate).toHaveBeenLastCalledWith('i9', '2026-11-17T00:00:05Z');
   });
 
   it('a refusal is said in words and the dialog stays open', async () => {

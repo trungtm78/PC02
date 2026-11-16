@@ -116,6 +116,9 @@ export class WardInvestigatorsService {
   /** 409 with the name's holder when the unit already lists this name (the stopped ones too: they are resumed, not doubled). */
   private async refuseSameName(tx: Prisma.TransactionClient, teamId: string, fullName: string, exceptId: string | null): Promise<void> {
     const key = sameNameKey(fullName);
+    // One check at a time per unit, until this transaction ends: two people adding the same name at the same moment
+    // would both find nobody. An advisory lock, not the unit's row: creating holds that row shared already.
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`ward-investigator-name:${teamId}`}))::text AS locked`;
     const others = await tx.wardInvestigator.findMany({ where: { teamId, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true, fullName: true, isActive: true } });
     const same = others.find((o) => sameNameKey(o.fullName) === key);
     if (same) throw new ConflictException(wardBody(WARD_ERROR.INVESTIGATOR_DUPLICATE, { existingId: same.id, isActive: same.isActive }));

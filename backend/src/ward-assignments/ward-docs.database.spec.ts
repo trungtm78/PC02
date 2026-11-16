@@ -379,7 +379,18 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       const told = await slips.defaults({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn);
       expect(told).toMatchObject({ decisionId: id.dReturn, kind: 'RETURN', revoked: false, slipNumber: null, templateReady: true });
       expect(told.signers.canBoThamDinh).toBe('Đại úy Nguyễn Văn A');
-      expect(Array.isArray(told.missing)).toBe(true);
+      // What the slip would leave empty is read from what the round submitted (what the slip prints), not from the
+      // request as it reads today.
+      const round = await scratch.db.wardAssignmentRound.findFirstOrThrow({ where: { decisions: { some: { id: id.dReturn } } } });
+      const today = await scratch.db.wardAssignment.findUniqueOrThrow({ where: { id: id.A } });
+      expect((round.snapshot as { place?: string }).place).toBeTruthy();
+      expect(told.missing).toEqual([]);
+      await scratch.db.wardAssignment.update({ where: { id: id.A }, data: { place: null, updatedAt: today.updatedAt } });
+      expect((await slips.defaults({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn)).missing).toEqual([]);
+      await scratch.db.wardAssignmentRound.update({ where: { id: round.id }, data: { snapshot: { ...(round.snapshot as object), place: null } } });
+      expect((await slips.defaults({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn)).missing).toEqual(['place']);
+      await scratch.db.wardAssignmentRound.update({ where: { id: round.id }, data: { snapshot: round.snapshot as object } });
+      await scratch.db.wardAssignment.update({ where: { id: id.A }, data: { place: today.place, updatedAt: today.updatedAt } });
       expect(await scratch.db.documentNumberLog.count({ where: { templateId: id.series } })).toBe(before);
       // The ward unit reads its request, but is not told (nor may issue).
       expect(await fails(slips.defaults({ id: id.wardy }, scope.wardy, id.A, id.dReturn))).toMatchObject({ status: 403 });

@@ -87,7 +87,11 @@ export default function WardAssignmentListPage() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
   const { permissions } = usePermission();
-  const canCreate = permissions === null || permissions.includes('write:WardAssignment');
+  const holds = (permission: string) => permissions === null || permissions.includes(permission);
+  const canCreate = holds('write:WardAssignment');
+  // The row says how far the person's reach goes; the route also asks for the permission of the action.
+  const mayEdit = holds('edit:WardAssignment');
+  const mayDelete = holds('delete:WardAssignment');
   const [slipOf, setSlipOf] = useState<WardAssignmentRow | null>(null);
   const [deleting, setDeleting] = useState<WardAssignmentRow | null>(null);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -153,7 +157,7 @@ export default function WardAssignmentListPage() {
     () =>
       createRowActionRegistry<WardAssignmentRow>().registerMany([
         { key: 'view', label: T.view, icon: Eye, position: 'inline', execute: (row, ctx) => ctx.navigate(WARD_PATHS.view(row.id)), testid: 'btn-view' },
-        { key: 'edit', label: T.edit, icon: Pencil, position: 'inline', visible: (row) => !!row.can?.edit, execute: (row, ctx) => ctx.navigate(WARD_PATHS.edit(row.id)), testid: 'btn-edit' },
+        { key: 'edit', label: T.edit, icon: Pencil, position: 'inline', visible: (row) => mayEdit && !!row.can?.edit, execute: (row, ctx) => ctx.navigate(WARD_PATHS.edit(row.id)), testid: 'btn-edit' },
         {
           key: 'print',
           label: T.print,
@@ -164,9 +168,9 @@ export default function WardAssignmentListPage() {
           execute: (row) => setSlipOf(row),
           testid: 'btn-print',
         },
-        { key: 'delete', label: T.delete, icon: Trash2, position: 'inline', danger: true, visible: (row) => !!row.can?.delete, execute: (row) => setDeleting(row), testid: 'btn-delete' },
+        { key: 'delete', label: T.delete, icon: Trash2, position: 'inline', danger: true, visible: (row) => mayDelete && !!row.can?.delete, execute: (row) => setDeleting(row), testid: 'btn-delete' },
       ]),
-    [T],
+    [T, mayEdit, mayDelete],
   );
   const actionCtx: ActionContext = { navigate, perms: {}, assignModal: NO_MODAL, deleteModal: NO_MODAL, printModal: NO_MODAL };
 

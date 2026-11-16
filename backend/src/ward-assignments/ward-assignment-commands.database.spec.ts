@@ -500,6 +500,14 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       expect(ranked.rank).toBe('Thiếu tá');
     });
 
+    it('two people adding the same name at the same moment: one is refused, the unit is not left with a silent double', async () => {
+      const name = `${tag} Đồng Thời`;
+      const outcomes = await Promise.all([1, 2, 3, 4].map(() => fails(investigators.create({ id: id.wardy }, scope.wardy, { teamId: id.W, fullName: name }))));
+      expect(outcomes.filter((o) => o === 'resolved')).toHaveLength(1);
+      for (const o of outcomes.filter((x) => x !== 'resolved')) expect(o).toMatchObject({ status: 409, body: { code: WARD_ERROR.INVESTIGATOR_DUPLICATE } });
+      expect(await scratch.db.wardInvestigator.count({ where: { teamId: id.W, fullName: name } })).toBe(1);
+    });
+
     it('PC02 reviewers may add an investigator to a ward unit (to assign one the unit did not propose)', async () => {
       const added = await investigators.create({ id: id.reviewer }, scope.reviewer, { teamId: id.V, fullName: `${tag} Đặng Văn M` });
       expect(added.teamId).toBe(id.V);
