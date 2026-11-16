@@ -35,8 +35,24 @@ Evidence: `tools/uat-phan-cong/workflow.cjs`, run 17/11/2026 00:12 over HTTP aga
 | DELETE | delete with data: administrators only, impact counts, the code typed again | 5 checks | HTTP | PASS | — |
 | STATS | the statistics total of a unit = the rows its link opens | 1 check | HTTP | PASS | per-month and per-crime tables: PostgreSQL spec only |
 
-**Not covered by this UAT (stated, not counted):** a browser click-through of the screens; the monkey run; the 07:00 reminder run on the
-real scheduler; incidents as a matching source (not built: free-text suspects).
+## Browser pass (Chromium via Playwright, 1366x900), 17/11/2026 00:40 — `tools/uat-phan-cong/browser.cjs`, 14/14 PASS
+
+ENFORCE with the two starter templates; a ward officer and a PC02 reviewer. Checks: the menu entry sits under Đơn thư and above
+Uỷ thác điều tra; PC02 sees the submitted request in the list, opens it, sees "Trả về" and "Duyệt", the return reasons list the
+catalogue, a return clicked on the screen leaves the request RETURNED; the statistics page renders; the ward officer reads PC02's
+reason, has no review buttons, opens "Trình mới". **No page error, console error, 403 or 5xx** during the pass.
+
+The first runs found two real defects the HTTP UAT could not see, both fixed with tests before this pass:
+- the review block filled "Cán bộ theo dõi" and "Tổ theo dõi" from `/admin/users` and `/teams/options`: a PC02 reviewer holding only
+  the review template got 403 and blank pickers → module route `GET /ward-assignments/follow-up-choices` (review permission); the
+  request carries its follower's name and unit, so the ward unit no longer sees blanks either;
+- the menu counts (`/dashboard/badge-counts`, `read:Case`) were asked every two minutes by accounts that cannot read cases → asked
+  only once the loaded profile holds `read:Case`.
+Screenshots: `docs/test-evidence/ward-assignments/01..06-*.png` (local, git-ignored).
+
+**Not covered (stated, not counted):** a full click-through of every button (approve, block 3, slips, files) in the browser — those
+are covered over HTTP above and by vitest; the monkey run; the 07:00 reminder run on the real scheduler; incidents as a matching
+source (not built: free-text suspects).
 
 ---
 

@@ -12,7 +12,7 @@ interface TeamOption {
   wardId?: string | null;
 }
 
-/** `GET /teams/options` (active teams, a plain array), split by `wardId`: ward police units vs PC02's own teams. */
+/** `GET /teams/options` (active teams, a plain array): the ward police units a person entering for a unit may choose. */
 function useTeamOptions(enabled: boolean) {
   return useQuery({
     queryKey: ['ward-assignments', 'team-options'],
@@ -31,11 +31,6 @@ export function useWardUnits(enabled = true) {
   return { ...q, data: (q.data ?? []).filter((t) => t.wardId != null).map((t) => ({ id: t.id, name: t.name })) };
 }
 
-export function usePc02Teams(enabled = true) {
-  const q = useTeamOptions(enabled);
-  return { ...q, data: (q.data ?? []).filter((t) => t.wardId == null).map((t) => ({ id: t.id, name: t.name })) };
-}
-
 /** The unit's investigators, the stopped ones too: a request may name one who has since been stopped. */
 export function useUnitInvestigators(teamId: string) {
   return useQuery({
@@ -43,6 +38,17 @@ export function useUnitInvestigators(teamId: string) {
     queryFn: () => wardInvestigatorsApi.list(teamId, true),
     enabled: !!teamId,
     staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** The PC02 units and people a reviewer may name to follow an approval (the module's own list, not the admin screens'). */
+export function useFollowUpChoices(enabled: boolean) {
+  return useQuery({
+    queryKey: ['ward-assignments', 'follow-up-choices'],
+    queryFn: () => wardAssignmentsApi.followUpChoices(),
+    enabled,
+    staleTime: 10 * 60_000,
     retry: false,
   });
 }

@@ -172,6 +172,9 @@ export interface WardAssignmentDetail extends WardAssignmentRow {
   assignedInvestigator: WardInvestigator | null;
   followUpUserId: string | null;
   followUpTeamId: string | null;
+  /** Who follows the approval and in which unit, named on the request (readable by whoever reads the request). */
+  followUpUser?: { id: string; firstName: string | null; lastName: string | null; username: string } | null;
+  followUpTeam?: { id: string; name: string } | null;
   pc02Note: string | null;
   receivedOn: string | null;
   resultText: string | null;
@@ -219,6 +222,12 @@ export interface WardListQuery {
   alert?: string;
   page?: number;
   pageSize?: number;
+}
+
+/** Who may follow an approval and in which unit (`GET /ward-assignments/follow-up-choices`). */
+export interface WardFollowUpChoices {
+  teams: { id: string; name: string }[];
+  people: { id: string; name: string; teamIds: string[] }[];
 }
 
 export interface WardReturnReason {

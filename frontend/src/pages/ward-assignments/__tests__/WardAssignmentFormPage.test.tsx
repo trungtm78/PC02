@@ -16,7 +16,7 @@ vi.mock('@/features/ward-assignments/api', async (orig) => {
     wardAssignmentsApi: {
       list: fn(), get: fn(), create: fn(), update: fn(), submit: fn(), withdraw: fn(), remove: fn(), archive: fn(), restore: fn(),
       returnIt: fn(), revokeReturn: fn(), approve: fn(), cancelApproval: fn(), followUp: fn(), extendDeadline: fn(), complete: fn(),
-      reopen: fn(), returnReasons: fn(), deletionImpact: fn(), removeWithData: fn(),
+      reopen: fn(), returnReasons: fn(), followUpChoices: fn(), deletionImpact: fn(), removeWithData: fn(),
     },
     wardInvestigatorsApi: { list: fn(), create: fn(), update: fn(), deactivate: fn(), reactivate: fn() },
   };
@@ -28,9 +28,6 @@ vi.mock('@/lib/api', () => ({
       return { data: [] };
     }),
   },
-}));
-vi.mock('@/hooks/useOfficerOptions', () => ({
-  useOfficerOptions: () => ({ data: [{ value: 'u-rev', label: 'Đặng Văn K', teams: [{ teamId: 'd1', teamName: 'Đội 1', isLeader: false, laDiaBan: false }] }] }),
 }));
 const who = vi.hoisted(() => ({ user: null as unknown }));
 vi.mock('@/stores/auth.store', () => ({ authStore: { getUser: () => who.user } }));
@@ -95,6 +92,7 @@ beforeEach(() => {
   who.user = WARD_USER;
   invApi.list.mockResolvedValue([investigator]);
   api.returnReasons.mockResolvedValue([{ code: 'THIEU_TAI_LIEU', name: 'Thiếu tài liệu' }]);
+  api.followUpChoices.mockResolvedValue({ teams: [{ id: 'd1', name: 'Đội 1' }], people: [{ id: 'u-rev', name: 'Đặng Văn K', teamIds: ['d1'] }] });
   api.list.mockResolvedValue({ data: [], total: 0 });
 });
 
@@ -238,6 +236,7 @@ describe('an existing request, read by the ward unit', () => {
       detail({
         status: 'APPROVED', resultDueOn: '2027-01-16T00:00:00.000Z', receivedOn: '2026-11-16T00:00:00.000Z', assignedInvestigator: investigator, assignedInvestigatorId: 'i1',
         followUpUserId: 'u-rev', followUpTeamId: 'd1',
+        followUpUser: { id: 'u-rev', firstName: 'K', lastName: 'Đặng Văn', username: 'dangk' }, followUpTeam: { id: 'd1', name: 'Đội 1' },
         rounds: [{ id: 'r1', sequence: 1, submissionNo: 1, status: 'DECIDED', submittedAt: '2026-11-13T03:00:00Z', submittedById: 'u-ward', snapshot: {}, withdrawnAt: null, withdrawnById: null,
           decisions: [{ id: 'd1', kind: 'APPROVE', decidedAt: '2026-11-16T03:00:00Z', decidedById: 'u-rev', reasonCode: null, reasonText: null, requirements: ['Báo cáo kết quả'], assignedInvestigatorId: 'i1', followUpUserId: 'u-rev', followUpTeamId: 'd1', revokedAt: null, revokedById: null, revokeReason: null, slipNumber: null, slipIssuedAt: null }] }],
       }),
@@ -245,7 +244,8 @@ describe('an existing request, read by the ward unit', () => {
     renderAt('/ho-so-phan-cong/w1');
     const review = await screen.findByTestId('ward-block-review');
     expect(within(review).getByTestId('ward-decision-in-force')).toHaveTextContent('Lê Văn C');
-    // Who follows it, by name, for the ward unit too.
+    // Who follows it, by name, for the ward unit too: carried by the request, no list of users or teams is asked for.
+    expect(api.followUpChoices).not.toHaveBeenCalled();
     await waitFor(() => expect(within(review).getByTestId('ward-decision-in-force')).toHaveTextContent('Đội 1'));
     expect(within(review).getByTestId('ward-decision-in-force')).toHaveTextContent('Đặng Văn K');
     expect(within(review).getByText('Báo cáo kết quả')).toBeInTheDocument();
@@ -268,6 +268,12 @@ describe('a waiting request, reviewed by PC02', () => {
     renderAt('/ho-so-phan-cong/w1');
     const approve = await screen.findByTestId('ward-approve');
     await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator')).toHaveValue('i1'));
+    // The people and units offered come from the module's own route (a reviewer holds no right to the admin lists).
+    await waitFor(() => expect(within(screen.getByTestId('ward-follow-up-team')).getByText('Đội 1')).toBeInTheDocument());
+    expect(within(screen.getByTestId('ward-follow-up-user')).getByText('Đặng Văn K')).toBeInTheDocument();
+    expect(api.followUpChoices).toHaveBeenCalled();
+    const { api: http } = await import('@/lib/api');
+    expect(vi.mocked(http.get).mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith('/admin/') || u.startsWith('/teams'))).toEqual([]);
     fireEvent.click(screen.getByTestId('ward-requirements-add'));
     fireEvent.change(screen.getByLabelText(`${L.review.requirements} 1`), { target: { value: ' Báo cáo kết quả ' } });
     fireEvent.click(approve);

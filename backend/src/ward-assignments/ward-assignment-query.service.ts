@@ -79,6 +79,23 @@ export class WardAssignmentQueryService {
     return { data: data.map((row) => ({ ...row, alert: alertOf(row, today) })), total };
   }
 
+  /** The active PC02 units (no ward units) and their active members: who may follow an approval, and in which unit. */
+  async followUpChoices() {
+    const teams = await this.prisma.team.findMany({ where: { wardId: null, status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
+    const members = await this.prisma.userTeam.findMany({
+      where: { team: { wardId: null, status: 'ACTIVE' }, user: { isActive: true } },
+      select: { teamId: true, user: { select: { id: true, firstName: true, lastName: true, username: true } } },
+    });
+    const people = new Map<string, { id: string; name: string; teamIds: string[] }>();
+    for (const m of members) {
+      const name = [m.user.lastName, m.user.firstName].filter(Boolean).join(' ').trim() || m.user.username;
+      const person = people.get(m.user.id) ?? { id: m.user.id, name, teamIds: [] };
+      person.teamIds.push(m.teamId);
+      people.set(m.user.id, person);
+    }
+    return { teams, people: [...people.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi')) };
+  }
+
   async get(scope: DataScope | null | undefined, actorId: string, id: string) {
     const row = await this.prisma.wardAssignment.findUnique({
       where: { id },
@@ -91,6 +108,9 @@ export class WardAssignmentQueryService {
         rounds: { orderBy: { sequence: 'asc' }, include: { decisions: { orderBy: { decidedAt: 'asc' } } } },
         deadlineChanges: { orderBy: { changedAt: 'asc' } },
         reopenings: { orderBy: { reopenedAt: 'asc' } },
+        // Named on the request: whoever may read it reads who follows it, without a list of users or teams.
+        followUpUser: { select: { id: true, firstName: true, lastName: true, username: true } },
+        followUpTeam: { select: { id: true, name: true } },
       },
     });
     if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {

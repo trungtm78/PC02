@@ -6,13 +6,12 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, FIELD_ERROR_TEXT, LABEL_BASE, SELECT_BASE, TEXTAREA_BASE } from '@/constants/styles';
-import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 import { wardAssignmentsApi } from '../api';
 import { decisionInForce, investigatorLabel } from '../formModel';
 import { blankLines, trimLines } from '../requirements';
 import type { WardAssignmentDetail, WardInvestigator } from '../types';
-import { usePc02Teams, useReturnReasons } from '../useWardChoices';
+import { useFollowUpChoices, useReturnReasons } from '../useWardChoices';
 import { ReasonDialog } from './ReasonDialog';
 import { RequirementsEditor } from './RequirementsEditor';
 
@@ -66,12 +65,12 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
   const [problem, setProblem] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'revokeReturn' | 'cancelApproval' | null>(null);
 
-  const reasons = useReturnReasons(deciding);
-  // Also for the ward unit reading an approval: the names of who follows it. A refused look-up leaves them blank.
-  const showsFollowUp = reviewer || inForce?.kind === 'APPROVE';
-  const teams = usePc02Teams(showsFollowUp);
-  const officers = useOfficerOptions(showsFollowUp);
-  const pc02Officers = (officers.data ?? []).filter((o) => !o.teams.some((t) => t.laDiaBan));
+  // The ward unit reading a return sees the reason's name, not its code.
+  const reasons = useReturnReasons(deciding || inForce?.kind === 'RETURN');
+  // Only the reviewer deciding picks who follows; everybody else reads the names carried by the request.
+  const choices = useFollowUpChoices(deciding && !!can.approve);
+  const pc02Officers = (choices.data?.people ?? []).map((p) => ({ value: p.id, label: p.name }));
+  const teamsOfChoice = choices.data?.teams ?? [];
   const active = investigators.filter((i) => i.isActive || i.id === assignedId);
   const stamp = detail.updatedAt;
 
@@ -125,8 +124,11 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
     );
   };
 
-  const teamName = (id: string | null) => (id ? teams.data.find((t) => t.id === id)?.name ?? '' : '');
-  const officerName = (id: string | null) => (id ? (officers.data ?? []).find((o) => o.value === id)?.label ?? '' : '');
+  const officerName = (id: string | null) => (id ? pc02Officers.find((o) => o.value === id)?.label ?? '' : '');
+  const followerName = () => {
+    const u = detail.followUpUser;
+    return u ? [u.lastName, u.firstName].filter(Boolean).join(' ').trim() || u.username : '';
+  };
 
   return (
     <section data-testid="ward-block-review" aria-labelledby="ward-block-review-title" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -180,7 +182,7 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
             <Field label={R.followUpTeam}>
               <select data-testid="ward-follow-up-team" className={SELECT_BASE} value={followUpTeamId} onChange={(e) => setFollowUpTeamId(e.target.value)}>
                 <option value="">{R.followUpTeamPick}</option>
-                {teams.data.map((t) => (
+                {teamsOfChoice.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
@@ -229,11 +231,11 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
               </div>
               <div>
                 <dt className="text-slate-500">{R.followUpUser}</dt>
-                <dd>{officerName(detail.followUpUserId)}</dd>
+                <dd data-testid="ward-follow-up-user-name">{followerName()}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">{R.followUpTeam}</dt>
-                <dd>{teamName(detail.followUpTeamId)}</dd>
+                <dd data-testid="ward-follow-up-team-name">{detail.followUpTeam?.name ?? ''}</dd>
               </div>
             </>
           )}

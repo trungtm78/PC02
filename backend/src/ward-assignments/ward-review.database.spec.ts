@@ -393,6 +393,22 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
     expect(told).toHaveLength(before);
   });
 
+  it('who may follow an approval: the PC02 units and their members, never a ward unit; the request names its follower for every reader', async () => {
+    const { teams, people } = await queries.followUpChoices();
+    const mine = teams.filter((t) => [id.W, id.V, id.P, id.P2].includes(t.id)).map((t) => t.id).sort();
+    expect(mine).toEqual([id.P, id.P2].sort());
+    const byId = new Map(people.map((p) => [p.id, p]));
+    expect(byId.get(id.reviewer)?.teamIds).toEqual([id.P]);
+    expect(byId.get(id.other)?.teamIds.sort()).toEqual([id.P, id.P2].sort());
+    // Somebody in a ward unit and in PC02 is offered with the PC02 unit only; somebody only in a ward unit is not offered.
+    expect(byId.get(id.twoUnits)?.teamIds).toEqual([id.P]);
+    expect(byId.has(id.wardy)).toBe(false);
+    const done = await approved();
+    const seen = await queries.get(scope.wardy, id.wardy, done.id);
+    expect(seen.followUpUser).toMatchObject({ id: id.reviewer });
+    expect(seen.followUpTeam).toEqual({ id: id.P, name: `${tag} Đội 1 PC02` });
+  });
+
   it('the catalogue of return reasons lists the active ones', async () => {
     expect((await review.returnReasons()).map((r) => r.code)).toContain(`${tag}-THIEU`);
   });

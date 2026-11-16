@@ -11,6 +11,7 @@ import type {
   WardDeletionImpact,
   WardInvestigator,
   WardListQuery,
+  WardFollowUpChoices,
   WardReturnReason,
 } from './types';
 
@@ -86,6 +87,7 @@ export const wardAssignmentsApi = {
     api.post(`${at(id)}/complete/reopen`, { reason, expectedUpdatedAt }).then(data),
 
   returnReasons: () => api.get<WardReturnReason[]>(`${BASE}/return-reasons`).then(data),
+  followUpChoices: () => api.get<WardFollowUpChoices>(`${BASE}/follow-up-choices`).then(data),
   deletionImpact: (id: string) => api.get<WardDeletionImpact>(`${at(id)}/deletion-impact`).then(data),
   removeWithData: (id: string, confirmCode: string, expectedUpdatedAt: string) =>
     api.delete(`${at(id)}/with-data`, { data: { confirmCode, expectedUpdatedAt } }).then(data),

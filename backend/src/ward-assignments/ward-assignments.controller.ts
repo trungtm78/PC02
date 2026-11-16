@@ -62,6 +62,16 @@ export class WardAssignmentsController {
     return this.review.returnReasons();
   }
 
+  /**
+   * Who may follow an approval and in which unit: the active PC02 units (not ward units) and their active members.
+   * The reviewers' own choices, so that the form never needs the administration screens' lists. Before `:id`.
+   */
+  @Get('follow-up-choices')
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  followUpChoices() {
+    return this.queries.followUpChoices();
+  }
+
   @Get()
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
   list(@Query() query: ListWardAssignmentsQuery, @Req() req: ScopedRequest) {
