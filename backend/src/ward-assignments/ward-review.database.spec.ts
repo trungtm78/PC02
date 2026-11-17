@@ -412,4 +412,32 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
   it('the catalogue of return reasons lists the active ones', async () => {
     expect((await review.returnReasons()).map((r) => r.code)).toContain(`${tag}-THIEU`);
   });
+
+  it('a reviewer adds a reason from the review: listed, usable in a return, never doubled, and one switched off is not brought back', async () => {
+    const name = `${tag} Chưa có biên bản hiện trường`;
+    try {
+      const added = await review.addReturnReason({ id: id.reviewer }, { name: `  ${name}  ` });
+      expect(added).toMatchObject({ name, existed: false });
+      expect(await review.returnReasons()).toContainEqual({ code: added.code, name });
+      // The same words again (case and spacing aside), at the same moment too: the one listed, not a double.
+      const again = await Promise.all([1, 2, 3].map(() => review.addReturnReason({ id: id.reviewer }, { name: name.toUpperCase().replace(' ', '   ') })));
+      expect(again.map((a) => [a.code, a.existed])).toEqual([[added.code, true], [added.code, true], [added.code, true]]);
+      expect(await scratch.db.directory.count({ where: { type: 'LY_DO_TRA_VE', code: added.code } })).toBe(1);
+      // It is a reason a return may carry.
+      const sent = await submitted();
+      const back = await review.returnIt({ id: id.reviewer }, scope.reviewer, sent.id, { expectedUpdatedAt: stamp(sent), reasonCode: added.code, requirements: [] });
+      expect(back.status).toBe('RETURNED');
+      // Too short, too long: refused in words the screen has.
+      for (const bad of ['', ' a ', 'x'.repeat(151)]) {
+        expect(await fails(review.addReturnReason({ id: id.reviewer }, { name: bad }))).toMatchObject({ status: 400, body: { code: WARD_ERROR.RETURN_REASON_NAME_INVALID } });
+      }
+      // Switched off by an administrator: typing it again does not bring it back.
+      await scratch.db.directory.updateMany({ where: { type: 'LY_DO_TRA_VE', code: added.code }, data: { isActive: false } });
+      expect(await fails(review.addReturnReason({ id: id.reviewer }, { name }))).toMatchObject({ status: 409, body: { code: WARD_ERROR.RETURN_REASON_SWITCHED_OFF } });
+      const logged = await scratch.db.auditLog.findMany({ where: { userId: id.reviewer, action: 'WARD_RETURN_REASON_ADDED' } });
+      expect(logged.map((l) => l.metadata)).toEqual([{ type: 'LY_DO_TRA_VE', code: added.code }]);
+    } finally {
+      await scratch.db.directory.deleteMany({ where: { type: 'LY_DO_TRA_VE', name: { startsWith: tag } } });
+    }
+  });
 });

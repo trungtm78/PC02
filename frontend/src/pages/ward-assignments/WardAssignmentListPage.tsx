@@ -33,7 +33,7 @@ import {
   useTheTimKiem,
   type ColumnDef,
 } from '@/components/shared/ListPageShell';
-import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
+import { BE_RONG_COT_THAO_TAC_HEP } from '@/components/shared/ListPageShell/cotThaoTac';
 import { ConfirmModal } from '@/components/shared/Modal';
 import { ShortcutHint } from '@/components/ShortcutCheatSheet';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
@@ -244,19 +244,23 @@ export default function WardAssignmentListPage() {
   const rowActions = useMemo(
     () =>
       createRowActionRegistry<WardAssignmentRow>().registerMany([
+        // The same four buttons, in the same order, on every row, as the petition list (Xem · Sửa · Xoá · In): a button
+        // the person holds the permission for is always there, locked with its reason on a row where the request's
+        // state does not allow it. Hidden per row, the buttons would change place from one row to the next.
         { key: 'view', label: T.view, icon: Eye, position: 'inline', execute: (row, ctx) => ctx.navigate(WARD_PATHS.view(row.id)), testid: 'btn-view' },
-        { key: 'edit', label: T.edit, icon: Pencil, position: 'inline', visible: (row) => mayEdit && !!row.can?.edit, execute: (row, ctx) => ctx.navigate(WARD_PATHS.edit(row.id)), testid: 'btn-edit' },
-        // (As below: the key stays on the line of the brace, so that the gates do not read it as a column.)
+        { key: 'edit', label: T.edit, icon: Pencil, position: 'inline', visible: () => mayEdit, disabled: (row) => (row.can?.edit ? null : T.editLocked), execute: (row, ctx) => ctx.navigate(WARD_PATHS.edit(row.id)), testid: 'btn-edit' },
+        { key: 'delete', label: T.delete, icon: Trash2, position: 'inline', danger: true, visible: () => mayDelete, disabled: (row) => (row.can?.delete ? null : T.deleteLocked), execute: (row) => setDeleting(row), testid: 'btn-delete' },
+        // (The key stays on the line of the brace, so that the gates do not read it as a column.)
         { key: 'print',
           label: T.print,
           icon: Printer,
           position: 'inline',
-          // A decision of PC02 to print the slip of: PC02 issues it, whoever reads the request saves an issued one.
-          visible: (row) => !!row.latestDecision && (!!row.can?.issueSlip || !!row.latestDecision.slipNumber),
+          // The slip is the slip of a decision of PC02 (PC02 issues it, whoever reads the request saves an issued
+          // one): until there is one to print, the button says why.
+          disabled: (row) => (!row.latestDecision ? T.printNoDecision : !row.can?.issueSlip && !row.latestDecision.slipNumber ? T.printNotIssued : null),
           execute: (row) => setSlipOf(row),
           testid: 'btn-print',
         },
-        { key: 'delete', label: T.delete, icon: Trash2, position: 'inline', danger: true, visible: (row) => mayDelete && !!row.can?.delete, execute: (row) => setDeleting(row), testid: 'btn-delete' },
       ]),
     [T, mayEdit, mayDelete],
   );
@@ -286,7 +290,7 @@ export default function WardAssignmentListPage() {
     {
       key: 'actions',
       header: T.column,
-      width: BE_RONG_COT_THAO_TAC,
+      width: BE_RONG_COT_THAO_TAC_HEP,
       thuGonTrenDienThoai: true,
       // Not the person's to resize: the buttons are of a fixed size and their number is ours.
       khongDoiBeRong: true,

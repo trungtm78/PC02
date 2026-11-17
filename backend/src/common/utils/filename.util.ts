@@ -102,7 +102,16 @@ export function buildDocumentFilename(parts: DocumentFilenameParts): string {
 function shortDocNumber(raw?: string | null): string | undefined {
   const s = raw?.trim();
   if (!s) return undefined;
-  // Nhóm chữ số dài nhất là số thứ tự trong sổ (0012, 00015…).
+  // Một ĐOẠN (giữa các dấu `/`) chỉ gồm chữ số, có thể kèm tối đa ba chữ cái (`1`, `0012`, `1949A`) CHÍNH LÀ số thứ
+  // tự. Phải xét trước luật "nhóm chữ số dài nhất": dãy số không đệm số 0 (`1/PYC-PC02-Đ1`) có số thứ tự NGẮN hơn
+  // chữ số nằm trong ký hiệu đơn vị ("02" của PC02), nên luật ấy đặt mọi tệp là `…_02.docx` cho tới phiếu thứ 100 —
+  // đo trên production 17/11/2026: phiếu số 1 và phiếu số 2 cùng mang tên `_02.docx`.
+  const doanSo = s
+    .split('/')
+    .map((d) => d.trim())
+    .filter((d) => /^\d+[A-Za-z]{0,3}$/.test(d));
+  if (doanSo.length > 0) return doanSo[0];
+  // Không có đoạn nào thuần số: nhóm chữ số dài nhất là số thứ tự trong sổ (0012, 00015…).
   const groups = s.match(/\d+/g);
   if (!groups?.length) return s.split('/')[0]?.trim() || undefined;
   return groups.reduce((a, b) => (b.length >= a.length ? b : a));

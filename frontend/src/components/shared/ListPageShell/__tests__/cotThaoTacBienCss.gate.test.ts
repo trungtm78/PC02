@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BE_RONG_COT_THAO_TAC, BIEN_CSS_BE_RONG_COT_THAO_TAC } from '../cotThaoTac';
+import { BE_RONG_COT_THAO_TAC, BE_RONG_COT_THAO_TAC_HEP, BIEN_CSS_BE_RONG_COT_THAO_TAC, BIEN_CSS_BE_RONG_COT_THAO_TAC_HEP } from '../cotThaoTac';
 import { MAN_HINH_DIEN_THOAI } from '@/hooks/useMediaQuery';
 
 const GOC = path.resolve(__dirname, '../../../..');
@@ -34,6 +34,17 @@ const MAN_CO_COT_THAO_TAC = [
 describe('biến CSS bề rộng cột Thao tác', () => {
   it('đọc được index.css (cổng không rỗng)', () => {
     expect(css.length).toBeGreaterThan(500);
+  });
+
+  it('cột hẹp (danh sách tối đa bốn nút, không ⋮): biến riêng, 10rem trên máy tính, 2.5rem ở điện thoại, đủ cho bốn nút', () => {
+    const H = BIEN_CSS_BE_RONG_COT_THAO_TAC_HEP;
+    expect(BE_RONG_COT_THAO_TAC_HEP).toBe(`var(${H})`);
+    const goc = new RegExp(`${H}:\\s*([0-9.]+)rem`).exec(css.slice(0, css.indexOf('@media')));
+    expect(goc).not.toBeNull();
+    // 4 buttons of 28px, 3 gaps of 4px, the cell's padding 2 × 16px.
+    expect(Number(goc![1]) * 16).toBeGreaterThanOrEqual(4 * 28 + 3 * 4 + 2 * 16);
+    expect(Number(goc![1])).toBeLessThan(12);
+    expect(css.slice(css.indexOf('@media'))).toMatch(new RegExp(`${H}:\\s*2\\.5rem`));
   });
 
   it('hằng số là var() của đúng biến', () => {

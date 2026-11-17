@@ -29,6 +29,7 @@ describe('the routes of ward assignment requests', () => {
     ['archive', 'review:WardAssignment'],
     ['restore', 'review:WardAssignment'],
     ['returnReasons', 'read:WardAssignment'],
+    ['addReturnReason', 'review:WardAssignment'],
     ['followUpChoices', 'review:WardAssignment'],
     ['unitChoices', 'write:WardAssignment'],
     ['listStats', 'read:WardAssignment'],

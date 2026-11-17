@@ -5,10 +5,14 @@
  * return, cancel an approval) ask for a reason. Everybody else, the ward unit included, reads the decision in force.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, FIELD_ERROR_TEXT, LABEL_BASE, SELECT_BASE, TEXTAREA_BASE } from '@/constants/styles';
+import { useQueryClient } from '@tanstack/react-query';
+import { Modal } from '@/components/shared/Modal';
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, FIELD_ERROR_TEXT, INPUT_BASE, LABEL_BASE, TEXTAREA_BASE } from '@/constants/styles';
 import { FKSelect } from '@/components/FKSelect';
 import { wardAssignments as L } from '@/locales/wardAssignments.vi';
-import { wardAssignmentsApi } from '../api';
+import { wardAssignmentsApi, WARD_QUERY_KEYS } from '../api';
+import { explainWardError } from '../errors';
+import { InvestigatorQuickDialog } from './InvestigatorQuickDialog';
 import { decisionInForce, investigatorLabel } from '../formModel';
 import { blankLines, trimLines } from '../requirements';
 import type { WardAssignmentDetail, WardInvestigator } from '../types';
@@ -77,6 +81,22 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typed]);
   const [dialog, setDialog] = useState<'revokeReturn' | 'cancelApproval' | null>(null);
+  const qc = useQueryClient();
+  // The two small dialogs of "Tạo mới": a reason for the catalogue, an investigator for the unit's directory.
+  const [newReason, setNewReason] = useState<{ name: string; busy: boolean; error: string | null } | null>(null);
+  const [newInvestigator, setNewInvestigator] = useState<string | null>(null);
+  const createReason = async () => {
+    if (!newReason || newReason.busy) return;
+    setNewReason({ ...newReason, busy: true, error: null });
+    try {
+      const made = await wardAssignmentsApi.addReturnReason(newReason.name.trim());
+      await qc.invalidateQueries({ queryKey: WARD_QUERY_KEYS.returnReasons });
+      setReasonCode(made.code);
+      setNewReason(null);
+    } catch (err) {
+      setNewReason({ ...newReason, busy: false, error: explainWardError(err).message });
+    }
+  };
 
   // The ward unit reading a return sees the reason's name, not its code.
   const reasons = useReturnReasons(deciding || inForce?.kind === 'RETURN');
@@ -181,16 +201,20 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
             <RequirementsEditor lines={requirements} onChange={setRequirements} previous={previousRequirements} />
           </Field>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label={R.returnReason}>
-              <select data-testid="ward-return-reason" className={SELECT_BASE} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)}>
-                <option value="">{R.returnReasonPick}</option>
-                {(reasons.data ?? []).map((r) => (
-                  <option key={r.code} value={r.code}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* Type to find; a reason the catalogue does not have: Enter (or "Tạo mới") opens the small dialog with the
+                words typed, and the reason created is chosen. */}
+            <FKSelect
+              label={R.returnReason}
+              testId="ward-return-reason"
+              value={reasonCode}
+              options={(reasons.data ?? []).map((r) => ({ value: r.code, label: r.name }))}
+              loading={reasons.isLoading}
+              placeholder={R.returnReasonPick}
+              searchPlaceholder={R.returnReasonSearch}
+              onChange={setReasonCode}
+              canCreate
+              onCreateNew={(typedName) => setNewReason({ name: typedName ?? '', busy: false, error: null })}
+            />
             <Field label={`${R.returnReasonText} — ${R.returnReasonHint}`}>
               <textarea data-testid="ward-return-reason-text" rows={2} className={TEXTAREA_BASE} value={reasonText} onChange={(e) => setReasonText(e.target.value)} />
             </Field>
@@ -204,6 +228,9 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
               placeholder={R.assignedInvestigatorPick}
               searchPlaceholder={L.form.fields.investigatorSearch}
               onChange={setAssignedId}
+              // PC02 may assign somebody the unit did not propose: added to the unit's directory from here.
+              canCreate
+              onCreateNew={(typedName) => setNewInvestigator(typedName ?? '')}
             />
             <FKSelect
               label={R.followUpUser}
@@ -308,6 +335,60 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
         </div>
       )}
 
+      {newReason && (
+        <Modal
+          open
+          onClose={() => setNewReason(null)}
+          title={R.newReason.title}
+          maxWidth="max-w-lg"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button type="button" data-testid="ward-new-reason-cancel" className={BTN_SECONDARY} onClick={() => setNewReason(null)}>
+                {R.newReason.cancel}
+              </button>
+              <button type="button" data-testid="ward-new-reason-save" className={BTN_PRIMARY} disabled={newReason.busy || newReason.name.trim().length < 3} onClick={() => void createReason()}>
+                {newReason.busy ? R.newReason.creating : R.newReason.create}
+              </button>
+            </div>
+          }
+        >
+          <div data-testid="ward-new-reason" className="space-y-2">
+            <label className="block">
+              <span className={LABEL_BASE}>{R.newReason.name}</span>
+              <input
+                data-testid="ward-new-reason-name"
+                className={INPUT_BASE}
+                autoFocus
+                maxLength={150}
+                value={newReason.name}
+                onChange={(e) => setNewReason({ ...newReason, name: e.target.value, error: null })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    void createReason();
+                  }
+                }}
+              />
+            </label>
+            <p className="text-xs text-slate-500">{R.newReason.hint}</p>
+            {newReason.error && (
+              <p role="alert" data-testid="ward-new-reason-error" className={FIELD_ERROR_TEXT}>
+                {newReason.error}
+              </p>
+            )}
+          </div>
+        </Modal>
+      )}
+      {newInvestigator !== null && (
+        <InvestigatorQuickDialog
+          teamId={detail.assignedTeamId}
+          suggestedName={newInvestigator}
+          known={investigators}
+          onClose={() => setNewInvestigator(null)}
+          // Created (or the one already listed, resumed): assigned, when in use.
+          onSaved={(inv) => setAssignedId(inv.isActive ? inv.id : '')}
+        />
+      )}
       <ReasonDialog
         open={dialog === 'revokeReturn'}
         title={R.dialogs.revokeReturn}

@@ -140,10 +140,32 @@ async function asPerson(browser, who, watch) {
     await rev.page.getByTestId('ward-block-review').waitFor({ timeout: 15000 });
     check('mở hồ sơ: PC02 thấy khối thẩm định với nút Trả về và Duyệt', (await rev.page.getByTestId('ward-return').isVisible()) && (await rev.page.getByTestId('ward-approve').isVisible()));
     await rev.page.screenshot({ path: path.join(OUT, '02-pc02-tham-dinh.png'), fullPage: true });
-    const reasonBox = rev.page.getByTestId('ward-return-reason');
-    const options = await reasonBox.locator('option').allTextContents().catch(() => []);
+    // The review's choices are type-to-find fields; the reason and the assigned investigator may be created from them.
+    await rev.page.getByTestId('ward-return-reason-trigger').click();
+    await rev.page.getByTestId('ward-return-reason-search').waitFor({ timeout: 8000 });
+    const options = await rev.page.locator('[data-testid^="ward-return-reason-option-"]').allInnerTexts();
     check('ô lý do trả về liệt kê danh mục (5 lý do)', options.filter((o) => o.trim()).length >= 5, options);
-    await reasonBox.selectOption({ index: 1 }).catch(() => undefined);
+    const newReasonName = `Thiếu sơ đồ hiện trường ${RUN}`;
+    await rev.page.getByTestId('ward-return-reason-search').fill(newReasonName);
+    await rev.page.waitForTimeout(300);
+    await rev.page.keyboard.press('Enter');
+    check('gõ lý do chưa có + Enter: popup tạo lý do, chữ đã điền sẵn', (await rev.page.getByTestId('ward-new-reason-name').inputValue({ timeout: 8000 }).catch(() => '')) === newReasonName);
+    await rev.page.getByTestId('ward-new-reason-save').click();
+    await rev.page.getByTestId('ward-new-reason').waitFor({ state: 'detached', timeout: 8000 }).catch(() => undefined);
+    await rev.page.waitForTimeout(600);
+    const reasonShown = await rev.page.getByTestId('ward-return-reason-trigger').innerText();
+    check('tạo xong: ô lý do trả về tự chọn lý do vừa tạo', reasonShown.includes(newReasonName), reasonShown);
+    for (const field of ['ward-assigned-investigator', 'ward-follow-up-user', 'ward-follow-up-team']) {
+      check(`ô ${field} là ô gõ-để-tìm (combobox), không phải danh sách thả`, (await rev.page.getByTestId(`${field}-trigger`).getAttribute('role')) === 'combobox' && (await rev.page.getByTestId(field).locator('select').count()) === 0);
+    }
+    await rev.page.getByTestId('ward-assigned-investigator-trigger').click();
+    check('ô ĐTV được phân công có nút Tạo mới', (await rev.page.getByTestId('ward-assigned-investigator-create-new').count()) === 1);
+    await rev.page.keyboard.press('Escape');
+    await rev.page.getByTestId('ward-follow-up-user-trigger').click();
+    await rev.page.getByTestId('ward-follow-up-user-search').fill('tham');
+    await rev.page.waitForTimeout(300);
+    check('ô Cán bộ theo dõi: gõ không dấu "tham" tìm ra cán bộ PC02; không có nút tạo tài khoản', (await rev.page.locator('[data-testid^="ward-follow-up-user-option-"]').count()) >= 1 && (await rev.page.getByTestId('ward-follow-up-user-create-new').count()) === 0);
+    await rev.page.keyboard.press('Escape');
     await rev.page.getByTestId('ward-return-reason-text').fill('Thiếu biên bản ghi lời khai');
     await rev.page.getByTestId('ward-return').click();
     await rev.page.waitForTimeout(1500);
@@ -322,7 +344,15 @@ async function asPerson(browser, who, watch) {
     const createText = await ward.page.getByTestId('ward-create').innerText().catch(() => '');
     check('danh sách: nút "Tạo mới" kèm phím tắt Alt+N', /Tạo mới/.test(createText) && /Alt\s*\+?\s*N/i.test(createText) && !/Trình mới/.test(createText), createText);
     await ward.page.getByTestId(`btn-view-${id}`).waitFor({ timeout: 15000 }).catch(() => undefined);
-    check('danh sách (phường): hồ sơ bị trả về có Xem, Sửa, In phiếu; không có Xoá', (await ward.page.getByTestId(`btn-edit-${id}`).count()) === 1 && (await ward.page.getByTestId(`btn-print-${id}`).count()) === 1 && (await ward.page.getByTestId(`btn-delete-${id}`).count()) === 0);
+    // The same four buttons in the same order on every row, as the petition list: Xem · Sửa · Xoá · In.
+    const rowButtons = await ward.page.getByTestId(`ward-row-${id}`).locator('button[data-testid^="btn-"]').evaluateAll((bs) => bs.map((x) => x.getAttribute('data-testid').split('-').slice(0, 2).join('-')));
+    check('danh sách (phường): mỗi dòng đủ bốn nút theo thứ tự Xem · Sửa · Xoá · In như danh sách Đơn thư', JSON.stringify(rowButtons) === JSON.stringify(['btn-view', 'btn-edit', 'btn-delete', 'btn-print']), rowButtons);
+    const del = ward.page.getByTestId(`btn-delete-${id}`);
+    check('hồ sơ đã trình: nút Xoá bị khoá và nói lý do (không ẩn đi làm lệch hàng nút)', (await del.isDisabled()) && ((await del.getAttribute('title')) ?? '').includes('bản nháp'), await del.getAttribute('title'));
+    check('hồ sơ bị trả về: Sửa và In phiếu bấm được', (await ward.page.getByTestId(`btn-edit-${id}`).isEnabled()) && (await ward.page.getByTestId(`btn-print-${id}`).isEnabled()));
+    const boxAct = await ward.page.getByRole('columnheader', { name: 'Thao tác' }).boundingBox();
+    const boxPrint = await ward.page.getByTestId(`btn-print-${id}`).boundingBox();
+    check('cột Thao tác thu gọn (≤ 10rem có ô tick) mà bốn nút vẫn nằm trọn trong cột', !!boxAct && !!boxPrint && boxAct.width <= 162 && boxPrint.x + boxPrint.width <= boxAct.x + boxAct.width + 1, { column: boxAct, print: boxPrint });
     await ward.page.getByTestId(`btn-print-${id}`).click();
     await ward.page.getByTestId('ward-slip-download').waitFor({ timeout: 10000 }).catch(() => undefined);
     check('phường: popup in phiếu chỉ cho tải phiếu đã phát hành (không phát hành)', (await ward.page.getByTestId('ward-slip-print').count()) === 0 && (await ward.page.getByTestId('ward-slip-reissue').count()) === 0);
@@ -364,6 +394,8 @@ async function asPerson(browser, who, watch) {
     else await pg.query(`UPDATE system_settings SET value = $1 WHERE key = 'QUYEN_THEO_TO_CHE_DO'`, [modeBefore]).catch(() => undefined);
     await pg.query(`UPDATE feature_flags SET enabled = $1 WHERE key = 'ward-assignments'`, [flagBefore]).catch(() => undefined);
     await pg.query(`UPDATE users SET "isActive" = false WHERE id LIKE $1`, [`${TAG}-%`]).catch(() => undefined);
+    // The reason this run added to the catalogue (a return of this run carries it: switched off, not deleted).
+    await pg.query(`UPDATE directories SET "isActive" = false WHERE type = 'LY_DO_TRA_VE' AND name LIKE $1`, [`%${RUN}`]).catch(() => undefined);
     await browser.close();
     await pg.end();
   }

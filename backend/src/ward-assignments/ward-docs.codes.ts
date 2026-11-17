@@ -46,4 +46,6 @@ export const WARD_SLIP_NUMBER_SERIES = 'PHIEU_YEU_CAU';
 /** What follows the number on every slip of the series. */
 export const WARD_SLIP_NUMBER_SUFFIX = '/PYC-PC02-Đ1';
 /** The template of the slip in the document template platform (entity type `HO_SO_PHAN_CONG`). */
+/** The digits of a slip number, as the system's other slips (`0003/PYC-PC02-Đ1`). */
+export const WARD_SLIP_NUMBER_DIGITS = 4;
 export const WARD_SLIP_TEMPLATE_CODE = 'PHIEU_YEU_CAU';

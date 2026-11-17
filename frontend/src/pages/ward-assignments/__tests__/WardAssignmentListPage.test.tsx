@@ -327,13 +327,35 @@ describe('the list works as the petition list does', () => {
     it('every row opens; edit and delete only where the unit may; print only where there is a slip to print', async () => {
       renderPage();
       await screen.findByTestId('ward-row-w1');
-      const shown = (id: string) => ['view', 'edit', 'print', 'delete'].filter((a) => screen.queryByTestId(`btn-${a}-${id}`));
-      expect(shown('w1')).toEqual(['view']);
-      expect(shown('w3')).toEqual(['view', 'edit', 'delete']);
-      // PC02 issues the slip of its decision; the ward unit saves one already issued, and has nothing to print before.
-      expect(shown('w4')).toEqual(['view', 'print']);
-      expect(shown('w5')).toEqual(['view', 'edit', 'print']);
-      expect(shown('w6')).toEqual(['view', 'edit']);
+      // The same four buttons in the same order on every row, as the petition list: Xem · Sửa · Xoá · In.
+      const order = (id: string) =>
+        Array.from(screen.getByTestId(`ward-row-${id}`).querySelectorAll('button[data-testid^="btn-"]')).map((b) => b.getAttribute('data-testid')!.replace(`-${id}`, ''));
+      for (const id of ['w1', 'w3', 'w4', 'w5', 'w6']) expect({ id, buttons: order(id) }).toEqual({ id, buttons: ['btn-view', 'btn-edit', 'btn-delete', 'btn-print'] });
+      const button = (action: string, id: string) => screen.getByTestId(`btn-${action}-${id}`);
+      // What the row does not allow is locked with its reason, never hidden (the buttons do not change place).
+      expect(button('edit', 'w3')).toBeEnabled();
+      expect(button('delete', 'w3')).toBeEnabled();
+      for (const id of ['w1', 'w4']) {
+        expect(button('edit', id)).toBeDisabled();
+        expect(button('edit', id)).toHaveAttribute('title', L.list.actions.editLocked);
+      }
+      for (const id of ['w1', 'w4', 'w5', 'w6']) {
+        expect(button('delete', id)).toBeDisabled();
+        expect(button('delete', id)).toHaveAttribute('title', L.list.actions.deleteLocked);
+      }
+      // "In phiếu" prints where there is a slip to print: PC02 issues the slip of its decision, the ward unit saves
+      // one issued. Elsewhere it says why.
+      const print = (id: string) => button('print', id);
+      expect(print('w4')).toBeEnabled();
+      expect(print('w5')).toBeEnabled();
+      for (const id of ['w1', 'w3']) {
+        expect(print(id)).toBeDisabled();
+        expect(print(id)).toHaveAttribute('title', L.list.actions.printNoDecision);
+      }
+      expect(print('w6')).toBeDisabled();
+      expect(print('w6')).toHaveAttribute('title', L.list.actions.printNotIssued);
+      fireEvent.click(print('w1'));
+      expect(screen.queryByTestId('ward-slip-dialog')).not.toBeInTheDocument();
       fireEvent.click(screen.getByTestId('btn-edit-w3'));
       expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w3/edit');
     });
@@ -342,8 +364,9 @@ describe('the list works as the petition list does', () => {
       held.value = ['read:WardAssignment', 'edit:WardAssignment'];
       renderPage();
       await screen.findByTestId('ward-row-w3');
-      expect(screen.getByTestId('btn-edit-w3')).toBeInTheDocument();
-      expect(screen.queryByTestId('btn-delete-w3')).not.toBeInTheDocument();
+      expect(screen.getByTestId('btn-edit-w3')).toBeEnabled();
+      // Without the permission the button is not there at all, on any row (as on the petition list).
+      expect(document.querySelectorAll('[data-testid^="btn-delete-"]')).toHaveLength(0);
     });
 
     it('a row of an older answer (no `can`) still opens, and offers nothing it cannot vouch for', async () => {
@@ -351,7 +374,7 @@ describe('the list works as the petition list does', () => {
       renderPage();
       await screen.findByTestId('ward-row-w1');
       expect(screen.getByTestId('btn-view-w1')).toBeInTheDocument();
-      for (const a of ['edit', 'print', 'delete']) expect(screen.queryByTestId(`btn-${a}-w1`)).not.toBeInTheDocument();
+      for (const a of ['edit', 'delete', 'print']) expect(screen.getByTestId(`btn-${a}-w1`)).toBeDisabled();
     });
 
     it('deleting a draft asks first, sends the stamp of the row, then reads the list again', async () => {

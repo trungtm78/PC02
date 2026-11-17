@@ -164,16 +164,17 @@ const TEMPLATES: TemplateSpec[] = [
     yearPattern: 'YYYY',
   },
   {
-    // Phiếu yêu cầu of a ward assignment decision: `<n>/PYC-PC02-Đ1` (no zero padding, as the slips PC02 writes today,
-    // e.g. `1949/PYC-PC02-Đ1`). Allocated once per decision when the slip is issued; a number written by hand
-    // (`1949A/PYC-PC02-Đ1`) does not consume one.
+    // Phiếu yêu cầu of a ward assignment decision: `0003/PYC-PC02-Đ1`, four digits as the system's other slips above
+    // (the owner's decision of 17/11/2026: numbered by the standard of the system). Allocated once per decision when
+    // the slip is issued; a number written by hand (`1949A/PYC-PC02-Đ1`) does not consume one. A series seeded
+    // earlier without padding is brought to four digits by migration 20261128030000_ward_slip_number_padding.
     name: 'Số Phiếu yêu cầu (hồ sơ phân công phường/xã)',
     documentType: 'PHIEU_YEU_CAU',
     prefix: 'PYC-PC02-Đ1',
     separator: '/',
     inputMode: 'AUTO',
     resetPeriod: 'YEARLY',
-    padding: 1,
+    padding: 4,
     yearPattern: 'YYYY',
   },
   {

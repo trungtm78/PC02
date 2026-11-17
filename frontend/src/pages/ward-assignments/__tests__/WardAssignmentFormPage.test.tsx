@@ -17,7 +17,7 @@ vi.mock('@/features/ward-assignments/api', async (orig) => {
     wardAssignmentsApi: {
       list: fn(), get: fn(), create: fn(), update: fn(), submit: fn(), withdraw: fn(), remove: fn(), archive: fn(), restore: fn(),
       returnIt: fn(), revokeReturn: fn(), approve: fn(), cancelApproval: fn(), followUp: fn(), extendDeadline: fn(), complete: fn(),
-      reopen: fn(), returnReasons: fn(), followUpChoices: fn(), deletionImpact: fn(), removeWithData: fn(), unitChoices: fn(),
+      reopen: fn(), returnReasons: fn(), followUpChoices: fn(), deletionImpact: fn(), removeWithData: fn(), unitChoices: fn(), addReturnReason: fn(),
     },
     wardInvestigatorsApi: { list: fn(), create: fn(), update: fn(), deactivate: fn(), reactivate: fn() },
   };
@@ -319,6 +319,18 @@ describe('an existing request, read by the ward unit', () => {
     expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w1/edit');
   });
 
+  it('"In phiếu" is on a request that has no decision yet too, locked, saying the slip comes after PC02 decides; a new form has none', async () => {
+    api.get.mockResolvedValue(detail({ can: { ...NO, withdraw: true } }));
+    const first = renderAt('/ho-so-phan-cong/w1');
+    const print = await screen.findByTestId('ward-print');
+    expect(print).toBeDisabled();
+    expect(print).toHaveAttribute('title', L.list.actions.printNoDecision);
+    first.unmount();
+    renderAt('/ho-so-phan-cong/new');
+    await screen.findByTestId('ward-save-draft');
+    expect(screen.queryByTestId('ward-print')).not.toBeInTheDocument();
+  });
+
   it('withdraws a waiting round after confirmation', async () => {
     api.get.mockResolvedValue(detail({ can: { ...NO, withdraw: true } }));
     api.withdraw.mockResolvedValue({});
@@ -476,12 +488,79 @@ describe('a waiting request, reviewed by PC02', () => {
     fireEvent.click(await screen.findByTestId('ward-return'));
     expect(await screen.findByTestId('ward-review-problem')).toHaveTextContent(L.errors.WARD_RETURN_REASON_REQUIRED);
     expect(api.returnIt).not.toHaveBeenCalled();
-    await waitFor(() => expect(within(screen.getByTestId('ward-return-reason')).getByText('Thiếu tài liệu')).toBeInTheDocument());
-    fireEvent.change(screen.getByTestId('ward-return-reason'), { target: { value: 'THIEU_TAI_LIEU' } });
+    // The reason is found by typing, without accents.
+    fireEvent.click(screen.getByTestId('ward-return-reason-trigger'));
+    fireEvent.change(await screen.findByTestId('ward-return-reason-search'), { target: { value: 'thieu tai' } });
+    fireEvent.click(await screen.findByTestId('ward-return-reason-option-THIEU_TAI_LIEU'));
+    expect(screen.getByTestId('ward-return-reason-trigger')).toHaveTextContent('Thiếu tài liệu');
     fireEvent.click(screen.getByTestId('ward-return'));
     await waitFor(() =>
       expect(api.returnIt).toHaveBeenCalledWith('w1', { reasonCode: 'THIEU_TAI_LIEU', reasonText: null, requirements: [] }, '2026-11-13T03:00:00.000Z'),
     );
+  });
+
+  it('a reason the catalogue does not have is created from the field (the words typed already in) and chosen', async () => {
+    api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
+    api.addReturnReason.mockResolvedValue({ code: 'TU_NHAP_1', name: 'Chưa có biên bản hiện trường', existed: false });
+    api.returnIt.mockResolvedValue({});
+    renderAt('/ho-so-phan-cong/w1');
+    fireEvent.click(await screen.findByTestId('ward-return-reason-trigger'));
+    const search = await screen.findByTestId('ward-return-reason-search');
+    fireEvent.change(search, { target: { value: 'Chưa có biên bản hiện trường' } });
+    await waitFor(() => expect(screen.queryByTestId('ward-return-reason-option-THIEU_TAI_LIEU')).not.toBeInTheDocument());
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(await screen.findByTestId('ward-new-reason-name')).toHaveValue('Chưa có biên bản hiện trường');
+    // The catalogue then lists it (read again), and the field shows it chosen.
+    api.returnReasons.mockResolvedValue([{ code: 'THIEU_TAI_LIEU', name: 'Thiếu tài liệu' }, { code: 'TU_NHAP_1', name: 'Chưa có biên bản hiện trường' }]);
+    fireEvent.click(screen.getByTestId('ward-new-reason-save'));
+    await waitFor(() => expect(api.addReturnReason).toHaveBeenCalledWith('Chưa có biên bản hiện trường'));
+    await waitFor(() => expect(screen.queryByTestId('ward-new-reason')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('ward-return-reason-trigger')).toHaveTextContent('Chưa có biên bản hiện trường'));
+    fireEvent.click(screen.getByTestId('ward-return'));
+    await waitFor(() => expect(api.returnIt).toHaveBeenCalledWith('w1', expect.objectContaining({ reasonCode: 'TU_NHAP_1' }), '2026-11-13T03:00:00.000Z'));
+  });
+
+  it('a refusal to create the reason is said in the dialog, which stays open', async () => {
+    api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
+    api.addReturnReason.mockRejectedValue(axiosError(409, 'WARD_RETURN_REASON_SWITCHED_OFF'));
+    renderAt('/ho-so-phan-cong/w1');
+    fireEvent.click(await screen.findByTestId('ward-return-reason-trigger'));
+    fireEvent.click(await screen.findByTestId('ward-return-reason-create-new'));
+    fireEvent.change(await screen.findByTestId('ward-new-reason-name'), { target: { value: 'Lý do đã ngừng dùng' } });
+    fireEvent.click(screen.getByTestId('ward-new-reason-save'));
+    expect(await screen.findByTestId('ward-new-reason-error')).toHaveTextContent(L.errors.WARD_RETURN_REASON_SWITCHED_OFF);
+    expect(screen.getByTestId('ward-new-reason')).toBeInTheDocument();
+  });
+
+  it('PC02 assigns somebody the unit did not propose: created from the field into the unit’s directory, and assigned', async () => {
+    const created: WardInvestigator = { id: 'i7', teamId: 'tw', fullName: 'Hồ Văn Mới', rank: 'Thiếu tá', position: null, grade: null, isActive: true, updatedAt: '2026-11-17T00:00:00Z' };
+    api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
+    invApi.create.mockResolvedValue(created);
+    api.approve.mockResolvedValue({});
+    renderAt('/ho-so-phan-cong/w1');
+    await screen.findByTestId('ward-approve');
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-user-trigger')).toHaveTextContent('Đặng Văn K'));
+    fireEvent.click(screen.getByTestId('ward-assigned-investigator-trigger'));
+    const search = await screen.findByTestId('ward-assigned-investigator-search');
+    fireEvent.change(search, { target: { value: 'Hồ Văn Mới' } });
+    await waitFor(() => expect(screen.queryByTestId('ward-assigned-investigator-option-i1')).not.toBeInTheDocument());
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(await screen.findByTestId('ward-inv-quick-fullName')).toHaveValue('Hồ Văn Mới');
+    invApi.list.mockResolvedValue([investigator, created]);
+    fireEvent.click(screen.getByTestId('ward-inv-quick-save'));
+    // Into the request's own ward unit, not the reviewer's.
+    await waitFor(() => expect(invApi.create).toHaveBeenCalledWith('tw', expect.objectContaining({ fullName: 'Hồ Văn Mới' })));
+    await waitFor(() => expect(screen.queryByTestId('ward-inv-quick')).not.toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('ward-approve'));
+    await waitFor(() => expect(api.approve).toHaveBeenCalledWith('w1', expect.objectContaining({ assignedInvestigatorId: 'i7' }), '2026-11-13T03:00:00.000Z'));
+  });
+
+  it('nobody is created from the follower field: the followers are the accounts of PC02, made in the administration', async () => {
+    api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
+    renderAt('/ho-so-phan-cong/w1');
+    fireEvent.click(await screen.findByTestId('ward-follow-up-user-trigger'));
+    await screen.findByTestId('ward-follow-up-user-search');
+    expect(screen.queryByTestId('ward-follow-up-user-create-new')).not.toBeInTheDocument();
   });
 
   it('cancels an approval only with a reason', async () => {
@@ -632,6 +711,12 @@ describe('the request slip, printed as the petition form prints its documents', 
     api.get.mockResolvedValue(detail({ status: 'RETURNED', rounds: decided(null, 'RETURN'), can: { ...NO, edit: true, submit: true } }));
     renderAt('/ho-so-phan-cong/w1');
     await screen.findByTestId('ward-returned-banner');
-    expect(screen.queryByTestId('ward-print')).not.toBeInTheDocument();
+    // The button is there, as "In chứng từ" on the petition form, locked while there is no slip, and says why.
+    for (const id of ['ward-print', 'ward-print-bottom']) {
+      expect(screen.getByTestId(id)).toBeDisabled();
+      expect(screen.getByTestId(id)).toHaveAttribute('title', L.list.actions.printNotIssued);
+    }
+    fireEvent.click(screen.getByTestId('ward-print'));
+    expect(screen.queryByTestId('ward-slip-dialog')).not.toBeInTheDocument();
   });
 });

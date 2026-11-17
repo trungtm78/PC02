@@ -293,7 +293,7 @@ async function journeys(tk) {
   const wardIssue = await call(tk.a1, 'POST', `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`, {});
   check('SLIP', 'cán bộ phường/xã không phát hành được phiếu yêu cầu', wardIssue.status === 403 || wardIssue.status === 404, [wardIssue.status, wardIssue.body]);
   const slip1 = await call(tk.rev, 'POST', `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`, {});
-  check('SLIP', 'PC02 phát hành phiếu của lượt trả về đầu tiên: có số dạng n/PYC-PC02-Đ1', slip1.status === 200 && /^\d+\/PYC-PC02-Đ1$/.test(slip1.body?.slipNumber ?? ''), [slip1.status, slip1.body?.slipNumber ?? slip1.body]);
+  check('SLIP', 'PC02 phát hành phiếu của lượt trả về đầu tiên: có số bốn chữ số theo chuẩn hệ thống (0001/PYC-PC02-Đ1)', slip1.status === 200 && /^\d{4}\/PYC-PC02-Đ1$/.test(slip1.body?.slipNumber ?? ''), [slip1.status, slip1.body?.slipNumber ?? slip1.body]);
   const slip1again = await call(tk.rev, 'POST', `/ward-assignments/${id}/decisions/${firstReturn?.id}/slip`, {});
   check('SLIP', 'phát hành lại lần nữa (bấm hai lần): cùng một số, không cấp số mới', slip1again.status === 200 && slip1again.body?.slipNumber === slip1.body?.slipNumber, [slip1again.status, slip1again.body?.slipNumber]);
   // A number written by hand, like "1949A" on the owner's Word slip (a new one each run: numbers are unique in the year).
