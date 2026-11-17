@@ -335,10 +335,11 @@ describe('the list works as the petition list does', () => {
       // What the row does not allow is locked with its reason, never hidden (the buttons do not change place).
       expect(button('edit', 'w3')).toBeEnabled();
       expect(button('delete', 'w3')).toBeEnabled();
-      for (const id of ['w1', 'w4']) {
-        expect(button('edit', id)).toBeDisabled();
-        expect(button('edit', id)).toHaveAttribute('title', L.list.actions.editLocked);
-      }
+      // Locked only where the person can write NOTHING of the request (w1: no part of it is theirs).
+      expect(button('edit', 'w1')).toBeDisabled();
+      expect(button('edit', 'w1')).toHaveAttribute('title', L.list.actions.editLocked);
+      // An approved request PC02 follows (w4): block 1 is not theirs, the follow-up is. "Sửa" opens it.
+      expect(button('edit', 'w4')).toBeEnabled();
       for (const id of ['w1', 'w4', 'w5', 'w6']) {
         expect(button('delete', id)).toBeDisabled();
         expect(button('delete', id)).toHaveAttribute('title', L.list.actions.deleteLocked);
@@ -356,8 +357,27 @@ describe('the list works as the petition list does', () => {
       expect(print('w6')).toHaveAttribute('title', L.list.actions.printNotIssued);
       fireEvent.click(print('w1'));
       expect(screen.queryByTestId('ward-slip-dialog')).not.toBeInTheDocument();
-      fireEvent.click(screen.getByTestId('btn-edit-w3'));
-      expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w3/edit');
+      // Last (it leaves the list): "Sửa" on the approved request PC02 follows opens the record to edit.
+      fireEvent.click(button('edit', 'w4'));
+      expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w4/edit');
+    });
+
+    it('"Sửa" belongs to whoever has a part of the request to write: the unit its block, PC02 its review and follow-up', async () => {
+      // The ward unit (no review): its own editable requests only.
+      held.value = ['read:WardAssignment', 'edit:WardAssignment'];
+      const first = renderPage();
+      await screen.findByTestId('ward-row-w3');
+      expect(screen.getByTestId('btn-edit-w3')).toBeEnabled();
+      // w4's `issueSlip` is PC02's reach, not the unit's permission: without `review` it opens nothing to edit.
+      expect(screen.getByTestId('btn-edit-w4')).toBeDisabled();
+      first.unmount();
+      // PC02 (review, no edit): the requests it decides or follows; never block 1 of somebody else's draft.
+      held.value = ['read:WardAssignment', 'review:WardAssignment'];
+      renderPage();
+      await screen.findByTestId('ward-row-w4');
+      expect(screen.getByTestId('btn-edit-w4')).toBeEnabled();
+      expect(screen.getByTestId('btn-edit-w3')).toBeDisabled();
+      expect(screen.getByTestId('btn-edit-w1')).toBeDisabled();
     });
 
     it('a button the route would refuse is not offered: reach without the permission of the action', async () => {

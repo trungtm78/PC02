@@ -194,7 +194,14 @@ async function asPerson(browser, who, watch) {
     await rev.page.goto(`${WEB}/ho-so-phan-cong`);
     await rev.page.getByTestId(`btn-view-${id}`).waitFor({ timeout: 15000 }).catch(() => undefined);
     check('danh sách (PC02): dòng có nút Xem và In phiếu', (await rev.page.getByTestId(`btn-view-${id}`).count()) === 1 && (await rev.page.getByTestId(`btn-print-${id}`).count()) === 1);
-    check('danh sách (PC02): không có nút Sửa / Xoá trên hồ sơ của phường', (await rev.page.getByTestId(`btn-edit-${id}`).count()) === 0 && (await rev.page.getByTestId(`btn-delete-${id}`).count()) === 0);
+    // PC02 has no delete on the ward unit's request; "Sửa" opens it for PC02's own part (the review, the follow-up).
+    check('danh sách (PC02): không có nút Xoá trên hồ sơ của phường; nút Sửa bấm được', (await rev.page.getByTestId(`btn-delete-${id}`).count()) === 0 && (await rev.page.getByTestId(`btn-edit-${id}`).isEnabled()));
+    await rev.page.getByTestId(`btn-edit-${id}`).click();
+    await rev.page.getByTestId('ward-edit-scope').waitFor({ timeout: 10000 }).catch(() => undefined);
+    const editHeading = await rev.page.getByTestId('ward-assignment-form-page').locator('h1').first().innerText().catch(() => '');
+    check('bấm Sửa (PC02): mở hồ sơ ở chế độ sửa, tiêu đề "Cập nhật", nói rõ PC02 sửa ở khối 2 và 3', rev.page.url().endsWith(`/ho-so-phan-cong/${id}/edit`) && editHeading.includes('Cập nhật') && (await rev.page.getByTestId('ward-edit-scope').innerText().catch(() => '')).includes('PC02'), { url: rev.page.url(), editHeading });
+    await rev.page.goto(`${WEB}/ho-so-phan-cong`);
+    await rev.page.getByTestId(`btn-print-${id}`).waitFor({ timeout: 15000 }).catch(() => undefined);
     await rev.page.getByTestId(`btn-print-${id}`).click();
     await rev.page.getByTestId('ward-slip-download').waitFor({ timeout: 10000 }).catch(() => undefined);
     const [slipAgain] = await Promise.all([rev.page.waitForEvent('download', { timeout: 30000 }).catch(() => null), rev.page.getByTestId('ward-slip-download').click()]);

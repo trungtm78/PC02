@@ -150,6 +150,11 @@ export default function WardAssignmentListPage() {
   // The row says how far the person's reach goes; the route also asks for the permission of the action.
   const mayEdit = holds('edit:WardAssignment');
   const mayDelete = holds('delete:WardAssignment');
+  const mayReview = holds('review:WardAssignment');
+  // "Sửa" opens the request to whoever has something of it to write: the ward unit its own block (while the request's
+  // state allows), PC02 its review and the follow-up after approval (never its own ward unit's, never an archived one:
+  // the server's `issueSlip` says exactly that). Locked only when the person can write nothing of it.
+  const canOpenToEdit = (row: WardAssignmentRow) => (mayEdit && !!row.can?.edit) || (mayReview && !!row.can?.issueSlip);
   const [slipOf, setSlipOf] = useState<WardAssignmentRow | null>(null);
   const [deleting, setDeleting] = useState<WardAssignmentRow | null>(null);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -248,7 +253,7 @@ export default function WardAssignmentListPage() {
         // the person holds the permission for is always there, locked with its reason on a row where the request's
         // state does not allow it. Hidden per row, the buttons would change place from one row to the next.
         { key: 'view', label: T.view, icon: Eye, position: 'inline', execute: (row, ctx) => ctx.navigate(WARD_PATHS.view(row.id)), testid: 'btn-view' },
-        { key: 'edit', label: T.edit, icon: Pencil, position: 'inline', visible: () => mayEdit, disabled: (row) => (row.can?.edit ? null : T.editLocked), execute: (row, ctx) => ctx.navigate(WARD_PATHS.edit(row.id)), testid: 'btn-edit' },
+        { key: 'edit', label: T.edit, icon: Pencil, position: 'inline', visible: () => mayEdit || mayReview, disabled: (row) => (canOpenToEdit(row) ? null : T.editLocked), execute: (row, ctx) => ctx.navigate(WARD_PATHS.edit(row.id)), testid: 'btn-edit' },
         { key: 'delete', label: T.delete, icon: Trash2, position: 'inline', danger: true, visible: () => mayDelete, disabled: (row) => (row.can?.delete ? null : T.deleteLocked), execute: (row) => setDeleting(row), testid: 'btn-delete' },
         // (The key stays on the line of the brace, so that the gates do not read it as a column.)
         { key: 'print',
@@ -262,14 +267,15 @@ export default function WardAssignmentListPage() {
           testid: 'btn-print',
         },
       ]),
-    [T, mayEdit, mayDelete],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [T, mayEdit, mayDelete, mayReview],
   );
   const actionCtx: ActionContext = { navigate, perms: {}, assignModal: NO_MODAL, deleteModal: NO_MODAL, printModal: NO_MODAL };
 
   const bamDong = useBamDong<WardAssignmentRow>('HO_SO_PHAN_CONG', {
     hrefXem: (r) => WARD_PATHS.view(r.id),
     hrefSua: (r) => WARD_PATHS.edit(r.id),
-    coQuyenSua: (r) => mayEdit && !!r.can?.edit,
+    coQuyenSua: (r) => canOpenToEdit(r),
   });
 
   const confirmDelete = async () => {
