@@ -41,6 +41,7 @@ const TEN_BANG = [
   'delegations',
   'exchanges',
   'crimes',
+  'ward_assignments',
 ] as const;
 type TenBang = (typeof TEN_BANG)[number];
 
@@ -128,6 +129,8 @@ describe('napCotBongTimKiem', () => {
       'exchanges',
       // 17/09/2026: tội danh — đích thẻ Tội danh chính của Vụ án phường/xã.
       'crimes',
+      // 17/11/2026: the list of ward assignment requests.
+      'ward_assignments',
     ]);
   });
 
@@ -259,7 +262,7 @@ describe('kiemCotBongChuaNap', () => {
     const { prisma } = gia({ cases: { lech: [0], ids: [], lechMau: true } });
     expect(await kiemCotBongChuaNap(prisma as never)).toEqual(['cases']);
     const cau = prisma.$queryRawUnsafe.mock.calls.map((c) => c[0]);
-    expect(cau).toHaveLength(30);
+    expect(cau).toHaveLength(32);
   });
 
   it('mọi bảng đã nạp → danh sách rỗng', async () => {

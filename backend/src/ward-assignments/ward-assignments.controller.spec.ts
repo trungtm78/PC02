@@ -31,6 +31,9 @@ describe('the routes of ward assignment requests', () => {
     ['returnReasons', 'read:WardAssignment'],
     ['followUpChoices', 'review:WardAssignment'],
     ['unitChoices', 'write:WardAssignment'],
+    ['listStats', 'read:WardAssignment'],
+    ['filterUnits', 'read:WardAssignment'],
+    ['exportList', 'read:WardAssignment'],
     ['returnIt', 'review:WardAssignment'],
     ['revokeReturn', 'review:WardAssignment'],
     ['approve', 'review:WardAssignment'],
@@ -60,7 +63,7 @@ describe('the routes of ward assignment requests', () => {
 
   function build() {
     const commands = { create: jest.fn(), update: jest.fn(), submit: jest.fn(), withdraw: jest.fn(), remove: jest.fn(), archive: jest.fn(), restore: jest.fn() };
-    const queries = { list: jest.fn(), get: jest.fn(), unitChoices: jest.fn() };
+    const queries = { list: jest.fn(), get: jest.fn(), unitChoices: jest.fn(), listStats: jest.fn(), exportList: jest.fn() };
     const investigators = { list: jest.fn(), create: jest.fn(), update: jest.fn(), setActive: jest.fn() };
     const review = {
       returnReasons: jest.fn(), returnIt: jest.fn(), revokeReturn: jest.fn(), approve: jest.fn(), cancelApproval: jest.fn(), followUp: jest.fn(),
@@ -81,6 +84,10 @@ describe('the routes of ward assignment requests', () => {
     const req = withScope(scope);
     requests.list({}, user, req);
     requests.unitChoices(req);
+    requests.listStats({ q: 'x' }, req);
+    void requests.exportList({ cot: 'code' }, user, { ...req, headers: {} } as ScopedRequest, {} as never);
+    expect(queries.listStats).toHaveBeenCalledWith(scope, { q: 'x' });
+    expect(queries.exportList).toHaveBeenCalledWith(scope, { cot: 'code' }, expect.anything(), { userId: 'u-1', ipAddress: undefined, userAgent: undefined });
     requests.get('a', user, req);
     requests.create({} as never, user, req);
     requests.update('a', stamp as never, user, req);

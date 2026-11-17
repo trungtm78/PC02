@@ -11,6 +11,7 @@ import type {
   WardDeletionImpact,
   WardInvestigator,
   WardListQuery,
+  WardListStats,
   WardFollowUpChoices,
   WardReturnReason,
 } from './types';
@@ -20,6 +21,12 @@ const INVESTIGATORS = '/ward-investigators';
 const at = (id: string) => `${BASE}/${encodeURIComponent(id)}`;
 
 const data = <T>(r: { data: T }): T => r.data;
+
+/** The filters of a list query alone: what a card stands for, the page and the order are not the cards' business. */
+function withoutPaging(query: WardListQuery): WardListQuery {
+  const { status: _status, archived: _archived, page: _page, pageSize: _pageSize, sortBy: _sortBy, sortOrder: _sortOrder, ...filters } = query;
+  return filters;
+}
 
 export interface WardCreateInput extends WardContentInput {
   /** The ward unit; a ward officer's own when left out. */
@@ -58,6 +65,10 @@ export interface WardInvestigatorInput {
 export const wardAssignmentsApi = {
   list: (query: WardListQuery) =>
     api.get<{ data: WardAssignmentRow[]; total: number }>(BASE, { params: query }).then(data),
+  /** The six cards in one answer, under the list's filters (no card, no page, no order). */
+  listStats: (query: WardListQuery) => api.get<WardListStats>(`${BASE}/list-stats`, { params: withoutPaging(query) }).then(data),
+  /** The ward units the filter panel offers (those with a request the person may read). */
+  filterUnits: () => api.get<{ id: string; name: string }[]>(`${BASE}/filter-units`).then(data),
   get: (id: string) => api.get<WardAssignmentDetail>(at(id)).then(data),
   create: (body: WardCreateInput) => api.post<WardAssignmentDetail>(BASE, body).then(data),
   update: (id: string, body: WardContentInput, expectedUpdatedAt: string) =>
@@ -114,6 +125,8 @@ export const WARD_QUERY_KEYS = {
   all: ['ward-assignments'] as const,
   list: (query: WardListQuery) => ['ward-assignments', 'list', query] as const,
   count: (query: WardListQuery) => ['ward-assignments', 'count', query] as const,
+  stats: (query: WardListQuery) => ['ward-assignments', 'list-stats', query] as const,
+  filterUnits: ['ward-assignments', 'filter-units'] as const,
   detail: (id: string) => ['ward-assignments', 'detail', id] as const,
   investigators: (teamId: string, includeStopped: boolean) => ['ward-investigators', teamId, includeStopped] as const,
   returnReasons: ['ward-assignments', 'return-reasons'] as const,

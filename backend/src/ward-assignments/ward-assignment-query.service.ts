@@ -1,5 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { WardAssignmentStatus, type Prisma } from '@prisma/client';
+import type { Response } from 'express';
+import { AuditService } from '../audit/audit.service';
+import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHAI_TIM_KIEM_HO_SO_PHAN_CONG } from '../common/tim-kiem/khai/ho-so-phan-cong.khai';
+import { noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { buildListOrderBy } from '../common/utils/list-sort.util';
+import { tachCotXuat } from '../common/xuat-danh-sach/cot-xuat.dto';
+import { chonCotXuat, xuatDanhSachExcel } from '../common/xuat-danh-sach/xuat-danh-sach';
+import { KHAI_COT_XUAT_HO_SO_PHAN_CONG, WARD_EXPORT_SELECT, type WardExportRow } from './xuat-danh-sach-ho-so-phan-cong';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { recordInActionScope, recordInScope, recordReadable, scopeConditions, teamInScope } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,8 +21,12 @@ import { decisionInForce, returnRevocable, timeliness, vnDay } from './ward-revi
 import { wardBody } from './ward-errors';
 
 export interface WardAssignmentListQuery {
-  /** Code or summary contains (case and accents as written). */
+  /** The tags of the search box (`key~value`), as `common/tim-kiem` reads them. */
+  tk?: string[];
+  /** The old search box: the tag "every column". */
   q?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   status?: 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'APPROVED';
   /** The archived requests instead of the others. */
   archived?: boolean;
@@ -33,6 +47,10 @@ export interface WardAssignmentListQuery {
 }
 
 const PAGE_SIZE_MAX = 200;
+/** The old `q` opens as the tag "every column". */
+const OLD_PARAMETERS = { q: KHOA_TAT_CA } as const;
+/** The columns the list sorts by (the keys the screen sends). */
+const SORTABLE = ['code', 'submittedAt', 'resultDueOn', 'status', 'submissionCount', 'caseType', 'kind', 'summary', 'createdAt'] as const;
 
 /**
  * Reading ward assignment requests: the list and one request, each within the person's read scope. A request they may
@@ -41,19 +59,36 @@ const PAGE_SIZE_MAX = 200;
  */
 @Injectable()
 export class WardAssignmentQueryService {
-  constructor(private readonly prisma: PrismaService) {}
+  private tags?: BoTimKiem;
 
-  /** `now`: the clock the alert levels are judged on (the filter and the field of every row use the same "today"). */
-  async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date(), actorId?: string) {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly audit?: AuditService,
+  ) {}
+
+  /** Made on first use: the search reads the declaration of this list (`khai/ho-so-phan-cong.khai.ts`). */
+  private get search(): BoTimKiem {
+    return (this.tags ??= new BoTimKiem(this.prisma, KHAI_TIM_KIEM_HO_SO_PHAN_CONG, OLD_PARAMETERS));
+  }
+
+  /**
+   * The ONE condition of the list, of its cards and of its export: the person's reach, the filters, the tags. Each
+   * part is its own member of AND (a search can never widen the reach). `null`: the person reaches nothing.
+   * `card`: what a card stands for (a status, or the archived ones), left out by the cards' counts.
+   */
+  private async where(
+    scope: DataScope | null | undefined,
+    query: WardAssignmentListQuery,
+    today: Date,
+    card: { archived: boolean | null; status?: WardAssignmentListQuery['status'] },
+  ): Promise<Prisma.WardAssignmentWhereInput | null> {
     const reach = scopeConditions(scope, 'read', 'WardAssignment');
-    if (reach !== null && reach.length === 0) return { data: [], total: 0 };
-    const today = vnDay(now);
-    const q = query.q?.trim();
+    if (reach !== null && reach.length === 0) return null;
     const where: Prisma.WardAssignmentWhereInput = {
       AND: [
         ...(reach ? [{ OR: reach as Prisma.WardAssignmentWhereInput[] }] : []),
-        query.archived ? { archivedAt: { not: null } } : { archivedAt: null },
-        ...(query.status ? [{ status: query.status }] : []),
+        ...(card.archived === null ? [] : [card.archived ? { archivedAt: { not: null } } : { archivedAt: null }]),
+        ...(card.status ? [{ status: card.status }] : []),
         ...(query.alert ? [alertWhere(query.alert, today)] : []),
         ...(query.teamId ? [{ assignedTeamId: query.teamId }] : []),
         ...(query.crimeId ? [{ crimeId: query.crimeId }] : []),
@@ -61,15 +96,94 @@ export class WardAssignmentQueryService {
         ...(query.kind ? [{ kind: query.kind }] : []),
         ...(query.submitted ? [{ submissionCount: { gt: 0 } }] : []),
         firstSubmittedWhere(periodDay(query.from), periodDay(query.to)),
-        ...(q ? [{ OR: [{ code: { contains: q, mode: 'insensitive' as const } }, { summary: { contains: q, mode: 'insensitive' as const } }] }] : []),
       ],
     };
+    noiVaoWhere(where as Record<string, unknown>, await this.search.dieuKien(query));
+    return where;
+  }
+
+  /** The order of the list, of its pages and of its export. Nothing asked: the newest submission first, drafts on top. */
+  private order(query: Pick<WardAssignmentListQuery, 'sortBy' | 'sortOrder'>): Prisma.WardAssignmentOrderByWithRelationInput[] {
+    if (!query.sortBy || !(SORTABLE as readonly string[]).includes(query.sortBy)) {
+      return [{ submittedAt: { sort: 'desc', nulls: 'first' } }, { createdAt: 'desc' }, { id: 'desc' }];
+    }
+    return buildListOrderBy({
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+      allowed: SORTABLE,
+      defaultField: 'submittedAt',
+      // A request with no code, no submission day or no deadline sinks to the end, whichever way the column is sorted.
+      nullableFields: ['codeSort', 'submittedAt', 'resultDueOn'],
+      // "Mã" orders as a number: as text, 2026-8 comes after 2026-21. The number is kept by a trigger (`codeSort`).
+      fieldAliases: { code: 'codeSort' },
+    }) as Prisma.WardAssignmentOrderByWithRelationInput[];
+  }
+
+  /**
+   * The numbers of the cards, counted with the list's own condition minus what a card stands for: every card's
+   * number is the number of rows the list shows under it. One request instead of one per card.
+   */
+  async listStats(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date()) {
+    const byStatus = Object.fromEntries(Object.values(WardAssignmentStatus).map((s) => [s, 0])) as Record<WardAssignmentStatus, number>;
+    const filters = query;
+    const today = vnDay(now);
+    const [open, archived] = await Promise.all([this.where(scope, filters, today, { archived: false }), this.where(scope, filters, today, { archived: true })]);
+    if (!open || !archived) return { all: 0, byStatus, archived: 0 };
+    const [groups, archivedCount] = await Promise.all([
+      this.prisma.wardAssignment.groupBy({ by: ['status'], where: open, _count: { _all: true } }),
+      this.prisma.wardAssignment.count({ where: archived }),
+    ]);
+    for (const g of groups) byStatus[g.status] = g._count._all;
+    return { all: Object.values(byStatus).reduce((a, b) => a + b, 0), byStatus, archived: archivedCount };
+  }
+
+  /**
+   * The list as an Excel file: the same condition and the same order as the screen, the columns the person is looking
+   * at (`cot`), within their reach. Audited (metadata only: the filters and how many rows).
+   */
+  async exportList(
+    scope: DataScope | null | undefined,
+    query: WardAssignmentListQuery & { cot?: string },
+    res: Response,
+    actor: { userId: string; ipAddress?: string; userAgent?: string },
+    now: Date = new Date(),
+  ): Promise<void> {
+    const columns = chonCotXuat(KHAI_COT_XUAT_HO_SO_PHAN_CONG, tachCotXuat(query.cot));
+    const where = (await this.where(scope, query, vnDay(now), { archived: query.archived === true, status: query.status })) ?? { id: { in: [] } };
+    const orderBy = this.order(query);
+    const rows = await xuatDanhSachExcel<WardExportRow>({
+      res,
+      tenTep: `ho-so-phan-cong-${now.toISOString().slice(0, 10)}.xlsx`,
+      tenSheet: 'Hồ sơ phân công',
+      tieuDe: 'DANH SÁCH HỒ SƠ PHÂN CÔNG CÔNG AN CẤP PHƯỜNG/XÃ',
+      phuDe: query.from || query.to ? `Trình lần đầu: ${query.from ?? '…'} đến ${query.to ?? '…'}` : '',
+      cot: columns,
+      demTong: () => this.prisma.wardAssignment.count({ where }),
+      layIdTheoThuTu: async (max) => (await this.prisma.wardAssignment.findMany({ where, orderBy, select: { id: true }, take: max })).map((r) => r.id),
+      // Read again under the same condition: a request that left the person's reach meanwhile is not written.
+      layDong: (ids) => this.prisma.wardAssignment.findMany({ where: { AND: [where, { id: { in: ids } }] }, select: WARD_EXPORT_SELECT }),
+    });
+    await this.audit?.log({
+      userId: actor.userId,
+      action: 'WARD_ASSIGNMENT_LIST_EXPORTED',
+      subject: 'WardAssignment',
+      metadata: { format: 'xlsx', filters: { ...query, cot: undefined }, columns: columns.map((c) => c.key), rows },
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+    });
+  }
+
+  /** `now`: the clock the alert levels are judged on (the filter and the field of every row use the same "today"). */
+  async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date(), actorId?: string) {
+    const today = vnDay(now);
+    const where = await this.where(scope, query, today, { archived: query.archived === true, status: query.status });
+    if (!where) return { data: [], total: 0 };
     const pageSize = Math.min(Math.max(query.pageSize ?? 50, 1), PAGE_SIZE_MAX);
     const page = Math.max(query.page ?? 1, 1);
     const [data, total] = await Promise.all([
       this.prisma.wardAssignment.findMany({
         where,
-        orderBy: [{ submittedAt: { sort: 'desc', nulls: 'first' } }, { createdAt: 'desc' }],
+        orderBy: this.order(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: {
@@ -106,6 +220,17 @@ export class WardAssignmentQueryService {
       }),
       total,
     };
+  }
+
+  /**
+   * The ward units the list's filter offers: those that have a request the person may read (archived ones too), by
+   * name. Never a unit the person reaches nothing of: the filter does not say which units exist.
+   */
+  async filterUnits(scope: DataScope | null | undefined) {
+    const reach = scopeConditions(scope, 'read', 'WardAssignment');
+    if (reach !== null && reach.length === 0) return [];
+    const groups = await this.prisma.wardAssignment.groupBy({ by: ['assignedTeamId'], where: reach ? { OR: reach as Prisma.WardAssignmentWhereInput[] } : {} });
+    return this.prisma.team.findMany({ where: { id: { in: groups.map((g) => g.assignedTeamId) } }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
   }
 
   /** The active ward units the person may enter a request for: exactly those `create` accepts (ward unit, write reach). */

@@ -178,7 +178,10 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   const [problems, setProblems] = useState<{ testId: string; label: string }[]>([]);
   // What the form started from: leaving is asked about only when something was typed since.
   const [startedFrom] = useState(() => JSON.stringify(form));
-  const dirty = JSON.stringify(form) !== startedFrom;
+  // PC02's own typing (the review, the result) lives in its blocks: they say when something is not yet sent.
+  const [reviewTyped, setReviewTyped] = useState(false);
+  const [resultTyped, setResultTyped] = useState(false);
+  const dirty = (editing && JSON.stringify(form) !== startedFrom) || reviewTyped || resultTyped;
 
   const teamId = detail?.assignedTeamId ?? (wardOfficer ? user!.wardTeam!.id : form.assignedTeamId);
   const units = useWardUnits(isNew && !wardOfficer);
@@ -293,7 +296,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   const goList = () => navigate(WARD_PATHS.list);
   /** "Hủy": what was typed and not saved is lost, so it is asked about; nothing typed, nothing asked. */
   const onCancel = () => {
-    if (editing && dirty && !window.confirm(L.form.cancelConfirm)) return;
+    if (dirty && !window.confirm(L.form.cancelConfirm)) return;
     goList();
   };
   const onReset = () => {
@@ -311,7 +314,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
       .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt))[0] ?? null;
   const printable = !!detail && !!latestDecision && (!!can?.issueSlip || !!latestDecision.slipNumber);
   const { focusField, handleFormKeyDown } = useFormErrorNavigation(() => problems.map((p) => p.testId));
-  useDauHieuDangSua(editing && dirty);
+  useDauHieuDangSua(dirty);
   useFormShortcuts({
     onSave: editing ? () => void onSaveDraft() : undefined,
     onCancel,
@@ -627,8 +630,9 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
             busy={busy}
             // Returned or approved: the slip of that decision is what PC02 prints next.
             onDecided={() => setSlipOpen(true)}
+            onDirtyChange={setReviewTyped}
           />
-          <FollowUpBlock key={`follow-${detail.updatedAt}`} detail={detail} run={run} busy={busy} onFilesChanged={reload} />
+          <FollowUpBlock key={`follow-${detail.updatedAt}`} detail={detail} run={run} busy={busy} onFilesChanged={reload} onDirtyChange={setResultTyped} />
         </>
       )}
       {detail && (

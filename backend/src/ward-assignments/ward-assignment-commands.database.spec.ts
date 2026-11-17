@@ -1,3 +1,8 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { thuMucMigrationTimKiemMoiNhat } from '../common/tim-kiem/sinh/tep-sinh';
+import * as ExcelJS from 'exceljs';
+import { PassThrough } from 'stream';
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -128,6 +133,14 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     await waiter.connect();
     holder = new Client({ connectionString: url! });
     await holder.connect();
+    // The scratch database of CI is made by `prisma db push`: tables, no triggers. What the list searches and orders
+    // by is kept by triggers, so the REAL migrations that install them are applied here (both idempotent), before any
+    // row of this suite is written (the crime the requests name is searched by its own shadow column). Without this
+    // the suite is green only on a machine where somebody applied them by hand.
+    const migrations = path.join(__dirname, '../../prisma/migrations');
+    for (const folder of [thuMucMigrationTimKiemMoiNhat()!, '20261128020000_ward_code_sort']) {
+      await holder.query(fs.readFileSync(path.join(migrations, folder, 'migration.sql'), 'utf-8'));
+    }
     const { db } = scratch;
     const role = await db.role.create({ data: { name: `${tag}-officer` } });
     for (const name of ['wardy', 'otherWard', 'reviewer', 'pc02']) {
@@ -181,7 +194,7 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     };
     const audit = new AuditService(db as never);
     commands = new WardAssignmentCommandService(db as never, ownNumbers as never, audit);
-    queries = new WardAssignmentQueryService(db as never);
+    queries = new WardAssignmentQueryService(db as never, audit);
     investigators = new WardInvestigatorsService(db as never, audit);
   });
 
@@ -294,6 +307,150 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       // A reviewer who is a member of the request's own ward unit does not (segregation of duties).
       const both = enforced(id.wardy, { read: ALL, write: NOTHING, review: ALL }, id.W);
       expect(rowOf((await queries.list(both, { q: tag, pageSize: 200 }, new Date(), id.wardy)).data, sent.id).can.issueSlip).toBe(false);
+    });
+
+    describe('the list as the petition list: search by tags, order, cards, Excel', () => {
+      const ids: Record<string, string> = {};
+      const mark = `${tag}zz`;
+      const mine = (q: object = {}) => queries.list(scope.wardy, { q: mark, pageSize: 200, ...q }, new Date(), id.wardy);
+
+      beforeAll(async () => {
+        const make = async (key: string, over: Partial<WardAssignmentInput>, submit: boolean) => {
+          const made = await commands.create({ id: id.wardy }, scope.wardy, input(over));
+          if (submit) await commands.submit({ id: id.wardy }, scope.wardy, made.id, made.updatedAt.toISOString());
+          ids[key] = made.id;
+        };
+        await make('gambling', { summary: `${mark} Tổ chức đánh bạc ở Hẻm 12`, place: 'Chợ Bến Thành' }, true);
+        await make('theft', { summary: `${mark} Trộm xe máy`, crimeId: null, crimeOther: 'Trộm cắp tài sản', caseType: 'INCIDENT' }, true);
+        await make('draft', { summary: `${mark} Bản nháp cố ý gây thương tích` }, false);
+        // Another unit's, carrying the same mark: a search must never bring it into this unit's list.
+        const other = await commands.create({ id: id.otherWard }, scope.otherWard, input({ summary: `${mark} của đơn vị khác`, proposedInvestigatorId: id.investigatorV }));
+        ids.other = other.id;
+      });
+
+      it('the old search box reads every column, without accents, within the person\'s reach', async () => {
+        expect(new Set((await mine()).data.map((r) => r.id))).toEqual(new Set([ids.gambling, ids.theft, ids.draft]));
+        // Accent-free, and in columns the old box did not read (the place, the crime written by hand).
+        expect((await mine({ q: 'cho ben thanh' })).data.map((r) => r.id)).toEqual([ids.gambling]);
+        expect((await mine({ q: 'trom cap tai san' })).data.map((r) => r.id)).toEqual([ids.theft]);
+        expect((await queries.list(scope.wardy, { q: 'của đơn vị khác', pageSize: 200 })).data).toEqual([]);
+      });
+
+      it('tags: a column each, joined by AND; the values of one tag by OR; an unknown key is refused', async () => {
+        const by = async (tk: string[]) => (await mine({ tk })).data.map((r) => r.id).sort();
+        expect(await by(['trichYeu~danh bac'])).toEqual([ids.gambling]);
+        expect(await by(['noiXayRa~ben thanh'])).toEqual([ids.gambling]);
+        expect(await by(['toiDanhKhac~trom cap'])).toEqual([ids.theft]);
+        expect(await by(['toiDanh~danh bac'])).toEqual([ids.gambling, ids.draft].sort());
+        expect(await by(['loaiHoSo~INCIDENT'])).toEqual([ids.theft]);
+        expect(await by(['loaiHoSo~INCIDENT', 'loaiHoSo~CASE'])).toEqual([ids.gambling, ids.theft, ids.draft].sort());
+        expect(await by(['loaiHoSo~CASE', 'noiXayRa~ben thanh'])).toEqual([ids.gambling]);
+        // The status is the cards' (one control): it is not a tag, and asking for it is refused, never silently ignored.
+        expect(await fails(mine({ tk: ['trangThai~DRAFT'] }))).toMatchObject({ status: 400 });
+        // "Every column" reads the crime of the catalogue as the Tội danh column shows it.
+        const everyColumn = await queries.list(scope.wardy, { tk: ['*~toi danh bac', `trichYeu~${mark}`], pageSize: 200 });
+        expect(everyColumn.data.map((r) => r.id).sort()).toEqual([ids.gambling, ids.draft].sort());
+        const code = (await codeOf(ids.gambling))!;
+        expect(await by([`ma~${code}`])).toEqual([ids.gambling]);
+        expect(await fails(mine({ tk: ['khongCoCotNay~x'] }))).toMatchObject({ status: 400 });
+        // A tag narrows; it never opens another unit's requests.
+        expect((await queries.list(scope.wardy, { tk: [`trichYeu~${mark} cua don vi khac`], pageSize: 200 })).data).toEqual([]);
+        expect((await queries.list(scope.otherWard, { tk: [`trichYeu~${mark}`], pageSize: 200 })).data.map((r) => r.id)).toEqual([ids.other]);
+      });
+
+      it('order: nothing asked keeps drafts on top then the newest submission; a column asked is followed both ways, empty values last', async () => {
+        expect((await mine()).data[0].id).toBe(ids.draft);
+        // As NUMBERS: 8 before 21 before 100, which as text would read 100, 21, 8.
+        const numbered = async (code: string) => {
+          const made = await commands.create({ id: id.wardy }, scope.wardy, input({ summary: `${mark} số ${code}` }));
+          await scratch.db.wardAssignment.update({ where: { id: made.id }, data: { code, status: 'SUBMITTED', submissionCount: 1, submittedAt: new Date() } });
+          return made.id;
+        };
+        const made = [await numbered(`2031-100`), await numbered(`2031-8`), await numbered(`2031-21`), await numbered(`2030-999`)];
+        const order = (await mine({ q: `${mark} số`, sortBy: 'code', sortOrder: 'asc' })).data.map((r) => r.code);
+        expect(order).toEqual(['2030-999', '2031-8', '2031-21', '2031-100']);
+        // A request with no code yet (a draft) is last whichever way the column is sorted.
+        const withDraft = async (sortOrder: 'asc' | 'desc') => (await mine({ sortBy: 'code', sortOrder })).data.map((r) => r.code);
+        expect((await withDraft('asc')).slice(0, 4)).toEqual(order);
+        expect((await withDraft('desc')).slice(0, 4)).toEqual([...order].reverse());
+        expect((await withDraft('asc')).slice(4).every((c) => c === null || !/^\d{4}-\d+$/.test(c))).toBe(true);
+        expect((await mine({ q: `${mark} số`, sortBy: 'code', sortOrder: 'desc' })).data.map((r) => r.code)).toEqual(['2031-100', '2031-21', '2031-8', '2030-999']);
+        // A code of another form is not a failed write: it has no number, and sinks to the end.
+        await scratch.db.wardAssignment.update({ where: { id: made[0] }, data: { code: `${tag}-KHAC` } });
+        expect((await mine({ q: `${mark} số`, sortBy: 'code', sortOrder: 'asc' })).data.map((r) => r.code).at(-1)).toBe(`${tag}-KHAC`);
+        // Restrict everywhere: the subjects go before the requests.
+        await scratch.db.wardAssignmentSubject.deleteMany({ where: { assignmentId: { in: made } } });
+        await scratch.db.wardAssignment.deleteMany({ where: { id: { in: made } } });
+        // By text: the database's own order (its collation, not JavaScript's), one way the reverse of the other.
+        const bySummary = async (sortOrder: 'asc' | 'desc') => (await mine({ sortBy: 'summary', sortOrder })).data.map((r) => r.summary);
+        expect(await bySummary('asc')).toEqual((await bySummary('desc')).reverse());
+        expect(new Set(await bySummary('asc')).size).toBe(3);
+        // A column that is not sortable (or a name made up) is not an order: the list keeps its own.
+        expect((await mine({ sortBy: 'passwordHash' })).data.map((r) => r.id)).toEqual((await mine()).data.map((r) => r.id));
+      });
+
+      it('the cards: one answer, each number the number of rows the list shows under that card', async () => {
+        const filters = { q: mark };
+        const stats = await queries.listStats(scope.wardy, filters);
+        const rows = async (q: object) => (await queries.list(scope.wardy, { ...filters, pageSize: 200, ...q })).total;
+        expect(stats.all).toBe(await rows({}));
+        for (const status of ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED'] as const) expect({ status, n: stats.byStatus[status] }).toEqual({ status, n: await rows({ status }) });
+        expect(stats.archived).toBe(await rows({ archived: true }));
+        expect(stats).toMatchObject({ all: 3, byStatus: { DRAFT: 1, SUBMITTED: 2 } });
+        // Another filter does narrow every card.
+        expect(await queries.listStats(scope.wardy, { ...filters, caseType: 'INCIDENT' })).toMatchObject({ all: 1, byStatus: { DRAFT: 0, SUBMITTED: 1 } });
+        // Somebody who reaches nothing counts nothing.
+        const nobody = enforced(id.pc02, { read: NOTHING, write: NOTHING }, null);
+        expect(await queries.listStats(nobody, filters)).toMatchObject({ all: 0, archived: 0 });
+      });
+
+      it('the units the filter offers are those with a request the person may read, and no other', async () => {
+        expect((await queries.filterUnits(scope.wardy)).map((t) => t.id)).toEqual([id.W]);
+        expect((await queries.filterUnits(scope.reviewer)).map((t) => t.id)).toEqual(expect.arrayContaining([id.W, id.V]));
+        // A unit with no request is not named; somebody who reaches nothing is offered nothing.
+        expect((await queries.filterUnits(scope.reviewer)).map((t) => t.id)).not.toContain(id.U);
+        expect(await queries.filterUnits(enforced(id.pc02, { read: NOTHING, write: NOTHING }, null))).toEqual([]);
+      });
+
+      it('Excel: the rows, the order and the columns of the screen, within reach, and the export is audited', async () => {
+        const read = async (who: DataScope | null, query: object, actor: string) => {
+          const stream = new PassThrough();
+          const parts: Buffer[] = [];
+          stream.on('data', (c: Buffer) => parts.push(c));
+          const res = Object.assign(stream, { setHeader: jest.fn() });
+          await queries.exportList(who, { q: mark, ...query }, res as never, { userId: actor });
+          const wb = new ExcelJS.Workbook();
+          await wb.xlsx.load(Buffer.concat(parts) as never);
+          const sheet = wb.worksheets[0];
+          const lines: string[][] = [];
+          sheet.eachRow((row) => lines.push((row.values as unknown[]).slice(1).map((v) => (v == null ? '' : String(v)))));
+          const head = lines.findIndex((l) => l[0] === 'STT');
+          return { name: sheet.name, header: lines[head], rows: lines.slice(head + 1).filter((l) => /^\d+$/.test(l[0])) };
+        };
+        const all = await read(scope.wardy, { sortBy: 'summary', sortOrder: 'asc' }, id.wardy);
+        expect(all.name).toBe('Hồ sơ phân công');
+        expect(all.header.slice(0, 4)).toEqual(['STT', 'Mã', 'Ngày trình', 'Đơn vị']);
+        const onScreen = (await mine({ sortBy: 'summary', sortOrder: 'asc' })).data;
+        // The same rows in the same order; the other unit's is not in the file.
+        expect(all.rows.map((r) => r[all.header.indexOf('Trích yếu')])).toEqual(onScreen.map((r) => r.summary));
+        expect(all.rows.flat().join('|')).not.toContain('của đơn vị khác');
+        // The words of the screen, not the codes of the database.
+        const theft = all.rows.find((r) => r.join('|').includes('Trộm xe máy'))!;
+        expect(theft[all.header.indexOf('Loại hồ sơ')]).toBe('Vụ việc');
+        expect(theft[all.header.indexOf('Tội danh')]).toBe('Trộm cắp tài sản');
+        expect(theft[all.header.indexOf('Tình trạng')]).toBe('Chờ duyệt');
+        // Only the columns shown, in the order shown.
+        const two = await read(scope.wardy, { cot: 'summary,code', status: 'DRAFT' }, id.wardy);
+        expect(two.header).toEqual(['STT', 'Trích yếu', 'Mã']);
+        expect(two.rows).toHaveLength(1);
+        expect(await fails(read(scope.wardy, { cot: 'summary,passwordHash' }, id.wardy))).toMatchObject({ status: 400 });
+        // Nothing to export is said, not sent as an empty file.
+        expect(await fails(read(scope.wardy, { q: `${mark} không có dòng nào` }, id.wardy))).toMatchObject({ status: 400 });
+        const logged = await scratch.db.auditLog.findMany({ where: { userId: id.wardy, action: 'WARD_ASSIGNMENT_LIST_EXPORTED' }, orderBy: { createdAt: 'asc' } });
+        expect(logged.length).toBe(2);
+        expect(logged[0].metadata).toMatchObject({ format: 'xlsx', rows: 3 });
+        expect(logged[1].metadata).toMatchObject({ columns: ['summary', 'code'], rows: 1 });
+      });
     });
 
     it('the units offered for a new request are the ward units the person may enter for, and no PC02 unit', async () => {

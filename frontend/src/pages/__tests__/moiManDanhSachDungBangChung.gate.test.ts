@@ -8,6 +8,7 @@ import lawyersRaw from '../lawyers/LawyerListPageShell.tsx?raw';
 import deadlineRaw from '../admin/deadline-rules/DeadlineRulesListPage.tsx?raw';
 import processingFlowRaw from '../admin/processing-flow/ProcessingFlowListPage.tsx?raw';
 import processingCalendarRaw from '../admin/processing-flow/ProcessingCalendarListPage.tsx?raw';
+import wardAssignmentsRaw from '../ward-assignments/WardAssignmentListPage.tsx?raw';
 
 /**
  * CỔNG: mọi màn DANH SÁCH đều dùng bảng chung và bật cá nhân hoá cột.
@@ -29,6 +30,7 @@ const MAN_DANH_SACH: Array<[string, string]> = [
   ['admin/deadline-rules/DeadlineRulesListPage.tsx', deadlineRaw],
   ['admin/processing-flow/ProcessingFlowListPage.tsx', processingFlowRaw],
   ['admin/processing-flow/ProcessingCalendarListPage.tsx', processingCalendarRaw],
+  ['ward-assignments/WardAssignmentListPage.tsx', wardAssignmentsRaw],
 ];
 
 /**

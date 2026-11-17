@@ -45,8 +45,9 @@ describe('cấu hình giao diện — bấm vào dòng', () => {
     mockPrisma.systemSetting.findUnique.mockResolvedValue(null);
   });
 
-  it('7 khoá, mỗi khoá có mặc định hợp lệ; ba màn Đơn thư = KHONG, còn lại = XEM', () => {
-    expect(KHOA_GIAO_DIEN).toHaveLength(7);
+  it('8 khoá, mỗi khoá có mặc định hợp lệ; ba màn Đơn thư và Hồ sơ phân công = KHONG, còn lại = XEM', () => {
+    expect(KHOA_GIAO_DIEN).toHaveLength(8);
+    expect(BAM_DONG_MAC_DINH.BAM_DONG_HO_SO_PHAN_CONG).toBe('KHONG');
     for (const k of KHOA_GIAO_DIEN) expect(DANH_SACH_BAM_DONG_GIA_TRI).toContain(BAM_DONG_MAC_DINH[k]);
     expect(BAM_DONG_MAC_DINH.BAM_DONG_DON_THU).toBe('KHONG');
     expect(BAM_DONG_MAC_DINH.BAM_DONG_DON_THU_PHUONG).toBe('KHONG');
@@ -122,7 +123,7 @@ describe('cấu hình giao diện — bấm vào dòng', () => {
     });
   });
 
-  it('seed() gieo đủ 7 khoá giao diện với mặc định trong mã', async () => {
+  it('seed() gieo đủ 8 khoá giao diện với mặc định trong mã', async () => {
     await service.seed();
     const goi = mockPrisma.systemSetting.upsert.mock.calls.map((c: any[]) => c[0].create);
     for (const k of KHOA_GIAO_DIEN) {
@@ -131,20 +132,22 @@ describe('cấu hình giao diện — bấm vào dòng', () => {
   });
 
   describe('đồng bộ với migration gieo khoá (R-C5)', () => {
-    const sql = fs.readFileSync(
-      path.join(__dirname, '../../prisma/migrations/20261008090000_bam_dong_settings/migration.sql'),
-      'utf-8',
-    );
+    // The keys were seeded by two migrations (seven screens, then the ward assignment list): read as one.
+    const sql = ['20261008090000_bam_dong_settings', '20261128010000_bam_dong_ho_so_phan_cong']
+      .map((m) => fs.readFileSync(path.join(__dirname, '../../prisma/migrations', m, 'migration.sql'), 'utf-8'))
+      .join('\n');
 
     it.each([...KHOA_GIAO_DIEN])('migration gieo %s đúng giá trị mặc định', (k) => {
       expect(sql).toContain(`'${k}', '${BAM_DONG_MAC_DINH[k]}'`);
     });
 
     it('migration idempotent: ON CONFLICT DO NOTHING (không đè giá trị admin đã đặt)', () => {
-      expect(sql).toMatch(/ON CONFLICT \("key"\) DO NOTHING/);
+      // Every INSERT of the two files, not one of them.
+      expect(sql.match(/INSERT INTO "system_settings"/g)).toHaveLength(2);
+      expect(sql.match(/ON CONFLICT \("key"\) DO NOTHING/g)).toHaveLength(2);
     });
 
-    it('migration không chứa khoá giao diện nào ngoài 7 khoá', () => {
+    it('migration không chứa khoá giao diện nào ngoài 8 khoá', () => {
       const khoa = [...sql.matchAll(/'(BAM_DONG_[A-Z_]+)'/g)].map((m) => m[1]);
       expect(new Set(khoa)).toEqual(new Set(KHOA_GIAO_DIEN));
     });

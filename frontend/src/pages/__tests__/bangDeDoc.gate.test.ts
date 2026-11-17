@@ -3,6 +3,7 @@ import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
 import donThuPhuong from '../petitions/WardPetitionsPage.tsx?raw';
+import hoSoPhanCong from '../ward-assignments/WardAssignmentListPage.tsx?raw';
 
 /**
  * CỔNG "bảng dễ đọc" (anh yêu cầu 18/09/2026) cho Đơn thư, Vụ án, Vụ việc và Đơn thư phường:
@@ -15,6 +16,7 @@ const MAN_CHUNG = [
   ['Đơn thư', donThu],
   ['Vụ án', vuAn],
   ['Vụ việc', vuViec],
+  ['Hồ sơ phân công', hoSoPhanCong],
 ] as const;
 
 /** Khối JSX `<ListPageShell.Table … >` (tới dấu `>` đóng thẻ mở) — nơi prop được truyền. */

@@ -20,6 +20,7 @@ const CAI_DAT = [
   { key: 'BAM_DONG_DON_THU', label: 'Bấm vào dòng — danh sách Đơn thư', value: 'KHONG', unit: null, legalBasis: null },
   { key: 'BAM_DONG_DON_THU_PHUONG', label: 'Bấm vào dòng — Đơn thư phường/xã', value: 'KHONG', unit: null, legalBasis: null },
   { key: 'BAM_DONG_DON_TRUNG', label: 'Bấm vào dòng — Đơn trùng', value: 'KHONG', unit: null, legalBasis: null },
+  { key: 'BAM_DONG_HO_SO_PHAN_CONG', label: 'Bấm vào dòng — Hồ sơ phân công phường/xã', value: 'KHONG', unit: null, legalBasis: null },
   { key: 'BAM_DONG_TONG_HOP', label: 'Bấm vào dòng — danh sách Tổng hợp', value: 'XEM', unit: null, legalBasis: null },
   { key: 'BAM_DONG_UY_THAC', label: 'Bấm vào dòng — Uỷ thác điều tra', value: 'XEM', unit: null, legalBasis: null },
   { key: 'BAM_DONG_VU_AN', label: 'Bấm vào dòng — danh sách Vụ án', value: 'XEM', unit: null, legalBasis: null },
@@ -46,7 +47,7 @@ beforeEach(() => {
 });
 
 describe('Cài đặt hệ thống — hành vi danh sách', () => {
-  it('có đúng MỘT tiêu đề nhóm, đứng ngay trên 7 dòng bấm-vào-dòng liền nhau', async () => {
+  it('có đúng MỘT tiêu đề nhóm, đứng ngay trên 8 dòng bấm-vào-dòng liền nhau', async () => {
     dung();
     await screen.findByTestId('setting-row-BAM_DONG_VU_AN');
     expect(screen.getAllByTestId('nhom-hanh-vi-danh-sach')).toHaveLength(1);
@@ -54,7 +55,7 @@ describe('Cài đặt hệ thống — hành vi danh sách', () => {
       (tr) => tr.getAttribute('data-testid') ?? '',
     );
     const dau = hang.indexOf('nhom-hanh-vi-danh-sach');
-    expect(hang.slice(dau + 1, dau + 8)).toEqual(KHOA_BAM_DONG.map((k) => `setting-row-${k}`));
+    expect(hang.slice(dau + 1, dau + 1 + KHOA_BAM_DONG.length)).toEqual(KHOA_BAM_DONG.map((k) => `setting-row-${k}`));
   });
 
   it('giá trị hiện bằng NHÃN tiếng Việt, không phải mã KHONG/XEM', async () => {

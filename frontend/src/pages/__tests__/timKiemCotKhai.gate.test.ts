@@ -9,9 +9,11 @@ import uyThac from '../../features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx?ra
 import doiTuong from '../objects/ObjectListPageShell.tsx?raw';
 import luatSu from '../lawyers/LawyerListPageShell.tsx?raw';
 import tongHop from '../cases/ComprehensiveListPageShell.tsx?raw';
+import hoSoPhanCong from '../ward-assignments/WardAssignmentListPage.tsx?raw';
 import {
   TIM_KIEM_DOI_TUONG,
   TIM_KIEM_DON_THU,
+  TIM_KIEM_HO_SO_PHAN_CONG,
   TIM_KIEM_LUAT_SU,
   TIM_KIEM_VU_AN,
   TIM_KIEM_VU_VIEC,
@@ -49,6 +51,7 @@ const THUC_THE = [
   // Ba loại đối tượng (bị can / bị hại / nhân chứng) dùng CHUNG một shell và một khai.
   ['Đối tượng', TIM_KIEM_DOI_TUONG, [doiTuong]],
   ['Luật sư', TIM_KIEM_LUAT_SU, [luatSu]],
+  ['Hồ sơ phân công', TIM_KIEM_HO_SO_PHAN_CONG, [hoSoPhanCong]],
 ] as const;
 
 const khaiCua = (khai: readonly { key: string }[]) => khai.map((t) => t.key);

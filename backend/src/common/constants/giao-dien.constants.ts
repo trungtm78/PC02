@@ -6,7 +6,8 @@
  *
  * Ba nơi phải khớp nhau (có cổng kiểm `giao-dien.dong-bo.spec.ts` và `giaoDienDongBo.gate.test.ts`):
  *   1. tệp này (giá trị hợp lệ + mặc định),
- *   2. migration `20261008090000_bam_dong_settings` (gieo dòng vì `deploy.sh` không chạy seed settings),
+ *   2. migration `20261008090000_bam_dong_settings` và `20261128010000_bam_dong_ho_so_phan_cong` (gieo dòng vì
+ *      `deploy.sh` không chạy seed settings),
  *   3. `frontend/src/constants/giaoDienSettings.ts` (lựa chọn hiện trên trang Cài đặt).
  */
 export const BAM_DONG_GIA_TRI = {
@@ -33,6 +34,7 @@ export const BAM_DONG_MAC_DINH: Readonly<Record<string, BamDongGiaTri>> = {
   BAM_DONG_VU_AN: 'XEM',
   BAM_DONG_TONG_HOP: 'XEM',
   BAM_DONG_UY_THAC: 'XEM',
+  BAM_DONG_HO_SO_PHAN_CONG: 'KHONG',
 };
 
 export const BAM_DONG_NHAN: Readonly<Record<string, string>> = {
@@ -43,6 +45,7 @@ export const BAM_DONG_NHAN: Readonly<Record<string, string>> = {
   BAM_DONG_VU_AN: 'Bấm vào dòng — danh sách Vụ án',
   BAM_DONG_TONG_HOP: 'Bấm vào dòng — danh sách Tổng hợp',
   BAM_DONG_UY_THAC: 'Bấm vào dòng — Uỷ thác điều tra',
+  BAM_DONG_HO_SO_PHAN_CONG: 'Bấm vào dòng — Hồ sơ phân công phường/xã',
 };
 
 /** Khoá giao diện — danh sách TRẮNG: `GET /settings/giao-dien` chỉ trả những khoá này, mọi người dùng đăng nhập đọc được. */

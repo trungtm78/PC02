@@ -430,6 +430,25 @@ describe('a waiting request, reviewed by PC02', () => {
     );
   });
 
+  it('"Hủy" asks before what PC02 typed in the review is lost (a reason, a requirement), and not when nothing was typed', async () => {
+    api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderAt('/ho-so-phan-cong/w1');
+    await screen.findByTestId('ward-approve');
+    fireEvent.change(screen.getByTestId('ward-return-reason-text'), { target: { value: 'Thiếu biên bản' } });
+    fireEvent.click(screen.getByTestId('form-action-cancel'));
+    expect(ask).toHaveBeenCalledWith(L.form.cancelConfirm);
+    // Refused: still here, the reason still typed.
+    expect(screen.getByTestId('ward-return-reason-text')).toHaveValue('Thiếu biên bản');
+    // Taken back: nothing typed, nothing asked.
+    fireEvent.change(screen.getByTestId('ward-return-reason-text'), { target: { value: '' } });
+    ask.mockClear();
+    fireEvent.click(screen.getByTestId('form-action-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('ward-approve')).not.toBeInTheDocument());
+    expect(ask).not.toHaveBeenCalled();
+    ask.mockRestore();
+  });
+
   it('a return needs a reason, then sends the reason and the requirements', async () => {
     api.get.mockResolvedValue(detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } }));
     api.returnIt.mockResolvedValue({});

@@ -345,4 +345,24 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+-- ── ward_assignments (ho-so-phan-cong) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_ward_assignments() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."summary_bd" := ' ' || f_bo_dau(NEW."summary");
+  NEW."crime_other_bd" := ' ' || f_bo_dau(NEW."crimeOther");
+  NEW."place_bd" := ' ' || f_bo_dau(NEW."place");
+  NEW."entry_officer_name_bd" := ' ' || f_bo_dau(NEW."entryOfficerName");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."code", NEW."summary", NEW."crimeOther", NEW."place", NEW."entryOfficerName"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_ward_assignments: %', SQLERRM;
+  NEW."summary_bd" := NULL;
+  NEW."crime_other_bd" := NULL;
+  NEW."place_bd" := NULL;
+  NEW."entry_officer_name_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

@@ -19,10 +19,10 @@ import { LUA_CHON_THEO_KHOA, MAC_DINH_THEO_KHOA, sapXepCaiDat } from '../thongKe
 
 const GOC = path.resolve(__dirname, '../../../..');
 const maychu = fs.readFileSync(path.join(GOC, 'backend/src/common/constants/giao-dien.constants.ts'), 'utf-8');
-const migration = fs.readFileSync(
-  path.join(GOC, 'backend/prisma/migrations/20261008090000_bam_dong_settings/migration.sql'),
-  'utf-8',
-);
+// Seeded by two migrations (seven screens, then the ward assignment list): read as one.
+const migration = ['20261008090000_bam_dong_settings', '20261128010000_bam_dong_ho_so_phan_cong']
+  .map((m) => fs.readFileSync(path.join(GOC, 'backend/prisma/migrations', m, 'migration.sql'), 'utf-8'))
+  .join('\n');
 
 function giaTriMayChu(): string[] {
   const khoi = /export const BAM_DONG_GIA_TRI = \{([\s\S]*?)\} as const;/.exec(maychu);
@@ -41,10 +41,10 @@ describe('cổng đồng bộ cấu hình bấm vào dòng (máy chủ ↔ migra
     expect(BAM_DONG_OPTIONS.map((o) => o.value)).toEqual(giaTriMayChu());
   });
 
-  it('bộ khoá khớp: 7 khoá, giao diện = máy chủ', () => {
+  it('bộ khoá khớp: 8 khoá, giao diện = máy chủ', () => {
     const md = macDinhMayChu();
     expect(Object.keys(md).sort()).toEqual([...KHOA_BAM_DONG].sort());
-    expect(KHOA_BAM_DONG).toHaveLength(7);
+    expect(KHOA_BAM_DONG).toHaveLength(8);
     expect(Object.values(MAN_BAM_DONG).sort()).toEqual([...KHOA_BAM_DONG].sort());
   });
 
@@ -52,7 +52,7 @@ describe('cổng đồng bộ cấu hình bấm vào dòng (máy chủ ↔ migra
     expect(macDinhMayChu()).toEqual(BAM_DONG_MAC_DINH);
   });
 
-  it('migration gieo ĐÚNG 7 khoá với đúng mặc định', () => {
+  it('migration gieo ĐÚNG 8 khoá với đúng mặc định', () => {
     for (const k of KHOA_BAM_DONG) {
       expect(migration, k).toContain(`'${k}', '${BAM_DONG_MAC_DINH[k]}'`);
     }
@@ -60,7 +60,7 @@ describe('cổng đồng bộ cấu hình bấm vào dòng (máy chủ ↔ migra
     expect(new Set(khoa)).toEqual(new Set(KHOA_BAM_DONG));
   });
 
-  it('trang Cài đặt có ô CHỌN + nút "Về mặc định" cho cả 7 khoá, và xếp chúng LIỀN NHAU', () => {
+  it('trang Cài đặt có ô CHỌN + nút "Về mặc định" cho cả 8 khoá, và xếp chúng LIỀN NHAU', () => {
     for (const k of KHOA_BAM_DONG) {
       expect(LUA_CHON_THEO_KHOA[k]?.map((o) => o.value), k).toEqual(BAM_DONG_OPTIONS.map((o) => o.value));
       expect(MAC_DINH_THEO_KHOA[k], k).toBe(BAM_DONG_MAC_DINH[k]);
@@ -71,7 +71,7 @@ describe('cổng đồng bộ cấu hình bấm vào dòng (máy chủ ↔ migra
       { key: 'THONG_KE_KY' },
     ]).map((x) => x.key);
     const dau = sapXep.indexOf(KHOA_BAM_DONG[0]);
-    expect(sapXep.slice(dau, dau + 7)).toEqual([...KHOA_BAM_DONG]);
+    expect(sapXep.slice(dau, dau + KHOA_BAM_DONG.length)).toEqual([...KHOA_BAM_DONG]);
   });
 
   describe('gopCauHinhBamDong', () => {

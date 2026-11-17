@@ -213,3 +213,16 @@ export const TIM_KIEM_TOI_DANH = [
   { key: 'ma', nhan: 'Mã', kieu: 'ma-thuong' },
   { key: 'ten', nhan: 'Tên tội danh', kieu: 'chu' },
 ] as const;
+
+export const TIM_KIEM_HO_SO_PHAN_CONG = [
+  { key: 'ma', nhan: 'Mã', kieu: 'ma-thuong' },
+  { key: 'trichYeu', nhan: 'Trích yếu', kieu: 'chu' },
+  { key: 'toiDanh', nhan: 'Tội danh', kieu: 'quan-he' },
+  { key: 'toiDanhKhac', nhan: 'Tội danh khác', kieu: 'chu' },
+  { key: 'noiXayRa', nhan: 'Nơi xảy ra', kieu: 'chu' },
+  { key: 'canBoNhap', nhan: 'Cán bộ nhập', kieu: 'chu' },
+  { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chon' },
+  { key: 'phanCong', nhan: 'Phân công', kieu: 'chon' },
+  { key: 'ngayTrinh', nhan: 'Ngày trình', kieu: 'ngay' },
+  { key: 'hanBaoKetQua', nhan: 'Hạn báo kết quả', kieu: 'ngay' },
+] as const;

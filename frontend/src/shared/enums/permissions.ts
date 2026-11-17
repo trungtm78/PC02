@@ -15,6 +15,7 @@ export const PERMISSION_RESOURCE = {
   DIRECTORIES: 'directories',
   REPORTS: 'reports',
   CALENDAR: 'calendar',
+  WARD_ASSIGNMENTS: 'wardAssignments',
 } as const;
 
 export type PermissionResource =
@@ -45,6 +46,7 @@ export const QUY_VE_QUYEN_MAY_CHU: Record<PermissionResource, { subject: string;
   [PERMISSION_RESOURCE.OBJECTS]: { subject: 'Subject', sua: 'edit' },
   [PERMISSION_RESOURCE.LAWYERS]: { subject: 'Lawyer', sua: 'edit' },
   [PERMISSION_RESOURCE.CALENDAR]: { subject: 'Calendar', sua: 'edit' },
+  [PERMISSION_RESOURCE.WARD_ASSIGNMENTS]: { subject: 'WardAssignment', sua: 'edit' },
   [PERMISSION_RESOURCE.USERS]: { subject: 'User', sua: 'write' },
   [PERMISSION_RESOURCE.SETTINGS]: { subject: 'Setting', sua: 'write' },
   [PERMISSION_RESOURCE.DIRECTORIES]: { subject: 'Directory', sua: 'write' },

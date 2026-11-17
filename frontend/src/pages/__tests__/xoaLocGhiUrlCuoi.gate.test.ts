@@ -3,6 +3,7 @@ import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import tongHop from '../cases/ComprehensiveListPageShell.tsx?raw';
+import hoSoPhanCong from '../ward-assignments/WardAssignmentListPage.tsx?raw';
 
 /**
  * CỔNG: nút "Xóa lọc" của màn danh sách phải xoá HẾT — thẻ tìm kiếm, ô chữ, trạng thái, mặt lọc.
@@ -25,6 +26,7 @@ const MAN = [
   ['Vụ việc', vuViec],
   ['Vụ án', vuAn],
   ['Tổng hợp', tongHop],
+  ['Hồ sơ phân công', hoSoPhanCong],
 ] as const;
 
 function thanXoaLoc(src: string): string {
@@ -36,7 +38,7 @@ function thanXoaLoc(src: string): string {
 function viTriSai(src: string): string | null {
   const than = thanXoaLoc(src);
   const reset = than.indexOf('listFilters.reset()');
-  const clear = than.search(/url\.clearAll\((?:governanceFilterKeys)?\)/);
+  const clear = than.search(/url\.clearAll\(\w*\)/);
   if (reset < 0 || clear < 0) return 'thiếu một trong hai lời gọi';
   return reset < clear ? null : '`url.clearAll()` không phải lần ghi cuối';
 }

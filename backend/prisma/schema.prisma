@@ -5944,6 +5944,14 @@ model WardAssignment {
   resultDueOn          DateTime?            @db.Date // "Hạn báo kết quả"
   completedOn          DateTime?            @db.Date // "Ngày hoàn thành"
   resultText           String? // "Kết quả"
+  /// "Mã" as a number (year * 100000 + number), kept by a trigger: the list orders by it (as text, 2026-8 > 2026-21).
+  codeSort             Int?
+  /// Read-only shadow columns of the tag search (accent-free), kept by a trigger; never written by the application.
+  summaryBd            String?              @map("summary_bd")
+  crimeOtherBd         String?              @map("crime_other_bd")
+  placeBd              String?              @map("place_bd")
+  entryOfficerNameBd   String?              @map("entry_officer_name_bd")
+  timKiemBd            String?              @map("tim_kiem_bd")
   archivedAt           DateTime?
   archivedById         String?
   archivedBy           User?                @relation("WardAssignmentArchivedBy", fields: [archivedById], references: [id], onDelete: Restrict)
@@ -5957,6 +5965,7 @@ model WardAssignment {
   documents       Document[]
   renderLogs      DocumentRenderLog[]
 
+  @@index([codeSort])
   @@index([assignedTeamId, status])
   @@index([status, resultDueOn])
   @@index([enteredById])
