@@ -386,10 +386,23 @@ describe('a waiting request, reviewed by PC02', () => {
     api.approve.mockResolvedValue({});
     renderAt('/ho-so-phan-cong/w1');
     const approve = await screen.findByTestId('ward-approve');
-    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator')).toHaveValue('i1'));
+    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator-trigger')).toHaveTextContent('Lê Văn C'));
     // The people and units offered come from the module's own route (a reviewer holds no right to the admin lists).
-    await waitFor(() => expect(within(screen.getByTestId('ward-follow-up-team')).getByText('Đội 1')).toBeInTheDocument());
-    expect(within(screen.getByTestId('ward-follow-up-user')).getByText('Đặng Văn K')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-team-trigger')).toHaveTextContent('Đội 1'));
+    expect(screen.getByTestId('ward-follow-up-user-trigger')).toHaveTextContent('Đặng Văn K');
+    // The three choices are type-to-find fields, not plain lists: the follower is found by typing, without accents.
+    for (const id of ['ward-assigned-investigator', 'ward-follow-up-user', 'ward-follow-up-team']) {
+      expect(screen.getByTestId(`${id}-trigger`)).toHaveAttribute('role', 'combobox');
+      expect(screen.getByTestId(id).querySelector('select')).toBeNull();
+    }
+    fireEvent.click(screen.getByTestId('ward-follow-up-user-trigger'));
+    fireEvent.change(await screen.findByTestId('ward-follow-up-user-search'), { target: { value: 'dang van' } });
+    expect(await screen.findByTestId('ward-follow-up-user-option-u-rev')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('ward-follow-up-user-search'), { target: { value: 'khong co ai' } });
+    await waitFor(() => expect(screen.queryByTestId('ward-follow-up-user-option-u-rev')).not.toBeInTheDocument());
+    // Nobody is created from here: the followers are the people of PC02.
+    expect(screen.queryByTestId('ward-follow-up-user-create-new')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ward-follow-up-user-trigger'));
     expect(api.followUpChoices).toHaveBeenCalled();
     const { api: http } = await import('@/lib/api');
     expect(vi.mocked(http.get).mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith('/admin/') || u.startsWith('/teams'))).toEqual([]);
@@ -410,20 +423,27 @@ describe('a waiting request, reviewed by PC02', () => {
     api.approve.mockResolvedValue({});
     renderAt('/ho-so-phan-cong/w1');
     const approve = await screen.findByTestId('ward-approve');
-    await waitFor(() => expect(screen.getByTestId('ward-follow-up-user')).toHaveValue(''));
-    await waitFor(() => expect(within(screen.getByTestId('ward-follow-up-team')).getByText('Đội 1')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator')).toHaveValue('i1'));
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-user-trigger')).toHaveTextContent(L.review.followUpUserPick));
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-team-trigger')).toHaveTextContent(L.review.followUpTeamPick));
+    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator-trigger')).toHaveTextContent('Lê Văn C'));
     // No follower yet: refused on the screen, nothing sent.
     fireEvent.click(approve);
     expect(await screen.findByTestId('ward-review-problem')).toHaveTextContent(L.errors.WARD_FOLLOW_UP_USER_REQUIRED);
     expect(api.approve).not.toHaveBeenCalled();
     // A person with one unit: the unit is filled in.
-    fireEvent.change(screen.getByTestId('ward-follow-up-user'), { target: { value: 'u-rev' } });
-    expect(screen.getByTestId('ward-follow-up-team')).toHaveValue('d1');
-    // A person with two units: the unit is chosen among theirs only.
-    fireEvent.change(screen.getByTestId('ward-follow-up-user'), { target: { value: 'u-two' } });
-    expect(within(screen.getByTestId('ward-follow-up-team')).getByText('Đội 2')).toBeInTheDocument();
-    fireEvent.change(screen.getByTestId('ward-follow-up-team'), { target: { value: 'd2' } });
+    await choose('ward-follow-up-user', 'u-rev');
+    expect(screen.getByTestId('ward-follow-up-team-trigger')).toHaveTextContent('Đội 1');
+    // A person with two units: the unit is chosen among theirs only (the one already chosen is theirs: it stays).
+    await choose('ward-follow-up-user', 'u-two');
+    fireEvent.click(screen.getByTestId('ward-follow-up-team-trigger'));
+    expect(await screen.findByTestId('ward-follow-up-team-option-d1')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ward-follow-up-team-option-d2'));
+    expect(screen.getByTestId('ward-follow-up-team-trigger')).toHaveTextContent('Đội 2');
+    // The follower taken away takes the unit with them: nothing half-chosen is sent.
+    fireEvent.click(screen.getByTestId('ward-follow-up-user-clear'));
+    expect(screen.getByTestId('ward-follow-up-team-trigger')).toHaveTextContent(L.review.followUpTeamPick);
+    await choose('ward-follow-up-user', 'u-two');
+    await choose('ward-follow-up-team', 'd2');
     fireEvent.click(approve);
     await waitFor(() =>
       expect(api.approve).toHaveBeenCalledWith('w1', expect.objectContaining({ assignedInvestigatorId: 'i1', followUpUserId: 'u-two', followUpTeamId: 'd2' }), '2026-11-13T03:00:00.000Z'),
@@ -584,8 +604,8 @@ describe('the request slip, printed as the petition form prints its documents', 
     api.approve.mockResolvedValue({});
     renderAt('/ho-so-phan-cong/w1');
     const approve = await screen.findByTestId('ward-approve');
-    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator')).toHaveValue('i1'));
-    await waitFor(() => expect(screen.getByTestId('ward-follow-up-user')).toHaveValue('u-rev'));
+    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator-trigger')).toHaveTextContent('Lê Văn C'));
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-user-trigger')).toHaveTextContent('Đặng Văn K'));
     expect(screen.queryByTestId('ward-slip-dialog')).not.toBeInTheDocument();
     fireEvent.click(approve);
     await waitFor(() => expect(api.approve).toHaveBeenCalled());
