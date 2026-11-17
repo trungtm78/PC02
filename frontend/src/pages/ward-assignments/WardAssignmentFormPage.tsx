@@ -389,7 +389,10 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   );
   const editAction = (at: '' | '-bottom') =>
     mode === 'view' && can?.edit ? { label: A.edit, testId: `ward-edit${at}`, onClick: () => navigate(WARD_PATHS.edit(detail!.id)) } : undefined;
-  const printAction = (at: '' | '-bottom') => (printable ? { label: A.print, testId: `ward-print${at}`, onClick: () => setSlipOpen(true) } : undefined);
+  // Always there on a stored request, as "In chứng từ" on the petition form; while there is no slip to print it says why.
+  const printBlocked = !detail ? null : !latestDecision ? L.list.actions.printNoDecision : !printable ? L.list.actions.printNotIssued : null;
+  const printAction = (at: '' | '-bottom') =>
+    detail ? { label: A.print, testId: `ward-print${at}`, onClick: () => setSlipOpen(true), disabled: !printable, title: printBlocked ?? undefined } : undefined;
   const count = L.form.submissionCount(detail?.submissionCount ?? 0);
 
   return (

@@ -10,6 +10,7 @@ import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface'
 import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import {
+  AddReturnReasonDto,
   ApproveDto,
   CompleteDto,
   DeleteWithDataDto,
@@ -64,6 +65,15 @@ export class WardAssignmentsController {
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
   returnReasons() {
     return this.review.returnReasons();
+  }
+
+  /** A reviewer adds a reason to the catalogue from the review ("Tạo mới" of the field). */
+  @Post('return-reasons')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'review', subject: 'WardAssignment' })
+  addReturnReason(@Body() body: AddReturnReasonDto, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    scopeOf(req);
+    return this.review.addReturnReason(user, body);
   }
 
   /**

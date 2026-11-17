@@ -100,6 +100,8 @@ export const wardAssignmentsApi = {
     api.post(`${at(id)}/complete/reopen`, { reason, expectedUpdatedAt }).then(data),
 
   returnReasons: () => api.get<WardReturnReason[]>(`${BASE}/return-reasons`).then(data),
+  /** A reviewer adds a reason to the catalogue; the same words answer the reason already listed (`existed`). */
+  addReturnReason: (name: string) => api.post<WardReturnReason & { existed: boolean }>(`${BASE}/return-reasons`, { name }).then(data),
   followUpChoices: () => api.get<WardFollowUpChoices>(`${BASE}/follow-up-choices`).then(data),
   /** The ward units the person may enter a request for (exactly those `create` accepts). */
   unitChoices: () => api.get<{ id: string; name: string }[]>(`${BASE}/unit-choices`).then(data),

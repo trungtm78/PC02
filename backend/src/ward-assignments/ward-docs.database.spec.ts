@@ -16,7 +16,7 @@ import { WARD_ERROR } from './ward-assignment.codes';
 import { WardAssignmentCommandService, type WardAssignmentInput } from './ward-assignment-command.service';
 import { WARD_DOCS_AUDIT, WARD_DOCS_ERROR } from './ward-docs.codes';
 import { WardFilesService } from './ward-files.service';
-import { WardSlipService } from './ward-slip.service';
+import { manualSlipNumber, WardSlipService } from './ward-slip.service';
 
 /**
  * The result files and the request slips of a ward assignment request, on a real PostgreSQL, with the real
@@ -195,7 +195,8 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
           createdById: id.reviewer,
           separator: '/',
           segments: [{ type: 'COUNTER' }, { type: 'LITERAL', value: suffix }],
-          counterConfig: { resetPeriod: 'YEARLY', minValue: 1, maxValue: 99999, padding: 1 },
+          // Four digits, as the series is seeded (the standard of the system's slips).
+          counterConfig: { resetPeriod: 'YEARLY', minValue: 1, maxValue: 99999, padding: 4 },
         },
       })
     ).id;
@@ -398,7 +399,10 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
 
     it('issued once: the next number of the series; asking again gives the same number and the same stored file', async () => {
       const first = await slips.issue({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn, {});
-      expect(first.slipNumber).toBe(`1/${suffix}`);
+      expect(first.slipNumber).toBe(`0001/${suffix}`);
+      // The file is named by the slip's own number, not by a digit of the unit's mark ("02" of PC02).
+      const named = await scratch.db.document.findUniqueOrThrow({ where: { id: first.slipDocumentId! }, select: { originalName: true } });
+      expect(named.originalName).toMatch(/_0001\.docx$/);
       expect(first.slipDocumentId).toBeTruthy();
       const again = await slips.issue({ id: id.reviewer }, scope.reviewer, id.A, id.dReturn, {});
       expect(again).toMatchObject({ slipNumber: first.slipNumber, slipDocumentId: first.slipDocumentId });
@@ -417,7 +421,7 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
 
     it('the slip of a return reads as PC02\'s Word slip: number, unit, investigator, crime, dates, numbered requirements, reason, signers', () => {
       const text = docxText(returnSlip.bytes);
-      expect(text).toContain(`Số: 1/${suffix}`);
+      expect(text).toContain(`Số: 0001/${suffix}`);
       expect(text).toMatch(/Thành phố Hồ Chí Minh, ngày \d{2} tháng \d{2} năm \d{4}/);
       expect(text).toContain('Căn cứ các Điều 36, 37, 145 Bộ luật Tố tụng Hình sự;');
       expect(text).toMatch(new RegExp(`Ngày \\d{2}/\\d{2}/\\d{4}, Công an P\\.Vườn Lài ${tag} có Báo cáo đề xuất`));
@@ -435,12 +439,12 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       id.B = await submitted();
       id.dB = await decide(id.B, 'RETURN', { requirements: ['Bổ sung'], reasonText: 'Thiếu' });
       const year = (await scratch.db.wardAssignmentDecision.findUniqueOrThrow({ where: { id: id.dReturn } })).slipYear!;
-      await scratch.db.wardAssignmentDecision.update({ where: { id: id.dB }, data: { slipYear: year, slipNumber: `2/${suffix}` } });
+      await scratch.db.wardAssignmentDecision.update({ where: { id: id.dB }, data: { slipYear: year, slipNumber: `0002/${suffix}` } });
 
       const approved = await slips.issue({ id: id.reviewer }, scope.reviewer, id.A, id.dApprove, { signers: { chiHuyDoi: 'Trung tá Hoàng Công Việt', lanhDaoPhong: 'Thượng tá Nguyễn Trung Hoà' } });
-      expect(approved.slipNumber).toBe(`3/${suffix}`);
+      expect(approved.slipNumber).toBe(`0003/${suffix}`);
       const text = docxText(await bytesOf((await slips.download({ id: id.reviewer }, scope.reviewer, id.A, id.dApprove)).stream));
-      expect(text).toContain(`Số: 3/${suffix}`);
+      expect(text).toContain(`Số: 0003/${suffix}`);
       expect(text).toContain('tại số 12 đường Cô Giang');
       expect(text).not.toContain('Lý do trả về');
       expect(text).toContain('1. Hỏi cung bị can\n2. Trưng cầu giám định dữ liệu điện tử\n3. Nhập kho vật chứng');
@@ -464,10 +468,13 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
         status: 409,
         body: { code: WARD_DOCS_ERROR.SLIP_NUMBER_TAKEN },
       });
-      expect(await fails(slips.issue({ id: id.reviewer }, scope.reviewer, id.B, id.dB, { slipNumber: '19 49' }))).toMatchObject({
-        status: 400,
-        body: { code: WARD_DOCS_ERROR.SLIP_NUMBER_INVALID },
-      });
+      for (const bad of ['19 49', '0', '000', 'A12', '12ABCD', '1234567']) {
+        expect({ bad, r: await fails(slips.issue({ id: id.reviewer }, scope.reviewer, id.B, id.dB, { slipNumber: bad })) }).toMatchObject({ bad, r: { status: 400, body: { code: WARD_DOCS_ERROR.SLIP_NUMBER_INVALID } } });
+      }
+      // Written as the series writes: four digits. 7, 07 and 0007 are one number.
+      expect(['7', '07', '0007', '7/PYC-PC02-Đ1', ' 7 '].map(manualSlipNumber)).toEqual(Array(5).fill('0007/PYC-PC02-Đ1'));
+      expect(manualSlipNumber('1949a')).toBe('1949A/PYC-PC02-Đ1');
+      expect(manualSlipNumber('12345')).toBe('12345/PYC-PC02-Đ1');
       // No number of the series was spent by hand.
       expect(await scratch.db.documentNumberLog.count({ where: { templateId: id.series } })).toBe(3);
     });

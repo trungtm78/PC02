@@ -147,6 +147,20 @@ describe('buildDocumentFilename', () => {
     ).toBe('DT-2026-36679_Phiếu đề xuất_0012.docx');
   });
 
+  it('dãy số KHÔNG đệm số 0: lấy đúng số thứ tự, không lấy chữ số trong ký hiệu đơn vị ("02" của PC02)', () => {
+    // Đo trên production 17/11/2026: phiếu yêu cầu số 1 và số 2 cùng ra tên `…_02.docx`.
+    const ten = (documentNumber: string) => buildDocumentFilename({ recordCode: '2026-4', templateName: 'Phiếu yêu cầu', documentNumber });
+    expect(ten('1/PYC-PC02-Đ1')).toBe('2026-4_Phiếu yêu cầu_1.docx');
+    expect(ten('2/PYC-PC02-Đ1')).toBe('2026-4_Phiếu yêu cầu_2.docx');
+    expect(ten('15/PYC-PC02-Đ1')).toBe('2026-4_Phiếu yêu cầu_15.docx');
+    // Hai phiếu khác số thì khác tên.
+    expect(ten('1/PYC-PC02-Đ1')).not.toBe(ten('2/PYC-PC02-Đ1'));
+    // Số nhập tay có chữ cái giữ nguyên chữ cái.
+    expect(ten('1949A/PYC-PC02-Đ1')).toBe('2026-4_Phiếu yêu cầu_1949A.docx');
+    // Số thứ tự đứng sau ký hiệu cũng vậy.
+    expect(ten('PYC-PC02-Đ1/7')).toBe('2026-4_Phiếu yêu cầu_7.docx');
+  });
+
   it('[P2] ext bẩn được làm sạch (không tái chèn path separator sau khi stem đã sạch)', () => {
     const out = buildDocumentFilename({ templateName: 'A', ext: '../evil' });
     expect(out).not.toContain('/');

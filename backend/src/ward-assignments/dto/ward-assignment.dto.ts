@@ -104,6 +104,10 @@ export class DeleteWithDataDto {
   @IsString() @MaxLength(100) confirmCode!: string;
 }
 
+export class AddReturnReasonDto {
+  @IsString() @MaxLength(200) name!: string;
+}
+
 export class ExpectedStampDto {
   @IsNgayThat() expectedUpdatedAt!: string;
 }

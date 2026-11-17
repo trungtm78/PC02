@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma, WardAssignment } from '@prisma/client';
 import { promises as fs } from 'node:fs';
@@ -18,6 +19,8 @@ type Scope = DataScope | null | undefined;
 
 /** The catalogue of return reasons ("Lý do trả về"): Directory rows of this type, kept by administrators. */
 export const RETURN_REASON_TYPE = 'LY_DO_TRA_VE';
+const RETURN_REASON_NAME_MIN = 3;
+const RETURN_REASON_NAME_MAX = 150;
 
 export interface ReturnInput {
   expectedUpdatedAt: string;
@@ -104,6 +107,34 @@ export class WardReviewService {
       where: { type: RETURN_REASON_TYPE, isActive: true },
       orderBy: [{ order: 'asc' }, { name: 'asc' }],
       select: { code: true, name: true },
+    });
+  }
+
+  /**
+   * A reviewer adds a reason to the catalogue from the review itself ("Tạo mới" of the field). The same words (case
+   * and spacing aside) are the same reason: the one listed is answered, never a double. A reason an administrator
+   * switched off is not brought back by typing it again. Audited (the code only).
+   */
+  async addReturnReason(actor: Actor, input: { name?: string }): Promise<{ code: string; name: string; existed: boolean }> {
+    const name = (input.name ?? '').normalize('NFC').trim().split(/[ \t]+/).join(' ');
+    if (name.length < RETURN_REASON_NAME_MIN || name.length > RETURN_REASON_NAME_MAX) {
+      throw new BadRequestException(wardBody(WARD_ERROR.RETURN_REASON_NAME_INVALID, { min: RETURN_REASON_NAME_MIN, max: RETURN_REASON_NAME_MAX }));
+    }
+    const key = name.toLocaleLowerCase('vi');
+    return this.prisma.$transaction(async (tx) => {
+      // One addition at a time: two reviewers typing the same reason at the same moment would both find nothing.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('ward-return-reason'))::text AS locked`;
+      const all = await tx.directory.findMany({ where: { type: RETURN_REASON_TYPE }, select: { code: true, name: true, isActive: true } });
+      const same = all.find((r) => r.name.normalize('NFC').trim().split(/[ \t]+/).join(' ').toLocaleLowerCase('vi') === key);
+      if (same) {
+        if (!same.isActive) throw new ConflictException(wardBody(WARD_ERROR.RETURN_REASON_SWITCHED_OFF, { code: same.code }));
+        return { code: same.code, name: same.name, existed: true };
+      }
+      const code = `TU_NHAP_${randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+      // Before "Lý do khác" (99), after the starting set.
+      await tx.directory.create({ data: { type: RETURN_REASON_TYPE, code, name, order: 50, isActive: true } });
+      await this.audit.log({ userId: actor.id, action: 'WARD_RETURN_REASON_ADDED', subject: 'Directory', metadata: { type: RETURN_REASON_TYPE, code } }, tx);
+      return { code, name, existed: false };
     });
   }
 

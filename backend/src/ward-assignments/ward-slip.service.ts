@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   WARD_DOCS_AUDIT,
   WARD_DOCS_ERROR,
+  WARD_SLIP_NUMBER_DIGITS,
   WARD_SLIP_NUMBER_SERIES,
   WARD_SLIP_NUMBER_SUFFIX,
   WARD_SLIP_TEMPLATE_CODE,
@@ -40,12 +41,17 @@ export interface SlipSignersInput {
  * The number written by hand: "1949A" or "1949A/PYC-PC02-Đ1" (the series' suffix is added when left out). Digits,
  * then at most three letters. Anything else is refused: the number is printed on a legal document and is unique per
  * year, so it must be read the same way by everybody.
+ *
+ * Written as the series writes its own numbers: four digits (`5`, `05` and `0005` are ONE number, `0005`), so that a
+ * number written by hand and the same number given by the series are found to be the same.
  */
 export function manualSlipNumber(value: string): string {
   const t = value.trim().normalize('NFC');
   const bare = t.endsWith(WARD_SLIP_NUMBER_SUFFIX) ? t.slice(0, -WARD_SLIP_NUMBER_SUFFIX.length) : t;
-  if (!/^\d{1,6}[A-Za-z]{0,3}$/.test(bare) || /^0+\d/.test(bare)) throw new BadRequestException(wardBody(WARD_DOCS_ERROR.SLIP_NUMBER_INVALID));
-  return `${bare.toUpperCase()}${WARD_SLIP_NUMBER_SUFFIX}`;
+  const parts = /^(\d{1,6})([A-Za-z]{0,3})$/.exec(bare);
+  const number = parts ? Number(parts[1]) : 0;
+  if (!parts || number < 1) throw new BadRequestException(wardBody(WARD_DOCS_ERROR.SLIP_NUMBER_INVALID));
+  return `${String(number).padStart(WARD_SLIP_NUMBER_DIGITS, '0')}${parts[2].toUpperCase()}${WARD_SLIP_NUMBER_SUFFIX}`;
 }
 
 /** The year of the Viet Nam calendar a slip issued at `at` belongs to. */

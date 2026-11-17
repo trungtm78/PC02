@@ -17,3 +17,11 @@ export const BE_RONG_COT_THAO_TAC = 'var(--be-rong-cot-thao-tac)';
  * `doBeRong()` (chỉ phân tích px/rem) không bao giờ đọc giá trị này.
  */
 export const BIEN_CSS_BE_RONG_COT_THAO_TAC = '--be-rong-cot-thao-tac';
+
+/**
+ * The actions column of a list with at most FOUR quick buttons and no "⋮" (the ward assignment list): measured
+ * 4 × 28px buttons + 3 × 4px gaps + 2 × 16px cell padding = 156px → 10rem. The same rule on phones (one "⋮", 2.5rem).
+ * A list that gains a fifth button goes back to `BE_RONG_COT_THAO_TAC`.
+ */
+export const BE_RONG_COT_THAO_TAC_HEP = 'var(--be-rong-cot-thao-tac-hep)';
+export const BIEN_CSS_BE_RONG_COT_THAO_TAC_HEP = '--be-rong-cot-thao-tac-hep';
