@@ -1,5 +1,26 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
+## 2026-11-17 — Hồ sơ phân công phường/xã làm giống danh sách Đơn thư
+
+Màn `/ho-so-phan-cong` (`pages/ward-assignments/WardAssignmentListPage.tsx`) lên production 17/11 dựng gọn; chủ dự án yêu cầu mọi xử lý giống danh sách Đơn thư. Tên tệp không theo mẫu `*ListPageShell.tsx` nên job `shell-parity-gate` không tự bắt: các cổng mã nguồn dưới đây đã ghi tên màn này.
+
+| Năng lực của danh sách Đơn thư | Hồ sơ phân công | Bằng chứng |
+|---|---|---|
+| Nút `+ Tạo mới` kèm chip phím tắt; Alt+N, Alt+R, Ctrl+K, Ctrl+E | Có (`useListShortcuts`); chỉ hiện với người có `write:WardAssignment` | `WardAssignmentListPage.test.tsx`, `tools/uat-phan-cong/browser.cjs` |
+| Thẻ thống kê bấm được, số thẻ = số dòng | Sáu thẻ (Tất cả, Nháp, Chờ duyệt, Trả về, Đã duyệt, Lưu trữ) trong MỘT câu trả lời `GET /ward-assignments/list-stats` dưới đúng điều kiện của danh sách | `ward-assignment-commands.database.spec.ts` (nhóm "the cards"), ca đo số thẻ = số dòng trong `browser.cjs` |
+| Chip trạng thái | **Không có, cố ý**: sáu thẻ đã là bộ lọc trạng thái; thêm chip là hai chỗ cùng ghi một trạng thái. Vì cùng lý do, "Tình trạng" không phải là thẻ tìm (máy chủ trả 400) | khai `ho-so-phan-cong.khai.ts` |
+| Ô tìm dạng thẻ, "mọi cột", không dấu | Có: Mã, Trích yếu, Tội danh (danh mục + chữ tay), Nơi xảy ra, Cán bộ nhập, Loại hồ sơ, Phân công, Ngày trình, Hạn báo kết quả. Địa chỉ cũ `hspc_q` mở thành thẻ "mọi cột" | `timKiemCotKhai.gate.test.ts`, `tim-kiem-sinh-khop.gate.spec.ts`, database spec (nhóm "tags") |
+| Khung Bộ lọc + đếm lọc + Xóa lọc | Trình lần đầu từ–đến, Đơn vị (các đơn vị có hồ sơ người đó đọc được), Loại hồ sơ, Phân công, Hạn báo kết quả | `xoaLocGhiUrlCuoi.gate.test.ts`, `WardAssignmentListPage.test.tsx` |
+| Sắp xếp cột | Mã (theo SỐ: cột `codeSort` do trigger giữ), Ngày trình, Loại hồ sơ, Phân công, Trích yếu, Tình trạng, Lần trình, Hạn báo kết quả; giá trị rỗng xuống cuối | database spec (nhóm "order"), ca đo trong `browser.cjs` |
+| Cột: ẩn/hiện, kéo giãn, đổi chỗ, mật độ dòng, xuống dòng | Có (`useBoCucCot('ward-assignments')`, `useMatDoDong`, `SummaryCell`, `DateCell`); thêm hai cột ẩn sẵn: Nơi xảy ra, Cán bộ nhập | `moiManDanhSachDungBangChung.gate.test.ts`, `bangDeDoc.gate.test.ts` |
+| Cột Thao tác đầu bảng, ghim trái | Xem, Sửa, In phiếu yêu cầu, Xoá (nháp) theo `can` của từng dòng | `cotThaoTac.gate.test.ts`, `cotGhimKhongOTick.test.tsx` |
+| Bấm vào dòng theo cài đặt hệ thống | Khoá thứ tám `BAM_DONG_HO_SO_PHAN_CONG`, mặc định KHONG như các màn Đơn thư | `bamDongMoiManPhaiQuaHook.gate.test.ts`, `giaoDienDongBo.gate.test.ts`, `giao-dien.spec.ts` |
+| Chọn nhiều dòng + thanh hàng loạt | Xoá các bản nháp chưa từng trình (mỗi bản một lệnh xoá với dấu thời gian của chính nó). Xuất Word hàng loạt: **chưa có** (phiếu yêu cầu phát hành theo từng lượt thẩm định, in từ nút trên dòng) | `WardAssignmentListPage.test.tsx` (nhóm "several rows at once"), `browser.cjs` |
+| Xuất Excel theo bộ lọc | Hai nút: các cột đang xem, hoặc mọi cột; đúng điều kiện, thứ tự, phạm vi của danh sách; có ghi audit | `khaiCotXuat.gate.test.ts`, database spec (nhóm "Excel"), ca mở tệp trong `browser.cjs` |
+| Sửa nhanh ngay trên dòng ("Kết quả xử lý") | **Không có**: khối kết quả của hồ sơ phân công gồm nhiều trường do PC02 nhập, sửa trong form | — |
+
+Sửa kèm ở bảng dùng chung: cột ghim neo ở `left-10` (sau ô tick) ngay cả khi bảng không có ô tick, nên đè lên cột kế bên. Màn này là màn đầu tiên có người xem không có ô tick (người không có quyền xoá); `Table.tsx` giờ neo `left-0` khi không có ô tick.
+
 ## 2026-11-15 — Cột "Cảnh báo" của quy trình xử lý + màn "Theo dõi xử lý" (PR 11)
 
 Chỉ có khi công tắc `processing_flow_records` BẬT: máy chủ khi ấy trả `alert` trên từng dòng và `alertAsOf` ở gốc câu trả lời. Công tắc TẮT thì ba màn danh sách y nguyên như trước (không cột, không ô lọc, không tham số mới).

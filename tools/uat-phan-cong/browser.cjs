@@ -179,6 +179,75 @@ async function asPerson(browser, who, watch) {
     check('danh sách (PC02): In phiếu trên dòng tải đúng phiếu đã phát hành', !!slipAgain, slipAgain ? slipAgain.suggestedFilename() : 'không có tệp');
     await rev.page.screenshot({ path: path.join(OUT, '03c-pc02-danh-sach-thao-tac.png'), fullPage: true });
     await rev.page.getByTestId('ward-slip-close').click();
+    // ── the list as the petition list: tags over every column, order, filter panel, cards, Excel ──
+    const listOf = async (page, query) => {
+      await page.goto(`${WEB}/ho-so-phan-cong${query}`);
+      await page.getByTestId('ward-assignment-list-page').waitFor({ timeout: 20000 });
+      await page.waitForTimeout(1800);
+    };
+    await listOf(rev.page, `?hspc_tk=${encodeURIComponent('*~nhom danh bac tai hem 12')}`);
+    check('thẻ "mọi cột" gõ KHÔNG DẤU ("nhom danh bac") tìm ra hồ sơ có trích yếu có dấu', (await rev.page.getByTestId(`btn-view-${id}`).count()) === 1);
+    await listOf(rev.page, `?hspc_tk=${encodeURIComponent('noiXayRa~hem 12 duong vuon lai')}&hspc_tk=${encodeURIComponent(`trichYeu~${RUN}`)}`);
+    check('thẻ theo cột Nơi xảy ra + Trích yếu (hai thẻ, AND): vẫn ra đúng hồ sơ', (await rev.page.getByTestId(`btn-view-${id}`).count()) === 1);
+    check('cột Nơi xảy ra (đang ẩn) vẫn tìm được; ô tìm dạng thẻ hiện trên thanh công cụ', (await rev.page.getByTestId('list-page-shell-toolbar').getByRole('combobox').count()) >= 1);
+    await listOf(rev.page, `?hspc_tk=${encodeURIComponent(`trichYeu~khong co ho so nao ten nhu the ${RUN}`)}`);
+    const emptyText = await rev.page.getByTestId('ward-assignment-list-page').innerText();
+    check('thẻ không khớp gì: bảng báo "không tìm thấy" kèm thẻ đang lọc, không màn trắng', /Không tìm thấy/.test(emptyText), emptyText.slice(0, 300));
+    await rev.page.getByTestId('list-page-shell-reset-filters').click();
+    await rev.page.getByTestId(`btn-view-${id}`).waitFor({ timeout: 10000 }).catch(() => undefined);
+    check('"Xóa lọc" bỏ hết thẻ: hồ sơ hiện lại, địa chỉ sạch', (await rev.page.getByTestId(`btn-view-${id}`).count()) === 1 && !rev.page.url().includes('hspc_tk'), rev.page.url());
+    // The pinned actions column does not cover the next column (measured: the person here has no tick column).
+    const boxActions = await rev.page.getByRole('columnheader', { name: 'Thao tác' }).boundingBox();
+    const boxCode = await rev.page.getByTestId('sort-code').boundingBox();
+    check('cột Thao tác (ghim trái) không đè lên cột Mã: mép trái tiêu đề "Mã" nằm sau mép phải cột Thao tác', !!boxActions && !!boxCode && boxCode.x >= boxActions.x + boxActions.width - 1, { actions: boxActions, code: boxCode });
+    // order
+    await rev.page.getByTestId('sort-code').click();
+    await rev.page.waitForTimeout(1500);
+    check('bấm tiêu đề cột Mã: địa chỉ mang cột sắp xếp, bảng vẫn có dòng', rev.page.url().includes('hspc_sort=code') && (await rev.page.locator('[data-testid^="ward-row-"]').count()) > 0, rev.page.url());
+    const codesShown = async () => (await rev.page.locator('[data-testid^="ward-row-"] a').allInnerTexts()).filter((t) => /^\d{2,4}-\d+$/.test(t.trim())).map((t) => Number(t.trim().split('-')[1]));
+    const firstWay = await codesShown();
+    await rev.page.getByTestId('sort-code').click();
+    await rev.page.waitForTimeout(1500);
+    const otherWay = await codesShown();
+    const sorted = (xs, dir) => xs.every((x, i) => i === 0 || (dir > 0 ? xs[i - 1] <= x : xs[i - 1] >= x));
+    check('sắp theo Mã: một chiều tăng, chiều kia giảm (đo trên số mã đang hiện)', firstWay.length > 1 && otherWay.length > 1 && ((sorted(firstWay, 1) && sorted(otherWay, -1)) || (sorted(firstWay, -1) && sorted(otherWay, 1))), { firstWay: firstWay.slice(0, 6), otherWay: otherWay.slice(0, 6) });
+    // cards: one request, numbers that match the rows
+    await listOf(rev.page, '');
+    const cardNumber = async (key) => Number(((await rev.page.getByTestId(`ward-card-${key}`).innerText()).match(/\d[\d.]*/) ?? ['-1'])[0].replace(/\./g, ''));
+    const returned = await cardNumber('RETURNED');
+    await rev.page.getByTestId('ward-card-RETURNED').click();
+    await rev.page.waitForTimeout(1500);
+    const pager = await rev.page.getByTestId('ward-assignment-list-page').innerText();
+    const rowsReturned = await rev.page.locator('[data-testid^="ward-row-"]').count();
+    check('thẻ Trả về: số trên thẻ = số dòng danh sách hiện dưới thẻ đó', returned >= 1 && (returned <= 20 ? rowsReturned === returned : rowsReturned === 20), { returned, rowsReturned, pager: pager.slice(-120) });
+    check('bấm thẻ ghi vào địa chỉ (hspc_the=RETURNED)', rev.page.url().includes('hspc_the=RETURNED'), rev.page.url());
+    // filter panel + Excel
+    await listOf(rev.page, '');
+    // The panel opens from the "Bộ lọc" button, as on the petition list.
+    if ((await rev.page.getByTestId('list-page-shell-filter-toggle').getAttribute('aria-expanded')) !== 'true') await rev.page.getByTestId('list-page-shell-filter-toggle').click();
+    await rev.page.getByTestId('btn-apply-filters').waitFor({ state: 'visible', timeout: 8000 }).catch(() => undefined);
+    check('bấm "Bộ lọc" mở khung lọc: có ô Đơn vị, Loại hồ sơ, Phân công, Hạn báo kết quả, hai ô ngày và hai nút Xuất Excel', (await Promise.all(['filter-don-vi', 'filter-loai-ho-so', 'filter-phan-cong', 'filter-canh-bao', 'filter-from-date', 'filter-to-date', 'btn-xuat-dang-xem', 'btn-xuat-day-du'].map((t) => rev.page.getByTestId(t).isVisible()))).every(Boolean));
+    await rev.page.getByTestId('filter-loai-ho-so').selectOption('CASE');
+    const unitOptions = await rev.page.getByTestId('filter-don-vi').locator('option').allInnerTexts();
+    check('ô lọc Đơn vị liệt kê các đơn vị có hồ sơ', unitOptions.some((o) => o.includes(`UAT ${RUN}`)), unitOptions.slice(0, 6));
+    await rev.page.getByTestId('btn-apply-filters').click();
+    await rev.page.waitForTimeout(1500);
+    check('Áp dụng bộ lọc Loại hồ sơ = Vụ án: địa chỉ mang bộ lọc, đếm 1 bộ lọc đang áp', rev.page.url().includes('hspc_loai_ho_so=CASE') && (await rev.page.getByTestId('list-page-shell-filter-count').innerText()).trim() === '1', rev.page.url());
+    check('có bộ chọn mật độ dòng cạnh nút Cột', (await rev.page.getByTestId('chon-mat-do').count()) === 1);
+    const [xlsx] = await Promise.all([rev.page.waitForEvent('download', { timeout: 30000 }).catch(() => null), rev.page.getByTestId('btn-xuat-dang-xem').click()]);
+    const savedXlsx = path.join(os.tmpdir(), `${TAG}-danh-sach.xlsx`);
+    if (xlsx) await xlsx.saveAs(savedXlsx);
+    check('Xuất Excel (đang xem): tệp .xlsx tải về', !!xlsx && /\.xlsx$/i.test(xlsx.suggestedFilename()) && fs.statSync(savedXlsx).size > 3000, xlsx ? xlsx.suggestedFilename() : 'không có tệp');
+    if (xlsx) {
+      const ExcelJS = require(path.join(BACKEND, 'node_modules/exceljs'));
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(savedXlsx);
+      const cells = [];
+      wb.worksheets[0].eachRow((row) => row.eachCell((c) => cells.push(String(c.value ?? ''))));
+      check('tệp Excel có hồ sơ vừa trình, đúng chữ của màn hình (Vụ án), và không có dòng Vụ việc nào khi đang lọc Vụ án', cells.some((c) => c.includes(`UAT ${RUN}`)) && cells.includes('Vụ án') && !cells.includes('Vụ việc'), cells.filter((c) => c.includes('Vụ')).slice(0, 5));
+    }
+    await rev.page.screenshot({ path: path.join(OUT, '03d-pc02-danh-sach-loc.png'), fullPage: true });
+
     await rev.page.goto(`${WEB}/ho-so-phan-cong/thong-ke`);
     await rev.page.waitForLoadState('domcontentloaded');
     await rev.page.waitForTimeout(2500);
@@ -261,12 +330,32 @@ async function asPerson(browser, who, watch) {
     check('phường tải được phiếu PC02 đã phát hành', !!wardSlip, wardSlip ? wardSlip.suggestedFilename() : 'không có tệp');
     await ward.page.screenshot({ path: path.join(OUT, '09-phuong-danh-sach.png'), fullPage: true });
     await ward.page.getByTestId('ward-slip-close').click();
+    // ── several drafts at once ──
+    const drafts = [];
+    for (const n of [1, 2]) {
+      const d = await call(w.token, 'POST', '/ward-assignments', { caseType: 'INCIDENT', kind: 'NEW', crimeId: null, crimeOther: 'Trộm cắp', summary: `Bản nháp xoá hàng loạt ${n} (UAT ${RUN})`, content: 'x', subjectsUnknown: true, subjects: [], proposedInvestigatorId: null, entryOfficerName: 'Phạm Thị Hoa' });
+      drafts.push(d.body?.id);
+    }
+    await ward.page.goto(`${WEB}/ho-so-phan-cong?hspc_tk=${encodeURIComponent('trichYeu~ban nhap xoa hang loat')}`);
+    await ward.page.getByTestId(`ward-row-${drafts[0]}`).waitFor({ timeout: 15000 }).catch(() => undefined);
+    check('phường: hai bản nháp vừa lập hiện trong danh sách (tìm theo thẻ)', drafts.every(Boolean) && (await ward.page.locator('[data-testid^="ward-row-"]').count()) === 2, drafts);
+    for (const d of drafts) await ward.page.getByTestId(`ward-row-${d}`).locator('input[type="checkbox"]').check();
+    await ward.page.getByText('Xóa', { exact: true }).last().click();
+    await ward.page.getByRole('button', { name: 'Xác nhận' }).click();
+    const bulkNotice = await ward.page.getByTestId('ward-list-notice').innerText({ timeout: 15000 }).catch(() => '');
+    check('chọn hai bản nháp → Xóa → Xác nhận: báo "Đã xoá 2 bản nháp"', bulkNotice.includes('Đã xoá 2 bản nháp'), bulkNotice);
+    const gone = await Promise.all(drafts.map((d) => call(w.token, 'GET', `/ward-assignments/${d}`)));
+    check('hai bản nháp không còn trên máy chủ', gone.every((g) => g.status === 404), gone.map((g) => g.status));
+    await ward.page.goto(`${WEB}/ho-so-phan-cong`);
+    await ward.page.getByTestId('ward-assignment-list-page').waitFor({ timeout: 15000 });
+    await ward.page.waitForTimeout(1200);
     await ward.page.keyboard.press('Alt+n');
     await ward.page.waitForURL('**/ho-so-phan-cong/new', { timeout: 8000 }).catch(() => undefined);
     check('Alt+N mở form tạo mới', ward.page.url().endsWith('/ho-so-phan-cong/new'), ward.page.url());
     await ward.context.close();
     await rev.context.close();
   } catch (err) {
+    console.log(err instanceof Error ? err.stack : String(err));
     check('the browser pass ran to its end', false, err instanceof Error ? err.stack : String(err));
   } finally {
     check('không lỗi trang, lỗi console, 403 hay 5xx trong lượt', watch.length === 0, [...new Set(watch)].slice(0, 20));

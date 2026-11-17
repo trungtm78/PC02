@@ -332,9 +332,13 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
         expect(await by(['toiDanhKhac~trom cap'])).toEqual([ids.theft]);
         expect(await by(['toiDanh~danh bac'])).toEqual([ids.gambling, ids.draft].sort());
         expect(await by(['loaiHoSo~INCIDENT'])).toEqual([ids.theft]);
-        expect(await by(['trangThai~DRAFT'])).toEqual([ids.draft]);
-        expect(await by(['trangThai~DRAFT', 'trangThai~SUBMITTED'])).toEqual([ids.gambling, ids.theft, ids.draft].sort());
-        expect(await by(['trangThai~SUBMITTED', 'loaiHoSo~INCIDENT'])).toEqual([ids.theft]);
+        expect(await by(['loaiHoSo~INCIDENT', 'loaiHoSo~CASE'])).toEqual([ids.gambling, ids.theft, ids.draft].sort());
+        expect(await by(['loaiHoSo~CASE', 'noiXayRa~ben thanh'])).toEqual([ids.gambling]);
+        // The status is the cards' (one control): it is not a tag, and asking for it is refused, never silently ignored.
+        expect(await fails(mine({ tk: ['trangThai~DRAFT'] }))).toMatchObject({ status: 400 });
+        // "Every column" reads the crime of the catalogue as the Tội danh column shows it.
+        const everyColumn = await queries.list(scope.wardy, { tk: ['*~toi danh bac', `trichYeu~${mark}`], pageSize: 200 });
+        expect(everyColumn.data.map((r) => r.id).sort()).toEqual([ids.gambling, ids.draft].sort());
         const code = (await codeOf(ids.gambling))!;
         expect(await by([`ma~${code}`])).toEqual([ids.gambling]);
         expect(await fails(mine({ tk: ['khongCoCotNay~x'] }))).toMatchObject({ status: 400 });
@@ -345,14 +349,27 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
 
       it('order: nothing asked keeps drafts on top then the newest submission; a column asked is followed both ways, empty values last', async () => {
         expect((await mine()).data[0].id).toBe(ids.draft);
-        const codes = async (sortOrder: 'asc' | 'desc') => (await mine({ sortBy: 'code', sortOrder })).data.map((r) => r.code);
-        const up = await codes('asc');
-        const down = await codes('desc');
-        // The draft has no code: last in both directions.
-        expect(up.at(-1)).toBeNull();
-        expect(down.at(-1)).toBeNull();
-        expect(up.slice(0, 2)).toEqual([...up.slice(0, 2)].sort());
-        expect(down.slice(0, 2)).toEqual([...up.slice(0, 2)].reverse());
+        // As NUMBERS: 8 before 21 before 100, which as text would read 100, 21, 8.
+        const numbered = async (code: string) => {
+          const made = await commands.create({ id: id.wardy }, scope.wardy, input({ summary: `${mark} số ${code}` }));
+          await scratch.db.wardAssignment.update({ where: { id: made.id }, data: { code, status: 'SUBMITTED', submissionCount: 1, submittedAt: new Date() } });
+          return made.id;
+        };
+        const made = [await numbered(`2031-100`), await numbered(`2031-8`), await numbered(`2031-21`), await numbered(`2030-999`)];
+        const order = (await mine({ q: `${mark} số`, sortBy: 'code', sortOrder: 'asc' })).data.map((r) => r.code);
+        expect(order).toEqual(['2030-999', '2031-8', '2031-21', '2031-100']);
+        // A request with no code yet (a draft) is last whichever way the column is sorted.
+        const withDraft = async (sortOrder: 'asc' | 'desc') => (await mine({ sortBy: 'code', sortOrder })).data.map((r) => r.code);
+        expect((await withDraft('asc')).slice(0, 4)).toEqual(order);
+        expect((await withDraft('desc')).slice(0, 4)).toEqual([...order].reverse());
+        expect((await withDraft('asc')).slice(4).every((c) => c === null || !/^\d{4}-\d+$/.test(c))).toBe(true);
+        expect((await mine({ q: `${mark} số`, sortBy: 'code', sortOrder: 'desc' })).data.map((r) => r.code)).toEqual(['2031-100', '2031-21', '2031-8', '2030-999']);
+        // A code of another form is not a failed write: it has no number, and sinks to the end.
+        await scratch.db.wardAssignment.update({ where: { id: made[0] }, data: { code: `${tag}-KHAC` } });
+        expect((await mine({ q: `${mark} số`, sortBy: 'code', sortOrder: 'asc' })).data.map((r) => r.code).at(-1)).toBe(`${tag}-KHAC`);
+        // Restrict everywhere: the subjects go before the requests.
+        await scratch.db.wardAssignmentSubject.deleteMany({ where: { assignmentId: { in: made } } });
+        await scratch.db.wardAssignment.deleteMany({ where: { id: { in: made } } });
         // By text: the database's own order (its collation, not JavaScript's), one way the reverse of the other.
         const bySummary = async (sortOrder: 'asc' | 'desc') => (await mine({ sortBy: 'summary', sortOrder })).data.map((r) => r.summary);
         expect(await bySummary('asc')).toEqual((await bySummary('desc')).reverse());
@@ -369,8 +386,6 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
         for (const status of ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED'] as const) expect({ status, n: stats.byStatus[status] }).toEqual({ status, n: await rows({ status }) });
         expect(stats.archived).toBe(await rows({ archived: true }));
         expect(stats).toMatchObject({ all: 3, byStatus: { DRAFT: 1, SUBMITTED: 2 } });
-        // The tag of the status is what a card stands for: the other cards do not fall to 0 because of it.
-        expect((await queries.listStats(scope.wardy, { ...filters, tk: ['trangThai~DRAFT'] })).byStatus).toMatchObject({ DRAFT: 1, SUBMITTED: 2 });
         // Another filter does narrow every card.
         expect(await queries.listStats(scope.wardy, { ...filters, caseType: 'INCIDENT' })).toMatchObject({ all: 1, byStatus: { DRAFT: 0, SUBMITTED: 1 } });
         // Somebody who reaches nothing counts nothing.

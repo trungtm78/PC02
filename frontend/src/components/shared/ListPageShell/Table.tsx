@@ -398,7 +398,10 @@ export function Table<TRow, TId extends string | number = string>({
   const khungRef = useRef<HTMLDivElement>(null);
   // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
   // là nền THẬT của hàng chứ không phải màu cứng — xem chú thích ở `nenHang` bên dưới.
-  const LOP_GHIM = 'sticky left-10 z-[1]';
+  // Neo SAU ô tick (`left-10` = bề rộng ô tick) chỉ khi bảng CÓ ô tick. Bảng không có ô tick mà vẫn neo ở `left-10`
+  // thì cột ghim bị đẩy sang phải 2.5rem ngay cả khi chưa cuộn và đè lên cột kế bên — đo trên Chromium 17/11/2026 ở
+  // danh sách Hồ sơ phân công với người không có quyền xoá (không ô tick): tiêu đề cột "Mã" bị che mất.
+  const LOP_GHIM = bulkSelection ? 'sticky left-10 z-[1]' : 'sticky left-0 z-[1]';
   // Nền ô ghim: bám theo nền hàng thay vì khai màu riêng. Xem chú thích ở `nenHang`.
   const NEN_O_GHIM = 'bg-inherit';
   const colSpan = columns.length + (bulkSelection ? 1 : 0);

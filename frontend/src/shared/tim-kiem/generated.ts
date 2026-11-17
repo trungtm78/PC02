@@ -221,7 +221,6 @@ export const TIM_KIEM_HO_SO_PHAN_CONG = [
   { key: 'toiDanhKhac', nhan: 'Tội danh khác', kieu: 'chu' },
   { key: 'noiXayRa', nhan: 'Nơi xảy ra', kieu: 'chu' },
   { key: 'canBoNhap', nhan: 'Cán bộ nhập', kieu: 'chu' },
-  { key: 'trangThai', nhan: 'Tình trạng', kieu: 'chon' },
   { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chon' },
   { key: 'phanCong', nhan: 'Phân công', kieu: 'chon' },
   { key: 'ngayTrinh', nhan: 'Ngày trình', kieu: 'ngay' },

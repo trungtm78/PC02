@@ -49,8 +49,6 @@ export interface WardAssignmentListQuery {
 const PAGE_SIZE_MAX = 200;
 /** The old `q` opens as the tag "every column". */
 const OLD_PARAMETERS = { q: KHOA_TAT_CA } as const;
-/** The tag of "Tình trạng": the cards drop it as they drop the status. */
-const STATUS_TAG = 'trangThai~';
 /** The columns the list sorts by (the keys the screen sends). */
 const SORTABLE = ['code', 'submittedAt', 'resultDueOn', 'status', 'submissionCount', 'caseType', 'kind', 'summary', 'createdAt'] as const;
 
@@ -115,7 +113,9 @@ export class WardAssignmentQueryService {
       allowed: SORTABLE,
       defaultField: 'submittedAt',
       // A request with no code, no submission day or no deadline sinks to the end, whichever way the column is sorted.
-      nullableFields: ['code', 'submittedAt', 'resultDueOn'],
+      nullableFields: ['codeSort', 'submittedAt', 'resultDueOn'],
+      // "Mã" orders as a number: as text, 2026-8 comes after 2026-21. The number is kept by a trigger (`codeSort`).
+      fieldAliases: { code: 'codeSort' },
     }) as Prisma.WardAssignmentOrderByWithRelationInput[];
   }
 
@@ -125,8 +125,7 @@ export class WardAssignmentQueryService {
    */
   async listStats(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date()) {
     const byStatus = Object.fromEntries(Object.values(WardAssignmentStatus).map((s) => [s, 0])) as Record<WardAssignmentStatus, number>;
-    // The tag of the status goes the way of the status parameter: a card must not read 0 because another is open.
-    const filters = { ...query, tk: (query.tk ?? []).filter((t) => !t.startsWith(STATUS_TAG)) };
+    const filters = query;
     const today = vnDay(now);
     const [open, archived] = await Promise.all([this.where(scope, filters, today, { archived: false }), this.where(scope, filters, today, { archived: true })]);
     if (!open || !archived) return { all: 0, byStatus, archived: 0 };

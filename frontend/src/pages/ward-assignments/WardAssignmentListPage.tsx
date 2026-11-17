@@ -124,6 +124,18 @@ const CARD_STYLE: Record<CardKey, Pick<StatCard, 'icon' | 'iconBgClass' | 'iconC
   archived: { icon: Archive, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-500', valueColorClass: 'text-slate-600' },
 };
 
+/** The values of the tags that are chosen, not typed, worded as the columns word them. */
+const TAG_VALUES = {
+  loaiHoSo: [
+    { value: 'INCIDENT', label: L.caseType.INCIDENT },
+    { value: 'CASE', label: L.caseType.CASE },
+  ],
+  phanCong: [
+    { value: 'NEW', label: L.kind.NEW },
+    { value: 'REASSIGN', label: L.kind.REASSIGN },
+  ],
+} as const;
+
 /** The modals of the record lists (assign, delete with a reason, print documents) are not this screen's: its own are below. */
 const NO_MODAL = { open: () => undefined };
 
@@ -153,7 +165,7 @@ export default function WardAssignmentListPage() {
   // The tag search. Its switch off (an emergency switch, on unless an administrator turns it off): the plain box,
   // which the server reads as "every column" all the same.
   const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useTheTimKiem({ prefix: PREFIX, khai: TIM_KIEM_HO_SO_PHAN_CONG, thamSoCu: OLD_PARAMETERS, bat: theBat });
+  const timKiem = useTheTimKiem({ prefix: PREFIX, khai: TIM_KIEM_HO_SO_PHAN_CONG, giaTriChon: TAG_VALUES, thamSoCu: OLD_PARAMETERS, bat: theBat });
   // By VALUE: `tkGui` is a new array on every change of the address, a change of page included.
   const tkKey = JSON.stringify(timKiem.tkGui);
   const plainQ = theBat ? '' : (url.getParam('q') ?? '').trim();
@@ -362,7 +374,6 @@ export default function WardAssignmentListPage() {
       header: C.status,
       width: '10rem',
       optional: 'show',
-      timKiem: 'trangThai',
       sortKey: 'status',
       cellClassName: 'px-3 py-3',
       render: (r) => <WardStatusBadge status={displayStatus(r)} />,
@@ -545,6 +556,8 @@ export default function WardAssignmentListPage() {
                 the={timKiem.the}
                 truong={truongTimKiem}
                 khai={TIM_KIEM_HO_SO_PHAN_CONG}
+                giaTriChon={TAG_VALUES}
+                showDatePicker
                 onThem={timKiem.them}
                 onBoThe={timKiem.boThe}
                 onBoGiaTri={timKiem.boGiaTri}
@@ -676,7 +689,7 @@ export default function WardAssignmentListPage() {
                 timKiem.the.length > 0 ? (
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                     <span>{L.list.notFoundWith}</span>
-                    <DanhSachThe the={timKiem.the} khai={TIM_KIEM_HO_SO_PHAN_CONG} onBoThe={timKiem.boThe} />
+                    <DanhSachThe the={timKiem.the} khai={TIM_KIEM_HO_SO_PHAN_CONG} giaTriChon={TAG_VALUES} onBoThe={timKiem.boThe} />
                   </div>
                 ) : undefined,
             }}
