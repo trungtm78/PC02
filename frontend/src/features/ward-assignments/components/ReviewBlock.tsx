@@ -6,6 +6,7 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, FIELD_ERROR_TEXT, LABEL_BASE, SELECT_BASE, TEXTAREA_BASE } from '@/constants/styles';
+import { FKSelect } from '@/components/FKSelect';
 import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 import { wardAssignmentsApi } from '../api';
 import { decisionInForce, investigatorLabel } from '../formModel';
@@ -162,7 +163,6 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
     ).then((ok) => ok && onDecided?.());
   };
 
-  const officerName = (id: string | null) => (id ? pc02Officers.find((o) => o.value === id)?.label ?? '' : '');
   const followerName = () => {
     const u = detail.followUpUser;
     return u ? [u.lastName, u.firstName].filter(Boolean).join(' ').trim() || u.username : '';
@@ -194,39 +194,38 @@ export function ReviewBlock({ detail, investigators, defaultFollowUpTeamId, run,
             <Field label={`${R.returnReasonText} — ${R.returnReasonHint}`}>
               <textarea data-testid="ward-return-reason-text" rows={2} className={TEXTAREA_BASE} value={reasonText} onChange={(e) => setReasonText(e.target.value)} />
             </Field>
-            <Field label={R.assignedInvestigator}>
-              <select data-testid="ward-assigned-investigator" className={SELECT_BASE} value={assignedId} onChange={(e) => setAssignedId(e.target.value)}>
-                <option value="">{L.form.fields.investigatorPick}</option>
-                {active.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {investigatorLabel(i)}
-                    {i.id === detail.proposedInvestigatorId ? ` ${R.proposedMark}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label={R.followUpUser}>
-              <select data-testid="ward-follow-up-user" className={SELECT_BASE} value={followUpUserId} onChange={(e) => pickFollower(e.target.value)}>
-                <option value="">{R.followUpUserPick}</option>
-                {/* The reviewer stays choosable even before the officer list loads. */}
-                {followUpUserId && !pc02Officers.some((o) => o.value === followUpUserId) && <option value={followUpUserId}>{officerName(followUpUserId) || followUpUserId}</option>}
-                {pc02Officers.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label={R.followUpTeam}>
-              <select data-testid="ward-follow-up-team" className={SELECT_BASE} value={followUpTeamId} onChange={(e) => setFollowUpTeamId(e.target.value)}>
-                <option value="">{R.followUpTeamPick}</option>
-                {teamsForFollower.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* The three choices of an approval are type-to-find fields, as every choice of a person or a unit on these
+                screens: the lists are long (every PC02 officer), and a plain list has to be scrolled through. */}
+            <FKSelect
+              label={R.assignedInvestigator}
+              testId="ward-assigned-investigator"
+              value={assignedId}
+              options={active.map((i) => ({ value: i.id, label: `${investigatorLabel(i)}${i.id === detail.proposedInvestigatorId ? ` ${R.proposedMark}` : ''}` }))}
+              placeholder={R.assignedInvestigatorPick}
+              searchPlaceholder={L.form.fields.investigatorSearch}
+              onChange={setAssignedId}
+            />
+            <FKSelect
+              label={R.followUpUser}
+              testId="ward-follow-up-user"
+              value={followUpUserId}
+              options={pc02Officers}
+              loading={choices.isLoading}
+              placeholder={R.followUpUserPick}
+              searchPlaceholder={R.followUpUserSearch}
+              // Cleared: the unit that followed from the person goes with them.
+              onChange={(v) => (v ? pickFollower(v) : (setFollowUpUserId(''), setFollowUpTeamId('')))}
+            />
+            <FKSelect
+              label={R.followUpTeam}
+              testId="ward-follow-up-team"
+              value={followUpTeamId}
+              options={teamsForFollower.map((t) => ({ value: t.id, label: t.name }))}
+              loading={choices.isLoading}
+              placeholder={R.followUpTeamPick}
+              searchPlaceholder={R.followUpTeamSearch}
+              onChange={setFollowUpTeamId}
+            />
             <Field label={R.pc02Note}>
               <textarea data-testid="ward-pc02-note" rows={2} className={TEXTAREA_BASE} value={pc02Note} onChange={(e) => setPc02Note(e.target.value)} />
             </Field>
