@@ -563,6 +563,25 @@ describe('a waiting request, reviewed by PC02', () => {
     expect(screen.queryByTestId('ward-follow-up-user-create-new')).not.toBeInTheDocument();
   });
 
+  it('opened to edit by PC02, an approved request is titled "Cập nhật", says where PC02 writes, and its follow-up is editable', async () => {
+    api.get.mockResolvedValue(detail({ status: 'APPROVED', viewerId: 'u-rev', receivedOn: '2026-11-16T00:00:00.000Z', resultDueOn: '2027-01-16T00:00:00.000Z', can: { ...NO, review: true, followUp: true, extend: true } }));
+    renderAt('/ho-so-phan-cong/w1/edit');
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Cập nhật Hồ sơ phân công');
+    expect(screen.getByTestId('ward-edit-scope')).toHaveTextContent(L.form.editScopePc02);
+    // Block 1 is the ward unit's: read-only here. PC02's result is written.
+    expect(screen.getByTestId('ward-summary')).toHaveAttribute('readonly');
+    expect(screen.getByTestId('ward-result-text')).not.toHaveAttribute('readonly');
+    expect(screen.getByTestId('ward-follow-up-save')).toBeInTheDocument();
+  });
+
+  it('opened to edit by somebody who can write nothing of it: said plainly, not a silent read-only page', async () => {
+    who.user = WARD_USER;
+    api.get.mockResolvedValue(detail({ status: 'APPROVED', can: NO }));
+    renderAt('/ho-so-phan-cong/w1/edit');
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Chi tiết Hồ sơ phân công');
+    expect(screen.getByTestId('ward-edit-scope')).toHaveTextContent(L.form.editScopeNone);
+  });
+
   it('cancels an approval only with a reason', async () => {
     api.get.mockResolvedValue(detail({ status: 'APPROVED', viewerId: 'u-rev', can: { ...NO, review: true, cancelApproval: true } }));
     api.cancelApproval.mockResolvedValue({});

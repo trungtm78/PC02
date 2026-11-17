@@ -168,6 +168,10 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   const can = detail?.can;
   const wardOfficer = !!user?.isWardOfficer && !!user.wardTeam;
   const editing = mode === 'edit' && (isNew || !!can?.edit);
+  // PC02's part of the request (the review, the follow-up after approval) is written in its own blocks, whatever
+  // the state of block 1: opened "to edit", the page says where the person's part is instead of looking read-only.
+  const pc02Writes = !!can && [can.returnIt, can.approve, can.revokeReturn, can.cancelApproval, can.followUp, can.extend, can.complete, can.reopen].some(Boolean);
+  const openedToEdit = mode === 'edit' && !isNew;
   const [form, setForm] = useState<WardFormState>(() => (detail ? formFromDetail(detail) : emptyForm(user)));
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'withdraw' | 'delete' | 'archive' | 'restore'>(null);
@@ -400,8 +404,8 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
     // is the "next error" shortcut of the data-entry forms.
     <div data-testid="ward-assignment-form-page" className="space-y-4 p-4 sm:p-6" onKeyDown={handleFormKeyDown}>
       <FormActionBar
-        title={isNew ? L.form.titleNew : editing ? L.form.titleEdit : L.form.titleView}
-        subtitle={isNew ? `${L.form.subtitleNew} · ${L.form.codeLater}` : `${editing ? L.form.subtitleEdit(detail.code) : L.form.subtitleView(detail.code)} · ${count}`}
+        title={isNew ? L.form.titleNew : editing || (openedToEdit && pc02Writes) ? L.form.titleEdit : L.form.titleView}
+        subtitle={isNew ? `${L.form.subtitleNew} · ${L.form.codeLater}` : `${editing || (openedToEdit && pc02Writes) ? L.form.subtitleEdit(detail.code) : L.form.subtitleView(detail.code)} · ${count}`}
         onBack={onCancel}
         onCancel={onCancel}
         editAction={editAction('')}
@@ -427,6 +431,11 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
             ))}
           </ul>
         </div>
+      )}
+      {openedToEdit && !editing && (
+        <p data-testid="ward-edit-scope" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          {pc02Writes ? L.form.editScopePc02 : L.form.editScopeNone}
+        </p>
       )}
       {mode === 'view' && can?.edit && (
         <p data-testid="ward-viewing" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
