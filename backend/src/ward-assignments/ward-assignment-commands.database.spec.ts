@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { thuMucMigrationTimKiemMoiNhat } from '../common/tim-kiem/sinh/tep-sinh';
 import * as ExcelJS from 'exceljs';
 import { PassThrough } from 'stream';
 import { randomUUID } from 'node:crypto';
@@ -130,6 +133,14 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
     await waiter.connect();
     holder = new Client({ connectionString: url! });
     await holder.connect();
+    // The scratch database of CI is made by `prisma db push`: tables, no triggers. What the list searches and orders
+    // by is kept by triggers, so the REAL migrations that install them are applied here (both idempotent), before any
+    // row of this suite is written (the crime the requests name is searched by its own shadow column). Without this
+    // the suite is green only on a machine where somebody applied them by hand.
+    const migrations = path.join(__dirname, '../../prisma/migrations');
+    for (const folder of [thuMucMigrationTimKiemMoiNhat()!, '20261128020000_ward_code_sort']) {
+      await holder.query(fs.readFileSync(path.join(migrations, folder, 'migration.sql'), 'utf-8'));
+    }
     const { db } = scratch;
     const role = await db.role.create({ data: { name: `${tag}-officer` } });
     for (const name of ['wardy', 'otherWard', 'reviewer', 'pc02']) {
