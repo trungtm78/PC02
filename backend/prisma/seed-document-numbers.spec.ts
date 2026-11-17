@@ -114,20 +114,24 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
     const spec = () => TEMPLATES.find((t) => t.documentType === 'PHIEU_YEU_CAU');
     const buildSegments = (seedModule as any).buildSegmentsForTest as (s: any) => any[];
 
-    it('exists with prefix "PYC-PC02-Đ1", "/" separator, yearly, no zero padding', () => {
+    it('exists with prefix "PYC-PC02-Đ1", "/" separator, yearly, four digits as the system\'s other slips', () => {
       const s = spec()!;
       expect(s.prefix).toBe('PYC-PC02-Đ1');
       expect(s.separator).toBe('/');
       expect(s.resetPeriod).toBe('YEARLY');
-      expect(s.padding).toBe(1);
+      expect(s.padding).toBe(4);
+      // The standard is the one of the slips beside it, not a number of this series' own.
+      for (const other of ['PHIEU_DE_XUAT', 'PHIEU_CHUYEN', 'THONG_BAO', 'HUONG_DAN']) {
+        expect({ other, padding: TEMPLATES.find((t) => t.documentType === other)?.padding }).toEqual({ other, padding: s.padding });
+      }
     });
 
-    it('is a [COUNTER, LITERAL] series: the first slip of a year is "1/PYC-PC02-Đ1"', () => {
+    it('is a [COUNTER, LITERAL] series: the first slip of a year is "0001/PYC-PC02-Đ1"', () => {
       const s = spec()!;
       const segments = buildSegments(s);
       expect(segments).toEqual([{ type: 'COUNTER' }, { type: 'LITERAL', value: 'PYC-PC02-Đ1' }]);
       const rendered = segments.map((seg) => (seg.type === 'COUNTER' ? String(1).padStart(s.padding, '0') : seg.value)).join(s.separator);
-      expect(rendered).toBe('1/PYC-PC02-Đ1');
+      expect(rendered).toBe('0001/PYC-PC02-Đ1');
     });
   });
 
