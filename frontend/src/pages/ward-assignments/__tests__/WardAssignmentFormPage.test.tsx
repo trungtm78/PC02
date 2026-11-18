@@ -844,6 +844,26 @@ describe('the shared desk at PC02 (one account the ward officers enter on)', () 
     expect(screen.getByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w9/edit');
   });
 
+  it('an answer about a code that is no longer the one typed is not applied', async () => {
+    let answer: (v: { id: string; code: string }) => void = () => undefined;
+    api.previousByCode.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    renderAt('/ho-so-phan-cong/new');
+    fireEvent.click(await screen.findByTestId('ward-kind-REASSIGN'));
+    const code = screen.getByTestId('ward-previous-code');
+    fireEvent.change(code, { target: { value: '2026-3' } });
+    await choose('ward-unit', 'tw');
+    fireEvent.click(screen.getByTestId('ward-previous-check'));
+    await waitFor(() => expect(api.previousByCode).toHaveBeenCalledWith('tw', '2026-3'));
+    // The officer types another code before the answer arrives.
+    fireEvent.change(code, { target: { value: '2026-9' } });
+    answer({ id: 'p1', code: '2026-3' });
+    await waitFor(() => expect(screen.getByTestId('ward-previous-check')).toHaveTextContent(L.intake.previousCheck));
+    expect(screen.queryByTestId('ward-previous-found')).not.toBeInTheDocument();
+    // Nothing was named: a submission still asks for the previous request.
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    expect(await screen.findByTestId('validation-errors')).toHaveTextContent(L.form.required(L.form.fields.previous));
+  });
+
   it('a re-assignment names the request it follows by its code: found, not found, and cleared when the code or the unit changes', async () => {
     api.previousByCode.mockResolvedValue({ id: 'p1', code: '2026-3' });
     api.create.mockResolvedValue(draft());

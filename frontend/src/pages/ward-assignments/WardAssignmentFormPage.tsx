@@ -340,16 +340,23 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
     setBanner(null);
   };
   /** "Kiểm tra": asks the server which approved request of the unit carries the code typed. */
+  // What is on the screen now (the unit and the code typed): an answer about anything else is not applied, or the
+  // form would name request A while the field shows code B.
+  const previousAsked = useRef('');
+  previousAsked.current = `${teamId}|${previousCode.trim()}`;
   const checkPrevious = async () => {
     const code = previousCode.trim();
     if (!teamId || !code || previousChecking) return;
+    const asked = `${teamId}|${code}`;
     setPreviousChecking(true);
     setPreviousProblem(null);
     try {
       const found = await wardAssignmentsApi.previousByCode(teamId, code);
+      if (previousAsked.current !== asked) return;
       setPreviousFound(found.code);
       set('previousAssignmentId', found.id);
     } catch (err) {
+      if (previousAsked.current !== asked) return;
       const e = explainWardError(err);
       setPreviousFound(null);
       set('previousAssignmentId', '');
