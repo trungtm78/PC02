@@ -289,6 +289,8 @@ export class WardAssignmentQueryService {
         // Named on the request: whoever may read it reads who follows it, without a list of users or teams.
         followUpUser: { select: { id: true, firstName: true, lastName: true, username: true } },
         followUpTeam: { select: { id: true, name: true } },
+        // The code of the request a re-assignment follows: what the form shows for it (the shared desk reads no more).
+        previousAssignment: { select: { code: true } },
       },
     });
     if (!row || !wardReadable(row, scope)) {

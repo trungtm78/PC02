@@ -31,6 +31,7 @@ import {
 } from './dto/ward-assignment.dto';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
+import { isIntake } from './ward-locks';
 import { WardAssignmentCommandService } from './ward-assignment-command.service';
 import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { WardInvestigatorsService } from './ward-investigators.service';
@@ -92,6 +93,13 @@ export class WardAssignmentsController {
   @RequirePermissions({ action: 'write', subject: 'WardAssignment' })
   unitChoices(@Req() req: ScopedRequest) {
     return this.queries.unitChoices(scopeOf(req));
+  }
+
+  /** What the screens need to know about the person: whether this is the shared desk at PC02. Before `:id`. */
+  @Get('viewer')
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  viewer(@Req() req: ScopedRequest) {
+    return { intake: isIntake(scopeOf(req)) };
   }
 
   /** The approved request a re-assignment follows, by its code, in a ward unit the person may enter for. Before `:id`. */

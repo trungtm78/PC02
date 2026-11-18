@@ -6,7 +6,7 @@ import { DocumentNumbersService } from '../document-numbers/document-numbers.ser
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ASSIGNMENT_NUMBER_SERIES, WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
-import { lockedForChange, lockedForReview, lockedWardTeam, mayEnterFor } from './ward-locks';
+import { isIntake, lockedForChange, lockedForReview, lockedWardTeam, mayEnterFor } from './ward-locks';
 import { WardNotifier } from './ward-notifier';
 import {
   afterWithdrawal,
@@ -146,6 +146,8 @@ export class WardAssignmentCommandService {
       if (!submittable(row.status)) throw new ConflictException(wardBody(WARD_ERROR.NOT_SUBMITTABLE, { status: row.status }));
       const subjects = await tx.wardAssignmentSubject.findMany({ where: { assignmentId: row.id }, orderBy: { position: 'asc' } });
       const missing = missingForSubmission({ ...row, subjectCount: subjects.length });
+      // On the shared desk the account says nothing about who entered the request: the officer's phone is asked too.
+      if (isIntake(scope) && !row.entryOfficerPhone?.trim()) missing.push('entryOfficerPhone');
       if (missing.length > 0) throw new BadRequestException(wardBody(WARD_ERROR.INCOMPLETE, ...missing.map((field) => ({ field }))));
       // What the draft names may have changed since it was saved: checked again, the investigator's row locked so that
       // stopping them waits for this submission or this submission sees them stopped.

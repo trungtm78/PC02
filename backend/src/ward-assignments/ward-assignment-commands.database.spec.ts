@@ -739,6 +739,19 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       expect(await listed(scope.reviewer, id.reviewer)).toContain(made.id);
     });
 
+    it('the account names nobody: a submission from the desk needs the entering officer\'s phone as well as their name', async () => {
+      const made = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, entryOfficerPhone: '  ', summary: `${tag} bàn nhập thiếu SĐT` }));
+      expect(await fails(commands.submit({ id: id.desk }, scope.desk, made.id, made.updatedAt.toISOString()))).toMatchObject({
+        status: 400,
+        body: { code: WARD_ERROR.INCOMPLETE, details: [{ field: 'entryOfficerPhone' }] },
+      });
+      // Still a draft of the desk, to be completed.
+      expect(await listed(scope.desk, id.desk)).toContain(made.id);
+      // A ward unit's own account is known by its name: no phone is asked of it.
+      const theirs = await commands.create({ id: id.wardy }, scope.wardy, input({ entryOfficerPhone: null, summary: `${tag} phường không SĐT` }));
+      await expect(commands.submit({ id: id.wardy }, scope.wardy, theirs.id, theirs.updatedAt.toISOString())).resolves.toMatchObject({ status: 'SUBMITTED' });
+    });
+
     it('a submission somebody else takes back does not bring the request back to the desk, nor does a return', async () => {
       const made = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, summary: `${tag} bàn nhập bị rút` }));
       const sent = await commands.submit({ id: id.desk }, scope.desk, made.id, made.updatedAt.toISOString());
