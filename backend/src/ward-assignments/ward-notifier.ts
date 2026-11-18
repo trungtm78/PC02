@@ -6,7 +6,7 @@ import { recordInActionScope } from '../common/utils/scope-filter.util';
 import { NotificationSseService } from '../notifications/notification-sse.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { alertOf, ALERT_YELLOW_DAYS, type AlertLevel } from './ward-alerts';
-import { reachOf } from './ward-locks';
+import { reachOf, wardReadable } from './ward-locks';
 import { decisionInForce, vnDay } from './ward-review.rules';
 
 /**
@@ -87,7 +87,7 @@ export class WardNotifier {
       if (!round || round.assignmentId !== row.id) return NOTHING_TO_RING;
       if (round.priorStatus === 'RETURNED') {
         const returner = await this.returnerBefore(tx, row.id, round.sequence);
-        return this.tell(tx, row, 'RESUBMITTED', `RESUBMITTED:${round.id}`, readersOf(returner ? [returner] : [], 'WardAssignment', reachOf(row)), {
+        return this.tell(tx, row, 'RESUBMITTED', `RESUBMITTED:${round.id}`, this.readers(returner ? [returner] : [], row), {
           title: 'Hồ sơ phân công được trình lại',
           message: `${this.label(row)} đã được đơn vị trình lại (lần ${round.submissionNo}).`,
         });
@@ -145,7 +145,7 @@ export class WardNotifier {
             row,
             kind,
             key,
-            readersOf([...new Set(people)], 'WardAssignment', reachOf(row)),
+            this.readers([...new Set(people)], row),
             kind === 'OVERDUE'
               ? { title: 'Hồ sơ phân công quá hạn báo kết quả', message: `${this.label(row)} quá hạn báo kết quả ${-daysLeft} ngày (hạn ${dmy(row.resultDueOn)}).` }
               : { title: 'Hồ sơ phân công sắp đến hạn báo kết quả', message: `${this.label(row)} còn ${daysLeft} ngày đến hạn báo kết quả (${dmy(row.resultDueOn)}).` },
@@ -209,6 +209,21 @@ export class WardNotifier {
     return `Hồ sơ ${row.code ?? ''} "${summary}"`.replace('  ', ' ');
   }
 
+  /**
+   * Of these people, who may READ the request now, by the module's own read rule: the shared desk at PC02 is told
+   * nothing about a request once it was submitted (the bell would show its code and summary to whoever sits there).
+   */
+  private readers(people: readonly string[], row: Pick<RequestRow, 'assignedTeamId' | 'enteredById' | 'code'>): string[] {
+    const current = enforcement();
+    return readersOf(people, 'WardAssignment', reachOf(row)).filter((userId) => {
+      try {
+        return wardReadable(row, current ? current.scopeOf(userId) : undefined);
+      } catch {
+        return false;
+      }
+    });
+  }
+
   /** Active people holding `review:WardAssignment` whose review reach covers the request, not of its own unit. */
   private async reviewersOf(tx: Tx, row: RequestRow): Promise<string[]> {
     const holders = await tx.user.findMany({
@@ -217,10 +232,9 @@ export class WardNotifier {
     });
     const reach = reachOf(row);
     const current = enforcement();
-    return readersOf(
+    return this.readers(
       holders.map((h) => h.id),
-      'WardAssignment',
-      reach,
+      row,
     ).filter((userId) => {
       try {
         return !!current && recordInActionScope(reach, current.scopeOf(userId), 'WardAssignment', 'review');
@@ -235,7 +249,7 @@ export class WardNotifier {
     const members = await tx.userTeam.findMany({ where: { teamId: row.assignedTeamId, user: { isActive: true } }, select: { userId: true } });
     const entered = await tx.user.findFirst({ where: { id: row.enteredById, isActive: true }, select: { id: true } });
     const people = [...new Set([...members.map((m) => m.userId), ...(entered ? [entered.id] : [])])];
-    return readersOf(people, 'WardAssignment', reachOf(row));
+    return this.readers(people, row);
   }
 
   /** Who returned the round before this one (its decision in force, a return), if anybody. */

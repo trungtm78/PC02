@@ -61,6 +61,12 @@ export interface PreciseScopes {
   /** The person the scopes were computed for: "own records" are theirs. */
   userId: string;
   subjects: Record<RecordSubject, SubjectScopes>;
+  /**
+   * The person holds `intake:WardAssignment` (the shared desk at PC02): they enter a ward request for ANY ward unit and
+   * read only the requests they entered that were never submitted. Read by the ward module alone (`ward-locks.ts`);
+   * absent for everybody else, so no other scope changes shape.
+   */
+  wardIntake?: true;
 }
 
 export const NOTHING: PreciseScope = { all: false, own: false, exactTeamIds: [], tree: null };

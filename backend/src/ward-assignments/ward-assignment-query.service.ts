@@ -11,7 +11,8 @@ import { tachCotXuat } from '../common/xuat-danh-sach/cot-xuat.dto';
 import { chonCotXuat, xuatDanhSachExcel } from '../common/xuat-danh-sach/xuat-danh-sach';
 import { KHAI_COT_XUAT_HO_SO_PHAN_CONG, WARD_EXPORT_SELECT, type WardExportRow } from './xuat-danh-sach-ho-so-phan-cong';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { recordInActionScope, recordInScope, recordReadable, scopeConditions, teamInScope } from '../common/utils/scope-filter.util';
+import { recordInActionScope, recordInScope } from '../common/utils/scope-filter.util';
+import { isIntake, mayEnterFor, wardReadConditions, wardReadable } from './ward-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { alertOf, alertWhere, firstSubmittedWhere, type AlertLevel } from './ward-alerts';
@@ -82,7 +83,7 @@ export class WardAssignmentQueryService {
     today: Date,
     card: { archived: boolean | null; status?: WardAssignmentListQuery['status'] },
   ): Promise<Prisma.WardAssignmentWhereInput | null> {
-    const reach = scopeConditions(scope, 'read', 'WardAssignment');
+    const reach = wardReadConditions(scope);
     if (reach !== null && reach.length === 0) return null;
     const where: Prisma.WardAssignmentWhereInput = {
       AND: [
@@ -177,7 +178,7 @@ export class WardAssignmentQueryService {
   async list(scope: DataScope | null | undefined, query: WardAssignmentListQuery, now: Date = new Date(), actorId?: string) {
     const today = vnDay(now);
     const where = await this.where(scope, query, today, { archived: query.archived === true, status: query.status });
-    if (!where) return { data: [], total: 0 };
+    if (!where) return { data: [], total: 0, intake: isIntake(scope) };
     const pageSize = Math.min(Math.max(query.pageSize ?? 50, 1), PAGE_SIZE_MAX);
     const page = Math.max(query.page ?? 1, 1);
     const [data, total] = await Promise.all([
@@ -219,6 +220,7 @@ export class WardAssignmentQueryService {
         };
       }),
       total,
+      intake: isIntake(scope),
     };
   }
 
@@ -227,7 +229,7 @@ export class WardAssignmentQueryService {
    * name. Never a unit the person reaches nothing of: the filter does not say which units exist.
    */
   async filterUnits(scope: DataScope | null | undefined) {
-    const reach = scopeConditions(scope, 'read', 'WardAssignment');
+    const reach = wardReadConditions(scope);
     if (reach !== null && reach.length === 0) return [];
     const groups = await this.prisma.wardAssignment.groupBy({ by: ['assignedTeamId'], where: reach ? { OR: reach as Prisma.WardAssignmentWhereInput[] } : {} });
     return this.prisma.team.findMany({ where: { id: { in: groups.map((g) => g.assignedTeamId) } }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
@@ -236,7 +238,7 @@ export class WardAssignmentQueryService {
   /** The active ward units the person may enter a request for: exactly those `create` accepts (ward unit, write reach). */
   async unitChoices(scope: DataScope | null | undefined) {
     const teams = await this.prisma.team.findMany({ where: { wardId: { not: null }, status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
-    return teams.filter((t) => teamInScope(t.id, scope, 'write', 'WardAssignment'));
+    return teams.filter((t) => mayEnterFor(t.id, scope));
   }
 
   /** The active PC02 units (no ward units) and their active members: who may follow an approval, and in which unit. */
@@ -273,7 +275,7 @@ export class WardAssignmentQueryService {
         followUpTeam: { select: { id: true, name: true } },
       },
     });
-    if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
+    if (!row || !wardReadable(row, scope)) {
       throw new NotFoundException(wardBody(WARD_ERROR.NOT_FOUND));
     }
     const reach = { assignedTeamId: row.assignedTeamId, ownerId: row.enteredById };
@@ -291,6 +293,8 @@ export class WardAssignmentQueryService {
     return {
       ...row,
       viewerId: actorId,
+      // The shared desk at PC02: the form opens a blank request after a submission, and asks who is entering.
+      intake: isIntake(scope),
       timeliness: row.completedOn && row.resultDueOn ? timeliness(row.completedOn, row.resultDueOn) : null,
       can: {
         returnIt: decides && row.status === 'SUBMITTED' && pending,

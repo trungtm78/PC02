@@ -670,4 +670,118 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       expect(added.teamId).toBe(id.V);
     });
   });
+
+  /**
+   * The shared desk at PC02 (`intake:WardAssignment`): one account on which ward officers enter their unit's requests.
+   * It enters for any ward unit, keeps seeing what it saved but did not submit, and never sees a request again once it
+   * was submitted: not when PC02 returns it, not when somebody else takes the submission back.
+   */
+  describe('the shared desk at PC02', () => {
+    const OWN: PreciseScope = { ...NOTHING, own: true };
+    const desk = (ward: { read: PreciseScope; write: PreciseScope }): DataScope => {
+      const base = enforced(id.desk, ward, null);
+      return { ...base, precise: { ...base.precise!, wardIntake: true } };
+    };
+    const listed = async (who: DataScope | null, actor: string) => (await queries.list(who, { q: tag, pageSize: 200 }, new Date(), actor)).data.map((r) => r.id);
+
+    beforeAll(async () => {
+      const { roleId } = await scratch.db.user.findUniqueOrThrow({ where: { id: id.wardy }, select: { roleId: true } });
+      id.desk = (await scratch.db.user.create({ data: { username: `${tag}-desk`, passwordHash: 'x', roleId, isActive: true } })).id;
+      id.investigatorDeskV = id.investigatorV;
+      // What the starter template gives: its own records, and the marker.
+      scope.desk = desk({ read: OWN, write: OWN });
+    });
+
+    it('enters a request for any ward unit, on its behalf, and is offered every active ward unit', async () => {
+      const forW = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, summary: `${tag} bàn nhập cho W` }));
+      const forV = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.V, proposedInvestigatorId: id.investigatorV, summary: `${tag} bàn nhập cho V` }));
+      expect(forW).toMatchObject({ assignedTeamId: id.W, enteredById: id.desk, enteredOnBehalf: true, status: 'DRAFT', code: null });
+      expect(forV).toMatchObject({ assignedTeamId: id.V, enteredOnBehalf: true });
+      const offered = (await queries.unitChoices(scope.desk)).map((t) => t.id);
+      expect(offered).toEqual(expect.arrayContaining([id.W, id.V]));
+      // No unit is its own: the unit must be chosen.
+      expect(await fails(commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: undefined })))).toMatchObject({ status: 400, body: { code: WARD_ERROR.UNIT_REQUIRED } });
+    });
+
+    it('keeps seeing and editing what it saved and did not submit; not a draft another account entered', async () => {
+      const draft = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, summary: `${tag} nháp của bàn nhập` }));
+      const theirs = await commands.create({ id: id.wardy }, scope.wardy, input({ summary: `${tag} nháp của phường` }));
+      const mine = await listed(scope.desk, id.desk);
+      expect(mine).toContain(draft.id);
+      expect(mine).not.toContain(theirs.id);
+      const opened = await queries.get(scope.desk, id.desk, draft.id);
+      expect(opened).toMatchObject({ id: draft.id, intake: true, can: expect.objectContaining({ edit: true, submit: true }) as unknown });
+      const edited = await commands.update({ id: id.desk }, scope.desk, draft.id, { ...input({ summary: `${tag} nháp đã sửa` }), expectedUpdatedAt: draft.updatedAt.toISOString() });
+      expect(edited.summary).toBe(`${tag} nháp đã sửa`);
+      expect(await fails(queries.get(scope.desk, id.desk, theirs.id))).toMatchObject({ status: 404 });
+      // The ward unit reads what the desk entered for it: the request is the unit's.
+      expect(await listed(scope.wardy, id.wardy)).toContain(draft.id);
+    });
+
+    it('once submitted the request is gone for the desk: list, cards, detail, edit, withdraw', async () => {
+      const made = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, summary: `${tag} bàn nhập đã trình` }));
+      const before = (await queries.listStats(scope.desk, { q: tag })).all;
+      const sent = await commands.submit({ id: id.desk }, scope.desk, made.id, made.updatedAt.toISOString());
+      expect(sent).toMatchObject({ status: 'SUBMITTED', submissionCount: 1 });
+      expect(sent.code).not.toBeNull();
+      const stamp = sent.updatedAt.toISOString();
+      expect(await listed(scope.desk, id.desk)).not.toContain(made.id);
+      expect((await queries.listStats(scope.desk, { q: tag })).all).toBe(before - 1);
+      expect((await queries.listStats(scope.desk, { q: tag })).byStatus.SUBMITTED).toBe(0);
+      expect(await fails(queries.get(scope.desk, id.desk, made.id))).toMatchObject({ status: 404, body: { code: WARD_ERROR.NOT_FOUND } });
+      expect(await fails(commands.update({ id: id.desk }, scope.desk, made.id, { ...input(), expectedUpdatedAt: stamp }))).toMatchObject({ status: 404 });
+      expect(await fails(commands.withdraw({ id: id.desk }, scope.desk, made.id, stamp))).toMatchObject({ status: 404 });
+      // A second click on "Trình": the request is not there any more, nothing is submitted twice.
+      expect(await fails(commands.submit({ id: id.desk }, scope.desk, made.id, stamp))).toMatchObject({ status: 404 });
+      expect(await scratch.db.wardAssignmentRound.count({ where: { assignmentId: made.id } })).toBe(1);
+      // The ward unit and PC02 see it as before.
+      expect(await listed(scope.wardy, id.wardy)).toContain(made.id);
+      expect(await listed(scope.reviewer, id.reviewer)).toContain(made.id);
+    });
+
+    it('a submission somebody else takes back does not bring the request back to the desk, nor does a return', async () => {
+      const made = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, summary: `${tag} bàn nhập bị rút` }));
+      const sent = await commands.submit({ id: id.desk }, scope.desk, made.id, made.updatedAt.toISOString());
+      const back = await commands.withdraw({ id: id.pc02 }, scope.pc02, made.id, sent.updatedAt.toISOString());
+      // A draft again, entered by the desk, with no submission counted: and still not the desk's to see.
+      expect(back).toMatchObject({ status: 'DRAFT', submissionCount: 0, enteredById: id.desk });
+      expect(back.code).toBe(sent.code);
+      expect(await listed(scope.desk, id.desk)).not.toContain(made.id);
+      expect(await fails(queries.get(scope.desk, id.desk, made.id))).toMatchObject({ status: 404 });
+      expect(await fails(commands.update({ id: id.desk }, scope.desk, made.id, { ...input(), expectedUpdatedAt: back.updatedAt.toISOString() }))).toMatchObject({ status: 404 });
+      await scratch.db.wardAssignment.update({ where: { id: made.id }, data: { status: 'RETURNED' } });
+      expect(await listed(scope.desk, id.desk)).not.toContain(made.id);
+      expect(await fails(queries.get(scope.desk, id.desk, made.id))).toMatchObject({ status: 404 });
+    });
+
+    it('the marker wins over a wider reach given by another unit: the submitted requests stay hidden', async () => {
+      const wide = desk({ read: ALL, write: ALL });
+      const made = await commands.create({ id: id.desk }, wide, input({ assignedTeamId: id.V, proposedInvestigatorId: id.investigatorV, summary: `${tag} bàn nhập quyền rộng` }));
+      expect(await listed(wide, id.desk)).toContain(made.id);
+      await commands.submit({ id: id.desk }, wide, made.id, made.updatedAt.toISOString());
+      const seen = await listed(wide, id.desk);
+      expect(seen).not.toContain(made.id);
+      // Nothing submitted at all, of any unit, although the reach says "every request".
+      const statuses = await scratch.db.wardAssignment.findMany({ where: { id: { in: seen } }, select: { code: true, enteredById: true } });
+      expect(statuses.every((r) => r.code === null && r.enteredById === id.desk)).toBe(true);
+      expect(await fails(queries.get(wide, id.desk, made.id))).toMatchObject({ status: 404 });
+    });
+
+    it('reads a ward unit\'s investigators and adds one; correcting or stopping a name is not the desk\'s', async () => {
+      const names = (await investigators.list(scope.desk, id.V)).map((i) => i.id);
+      expect(names).toContain(id.investigatorV);
+      const added = await investigators.create({ id: id.desk }, scope.desk, { teamId: id.V, fullName: `${tag} Bàn Nhập Thêm` });
+      expect(added).toMatchObject({ teamId: id.V, isActive: true });
+      const stamp = added.updatedAt.toISOString();
+      expect(await fails(investigators.update({ id: id.desk }, scope.desk, added.id, { rank: 'Đại tá', expectedUpdatedAt: stamp }))).toMatchObject({ status: 404 });
+      expect(await fails(investigators.setActive({ id: id.desk }, scope.desk, id.investigatorV, false, stamp))).toMatchObject({ status: 404 });
+      expect((await scratch.db.wardInvestigator.findUniqueOrThrow({ where: { id: id.investigatorV } })).isActive).toBe(true);
+    });
+
+    it('somebody without the marker and with their own records only enters for no unit but their own', async () => {
+      const plain = enforced(id.desk, { read: OWN, write: OWN }, null);
+      expect(await fails(commands.create({ id: id.desk }, plain, input({ assignedTeamId: id.W })))).toMatchObject({ status: 403, body: { code: WARD_ERROR.UNIT_OUT_OF_REACH } });
+      expect(await queries.unitChoices(plain)).toEqual([]);
+    });
+  });
 });

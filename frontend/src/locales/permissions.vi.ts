@@ -115,6 +115,7 @@ export const permissions = {
     nudgeStep: 'Đôn đốc bước',
     reviewAssignment: 'Thẩm định, duyệt và trả về hồ sơ phân công',
     matchSubjects: 'Xem đối tượng trùng ở đơn vị khác',
+    intakeDesk: 'Bàn nhập chung tại PC02 (trình xong không còn thấy)',
   } as Record<string, string>,
   reaches: {
     OWN: 'Chỉ của mình',

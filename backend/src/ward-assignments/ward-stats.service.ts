@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { scopeConditions } from '../common/utils/scope-filter.util';
+import { wardReadConditions } from './ward-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { alertOf, firstSubmittedWhere } from './ward-alerts';
 import { WARD_ALERT_ERROR } from './ward-alerts.codes';
@@ -70,7 +70,7 @@ export class WardStatsService {
     const to = periodDay(query.to);
     if (from && to && from > to) throw new BadRequestException(wardBody(WARD_ALERT_ERROR.STATS_RANGE_INVALID));
     const today = vnDay(now);
-    const reach = scopeConditions(scope, 'read', 'WardAssignment');
+    const reach = wardReadConditions(scope);
     const rows =
       reach !== null && reach.length === 0
         ? []

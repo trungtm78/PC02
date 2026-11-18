@@ -6,7 +6,7 @@ import { recordInActionScope, teamInScope } from '../common/utils/scope-filter.u
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
 import type { Actor } from './ward-assignment-command.service';
-import { lockedWardTeam } from './ward-locks';
+import { isIntake, lockedWardTeam } from './ward-locks';
 import { sameStamp, wardBody } from './ward-errors';
 
 export interface InvestigatorInput {
@@ -39,7 +39,8 @@ export class WardInvestigatorsService {
   ) {}
 
   async list(scope: DataScope | null | undefined, teamId: string, includeStopped = false): Promise<WardInvestigator[]> {
-    if (!teamInScope(teamId, scope, 'read', 'WardAssignment')) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
+    // The shared desk reads the list of the unit it is entering for (it names the proposed investigator), like a member.
+    if (!teamInScope(teamId, scope, 'read', 'WardAssignment') && !isIntake(scope)) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
     return this.prisma.wardInvestigator.findMany({
       where: { teamId, ...(includeStopped ? {} : { isActive: true }) },
       orderBy: [{ isActive: 'desc' }, { fullName: 'asc' }],
@@ -51,7 +52,8 @@ export class WardInvestigatorsService {
     if (!fullName) throw new BadRequestException(wardBody(WARD_ERROR.INVESTIGATOR_NAME_REQUIRED));
     return this.prisma.$transaction(async (tx) => {
       const team = await lockedWardTeam(tx, input.teamId);
-      if (!this.keeps(scope, team.id)) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
+      // The shared desk ADDS a name for any ward unit; correcting or stopping one stays the unit's and PC02's (`change`).
+      if (!this.keeps(scope, team.id) && !isIntake(scope)) throw new ForbiddenException(wardBody(WARD_ERROR.INVESTIGATOR_OUT_OF_REACH));
       if (!input.allowSameName) await this.refuseSameName(tx, team.id, fullName, null);
       const created = await tx.wardInvestigator.create({
         data: { teamId: team.id, fullName, rank: blank(input.rank) ?? null, position: blank(input.position) ?? null, grade: blank(input.grade) ?? null, createdById: actor.id },

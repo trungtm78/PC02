@@ -2,12 +2,11 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import type { Prisma, WardAssignment } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { teamInScope } from '../common/utils/scope-filter.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ASSIGNMENT_NUMBER_SERIES, WARD_AUDIT, WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
-import { lockedForChange, lockedForReview, lockedWardTeam } from './ward-locks';
+import { lockedForChange, lockedForReview, lockedWardTeam, mayEnterFor } from './ward-locks';
 import { WardNotifier } from './ward-notifier';
 import {
   afterWithdrawal,
@@ -90,7 +89,7 @@ export class WardAssignmentCommandService {
     if (!teamId) throw new BadRequestException(wardBody(WARD_ERROR.UNIT_REQUIRED));
     return this.prisma.$transaction(async (tx) => {
       const team = await lockedWardTeam(tx, teamId);
-      if (!teamInScope(team.id, scope, 'write', 'WardAssignment')) throw new ForbiddenException(wardBody(WARD_ERROR.UNIT_OUT_OF_REACH));
+      if (!mayEnterFor(team.id, scope)) throw new ForbiddenException(wardBody(WARD_ERROR.UNIT_OUT_OF_REACH));
       const member = await tx.userTeam.findFirst({ where: { userId: actor.id, teamId: team.id }, select: { userId: true } });
       const content = await this.checkedContent(tx, team.id, input, null);
       const created = await tx.wardAssignment.create({
