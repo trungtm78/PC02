@@ -778,6 +778,26 @@ run('ward assignment requests: the commands, on PostgreSQL', () => {
       expect((await scratch.db.wardInvestigator.findUniqueOrThrow({ where: { id: id.investigatorV } })).isActive).toBe(true);
     });
 
+    it('a re-assignment names the approved request it follows by its code: that unit\'s, approved, and nothing else is told', async () => {
+      const first = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, summary: `${tag} hồ sơ trước` }));
+      const sent = await commands.submit({ id: id.desk }, scope.desk, first.id, first.updatedAt.toISOString());
+      const code = sent.code!;
+      // Submitted, not approved yet: not a request a re-assignment may follow.
+      expect(await fails(queries.previousByCode(scope.desk, id.W, code))).toMatchObject({ status: 404, body: { code: WARD_ERROR.PREVIOUS_UNKNOWN } });
+      await scratch.db.wardAssignment.update({ where: { id: first.id }, data: { status: 'APPROVED' } });
+      expect(await queries.previousByCode(scope.desk, id.W, ` ${code} `)).toEqual({ id: first.id, code });
+      // Another unit's code, a code nobody has, an empty one: the same answer, which says nothing about what exists.
+      for (const [teamId, asked] of [[id.V, code], [id.W, `${code}-x`], [id.W, '  ']] as const) {
+        expect(await fails(queries.previousByCode(scope.desk, teamId, asked))).toMatchObject({ status: 404, body: { code: WARD_ERROR.PREVIOUS_UNKNOWN } });
+      }
+      // The desk still does not read the request it named, and the new request keeps the link.
+      expect(await fails(queries.get(scope.desk, id.desk, first.id))).toMatchObject({ status: 404 });
+      const again = await commands.create({ id: id.desk }, scope.desk, input({ assignedTeamId: id.W, kind: 'REASSIGN', previousAssignmentId: first.id, reassignReason: 'Điều tra viên chuyển công tác', summary: `${tag} phân công lại` }));
+      expect(again).toMatchObject({ kind: 'REASSIGN', previousAssignmentId: first.id });
+      // Somebody who may enter for no unit of that kind is refused before anything is looked up.
+      expect(await fails(queries.previousByCode(scope.otherWard, id.W, code))).toMatchObject({ status: 403, body: { code: WARD_ERROR.UNIT_OUT_OF_REACH } });
+    });
+
     it('somebody without the marker and with their own records only enters for no unit but their own', async () => {
       const plain = enforced(id.desk, { read: OWN, write: OWN }, null);
       expect(await fails(commands.create({ id: id.desk }, plain, input({ assignedTeamId: id.W })))).toMatchObject({ status: 403, body: { code: WARD_ERROR.UNIT_OUT_OF_REACH } });

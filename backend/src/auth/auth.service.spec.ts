@@ -1,6 +1,7 @@
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import * as bcrypt from 'bcrypt';
+import { enforcement, setEnforcement } from '../authz/enforcement';
 
 jest.mock('bcrypt');
 const bcryptCompare = bcrypt.compare as jest.Mock;
@@ -467,6 +468,27 @@ describe('AuthService.changePassword', () => {
     service = makeService();
     jest.clearAllMocks();
     bcryptHash.mockResolvedValue(HASHED);
+  });
+
+  it('refuses a shared desk account (it carries the ward intake marker): an administrator resets its password', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'desk', isActive: true, passwordHash: HASHED });
+    const before = enforcement();
+    setEnforcement({ scopeOf: (userId: string) => (userId === 'desk' ? { precise: { wardIntake: true } } : null) } as never);
+    try {
+      await expect(service.changePassword('desk', { currentPassword: 'Old@1234', newPassword: 'New@5678A' }, META)).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'SHARED_ACCOUNT_PASSWORD_BY_ADMIN' },
+      });
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      // Somebody else (an administrator: no scope) changes their own password as before.
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', isActive: true, passwordHash: HASHED });
+      bcryptCompare.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      mockTx.user.update.mockResolvedValue({});
+      mockAudit.log.mockResolvedValue(undefined);
+      await expect(service.changePassword('u1', { currentPassword: 'Old@1234', newPassword: 'New@5678A' }, META)).resolves.toMatchObject({ success: true });
+    } finally {
+      setEnforcement(before);
+    }
   });
 
   it('returns success and clears refreshTokenHash on correct password', async () => {

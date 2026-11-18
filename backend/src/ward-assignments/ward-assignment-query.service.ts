@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { WardAssignmentStatus, type Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import { AuditService } from '../audit/audit.service';
@@ -239,6 +239,22 @@ export class WardAssignmentQueryService {
   async unitChoices(scope: DataScope | null | undefined) {
     const teams = await this.prisma.team.findMany({ where: { wardId: { not: null }, status: 'ACTIVE' }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
     return teams.filter((t) => mayEnterFor(t.id, scope));
+  }
+
+  /**
+   * The approved request of a ward unit that carries this code, for whoever may enter a request for that unit: what a
+   * re-assignment names as the request it follows. The shared desk at PC02 reads no submitted request, so it cannot pick
+   * one from a list; the officer types the code written on the unit's request slip. Answers the id and the code of
+   * that one request or 404, and nothing else: no list, no summary.
+   */
+  async previousByCode(scope: DataScope | null | undefined, teamId: string, code: string): Promise<{ id: string; code: string }> {
+    if (!mayEnterFor(teamId, scope)) throw new ForbiddenException(wardBody(WARD_ERROR.UNIT_OUT_OF_REACH));
+    const wanted = code.trim();
+    const row = wanted
+      ? await this.prisma.wardAssignment.findFirst({ where: { assignedTeamId: teamId, code: wanted, status: 'APPROVED' }, select: { id: true, code: true } })
+      : null;
+    if (!row?.code) throw new NotFoundException(wardBody(WARD_ERROR.PREVIOUS_UNKNOWN));
+    return { id: row.id, code: row.code };
   }
 
   /** The active PC02 units (no ward units) and their active members: who may follow an approval, and in which unit. */
