@@ -45,11 +45,12 @@ import { RoundHistory, type DescribeValue } from '@/features/ward-assignments/co
 import { InvestigatorDirectoryDialog } from '@/features/ward-assignments/components/InvestigatorDirectoryDialog';
 import { InvestigatorQuickDialog } from '@/features/ward-assignments/components/InvestigatorQuickDialog';
 import { RequestSlipDialog } from '@/features/ward-assignments/components/RequestSlipDialog';
-import { useApprovedOfUnit, useUnitInvestigators, useWardUnits } from '@/features/ward-assignments/useWardChoices';
+import { useApprovedOfUnit, useUnitInvestigators, useWardUnits, useWardViewer } from '@/features/ward-assignments/useWardChoices';
 import { SubjectMatches } from '@/features/ward-assignments/components/SubjectMatches';
 
 const F = L.form.fields;
 const A = L.form.actions;
+const I = L.intake;
 
 type Banner = { kind: 'error' | 'conflict' | 'ok'; text: string; missing?: string[] } | null;
 
@@ -139,17 +140,21 @@ interface FormProps {
   /** Kept by the page for the same reason: the slip dialog opens after a decision, which starts the form again. */
   slipOpen: boolean;
   setSlipOpen: (open: boolean) => void;
+  /** The reader is the shared desk at PC02: it enters for any ward unit and loses sight of a request once submitted. */
+  intake: boolean;
+  /** The shared desk submitted this request (`code`: its code; null when the server says it was submitted already). */
+  onSubmittedAway: (id: string, code: string | null) => Promise<void>;
 }
 
 /** What a submission needs, in the order of the screen: the field's `data-testid` and its label. */
-function missingForSubmit(form: WardFormState, needsUnit: boolean): { testId: string; label: string }[] {
+function missingForSubmit(form: WardFormState, needsUnit: boolean, intake: boolean): { testId: string; label: string }[] {
   const out: { testId: string; label: string }[] = [];
   const need = (missing: boolean, testId: string, label: string) => {
     if (missing) out.push({ testId, label });
   };
   need(needsUnit && !form.assignedTeamId, 'ward-unit', F.unit);
   if (form.kind === 'REASSIGN') {
-    need(!form.previousAssignmentId, 'ward-previous', F.previous);
+    need(!form.previousAssignmentId, intake ? 'ward-previous-code' : 'ward-previous', F.previous);
     need(!form.reassignReason.trim(), 'ward-reassign-reason', F.reassignReason);
   }
   need(!form.crimeId && !form.crimeOther.trim(), 'ward-crime', F.crime);
@@ -158,10 +163,12 @@ function missingForSubmit(form: WardFormState, needsUnit: boolean): { testId: st
   need(!form.subjectsUnknown && form.subjects.every((s) => !s.fullName?.trim()), 'ward-subjects', F.subjects);
   need(!form.proposedInvestigatorId, 'ward-proposed-investigator', F.proposedInvestigator);
   need(!form.entryOfficerName.trim(), 'ward-entry-officer', F.entryOfficerName);
+  // The shared desk is nobody's own account: who entered the request is known by the name and the phone typed.
+  need(intake && !form.entryOfficerPhone.trim(), 'ward-entry-phone', F.entryOfficerPhone);
   return out;
 }
 
-function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, slipOpen, setSlipOpen }: FormProps) {
+function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, slipOpen, setSlipOpen, intake, onSubmittedAway }: FormProps) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isNew = !detail;
@@ -172,7 +179,14 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   // the state of block 1: opened "to edit", the page says where the person's part is instead of looking read-only.
   const pc02Writes = !!can && [can.returnIt, can.approve, can.revokeReturn, can.cancelApproval, can.followUp, can.extend, can.complete, can.reopen].some(Boolean);
   const openedToEdit = mode === 'edit' && !isNew;
-  const [form, setForm] = useState<WardFormState>(() => (detail ? formFromDetail(detail) : emptyForm(user)));
+  // At the shared desk the account is not the officer: their name and phone are typed, never taken from the account.
+  const blankForm = () => emptyForm(intake ? null : user);
+  const [form, setForm] = useState<WardFormState>(() => (detail ? formFromDetail(detail) : blankForm()));
+  // The shared desk names the request a re-assignment follows by its code; the server answers which request that is.
+  const [previousCode, setPreviousCode] = useState(() => detail?.previousAssignment?.code ?? '');
+  const [previousFound, setPreviousFound] = useState<string | null>(() => (detail?.previousAssignmentId ? (detail.previousAssignment?.code ?? null) : null));
+  const [previousProblem, setPreviousProblem] = useState<string | null>(null);
+  const [previousChecking, setPreviousChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'withdraw' | 'delete' | 'archive' | 'restore'>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
@@ -191,7 +205,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   const units = useWardUnits(isNew && !wardOfficer);
   const investigatorsQ = useUnitInvestigators(teamId);
   const investigators = useMemo(() => investigatorsQ.data ?? [], [investigatorsQ.data]);
-  const approvedQ = useApprovedOfUnit(teamId, editing && form.kind === 'REASSIGN');
+  const approvedQ = useApprovedOfUnit(teamId, editing && form.kind === 'REASSIGN' && !intake);
   const crimes = useCrimeOptions();
   const set = <K extends keyof WardFormState>(key: K, value: WardFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -262,7 +276,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
     exclusive(async () => {
       setBanner(null);
       // What a submission needs is said before anything is sent, each on its field (the server checks the same).
-      const missing = editing ? missingForSubmit(form, isNew && !wardOfficer) : [];
+      const missing = editing ? missingForSubmit(form, isNew && !wardOfficer, intake) : [];
       setProblems(missing);
       if (missing.length > 0) {
         // By its test id, not through the list of problems: that list is the state just set, not yet the one read.
@@ -271,14 +285,27 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
       }
       const target = editing ? await save() : detail ? { id: detail.id, updatedAt: detail.updatedAt } : null;
       if (!target) return;
+      let sent: { code?: string | null } | undefined;
       try {
-        await wardAssignmentsApi.submit(target.id, target.updatedAt);
+        sent = await wardAssignmentsApi.submit(target.id, target.updatedAt);
       } catch (err) {
+        // The shared desk no longer sees a request once it is submitted: "not found" on its own submission is a
+        // second click after the first one went through.
+        const refused = explainWardError(err);
+        if (intake && refused.status === 404 && refused.code === 'WARD_ASSIGNMENT_NOT_FOUND') {
+          await onSubmittedAway(target.id, null);
+          return;
+        }
         const why = bannerOf(err);
         await afterChange();
         // The draft was saved: from here on it is the stored request that is shown and corrected, still saying why.
         if (isNew) navigate(WARD_PATHS.edit(target.id), { replace: true, state: { banner: why } });
         else setBanner(why);
+        return;
+      }
+      if (intake) {
+        // Nothing of it is read again (the server would answer "not found"): on to the next officer's request.
+        await onSubmittedAway(target.id, sent?.code ?? null);
         return;
       }
       await afterChange();
@@ -305,10 +332,33 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   };
   const onReset = () => {
     if (!window.confirm(L.form.resetConfirm)) return;
-    setForm(emptyForm(user));
+    setForm(blankForm());
+    setPreviousCode('');
+    setPreviousFound(null);
+    setPreviousProblem(null);
     setProblems([]);
     setBanner(null);
   };
+  /** "Kiểm tra": asks the server which approved request of the unit carries the code typed. */
+  const checkPrevious = async () => {
+    const code = previousCode.trim();
+    if (!teamId || !code || previousChecking) return;
+    setPreviousChecking(true);
+    setPreviousProblem(null);
+    try {
+      const found = await wardAssignmentsApi.previousByCode(teamId, code);
+      setPreviousFound(found.code);
+      set('previousAssignmentId', found.id);
+    } catch (err) {
+      const e = explainWardError(err);
+      setPreviousFound(null);
+      set('previousAssignmentId', '');
+      setPreviousProblem(e.status === 404 ? I.previousNotFound : e.message);
+    } finally {
+      setPreviousChecking(false);
+    }
+  };
+  const previousBlocked = !teamId ? I.previousPickUnitFirst : !previousCode.trim() ? I.previousTypeCodeFirst : null;
   const submittable = isNew || !!can?.submit;
   // The decision in force whose slip is printed: the latest one PC02 has not revoked.
   const latestDecision =
@@ -421,6 +471,11 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
         )}
       </div>
 
+      {intake && (
+        <p data-testid="ward-intake-notice" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          {I.formNotice}
+        </p>
+      )}
       <BannerView banner={banner} onReload={reload} />
       {problems.length > 0 && (
         <div data-testid="validation-errors" role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -484,7 +539,12 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
                 loading={units.isLoading}
                 placeholder={F.unitPick}
                 searchPlaceholder={F.unitSearch}
-                onChange={(v) => setForm((f) => ({ ...f, assignedTeamId: v, proposedInvestigatorId: '', previousAssignmentId: '' }))}
+                onChange={(v) => {
+                  setForm((f) => ({ ...f, assignedTeamId: v, proposedInvestigatorId: '', previousAssignmentId: '' }));
+                  // The code typed stays; whether this unit has an approved request of that code is asked again.
+                  setPreviousFound(null);
+                  setPreviousProblem(null);
+                }}
               />
             ) : (
               <div>
@@ -516,22 +576,78 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
 
             {form.kind === 'REASSIGN' && (
               <>
-                <Labelled label={F.previous} required>
-                  <select data-testid="ward-previous" className={SELECT_BASE} disabled={!editing} value={form.previousAssignmentId} onChange={(e) => set('previousAssignmentId', e.target.value)}>
-                    <option value="">{F.previousPick}</option>
-                    {form.previousAssignmentId && !(approvedQ.data ?? []).some((r) => r.id === form.previousAssignmentId) && (
-                      <option value={form.previousAssignmentId}>{form.previousAssignmentId}</option>
+                {intake ? (
+                  // The shared desk reads no approved request: the one re-assigned is named by its code, and the server
+                  // answers which request of the unit that is.
+                  <div>
+                    <span className={LABEL_BASE}>
+                      {F.previous}
+                      <span className={LABEL_REQUIRED_MARKER}> *</span>
+                    </span>
+                    <div className="flex items-start gap-2">
+                      <input
+                        data-testid="ward-previous-code"
+                        aria-label={I.previousCodeLabel}
+                        className={`${INPUT_BASE} min-w-0 flex-1`}
+                        readOnly={!editing}
+                        placeholder={editing ? I.previousCodePlaceholder : undefined}
+                        value={previousCode}
+                        onChange={(e) => {
+                          // Another code is another request: what was found for the old one no longer stands.
+                          setPreviousCode(e.target.value);
+                          setPreviousFound(null);
+                          setPreviousProblem(null);
+                          set('previousAssignmentId', '');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing && editing) {
+                            e.preventDefault();
+                            void checkPrevious();
+                          }
+                        }}
+                      />
+                      {editing && (
+                        <button
+                          type="button"
+                          data-testid="ward-previous-check"
+                          className={`${BTN_SECONDARY} flex-shrink-0 disabled:opacity-50`}
+                          disabled={!!previousBlocked || previousChecking}
+                          title={previousBlocked ?? undefined}
+                          onClick={() => void checkPrevious()}
+                        >
+                          {previousChecking ? I.previousChecking : I.previousCheck}
+                        </button>
+                      )}
+                    </div>
+                    {form.previousAssignmentId && previousFound && (
+                      <span data-testid="ward-previous-found" role="status" className="mt-1 block text-xs text-green-700">
+                        {I.previousFound(previousFound)}
+                      </span>
                     )}
-                    {(approvedQ.data ?? [])
-                      .filter((r) => r.id !== detail?.id)
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.code} · {r.summary}
-                        </option>
-                      ))}
-                  </select>
-                  {editing && approvedQ.isSuccess && approvedQ.data.length === 0 && <span className="mt-1 block text-xs text-slate-500">{F.previousNone}</span>}
-                </Labelled>
+                    {previousProblem && (
+                      <span data-testid="ward-previous-problem" role="alert" className="mt-1 block text-xs text-red-700">
+                        {previousProblem}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <Labelled label={F.previous} required>
+                    <select data-testid="ward-previous" className={SELECT_BASE} disabled={!editing} value={form.previousAssignmentId} onChange={(e) => set('previousAssignmentId', e.target.value)}>
+                      <option value="">{F.previousPick}</option>
+                      {form.previousAssignmentId && !(approvedQ.data ?? []).some((r) => r.id === form.previousAssignmentId) && (
+                        <option value={form.previousAssignmentId}>{form.previousAssignmentId}</option>
+                      )}
+                      {(approvedQ.data ?? [])
+                        .filter((r) => r.id !== detail?.id)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.code} · {r.summary}
+                          </option>
+                        ))}
+                    </select>
+                    {editing && approvedQ.isSuccess && approvedQ.data.length === 0 && <span className="mt-1 block text-xs text-slate-500">{F.previousNone}</span>}
+                  </Labelled>
+                )}
                 <Labelled label={F.reassignReason} required>
                   <textarea data-testid="ward-reassign-reason" rows={2} className={TEXTAREA_BASE} readOnly={!editing} value={form.reassignReason} onChange={(e) => set('reassignReason', e.target.value)} />
                 </Labelled>
@@ -595,7 +711,8 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
                     onCreateNew={(typed) => setQuick({ investigator: null, suggestedName: typed })}
                   />
                 </div>
-                {editing && chosenInvestigator && (
+                {/* The shared desk adds investigators; correcting or stopping one is the unit's and PC02's. */}
+                {editing && chosenInvestigator && !intake && (
                   <button
                     type="button"
                     data-testid="ward-edit-investigator"
@@ -608,7 +725,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
                   </button>
                 )}
               </div>
-              {(editing || !!can?.review) && (
+              {(editing || !!can?.review) && !intake && (
                 <button type="button" data-testid="ward-open-directory" className="mt-1 text-sm text-blue-700 hover:underline disabled:text-slate-400" disabled={!teamId} onClick={() => setDirectoryOpen(true)}>
                   {L.investigators.open}
                 </button>
@@ -618,7 +735,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
               <Labelled label={F.entryOfficerName} required>
                 <input data-testid="ward-entry-officer" className={INPUT_BASE} readOnly={!editing} value={form.entryOfficerName} onChange={(e) => set('entryOfficerName', e.target.value)} />
               </Labelled>
-              <Labelled label={F.entryOfficerPhone}>
+              <Labelled label={F.entryOfficerPhone} required={intake}>
                 <input data-testid="ward-entry-phone" className={INPUT_BASE} readOnly={!editing} value={form.entryOfficerPhone} onChange={(e) => set('entryOfficerPhone', e.target.value)} />
               </Labelled>
             </div>
@@ -663,6 +780,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
           investigator={quick.investigator}
           suggestedName={quick.suggestedName}
           known={investigators}
+          createOnly={intake}
           onClose={() => setQuick(null)}
           onSaved={(inv) => {
             // Created, or corrected and still in use: the field names them. Stopped: the field lets go of them.
@@ -773,13 +891,18 @@ export default function WardAssignmentFormPage({ mode }: { mode: 'view' | 'edit'
   const { id } = useParams<{ id: string }>();
   const user = authStore.getUser() as SignedIn | null;
   const location = useLocation();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const viewer = useWardViewer();
+  // The request the shared desk has just submitted: it is no longer this account's to read, so it is not read again.
+  const [submittedAway, setSubmittedAway] = useState<string | null>(null);
   // A banner handed over by the page that moved here (a new draft saved, its submission refused).
   const [banner, setBanner] = useState<Banner>(() => (location.state as { banner?: Banner } | null)?.banner ?? null);
   const [slipOpen, setSlipOpen] = useState(false);
   const detailQ = useQuery({
     queryKey: WARD_QUERY_KEYS.detail(id ?? ''),
     queryFn: () => wardAssignmentsApi.get(id!),
-    enabled: !!id,
+    enabled: !!id && id !== submittedAway,
     retry: false,
     // Read fresh every time the page opens: its stamp and `can` are what every write is sent with. No refetch on
     // window focus: a new stamp starts the form again, and that must not happen under the person's typing.
@@ -788,7 +911,20 @@ export default function WardAssignmentFormPage({ mode }: { mode: 'view' | 'edit'
     refetchOnWindowFocus: false,
   });
 
-  if (id && detailQ.isLoading) {
+  const onSubmittedAway = async (submittedId: string, code: string | null) => {
+    // Out of the cache BEFORE the others are read again: a refetch of it would answer "not found" over the form.
+    setSubmittedAway(submittedId);
+    qc.removeQueries({ queryKey: WARD_QUERY_KEYS.detail(submittedId) });
+    await qc.invalidateQueries({ queryKey: WARD_QUERY_KEYS.all });
+    const done: Banner = { kind: 'ok', text: code ? I.submitted(code) : I.alreadySubmitted };
+    // Both ways: this page stays mounted when the person was already on the new form, and starts again otherwise.
+    setBanner(done);
+    navigate(WARD_PATHS.create, { state: { banner: done, blank: Date.now() } });
+  };
+
+  // The form starts from who is reading (the shared desk's new form is not prefilled from the account): it waits for
+  // that answer. A request the shared desk has just submitted is not shown again while the page moves on.
+  if ((id && detailQ.isLoading) || !viewer.settled || (id && id === submittedAway)) {
     return (
       <div data-testid="ward-form-loading" className="flex items-center gap-2 p-6 text-slate-600">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
@@ -809,10 +945,14 @@ export default function WardAssignmentFormPage({ mode }: { mode: 'view' | 'edit'
     );
   }
   const detail = id ? (detailQ.data ?? null) : null;
+  // A blank form after each submission of the shared desk, also when the address stays "new".
+  const blank = (location.state as { blank?: number } | null)?.blank;
   return (
     <WardAssignmentForm
       // A new stamp (after an action, or a reload after a conflict) starts the form again from what is stored.
-      key={detail?.updatedAt ?? 'new'}
+      key={detail?.updatedAt ?? `new:${blank ?? ''}`}
+      intake={viewer.intake || detail?.intake === true}
+      onSubmittedAway={onSubmittedAway}
       detail={detail}
       mode={mode}
       user={user}

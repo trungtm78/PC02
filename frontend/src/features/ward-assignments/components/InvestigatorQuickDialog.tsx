@@ -29,6 +29,8 @@ export interface InvestigatorQuickDialogProps {
   suggestedName?: string;
   /** The unit's investigators as the form holds them (the stopped ones too): where a name already listed is found. */
   known: readonly WardInvestigator[];
+  /** The shared desk at PC02 adds investigators and never stops one: the status is not offered (a new one is in use). */
+  createOnly?: boolean;
   onClose: () => void;
   onSaved: (investigator: WardInvestigator) => void;
 }
@@ -58,7 +60,7 @@ function duplicateOf(err: unknown): { existingId: string } | null {
   return { existingId: typeof first?.existingId === 'string' ? first.existingId : '' };
 }
 
-export function InvestigatorQuickDialog({ teamId, investigator, suggestedName, known, onClose, onSaved }: InvestigatorQuickDialogProps) {
+export function InvestigatorQuickDialog({ teamId, investigator, suggestedName, known, createOnly = false, onClose, onSaved }: InvestigatorQuickDialogProps) {
   const qc = useQueryClient();
   const editing = !!investigator;
   // What the server holds now: a save that wrote the name and then failed on the status is retried from here, with
@@ -182,13 +184,15 @@ export function InvestigatorQuickDialog({ teamId, investigator, suggestedName, k
             />
           </label>
         ))}
-        <label className="block">
-          <span className={LABEL_BASE}>{T.status}</span>
-          <select data-testid="ward-inv-quick-status" className={SELECT_BASE} value={draft.isActive ? 'active' : 'stopped'} onChange={(e) => set('isActive', e.target.value === 'active')}>
-            <option value="active">{T.active}</option>
-            <option value="stopped">{T.stopped}</option>
-          </select>
-        </label>
+        {!createOnly && (
+          <label className="block">
+            <span className={LABEL_BASE}>{T.status}</span>
+            <select data-testid="ward-inv-quick-status" className={SELECT_BASE} value={draft.isActive ? 'active' : 'stopped'} onChange={(e) => set('isActive', e.target.value === 'active')}>
+              <option value="active">{T.active}</option>
+              <option value="stopped">{T.stopped}</option>
+            </select>
+          </label>
+        )}
         {duplicate && (
           <div data-testid="ward-inv-quick-duplicate" role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             <p>{Q.duplicate(existing?.fullName ?? draft.fullName.trim())}</p>

@@ -191,6 +191,10 @@ export interface WardAssignmentDetail extends WardAssignmentRow {
   timeliness?: { onTime: boolean; lateDays: number } | null;
   viewerId: string;
   can: WardCan;
+  /** The reader is the shared desk at PC02: the request leaves its sight once submitted. Absent on an older server. */
+  intake?: boolean;
+  /** The request a re-assignment follows, by its code (the shared desk names it by code, not from a list). */
+  previousAssignment?: { code: string | null } | null;
 }
 
 /** Block 1 as the ward unit writes it: the body of create and update. */
