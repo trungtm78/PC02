@@ -5,12 +5,12 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { userHoldingPermission } from '../authz/enforcement';
 import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import { boDauTiengViet } from '../common/utils/chuan-hoa-ten.util';
-import { actionConditions, buildPetitionScopeFilter, recordInActionScope, recordReadable, scopeConditions } from '../common/utils/scope-filter.util';
+import { actionConditions, buildPetitionScopeFilter, recordInActionScope } from '../common/utils/scope-filter.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { WARD_ALERT_AUDIT, WARD_ALERT_ERROR } from './ward-alerts.codes';
 import { wardBody } from './ward-errors';
-import { reachOf } from './ward-locks';
+import { reachOf, wardReadConditions, wardReadable } from './ward-locks';
 
 /**
  * Subject matching of a ward assignment request ("Dò trùng đối tượng", plan R4, A5, C3, C4).
@@ -176,8 +176,8 @@ export class WardMatchingService {
 
   /** The request, if the person may open it (404 otherwise, as everywhere in the module), and its subjects. */
   private async readable(scope: Scope, id: string) {
-    const row = await this.prisma.wardAssignment.findUnique({ where: { id }, select: { id: true, assignedTeamId: true, enteredById: true } });
-    if (!row || !recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope)) {
+    const row = await this.prisma.wardAssignment.findUnique({ where: { id }, select: { id: true, assignedTeamId: true, enteredById: true, code: true } });
+    if (!row || !wardReadable(row, scope)) {
       throw new NotFoundException(wardBody(WARD_ERROR.NOT_FOUND));
     }
     const subjects = await this.prisma.wardAssignmentSubject.findMany({
@@ -190,7 +190,7 @@ export class WardMatchingService {
 
   /** Other ward requests: readable, and of the same unit or within the `matchSubjects` reach. */
   private async wardMatches(scope: Scope, row: { id: string; assignedTeamId: string }, subjects: SubjectRow[]): Promise<Found[]> {
-    const read = scopeConditions(scope, 'read', 'WardAssignment');
+    const read = wardReadConditions(scope);
     if (read !== null && read.length === 0) return [];
     const cross = actionConditions(scope, 'WardAssignment', 'matchSubjects');
     const reach: Prisma.WardAssignmentWhereInput = {

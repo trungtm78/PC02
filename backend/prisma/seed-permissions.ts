@@ -81,6 +81,11 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
     petitions, incidents, cases). A permission of its own: it reveals that records exist outside the person's units.
   */
   { action: 'matchSubjects', subject: 'WardAssignment', description: 'Xem đối tượng trùng ở hồ sơ của đơn vị khác' },
+  /*
+    The shared desk at PC02 where ward officers enter their unit's requests: whoever holds it enters a request for any
+    ward unit, and no longer sees a request once it has been submitted (`wardReadable`). A marker, not a wider reach.
+  */
+  { action: 'intake', subject: 'WardAssignment', description: 'Bàn nhập chung tại PC02: nhập cho mọi phường/xã, trình xong không còn thấy hồ sơ' },
 
   // ── Incident (Vụ việc) ─────────────────────────────────────────────────
   { action: 'read', subject: 'Incident' },

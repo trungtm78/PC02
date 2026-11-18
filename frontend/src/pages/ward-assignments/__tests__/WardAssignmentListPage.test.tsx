@@ -10,7 +10,7 @@ import { wardAssignments as L } from '@/locales/wardAssignments.vi';
 
 vi.mock('@/features/ward-assignments/api', async (orig) => {
   const real = await orig<typeof import('@/features/ward-assignments/api')>();
-  return { ...real, wardAssignmentsApi: { list: vi.fn(), listStats: vi.fn(), filterUnits: vi.fn(), remove: vi.fn() } };
+  return { ...real, wardAssignmentsApi: { list: vi.fn(), listStats: vi.fn(), filterUnits: vi.fn(), remove: vi.fn(), viewer: vi.fn() } };
 });
 vi.mock('@/features/ward-assignments/api/docs', async (orig) => {
   const real = await orig<typeof import('@/features/ward-assignments/api/docs')>();
@@ -486,5 +486,64 @@ describe('several rows at once', () => {
     const notice = await screen.findByTestId('ward-list-notice');
     expect(notice).toHaveTextContent(L.list.bulk.deleted(1));
     expect(notice).toHaveTextContent(L.list.bulk.skipped(1));
+  });
+});
+
+describe('the shared desk at PC02 reads only what it is still entering', () => {
+  const drafts = [
+    row({ id: 'k1', code: null, status: 'DRAFT', submittedAt: null, submissionCount: 0, can: { edit: true, delete: true, issueSlip: false }, latestDecision: null }),
+    row({ id: 'k2', code: null, status: 'DRAFT', submittedAt: null, submissionCount: 0, can: { edit: true, delete: true, issueSlip: false }, latestDecision: null }),
+  ];
+
+  it('no status cards, no Excel, no slip to print; a line says why, and the drafts are still opened, edited and deleted', async () => {
+    api.viewer.mockResolvedValue({ intake: true });
+    api.list.mockResolvedValue({ data: drafts, total: drafts.length, intake: true });
+    renderPage();
+    await screen.findByTestId('ward-row-k1');
+    expect(screen.getByTestId('ward-intake-list-notice')).toHaveTextContent(L.intake.listNotice);
+    for (const key of ['all', 'DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'archived']) expect(screen.queryByTestId(`ward-card-${key}`)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-xuat-dang-xem')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-testid^="btn-print-"]')).toHaveLength(0);
+    // What stays: the search, "Tạo mới", and the draft's own buttons.
+    expect(screen.getByTestId('ward-create')).toBeInTheDocument();
+    expect(screen.getByTestId('ward-matching-count')).toHaveTextContent(L.list.matching(2));
+    for (const a of ['view', 'edit', 'delete']) expect(screen.getByTestId(`btn-${a}-k1`)).toBeEnabled();
+    fireEvent.click(screen.getByTestId('btn-edit-k2'));
+    expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/k2/edit');
+  });
+
+  it('the list answer alone says so too (the viewer question unanswered); nothing being entered is said in the desk’s words, with the way to start', async () => {
+    api.viewer.mockRejectedValue(new Error('down'));
+    api.list.mockResolvedValue({ data: [], total: 0, intake: true });
+    renderPage();
+    expect(await screen.findByText(L.intake.listEmpty)).toBeInTheDocument();
+    expect(screen.queryByText(L.list.empty)).not.toBeInTheDocument();
+    expect(screen.getByTestId('ward-intake-list-notice')).toBeInTheDocument();
+    expect(screen.queryByTestId('ward-card-all')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-xuat-dang-xem')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: L.list.emptyCreate }));
+    expect(await screen.findByTestId('where')).toHaveTextContent('/ho-so-phan-cong/new');
+  });
+
+  it('an account that is not the desk (the viewer and the list both say so) keeps its cards, its Excel, its slips and its own empty words', async () => {
+    api.viewer.mockResolvedValue({ intake: false });
+    api.list.mockImplementation(async (q: WardListQuery) => {
+      const data = rows.filter((r) => !q.status || r.status === q.status);
+      return { data, total: data.length, intake: false };
+    });
+    const first = renderPage();
+    await screen.findByTestId('ward-row-w1');
+    await waitFor(() => expect(screen.getByTestId('ward-card-all')).toHaveTextContent('4'));
+    expect(api.listStats).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('btn-xuat-dang-xem')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-print-w1')).toBeInTheDocument();
+    expect(screen.queryByTestId('ward-intake-list-notice')).not.toBeInTheDocument();
+    first.unmount();
+    api.list.mockResolvedValue({ data: [], total: 0, intake: false });
+    renderPage();
+    expect(await screen.findByText(L.list.empty)).toBeInTheDocument();
+    expect(screen.queryByText(L.intake.listEmpty)).not.toBeInTheDocument();
   });
 });

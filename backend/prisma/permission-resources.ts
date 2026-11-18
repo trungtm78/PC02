@@ -73,7 +73,7 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
     key: 'wardAssignments',
     group: 'business',
     basic: { view: 'read:WardAssignment', create: 'write:WardAssignment', edit: 'edit:WardAssignment', delete: 'delete:WardAssignment' },
-    extras: { reviewAssignment: 'review:WardAssignment', matchSubjects: 'matchSubjects:WardAssignment' },
+    extras: { reviewAssignment: 'review:WardAssignment', matchSubjects: 'matchSubjects:WardAssignment', intakeDesk: 'intake:WardAssignment' },
     recordScope: { kind: 'own', subject: 'WardAssignment', ownerField: 'enteredById' },
     sensitive: ['matchSubjects:WardAssignment'],
   },

@@ -354,6 +354,23 @@ export const wardAssignments = {
     close: 'Đóng',
   },
 
+  /** The shared desk at PC02 ("tài khoản nhập chung"): ward officers enter their requests on one account. */
+  intake: {
+    formNotice: 'Tài khoản nhập chung: sau khi bấm Trình duyệt, hồ sơ sẽ không còn hiện ở đây. Hồ sơ lưu tạm vẫn hiện cho tới khi trình.',
+    listNotice: 'Tài khoản nhập chung: chỉ hiện các hồ sơ đang nhập dở. Hồ sơ đã trình do PC02 xử lý.',
+    listEmpty: 'Không có hồ sơ đang nhập dở.',
+    submitted: (code: string) => `Đã trình hồ sơ ${code}. PC02 sẽ thẩm định.`,
+    alreadySubmitted: 'Hồ sơ đã được trình.',
+    previousCodePlaceholder: 'Ví dụ: 2026-3',
+    previousCodeLabel: 'Mã hồ sơ phân công trước',
+    previousCheck: 'Kiểm tra',
+    previousChecking: 'Đang kiểm tra…',
+    previousFound: (code: string) => `Đã tìm thấy hồ sơ ${code}`,
+    previousNotFound: 'Không tìm thấy hồ sơ đã duyệt mang mã này của đơn vị đã chọn.',
+    previousPickUnitFirst: 'Chọn đơn vị trước khi kiểm tra mã hồ sơ.',
+    previousTypeCodeFirst: 'Nhập mã hồ sơ rồi bấm Kiểm tra.',
+  },
+
   /** Server error codes the screen translates. */
   errors: {
     WARD_ASSIGNMENT_NOT_FOUND: 'Không tìm thấy hồ sơ, hoặc tài khoản không có quyền với hồ sơ này.',
@@ -422,6 +439,7 @@ export const wardMissingField: Record<string, string> = {
   content: wardAssignments.form.fields.content,
   proposedInvestigatorId: wardAssignments.form.fields.proposedInvestigator,
   entryOfficerName: wardAssignments.form.fields.entryOfficerName,
+  entryOfficerPhone: wardAssignments.form.fields.entryOfficerPhone,
   subjects: wardAssignments.form.fields.subjects,
   previousAssignmentId: wardAssignments.form.fields.previous,
   reassignReason: wardAssignments.form.fields.reassignReason,

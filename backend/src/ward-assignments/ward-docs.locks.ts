@@ -1,17 +1,16 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Prisma, WardAssignment } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { recordInActionScope, recordReadable } from '../common/utils/scope-filter.util';
+import { recordInActionScope } from '../common/utils/scope-filter.util';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
-import { reachOf } from './ward-locks';
+import { reachOf, wardReadable } from './ward-locks';
 
 type Tx = Prisma.TransactionClient;
 type Scope = DataScope | null | undefined;
 
-/** Whether the person may read the request (the read reach of `WardAssignment`). */
-export const readableRequest = (row: Pick<WardAssignment, 'assignedTeamId' | 'enteredById'>, scope: Scope): boolean =>
-  recordReadable('WardAssignment', { assignedTeamId: row.assignedTeamId, enteredById: row.enteredById }, scope);
+/** Whether the person may read the request: the module's one read rule (`wardReadable`). */
+export const readableRequest = (row: Pick<WardAssignment, 'assignedTeamId' | 'enteredById' | 'code'>, scope: Scope): boolean => wardReadable(row, scope);
 
 /** The request for reading its files: absent (404) for somebody who may not read it. */
 export async function requestForRead(tx: Tx, scope: Scope, id: string): Promise<WardAssignment> {

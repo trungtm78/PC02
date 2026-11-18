@@ -51,8 +51,8 @@ async function login(username) {
 }
 const rowsOf = (b) => b?.data ?? (Array.isArray(b) ? b : []);
 
-const T = { W: `${TAG}-w`, P: `${TAG}-p` };
-const U = { ward: `${TAG}-ward`, rev: `${TAG}-rev`, admin: `${TAG}-admin`, admin2: `${TAG}-admin2` };
+const T = { W: `${TAG}-w`, P: `${TAG}-p`, D: `${TAG}-d` };
+const U = { ward: `${TAG}-ward`, rev: `${TAG}-rev`, admin: `${TAG}-admin`, admin2: `${TAG}-admin2`, desk: `${TAG}-desk` };
 
 async function seed(pg) {
   const hash = await bcrypt.hash(PASSWORD, 10);
@@ -61,7 +61,8 @@ async function seed(pg) {
   await pg.query(`INSERT INTO directories (id,type,code,name,"updatedAt") VALUES ($1,'WARD',$1,$2,now())`, [`${TAG}-ward-dir`, `Phường UAT ${RUN}`]);
   await pg.query(`INSERT INTO teams (id,name,code,"wardId","updatedAt") VALUES ($1,$2,$1,$3,now())`, [T.W, `CA phường Vườn Lài (UAT ${RUN})`, `${TAG}-ward-dir`]);
   await pg.query(`INSERT INTO teams (id,name,code,"updatedAt") VALUES ($1,$2,$1,now())`, [T.P, `Đội 1 PC02 (UAT ${RUN})`]);
-  for (const [id, role, team, first] of [[U.ward, officer, T.W, 'Hoa'], [U.rev, officer, T.P, 'Thẩm'], [U.admin, admin, null, 'Quản trị'], [U.admin2, admin, null, 'Quản trị 2']]) {
+  await pg.query(`INSERT INTO teams (id,name,code,"updatedAt") VALUES ($1,$2,$1,now())`, [T.D, `Bàn nhập (UAT ${RUN})`]);
+  for (const [id, role, team, first] of [[U.desk, officer, T.D, 'Bàn nhập'], [U.ward, officer, T.W, 'Hoa'], [U.rev, officer, T.P, 'Thẩm'], [U.admin, admin, null, 'Quản trị'], [U.admin2, admin, null, 'Quản trị 2']]) {
     await pg.query(`INSERT INTO users (id,username,email,"passwordHash","roleId","isActive","twoFaSetupRequired","firstName","lastName",phone,"updatedAt") VALUES ($1,$1,$2,$3,$4,true,false,$5,'UAT','0901234567',now())`, [id, `${id}@local.test`, hash, role, first]);
     if (team) await pg.query(`INSERT INTO user_teams ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [id, team]);
   }
@@ -73,7 +74,8 @@ async function enforce(admin, admin2) {
   const templates = rowsOf((await call(admin, 'GET', '/authz/templates')).body);
   const sub = templates.find((t) => t.code === 'STARTER_WARD_SUBMIT');
   const rev = templates.find((t) => t.code === 'STARTER_WARD_REVIEW');
-  for (const [team, tpl] of [[T.W, sub.id], [T.P, rev.id]]) await call(admin, 'PUT', `/authz/teams/${team}`, { mode: 'EXPLICIT', memberTemplateId: tpl, expectedRevision: 0, reason: 'UAT trình duyệt' });
+  const desk = templates.find((t) => t.code === 'STARTER_WARD_INTAKE');
+  for (const [team, tpl] of [[T.W, sub.id], [T.P, rev.id], [T.D, desk.id]]) await call(admin, 'PUT', `/authz/teams/${team}`, { mode: 'EXPLICIT', memberTemplateId: tpl, expectedRevision: 0, reason: 'UAT trình duyệt' });
   const fp = async (t) => (await call(t, 'GET', '/authz/mode/comparison')).body?.fingerprint;
   const asked = await call(admin, 'POST', '/authz/mode/requests', { reason: 'UAT trình duyệt', acknowledge: await fp(admin) });
   await call(admin2, 'POST', `/authz/mode/requests/${asked.body?.id}/approve`, { acknowledge: await fp(admin2) });
@@ -389,6 +391,63 @@ async function asPerson(browser, who, watch) {
     await ward.page.keyboard.press('Alt+n');
     await ward.page.waitForURL('**/ho-so-phan-cong/new', { timeout: 8000 }).catch(() => undefined);
     check('Alt+N mở form tạo mới', ward.page.url().endsWith('/ho-so-phan-cong/new'), ward.page.url());
+
+    // ── The shared desk at PC02 (owner's request of 18/11/2026): one account, gone once "Trình duyệt" is pressed ──
+    const d = { ...(await login(U.desk)), label: 'ban-nhap' };
+    check('tài khoản bàn nhập đăng nhập được', !!d.token);
+    const desk = await asPerson(browser, d, watch);
+    await desk.page.goto(`${WEB}/ho-so-phan-cong/new`);
+    await desk.page.getByTestId('ward-intake-notice').waitFor({ timeout: 15000 }).catch(() => undefined);
+    check('bàn nhập, form Thêm mới: có dòng nhắc "trình xong không còn hiện"; ô Cán bộ nhập và SĐT để TRỐNG (không lấy tên tài khoản chung)',
+      (await desk.page.getByTestId('ward-intake-notice').innerText().catch(() => '')).includes('Trình duyệt') && (await desk.page.getByTestId('ward-entry-officer').inputValue()) === '' && (await desk.page.getByTestId('ward-entry-phone').inputValue()) === '');
+    await desk.page.screenshot({ path: path.join(OUT, 'desk-01-form-moi.png'), fullPage: true });
+    // A draft saved by the desk for the ward unit (through the API), then finished and submitted on the screen.
+    const deskDraft = await call(d.token, 'POST', '/ward-assignments', {
+      assignedTeamId: T.W, caseType: 'CASE', kind: 'NEW', crimeId: crime, summary: `Trộm xe tại chợ (bàn nhập, UAT ${RUN})`, content: 'Ngày 12/11 mất một xe máy tại bãi giữ xe.',
+      discoveredOn: '2026-11-12', place: 'Chợ Vườn Lài', subjectsUnknown: true, subjects: [], proposedInvestigatorId: inv.body?.id, entryOfficerName: '', entryOfficerPhone: null,
+    });
+    check('bàn nhập lưu tạm một hồ sơ cho phường (API)', deskDraft.status === 201 && deskDraft.body?.enteredOnBehalf === true, [deskDraft.status, deskDraft.body]);
+    const deskId = deskDraft.body?.id;
+    await desk.page.goto(`${WEB}/ho-so-phan-cong`);
+    await desk.page.getByTestId(`ward-row-${deskId}`).waitFor({ timeout: 15000 }).catch(() => undefined);
+    check('bàn nhập, danh sách: thấy bản lưu tạm; có dòng nhắc; KHÔNG có thẻ trạng thái, nút Xuất Excel, nút In phiếu',
+      (await desk.page.getByTestId(`ward-row-${deskId}`).count()) === 1 && (await desk.page.getByTestId('ward-intake-list-notice').count()) === 1 &&
+      (await desk.page.locator('[data-testid^="ward-card-"]').count()) === 0 && (await desk.page.getByTestId('btn-xuat-dang-xem').count()) === 0 && (await desk.page.locator('[data-testid^="btn-print-"]').count()) === 0);
+    check('bàn nhập, danh sách: không thấy hồ sơ phường đã tự trình', (await desk.page.getByTestId(`ward-row-${id}`).count()) === 0);
+    await desk.page.screenshot({ path: path.join(OUT, 'desk-02-danh-sach.png'), fullPage: true });
+    await desk.page.getByTestId(`btn-edit-${deskId}`).click();
+    await desk.page.getByTestId('ward-entry-officer').waitFor({ timeout: 15000 });
+    await desk.page.getByRole('button', { name: /Trình duyệt/ }).first().click();
+    await desk.page.waitForTimeout(800);
+    check('bấm Trình duyệt khi chưa ghi Cán bộ nhập và SĐT: không trình, vẫn ở hồ sơ', desk.page.url().includes(deskId) && (await call(a.token, 'GET', `/ward-assignments/${deskId}`)).body?.status === 'DRAFT', desk.page.url());
+    await desk.page.getByTestId('ward-entry-officer').fill('Trần Văn Phường');
+    await desk.page.getByTestId('ward-entry-phone').fill('0907654321');
+    await desk.page.getByRole('button', { name: /Trình duyệt/ }).first().click();
+    await desk.page.waitForURL('**/ho-so-phan-cong/new', { timeout: 15000 }).catch(() => undefined);
+    const deskBanner = await desk.page.getByTestId('ward-banner').innerText({ timeout: 8000 }).catch(() => '');
+    const stored = (await call(a.token, 'GET', `/ward-assignments/${deskId}`)).body;
+    check('ghi đủ rồi bấm Trình duyệt: hồ sơ Đã trình; màn hình về form Thêm mới TRỐNG và báo "Đã trình hồ sơ <mã>"',
+      stored?.status === 'SUBMITTED' && desk.page.url().endsWith('/ho-so-phan-cong/new') && deskBanner.includes(`Đã trình hồ sơ ${stored?.code}`) &&
+      (await desk.page.getByTestId('ward-summary').inputValue()) === '' && (await desk.page.getByTestId('ward-entry-officer').inputValue()) === '', [stored?.status, desk.page.url(), deskBanner]);
+    await desk.page.screenshot({ path: path.join(OUT, 'desk-03-sau-khi-trinh.png'), fullPage: true });
+    await desk.page.goto(`${WEB}/ho-so-phan-cong`);
+    await desk.page.getByTestId('ward-intake-list-notice').waitFor({ timeout: 15000 }).catch(() => undefined);
+    await desk.page.waitForTimeout(800);
+    check('trình xong: danh sách của bàn nhập không còn hồ sơ đó ("Không có hồ sơ đang nhập dở")',
+      (await desk.page.getByTestId(`ward-row-${deskId}`).count()) === 0 && (await desk.page.getByText('Không có hồ sơ đang nhập dở').count()) > 0);
+    await desk.page.screenshot({ path: path.join(OUT, 'desk-04-danh-sach-sau-trinh.png'), fullPage: true });
+    // Opening the old address is refused by the server (404): expected here, not a broken screen.
+    const before404 = watch.length;
+    await desk.page.goto(`${WEB}/ho-so-phan-cong/${deskId}`);
+    await desk.page.waitForTimeout(1500);
+    const text404 = await desk.page.locator('body').innerText();
+    check('mở lại đường dẫn hồ sơ đã trình: báo không tìm thấy, không lộ trích yếu', text404.includes('Không tìm thấy hồ sơ') && !text404.includes('Trộm xe tại chợ'), text404.slice(0, 300));
+    watch.length = before404;
+    await desk.context.close();
+    // PC02 still sees and decides what the desk submitted.
+    await rev.page.goto(`${WEB}/ho-so-phan-cong/${deskId}`);
+    await rev.page.getByTestId('ward-assignment-form-page').waitFor({ timeout: 15000 });
+    check('PC02 mở được hồ sơ bàn nhập đã trình, thấy tên cán bộ phường đã nhập', (await rev.page.getByTestId('ward-entry-officer').inputValue().catch(() => '')) === 'Trần Văn Phường');
     await ward.context.close();
     await rev.context.close();
   } catch (err) {

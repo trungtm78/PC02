@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -562,6 +562,13 @@ export class AuthService {
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Tài khoản không tồn tại hoặc đã bị vô hiệu hóa');
+    }
+
+    // A shared account (the desk at PC02 where ward officers enter their unit's requests) is not its users' to re-key:
+    // whoever changed the password would lock everybody else out. An administrator resets it (never an administrator's
+    // own account: an administrator has no scope, so never carries the marker).
+    if (enforcement()?.scopeOf(userId)?.precise?.wardIntake === true) {
+      throw new ForbiddenException({ code: 'SHARED_ACCOUNT_PASSWORD_BY_ADMIN', message: 'Đây là tài khoản dùng chung nên không tự đổi mật khẩu được. Quản trị viên đặt lại mật khẩu khi cần.' });
     }
 
     // Guard: accounts without local password (OAuth/SSO) have no hash to compare

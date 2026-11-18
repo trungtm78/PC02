@@ -17,7 +17,7 @@ vi.mock('@/features/ward-assignments/api', async (orig) => {
     wardAssignmentsApi: {
       list: fn(), get: fn(), create: fn(), update: fn(), submit: fn(), withdraw: fn(), remove: fn(), archive: fn(), restore: fn(),
       returnIt: fn(), revokeReturn: fn(), approve: fn(), cancelApproval: fn(), followUp: fn(), extendDeadline: fn(), complete: fn(),
-      reopen: fn(), returnReasons: fn(), followUpChoices: fn(), deletionImpact: fn(), removeWithData: fn(), unitChoices: fn(), addReturnReason: fn(),
+      reopen: fn(), returnReasons: fn(), followUpChoices: fn(), deletionImpact: fn(), removeWithData: fn(), unitChoices: fn(), addReturnReason: fn(), viewer: fn(), previousByCode: fn(),
     },
     wardInvestigatorsApi: { list: fn(), create: fn(), update: fn(), deactivate: fn(), reactivate: fn() },
   };
@@ -737,5 +737,282 @@ describe('the request slip, printed as the petition form prints its documents', 
     }
     fireEvent.click(screen.getByTestId('ward-print'));
     expect(screen.queryByTestId('ward-slip-dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('the shared desk at PC02 (one account the ward officers enter on)', () => {
+  const INTAKE_USER = {
+    id: 'u-desk', email: 'desk@x', role: 'OFFICER', firstName: 'chung', lastName: 'Nhập', phone: '0900 000 009', teams: [{ teamId: 'd1', teamName: 'Đội 1', isLeader: false }],
+    primaryTeam: { teamId: 'd1', teamName: 'Đội 1' }, isWardOfficer: false, wardTeam: null,
+  };
+  /** A draft the desk entered and has not submitted: everything a submission needs is in it. */
+  const draft = (over: Partial<WardAssignmentDetail> = {}) =>
+    detail({ id: 'w9', status: 'DRAFT', code: null, rounds: [], submissionCount: 0, submittedAt: null, entryOfficerPhone: '0901 111 222', viewerId: 'u-desk', intake: true, can: { ...NO, edit: true, submit: true, delete: true }, ...over });
+
+  beforeEach(() => {
+    who.user = INTAKE_USER;
+    api.viewer.mockResolvedValue({ intake: true });
+  });
+
+  it('a new form says what the desk is, starts with the entering officer and the phone empty, and refuses a submission naming both', async () => {
+    renderAt('/ho-so-phan-cong/new');
+    expect(await screen.findByTestId('ward-intake-notice')).toHaveTextContent(L.intake.formNotice);
+    // Never the account's own name and phone: the officer at the desk types theirs.
+    expect(screen.getByTestId('ward-entry-officer')).toHaveValue('');
+    expect(screen.getByTestId('ward-entry-phone')).toHaveValue('');
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    const box = await screen.findByTestId('validation-errors');
+    expect(box).toHaveTextContent(L.form.required(L.form.fields.unit));
+    expect(box).toHaveTextContent(L.form.required(L.form.fields.entryOfficerName));
+    expect(box).toHaveTextContent(L.form.required(L.form.fields.entryOfficerPhone));
+    expect(api.create).not.toHaveBeenCalled();
+    expect(api.submit).not.toHaveBeenCalled();
+    // The name alone is not enough: the phone is still asked for.
+    fireEvent.change(screen.getByTestId('ward-entry-officer'), { target: { value: 'Trần Văn H' } });
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    await waitFor(() => expect(screen.getByTestId('validation-errors')).not.toHaveTextContent(L.form.required(L.form.fields.entryOfficerName)));
+    expect(screen.getByTestId('validation-errors')).toHaveTextContent(L.form.required(L.form.fields.entryOfficerPhone));
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it('"Trình duyệt" of a draft: a blank new form with the code in a green banner; the request is not read again and the list is not opened', async () => {
+    api.get.mockResolvedValue(draft());
+    api.update.mockResolvedValue(draft({ updatedAt: '2026-11-18T02:00:00.000Z' }));
+    api.submit.mockResolvedValue({ code: '2026-7' });
+    renderAt('/ho-so-phan-cong/w9/edit');
+    fireEvent.click(await screen.findByTestId('ward-submit'));
+    await waitFor(() => expect(api.submit).toHaveBeenCalledWith('w9', '2026-11-18T02:00:00.000Z'));
+    const banner = await screen.findByTestId('ward-banner');
+    expect(banner).toHaveTextContent(L.intake.submitted('2026-7'));
+    expect(banner).toHaveAttribute('role', 'status');
+    // The new form, blank: nothing of the request just submitted, nothing of the account.
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(L.form.titleNew);
+    expect(screen.getByTestId('ward-summary')).toHaveValue('');
+    expect(screen.getByTestId('ward-entry-officer')).toHaveValue('');
+    expect(screen.getByTestId('ward-entry-phone')).toHaveValue('');
+    // Not the list (its route shows `where`), and not one more read of a request the desk no longer sees.
+    expect(screen.queryByTestId('where')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ward-form-error')).not.toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('submitted from the new form itself: the address stays, the form starts over blank, with the banner', async () => {
+    api.create.mockResolvedValue(draft({ updatedAt: '2026-11-18T03:00:00.000Z' }));
+    api.submit.mockResolvedValue({ code: '2026-8' });
+    renderAt('/ho-so-phan-cong/new');
+    await choose('ward-unit', 'tw');
+    await fillRequired();
+    fireEvent.change(screen.getByTestId('ward-entry-officer'), { target: { value: 'Trần Văn H' } });
+    fireEvent.change(screen.getByTestId('ward-entry-phone'), { target: { value: '0901 111 222' } });
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    await waitFor(() => expect(api.submit).toHaveBeenCalledWith('w9', '2026-11-18T03:00:00.000Z'));
+    expect(api.create.mock.calls[0][0]).toMatchObject({ assignedTeamId: 'tw', entryOfficerName: 'Trần Văn H', entryOfficerPhone: '0901 111 222' });
+    expect(await screen.findByTestId('ward-banner')).toHaveTextContent(L.intake.submitted('2026-8'));
+    await waitFor(() => expect(screen.getByTestId('ward-summary')).toHaveValue(''));
+    expect(screen.getByTestId('ward-entry-officer')).toHaveValue('');
+    expect(screen.getByTestId('ward-entry-phone')).toHaveValue('');
+    expect(screen.getByTestId('ward-unit-trigger')).not.toHaveTextContent('CAP Vườn Lài');
+    expect(screen.queryByTestId('where')).not.toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('a submission answered "not found" (a second click after the first went through) is a request already submitted', async () => {
+    api.get.mockResolvedValue(draft());
+    api.update.mockResolvedValue(draft({ updatedAt: '2026-11-18T02:00:00.000Z' }));
+    api.submit.mockRejectedValue(axiosError(404, 'WARD_ASSIGNMENT_NOT_FOUND'));
+    renderAt('/ho-so-phan-cong/w9/edit');
+    fireEvent.click(await screen.findByTestId('ward-submit'));
+    const banner = await screen.findByTestId('ward-banner');
+    expect(banner).toHaveTextContent(L.intake.alreadySubmitted);
+    expect(banner).toHaveAttribute('role', 'status');
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(L.form.titleNew);
+    expect(screen.getByTestId('ward-summary')).toHaveValue('');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('another refusal of the submission is still said on the request (it is not taken for a submission done)', async () => {
+    api.get.mockResolvedValue(draft());
+    api.update.mockResolvedValue(draft({ updatedAt: '2026-11-18T02:00:00.000Z' }));
+    api.submit.mockRejectedValue(axiosError(400, 'WARD_ASSIGNMENT_INCOMPLETE', [{ field: 'entryOfficerPhone' }]));
+    renderAt('/ho-so-phan-cong/w9/edit');
+    fireEvent.click(await screen.findByTestId('ward-submit'));
+    const banner = await screen.findByTestId('ward-banner');
+    expect(banner).toHaveTextContent(L.errors.WARD_ASSIGNMENT_INCOMPLETE);
+    expect(banner).toHaveTextContent(L.form.fields.entryOfficerPhone);
+    expect(screen.getByTestId('where')).toHaveTextContent('/ho-so-phan-cong/w9/edit');
+  });
+
+  it('an answer about a code that is no longer the one typed is not applied', async () => {
+    let answer: (v: { id: string; code: string }) => void = () => undefined;
+    api.previousByCode.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    renderAt('/ho-so-phan-cong/new');
+    fireEvent.click(await screen.findByTestId('ward-kind-REASSIGN'));
+    const code = screen.getByTestId('ward-previous-code');
+    fireEvent.change(code, { target: { value: '2026-3' } });
+    await choose('ward-unit', 'tw');
+    fireEvent.click(screen.getByTestId('ward-previous-check'));
+    await waitFor(() => expect(api.previousByCode).toHaveBeenCalledWith('tw', '2026-3'));
+    // The officer types another code before the answer arrives.
+    fireEvent.change(code, { target: { value: '2026-9' } });
+    answer({ id: 'p1', code: '2026-3' });
+    await waitFor(() => expect(screen.getByTestId('ward-previous-check')).toHaveTextContent(L.intake.previousCheck));
+    expect(screen.queryByTestId('ward-previous-found')).not.toBeInTheDocument();
+    // Nothing was named: a submission still asks for the previous request.
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    expect(await screen.findByTestId('validation-errors')).toHaveTextContent(L.form.required(L.form.fields.previous));
+  });
+
+  it('a re-assignment names the request it follows by its code: found, not found, and cleared when the code or the unit changes', async () => {
+    api.previousByCode.mockResolvedValue({ id: 'p1', code: '2026-3' });
+    api.create.mockResolvedValue(draft());
+    renderAt('/ho-so-phan-cong/new');
+    fireEvent.click(await screen.findByTestId('ward-kind-REASSIGN'));
+    // No list of approved requests: the desk reads none.
+    expect(screen.queryByTestId('ward-previous')).not.toBeInTheDocument();
+    const code = screen.getByTestId('ward-previous-code');
+    expect(code).toHaveAttribute('placeholder', L.intake.previousCodePlaceholder);
+    const check = screen.getByTestId('ward-previous-check');
+    expect(check).toHaveTextContent(L.intake.previousCheck);
+    // The unit first: the code is a code of that unit.
+    fireEvent.change(code, { target: { value: '2026-3' } });
+    expect(check).toBeDisabled();
+    expect(check).toHaveAttribute('title', L.intake.previousPickUnitFirst);
+    await choose('ward-unit', 'tw');
+    expect(check).toBeEnabled();
+    fireEvent.click(check);
+    await waitFor(() => expect(api.previousByCode).toHaveBeenCalledWith('tw', '2026-3'));
+    expect(await screen.findByTestId('ward-previous-found')).toHaveTextContent(L.intake.previousFound('2026-3'));
+    // Another unit: what was found belonged to the unit before.
+    await choose('ward-unit', 'tw2');
+    expect(screen.queryByTestId('ward-previous-found')).not.toBeInTheDocument();
+    api.previousByCode.mockRejectedValue(axiosError(404, 'WARD_ASSIGNMENT_PREVIOUS_UNKNOWN'));
+    fireEvent.click(check);
+    expect(await screen.findByTestId('ward-previous-problem')).toHaveTextContent(L.intake.previousNotFound);
+    expect(api.previousByCode).toHaveBeenLastCalledWith('tw2', '2026-3');
+    expect(screen.queryByTestId('ward-previous-found')).not.toBeInTheDocument();
+    // Not found: a submission still asks for the previous request.
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    expect(await screen.findByTestId('validation-errors')).toHaveTextContent(L.form.required(L.form.fields.previous));
+    // Another code: the answer about the old one is taken away, and the new one is asked about.
+    fireEvent.change(code, { target: { value: '2026-4' } });
+    expect(screen.queryByTestId('ward-previous-problem')).not.toBeInTheDocument();
+    api.previousByCode.mockResolvedValue({ id: 'p4', code: '2026-4' });
+    fireEvent.click(check);
+    expect(await screen.findByTestId('ward-previous-found')).toHaveTextContent(L.intake.previousFound('2026-4'));
+    // Changing the text lets go of the request found; found again, it is what the draft saved names.
+    fireEvent.change(code, { target: { value: '2026-40' } });
+    expect(screen.queryByTestId('ward-previous-found')).not.toBeInTheDocument();
+    fireEvent.change(code, { target: { value: '2026-4' } });
+    fireEvent.click(check);
+    await screen.findByTestId('ward-previous-found');
+    fireEvent.click(screen.getByTestId('ward-save-draft'));
+    await waitFor(() => expect(api.create).toHaveBeenCalled());
+    expect(api.create.mock.calls[0][0]).toMatchObject({ kind: 'REASSIGN', assignedTeamId: 'tw2', previousAssignmentId: 'p4' });
+    // The approved requests were never listed for the desk.
+    expect(api.list).not.toHaveBeenCalled();
+  });
+
+  it('a code whose text was changed after it was found is not sent as found', async () => {
+    api.previousByCode.mockResolvedValue({ id: 'p1', code: '2026-3' });
+    api.create.mockResolvedValue(draft());
+    renderAt('/ho-so-phan-cong/new');
+    fireEvent.click(await screen.findByTestId('ward-kind-REASSIGN'));
+    await choose('ward-unit', 'tw');
+    fireEvent.change(screen.getByTestId('ward-previous-code'), { target: { value: '2026-3' } });
+    fireEvent.click(screen.getByTestId('ward-previous-check'));
+    await screen.findByTestId('ward-previous-found');
+    fireEvent.change(screen.getByTestId('ward-previous-code'), { target: { value: '2026-31' } });
+    fireEvent.click(screen.getByTestId('ward-save-draft'));
+    await waitFor(() => expect(api.create).toHaveBeenCalled());
+    expect(api.create.mock.calls[0][0].previousAssignmentId).toBeNull();
+  });
+
+  it('a draft re-assignment opened again shows the code of the request it follows, as found', async () => {
+    api.get.mockResolvedValue(draft({ kind: 'REASSIGN', previousAssignmentId: 'p1', previousAssignment: { code: '2026-3' }, reassignReason: 'ĐTV chuyển công tác' }));
+    api.update.mockResolvedValue(draft());
+    renderAt('/ho-so-phan-cong/w9/edit');
+    expect(await screen.findByTestId('ward-previous-code')).toHaveValue('2026-3');
+    expect(screen.getByTestId('ward-previous-found')).toHaveTextContent(L.intake.previousFound('2026-3'));
+    expect(screen.queryByTestId('ward-previous')).not.toBeInTheDocument();
+    // Saved untouched, it still names that request.
+    fireEvent.click(screen.getByTestId('ward-save-draft'));
+    await waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0][1]).toMatchObject({ previousAssignmentId: 'p1' });
+    expect(api.previousByCode).not.toHaveBeenCalled();
+    expect(api.list).not.toHaveBeenCalled();
+  });
+
+  it('investigators are chosen and added, never corrected or stopped: no pencil, no directory, no status in the dialog', async () => {
+    const created: WardInvestigator = { id: 'i9', teamId: 'tw', fullName: 'Phạm Văn Mới', rank: null, position: null, grade: null, isActive: true, updatedAt: '2026-11-17T00:00:00Z' };
+    invApi.create.mockResolvedValue(created);
+    renderAt('/ho-so-phan-cong/new');
+    await choose('ward-unit', 'tw');
+    await choose('ward-proposed-investigator', 'i1');
+    expect(screen.getByTestId('ward-proposed-investigator-trigger')).toHaveTextContent('Lê Văn C');
+    expect(screen.queryByTestId('ward-edit-investigator')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ward-open-directory')).not.toBeInTheDocument();
+    // A name nobody carries is still created from the field.
+    fireEvent.click(screen.getByTestId('ward-proposed-investigator-trigger'));
+    const search = await screen.findByTestId('ward-proposed-investigator-search');
+    fireEvent.change(search, { target: { value: 'Phạm Văn Mới' } });
+    await waitFor(() => expect(screen.queryByTestId('ward-proposed-investigator-option-i1')).not.toBeInTheDocument());
+    fireEvent.keyDown(search, { key: 'Enter' });
+    const dialog = await screen.findByTestId('ward-inv-quick');
+    expect(within(dialog).getByTestId('ward-inv-quick-fullName')).toHaveValue('Phạm Văn Mới');
+    expect(within(dialog).queryByTestId('ward-inv-quick-status')).not.toBeInTheDocument();
+    invApi.list.mockResolvedValue([investigator, created]);
+    fireEvent.click(screen.getByTestId('ward-inv-quick-save'));
+    await waitFor(() => expect(invApi.create).toHaveBeenCalledWith('tw', { fullName: 'Phạm Văn Mới', rank: null, position: null, grade: null }));
+    await waitFor(() => expect(screen.queryByTestId('ward-inv-quick')).not.toBeInTheDocument());
+    expect(invApi.update).not.toHaveBeenCalled();
+    expect(invApi.deactivate).not.toHaveBeenCalled();
+    // The one created is chosen, and still has no pencil.
+    await waitFor(() => expect(screen.getByTestId('ward-proposed-investigator-trigger')).toHaveTextContent('Phạm Văn Mới'));
+    expect(screen.queryByTestId('ward-edit-investigator')).not.toBeInTheDocument();
+  });
+
+  it('a request says the reader is the desk even when the viewer question got no answer', async () => {
+    api.viewer.mockRejectedValue(new Error('down'));
+    api.get.mockResolvedValue(draft());
+    renderAt('/ho-so-phan-cong/w9/edit');
+    expect(await screen.findByTestId('ward-intake-notice')).toBeInTheDocument();
+  });
+});
+
+describe('an account that is not the shared desk, with the viewer answering so', () => {
+  beforeEach(() => {
+    api.viewer.mockResolvedValue({ intake: false });
+  });
+
+  it('keeps the prefill from the account, the list of approved requests, the pencil and the directory; no desk notice', async () => {
+    api.list.mockResolvedValue({ data: [{ ...detail({ id: 'p1', code: '2026-00077', status: 'APPROVED' }) }], total: 1 });
+    renderAt('/ho-so-phan-cong/new');
+    expect(await screen.findByTestId('ward-entry-officer')).toHaveValue('Võ Thị G');
+    expect(screen.getByTestId('ward-entry-phone')).toHaveValue('0900 000 001');
+    expect(screen.queryByTestId('ward-intake-notice')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ward-kind-REASSIGN'));
+    const previous = await screen.findByTestId('ward-previous');
+    await waitFor(() => expect(within(previous).getByText(/2026-00077/)).toBeInTheDocument());
+    expect(screen.queryByTestId('ward-previous-code')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ward-previous-check')).not.toBeInTheDocument();
+    expect(api.previousByCode).not.toHaveBeenCalled();
+    await choose('ward-proposed-investigator', 'i1');
+    expect(screen.getByTestId('ward-edit-investigator')).toBeInTheDocument();
+    expect(screen.getByTestId('ward-open-directory')).toBeInTheDocument();
+    // The phone is not asked of an account that is somebody's own.
+    fireEvent.change(screen.getByTestId('ward-entry-phone'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    expect(await screen.findByTestId('validation-errors')).not.toHaveTextContent(L.form.required(L.form.fields.entryOfficerPhone));
+  });
+
+  it('a submission still goes back to the list', async () => {
+    api.create.mockResolvedValue(detail({ id: 'w9', status: 'DRAFT', code: null, updatedAt: '2026-11-16T05:00:00.000Z' }));
+    api.submit.mockResolvedValue(detail({ id: 'w9' }));
+    renderAt('/ho-so-phan-cong/new');
+    await fillRequired();
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/ho-so-phan-cong'));
   });
 });

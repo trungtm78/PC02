@@ -140,7 +140,7 @@ export class WardFilesService {
     // A slip is downloaded through its decision (`GET …/decisions/:decisionId/slip`), never as a result file.
     if (!document || document.wardSlipOf) throw new NotFoundException(wardBody(WARD_DOCS_ERROR.FILE_NOT_FOUND));
     return this.documents.openWardFile(fileId, assignmentId, { userId: actor.id, ipAddress: actor.ipAddress, userAgent: actor.userAgent }, async () => {
-      const row = await this.prisma.wardAssignment.findUnique({ where: { id: assignmentId }, select: { assignedTeamId: true, enteredById: true } });
+      const row = await this.prisma.wardAssignment.findUnique({ where: { id: assignmentId }, select: { assignedTeamId: true, enteredById: true, code: true } });
       if (!row || !readableRequest(row, scope)) throw new NotFoundException(wardBody(WARD_DOCS_ERROR.FILE_NOT_FOUND));
     });
   }

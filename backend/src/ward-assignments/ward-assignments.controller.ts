@@ -25,11 +25,13 @@ import {
   WardListExportQuery,
   WardListStatsQuery,
   ListWardInvestigatorsQuery,
+  PreviousByCodeQuery,
   UpdateWardAssignmentDto,
   UpdateWardInvestigatorDto,
 } from './dto/ward-assignment.dto';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
+import { isIntake } from './ward-locks';
 import { WardAssignmentCommandService } from './ward-assignment-command.service';
 import { WardAssignmentQueryService } from './ward-assignment-query.service';
 import { WardInvestigatorsService } from './ward-investigators.service';
@@ -91,6 +93,21 @@ export class WardAssignmentsController {
   @RequirePermissions({ action: 'write', subject: 'WardAssignment' })
   unitChoices(@Req() req: ScopedRequest) {
     return this.queries.unitChoices(scopeOf(req));
+  }
+
+  /** What the screens need to know about the person: whether this is the shared desk at PC02. Before `:id`. */
+  @Get('viewer')
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  viewer(@Req() req: ScopedRequest) {
+    return { intake: isIntake(scopeOf(req)) };
+  }
+
+  /** The approved request a re-assignment follows, by its code, in a ward unit the person may enter for. Before `:id`. */
+  @Get('previous-by-code')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @RequirePermissions({ action: 'write', subject: 'WardAssignment' })
+  previousByCode(@Req() req: ScopedRequest, @Query() query: PreviousByCodeQuery) {
+    return this.queries.previousByCode(scopeOf(req), query.teamId, query.code);
   }
 
   /** The ward units the list's filter offers (those with a request the person may read). Before `:id`. */

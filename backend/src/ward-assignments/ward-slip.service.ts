@@ -306,7 +306,7 @@ export class WardSlipService {
     if (!decision.slipDocumentId) throw new NotFoundException(wardBody(WARD_DOCS_ERROR.SLIP_NOT_ISSUED));
     const documentId = decision.slipDocumentId;
     return this.documents.openWardFile(documentId, assignmentId, { userId: actor.id, ipAddress: actor.ipAddress, userAgent: actor.userAgent }, async () => {
-      const row = await this.prisma.wardAssignment.findUnique({ where: { id: assignmentId }, select: { assignedTeamId: true, enteredById: true } });
+      const row = await this.prisma.wardAssignment.findUnique({ where: { id: assignmentId }, select: { assignedTeamId: true, enteredById: true, code: true } });
       if (!row || !readableRequest(row, scope)) throw new NotFoundException(wardBody(WARD_DOCS_ERROR.SLIP_NOT_ISSUED));
       const current = await this.prisma.wardAssignmentDecision.findUnique({ where: { id: decisionId }, select: { slipDocumentId: true } });
       // Reissued meanwhile: the file asked for is not the slip any more.

@@ -64,7 +64,12 @@ export interface WardInvestigatorInput {
 
 export const wardAssignmentsApi = {
   list: (query: WardListQuery) =>
-    api.get<{ data: WardAssignmentRow[]; total: number }>(BASE, { params: query }).then(data),
+    api.get<{ data: WardAssignmentRow[]; total: number; intake?: boolean }>(BASE, { params: query }).then(data),
+  /** Who is reading: the shared desk at PC02 (`intake`) sees only what it entered and has not yet submitted. */
+  viewer: () => api.get<{ intake: boolean }>(`${BASE}/viewer`).then(data),
+  /** The approved request of a unit that carries this code: what a re-assignment entered at the shared desk names. */
+  previousByCode: (teamId: string, code: string) =>
+    api.get<{ id: string; code: string }>(`${BASE}/previous-by-code`, { params: { teamId, code } }).then(data),
   /** The six cards in one answer, under the list's filters (no card, no page, no order). */
   listStats: (query: WardListQuery) => api.get<WardListStats>(`${BASE}/list-stats`, { params: withoutPaging(query) }).then(data),
   /** The ward units the filter panel offers (those with a request the person may read). */
@@ -73,7 +78,7 @@ export const wardAssignmentsApi = {
   create: (body: WardCreateInput) => api.post<WardAssignmentDetail>(BASE, body).then(data),
   update: (id: string, body: WardContentInput, expectedUpdatedAt: string) =>
     api.patch<WardAssignmentDetail>(at(id), { ...body, expectedUpdatedAt }).then(data),
-  submit: (id: string, expectedUpdatedAt: string) => api.post(`${at(id)}/submit`, { expectedUpdatedAt }).then(data),
+  submit: (id: string, expectedUpdatedAt: string) => api.post<{ code?: string | null }>(`${at(id)}/submit`, { expectedUpdatedAt }).then(data),
   withdraw: (id: string, expectedUpdatedAt: string) => api.post(`${at(id)}/withdraw`, { expectedUpdatedAt }).then(data),
   remove: (id: string, expectedUpdatedAt: string) => api.delete(at(id), { params: { expectedUpdatedAt } }).then(data),
   archive: (id: string, expectedUpdatedAt: string) => api.post(`${at(id)}/archive`, { expectedUpdatedAt }).then(data),
@@ -129,6 +134,7 @@ export const WARD_QUERY_KEYS = {
   count: (query: WardListQuery) => ['ward-assignments', 'count', query] as const,
   stats: (query: WardListQuery) => ['ward-assignments', 'list-stats', query] as const,
   filterUnits: ['ward-assignments', 'filter-units'] as const,
+  viewer: ['ward-assignments', 'viewer'] as const,
   detail: (id: string) => ['ward-assignments', 'detail', id] as const,
   investigators: (teamId: string, includeStopped: boolean) => ['ward-investigators', teamId, includeStopped] as const,
   returnReasons: ['ward-assignments', 'return-reasons'] as const,

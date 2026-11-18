@@ -126,6 +126,26 @@ describe('AuthzScopeService', () => {
     expect(ward.actions?.review).toEqual({ all: false, own: false, exactTeamIds: [], tree: null });
   });
 
+  it('enforced: the shared desk marker is carried by whoever holds intake:WardAssignment, by nobody else, never by an administrator', () => {
+    const snap = snapshot('ENFORCE', {
+      users: [person(), person({ id: 'wardy', memberships: [{ teamId: 'W', isLeader: false }] }), person({ id: 'boss', roleName: 'ADMIN', rolePermissions: ['intake:WardAssignment', 'read:WardAssignment'] })],
+      configs: [explicit('A', 'desk'), explicit('W', 'ward')],
+      templates: {
+        desk: { 'read:WardAssignment': 'OWN', 'write:WardAssignment': 'OWN', 'edit:WardAssignment': 'OWN', 'delete:WardAssignment': 'OWN', 'intake:WardAssignment': 'OWN' },
+        ward: { 'read:WardAssignment': 'TEAM_TREE', 'edit:WardAssignment': 'TEAM_TREE' },
+      },
+    });
+    const s = service(snap);
+    const desk = s.scopeOf('me')!.precise!;
+    expect(desk.wardIntake).toBe(true);
+    // Its own records, nothing wider: what it may do for any ward unit comes from the marker alone.
+    expect(desk.subjects.WardAssignment.read).toEqual({ all: false, own: true, exactTeamIds: [], tree: null });
+    expect(desk.subjects.WardAssignment.write).toEqual({ all: false, own: true, exactTeamIds: [], tree: null });
+    // Absent, not false, for everybody else: no other scope changes shape.
+    expect('wardIntake' in s.scopeOf('wardy')!.precise!).toBe(false);
+    expect(s.scopeOf('boss')).toBeNull();
+  });
+
   it('enforced: every scoped action is measured by its own permission (review without matching, editing without either)', () => {
     const snap = snapshot('ENFORCE', {
       users: [person()],

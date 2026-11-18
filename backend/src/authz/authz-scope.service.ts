@@ -17,6 +17,8 @@ import type { RecordScope } from './engine/types';
 /** The permission that decides how far a person SEES records of a subject, and the one for CHANGING them. */
 const READ = (subject: RecordSubject) => `read:${subject}`;
 const WRITE = (subject: RecordSubject) => `edit:${subject}`;
+/** The marker of the shared desk at PC02 (`PreciseScopes.wardIntake`). An administrator has no scope, so never carries it. */
+const WARD_INTAKE = 'intake:WardAssignment';
 /** The scoped actions of a subject (`SCOPED_ACTIONS`); the old subjects have none. */
 const actionsOf = (subject: RecordSubject): readonly ScopedAction[] =>
   (SCOPED_ACTIONS as Partial<Record<RecordSubject, readonly ScopedAction[]>>)[subject] ?? [];
@@ -114,7 +116,7 @@ export class AuthzScopeService implements Enforcement, OnApplicationBootstrap, O
       canDispatch: effective.canDispatch,
       isWardOfficer: effective.wardTeamId !== null,
       wardTeamId: effective.wardTeamId,
-      precise: { userId, subjects },
+      precise: { userId, subjects, ...(effective.grants.has(WARD_INTAKE) ? { wardIntake: true as const } : {}) },
     };
   }
 

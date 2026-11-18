@@ -20,5 +20,6 @@ export const WARD_ASSIGNMENTS_MANIFEST: FeatureManifest = {
     { action: 'delete', subject: 'WardAssignment' },
     { action: 'review', subject: 'WardAssignment' },
     { action: 'matchSubjects', subject: 'WardAssignment' },
+    { action: 'intake', subject: 'WardAssignment' },
   ],
 };

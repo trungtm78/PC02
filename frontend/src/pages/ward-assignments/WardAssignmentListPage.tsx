@@ -55,6 +55,7 @@ import { explainWardError } from '@/features/ward-assignments/errors';
 import { displayStatus } from '@/features/ward-assignments/formModel';
 import { wardListFilters, type WardFilterValue } from '@/features/ward-assignments/list-filters';
 import { WARD_PATHS } from '@/features/ward-assignments/menu';
+import { useWardViewer } from '@/features/ward-assignments/useWardChoices';
 import { WARD_STATUSES, type WardAssignmentRow, type WardListQuery, type WardStatus } from '@/features/ward-assignments/types';
 import { useBamDong } from '@/hooks/useBamDong';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
@@ -201,10 +202,16 @@ export default function WardAssignmentListPage() {
     staleTime: 10_000,
     retry: false,
   });
+  // The shared desk at PC02 (the viewer says so, and so does every list answer): it reads only the requests it is
+  // still entering, so the status cards, the Excel exports and the slips are not its to use.
+  const viewer = useWardViewer();
+  const intake = viewer.intake || listQ.data?.intake === true;
   // One answer for the six cards, under the same filters as the rows: a card's number is the number of rows it shows.
   const statsQ = useQuery({
     queryKey: WARD_QUERY_KEYS.stats(filterQuery),
     queryFn: () => wardAssignmentsApi.listStats(filterQuery),
+    // Not asked for once the reader is known to be the shared desk (its cards are not shown; the server narrows them anyway).
+    enabled: !intake,
     staleTime: 10_000,
     retry: false,
   });
@@ -260,6 +267,8 @@ export default function WardAssignmentListPage() {
           label: T.print,
           icon: Printer,
           position: 'inline',
+          // Not the shared desk's: it reads no decided request, so it has no slip to print.
+          visible: () => !intake,
           // The slip is the slip of a decision of PC02 (PC02 issues it, whoever reads the request saves an issued
           // one): until there is one to print, the button says why.
           disabled: (row) => (!row.latestDecision ? T.printNoDecision : !row.can?.issueSlip && !row.latestDecision.slipNumber ? T.printNotIssued : null),
@@ -268,7 +277,7 @@ export default function WardAssignmentListPage() {
         },
       ]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [T, mayEdit, mayDelete, mayReview],
+    [T, mayEdit, mayDelete, mayReview, intake],
   );
   const actionCtx: ActionContext = { navigate, perms: {}, assignModal: NO_MODAL, deleteModal: NO_MODAL, printModal: NO_MODAL };
 
@@ -549,13 +558,15 @@ export default function WardAssignmentListPage() {
           </div>
         )}
 
-        <StatsCardsStrip
-          cards={cards}
-          loading={statsQ.isLoading}
-          gridClassName="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 px-6 py-4"
-          activeValue={card === 'all' ? null : card}
-          onCardSelect={selectCard}
-        />
+        {!intake && (
+          <StatsCardsStrip
+            cards={cards}
+            loading={statsQ.isLoading}
+            gridClassName="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 px-6 py-4"
+            activeValue={card === 'all' ? null : card}
+            onCardSelect={selectCard}
+          />
+        )}
 
         <ListPageShell.Toolbar
           searchValue={theBat ? undefined : (url.getParam('q') ?? '')}
@@ -604,30 +615,34 @@ export default function WardAssignmentListPage() {
                 <span data-testid="ward-matching-count" className="text-sm text-slate-600">
                   {listQ.isLoading ? '' : L.list.matching(total)}
                 </span>
-                <NutXuatTheoBoLoc
-                  duongDan="/ward-assignments/export/danh-sach"
-                  thamSo={exportParams}
-                  cot={exportColumns}
-                  tong={listQ.isLoading ? null : total}
-                  hasUnappliedChanges={listFilters.hasUnappliedChanges}
-                  onApply={listFilters.apply}
-                  tenDuPhong="ho-so-phan-cong.xlsx"
-                  nhanRieng={L.list.exportShown}
-                  testId="btn-xuat-dang-xem"
-                />
-                <NutXuatTheoBoLoc
-                  duongDan="/ward-assignments/export/danh-sach"
-                  thamSo={exportParams}
-                  cot={[]}
-                  boQuaCot
-                  tong={listQ.isLoading ? null : total}
-                  hasUnappliedChanges={listFilters.hasUnappliedChanges}
-                  onApply={listFilters.apply}
-                  tenDuPhong="ho-so-phan-cong-day-du.xlsx"
-                  nhanRieng={L.list.exportAll}
-                  testId="btn-xuat-day-du"
-                  goiY={L.list.exportAllHint}
-                />
+                {!intake && (
+                  <>
+                    <NutXuatTheoBoLoc
+                      duongDan="/ward-assignments/export/danh-sach"
+                      thamSo={exportParams}
+                      cot={exportColumns}
+                      tong={listQ.isLoading ? null : total}
+                      hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                      onApply={listFilters.apply}
+                      tenDuPhong="ho-so-phan-cong.xlsx"
+                      nhanRieng={L.list.exportShown}
+                      testId="btn-xuat-dang-xem"
+                    />
+                    <NutXuatTheoBoLoc
+                      duongDan="/ward-assignments/export/danh-sach"
+                      thamSo={exportParams}
+                      cot={[]}
+                      boQuaCot
+                      tong={listQ.isLoading ? null : total}
+                      hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                      onApply={listFilters.apply}
+                      tenDuPhong="ho-so-phan-cong-day-du.xlsx"
+                      nhanRieng={L.list.exportAll}
+                      testId="btn-xuat-day-du"
+                      goiY={L.list.exportAllHint}
+                    />
+                  </>
+                )}
               </>
             }
           >
@@ -651,6 +666,12 @@ export default function WardAssignmentListPage() {
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
+        )}
+
+        {intake && (
+          <p data-testid="ward-intake-list-notice" className="border-b border-blue-100 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+            {L.intake.listNotice}
+          </p>
         )}
 
         {listQ.isError ? (
@@ -688,8 +709,8 @@ export default function WardAssignmentListPage() {
             bulkRowsLabel={L.list.bulk.rows}
             bulkRowLabel={(r) => L.list.bulk.row(r.code ?? L.list.noCode)}
             emptyState={{
-              title: L.list.empty,
-              description: canCreate ? L.list.emptyHint : undefined,
+              title: intake ? L.intake.listEmpty : L.list.empty,
+              description: canCreate && !intake ? L.list.emptyHint : undefined,
               actionLabel: canCreate ? L.list.emptyCreate : undefined,
               onAction: canCreate ? () => navigate(WARD_PATHS.create) : undefined,
             }}

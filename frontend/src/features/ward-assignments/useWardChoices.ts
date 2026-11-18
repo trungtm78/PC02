@@ -20,6 +20,23 @@ export function useWardUnits(enabled = true) {
   return { ...q, data: q.data ?? [] };
 }
 
+/**
+ * Who is reading the ward assignment screens. `intake`: the shared desk at PC02. No answer (an older server, a refusal,
+ * no network) reads as an ordinary account; `settled` says the question is no longer being asked.
+ */
+export function useWardViewer() {
+  const q = useQuery({
+    queryKey: WARD_QUERY_KEYS.viewer,
+    queryFn: async () => {
+      const answer = await wardAssignmentsApi.viewer();
+      return { intake: answer?.intake === true };
+    },
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  return { intake: q.data?.intake === true, settled: !q.isLoading };
+}
+
 /** The unit's investigators, the stopped ones too: a request may name one who has since been stopped. */
 export function useUnitInvestigators(teamId: string) {
   return useQuery({

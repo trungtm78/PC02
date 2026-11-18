@@ -110,8 +110,8 @@ function addMonths(day, n) {
 const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 // ── set-up (SQL: only what the API cannot do) ───────────────────────────────────────────────────────────────────
-const T = { WA: `${TAG}-wa`, WB: `${TAG}-wb`, P: `${TAG}-p` };
-const U = { a1: `${TAG}-a1`, a2: `${TAG}-a2`, b1: `${TAG}-b1`, rev: `${TAG}-rev`, both: `${TAG}-both`, admin: `${TAG}-admin`, admin2: `${TAG}-admin2` };
+const T = { WA: `${TAG}-wa`, WB: `${TAG}-wb`, P: `${TAG}-p`, D: `${TAG}-d` };
+const U = { a1: `${TAG}-a1`, a2: `${TAG}-a2`, b1: `${TAG}-b1`, rev: `${TAG}-rev`, both: `${TAG}-both`, admin: `${TAG}-admin`, admin2: `${TAG}-admin2`, desk: `${TAG}-desk` };
 let CRIME_ID = null;
 async function seed(pg) {
   const hash = await bcrypt.hash(PASSWORD, 10);
@@ -125,7 +125,9 @@ async function seed(pg) {
     await pg.query(`INSERT INTO "teams" ("id","name","code","wardId","updatedAt") VALUES ($1,$2,$1,$3,now())`, [team, `CA phường UAT ${RUN} ${key.toUpperCase()}`, ward]);
   }
   await pg.query(`INSERT INTO "teams" ("id","name","code","updatedAt") VALUES ($1,$2,$1,now())`, [T.P, `Đội UAT ${RUN} PC02`]);
-  const people = [[U.a1, officer, [T.WA]], [U.a2, officer, [T.WA]], [U.b1, officer, [T.WB]], [U.rev, officer, [T.P]], [U.both, officer, [T.WA, T.P]], [U.admin, admin, []], [U.admin2, admin, []]];
+  // The shared desk at PC02: a unit of PC02 (no ward) whose one account ward officers enter their requests on.
+  await pg.query(`INSERT INTO "teams" ("id","name","code","updatedAt") VALUES ($1,$2,$1,now())`, [T.D, `Bàn nhập UAT ${RUN}`]);
+  const people = [[U.desk, officer, [T.D]], [U.a1, officer, [T.WA]], [U.a2, officer, [T.WA]], [U.b1, officer, [T.WB]], [U.rev, officer, [T.P]], [U.both, officer, [T.WA, T.P]], [U.admin, admin, []], [U.admin2, admin, []]];
   for (const [id, role, teams] of people) {
     await pg.query(`INSERT INTO "users" ("id","username","email","passwordHash","roleId","isActive","twoFaSetupRequired","phone","updatedAt") VALUES ($1,$1,$2,$3,$4,true,false,'0900000000',now())`, [id, `${id}@local.test`, hash, role]);
     for (const team of teams) await pg.query(`INSERT INTO "user_teams" ("userId","teamId","isLeader") VALUES ($1,$2,false)`, [id, team]);
@@ -151,8 +153,12 @@ async function enforce(admin, admin2) {
   check('AUTHZ', 'mẫu phường/xã: xem, thêm, sửa, xoá hồ sơ của đơn vị mình (Cả tổ), KHÔNG có quyền thẩm định', ['read', 'write', 'edit', 'delete'].every((a) => sub[`${a}:WardAssignment`] === 'TEAM_TREE') && !sub['review:WardAssignment'], sub);
   check('AUTHZ', 'mẫu PC02: xem và thẩm định Toàn bộ, KHÔNG sửa nội dung hồ sơ', rev['read:WardAssignment'] === 'ALL' && rev['review:WardAssignment'] === 'ALL' && !rev['edit:WardAssignment'] && !rev['write:WardAssignment'], rev);
   const given = [];
-  for (const [team, tpl] of [[T.WA, submitT.id], [T.WB, submitT.id], [T.P, reviewT.id]]) given.push((await call(admin, 'PUT', `/authz/teams/${team}`, { mode: 'EXPLICIT', memberTemplateId: tpl, expectedRevision: 0, reason: 'UAT phân công phường/xã' })).status);
-  check('AUTHZ', 'áp mẫu cho hai tổ phường/xã và tổ PC02', given.every((s) => s === 200), given);
+  const intakeT = templates.find((t) => t.code === 'STARTER_WARD_INTAKE');
+  const desk = intakeT ? (await call(admin, 'GET', `/authz/templates/${intakeT.id}`)).body?.entries ?? {} : {};
+  check('DESK', 'mẫu "PC02: bàn nhập hồ sơ phường/xã": chỉ hồ sơ của chính tài khoản, có dấu bàn nhập, KHÔNG có quyền thẩm định', !!intakeT && ['read', 'write', 'edit', 'delete', 'intake'].every((a) => desk[`${a}:WardAssignment`] === 'OWN') && !desk['review:WardAssignment'], desk);
+  if (!intakeT) return false;
+  for (const [team, tpl] of [[T.WA, submitT.id], [T.WB, submitT.id], [T.P, reviewT.id], [T.D, intakeT.id]]) given.push((await call(admin, 'PUT', `/authz/teams/${team}`, { mode: 'EXPLICIT', memberTemplateId: tpl, expectedRevision: 0, reason: 'UAT phân công phường/xã' })).status);
+  check('AUTHZ', 'áp mẫu cho hai tổ phường/xã, tổ PC02 và tổ bàn nhập', given.every((s) => s === 200), given);
   const fingerprint = async (token) => (await call(token, 'GET', '/authz/mode/comparison')).body?.fingerprint;
   const asked = await call(admin, 'POST', '/authz/mode/requests', { reason: 'UAT phân công phường/xã', acknowledge: await fingerprint(admin) });
   const approved = await call(admin2, 'POST', `/authz/mode/requests/${asked.body?.id}/approve`, { acknowledge: await fingerprint(admin2) });
@@ -165,7 +171,7 @@ async function enforce(admin, admin2) {
 async function workflow(pg) {
   const tk = {};
   for (const [k, u] of Object.entries(U)) tk[k] = await login(u);
-  check('SETUP', 'bảy tài khoản đăng nhập được', Object.values(tk).every(Boolean), Object.fromEntries(Object.entries(tk).map(([k, v]) => [k, !!v])));
+  check('SETUP', 'tám tài khoản đăng nhập được', Object.values(tk).every(Boolean), Object.fromEntries(Object.entries(tk).map(([k, v]) => [k, !!v])));
   if (!tk.admin) return;
 
   // Switch (the feature is OFF on production until the owner checks it)
@@ -177,6 +183,7 @@ async function workflow(pg) {
   if (!(await enforce(tk.admin, tk.admin2))) return notRun('ALL', 'các ca theo quyền', 'NOT RUN: ENFORCE could not be switched on');
   try {
     await journeys(tk);
+    await deskJourney(tk, pg);
   } finally {
     const back = await call(tk.admin, 'POST', '/authz/mode', { mode: 'OFF', reason: 'UAT xong' });
     check('AUTHZ', 'chế độ quyền trả về OFF bằng một bước', back.status === 200 && back.body?.mode === 'OFF', [back.status, back.body]);
@@ -448,6 +455,101 @@ async function journeys(tk) {
   const hidden = !rowsOf((await call(tk.a1, 'GET', `/ward-investigators?teamId=${T.WA}`)).body).some((r) => r.id === I1);
   const back = await call(tk.a1, 'POST', `/ward-investigators/${I1}/reactivate`, { expectedUpdatedAt: stop.body?.updatedAt });
   check('INV', 'ngừng dùng ĐTV ẩn khỏi danh bạ; dùng lại thì hiện lại', stop.status === 200 && hidden && back.status === 200 && back.body?.isActive === true, [stop.status, hidden, back.status]);
+}
+
+/**
+ * The shared desk at PC02 (owner's request of 18/11/2026): ward officers enter their unit's requests on ONE account;
+ * a saved draft stays visible to it; once "Trình duyệt" is pressed the account never sees or edits the request again,
+ * not even when PC02 returns it (the officer then enters a new request). Expected values come from that request.
+ */
+async function deskJourney(tk, pg) {
+  const who = await call(tk.desk, 'GET', '/ward-assignments/viewer');
+  const whoWard = await call(tk.a1, 'GET', '/ward-assignments/viewer');
+  check('DESK', 'máy chủ nhận ra tài khoản bàn nhập; tài khoản phường thì không', who.status === 200 && who.body?.intake === true && whoWard.body?.intake === false, [who.status, who.body, whoWard.body]);
+  const units = rowsOf((await call(tk.desk, 'GET', '/ward-assignments/unit-choices')).body).map((u) => u.id);
+  check('DESK', 'bàn nhập chọn được mọi đơn vị phường/xã (cả phường A và phường B)', units.includes(T.WA) && units.includes(T.WB), units.filter((u) => u.startsWith(TAG)));
+
+  // Investigators: read and add, never correct or stop
+  const invA = rowsOf((await call(tk.desk, 'GET', `/ward-investigators?teamId=${T.WA}`)).body);
+  check('DESK', 'bàn nhập đọc được danh bạ ĐTV của phường A để chọn ĐTV đề xuất', invA.length > 0, invA.length);
+  const IA = invA.find((r) => r.isActive !== false)?.id;
+  const added = await call(tk.desk, 'POST', '/ward-investigators', { teamId: T.WB, fullName: `ĐTV bàn nhập ${RUN}`, rank: 'Thiếu tá' });
+  check('DESK', 'bàn nhập thêm được ĐTV mới cho phường B', added.status === 201 && added.body?.teamId === T.WB, [added.status, added.body]);
+  const stopInv = await call(tk.desk, 'POST', `/ward-investigators/${IA}/deactivate`, { expectedUpdatedAt: invA.find((r) => r.id === IA)?.updatedAt });
+  const stillThere = rowsOf((await call(tk.a1, 'GET', `/ward-investigators?teamId=${T.WA}`)).body).some((r) => r.id === IA && r.isActive !== false);
+  check('DESK', 'bàn nhập KHÔNG ngừng được ĐTV của phường (người đó vẫn còn trong danh bạ)', stopInv.status >= 400 && stopInv.status < 500 && stillThere, [stopInv.status, stopInv.body, stillThere]);
+
+  const content = (over = {}) => ({
+    assignedTeamId: T.WA, caseType: 'CASE', kind: 'NEW', crimeId: CRIME_ID, summary: `UAT ${RUN} bàn nhập: trộm xe tại chợ`, content: 'Ngày 12/11 mất một xe máy tại bãi giữ xe chợ.', discoveredOn: '2026-11-12', place: 'Chợ Vườn Lài',
+    subjectsUnknown: true, subjects: [], proposedInvestigatorId: IA, entryOfficerName: 'Trần Văn Phường', entryOfficerPhone: '0907654321', ...over,
+  });
+  const mine = async () => rowsOf((await call(tk.desk, 'GET', '/ward-assignments?pageSize=200')).body).map((r) => r.id);
+
+  // A draft stays
+  const draft = await call(tk.desk, 'POST', '/ward-assignments', content({ entryOfficerPhone: null, summary: `UAT ${RUN} bàn nhập: lưu tạm` }));
+  check('DESK', 'bàn nhập lưu tạm một hồ sơ cho phường A: Nháp, ghi nhận là nhập hộ', draft.status === 201 && draft.body?.status === 'DRAFT' && draft.body?.assignedTeamId === T.WA && draft.body?.enteredOnBehalf === true, [draft.status, draft.body]);
+  const again = await login(U.desk);
+  const afterLogin = rowsOf((await call(again, 'GET', '/ward-assignments?pageSize=200')).body).map((r) => r.id);
+  check('DESK', 'đăng nhập lại (người ngồi sau): bản lưu tạm vẫn hiện để nhập tiếp', afterLogin.includes(draft.body?.id), afterLogin.length);
+  const noPhone = await call(tk.desk, 'POST', `/ward-assignments/${draft.body?.id}/submit`, { expectedUpdatedAt: draft.body?.updatedAt });
+  check('DESK', 'trình khi chưa ghi SĐT cán bộ nhập bị từ chối, nêu rõ ô thiếu (tài khoản chung không nói ai nhập)', refused(noPhone, 400, 'WARD_ASSIGNMENT_INCOMPLETE') && JSON.stringify(noPhone.body).includes('entryOfficerPhone'), [noPhone.status, noPhone.body]);
+  const fixed = await call(tk.desk, 'PATCH', `/ward-assignments/${draft.body?.id}`, { ...content({ summary: `UAT ${RUN} bàn nhập: đã bổ sung SĐT` }), assignedTeamId: undefined, expectedUpdatedAt: draft.body?.updatedAt });
+  check('DESK', 'bàn nhập sửa được bản lưu tạm của mình', fixed.status === 200, [fixed.status, fixed.body]);
+
+  // Submitted: gone for the desk, there for the ward unit and for PC02
+  const sent = await call(tk.desk, 'POST', `/ward-assignments/${draft.body?.id}/submit`, { expectedUpdatedAt: fixed.body?.updatedAt });
+  check('DESK', 'bấm Trình duyệt: Đã trình, có mã', sent.status === 200 && sent.body?.status === 'SUBMITTED' && !!sent.body?.code, [sent.status, sent.body]);
+  const id = draft.body?.id;
+  const stamp = sent.body?.updatedAt;
+  const gone = await call(tk.desk, 'GET', `/ward-assignments/${id}`);
+  const stats = await call(tk.desk, 'GET', '/ward-assignments/list-stats');
+  check('DESK', 'trình xong: bàn nhập không mở được hồ sơ (404), không thấy trong danh sách, thẻ đếm không tính nó', gone.status === 404 && !(await mine()).includes(id) && (stats.body?.byStatus?.SUBMITTED ?? 0) === 0, [gone.status, stats.body]);
+  const editGone = await call(tk.desk, 'PATCH', `/ward-assignments/${id}`, { ...content(), assignedTeamId: undefined, expectedUpdatedAt: stamp });
+  const withdrawGone = await call(tk.desk, 'POST', `/ward-assignments/${id}/withdraw`, { expectedUpdatedAt: stamp });
+  const twice = await call(tk.desk, 'POST', `/ward-assignments/${id}/submit`, { expectedUpdatedAt: stamp });
+  check('DESK', 'trình xong: bàn nhập không sửa, không rút lại, không trình lần hai được (đều 404)', editGone.status === 404 && withdrawGone.status === 404 && twice.status === 404, [editGone.status, withdrawGone.status, twice.status]);
+  const wardSees = await call(tk.a1, 'GET', `/ward-assignments/${id}`);
+  const pc02Sees = await call(tk.rev, 'GET', `/ward-assignments/${id}`);
+  check('DESK', 'phường A và PC02 thấy hồ sơ bàn nhập đã trình như mọi hồ sơ khác', wardSees.status === 200 && pc02Sees.status === 200 && pc02Sees.body?.can?.approve === true, [wardSees.status, pc02Sees.status, pc02Sees.body?.can]);
+
+  // Returned by PC02: still not the desk's
+  const back = await call(tk.rev, 'POST', `/ward-assignments/${id}/return`, { expectedUpdatedAt: stamp, reasonCode: 'THIEU_TAI_LIEU', reasonText: 'Thiếu biên bản', requirements: ['Bổ sung biên bản hiện trường'] });
+  const afterReturn = await call(tk.desk, 'GET', `/ward-assignments/${id}`);
+  check('DESK', 'PC02 trả về: hồ sơ KHÔNG hiện lại ở bàn nhập (cán bộ phường nhập hồ sơ mới)', back.status === 200 && back.body?.status === 'RETURNED' && afterReturn.status === 404 && !(await mine()).includes(id), [back.status, afterReturn.status]);
+
+  // A submission somebody else takes back: a draft again, and still not the desk's
+  const second = await call(tk.desk, 'POST', '/ward-assignments', content({ summary: `UAT ${RUN} bàn nhập: sẽ bị rút` }));
+  const secondSent = await call(tk.desk, 'POST', `/ward-assignments/${second.body?.id}/submit`, { expectedUpdatedAt: second.body?.updatedAt });
+  const takenBack = await call(tk.admin, 'POST', `/ward-assignments/${second.body?.id}/withdraw`, { expectedUpdatedAt: secondSent.body?.updatedAt });
+  const afterBack = await call(tk.desk, 'GET', `/ward-assignments/${second.body?.id}`);
+  check('DESK', 'quản trị rút lại hồ sơ bàn nhập đã trình (về Nháp): vẫn KHÔNG hiện lại ở bàn nhập', takenBack.status === 200 && takenBack.body?.status === 'DRAFT' && afterBack.status === 404 && !(await mine()).includes(second.body?.id), [takenBack.status, takenBack.body?.status, afterBack.status]);
+
+  // Re-assignment: the previous request is named by its code
+  const third = await call(tk.desk, 'POST', '/ward-assignments', content({ summary: `UAT ${RUN} bàn nhập: hồ sơ trước` }));
+  const thirdSent = await call(tk.desk, 'POST', `/ward-assignments/${third.body?.id}/submit`, { expectedUpdatedAt: third.body?.updatedAt });
+  const code = thirdSent.body?.code;
+  const early = await call(tk.desk, 'GET', `/ward-assignments/previous-by-code?teamId=${T.WA}&code=${encodeURIComponent(code)}`);
+  const approved = await call(tk.rev, 'POST', `/ward-assignments/${third.body?.id}/approve`, { expectedUpdatedAt: thirdSent.body?.updatedAt, assignedInvestigatorId: IA });
+  const found = await call(tk.desk, 'GET', `/ward-assignments/previous-by-code?teamId=${T.WA}&code=${encodeURIComponent(code)}`);
+  const otherUnit = await call(tk.desk, 'GET', `/ward-assignments/previous-by-code?teamId=${T.WB}&code=${encodeURIComponent(code)}`);
+  const unknown = await call(tk.desk, 'GET', `/ward-assignments/previous-by-code?teamId=${T.WA}&code=${encodeURIComponent(`${code}-khong-co`)}`);
+  check('DESK', 'Phân công lại: gõ mã hồ sơ đã duyệt của đúng đơn vị thì tìm thấy; chưa duyệt, sai đơn vị, sai mã thì không', early.status === 404 && approved.status === 200 && found.status === 200 && found.body?.id === third.body?.id && otherUnit.status === 404 && unknown.status === 404, [early.status, approved.status, found.status, found.body, otherUnit.status, unknown.status]);
+  check('DESK', 'câu trả lời chỉ có mã định danh và mã hồ sơ, không có nội dung hồ sơ', JSON.stringify(Object.keys(found.body ?? {}).sort()) === JSON.stringify(['code', 'id']), found.body);
+  const reassign = await call(tk.desk, 'POST', '/ward-assignments', content({ kind: 'REASSIGN', previousAssignmentId: found.body?.id, reassignReason: 'Điều tra viên chuyển công tác', summary: `UAT ${RUN} bàn nhập: phân công lại` }));
+  const reSent = await call(tk.desk, 'POST', `/ward-assignments/${reassign.body?.id}/submit`, { expectedUpdatedAt: reassign.body?.updatedAt });
+  check('DESK', 'bàn nhập lập và trình được hồ sơ Phân công lại nối với hồ sơ trước', reassign.status === 201 && reSent.status === 200 && reSent.body?.status === 'SUBMITTED', [reassign.status, reassign.body, reSent.status]);
+
+  // Nothing of the submitted requests reaches the desk's bell
+  const told = await pg.query(`SELECT count(*)::int AS n FROM "notifications" WHERE "userId" = $1`, [U.desk]).catch((e) => ({ error: e.message }));
+  if (told.error) notRun('DESK', 'bàn nhập không nhận thông báo nào về hồ sơ đã trình', `NOT RUN: ${told.error}`);
+  else check('DESK', 'bàn nhập không nhận thông báo nào về hồ sơ đã trình (trả về, duyệt)', told.rows[0].n === 0, told.rows[0]);
+  const wardTold = await pg.query(`SELECT count(*)::int AS n FROM "notifications" WHERE "userId" = $1`, [U.a1]).catch(() => null);
+  if (wardTold) check('DESK', '…trong khi cán bộ phường A vẫn được báo (bộ đo thông báo có chạy)', wardTold.rows[0].n > 0, wardTold.rows[0]);
+
+  // The shared account does not re-key itself
+  const rekey = await call(tk.desk, 'POST', '/auth/change-password', { currentPassword: PASSWORD, newPassword: `Moi-${randomUUID()}!A1` });
+  const stillIn = await login(U.desk);
+  check('DESK', 'tài khoản dùng chung không tự đổi mật khẩu được (403), mật khẩu cũ vẫn đăng nhập được', refused(rekey, 403, 'SHARED_ACCOUNT_PASSWORD_BY_ADMIN') && !!stillIn, [rekey.status, rekey.body, !!stillIn]);
 }
 
 (async () => {

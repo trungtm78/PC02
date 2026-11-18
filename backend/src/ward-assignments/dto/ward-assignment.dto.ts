@@ -142,6 +142,12 @@ export class WardListStatsQuery extends OmitType(ListWardAssignmentsQuery, ['sta
 /** The filters and the order of the list plus the columns shown: `GET /ward-assignments/export/danh-sach`. */
 export class WardListExportQuery extends IntersectionType(ListWardAssignmentsQuery, CotXuatDto) {}
 
+/** The approved request of a ward unit that a re-assignment follows, named by its code (the shared desk lists none). */
+export class PreviousByCodeQuery {
+  @IsString() @MaxLength(100) teamId!: string;
+  @IsString() @MaxLength(50) code!: string;
+}
+
 export class ListWardInvestigatorsQuery {
   @IsString() @MaxLength(100) teamId!: string;
   @IsOptional() @Transform(({ value }) => value === true || value === 'true') @IsBoolean() includeStopped?: boolean;
