@@ -25,7 +25,6 @@ function production(over: Partial<ChartSnapshot> = {}): ChartSnapshot {
     team('team_cs1_pc02', 'Cơ sở 1', { parentId: 'team_pc02', level: 1 }),
     team('team_cs2_pc02', 'Cơ sở 2', { parentId: 'team_pc02', level: 1 }),
     team('team_truyna_pc02', 'Tổ Truy nã', { parentId: 'team_pc02', level: 1 }),
-    team('team_doi2_sub', 'Nhóm A Đội 2', { parentId: 'team_doi2_pc02', level: 2 }),
     team('team_ward_x', 'Công an phường X', { wardId: 'ward-x', parentId: 'team_ct05_pc02' }),
   ];
   return {
@@ -44,7 +43,7 @@ function production(over: Partial<ChartSnapshot> = {}): ChartSnapshot {
     teamConfigs: new Map([['team_ward_x', { doc: chartTeamDoc('tpl-ward'), revision: 3 }]]),
     officerRoleId: 'role-officer',
     appliedMove: null,
-    onSource: { petitions: 1746, incidents: 6, cases: 122, deleted: 4, stepParties: 2 },
+    onSource: { petitions: 1746, incidents: 6, cases: 122, deleted: 4, stepParties: 2, pendingHandoffs: 3 },
     ...over,
   };
 }
@@ -96,7 +95,7 @@ describe('planChart on production as it is', () => {
         { userId: 'u-admin', username: 'admin.doi1', isLeader: true, admin: true },
         { userId: 'u-officer', username: 'canbo.doi1', isLeader: false, admin: false },
       ],
-      records: { petitions: 1746, incidents: 6, cases: 122, deleted: 4, stepParties: 2 },
+      records: { petitions: 1746, incidents: 6, cases: 122, deleted: 4, stepParties: 2, pendingHandoffs: 3 },
     });
   });
 
@@ -106,8 +105,8 @@ describe('planChart on production as it is', () => {
     expect(plan.configs.slice(1).every((c) => c.templateCode === 'STARTER_TEAM_ONLY' && c.templateId === null && c.change === 'CREATE')).toBe(true);
   });
 
-  it('says which teams with no configuration of their own will follow a unit, and leaves a ward unit with its own alone', () => {
-    expect(plan.inheriting).toEqual([{ teamId: 'team_doi2_sub', name: 'Nhóm A Đội 2', governedBy: 'Đội 2' }]);
+  it('as on production, no unit has a team under it (a ward unit with its own configuration is not one)', () => {
+    expect(plan.inheriting).toEqual([]);
   });
 
   it('lists the teams the chart does not name (one that follows a unit is not "untouched"), ward units apart', () => {
@@ -127,9 +126,10 @@ describe('planChart on production as it is', () => {
 });
 
 describe('planChart after a successful run: nothing left to do', () => {
-  const configs = new Map(
-    CHART_UNITS.map((u) => [u.teamId, { doc: chartTeamDoc(u.template === 'STARTER_AS_TODAY' ? 'tpl-today' : 'tpl-team'), revision: 1 }]),
-  );
+  const configs = new Map<string, { doc: ReturnType<typeof chartTeamDoc>; revision: number }>([
+    ...CHART_UNITS.map((u): [string, { doc: ReturnType<typeof chartTeamDoc>; revision: number }] => [u.teamId, { doc: chartTeamDoc(u.template === 'STARTER_AS_TODAY' ? 'tpl-today' : 'tpl-team'), revision: 1 }]),
+    ['team_ward_x', { doc: chartTeamDoc('tpl-ward'), revision: 3 }],
+  ]);
   const done = production();
   const after = planChart({
     ...done,
@@ -147,7 +147,7 @@ describe('planChart after a successful run: nothing left to do', () => {
     ]),
     teamConfigs: configs,
     appliedMove: { id: 'move-1', movedAt: new Date('2026-11-26T10:00:00Z') },
-    onSource: { petitions: 0, incidents: 0, cases: 0, deleted: 4, stepParties: 0 },
+    onSource: { petitions: 0, incidents: 0, cases: 0, deleted: 4, stepParties: 0, pendingHandoffs: 0 },
   });
 
   it('creates, moves, configures nothing and says the move was done', () => {
@@ -159,6 +159,55 @@ describe('planChart after a successful run: nothing left to do', () => {
     expect(after.accountsToCreate).toEqual([]);
     expect(after.accountsExisting).toHaveLength(42);
     expect(planHasWork(after)).toBe(false);
+  });
+});
+
+describe('a team under a unit with no configuration of its own', () => {
+  const withChild = (over: Partial<ChartSnapshot> = {}): ChartSnapshot => {
+    const base = production();
+    return {
+      ...base,
+      teams: [...base.teams, team('team_doi2_sub', 'Nhóm A Đội 2', { parentId: 'team_doi2_pc02', level: 2 })],
+      memberships: [...base.memberships, { userId: 'u-sub', teamId: 'team_doi2_sub', isLeader: false }],
+      users: [...base.users, { id: 'u-sub', username: 'nguoi.sub', roleName: 'OFFICER', isActive: true, workId: null }],
+      ...over,
+    };
+  };
+
+  it('would silently follow the unit\'s new configuration: the plan refuses, naming it and the way out', () => {
+    const plan = planChart(withChild());
+    expect(plan.inheriting).toEqual([{ teamId: 'team_doi2_sub', name: 'Nhóm A Đội 2', governedBy: 'Đội 2' }]);
+    expect(plan.blockers).toEqual([expect.stringMatching(/Nhóm A Đội 2 \(theo Đội 2\).*--giu-cau-hinh-to-con/)]);
+    expect(plan.configs.filter((c) => c.kind === 'KEEP_CHILD')).toEqual([]);
+  });
+
+  it('an inactive one is listed but does not stop the run (its members get nothing from it)', () => {
+    const base = withChild();
+    const plan = planChart({ ...base, teams: base.teams.map((t) => (t.id === 'team_doi2_sub' ? { ...t, status: 'INACTIVE' as const } : t)) });
+    expect(plan.inheriting).toHaveLength(1);
+    expect(plan.blockers).toEqual([]);
+  });
+
+  it('with --giu-cau-hinh-to-con: it gets "as today" of its own, so its people keep what their role holds', () => {
+    const plan = planChart(withChild(), { keepChildren: true });
+    expect(plan.blockers).toEqual([]);
+    expect(plan.configs).toHaveLength(22);
+    expect(plan.configs.at(-1)).toEqual({
+      kind: 'KEEP_CHILD', teamId: 'team_doi2_sub', teamName: 'Nhóm A Đội 2', templateCode: 'STARTER_AS_TODAY', templateId: 'tpl-today',
+      copied: null, before: null, revision: 0, change: 'CREATE',
+    });
+  });
+
+  it('with --giu-cau-hinh-to-con under a team that already has a configuration: that configuration is copied', () => {
+    const above = { mode: 'EXPLICIT' as const, memberTemplateId: 'tpl-root', leaderTemplateId: null, overrides: [] };
+    const plan = planChart(withChild({ teamConfigs: new Map([['team_pc02', { doc: above, revision: 2 }]]) }), { keepChildren: true });
+    expect(plan.configs.find((c) => c.teamId === 'team_doi2_sub')).toMatchObject({ kind: 'KEEP_CHILD', copied: above });
+  });
+
+  it('with --giu-cau-hinh-to-con, a member whose role is not the officer\'s cannot be kept as today: refused', () => {
+    const base = withChild();
+    const plan = planChart({ ...base, users: base.users.map((u) => (u.id === 'u-sub' ? { ...u, roleName: 'INVESTIGATOR' } : u)) }, { keepChildren: true });
+    expect(plan.blockers).toEqual([expect.stringMatching(/Nhóm A Đội 2: nguoi\.sub \(INVESTIGATOR\)/)]);
   });
 });
 

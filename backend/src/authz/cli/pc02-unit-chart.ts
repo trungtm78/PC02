@@ -102,7 +102,7 @@ export interface ChartSnapshot {
   /** A move of the source to the target that is in effect (not undone). */
   appliedMove: { id: string; movedAt: Date } | null;
   /** What sits on the source team now. */
-  onSource: { petitions: number; incidents: number; cases: number; deleted: number; stepParties: number };
+  onSource: { petitions: number; incidents: number; cases: number; deleted: number; stepParties: number; pendingHandoffs: number };
 }
 
 // ── the plan ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -119,12 +119,24 @@ export interface PlannedAccount {
 export interface PlannedConfig {
   teamId: string;
   teamName: string;
+  /**
+   * UNIT: a unit of the chart. KEEP_CHILD: a team under a unit, with no configuration of its own, given one equal to
+   * what it follows today so that the unit's new configuration does not reach it (`--giu-cau-hinh-to-con`).
+   */
+  kind: 'UNIT' | 'KEEP_CHILD';
   templateCode: ChartTemplate;
   /** The template's id, or null when it is created by this run. */
   templateId: string | null;
+  /** KEEP_CHILD under a configured ancestor: that ancestor's configuration, copied (else the template above). */
+  copied: TeamDoc | null;
   before: TeamDoc | null;
   revision: number;
   change: 'CREATE' | 'REPLACE' | 'SAME';
+}
+
+export interface PlanOptions {
+  /** `--giu-cau-hinh-to-con`: keep what the teams under a unit have today instead of refusing. */
+  keepChildren?: boolean;
 }
 
 export interface ChartPlan {
@@ -156,7 +168,9 @@ export const chartTeamDoc = (templateId: string): TeamDoc => ({ mode: 'EXPLICIT'
 const sameConfig = (a: TeamDoc | null, b: TeamDoc): boolean =>
   !!a && a.mode === b.mode && a.memberTemplateId === b.memberTemplateId && a.leaderTemplateId === b.leaderTemplateId && a.overrides.length === 0;
 
-export function planChart(snapshot: ChartSnapshot): ChartPlan {
+export const KEEP_CHILDREN_FLAG = '--giu-cau-hinh-to-con';
+
+export function planChart(snapshot: ChartSnapshot, options: PlanOptions = {}): ChartPlan {
   const blockers: string[] = [];
   const teamById = new Map(snapshot.teams.map((t) => [t.id, t]));
   const userById = new Map(snapshot.users.map((u) => [u.id, u]));
@@ -203,7 +217,7 @@ export function planChart(snapshot: ChartSnapshot): ChartPlan {
       })
       .sort((a, b) => a.username.localeCompare(b.username));
     const r = snapshot.onSource;
-    const anything = members.length + r.petitions + r.incidents + r.cases + r.stepParties > 0;
+    const anything = members.length + r.petitions + r.incidents + r.cases + r.stepParties + r.pendingHandoffs > 0;
     move = anything ? { status: 'TODO', members, records: r } : { status: 'NOTHING' };
     const already = snapshot.memberships.filter((m) => m.teamId === MOVE_TARGET_TEAM_ID && members.some((x) => x.userId === m.userId));
     for (const m of already) blockers.push(`${userById.get(m.userId)?.username ?? m.userId} đã là thành viên của tổ đích: không chuyển được hai lần.`);
@@ -216,19 +230,24 @@ export function planChart(snapshot: ChartSnapshot): ChartPlan {
     const before = current?.doc ?? null;
     const change: PlannedConfig['change'] = templateId && sameConfig(before, chartTeamDoc(templateId)) ? 'SAME' : before ? 'REPLACE' : 'CREATE';
     return {
+      kind: 'UNIT' as const,
       teamId: unit.teamId,
       teamName: teamById.get(unit.teamId)?.name ?? unit.create?.name ?? unit.label,
       templateCode: unit.template,
       templateId,
+      copied: null,
       before,
       revision: current?.revision ?? 0,
       change,
     };
   });
 
-  // Teams under a unit that have no configuration of their own follow that unit's configuration from now on.
+  // Teams under a unit that have no configuration of their own would follow that unit's configuration from now on
+  // (a configuration governs the teams below it). That silently changes what their people may do, so it is refused,
+  // or (`keepChildren`) each gets a configuration of its own equal to what it follows today.
   const configured = new Set(CHART_UNITS.map((u) => u.teamId));
-  const explicit = (id: string) => configured.has(id) || snapshot.teamConfigs.get(id)?.doc.mode === 'EXPLICIT';
+  const explicitToday = (id: string) => snapshot.teamConfigs.get(id)?.doc.mode === 'EXPLICIT';
+  const explicit = (id: string) => configured.has(id) || explicitToday(id);
   const inheriting: ChartPlan['inheriting'] = [];
   for (const team of snapshot.teams) {
     if (team.status === 'ARCHIVED' || explicit(team.id)) continue;
@@ -238,6 +257,50 @@ export function planChart(snapshot: ChartSnapshot): ChartPlan {
       if (!explicit(id)) continue;
       if (configured.has(id)) inheriting.push({ teamId: team.id, name: team.name, governedBy: teamById.get(id)?.name ?? id });
       break;
+    }
+  }
+  const activeInheriting = inheriting.filter((t) => teamById.get(t.teamId)?.status === 'ACTIVE');
+  if (activeInheriting.length && !options.keepChildren) {
+    blockers.push(
+      `${activeInheriting.length} tổ dưới các đơn vị của sơ đồ không có thiết lập riêng và sẽ theo phân quyền mới của đơn vị cấp trên: ` +
+        `${activeInheriting.map((t) => `${t.name} (theo ${t.governedBy})`).join('; ')}. ` +
+        `Đặt thiết lập riêng cho các tổ ấy trước, hoặc chạy với ${KEEP_CHILDREN_FLAG} để giữ nguyên quyền hiện nay của chúng.`,
+    );
+  }
+  if (options.keepChildren) {
+    for (const child of inheriting) {
+      // What the team follows TODAY: the nearest configuration up its line, or nobody's (the role, "as today").
+      let today: TeamDoc | null = null;
+      const seen = new Set<string>();
+      for (let id = teamById.get(child.teamId)?.parentId ?? null; id && !seen.has(id); id = teamById.get(id)?.parentId ?? null) {
+        seen.add(id);
+        if (explicitToday(id)) {
+          today = snapshot.teamConfigs.get(id)!.doc;
+          break;
+        }
+      }
+      if (!today) {
+        // "As today" equals what the role holds only for officers (an administrator is never limited by a team).
+        const others = snapshot.memberships
+          .filter((m) => m.teamId === child.teamId)
+          .map((m) => userById.get(m.userId))
+          .filter((u) => u && u.roleName !== 'OFFICER' && u.roleName !== 'ADMIN');
+        if (others.length) {
+          blockers.push(`Tổ ${child.name}: ${others.map((u) => `${u!.username} (${u!.roleName})`).join(', ')} không phải cán bộ: mẫu "như hiện nay" không giữ nguyên được quyền của họ.`);
+        }
+      }
+      const current = snapshot.teamConfigs.get(child.teamId) ?? null;
+      configs.push({
+        kind: 'KEEP_CHILD',
+        teamId: child.teamId,
+        teamName: child.name,
+        templateCode: 'STARTER_AS_TODAY',
+        templateId: today ? null : (snapshot.templates.get('STARTER_AS_TODAY')?.id ?? null),
+        copied: today,
+        before: current?.doc ?? null,
+        revision: current?.revision ?? 0,
+        change: current ? 'REPLACE' : 'CREATE',
+      });
     }
   }
 

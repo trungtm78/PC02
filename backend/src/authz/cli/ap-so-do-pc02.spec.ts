@@ -5,11 +5,12 @@ import { outPathProblem, parseArgs, repoRootOf } from './ap-so-do-pc02';
 
 describe('ap-so-do-pc02: arguments', () => {
   it('is a dry run unless --that is given', () => {
-    expect(parseArgs([])).toEqual({ apply: false, outPath: null, actorUsername: null, undoMoveId: null });
+    expect(parseArgs([])).toEqual({ apply: false, outPath: null, actorUsername: null, undoMoveId: null, keepChildren: false });
     expect(parseArgs(['--that', '--ra', '/home/pc02/a.xlsx', '--nguoi-thuc-hien', 'admin'])).toEqual({
-      apply: true, outPath: '/home/pc02/a.xlsx', actorUsername: 'admin', undoMoveId: null,
+      apply: true, outPath: '/home/pc02/a.xlsx', actorUsername: 'admin', undoMoveId: null, keepChildren: false,
     });
     expect(parseArgs(['--hoan-tac', 'move-1', '--nguoi-thuc-hien', 'admin'])).toMatchObject({ apply: false, undoMoveId: 'move-1' });
+    expect(parseArgs(['--that', '--giu-cau-hinh-to-con'])).toMatchObject({ apply: true, keepChildren: true });
   });
 
   it('a flag with its value missing is not mistaken for the next flag', () => {

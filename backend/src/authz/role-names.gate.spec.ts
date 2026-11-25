@@ -120,6 +120,9 @@ const A_FACT_ABOUT_THE_ROLE: string[] = [
   'authz/cli/ap-so-do-pc02.ts::if (!actor || !actor.isActive || actor.role.name !== ROLE_NAMES.ADMIN) return refuse(`"${options.actorUsername}" không phải tài khoản quản trị đang hoạt động.`);',
   "authz/cli/pc02-unit-chart.ts::return { userId: m.userId, username: u?.username ?? m.userId, isLeader: m.isLeader, admin: u?.roleName === 'ADMIN' };",
   "authz/cli/reach-oracle.ts::if (user.roleName === 'ADMIN') return { all: true, why: 'ADMIN' };",
+  // "As today" (the officer role at TEAM_TREE) keeps a team's permissions only for officers: the role is compared, to
+  // refuse a change that would not keep the others' as they are.
+  "authz/cli/pc02-unit-chart.ts::.filter((u) => u && u.roleName !== 'OFFICER' && u.roleName !== 'ADMIN');",
 
   // ── Test support compiled with the source ──
   "cases/governance/case-ordinary-test.fixture.ts::return {id,isActive:true,canDispatch:true,role:{name:'ADMIN',permissions:['read','write','edit','restore'].map(action=>({permission:{subject:'Case',action,conditions:null}}))}};",

@@ -9,12 +9,18 @@ import { MOVED_RECORD_TABLES } from './pc02-unit-chart';
  *   user_teams                 every membership of the source (the leader flag is kept);
  *   petitions/incidents/cases  every record assigned to the source that is not deleted;
  *   proc_record_step_parties   "the unit holding the record" of a step of a moved record (it follows the record, as in
- *                              a merge); a unit a flow names by itself is not touched.
+ *                              a merge); a unit a flow names by itself is not touched;
+ *   case/incident_handoffs     hand-offs still PENDING to the source (they would otherwise wait for a team nobody
+ *                              is left in to receive them).
+ *
+ * Moved records and hand-offs get a new `updatedAt`, so a form opened before the move fails its optimistic lock
+ * instead of writing the old team back.
  *
  * Every row moved is logged with the column as it was and as the move left it (`team_record_move_items`), in the same
  * transaction. The undo puts back only a row that is still exactly as the move left it: a membership still on the
- * target (and the person not back on the source already), a record still on the target and not changed since (its
- * `updatedAt` is what it was when moved). Everything else is left where it is and LISTED.
+ * target (and the person not back on the source already), a record or hand-off still on the target and not changed
+ * since (its `updatedAt` is the one the move wrote), a step's unit only together with its record. Everything else is
+ * left where it is and LISTED.
  */
 
 export const MOVE_ERROR = {
@@ -35,6 +41,12 @@ export interface UndoSummary {
 }
 
 const int = async (db: Tx, sql: string, ...params: unknown[]) => Number((await db.$queryRawUnsafe<{ n: number }[]>(sql, ...params))[0]?.n ?? 0);
+
+/** Hand-offs that are still waiting: their receiving team moves with the people. */
+export const PENDING_HANDOFFS = [
+  { table: 'case_handoffs', state: `"state" = 'PENDING'` },
+  { table: 'incident_handoffs', state: `"state" = 'PENDING'::"IncidentHandoffState"` },
+] as const;
 
 const ITEM = `INSERT INTO team_record_move_items (id, "moveId", "tableName", "recordKey", before, after)`;
 
@@ -76,7 +88,9 @@ export async function moveTeamPeopleAndRecords(
   for (const { table, kind } of MOVED_RECORD_TABLES) {
     moved[table] = await int(
       tx,
-      `WITH m AS (UPDATE "${table}" SET "assignedTeamId" = $2 WHERE "assignedTeamId" = $1 AND "deletedAt" IS NULL RETURNING id, "updatedAt"),
+      // `updatedAt` is stamped: a form opened before the move holds the old stamp, and its save is then refused as a
+      // conflict (optimistic lock) instead of quietly writing the old team back.
+      `WITH m AS (UPDATE "${table}" SET "assignedTeamId" = $2, "updatedAt" = now() WHERE "assignedTeamId" = $1 AND "deletedAt" IS NULL RETURNING id, "updatedAt"),
             i AS (${ITEM}
                   SELECT gen_random_uuid()::text, $3, '${table}', jsonb_build_object('id', id),
                          jsonb_build_object('assignedTeamId', $1::text), jsonb_build_object('assignedTeamId', $2::text, 'updatedAt', to_jsonb("updatedAt")) FROM m RETURNING 1)
@@ -92,10 +106,27 @@ export async function moveTeamPeopleAndRecords(
                     FROM proc_record_steps s, team_record_move_items r
                    WHERE p."recordStepId" = s.id AND p."partyKind" = 'RECORD_TEAM' AND p."teamId" = $1
                      AND s."recordKind" = '${kind}'::"ProcRecordKind" AND r."moveId" = $3 AND r."tableName" = '${table}' AND r."recordKey"->>'id' = s."recordId"
-                  RETURNING p.id),
+                  RETURNING p.id, s."recordId"),
             i AS (${ITEM}
-                  SELECT gen_random_uuid()::text, $3, 'proc_record_step_parties', jsonb_build_object('id', id),
+                  SELECT gen_random_uuid()::text, $3, 'proc_record_step_parties',
+                         jsonb_build_object('id', id, 'recordTable', '${table}', 'recordId', "recordId"),
                          jsonb_build_object('teamId', $1::text), jsonb_build_object('teamId', $2::text) FROM m RETURNING 1)
+       SELECT count(*)::int AS n FROM i`,
+      S,
+      T,
+      move.id,
+    );
+  }
+  // Hand-offs still waiting to be received by the source (a case or incident sent to it, maybe to a named person who is
+  // moving): the receiving side moves with the people, or nobody could ever receive them. Received, refused or
+  // cancelled hand-offs are history and stay.
+  for (const { table, state } of PENDING_HANDOFFS) {
+    moved[table] = await int(
+      tx,
+      `WITH m AS (UPDATE "${table}" SET "toTeamId" = $2, "updatedAt" = now() WHERE "toTeamId" = $1 AND ${state} RETURNING id, "updatedAt"),
+            i AS (${ITEM}
+                  SELECT gen_random_uuid()::text, $3, '${table}', jsonb_build_object('id', id),
+                         jsonb_build_object('toTeamId', $1::text), jsonb_build_object('toTeamId', $2::text, 'updatedAt', to_jsonb("updatedAt")) FROM m RETURNING 1)
        SELECT count(*)::int AS n FROM i`,
       S,
       T,
@@ -143,7 +174,7 @@ export async function undoTeamRecordMove(db: PrismaClient, moveId: string, actor
     for (const { table } of MOVED_RECORD_TABLES) {
       restored[table] = await int(
         tx,
-        `WITH r AS (UPDATE "${table}" x SET "assignedTeamId" = $3
+        `WITH r AS (UPDATE "${table}" x SET "assignedTeamId" = $3, "updatedAt" = now()
                       FROM team_record_move_items i
                      WHERE i."moveId" = $1 AND i."tableName" = '${table}' AND x.id = i."recordKey"->>'id'
                        AND x."assignedTeamId" = $2 AND to_jsonb(x."updatedAt") = i.after->'updatedAt'
@@ -153,16 +184,36 @@ export async function undoTeamRecordMove(db: PrismaClient, moveId: string, actor
         S,
       );
     }
+    // A unit holding a step goes back only with its record: a record left on the target (changed since) keeps its
+    // steps' unit on the target too, or the step would name a unit that no longer holds the record.
     restored.proc_record_step_parties = await int(
       tx,
       `WITH r AS (UPDATE proc_record_step_parties x SET "teamId" = $3
                     FROM team_record_move_items i
                    WHERE i."moveId" = $1 AND i."tableName" = 'proc_record_step_parties' AND x.id = i."recordKey"->>'id' AND x."teamId" = $2
+                     AND CASE i."recordKey"->>'recordTable'
+                           WHEN 'petitions' THEN EXISTS (SELECT 1 FROM petitions p WHERE p.id = i."recordKey"->>'recordId' AND p."assignedTeamId" = $3)
+                           WHEN 'incidents' THEN EXISTS (SELECT 1 FROM incidents p WHERE p.id = i."recordKey"->>'recordId' AND p."assignedTeamId" = $3)
+                           WHEN 'cases' THEN EXISTS (SELECT 1 FROM cases p WHERE p.id = i."recordKey"->>'recordId' AND p."assignedTeamId" = $3)
+                           ELSE false END
                   RETURNING 1) SELECT count(*)::int AS n FROM r`,
       moveId,
       T,
       S,
     );
+    for (const { table, state } of PENDING_HANDOFFS) {
+      restored[table] = await int(
+        tx,
+        `WITH r AS (UPDATE "${table}" x SET "toTeamId" = $3, "updatedAt" = now()
+                      FROM team_record_move_items i
+                     WHERE i."moveId" = $1 AND i."tableName" = '${table}' AND x.id = i."recordKey"->>'id'
+                       AND x."toTeamId" = $2 AND x.${state} AND to_jsonb(x."updatedAt") = i.after->'updatedAt'
+                    RETURNING 1) SELECT count(*)::int AS n FROM r`,
+        moveId,
+        T,
+        S,
+      );
+    }
 
     // What was left alone: an item whose row is not back on the source now.
     const skipped: UndoSummary['skipped'] = {};
@@ -176,6 +227,8 @@ export async function undoTeamRecordMove(db: PrismaClient, moveId: string, actor
             WHEN 'incidents' THEN EXISTS (SELECT 1 FROM incidents x WHERE x.id = i."recordKey"->>'id' AND x."assignedTeamId" = $2)
             WHEN 'cases' THEN EXISTS (SELECT 1 FROM cases x WHERE x.id = i."recordKey"->>'id' AND x."assignedTeamId" = $2)
             WHEN 'proc_record_step_parties' THEN EXISTS (SELECT 1 FROM proc_record_step_parties x WHERE x.id = i."recordKey"->>'id' AND x."teamId" = $2)
+            WHEN 'case_handoffs' THEN EXISTS (SELECT 1 FROM case_handoffs x WHERE x.id = i."recordKey"->>'id' AND x."toTeamId" = $2)
+            WHEN 'incident_handoffs' THEN EXISTS (SELECT 1 FROM incident_handoffs x WHERE x.id = i."recordKey"->>'id' AND x."toTeamId" = $2)
             ELSE false END)
         ORDER BY 1, 2`,
       moveId,

@@ -10,10 +10,12 @@
  * `--that` applies, in this order, each step only if it is still needed (a second run changes nothing and says so):
  *   1. creates "Tổ 1/2/3 – Đội 1" under Đội 1 (audit TEAM_CREATED);
  *   2. creates the starter templates that are missing, STARTER_TEAM_ONLY among them (history of "Phân quyền theo tổ");
- *   3. moves the people and the records of "Tổ công tác Số 2" to "Tổ 2 – Đội 1", in one transaction, every row logged
- *      (`--hoan-tac <id>` undoes it; the team itself stays as it is);
- *   4. gives the 21 units their configuration, in ONE change of the permission configuration (its history shows it;
- *      "Hoàn tác" there undoes it), reason "Sơ đồ PC02 26/11/2026";
+ *   3. gives the 21 units their configuration, in ONE change of the permission configuration (its history shows it;
+ *      "Hoàn tác" there undoes it), reason "Sơ đồ PC02 26/11/2026". A team under a unit with no configuration of its
+ *      own would follow the unit's new one: the run refuses, unless `--giu-cau-hinh-to-con` gives each such team a
+ *      configuration equal to what it follows today. If this step fails, nobody has been moved;
+ *   4. moves the people, the records and the pending hand-offs of "Tổ công tác Số 2" to "Tổ 2 – Đội 1", in one
+ *      transaction, every row logged (`--hoan-tac <id>` undoes it; the team itself stays as it is);
  *   5. creates the default accounts that do not exist (an existing username is left alone, its password untouched).
  *      Their passwords go to the .xlsx of `--ra`, never to the screen, never into the repository.
  * and then counts again, with the oracle and with the engine, and says where the two differ.
@@ -46,6 +48,7 @@ import { memorablePasswords } from './memorable-password';
 import {
   CHART_REASON,
   CHART_UNITS,
+  KEEP_CHILDREN_FLAG,
   MOVED_RECORD_TABLES,
   MOVE_SOURCE_TEAM_ID,
   MOVE_TARGET_TEAM_ID,
@@ -69,6 +72,8 @@ export interface RunOptions {
   outPath: string | null;
   actorUsername: string | null;
   undoMoveId: string | null;
+  /** `--giu-cau-hinh-to-con`: give the teams under a unit their today's permissions instead of refusing. */
+  keepChildren?: boolean;
 }
 export interface RunDeps {
   db: PrismaClient;
@@ -77,6 +82,8 @@ export interface RunDeps {
   repoRoot?: string;
   /** For tests: how passwords are made. */
   passwords?: (count: number) => string[];
+  /** For tests: called before a writing step; throwing there is a failure of that step. */
+  beforeStep?: (step: 'configs' | 'move') => Promise<void>;
 }
 
 type Counts = Record<OracleSubject, number>;
@@ -132,6 +139,11 @@ export async function loadChartSnapshot(db: PrismaClient): Promise<ChartSnapshot
     `SELECT count(*)::int AS n FROM proc_record_step_parties WHERE "teamId" = $1 AND "partyKind" = 'RECORD_TEAM'`,
     MOVE_SOURCE_TEAM_ID,
   );
+  const handoffs = await db.$queryRawUnsafe<{ n: number }[]>(
+    `SELECT (SELECT count(*) FROM case_handoffs WHERE "toTeamId" = $1 AND "state" = 'PENDING')
+          + (SELECT count(*) FROM incident_handoffs WHERE "toTeamId" = $1 AND "state" = 'PENDING') AS n`,
+    MOVE_SOURCE_TEAM_ID,
+  );
   return {
     teams,
     memberships,
@@ -166,6 +178,7 @@ export async function loadChartSnapshot(db: PrismaClient): Promise<ChartSnapshot
       cases: await onSource('cases'),
       deleted: Number(deleted[0].n),
       stepParties: Number(parties[0].n),
+      pendingHandoffs: Number(handoffs[0].n),
     },
   };
 }
@@ -189,7 +202,15 @@ export function projectState(before: OracleState, plan: ChartPlan, officerPerms:
   };
   const configs = new Map(before.configs);
   for (const c of plan.configs) {
-    configs.set(c.teamId, { mode: 'EXPLICIT', memberTemplateId: templateIdOf(c.templateCode, c.templateId), leaderTemplateId: null, overrides: [] });
+    if (c.copied) {
+      const o = c.copied;
+      configs.set(c.teamId, {
+        mode: 'EXPLICIT',
+        memberTemplateId: o.memberTemplateId,
+        leaderTemplateId: o.leaderTemplateId,
+        overrides: o.overrides.map((x) => ({ permission: x.permission, effect: x.effect, reach: x.reach, expiresAt: x.expiresAt ? new Date(x.expiresAt) : null, audience: x.audience })),
+      });
+    } else configs.set(c.teamId, { mode: 'EXPLICIT', memberTemplateId: templateIdOf(c.templateCode, c.templateId), leaderTemplateId: null, overrides: [] });
   }
   const teams = new Map(before.teams);
   for (const t of plan.teamsToCreate) teams.set(t.id, { name: t.name, parentId: t.parentId, active: true, wardId: null });
@@ -207,13 +228,30 @@ export function projectState(before: OracleState, plan: ChartPlan, officerPerms:
   };
 }
 
-/** Everybody the chart concerns: members (after) of the units and the teams that follow them, and the people moved. */
-function peopleConcerned(after: OracleState, plan: ChartPlan): string[] {
+/**
+ * Everybody the chart concerns: members (after) of the units and the teams that follow them, the people moved, and
+ * those who reach one of these teams from OUTSIDE the chart: through a data access grant on it, or as members of a
+ * team above it (its whole tree, today's reach). Their counts change with the move even if their own team does not.
+ */
+export function peopleConcerned(before: OracleState, after: OracleState, plan: ChartPlan): string[] {
   const teams = new Set([...CHART_UNITS.map((u) => u.teamId), ...plan.inheriting.map((t) => t.teamId)]);
   const moved = plan.move.status === 'TODO' ? plan.move.members.map((m) => m.userId) : [];
+  const above = new Set<string>();
+  for (const id of teams) {
+    const seen = new Set<string>();
+    for (let p = after.teams.get(id)?.parentId ?? null; p && !seen.has(p); p = after.teams.get(p)?.parentId ?? null) {
+      seen.add(p);
+      if (!teams.has(p)) above.add(p);
+    }
+  }
+  const grantees = [...before.dataGrants].filter(([, grants]) => grants.some((g) => teams.has(g.teamId))).map(([userId]) => userId);
   const order = new Map(CHART_UNITS.map((u, i) => [u.teamId, i]));
   const rank = (userId: string) => Math.min(...after.memberships.filter((m) => m.userId === userId).map((m) => order.get(m.teamId) ?? 99), 99);
-  const ids = new Set([...after.memberships.filter((m) => teams.has(m.teamId)).map((m) => m.userId), ...moved]);
+  const ids = new Set([
+    ...after.memberships.filter((m) => teams.has(m.teamId) || above.has(m.teamId)).map((m) => m.userId),
+    ...moved,
+    ...grantees,
+  ]);
   return [...ids].sort((a, b) => rank(a) - rank(b) || (after.users.get(a)?.username ?? a).localeCompare(after.users.get(b)?.username ?? b));
 }
 
@@ -251,6 +289,14 @@ async function engineCounts(db: PrismaClient, authz: AuthzService, userId: strin
 
 // ── printing ────────────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The counts are what the TEAM scope lets through. A case can be narrowed further by its own access mode (sensitive
+ * cases, representation): that is not counted, on purpose (restating it here would be a second copy of those rules).
+ */
+export const COUNT_LABEL = 'theo phạm vi tổ (chưa tính độ mật của vụ án)';
+export const COUNT_CAVEAT =
+  'Lưu ý: số vụ án tính theo phạm vi tổ; vụ án mật hoặc giới hạn người xem có thể còn bị ẩn thêm, nên số thật có thể nhỏ hơn.';
+
 const fmt = (c: Counts | null, all: string | null, isNew = false) =>
   isNew ? 'mới' : !c ? 'khoá' : all ? `toàn bộ (${all === 'ADMIN' ? 'quản trị' : all === 'DISPATCH' ? 'điều phối' : 'ALL'}) ${c.petitions}/${c.incidents}/${c.cases}` : `${c.petitions}/${c.incidents}/${c.cases}`;
 
@@ -260,26 +306,27 @@ function printPlan(print: (l: string) => void, plan: ChartPlan) {
   for (const t of plan.teamsToCreate) print(`   + ${t.name}  [${t.id}, mã ${t.code}, cấp ${t.level}]`);
   print('── 2. Mẫu quyền khởi đầu');
   print(plan.startersMissing.length ? `   + tạo: ${plan.startersMissing.join(', ')} (và mọi mẫu khởi đầu khác còn thiếu)` : '   (đã có đủ)');
-  print(`── 3. Chuyển người và hồ sơ: ${MOVE_SOURCE_TEAM_ID} → ${MOVE_TARGET_TEAM_ID}`);
+  print('── 3. Phân quyền theo tổ (một lần lưu, lý do "' + CHART_REASON + '"), TRƯỚC khi chuyển người');
+  for (const c of plan.configs) {
+    const what = c.change === 'SAME' ? 'giữ nguyên' : c.change === 'CREATE' ? 'đặt mới' : 'THAY thiết lập đang có';
+    const template = c.kind === 'KEEP_CHILD' ? (c.copied ? 'chép thiết lập cấp trên' : `${c.templateCode} (giữ như hiện nay)`) : c.templateCode;
+    print(`   ${c.teamName.padEnd(26)} ${template.padEnd(18)} ${what}`);
+  }
+  if (plan.inheriting.length) {
+    print('   Các tổ sau ở dưới một đơn vị của sơ đồ và không có thiết lập riêng:');
+    for (const t of plan.inheriting) print(`     ${t.name} → dưới ${t.governedBy}`);
+  }
+  print(`── 4. Chuyển người và hồ sơ: ${MOVE_SOURCE_TEAM_ID} → ${MOVE_TARGET_TEAM_ID}`);
   if (plan.move.status === 'DONE') {
     const l = plan.move.leftOnSource;
     print(`   đã chuyển (mã thao tác ${plan.move.moveId}, ${plan.move.movedAt.toISOString()}): không chuyển lại.`);
-    print(`   trên tổ nguồn hiện có: ${l.petitions} đơn thư, ${l.incidents} vụ việc, ${l.cases} vụ án (giữ nguyên).`);
+    print(`   trên tổ nguồn hiện có: ${l.petitions} đơn thư, ${l.incidents} vụ việc, ${l.cases} vụ án, ${l.pendingHandoffs} bàn giao đang chờ (giữ nguyên).`);
   } else if (plan.move.status === 'NOTHING') print('   (tổ nguồn không có người hay hồ sơ nào)');
   else {
     const r = plan.move.records;
     print(`   ${plan.move.members.length} thành viên (${plan.move.members.filter((m) => m.admin).length} quản trị, ${plan.move.members.filter((m) => m.isLeader).length} tổ trưởng): ${plan.move.members.map((m) => m.username).join(', ')}`);
-    print(`   ${r.petitions} đơn thư, ${r.incidents} vụ việc, ${r.cases} vụ án; ${r.stepParties} đơn vị xử lý bước của hồ sơ. ${r.deleted} hồ sơ đã xoá không chuyển.`);
+    print(`   ${r.petitions} đơn thư, ${r.incidents} vụ việc, ${r.cases} vụ án; ${r.stepParties} đơn vị xử lý bước của hồ sơ; ${r.pendingHandoffs} bàn giao vụ việc/vụ án đang chờ tổ nguồn nhận. ${r.deleted} hồ sơ đã xoá không chuyển.`);
     print('   Tổ công tác Số 2 giữ nguyên (đang hoạt động, giữ thiết lập, hồ sơ phân công phường/xã, lịch, lịch sử).');
-  }
-  print('── 4. Phân quyền theo tổ (một lần lưu, lý do "' + CHART_REASON + '")');
-  for (const c of plan.configs) {
-    const what = c.change === 'SAME' ? 'giữ nguyên' : c.change === 'CREATE' ? 'đặt mới' : 'THAY thiết lập đang có';
-    print(`   ${c.teamName.padEnd(26)} ${c.templateCode.padEnd(18)} ${what}`);
-  }
-  if (plan.inheriting.length) {
-    print('   Các tổ sau không có thiết lập riêng nên sẽ theo đơn vị cấp trên:');
-    for (const t of plan.inheriting) print(`     ${t.name} → theo ${t.governedBy}`);
   }
   print('── 5. Tài khoản mặc định (vai trò OFFICER, đổi mật khẩu khi đăng nhập lần đầu)');
   print(`   tạo ${plan.accountsToCreate.length}: ${plan.accountsToCreate.map((a) => a.username).join(', ') || '(không)'}`);
@@ -291,7 +338,8 @@ function printPlan(print: (l: string) => void, plan: ChartPlan) {
 }
 
 function printPeople(print: (l: string) => void, people: PersonRow[], withEngine: boolean) {
-  print('── Số hồ sơ mỗi người XEM được (đơn thư/vụ việc/vụ án), tính độc lập với bộ máy phân quyền');
+  print(`── Số hồ sơ mỗi người XEM được (đơn thư/vụ việc/vụ án) ${COUNT_LABEL}, tính độc lập với bộ máy phân quyền`);
+  print(`   ${COUNT_CAVEAT}`);
   for (const p of people) {
     const engine = withEngine ? `   bộ máy: ${p.engine ? `${p.engine.petitions}/${p.engine.incidents}/${p.engine.cases}` : 'khoá'}` : '';
     print(`   ${p.username.padEnd(22)} ${p.teams.padEnd(28)} trước ${fmt(p.before, p.allBefore, p.isNew).padEnd(22)} sau ${fmt(p.after, p.allAfter)}${engine}`);
@@ -386,7 +434,7 @@ export async function runUnitChart(options: RunOptions, deps: RunDeps): Promise<
   if (mode !== 'ENFORCE') print(`LƯU Ý: chế độ phân quyền theo tổ đang là ${mode}: cấu hình chỉ có hiệu lực khi ở ENFORCE.`);
 
   const snapshot = await loadChartSnapshot(db);
-  const plan = planChart(snapshot);
+  const plan = planChart(snapshot, { keepChildren: options.keepChildren });
   result.plan = plan;
   printPlan(print, plan);
 
@@ -396,7 +444,7 @@ export async function runUnitChart(options: RunOptions, deps: RunDeps): Promise<
   const unitTeams = new Set([...CHART_UNITS.map((u) => u.teamId), ...plan.inheriting.map((t) => t.teamId)]);
   const teamsOf = (state: OracleState, userId: string) =>
     state.memberships.filter((m) => m.userId === userId).map((m) => `${state.teams.get(m.teamId)?.name ?? m.teamId}${m.isLeader ? '*' : ''}`).join(', ');
-  for (const userId of peopleConcerned(after, plan)) {
+  for (const userId of peopleConcerned(before, after, plan)) {
     const b = userId.startsWith('new:') ? null : await readCounts(db, before, userId, null);
     const a = await readCounts(db, after, userId, remap);
     result.people.push({
@@ -454,7 +502,30 @@ export async function runUnitChart(options: RunOptions, deps: RunDeps): Promise<
     (await db.permissionTemplate.findMany({ where: { code: { in: ['STARTER_TEAM_ONLY', 'STARTER_AS_TODAY'] } }, select: { id: true, code: true } })).map((t) => [t.code, t.id]),
   );
 
-  // 3. the move
+  // 3. configurations, in one change, BEFORE anybody moves: if this fails, nobody has moved into a team whose
+  // permissions are not set yet (the error stops the run here).
+  const wanted: WantedItem[] = [];
+  for (const c of plan.configs.filter((x) => x.change !== 'SAME')) {
+    if (c.copied) {
+      wanted.push({ type: 'team', id: c.teamId, after: c.copied });
+      continue;
+    }
+    const templateId = templateIds.get(c.templateCode);
+    if (!templateId) return refuse(`không thấy mẫu ${c.templateCode} sau bước 2.`);
+    wanted.push({ type: 'team', id: c.teamId, after: chartTeamDoc(templateId) });
+  }
+  await deps.beforeStep?.('configs');
+  if (wanted.length) {
+    const committed = await admin.commit(actorId, 'TEAM_CONFIG_APPLIED', wanted, {
+      reason: CHART_REASON,
+      expected: Object.fromEntries(plan.configs.filter((c) => wanted.some((w) => w.id === c.teamId)).map((c) => [`team:${c.teamId}`, c.revision])),
+    });
+    result.changeSetId = committed.changeSetId;
+    print(`ĐÃ LƯU phân quyền của ${committed.items.length} tổ (thay đổi ${committed.changeSetId}: hoàn tác ở tab Lịch sử).`);
+  }
+
+  // 4. the move
+  await deps.beforeStep?.('move');
   if (plan.move.status === 'TODO') {
     const moved = await db.$transaction(async (tx) => {
       const m = await moveTeamPeopleAndRecords(tx, { sourceTeamId: MOVE_SOURCE_TEAM_ID, targetTeamId: MOVE_TARGET_TEAM_ID, reason: CHART_REASON, actorId });
@@ -466,22 +537,6 @@ export async function runUnitChart(options: RunOptions, deps: RunDeps): Promise<
     }, TX_OPTIONS);
     result.moveId = moved.moveId;
     print(`ĐÃ CHUYỂN: ${Object.entries(moved.summary.moved).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`).join(', ')}. Mã thao tác (để hoàn tác): ${moved.moveId}`);
-  }
-
-  // 4. configurations, in one change
-  const wanted: WantedItem[] = [];
-  for (const c of plan.configs.filter((x) => x.change !== 'SAME')) {
-    const templateId = templateIds.get(c.templateCode);
-    if (!templateId) return refuse(`không thấy mẫu ${c.templateCode} sau bước 2.`);
-    wanted.push({ type: 'team', id: c.teamId, after: chartTeamDoc(templateId) });
-  }
-  if (wanted.length) {
-    const committed = await admin.commit(actorId, 'TEAM_CONFIG_APPLIED', wanted, {
-      reason: CHART_REASON,
-      expected: Object.fromEntries(plan.configs.filter((c) => wanted.some((w) => w.id === c.teamId)).map((c) => [`team:${c.teamId}`, c.revision])),
-    });
-    result.changeSetId = committed.changeSetId;
-    print(`ĐÃ LƯU phân quyền của ${committed.items.length} tổ (thay đổi ${committed.changeSetId}: hoàn tác ở tab Lịch sử).`);
   }
 
   // 5. accounts
@@ -571,6 +626,7 @@ export function parseArgs(argv: readonly string[]): RunOptions {
     outPath: argOf(argv, '--ra'),
     actorUsername: argOf(argv, '--nguoi-thuc-hien'),
     undoMoveId: argOf(argv, '--hoan-tac'),
+    keepChildren: argv.includes(KEEP_CHILDREN_FLAG),
   };
 }
 
