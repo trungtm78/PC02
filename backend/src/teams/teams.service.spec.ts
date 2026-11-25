@@ -106,7 +106,8 @@ describe('TeamsService', () => {
           include: expect.objectContaining({
             parent: true,
             children: true,
-            _count: { select: { members: true } },
+            // The tree shows how many wards a PC02 team is in charge of.
+            _count: { select: { members: true, wardCharges: true } },
           }),
         }),
       );

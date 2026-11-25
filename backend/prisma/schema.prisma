@@ -269,6 +269,7 @@ model User {
   wardDeadlineChanges               WardAssignmentDeadlineChange[]
   wardReopenings                    WardAssignmentReopening[]
   wardInvestigatorsCreated          WardInvestigator[]
+  wardChargesCreated                TeamWardCharge[]             @relation("TeamWardChargeCreatedBy")
 
   @@map("users")
 }
@@ -349,6 +350,8 @@ model Directory {
 
   // v0.33.0.0: inverse — Teams gắn ward (geographic teams)
   teams Team[] @relation("TeamWard")
+  /// The PC02 team in charge of this ward (type WARD only): at most one.
+  wardCharge TeamWardCharge? @relation("TeamWardChargeWard")
   /// Processing flows bound to this entry (only entries of type LOAI_THONG_TIN are ever bound).
   procFlowBindings ProcFlowBinding[]
 
@@ -2417,12 +2420,32 @@ model Team {
   wardAssignmentsFollowed  WardAssignment[]           @relation("WardAssignmentFollowUpTeam") // requests this PC02 unit follows
   wardDecisionsFollowed    WardAssignmentDecision[]   @relation("WardDecisionFollowUpTeam")
   wardInvestigators        WardInvestigator[] // investigators of this ward unit
+  wardCharges              TeamWardCharge[]           @relation("TeamWardChargeManager") // wards this PC02 team is in charge of
 
   @@index([parentId])
   @@index([level])
   @@index([wardId])
   @@index([status])
   @@map("teams")
+}
+
+// ─────────────────────────────────────────────
+// TeamWardCharge: which PC02 team is in charge of which ward ("Phường/xã phụ trách").
+// Keyed by the WARD directory row, not by a ward team: two ward teams of one ward can never get two managers.
+// Written only by src/teams (team-ward-charges.service.ts, and team-merge.service.ts which moves them).
+// ─────────────────────────────────────────────
+model TeamWardCharge {
+  id              String    @id @default(cuid())
+  wardDirectoryId String    @unique
+  ward            Directory @relation("TeamWardChargeWard", fields: [wardDirectoryId], references: [id], onDelete: Restrict)
+  managerTeamId   String
+  managerTeam     Team      @relation("TeamWardChargeManager", fields: [managerTeamId], references: [id], onDelete: Restrict)
+  createdById     String
+  createdBy       User      @relation("TeamWardChargeCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt       DateTime  @default(now())
+
+  @@index([managerTeamId])
+  @@map("team_ward_charges")
 }
 
 // v0.33.0.0 Phase 5b: ward officer reset request workflow

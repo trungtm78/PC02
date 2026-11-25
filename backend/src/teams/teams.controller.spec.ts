@@ -3,6 +3,8 @@ import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
 import { TeamLifecycleService } from './team-lifecycle.service';
 import { TeamMergeService } from './team-merge.service';
+import { TeamWardChargesService } from './team-ward-charges.service';
+import { TeamWardChargesImportService } from './team-ward-charges.import';
 import { BadRequestException } from '@nestjs/common';
 
 const mockService = {
@@ -18,6 +20,8 @@ const mockService = {
 
 const mockLifecycle = { setStatus: jest.fn(), deleteIfEmpty: jest.fn(), deletionCheck: jest.fn() };
 const mockMerge = { preview: jest.fn(), merge: jest.fn(), undo: jest.fn(), list: jest.fn() };
+const mockWardCharges = { choices: jest.fn(), listFor: jest.fn(), replace: jest.fn() };
+const mockWardChargeImport = { preview: jest.fn(), confirm: jest.fn(), template: jest.fn() };
 
 describe('TeamsController — delegation', () => {
   let controller: TeamsController;
@@ -26,6 +30,8 @@ describe('TeamsController — delegation', () => {
     const module = await buildControllerModule(TeamsController, TeamsService, mockService, [
       { token: TeamLifecycleService, mock: mockLifecycle },
       { token: TeamMergeService, mock: mockMerge },
+      { token: TeamWardChargesService, mock: mockWardCharges },
+      { token: TeamWardChargesImportService, mock: mockWardChargeImport },
     ]);
     controller = module.get(TeamsController);
     jest.clearAllMocks();
@@ -144,5 +150,30 @@ describe('TeamsController — delegation', () => {
     mockService.removeMember.mockResolvedValue({ success: true });
     await controller.removeMember('team-1', 'member-1', mockUser);
     expect(mockService.removeMember).toHaveBeenCalledWith('team-1', 'member-1', mockUser.id);
+  });
+
+  describe('wards in charge', () => {
+    it('replaceWardCharges() hands the body, the actor and audit info to the service', async () => {
+      await controller.replaceWardCharges('team-1', { wardIds: ['w1'] }, mockUser, makeReq());
+      expect(mockWardCharges.replace).toHaveBeenCalledWith('team-1', { wardIds: ['w1'] }, mockUser.id, expect.objectContaining({ ipAddress: '127.0.0.1' }));
+    });
+
+    it('a preview without a file is a 400 carrying a code', () => {
+      expect(() => controller.wardChargeImportPreview(undefined, mockUser)).toThrow(BadRequestException);
+    });
+
+    it('confirm passes the token and the replace flag as they came', async () => {
+      await controller.wardChargeImportConfirm({ previewToken: 'tok', replaceTeamsInFile: true }, mockUser, makeReq());
+      expect(mockWardChargeImport.confirm).toHaveBeenCalledWith('tok', true, mockUser.id, expect.anything());
+    });
+
+    it('every ward-charge route takes the permission of editing a team (PUT /teams/:id)', () => {
+      const permissionOf = (name: keyof TeamsController) => Reflect.getMetadata('permissions', TeamsController.prototype[name]);
+      const edit = permissionOf('update');
+      expect(edit).toBeDefined();
+      for (const name of ['wardChargeChoices', 'listWardCharges', 'replaceWardCharges', 'wardChargeImportPreview', 'wardChargeImportConfirm', 'wardChargeImportTemplate'] as const) {
+        expect({ name, p: permissionOf(name) }).toEqual({ name, p: edit });
+      }
+    });
   });
 });

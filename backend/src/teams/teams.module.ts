@@ -3,12 +3,21 @@ import { TeamsService } from './teams.service';
 import { TeamsController } from './teams.controller';
 import { TeamLifecycleService } from './team-lifecycle.service';
 import { TeamMergeService } from './team-merge.service';
+import { TeamWardChargesService } from './team-ward-charges.service';
+import { TeamWardChargesImportService } from './team-ward-charges.import';
 import { AuditModule } from '../audit/audit.module';
 import { IsWardDirectoryConstraint } from '../common/validators/is-ward-directory.validator';
 
 @Module({
   imports: [AuditModule],
-  providers: [TeamsService, TeamLifecycleService, TeamMergeService, IsWardDirectoryConstraint], // v0.33: register class-validator constraint
+  providers: [
+    TeamsService,
+    TeamLifecycleService,
+    TeamMergeService,
+    TeamWardChargesService,
+    TeamWardChargesImportService,
+    IsWardDirectoryConstraint, // v0.33: register class-validator constraint
+  ],
   controllers: [TeamsController],
   exports: [TeamsService, TeamLifecycleService],
 })

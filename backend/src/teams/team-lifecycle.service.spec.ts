@@ -7,10 +7,12 @@ interface MockPrisma {
   $queryRaw: jest.Mock;
   $transaction: jest.Mock;
   team: { findUnique: jest.Mock; update: jest.Mock };
+  teamWardCharge: { count: jest.Mock };
 }
 
-function build(current: Status | null) {
+function build(current: Status | null, wardCharges = 0) {
   const prisma: MockPrisma = {
+    teamWardCharge: { count: jest.fn().mockResolvedValue(wardCharges) },
     $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     team: {
@@ -119,6 +121,21 @@ describe('TeamLifecycleService', () => {
       await expect(service.setStatus('missing', 'INACTIVE', 'actor1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+
+    it('a team in charge of wards cannot be archived: the charges are removed first (as delete refuses)', async () => {
+      const { service, prisma, audit } = build('ACTIVE', 3);
+      await expect(service.setStatus('t1', 'ARCHIVED', 'actor1')).rejects.toMatchObject({
+        response: { code: 'TEAM_HAS_WARD_CHARGES', details: [{ count: 3 }] },
+      });
+      expect(prisma.team.update).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('a team in charge of wards may still be paused (the charges stay)', async () => {
+      const { service, prisma } = build('ACTIVE', 3);
+      await service.setStatus('t1', 'INACTIVE', 'actor1');
+      expect(prisma.team.update.mock.calls[0][0].data.status).toBe('INACTIVE');
     });
 
     it('rejects a status that is not one of the three', async () => {

@@ -159,9 +159,12 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       id[name] = (await db.user.create({ data: { username: `${tag}-${name}`, passwordHash: 'x', roleId: role.id, isActive: true, firstName: 'Văn A', lastName: 'Nguyễn', rank: 'Đại úy' } })).id;
     }
     const ward = async (key: string) => (await db.directory.create({ data: { type: 'WARD', code: `${tag}-${key}`, name: `${tag} ${key}` } })).id;
-    id.W = (await db.team.create({ data: { code: `${tag}-W`, name: `Công an P.Vườn Lài ${tag}`, wardId: await ward('w') } })).id;
+    id.wardW = await ward('w');
+    id.W = (await db.team.create({ data: { code: `${tag}-W`, name: `Công an P.Vườn Lài ${tag}`, wardId: id.wardW } })).id;
     id.V = (await db.team.create({ data: { code: `${tag}-V`, name: `Công an P.Tân Định ${tag}`, wardId: await ward('v') } })).id;
     id.P = (await db.team.create({ data: { code: `${tag}-P`, name: `${tag} Đội 1 PC02` } })).id;
+    // The PC02 team in charge of W's ward: the slip's closing item names it.
+    id.M = (await db.team.create({ data: { code: `${tag}-M`, name: `Tổ công tác Số 4 ${tag}` } })).id;
     await db.userTeam.createMany({
       data: [
         { userId: id.wardy, teamId: id.W },
@@ -171,6 +174,7 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
         { userId: id.dispatcher, teamId: id.P },
       ],
     });
+    await db.teamWardCharge.create({ data: { wardDirectoryId: id.wardW, managerTeamId: id.M, createdById: id.reviewer } });
     id.crime = (await db.crime.create({ data: { code: `${tag}-D322`, name: 'Tội đánh bạc', articleNo: 322, chapter: 'XXI' } })).id;
     id.investigator = (
       await db.wardInvestigator.create({
@@ -279,6 +283,7 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
     await db.documentNumberTemplate.deleteMany({ where: { id: { in: series_ } } });
     await db.crime.deleteMany({ where: { code: { startsWith: tag } } });
     await db.userTeam.deleteMany({ where: { team: { code: { startsWith: tag } } } });
+    await db.teamWardCharge.deleteMany({ where: { managerTeam: { code: { startsWith: tag } } } });
     await db.team.deleteMany({ where: { code: { startsWith: tag } } });
     await db.directory.deleteMany({ where: { code: { startsWith: tag } } });
     await db.user.deleteMany({ where: { username: { startsWith: tag } } });
@@ -429,6 +434,10 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
       // Block 1 as the FIRST round submitted it (the place was corrected afterwards).
       expect(text).toContain('tại giao lộ Lý Thái Tổ - Lê Hồng Phong, do Nguyễn Chí Kiệt, Trần Văn Bảy thực hiện.\nLý do trả về: Thiếu tài liệu chứng minh.');
       expect(text).toContain('1. Bổ sung lời khai bị hại\n2. Xác minh nhân thân đối tượng');
+      // The closing item: N + 1, naming the PC02 team in charge of the request's ward, joined like the requirements.
+      expect(text).toContain(
+        `2. Xác minh nhân thân đối tượng\n3. Trong quá trình điều tra, trường hợp gặp khó khăn, vướng mắc, cần kịp thời báo cáo về Phòng PC02 (qua Tổ công tác Số 4 ${tag} hoặc Đội 1) để được hướng dẫn, phối hợp, hỗ trợ.`,
+      );
       expect(text).not.toContain('{');
       // Signers by default: the reviewer as "Cán bộ thẩm định".
       expect(text).toContain('Đại úy Nguyễn Văn A');
@@ -531,6 +540,60 @@ run('ward assignment requests: result files and request slips, on PostgreSQL', (
         fs.writeFileSync(full, original);
       }
       await expect(slips.download({ id: id.wardy }, scope.wardy, id.A, id.dApprove)).resolves.toBeTruthy();
+    });
+
+    describe('the closing item (report difficulties to PC02 through the team in charge of the ward)', () => {
+      const CLOSING = 'Trong quá trình điều tra, trường hợp gặp khó khăn, vướng mắc, cần kịp thời báo cáo về Phòng PC02';
+      const slipText = async (assignmentId: string, decisionId: string) =>
+        docxText(await bytesOf((await slips.download({ id: id.reviewer }, scope.reviewer, assignmentId, decisionId)).stream));
+
+      it('with no requirement at all, the item is "1."', async () => {
+        id.D = await submitted();
+        id.dD = await decide(id.D, 'RETURN', { requirements: [], reasonText: 'Thiếu' });
+        expect((await slips.defaults({ id: id.reviewer }, scope.reviewer, id.D, id.dD)).missing).toEqual([]);
+        await slips.issue({ id: id.reviewer }, scope.reviewer, id.D, id.dD, {});
+        const text = await slipText(id.D, id.dD);
+        expect(text).toContain(`1. ${CLOSING} (qua Tổ công tác Số 4 ${tag} hoặc Đội 1) để được hướng dẫn, phối hợp, hỗ trợ.`);
+        expect(text).not.toContain(`2. ${CLOSING}`);
+      });
+
+      it('nobody in charge of the ward: the dialog lists it as missing, the slip says "(qua Đội 1)", and a reissue keeps what was issued', async () => {
+        await scratch.db.teamWardCharge.deleteMany({ where: { wardDirectoryId: id.wardW } });
+        try {
+          id.E = await submitted();
+          id.dE = await decide(id.E, 'APPROVE', { requirements: ['Hỏi cung bị can'] });
+          expect((await slips.defaults({ id: id.reviewer }, scope.reviewer, id.E, id.dE)).missing).toEqual(['wardChargeTeam']);
+          await slips.issue({ id: id.reviewer }, scope.reviewer, id.E, id.dE, {});
+          expect(await slipText(id.E, id.dE)).toContain(`1. Hỏi cung bị can\n2. ${CLOSING} (qua Đội 1) để được hướng dẫn, phối hợp, hỗ trợ.`);
+        } finally {
+          await scratch.db.teamWardCharge.create({ data: { wardDirectoryId: id.wardW, managerTeamId: id.M, createdById: id.reviewer } });
+        }
+        // A team is in charge NOW; the issued slip is not looked up again: the reissue prints what the issue printed.
+        await slips.reissue({ id: id.reviewer }, scope.reviewer, id.E, id.dE, { reason: 'In lại' });
+        const text = await slipText(id.E, id.dE);
+        expect(text).toContain(`2. ${CLOSING} (qua Đội 1) để`);
+        expect(text).not.toContain(`Tổ công tác Số 4 ${tag}`);
+        expect((await slips.defaults({ id: id.reviewer }, scope.reviewer, id.E, id.dE)).missing).toEqual(['wardChargeTeam']);
+        const stored = (await scratch.db.wardAssignmentDecision.findUniqueOrThrow({ where: { id: id.dE } })).signers as { used: object };
+        expect(stored.used).toMatchObject({ version: 2, chargeTeamName: null });
+      });
+
+      it('a slip issued before the item existed (snapshot without a version) is reissued WITHOUT it, unchanged', async () => {
+        const decision = await scratch.db.wardAssignmentDecision.findUniqueOrThrow({ where: { id: id.dApprove } });
+        const state = decision.signers as { used: Record<string, unknown> };
+        const { version: _v, chargeTeamName: _c, ...oldUsed } = state.used;
+        expect(_v).toBe(2);
+        await scratch.db.wardAssignmentDecision.update({ where: { id: id.dApprove }, data: { signers: { ...state, used: oldUsed } as never } });
+
+        expect((await slips.defaults({ id: id.reviewer }, scope.reviewer, id.A, id.dApprove)).missing).toEqual([]);
+        await slips.reissue({ id: id.reviewer }, scope.reviewer, id.A, id.dApprove, { reason: 'Phiếu cũ in lại' });
+        const text = await slipText(id.A, id.dApprove);
+        expect(text).toContain('1. Hỏi cung bị can\n2. Trưng cầu giám định dữ liệu điện tử\n3. Nhập kho vật chứng');
+        expect(text).not.toContain(CLOSING);
+        // Still an old snapshot: no version is invented at reissue.
+        const after = (await scratch.db.wardAssignmentDecision.findUniqueOrThrow({ where: { id: id.dApprove } })).signers as { used: object };
+        expect(after.used).not.toHaveProperty('version');
+      });
     });
 
     it('a revoked decision gets no slip', async () => {

@@ -20,7 +20,8 @@ import {
 } from './ward-docs.codes';
 import { readableRequest, requestForDocsWrite, requestForRead } from './ward-docs.locks';
 import { wardBody } from './ward-errors';
-import { buildSlipRecord, SIGNER_KEYS, signersOf, slipStateOf, type WardSlipSigners, type WardSlipUsed } from './ward-slip.record';
+import { chargeTeamNameOf } from '../teams/team-ward-charges.service';
+import { buildSlipRecord, SIGNER_KEYS, signersOf, slipStateOf, wardChargeOf, type WardSlipSigners, type WardSlipUsed } from './ward-slip.record';
 
 type Tx = Prisma.TransactionClient;
 type Scope = DataScope | null | undefined;
@@ -281,6 +282,15 @@ export class WardSlipService {
       const missing: string[] = [];
       if (!printed.discoveredOn) missing.push('discoveredOn');
       if (typeof printed.place !== 'string' || !printed.place.trim()) missing.push('place');
+      // The closing item names the PC02 team in charge of the request's ward. An issued slip prints what it stored (an
+      // old one does not print the item at all); one not issued yet would take the team in charge now.
+      const used = decision.slipDocumentId ? slipStateOf(decision.signers).used : null;
+      const charge = decision.slipDocumentId
+        ? used
+          ? wardChargeOf(used)
+          : null
+        : { teamName: await chargeTeamNameOf(tx, assignment.assignedTeamId) };
+      if (charge && !charge.teamName) missing.push('wardChargeTeam');
       return {
         decisionId: decision.id,
         kind: decision.kind,
