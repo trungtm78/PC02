@@ -5,6 +5,20 @@ import { extractApiError } from '@/lib/api-errors';
 import { wardAssignmentAlerts as t } from '@/locales/wardAssignmentAlerts.vi';
 import { wardAlertsApi, type SubjectMatch } from '../api/alerts';
 import { RECORD_LINK } from '../recordLinks';
+import { CASE_STATUS_LABEL, INCIDENT_STATUS_LABEL, PETITION_STATUS_LABEL } from '@/shared/enums/status-labels';
+import { wardAssignments as WL } from '@/locales/wardAssignments.vi';
+
+/** The status in words, by the kind of record (the server sends the code). */
+const statusLabel = (source: SubjectMatch['source'], status: string | null): string => {
+  if (!status) return '—';
+  const labels: Record<string, Record<string, string>> = {
+    WARD_ASSIGNMENT: WL.status as Record<string, string>,
+    CASE: CASE_STATUS_LABEL,
+    PETITION: PETITION_STATUS_LABEL,
+    INCIDENT: INCIDENT_STATUS_LABEL,
+  };
+  return labels[source]?.[status] ?? status;
+};
 
 const dmy = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '—');
 
@@ -38,7 +52,7 @@ export function MatchPreviewDialog({ assignmentId, match, onClose }: { assignmen
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
             {P.open}
           </a>
-          <button type="button" className="rounded border px-3 py-1.5 text-sm hover:bg-slate-50" onClick={onClose}>
+          <button type="button" data-testid="ward-match-preview-close" className="rounded border px-3 py-1.5 text-sm hover:bg-slate-50" onClick={onClose}>
             {P.close}
           </button>
         </div>
@@ -62,7 +76,7 @@ export function MatchPreviewDialog({ assignmentId, match, onClose }: { assignmen
               <dt className="text-slate-500">{P.unit}</dt>
               <dd>{q.data.unitName ?? '—'}</dd>
               <dt className="text-slate-500">{P.status}</dt>
-              <dd>{q.data.status ?? '—'}</dd>
+              <dd>{statusLabel(match.source, q.data.status)}</dd>
               <dt className="text-slate-500">{P.day}</dt>
               <dd>{dmy(q.data.day)}</dd>
               <dt className="text-slate-500">{P.summary}</dt>

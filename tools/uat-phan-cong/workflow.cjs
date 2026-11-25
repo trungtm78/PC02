@@ -49,6 +49,9 @@ const { Client } = require(path.join(BACKEND, 'node_modules/pg'));
 const RUN = randomUUID().slice(0, 8);
 const TAG = `uat-pc-${RUN}`;
 const PASSWORD = `Uat-${randomUUID()}!`;
+// One identity number per run: the requests of earlier runs stay in the database, and a reviewer who sees every
+// unit would find them as matches of the same number (which now stops an approval until concluded).
+const CCCD = `079${String(parseInt(RUN.slice(0, 7), 16)).padStart(9, '0').slice(-9)}`;
 
 // ── results ─────────────────────────────────────────────────────────────────────────────────────────────────────
 const results = [];
@@ -210,12 +213,16 @@ async function journeys(tk) {
   // Draft, validation for submission
   const content = (over = {}) => ({
     caseType: 'CASE', kind: 'NEW', crimeId: CRIME_ID, summary: `UAT ${RUN} Nhóm đánh bạc tại hẻm 12`, content: 'Ngày 10/11 phát hiện nhóm đối tượng tổ chức đánh bạc.', discoveredOn: '2026-11-10', place: 'Hẻm 12 đường Vườn Lài',
-    subjectsUnknown: false, subjects: [{ fullName: 'Nguyễn Văn An', birthYear: 1990, idNumber: '079090000001', address: 'Vườn Lài' }], proposedInvestigatorId: I1, entryOfficerName: 'Phạm Thị Hoa', entryOfficerPhone: '0901234567', ...over,
+    subjectsUnknown: false, subjects: [{ fullName: 'Nguyễn Văn An', birthYear: 1990, idNumber: CCCD, address: 'Vườn Lài' }], proposedInvestigatorId: I1, entryOfficerName: 'Phạm Thị Hoa', entryOfficerPhone: '0901234567', ...over,
   });
   const incomplete = await call(tk.a1, 'POST', '/ward-assignments', content({ subjectsUnknown: false, subjects: [], proposedInvestigatorId: null }));
   check('DRAFT', 'lưu nháp được khi còn thiếu thông tin', incomplete.status === 201 && incomplete.body?.status === 'DRAFT' && incomplete.body?.assignedTeamId === T.WA, [incomplete.status, incomplete.body]);
   const subInc = await call(tk.a1, 'POST', `/ward-assignments/${incomplete.body?.id}/submit`, { expectedUpdatedAt: incomplete.body?.updatedAt });
   check('DRAFT', 'trình khi thiếu đối tượng và ĐTV đề xuất bị từ chối, nêu rõ ô thiếu', refused(subInc, 400, 'WARD_ASSIGNMENT_INCOMPLETE') && JSON.stringify(subInc.body).includes('subjects') && JSON.stringify(subInc.body).includes('proposedInvestigatorId'), [subInc.status, subInc.body]);
+  const noPlace = await call(tk.a1, 'POST', '/ward-assignments', content({ place: '  ' }));
+  const noPlaceSub = await call(tk.a1, 'POST', `/ward-assignments/${noPlace.body?.id}/submit`, { expectedUpdatedAt: noPlace.body?.updatedAt });
+  check('PLACE', 'trình khi chưa ghi Nơi xảy ra bị từ chối, nêu rõ ô thiếu (anh chốt 26/11)', refused(noPlaceSub, 400, 'WARD_ASSIGNMENT_INCOMPLETE') && JSON.stringify(noPlaceSub.body).includes('place'), [noPlaceSub.status, noPlaceSub.body]);
+  await call(tk.a1, 'DELETE', `/ward-assignments/${noPlace.body?.id}?expectedUpdatedAt=${encodeURIComponent(noPlace.body?.updatedAt)}`);
   const delDraft = await call(tk.a1, 'DELETE', `/ward-assignments/${incomplete.body?.id}?expectedUpdatedAt=${encodeURIComponent(incomplete.body?.updatedAt)}`);
   const delGone = await call(tk.a1, 'GET', `/ward-assignments/${incomplete.body?.id}`);
   check('CRUD', 'nháp chưa từng trình xoá hẳn được', delDraft.status === 200 && delGone.status === 404, [delDraft.status, delDraft.body, delGone.status]);
@@ -394,7 +401,19 @@ async function journeys(tk) {
   check('A12', 'phường B không nhận thông báo nào về hồ sơ phường A', bellB.status === 200 && !JSON.stringify(bellB.body).includes(id), bellB.status);
   const bellRev = await call(tk.rev, 'GET', '/notifications?limit=100');
   check('NOTIFY', 'PC02 thẩm định nhận thông báo hồ sơ mới trình và hồ sơ trình lại', rowsOf(bellRev.body).some((n) => n.type === 'WARD_ASSIGNMENT_SUBMITTED' && JSON.stringify(n).includes(id)) && rowsOf(bellRev.body).some((n) => n.type === 'WARD_ASSIGNMENT_RESUBMITTED' && JSON.stringify(n).includes(id)), rowsOf(bellRev.body).map((n) => n.type));
+  // Screening before an approval (owner, 26/11/2026): the second request names the same identity number as the first.
+  const a2blocked = await call(tk.rev, 'POST', `/ward-assignments/${id2}/approve`, { expectedUpdatedAt: s2.body?.updatedAt, assignedInvestigatorId: I1 });
+  const still = await call(tk.rev, 'GET', `/ward-assignments/${id2}`);
+  check('MATCH', 'duyệt khi đối tượng còn trùng CCCD với hồ sơ khác chưa kết luận: 409 nêu đúng hồ sơ trùng, hồ sơ vẫn chờ duyệt', refused(a2blocked, 409, 'WARD_MATCH_REVIEW_REQUIRED') && JSON.stringify(a2blocked.body).includes(id) && still.body?.status === 'SUBMITTED', [a2blocked.status, a2blocked.body, still.body?.status]);
+  const pv = await call(tk.rev, 'GET', `/ward-assignments/${id2}/subject-matches/preview?source=WARD_ASSIGNMENT&recordId=${id}`);
+  check('MATCH', 'xem chi tiết hồ sơ trùng (chỉ đọc): mã, đơn vị và đối tượng của hồ sơ kia', pv.status === 200 && pv.body?.recordId === id && pv.body?.code === code && (pv.body?.people ?? []).some((p) => p.idNumber === CCCD), [pv.status, pv.body]);
+  const pvB = await call(tk.b1, 'GET', `/ward-assignments/${id2}/subject-matches/preview?source=WARD_ASSIGNMENT&recordId=${id}`);
+  check('MATCH', 'phường B xem chi tiết hồ sơ trùng của hồ sơ phường A: 404', pvB.status === 404, [pvB.status, pvB.body]);
+  const reasonsOf = rowsOf((await call(tk.rev, 'GET', `/ward-assignments/${id2}/subject-matches`)).body).find((m) => m.recordId === id);
+  check('MATCH', 'dòng trùng nêu mức và lý do: Trùng chắc chắn, trùng CCCD, họ tên, năm sinh', reasonsOf?.level === 'CERTAIN' && ['ID_NUMBER', 'NAME', 'BIRTH_YEAR'].every((r) => (reasonsOf?.reasons ?? []).includes(r)), reasonsOf);
+  await call(tk.rev, 'POST', `/ward-assignments/${id2}/subject-matches/conclusions`, { subjectPosition: reasonsOf?.subjectPosition ?? 1, otherSource: 'WARD_ASSIGNMENT', otherRecordId: id, samePerson: true });
   const a2ok = await call(tk.rev, 'POST', `/ward-assignments/${id2}/approve`, { expectedUpdatedAt: s2.body?.updatedAt, assignedInvestigatorId: I1 });
+  check('MATCH', 'kết luận "cùng người" xong thì duyệt được', a2ok.status === 200 && a2ok.body?.status === 'APPROVED', [a2ok.status, a2ok.body]);
   const cancelNo = await call(tk.rev, 'POST', `/ward-assignments/${id2}/approval/cancel`, { expectedUpdatedAt: a2ok.body?.updatedAt, reason: ' ' });
   check('R3', 'huỷ duyệt không lý do bị từ chối', refused(cancelNo, 400, 'WARD_REASON_REQUIRED'), [cancelNo.status, cancelNo.body]);
   const cancel = await call(tk.rev, 'POST', `/ward-assignments/${id2}/approval/cancel`, { expectedUpdatedAt: a2ok.body?.updatedAt, reason: 'Duyệt nhầm ĐTV' });

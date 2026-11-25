@@ -63,6 +63,9 @@ describe('SubjectMatches', () => {
     fireEvent.click(within(rows[0]).getByTestId('ward-match-open-WARD_ASSIGNMENT-w1'));
     expect(await screen.findByTestId('ward-match-preview-person')).toHaveTextContent('079090000111');
     expect(get).toHaveBeenLastCalledWith('/ward-assignments/a1/subject-matches/preview', { params: { source: 'WARD_ASSIGNMENT', recordId: 'w1' } });
+    // The status in words, never the server's code.
+    expect(screen.getByTestId('ward-match-preview')).toHaveTextContent('Đã duyệt');
+    expect(screen.getByTestId('ward-match-preview')).not.toHaveTextContent('APPROVED');
     expect(screen.getByTestId('ward-match-preview-open')).toHaveAttribute('href', '/ho-so-phan-cong/w1');
     expect(screen.getByTestId('ward-match-preview-open')).toHaveAttribute('target', '_blank');
     expect(within(rows[0]).getByText('Trùng chắc chắn (CCCD)')).toBeInTheDocument();
