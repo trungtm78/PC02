@@ -23,6 +23,8 @@ export const MERGE_ERROR = {
    * an investigator of another unit, in a unit of the wrong kind, or re-assigning a request of another ward unit.
    */
   UNDO_WARD_CONFLICT: 'TEAM_MERGE_UNDO_WARD_CONFLICT',
+  /** Undoing would give wards in charge back to a team that is now a ward unit, or that stays archived. */
+  UNDO_WARD_CHARGE_CONFLICT: 'TEAM_MERGE_UNDO_WARD_CHARGE_CONFLICT',
 } as const;
 
 /**
@@ -481,6 +483,16 @@ export class TeamMergeService {
       if (present.find((r) => r.id === S)?.status === 'ARCHIVED') {
         await this.lifecycle.applyStatus(tx, S, 'ACTIVE', actorId);
         if (op.sourcePreviousStatus === 'INACTIVE') await this.lifecycle.applyStatus(tx, S, 'INACTIVE', actorId);
+      }
+
+      // 6. wards in charge go back only to a PC02 team: not to one that became a ward unit since the merge, nor to one
+      // left archived (an archived team holds no ward). Refused whole, as step 4 refuses ward requests that no longer fit.
+      // A paused team may hold wards (pausing keeps them), so the source going back to INACTIVE is fine.
+      const [charges] = await tx.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM team_ward_charges c JOIN teams t ON t.id = c."managerTeamId"
+         WHERE t.id IN (${S}, ${T}) AND (t."wardId" IS NOT NULL OR t.status = 'ARCHIVED')`;
+      if (Number(charges.n) > 0) {
+        throw new ConflictException({ code: MERGE_ERROR.UNDO_WARD_CHARGE_CONFLICT, details: [{ count: Number(charges.n) }] });
       }
       await tx.teamMergeOperation.update({
         where: { id: operationId },

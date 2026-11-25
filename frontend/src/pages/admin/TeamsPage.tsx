@@ -1128,7 +1128,8 @@ export default function TeamsPage() {
               </p>
             </div>
             {/* A PC02 team (no ward of its own) is in charge of wards; saved by its own button, not by "Cập nhật". */}
-            {editingTeam && !editingTeam.wardId && <WardChargesSection teamId={editingTeam.id} />}
+            {/* Keyed by the team: editing another team starts from THAT team's wards, never the last one's unsaved choice. */}
+            {editingTeam && !editingTeam.wardId && <WardChargesSection key={editingTeam.id} teamId={editingTeam.id} />}
             <div className="col-span-2 flex gap-2 justify-end">
               <button
                 type="button"

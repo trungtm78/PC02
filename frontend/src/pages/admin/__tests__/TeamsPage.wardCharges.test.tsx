@@ -92,6 +92,48 @@ describe('TeamsPage — wards in charge', () => {
     expect(api.put).toHaveBeenCalledTimes(1);
   });
 
+  it('switching to another team without closing the form drops the first team\'s unsaved choice', async () => {
+    vi.mocked(api.put).mockResolvedValue({ data: T4_CHARGES });
+    renderPage();
+    await openEdit('Tổ công tác Số 1');
+    await screen.findByTestId('ward-charges-section');
+    await waitFor(() => expect(screen.getByTestId('ward-charges-trigger')).toBeInTheDocument());
+    // Tổ 1 is given Tân Định, not saved.
+    fireEvent.click(screen.getByTestId('ward-charges-trigger'));
+    fireEvent.click(await screen.findByTestId('ward-charges-option-d-td'));
+    expect(screen.getByTestId('ward-charges-chip-d-td')).toBeInTheDocument();
+
+    // Edit Tổ 4 straight away (the form stays open) and save it untouched.
+    await openEdit('Tổ công tác Số 4');
+    expect(await screen.findByTestId('ward-charges-chip-d-bc')).toBeInTheDocument();
+    expect(screen.queryByTestId('ward-charges-chip-d-td')).toBeNull();
+    fireEvent.click(screen.getByTestId('ward-charges-save'));
+
+    // Tổ 4 keeps its own wards: Tổ 1's unsaved choice never reaches it.
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.put).toHaveBeenCalledWith('/teams/t4/ward-charges', { wardIds: ['d-bc', 'd-vl'] });
+  });
+
+  it('while a save is on its way the choice is locked, so nothing picked meanwhile is thrown away', async () => {
+    let finish: (v: unknown) => void = () => {};
+    vi.mocked(api.put).mockReturnValue(new Promise((resolve) => (finish = resolve)) as never);
+    renderPage();
+    await openEdit('Tổ công tác Số 4');
+    await screen.findByTestId('ward-charges-chip-d-bc');
+    fireEvent.click(screen.getByTestId('ward-charges-chip-remove-d-bc'));
+    fireEvent.click(screen.getByTestId('ward-charges-save'));
+
+    await waitFor(() => expect(screen.getByTestId('ward-charges-trigger')).toHaveAttribute('aria-disabled', 'true'));
+    expect(screen.queryByTestId('ward-charges-chip-remove-d-vl')).toBeNull();
+    fireEvent.click(screen.getByTestId('ward-charges-trigger'));
+    expect(screen.queryByTestId('ward-charges-search')).toBeNull();
+
+    finish({ data: [T4_CHARGES[1]] });
+    await screen.findByTestId('ward-charges-saved');
+    expect(screen.getByTestId('ward-charges-trigger')).not.toHaveAttribute('aria-disabled');
+    expect(screen.getByTestId('ward-charges-chip-d-vl')).toBeInTheDocument();
+  });
+
   it('a ward held by another team is shown as taken, with who holds it', async () => {
     renderPage();
     await openEdit('Tổ công tác Số 1');

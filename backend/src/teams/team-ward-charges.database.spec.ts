@@ -6,7 +6,10 @@ import { TeamLifecycleService } from './team-lifecycle.service';
 import { TeamMergeService, MERGE_ERROR } from './team-merge.service';
 import { WARD_CHARGE_AUDIT, WARD_CHARGE_ERROR, WARD_CHARGE_IMPORT_ISSUE as ISSUE } from './team-ward-charges.codes';
 import { TeamWardChargesImportService } from './team-ward-charges.import';
+import * as chargesModule from './team-ward-charges.service';
 import { TeamWardChargesService } from './team-ward-charges.service';
+import { TeamsService } from './teams.service';
+import { Client } from 'pg';
 
 /**
  * Which PC02 team is in charge of which ward, on a REAL PostgreSQL.
@@ -98,6 +101,9 @@ run('team ward charges on PostgreSQL', () => {
     // Two wards of the city that only the accents tell apart (rows 7 and 13 of the owner's file).
     await ward('thanhAnAcute', 'Xã Thạnh An');
     await ward('thanhAnPlain', 'Xã Thanh An');
+    // Wards of the race and undo cases, held by nobody until those cases.
+    await ward('race1', 'Phường Đua Một');
+    await ward('race2', 'Phường Đua Hai');
     // The same name in another province: the file names wards of the city only.
     id.saiGonElsewhere = (await db.directory.create({ data: { type: 'WARD', code: `${tag}-sg2`, name: `Phường Sài Gòn ${tag}`, parentId: id.elsewhere } })).id;
     id.crimeRow = (await db.directory.create({ data: { type: 'CRIME', code: `${tag}-c`, name: `Tội ${tag}` } })).id;
@@ -349,7 +355,93 @@ run('team ward charges on PostgreSQL', () => {
     });
   });
 
+  describe('import confirm under concurrency', () => {
+    it('a ward given to a team OUTSIDE the file after the check (another session) is not taken from it: 409, nothing written', async () => {
+      await scratch.db.teamWardCharge.deleteMany({ where: { wardDirectoryId: id.race1 } });
+      const before = await wardsOf(id.T4);
+      const preview = await imports.preview(await workbook([[`Tổ công tác Số 4 ${tag}`, `Đua Một ${tag}.`, 1]]), id.actor);
+      expect(preview.canConfirm).toBe(true);
+
+      // Seeded fault: right after the confirm's first ownership check, a save of Tổ 9 commits the ward (its own session).
+      const real = chargesModule.conflictsOf;
+      const spy = jest.spyOn(chargesModule, 'conflictsOf').mockImplementationOnce(async (db, wardIds, allowed) => {
+        const answer = await real(db, wardIds, allowed);
+        await scratch.db.teamWardCharge.create({ data: { wardDirectoryId: id.race1, managerTeamId: id.T9, createdById: id.other } });
+        return answer;
+      });
+      try {
+        expect(await fails(imports.confirm(preview.previewToken, false, id.actor))).toMatchObject({
+          status: 409,
+          body: { code: WARD_CHARGE_ERROR.ALREADY_CHARGED, details: [{ wardId: id.race1, teamId: id.T9, teamName: `Tổ công tác Số 9 ${tag}` }] },
+        });
+      } finally {
+        spy.mockRestore();
+      }
+      const holders = await scratch.db.teamWardCharge.findMany({ where: { wardDirectoryId: id.race1 } });
+      expect(holders.map((h) => h.managerTeamId)).toEqual([id.T9]);
+      expect(await wardsOf(id.T4)).toEqual(before);
+      await scratch.db.teamWardCharge.deleteMany({ where: { wardDirectoryId: id.race1 } });
+    });
+
+    it('two confirms of the same preview at the same moment: exactly one runs, the other is told the token is used', async () => {
+      const preview = await imports.preview(await workbook([[`Tổ công tác Số 1 ${tag}`, `Sài Gòn ${tag}.`, 1]]), id.actor);
+      expect(preview.canConfirm).toBe(true);
+      const results = await Promise.allSettled([
+        imports.confirm(preview.previewToken, true, id.actor),
+        imports.confirm(preview.previewToken, true, id.actor),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const refused = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect((refused.reason as { getResponse: () => unknown }).getResponse()).toMatchObject({ code: WARD_CHARGE_ERROR.IMPORT_TOKEN_INVALID });
+    });
+  });
+
   describe('the life of a team in charge of wards', () => {
+    it('a charge saved while the team is being made a ward unit: the change of kind waits for it, then is refused', async () => {
+      const t = await team('Tổ sắp gắn phường');
+      const teamsService = new TeamsService(scratch.db as never, new AuditService(scratch.db as never), lifecycle);
+      await scratch.db.teamWardCharge.deleteMany({ where: { wardDirectoryId: id.race2 } });
+      const saver = new Client({ connectionString: url! });
+      await saver.connect();
+      try {
+        // An in-flight charge save: it holds the manager's row lock, as `replace` does, and has not committed yet.
+        await saver.query('BEGIN');
+        await saver.query('SELECT id FROM teams WHERE id = $1 FOR UPDATE', [t]);
+        await saver.query(
+          `INSERT INTO team_ward_charges (id, "wardDirectoryId", "managerTeamId", "createdById") VALUES ($1, $2, $3, $4)`,
+          [`${tag}-race`, id.race2, t, id.actor],
+        );
+        const attempt = teamsService.update(t, { wardId: id.vinhTan } as never, id.actor).catch((e: unknown) => e);
+        for (let i = 0; i < 200; i += 1) {
+          const waiting = await scratch.pg.query(`SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query ILIKE '%teams%'`);
+          if (waiting.rowCount) break;
+          await new Promise((r) => setTimeout(r, 25));
+        }
+        await saver.query('COMMIT');
+        expect(await attempt).toMatchObject({ response: { code: WARD_CHARGE_ERROR.HAS_CHARGES, details: [{ count: 1 }] } });
+        expect((await scratch.db.team.findUniqueOrThrow({ where: { id: t } })).wardId).toBeNull();
+      } finally {
+        await saver.end();
+      }
+    });
+
+    it('undo refuses to give wards back to a team that became a ward unit since the merge; nothing moves', async () => {
+      const source = await team('Tổ gộp rồi gắn phường');
+      const target = await team('Tổ nhận gộp');
+      await scratch.db.teamWardCharge.deleteMany({ where: { wardDirectoryId: id.race2 } });
+      await charges.replace(source, { wardIds: [id.race2] }, id.actor);
+      const { operationId } = await merges.merge(source, target, id.actor);
+      expect(await wardsOf(target)).toEqual([id.race2]);
+      // Since the merge, the (empty, archived) source was made a ward unit.
+      await scratch.db.team.update({ where: { id: source }, data: { wardId: id.vuonLai } });
+
+      expect(await fails(merges.undo(operationId, id.actor))).toMatchObject({ status: 409, body: { code: MERGE_ERROR.UNDO_WARD_CHARGE_CONFLICT, details: [{ count: 1 }] } });
+      expect(await wardsOf(target)).toEqual([id.race2]);
+      expect(await wardsOf(source)).toEqual([]);
+      expect((await scratch.db.teamMergeOperation.findUniqueOrThrow({ where: { id: operationId } })).status).toBe('APPLIED');
+      await scratch.db.teamWardCharge.deleteMany({ where: { wardDirectoryId: id.race2 } });
+    });
+
     it('delete: the check counts the charges and the delete is refused; once the chips are removed, it deletes', async () => {
       const t = await team('Tổ sẽ xoá');
       await charges.replace(t, { wardIds: [id.benThanh] }, id.actor);

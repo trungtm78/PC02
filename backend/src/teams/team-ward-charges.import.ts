@@ -274,7 +274,20 @@ export class TeamWardChargesImportService {
       throw new NotFoundException({ code: WARD_CHARGE_ERROR.IMPORT_TOKEN_INVALID });
     }
     if (stored.hasErrors) throw new ConflictException({ code: WARD_CHARGE_ERROR.IMPORT_HAS_ERRORS });
-    const replace = replaceTeamsInFile === true;
+    // Taken BEFORE anything is awaited (one synchronous step after the read): a second confirm of the same preview,
+    // even one sent at the same moment, finds no token. Given back only if this one writes nothing, so the person can
+    // try again after fixing what refused it.
+    const token = previewToken as string;
+    this.previews.delete(token);
+    try {
+      return await this.apply(stored, replaceTeamsInFile === true, actorId, meta);
+    } catch (error) {
+      if (stored.expiresAt >= Date.now()) this.previews.set(token, stored);
+      throw error;
+    }
+  }
+
+  private async apply(stored: StoredPreview, replace: boolean, actorId: string, meta?: Meta) {
     const teamIds = [...new Set(stored.plan.map((p) => p.teamId))].sort();
     const wardIds = stored.plan.flatMap((p) => p.wardIds);
     const managerOf = new Map(stored.plan.flatMap((p) => p.wardIds.map((w) => [w, p.teamId] as const)));
@@ -294,11 +307,21 @@ export class TeamWardChargesImportService {
         const conflicts = await conflictsOf(tx, wardIds, teamIds);
         if (conflicts.length) throw new ConflictException({ code: WARD_CHARGE_ERROR.ALREADY_CHARGED, details: conflicts });
 
+        // The charges of the file's wards, LOCKED, and their owners checked again on what is locked: a save of a team
+        // outside the file may have committed since the check above. A row locked here cannot change hands until this
+        // commits; a ward nobody holds yet is created below, where the UNIQUE ward key refuses a concurrent twin.
+        const existing = await tx.$queryRaw<{ id: string; wardDirectoryId: string; managerTeamId: string }[]>`
+          SELECT id, "wardDirectoryId", "managerTeamId" FROM team_ward_charges
+           WHERE "wardDirectoryId" = ANY(${wardIds}::text[]) ORDER BY id FOR UPDATE`;
+        const outside = existing.filter((r) => !teamIds.includes(r.managerTeamId)).map((r) => r.wardDirectoryId);
+        if (outside.length) {
+          throw new ConflictException({ code: WARD_CHARGE_ERROR.ALREADY_CHARGED, details: await conflictsOf(tx, outside, teamIds) });
+        }
+
         let removed = 0;
         if (replace) {
           removed = (await tx.teamWardCharge.deleteMany({ where: { managerTeamId: { in: teamIds }, wardDirectoryId: { notIn: wardIds } } })).count;
         }
-        const existing = await tx.teamWardCharge.findMany({ where: { wardDirectoryId: { in: wardIds } }, select: { id: true, wardDirectoryId: true, managerTeamId: true } });
         let moved = 0;
         for (const row of existing) {
           const target = managerOf.get(row.wardDirectoryId)!;
@@ -320,7 +343,6 @@ export class TeamWardChargesImportService {
       }
       throw error;
     }
-    this.previews.delete(previewToken as string);
 
     await this.audit.log({
       userId: actorId,

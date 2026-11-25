@@ -102,6 +102,7 @@ export const teams = {
     TEAM_MERGE_WARD_CHARGE_TARGET_WARD: 'Tổ này đang phụ trách phường/xã: không gộp được vào một tổ phường/xã.',
     TEAM_HAS_WARD_CHARGES: 'Tổ đang phụ trách phường/xã. Hãy bỏ các phường/xã phụ trách (hoặc gộp sang tổ khác) trước khi lưu trữ.',
     TEAM_MERGE_UNDO_WARD_CONFLICT: 'Không hoàn tác được: có hồ sơ phân công đã tạo hoặc sửa sau khi gộp sẽ thành sai (ghi Điều tra viên của đơn vị khác, nằm ở đơn vị không đúng loại, hoặc phân công lại hồ sơ của phường khác). Hãy sửa các hồ sơ đó trước.',
+    TEAM_MERGE_UNDO_WARD_CHARGE_CONFLICT: 'Không hoàn tác được: tổ cũ nay đã là tổ phường/xã (hoặc vẫn đang lưu trữ) nên không nhận lại được các phường/xã phụ trách. Hãy sửa tổ cũ trước.',
     TEAM_MERGE_NOT_UNDOABLE: 'Lần gộp này đã được hoàn tác hoặc không còn hoàn tác được.',
     TEAM_MERGE_UNSUPPORTED_REFERENCE: 'Hệ thống có dữ liệu mới liên quan tới tổ mà việc gộp chưa xử lý. Hãy báo quản trị kỹ thuật.',
   } as Record<string, string>,

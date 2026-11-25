@@ -219,7 +219,12 @@ export function MultiFKSelect({
                     aria-disabled={blocked || undefined}
                     data-taken={option.taken ? 'true' : undefined}
                     data-testid={tid(`option-${option.value}`)}
-                    onClick={() => toggle(option)}
+                    // The keyboard lives on the search: after a click, focus goes back there (typing, arrows, Escape).
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      toggle(option);
+                      inputRef.current?.focus();
+                    }}
                     className={`w-full text-left px-4 py-2 text-sm flex items-start gap-2 ${
                       active ? 'bg-blue-100' : selected ? 'bg-blue-50' : 'hover:bg-slate-50'
                     } ${blocked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700'}`}

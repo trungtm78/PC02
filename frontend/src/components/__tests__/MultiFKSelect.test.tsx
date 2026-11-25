@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MultiFKSelect, type MultiFKOption } from '../MultiFKSelect';
 
 const OPTIONS: MultiFKOption[] = [
@@ -80,6 +81,22 @@ describe('MultiFKSelect', () => {
     // The hint is searched too: typing the holder finds the ward.
     type('to cong tac so 8');
     expect(screen.getByTestId('ms-option-w3')).toBeInTheDocument();
+  });
+
+  it('after a click on an option, the keyboard still works: focus is back in the search', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    await user.click(screen.getByTestId('ms-trigger'));
+    await user.click(screen.getByTestId('ms-option-w1'));
+    expect(screen.getByTestId('ms-search')).toHaveFocus();
+    // Typing filters, arrows move, Enter chooses, Escape closes, all without clicking the search again.
+    await user.keyboard('tan dinh');
+    expect(screen.queryByTestId('ms-option-w2')).toBeNull();
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith(['w1', 'w4']);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByTestId('ms-search')).toBeNull();
   });
 
   it('works from the keyboard: open with Enter, arrows move, Enter toggles the highlighted option, Escape closes', () => {

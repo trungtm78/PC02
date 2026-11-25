@@ -95,6 +95,8 @@ export function WardChargesSection({ teamId }: { teamId: string }) {
         }}
         options={options}
         selectedLabels={selectedLabels}
+        // Locked while a save is on its way: the answer replaces the choice, so nothing may be picked meanwhile.
+        disabled={save.isPending}
         loading={choices.isLoading || current.isLoading}
         testId="ward-charges"
       />
