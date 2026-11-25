@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { extractApiError } from '@/lib/api-errors';
 import { wardAssignmentAlerts as t } from '@/locales/wardAssignmentAlerts.vi';
-import { wardAlertsApi, type MatchSource, type SubjectMatch } from '../api/alerts';
+import { wardAlertsApi, type SubjectMatch } from '../api/alerts';
+import { MatchPreviewDialog } from './MatchPreviewDialog';
 
 /**
  * "Đối tượng trùng" of a ward assignment request: what the server found within the person's reach (it lists and
@@ -12,19 +12,23 @@ import { wardAlertsApi, type MatchSource, type SubjectMatch } from '../api/alert
 export interface SubjectMatchesProps {
   assignmentId: string;
   canConclude: boolean;
+  /** Told after every load: the screen counts what is still to conclude (the review dialog, the approve button). */
+  onLoaded?: (matches: SubjectMatch[]) => void;
 }
 
-const LINK: Record<MatchSource, (id: string) => string | null> = {
-  WARD_ASSIGNMENT: (id) => `/ho-so-phan-cong/${encodeURIComponent(id)}`,
-  PETITION: (id) => `/petitions/${encodeURIComponent(id)}`,
-  CASE: (id) => `/cases/${encodeURIComponent(id)}`,
-  INCIDENT: (id) => `/incidents/${encodeURIComponent(id)}`,
+const BADGE: Record<string, string> = {
+  CERTAIN: 'bg-red-100 text-red-700',
+  POSSIBLE: 'bg-amber-100 text-amber-800',
+  NEAR: 'bg-slate-100 text-slate-700',
 };
 
 const keyOf = (m: SubjectMatch) => `${m.subjectPosition}|${m.source}|${m.recordId}`;
 
-export function SubjectMatches({ assignmentId, canConclude }: SubjectMatchesProps) {
+export function SubjectMatches({ assignmentId, canConclude, onLoaded }: SubjectMatchesProps) {
   const [matches, setMatches] = useState<SubjectMatch[] | null>(null);
+  const [previewing, setPreviewing] = useState<SubjectMatch | null>(null);
+  const told = useRef(onLoaded);
+  told.current = onLoaded;
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -37,7 +41,10 @@ export function SubjectMatches({ assignmentId, canConclude }: SubjectMatchesProp
     setLoadError(false);
     try {
       const found = await wardAlertsApi.subjectMatches(assignmentId);
-      if (ticket === latest.current) setMatches(found);
+      if (ticket === latest.current) {
+        setMatches(found);
+        told.current?.(found);
+      }
     } catch {
       if (ticket !== latest.current) return;
       setMatches(null);
@@ -95,24 +102,31 @@ export function SubjectMatches({ assignmentId, canConclude }: SubjectMatchesProp
             {matches
               .filter((m) => m.subjectPosition === position)
               .map((m) => {
-                const href = LINK[m.source]?.(m.recordId) ?? null;
                 const label = `${t.matches.source[m.source] ?? m.source}${m.code ? ` ${m.code}` : ''}`;
                 const key = keyOf(m);
                 return (
                   <li key={key} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm" data-testid="ward-match-row">
-                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${m.level === 'CERTAIN' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
-                      {m.source === 'PETITION' ? t.matches.possibleByName : t.matches.level[m.level]}
+                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${BADGE[m.level] ?? BADGE.NEAR}`}>
+                      {m.source === 'PETITION' ? t.matches.possibleByName : t.matches.level[m.level] ?? m.level}
                     </span>
-                    {href ? (
-                      <Link to={href} className="font-medium text-blue-700 hover:underline">
-                        {label}
-                      </Link>
-                    ) : (
-                      <span className="font-medium">{label}</span>
-                    )}
+                    <button
+                      type="button"
+                      data-testid={`ward-match-open-${m.source}-${m.recordId}`}
+                      title={t.matches.openHint}
+                      className="font-medium text-blue-700 hover:underline"
+                      onClick={() => setPreviewing(m)}
+                    >
+                      {label}
+                    </button>
                     {m.unitName && <span className="text-slate-500">· {m.unitName}</span>}
                     <span className="text-slate-700">· {m.name}</span>
+                    {(m.reasons ?? []).map((r) => (
+                      <span key={r} className="rounded border border-slate-200 px-1 text-xs text-slate-600" data-testid="ward-match-reason">
+                        {t.matches.reason[r] ?? r}
+                      </span>
+                    ))}
                     {m.concludedSame && <span className="text-xs text-green-700">{t.matches.concludedSame}</span>}
+                    {canConclude && m.concluded === false && <span className="text-xs font-medium text-red-700">{t.matches.unreviewed}</span>}
                     {canConclude && (
                       <span className="ml-auto flex gap-1">
                         <button type="button" disabled={saving === key} className="rounded border px-2 py-0.5 text-xs hover:bg-slate-50 disabled:opacity-50" onClick={() => void conclude(m, true)}>
@@ -130,6 +144,7 @@ export function SubjectMatches({ assignmentId, canConclude }: SubjectMatchesProp
         </div>
       ))}
       <p className="text-xs text-slate-500">{t.matches.scopeNote}</p>
+      {previewing && <MatchPreviewDialog assignmentId={assignmentId} match={previewing} onClose={() => setPreviewing(null)} />}
     </section>
   );
 }

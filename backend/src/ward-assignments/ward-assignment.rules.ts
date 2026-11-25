@@ -62,6 +62,7 @@ export interface SubmissionFields {
   content: string | null | undefined;
   crimeId: string | null | undefined;
   crimeOther: string | null | undefined;
+  place: string | null | undefined;
   proposedInvestigatorId: string | null | undefined;
   entryOfficerName: string | null | undefined;
   subjectsUnknown: boolean;
@@ -85,6 +86,8 @@ export function missingForSubmission(f: SubmissionFields): string[] {
   if (!filled(f.crimeId) && !filled(f.crimeOther)) missing.push('crime');
   if (!filled(f.summary)) missing.push('summary');
   if (!filled(f.content)) missing.push('content');
+  // The owner's decision of 26/11/2026: where it happened is asked of every request (the slip prints it).
+  if (!filled(f.place)) missing.push('place');
   if (!filled(f.proposedInvestigatorId)) missing.push('proposedInvestigatorId');
   if (!filled(f.entryOfficerName)) missing.push('entryOfficerName');
   if (!f.subjectsUnknown && f.subjectCount === 0) missing.push('subjects');

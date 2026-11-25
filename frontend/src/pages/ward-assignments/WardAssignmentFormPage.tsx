@@ -7,7 +7,7 @@
  * server's answer (`can`), so the page offers exactly what the server would accept. Every write carries the stamp the
  * page read; a 409 offers to load the request again.
  */
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Save, Send } from 'lucide-react';
@@ -47,6 +47,9 @@ import { InvestigatorQuickDialog } from '@/features/ward-assignments/components/
 import { RequestSlipDialog } from '@/features/ward-assignments/components/RequestSlipDialog';
 import { useApprovedOfUnit, useUnitInvestigators, useWardUnits, useWardViewer } from '@/features/ward-assignments/useWardChoices';
 import { SubjectMatches } from '@/features/ward-assignments/components/SubjectMatches';
+import { SubjectReviewDialog } from '@/features/ward-assignments/components/SubjectReviewDialog';
+import { wardAlertsApi, type SubjectMatch } from '@/features/ward-assignments/api/alerts';
+import { wardAssignmentAlerts as TA } from '@/locales/wardAssignmentAlerts.vi';
 
 const F = L.form.fields;
 const A = L.form.actions;
@@ -160,6 +163,7 @@ function missingForSubmit(form: WardFormState, needsUnit: boolean, intake: boole
   need(!form.crimeId && !form.crimeOther.trim(), 'ward-crime', F.crime);
   need(!form.summary.trim(), 'ward-summary', F.summary);
   need(!form.content.trim(), 'ward-content', F.content);
+  need(!form.place.trim(), 'ward-place', F.place);
   need(!form.subjectsUnknown && form.subjects.every((s) => !s.fullName?.trim()), 'ward-subjects', F.subjects);
   need(!form.proposedInvestigatorId, 'ward-proposed-investigator', F.proposedInvestigator);
   need(!form.entryOfficerName.trim(), 'ward-entry-officer', F.entryOfficerName);
@@ -198,6 +202,24 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   const [startedFrom] = useState(() => JSON.stringify(form));
   // PC02's own typing (the review, the result) lives in its blocks: they say when something is not yet sent.
   const [reviewTyped, setReviewTyped] = useState(false);
+  // "Rà soát đối tượng" before PC02 decides (like the petition's "Rà soát trùng"): opened by itself once per request
+  // when some match is not concluded yet, and again when an approval is refused for one.
+  const decidingNow = !!detail && detail.status === 'SUBMITTED' && !!detail.can?.approve;
+  const [matchReviewOpen, setMatchReviewOpen] = useState(false);
+  const pendingMatchesQ = useQuery({
+    queryKey: ['ward-assignments', 'pending-matches', detail?.id ?? ''],
+    queryFn: () => wardAlertsApi.subjectMatches(detail!.id),
+    enabled: decidingNow,
+    retry: false,
+  });
+  const unconcluded = (pendingMatchesQ.data ?? []).filter((m) => m.concluded === false).length;
+  const openedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!decidingNow || !detail || openedFor.current === detail.id || unconcluded === 0) return;
+    openedFor.current = detail.id;
+    setMatchReviewOpen(true);
+  }, [decidingNow, detail, unconcluded]);
+  const matchesLoaded = (found: SubjectMatch[]) => qc.setQueryData(['ward-assignments', 'pending-matches', detail?.id ?? ''], found);
   const [resultTyped, setResultTyped] = useState(false);
   const dirty = (editing && JSON.stringify(form) !== startedFrom) || reviewTyped || resultTyped;
 
@@ -213,7 +235,11 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
   /** A slip issued: the history shows its number. The banner stays (the dialog says what happened). */
   const reloadQuietly = () => void afterChange();
 
-  const fail = (err: unknown) => setBanner(bannerOf(err));
+  const fail = (err: unknown) => {
+    // An approval refused for an unconcluded match of the same identity number: the review opens again, on top.
+    if (explainWardError(err).code === 'WARD_MATCH_REVIEW_REQUIRED') setMatchReviewOpen(true);
+    setBanner(bannerOf(err));
+  };
 
   // One write at a time: a second click or F2 while one runs would send it again with the same, soon stale, stamp
   // (or create a second draft). A ref, not the `busy` state: two events in one frame both see the old state.
@@ -678,7 +704,7 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
             <Labelled label={F.discoveredOn}>
               <input type="date" data-testid="ward-discovered-on" className={`${INPUT_BASE} max-w-[12rem]`} readOnly={!editing} value={form.discoveredOn} onChange={(e) => set('discoveredOn', e.target.value)} />
             </Labelled>
-            <Labelled label={F.place}>
+            <Labelled label={F.place} required>
               <input data-testid="ward-place" className={INPUT_BASE} readOnly={!editing} value={form.place} onChange={(e) => set('place', e.target.value)} />
             </Labelled>
           </div>
@@ -757,6 +783,14 @@ function WardAssignmentForm({ detail, mode, user, reload, banner, setBanner, sli
 
       {submitted && detail && (
         <>
+          {decidingNow && (pendingMatchesQ.data?.length ?? 0) > 0 && (
+            <button type="button" data-testid="ward-subject-review-open" className={BTN_SECONDARY} onClick={() => setMatchReviewOpen(true)}>
+              {unconcluded > 0 ? TA.review.openCount(unconcluded) : TA.review.open}
+            </button>
+          )}
+          {matchReviewOpen && (
+            <SubjectReviewDialog assignmentId={detail.id} canConclude={!!detail.can.review} onClose={() => setMatchReviewOpen(false)} onLoaded={matchesLoaded} />
+          )}
           <ReviewBlock
             key={`review-${detail.updatedAt}`}
             detail={detail}

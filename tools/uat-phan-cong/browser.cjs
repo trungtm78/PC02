@@ -27,6 +27,8 @@ const bcrypt = require(path.join(BACKEND, 'node_modules/bcrypt'));
 const { Client } = require(path.join(BACKEND, 'node_modules/pg'));
 
 const RUN = randomUUID().slice(0, 8);
+// One identity number per run: requests of earlier runs would otherwise be matches that stop the approval.
+const CCCD = `079${String(parseInt(RUN.slice(0, 7), 16)).padStart(9, '0').slice(-9)}`;
 const TAG = `uat-pcb-${RUN}`;
 const PASSWORD = `Uat-${randomUUID()}!`;
 const OUT = path.join(__dirname, '../../docs/test-evidence/ward-assignments');
@@ -119,7 +121,7 @@ async function asPerson(browser, who, watch) {
     const crime = (await pg.query(`SELECT id FROM crimes ORDER BY id LIMIT 1`)).rows[0].id;
     const made = await call(w.token, 'POST', '/ward-assignments', {
       caseType: 'CASE', kind: 'NEW', crimeId: crime, summary: `Nhóm đánh bạc tại hẻm 12 (UAT ${RUN})`, content: 'Ngày 10/11 phát hiện nhóm đối tượng tổ chức đánh bạc.',
-      discoveredOn: '2026-11-10', place: 'Hẻm 12 đường Vườn Lài', subjectsUnknown: false, subjects: [{ fullName: 'Nguyễn Văn An', birthYear: 1990, idNumber: '079090000001', address: 'Vườn Lài' }],
+      discoveredOn: '2026-11-10', place: 'Hẻm 12 đường Vườn Lài', subjectsUnknown: false, subjects: [{ fullName: 'Nguyễn Văn An', birthYear: 1990, idNumber: CCCD, address: 'Vườn Lài' }],
       proposedInvestigatorId: inv.body?.id, entryOfficerName: 'Phạm Thị Hoa', entryOfficerPhone: '0901234567',
     });
     const sent = await call(w.token, 'POST', `/ward-assignments/${made.body?.id}/submit`, { expectedUpdatedAt: made.body?.updatedAt });
@@ -141,6 +143,10 @@ async function asPerson(browser, who, watch) {
     await rev.page.getByText(code, { exact: true }).click();
     await rev.page.getByTestId('ward-block-review').waitFor({ timeout: 15000 });
     check('mở hồ sơ: PC02 thấy khối thẩm định với nút Trả về và Duyệt', (await rev.page.getByTestId('ward-return').isVisible()) && (await rev.page.getByTestId('ward-approve').isVisible()));
+    // Earlier runs left requests naming the same person (name + birth year): the screening opens by itself; closed here,
+    // it is exercised below on a request made for it.
+    await rev.page.getByTestId('ward-subject-review').waitFor({ timeout: 4000 }).catch(() => undefined);
+    if (await rev.page.getByTestId('ward-subject-review').isVisible().catch(() => false)) await rev.page.getByTestId('ward-subject-review-close').click();
     await rev.page.screenshot({ path: path.join(OUT, '02-pc02-tham-dinh.png'), fullPage: true });
     // The review's choices are type-to-find fields; the reason and the assigned investigator may be created from them.
     await rev.page.getByTestId('ward-return-reason-trigger').click();
@@ -391,6 +397,37 @@ async function asPerson(browser, who, watch) {
     await ward.page.keyboard.press('Alt+n');
     await ward.page.waitForURL('**/ho-so-phan-cong/new', { timeout: 8000 }).catch(() => undefined);
     check('Alt+N mở form tạo mới', ward.page.url().endsWith('/ho-so-phan-cong/new'), ward.page.url());
+
+    // ── Screening before PC02 decides (owner, 26/11/2026): a second request names the same person (same CCCD) ──
+    const twin = await call(w.token, 'POST', '/ward-assignments', {
+      caseType: 'CASE', kind: 'NEW', crimeId: crime, summary: `Người cũ tái phạm (UAT ${RUN})`, content: 'Đối tượng đã có trong hồ sơ trước.', place: 'Chợ Vườn Lài',
+      subjectsUnknown: false, subjects: [{ fullName: 'Nguyễn Văn An', birthYear: 1990, idNumber: CCCD, address: 'Vườn Lài' }],
+      proposedInvestigatorId: inv.body?.id, entryOfficerName: 'Phạm Thị Hoa', entryOfficerPhone: '0901234567',
+    });
+    const twinSent = await call(w.token, 'POST', `/ward-assignments/${twin.body?.id}/submit`, { expectedUpdatedAt: twin.body?.updatedAt });
+    check('phường trình hồ sơ thứ hai có đối tượng trùng CCCD với hồ sơ đầu (API)', twinSent.status === 200, [twin.status, twinSent.status]);
+    await rev.page.goto(`${WEB}/ho-so-phan-cong/${twin.body?.id}`);
+    const review = rev.page.getByTestId('ward-subject-review');
+    await review.waitFor({ timeout: 15000 }).catch(() => undefined);
+    const firstRow = review.getByTestId(`ward-match-open-WARD_ASSIGNMENT-${id}`);
+    await firstRow.waitFor({ timeout: 10000 }).catch(() => undefined);
+    check('PC02 mở hồ sơ chờ duyệt có đối tượng trùng: popup "Rà soát đối tượng" tự mở, liệt kê hồ sơ đầu', (await review.isVisible().catch(() => false)) && (await firstRow.count()) === 1);
+    const reasons = await review.getByTestId('ward-match-reason').allInnerTexts().catch(() => []);
+    check('dòng trùng nêu lý do: Trùng CCCD, Trùng họ tên, Trùng năm sinh', ['Trùng CCCD', 'Trùng họ tên', 'Trùng năm sinh'].every((x) => reasons.includes(x)), reasons);
+    await rev.page.screenshot({ path: path.join(OUT, '10-ra-soat-doi-tuong.png'), fullPage: true });
+    await firstRow.click();
+    const preview = rev.page.getByTestId('ward-match-preview');
+    await rev.page.getByTestId('ward-match-preview-person').first().waitFor({ timeout: 10000 }).catch(() => undefined);
+    check('bấm mã hồ sơ trùng: popup chi tiết hồ sơ cũ (đối tượng, CCCD), có nút mở hồ sơ ở tab mới',
+      (await preview.innerText().catch(() => '')).includes(CCCD) && (await rev.page.getByTestId('ward-match-preview-open').getAttribute('target')) === '_blank');
+    await rev.page.screenshot({ path: path.join(OUT, '11-chi-tiet-ho-so-cu.png'), fullPage: true });
+    await rev.page.getByTestId('ward-match-preview-close').click();
+    const approveEarly = await call(r.token, 'POST', `/ward-assignments/${twin.body?.id}/approve`, { expectedUpdatedAt: twinSent.body?.updatedAt, assignedInvestigatorId: inv.body?.id });
+    check('chưa kết luận mà duyệt: bị chặn (409)', approveEarly.status === 409, approveEarly.status);
+    await review.getByRole('button', { name: 'Cùng người' }).first().click();
+    await rev.page.waitForTimeout(1200);
+    const approveNow = await call(r.token, 'POST', `/ward-assignments/${twin.body?.id}/approve`, { expectedUpdatedAt: twinSent.body?.updatedAt, assignedInvestigatorId: inv.body?.id });
+    check('bấm "Cùng người" trong popup rồi duyệt: được', approveNow.status === 200, [approveNow.status, approveNow.body]);
 
     // ── The shared desk at PC02 (owner's request of 18/11/2026): one account, gone once "Trình duyệt" is pressed ──
     const d = { ...(await login(U.desk)), label: 'ban-nhap' };

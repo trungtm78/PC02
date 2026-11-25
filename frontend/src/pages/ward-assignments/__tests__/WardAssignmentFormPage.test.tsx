@@ -52,7 +52,7 @@ function detail(over: Partial<WardAssignmentDetail> = {}): WardAssignmentDetail 
     id: 'w1', code: '2026-00185', status: 'SUBMITTED', assignedTeamId: 'tw', assignedTeam: { id: 'tw', name: 'CAP Vườn Lài' }, caseType: 'INCIDENT', kind: 'NEW',
     crimeId: null, crime: null, crimeOther: 'Trộm cắp tài sản', summary: 'Mất xe máy', submissionCount: 1, submittedAt: '2026-11-13T03:00:00Z',
     resultDueOn: null, completedOn: null, archivedAt: null, updatedAt: '2026-11-13T03:00:00.000Z', enteredById: 'u-ward', enteredOnBehalf: false,
-    previousAssignmentId: null, reassignReason: null, content: 'Nội dung', discoveredOn: null, place: null, subjectsUnknown: true,
+    previousAssignmentId: null, reassignReason: null, content: 'Nội dung', discoveredOn: null, place: 'Chợ Vườn Lài', subjectsUnknown: true,
     proposedInvestigatorId: 'i1', proposedInvestigator: investigator, entryOfficerName: 'Võ Thị G', entryOfficerPhone: null, unitNote: null,
     assignedInvestigatorId: null, assignedInvestigator: null, followUpUserId: null, followUpTeamId: null, pc02Note: null, receivedOn: null, resultText: null,
     createdAt: '2026-11-13T00:00:00Z', subjects: [],
@@ -109,6 +109,7 @@ async function fillRequired() {
   fireEvent.change(await screen.findByTestId('ward-crime-other'), { target: { value: 'Trộm cắp tài sản' } });
   fireEvent.change(screen.getByTestId('ward-summary'), { target: { value: 'Mất xe máy' } });
   fireEvent.change(screen.getByTestId('ward-content'), { target: { value: 'Nội dung' } });
+  fireEvent.change(screen.getByTestId('ward-place'), { target: { value: 'Chợ Vườn Lài' } });
   fireEvent.click(screen.getByTestId('ward-subjects-unknown'));
   await choose('ward-proposed-investigator', 'i1');
 }
@@ -1014,5 +1015,63 @@ describe('an account that is not the shared desk, with the viewer answering so',
     await fillRequired();
     fireEvent.click(screen.getByTestId('ward-submit'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/ho-so-phan-cong'));
+  });
+});
+
+describe('screening the subjects before PC02 decides (owner, 26/11/2026)', () => {
+  const MATCH = { subjectPosition: 1, level: 'CERTAIN', reasons: ['ID_NUMBER'], source: 'CASE', recordId: 'c9', code: null, unitName: 'Đội 2', name: 'Nguyễn Văn Tèo', concludedSame: false, concluded: false };
+  const waiting = () => detail({ viewerId: 'u-rev', can: { ...NO, review: true, returnIt: true, approve: true } });
+
+  beforeEach(async () => {
+    who.user = PC02_USER;
+    const { api: http } = await import('@/lib/api');
+    vi.mocked(http.get).mockImplementation(async (url: string) => ({ data: url.endsWith('/subject-matches') ? [MATCH] : [] }));
+  });
+
+  it('a request waiting for review with a match not concluded: "Rà soát đối tượng" opens by itself, once', async () => {
+    api.get.mockResolvedValue(waiting());
+    renderAt('/ho-so-phan-cong/w1');
+    const dialog = await screen.findByTestId('ward-subject-review');
+    expect(await within(dialog).findByTestId('ward-match-open-CASE-c9')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('ward-subject-review-close'));
+    await waitFor(() => expect(screen.queryByTestId('ward-subject-review')).not.toBeInTheDocument());
+    // Still reachable from the page, with the count of what is left.
+    expect(screen.getByTestId('ward-subject-review-open')).toHaveTextContent('1 chưa kết luận');
+  });
+
+  it('an approval refused for an unconcluded match of the same identity number opens the review again and says why', async () => {
+    api.get.mockResolvedValue(waiting());
+    api.approve.mockRejectedValue(axiosError(409, 'WARD_MATCH_REVIEW_REQUIRED', [{ subjectPosition: 1, source: 'CASE', recordId: 'c9' }]));
+    renderAt('/ho-so-phan-cong/w1');
+    await screen.findByTestId('ward-subject-review');
+    fireEvent.click(screen.getByTestId('ward-subject-review-close'));
+    await waitFor(() => expect(screen.getByTestId('ward-assigned-investigator-trigger')).toHaveTextContent('Lê Văn C'));
+    await waitFor(() => expect(screen.getByTestId('ward-follow-up-team-trigger')).toHaveTextContent('Đội 1'));
+    fireEvent.click(screen.getByTestId('ward-approve'));
+    expect(await screen.findByTestId('ward-subject-review')).toBeInTheDocument();
+    expect(await screen.findByTestId('ward-banner')).toHaveTextContent(L.errors.WARD_MATCH_REVIEW_REQUIRED);
+  });
+
+  it('nothing to screen: no dialog, no button', async () => {
+    const { api: http } = await import('@/lib/api');
+    vi.mocked(http.get).mockImplementation(async () => ({ data: [] }));
+    api.get.mockResolvedValue(waiting());
+    renderAt('/ho-so-phan-cong/w1');
+    await screen.findByTestId('ward-approve');
+    expect(screen.queryByTestId('ward-subject-review')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ward-subject-review-open')).not.toBeInTheDocument();
+  });
+});
+
+describe('where it happened is required to submit (owner, 26/11/2026)', () => {
+  it('a new request without "Nơi xảy ra" is not sent, and the field is named', async () => {
+    api.create.mockResolvedValue(detail({ id: 'w9', status: 'DRAFT', code: null }));
+    renderAt('/ho-so-phan-cong/new');
+    await fillRequired();
+    fireEvent.change(screen.getByTestId('ward-place'), { target: { value: '  ' } });
+    fireEvent.click(screen.getByTestId('ward-submit'));
+    expect(await screen.findByTestId('validation-errors')).toHaveTextContent(L.form.required(L.form.fields.place));
+    expect(api.create).not.toHaveBeenCalled();
+    expect(api.submit).not.toHaveBeenCalled();
   });
 });

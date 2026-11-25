@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '@/lib/api';
@@ -41,17 +43,36 @@ describe('SubjectMatches', () => {
     { subjectPosition: 1, level: 'POSSIBLE', source: 'PETITION', recordId: 'p1', code: '2026-11973', unitName: null, name: 'Nguyễn Văn Tèo và đồng bọn' },
   ];
 
-  it('lists what the server found, links each record, and a petition says "by name"', async () => {
-    get.mockResolvedValueOnce({ data: matches });
-    render(
-      <MemoryRouter>
-        <SubjectMatches assignmentId="a1" canConclude={false} />
-      </MemoryRouter>,
-    );
+  const withQuery = (node: ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>{node}</MemoryRouter>
+    </QueryClientProvider>
+  );
+
+  it('lists what the server found, says what is the same, opens the other record read only, and a petition says "by name"', async () => {
+    get.mockResolvedValueOnce({ data: [{ ...matches[0], reasons: ['ID_NUMBER', 'NAME'], concluded: false }, matches[1]] });
+    render(withQuery(<SubjectMatches assignmentId="a1" canConclude={false} />));
     const rows = await screen.findAllByTestId('ward-match-row');
     expect(get).toHaveBeenCalledWith('/ward-assignments/a1/subject-matches');
     expect(rows).toHaveLength(2);
-    expect(within(rows[0]).getByRole('link')).toHaveAttribute('href', '/ho-so-phan-cong/w1');
+    expect(within(rows[0]).getAllByTestId('ward-match-reason').map((r) => r.textContent)).toEqual(['Trùng CCCD', 'Trùng họ tên']);
+    // The code opens the other record on top of the review, read only, with a way to open it in full.
+    get.mockResolvedValueOnce({
+      data: { source: 'WARD_ASSIGNMENT', recordId: 'w1', code: '2026-00012', unitName: 'CAP Tân Định', status: 'APPROVED', day: '2026-11-10', summary: 'Trộm xe', people: [{ name: 'Nguyễn Văn Tèo', birthYear: 1990, idNumber: '079090000111', address: null }] },
+    });
+    fireEvent.click(within(rows[0]).getByTestId('ward-match-open-WARD_ASSIGNMENT-w1'));
+    expect(await screen.findByTestId('ward-match-preview-person')).toHaveTextContent('079090000111');
+    expect(get).toHaveBeenLastCalledWith('/ward-assignments/a1/subject-matches/preview', { params: { source: 'WARD_ASSIGNMENT', recordId: 'w1' } });
+    // The status in words, never the server's code.
+    expect(screen.getByTestId('ward-match-preview')).toHaveTextContent('Đã duyệt');
+    expect(screen.getByTestId('ward-match-preview')).not.toHaveTextContent('APPROVED');
+    // Closed and opened again: read again (another officer may have corrected the record meanwhile).
+    fireEvent.click(screen.getByTestId('ward-match-preview-close'));
+    get.mockResolvedValueOnce({ data: { source: 'WARD_ASSIGNMENT', recordId: 'w1', code: '2026-00012', unitName: 'CAP Tân Định', status: 'APPROVED', day: '2026-11-10', summary: 'Trộm xe', people: [{ name: 'Nguyễn Văn Tèo', birthYear: 1990, idNumber: '079090000111', address: 'Địa chỉ đã sửa' }] } });
+    fireEvent.click(within(rows[0]).getByTestId('ward-match-open-WARD_ASSIGNMENT-w1'));
+    expect(await screen.findByText('Địa chỉ đã sửa')).toBeInTheDocument();
+    expect(screen.getByTestId('ward-match-preview-open')).toHaveAttribute('href', '/ho-so-phan-cong/w1');
+    expect(screen.getByTestId('ward-match-preview-open')).toHaveAttribute('target', '_blank');
     expect(within(rows[0]).getByText('Trùng chắc chắn (CCCD)')).toBeInTheDocument();
     expect(within(rows[1]).getByText('Có thể trùng theo tên')).toBeInTheDocument();
     expect(screen.queryByText('Khác người')).not.toBeInTheDocument();

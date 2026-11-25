@@ -13,15 +13,34 @@ export interface WardAlert {
 
 export type MatchSource = 'WARD_ASSIGNMENT' | 'PETITION' | 'INCIDENT' | 'CASE';
 
+export type MatchLevel = 'CERTAIN' | 'POSSIBLE' | 'NEAR';
+export type MatchReason = 'ID_NUMBER' | 'NAME' | 'NAME_IN_TEXT' | 'BIRTH_YEAR' | 'BIRTH_YEAR_NEAR' | 'ADDRESS';
+
 export interface SubjectMatch {
   subjectPosition: number;
-  level: 'CERTAIN' | 'POSSIBLE';
+  level: MatchLevel;
+  /** What is the same on both sides (absent on an older server). */
+  reasons?: MatchReason[];
+  /** A conclusion in force exists (only "the same person" ones are listed). */
+  concluded?: boolean;
   source: MatchSource;
   recordId: string;
   code: string | null;
   unitName?: string | null;
   name: string;
   concludedSame?: boolean;
+}
+
+/** The other record of one match, read only. */
+export interface MatchPreview {
+  source: MatchSource;
+  recordId: string;
+  code: string | null;
+  unitName: string | null;
+  status: string | null;
+  day: string | null;
+  summary: string | null;
+  people: { name: string; birthYear: number | null; idNumber: string | null; address: string | null }[];
 }
 
 export interface MatchConclusionBody {
@@ -85,6 +104,8 @@ function params(query: WardStatsQuery): Record<string, string> {
 
 export const wardAlertsApi = {
   subjectMatches: (assignmentId: string) => api.get<SubjectMatch[]>(`${BASE}/${part(assignmentId)}/subject-matches`).then(data),
+  preview: (assignmentId: string, source: MatchSource, recordId: string) =>
+    api.get<MatchPreview>(`${BASE}/${part(assignmentId)}/subject-matches/preview`, { params: { source, recordId } }).then(data),
   conclude: (assignmentId: string, body: MatchConclusionBody) => api.post(`${BASE}/${part(assignmentId)}/subject-matches/conclusions`, body).then(data),
   stats: (query: WardStatsQuery) => api.get<WardStats>(`${BASE}/stats`, { params: params(query) }).then(data),
 };
