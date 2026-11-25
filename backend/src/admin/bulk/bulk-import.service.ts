@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { usernameProblems } from '../../common/validators/username.rule';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -200,9 +201,7 @@ export class BulkImportService {
       if (!raw.username) {
         errors.push('Thiếu username (tài khoản đăng nhập)');
       } else {
-        if (!/^[a-z0-9_]{3,20}$/.test(raw.username)) {
-          errors.push(`Username "${raw.username}" sai định dạng (3-20 ký tự chữ thường + số + _)`);
-        }
+        for (const problem of usernameProblems(raw.username)) errors.push(`Username "${raw.username}": ${problem}`);
         if (existingUsernames.has(raw.username)) {
           errors.push(`Username "${raw.username}" đã tồn tại trong DB`);
         }

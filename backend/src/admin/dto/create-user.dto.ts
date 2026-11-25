@@ -1,3 +1,4 @@
+import { IsUsername } from '../../common/validators/username.rule';
 import {
   IsBoolean,
   IsEmail,
@@ -5,9 +6,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
-  MaxLength,
-  MinLength,
 } from 'class-validator';
 
 export enum UserStatus {
@@ -23,15 +21,9 @@ export enum UserStatus {
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
-  @MinLength(3)
-  @MaxLength(20)
-  // v0.28: username phải có ít nhất 1 ký tự chữ — KHÔNG được thuần số.
-  // Lý do: chống collision với Mã cán bộ (workId) thuần số (Mã cán bộ độ dài tùy ý).
-  // Negative lookahead `(?!^\d+$)` reject pattern thuần digit, vẫn cho phép mix.
-  @Matches(/^(?!^\d+$)[a-z0-9_]+$/, {
-    message:
-      'username phải có ít nhất 1 ký tự chữ (không được thuần số) — tránh nhầm Mã cán bộ',
-  })
+  // One rule for every way an account is named (common/validators/username.rule.ts): dots allowed, 3-50 characters,
+  // at least one letter (a name of digits only would be taken for the officer's code).
+  @IsUsername()
   username: string;
 
   @IsEmail({}, { message: 'Email không đúng định dạng' })

@@ -375,7 +375,9 @@ export default function UserManagementPage() {
         lastName: lastName || undefined,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
-        username: formData.username,
+        // The login name is set when the account is made and locked in the edit form: sent on create only. Sent on edit
+        // it was checked again by the rules of a NEW name, and refused names made before those rules (".doi2").
+        ...(editingUser ? {} : { username: formData.username }),
         departmentId: formData.departmentId || undefined,
         roleId: formData.roleId || undefined,
         status: formData.isActive ? 'active' : 'inactive',
