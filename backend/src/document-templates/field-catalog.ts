@@ -1030,13 +1030,19 @@ function dieuTraVienTrenPhieu(r: any): string {
 }
 
 /** The requirements as one value: "1. …" per line, soft line breaks (`kieuXuongDong: 'mem'`). */
-export function yeuCauDanhSo(requirements: unknown): string {
-  const ds = Array.isArray(requirements) ? requirements : [];
-  return ds
-    .map((x) => s(x).trim())
-    .filter(Boolean)
-    .map((x, i) => `${i + 1}. ${x}`)
-    .join(DAU_XUONG_DONG);
+export function yeuCauDanhSo(requirements: unknown, wardCharge?: { teamName?: string | null } | null): string {
+  const ds = (Array.isArray(requirements) ? requirements : []).map((x) => s(x).trim()).filter(Boolean);
+  // The closing item, after the requirements (N + 1; "1." when there are none). Printed only by a slip whose record
+  // carries `wardCharge` (issued since the item exists): a slip issued before keeps its wording on reissue (X8).
+  if (wardCharge) ds.push(dongBaoCaoVuongMac(wardCharge.teamName));
+  return ds.map((x, i) => `${i + 1}. ${x}`).join(DAU_XUONG_DONG);
+}
+
+/** "… báo cáo về Phòng PC02 (qua Tổ công tác Số 4 hoặc Đội 1) …"; "(qua Đội 1)" when no team is in charge of the ward. */
+export function dongBaoCaoVuongMac(teamName: string | null | undefined): string {
+  const team = s(teamName).trim();
+  const qua = team ? `${team} hoặc ${DON_VI_PHAT_HANH}` : DON_VI_PHAT_HANH;
+  return `Trong quá trình điều tra, trường hợp gặp khó khăn, vướng mắc, cần kịp thời báo cáo về Phòng PC02 (qua ${qua}) để được hướng dẫn, phối hợp, hỗ trợ.`;
 }
 
 const HO_SO_PHAN_CONG_FIELDS: FieldDef[] = [
@@ -1044,7 +1050,7 @@ const HO_SO_PHAN_CONG_FIELDS: FieldDef[] = [
   { key: 'ngayPhatHanh', label: 'Ngày phát hành (ngày … tháng … năm …)', group: 'Phiếu', resolve: (r) => fmtDate(r?.decision?.slipIssuedAt) },
   { key: 'ngayPhatHanhNgan', label: 'Ngày phát hành (dd/MM/yyyy)', group: 'Phiếu', resolve: (r) => ngayDdMmYyyy(r?.decision?.slipIssuedAt) },
   { key: 'ketLuan', label: 'Kết luận (Duyệt / Trả về)', group: 'Phiếu', resolve: (r) => (r?.decision?.kind === 'RETURN' ? 'Trả về' : r?.decision?.kind === 'APPROVE' ? 'Duyệt' : '') },
-  { key: 'yeuCau', label: 'Yêu cầu (đánh số, mỗi yêu cầu một dòng)', group: 'Phiếu', resolve: (r) => yeuCauDanhSo(r?.decision?.requirements) },
+  { key: 'yeuCau', label: 'Yêu cầu (đánh số, mỗi yêu cầu một dòng)', group: 'Phiếu', resolve: (r) => yeuCauDanhSo(r?.decision?.requirements, r?.wardCharge) },
   {
     key: 'lyDoTraVe',
     label: 'Lý do trả về',

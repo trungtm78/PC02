@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { WARD_CHARGE_ERROR } from './team-ward-charges.codes';
 import { TEAM_TREE_MAX_DEPTH } from './team-tree.constants';
 import { TeamStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,7 +28,7 @@ export class TeamsService {
       include: {
         parent: true,
         children: true,
-        _count: { select: { members: true } },
+        _count: { select: { members: true, wardCharges: true } },
       },
       orderBy: [{ level: 'asc' }, { order: 'asc' }, { name: 'asc' }],
     });
@@ -108,6 +109,19 @@ export class TeamsService {
   ) {
     const existing = await this.prisma.team.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Team not found (id: ${id})`);
+
+    // A team in charge of wards is a PC02 team; giving it a ward of its own would make a ward unit manage wards.
+    // Decided and written under the team's row lock, the lock every charge save takes on its manager first: a charge
+    // saved at the same moment either committed before the count (and refuses this) or waits, then finds a ward unit.
+    if (dto.wardId && existing.wardId === null) {
+      const wardId = dto.wardId;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM teams WHERE id = ${id} FOR UPDATE`;
+        const charges = await tx.teamWardCharge.count({ where: { managerTeamId: id } });
+        if (charges > 0) throw new ConflictException({ code: WARD_CHARGE_ERROR.HAS_CHARGES, details: [{ count: charges }] });
+        await tx.team.update({ where: { id }, data: { wardId } });
+      });
+    }
 
     // The state is not a plain column: it moves through the lifecycle (transition rules, archive stamps, audit).
     if (dto.isActive !== undefined && dto.isActive !== existing.isActive) {

@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { chargeTeamNameOf } from '../teams/team-ward-charges.service';
 
 /**
  * The record the request slip of ONE decision is rendered from (entity type HO_SO_PHAN_CONG of the template
@@ -31,6 +32,11 @@ export interface WardSlipRecord {
     slipIssuedAt: Date;
   };
   signers: WardSlipSigners;
+  /**
+   * The closing item of the requirements ("… báo cáo về Phòng PC02 (qua {team} hoặc Đội 1) …"), or null when the
+   * slip does not print it (a slip issued before it existed, reissued as it was).
+   */
+  wardCharge: { teamName: string | null } | null;
 }
 
 /** The three names the slip is signed with (R7). */
@@ -79,10 +85,20 @@ export function signersOf(value: Prisma.JsonValue | null | undefined): Partial<W
  * stored lets a download refuse bytes that changed on the disk.
  */
 export interface WardSlipUsed {
+  /**
+   * What the snapshot holds. Absent (version 1): a slip issued before the closing item existed; it is reissued
+   * WITHOUT that item, as it was issued. 2: the slip printed the closing item with `chargeTeamName`.
+   */
+  version?: number;
   unitName: string;
   crimeName: string | null;
   investigator: WardSlipRecord['investigator'];
+  /** Version 2: the PC02 team in charge of the request's ward when the slip was issued, or null (nobody was). */
+  chargeTeamName?: string | null;
 }
+
+/** The version a new issue stores (see `WardSlipUsed.version`). */
+export const SLIP_USED_VERSION = 2;
 
 /** The JSON stored in `WardAssignmentDecision.signers`: the three names, what the slip printed, the file's hash. */
 export function slipStateOf(value: Prisma.JsonValue | null | undefined): { used: WardSlipUsed | null; fileSha: string | null } {
@@ -145,7 +161,19 @@ export async function usedNow(tx: Tx, input: Pick<SlipInput, 'assignment' | 'rou
   const investigator = investigatorId
     ? await tx.wardInvestigator.findUnique({ where: { id: investigatorId }, select: { fullName: true, rank: true, position: true, grade: true } })
     : null;
-  return { unitName: team?.name ?? '', crimeName: crimeAsQuoted(crime?.name), investigator };
+  return {
+    version: SLIP_USED_VERSION,
+    unitName: team?.name ?? '',
+    crimeName: crimeAsQuoted(crime?.name),
+    investigator,
+    // Captured now and kept: a reissue never looks the team in charge up again (X8).
+    chargeTeamName: await chargeTeamNameOf(tx, input.assignment.assignedTeamId),
+  };
+}
+
+/** The closing item a slip prints, from what it stored: none for a snapshot older than the item (X8). */
+export function wardChargeOf(used: WardSlipUsed): WardSlipRecord['wardCharge'] {
+  return (used.version ?? 1) >= SLIP_USED_VERSION ? { teamName: used.chargeTeamName ?? null } : null;
 }
 
 function recordOf(input: SlipInput, used: WardSlipUsed, reason: string | null): WardSlipRecord {
@@ -176,6 +204,7 @@ function recordOf(input: SlipInput, used: WardSlipUsed, reason: string | null): 
       slipIssuedAt: input.slipIssuedAt,
     },
     signers: input.signers,
+    wardCharge: wardChargeOf(used),
   };
 }
 

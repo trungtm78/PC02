@@ -3,6 +3,7 @@ import { TeamStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isTeamOwnSetting, listTeamReferences, quoteIdent, type RawDb } from './team-references';
+import { WARD_CHARGE_ERROR } from './team-ward-charges.codes';
 
 /** Machine codes the screen translates; the server never sends a sentence for these. */
 export const TEAM_ERROR = {
@@ -117,7 +118,7 @@ export class TeamLifecycleService {
    * The caller writes the audit row. Returns the state the team was in, or null when it already had the asked state.
    */
   async applyStatus(
-    db: Pick<PrismaService, 'team'>,
+    db: Pick<PrismaService, 'team' | 'teamWardCharge'>,
     id: string,
     to: TeamStatus,
     actorId: string,
@@ -135,6 +136,13 @@ export class TeamLifecycleService {
     }
 
     const archiving = to === 'ARCHIVED';
+    if (archiving) {
+      // The wards a team is in charge of print its name on every request slip of those wards: an archived team must
+      // not keep them. Refused like delete refuses data (the person removes the charges, or merges the team, which
+      // moves them); a pause keeps them, since the team comes back.
+      const charges = await db.teamWardCharge.count({ where: { managerTeamId: id } });
+      if (charges > 0) throw new ConflictException({ code: WARD_CHARGE_ERROR.HAS_CHARGES, details: [{ count: charges }] });
+    }
     const updated = await db.team.update({
       where: { id },
       data: {

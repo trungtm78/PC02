@@ -9,16 +9,24 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TeamStatus } from '@prisma/client';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { memoryStorage } from 'multer';
 import { TeamsService } from './teams.service';
 import { TeamLifecycleService, TEAM_ERROR } from './team-lifecycle.service';
 import { TeamMergeService } from './team-merge.service';
+import { TeamWardChargesService } from './team-ward-charges.service';
+import { TeamWardChargesImportService } from './team-ward-charges.import';
+import { WARD_CHARGE_ERROR, WARD_CHARGE_IMPORT_MAX_BYTES } from './team-ward-charges.codes';
 import { MergeTeamDto } from './dto/merge-team.dto';
 import { SetTeamStatusDto } from './dto/set-team-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -36,6 +44,8 @@ export class TeamsController {
     private readonly teamsService: TeamsService,
     private readonly lifecycle: TeamLifecycleService,
     private readonly merges: TeamMergeService,
+    private readonly wardCharges: TeamWardChargesService,
+    private readonly wardChargeImport: TeamWardChargesImportService,
   ) {}
 
   /** Admin list. `?status=ACTIVE|INACTIVE|ARCHIVED|ALL`; no value means active teams only. */
@@ -71,6 +81,68 @@ export class TeamsController {
     @Req() req: Request,
   ) {
     return this.merges.undo(operationId, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  // ── Wards in charge ("Phường/xã phụ trách") ─────────────────────────────────────────────────────────────────
+  // Every route takes the permission of `PUT /teams/:id` (editing a team). Declared before `:id`.
+
+  /** The ward teams a PC02 team can be put in charge of, each with the team now in charge of its ward. */
+  @Get('ward-charge-choices')
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  wardChargeChoices() {
+    return this.wardCharges.choices();
+  }
+
+  @Post('ward-charges/import/preview')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: WARD_CHARGE_IMPORT_MAX_BYTES * 2, files: 1 } }))
+  wardChargeImportPreview(@UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthUser) {
+    if (!file) throw new BadRequestException({ code: WARD_CHARGE_ERROR.IMPORT_FILE_INVALID, details: [{ reason: 'EMPTY' }] });
+    return this.wardChargeImport.preview(file.buffer, user.id);
+  }
+
+  @Post('ward-charges/import/confirm')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  wardChargeImportConfirm(
+    @Body() body: { previewToken?: unknown; replaceTeamsInFile?: unknown },
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.wardChargeImport.confirm(body?.previewToken, body?.replaceTeamsInFile, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  @Get('ward-charges/import/template.xlsx')
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  async wardChargeImportTemplate(@Res() res: Response) {
+    const buffer = await this.wardChargeImport.template();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="phuong-xa-phu-trach.xlsx"`);
+    res.send(buffer);
+  }
+
+  @Get(':id/ward-charges')
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  listWardCharges(@Param('id') id: string) {
+    return this.wardCharges.listFor(id);
+  }
+
+  @Put(':id/ward-charges')
+  @RequirePermissions({ action: 'edit', subject: 'Team' })
+  replaceWardCharges(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+  ) {
+    return this.wardCharges.replace(id, body, user.id, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });

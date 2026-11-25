@@ -18,6 +18,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SingleWardPicker } from '@/components/SingleWardPicker'; // v0.34.0.0
+import { WardChargesSection } from './WardChargesSection';
+import { WardChargeImportDialog } from './WardChargeImportDialog';
+import { saveBlob, wardChargesApi, WARD_CHARGE_TEMPLATE_NAME } from './ward-charges.api';
 import { teams as L, permissions as PL } from '@/locales/vi';
 import { usePermission } from '@/hooks/usePermission';
 import { PAGE_PATH, PAGE_TAB, SCREEN_PERMISSION } from '@/features/permissions/types';
@@ -42,7 +45,7 @@ interface Team {
   updatedAt: string;
   parent?: Team | null;
   children?: Team[];
-  _count?: { members: number };
+  _count?: { members: number; wardCharges?: number };
 }
 
 interface Blocker {
@@ -146,6 +149,8 @@ export default function TeamsPage() {
   const [mergeError, setMergeError] = useState('');
   const [mergeDone, setMergeDone] = useState('');
   const [undoResult, setUndoResult] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [importDone, setImportDone] = useState('');
   const [formData, setFormData] = useState<TeamFormData>({
     name: '',
     code: '',
@@ -417,6 +422,15 @@ export default function TeamsPage() {
     },
     onError: (err) => setStatusError(mergeFailure(err, L.merge.undoFailed)),
   });
+
+  const downloadTemplate = async () => {
+    setStatusError('');
+    try {
+      saveBlob(await wardChargesApi.template(), WARD_CHARGE_TEMPLATE_NAME);
+    } catch {
+      setStatusError(L.wardCharges.import.templateFailed);
+    }
+  };
 
   const startUndo = (op: MergeOperation) => {
     if (confirm(L.merge.undoConfirm(op.sourceName, op.targetName))) undoMutation.mutate(op.id);
@@ -708,6 +722,15 @@ export default function TeamsPage() {
                 {team._count.members}
               </span>
             )}
+            {!team.wardId && (team._count?.wardCharges ?? 0) > 0 && (
+              <span
+                data-testid={`team-ward-charge-count-${team.id}`}
+                title={L.wardCharges.column}
+                className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded"
+              >
+                {L.wardCharges.badge(team._count!.wardCharges!)}
+              </span>
+            )}
             {team.status !== 'ACTIVE' && (
               <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">
                 {L.tabs[team.status]}
@@ -805,17 +828,53 @@ export default function TeamsPage() {
             Quản lý Tổ / Nhóm
           </h1>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Thêm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="ward-charge-template"
+            onClick={() => void downloadTemplate()}
+            className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50"
+          >
+            {L.wardCharges.import.template}
+          </button>
+          <button
+            type="button"
+            data-testid="ward-charge-import-open"
+            onClick={() => {
+              setImportDone('');
+              setImportOpen(true);
+            }}
+            className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50"
+          >
+            {L.wardCharges.import.open}
+          </button>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm mới
+          </button>
+        </div>
       </div>
+
+      {importOpen && (
+        <WardChargeImportDialog
+          onClose={() => setImportOpen(false)}
+          onDone={(text) => {
+            setImportOpen(false);
+            setImportDone(text);
+          }}
+        />
+      )}
+      {importDone && (
+        <div role="status" data-testid="ward-charge-import-done" className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {importDone}
+        </div>
+      )}
 
       <LoadErrorBanner error={loadError} what="danh sách tổ/nhóm" data-testid="teams-load-error" />
 
@@ -1068,6 +1127,9 @@ export default function TeamsPage() {
                 Để trống = dùng cấu hình hệ thống (THOI_HAN_EDIT_VU_VAN). Override cho Tổ này nếu cần khác.
               </p>
             </div>
+            {/* A PC02 team (no ward of its own) is in charge of wards; saved by its own button, not by "Cập nhật". */}
+            {/* Keyed by the team: editing another team starts from THAT team's wards, never the last one's unsaved choice. */}
+            {editingTeam && !editingTeam.wardId && <WardChargesSection key={editingTeam.id} teamId={editingTeam.id} />}
             <div className="col-span-2 flex gap-2 justify-end">
               <button
                 type="button"

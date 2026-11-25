@@ -16,11 +16,15 @@ export const MERGE_ERROR = {
   WARD_TARGET_NOT_WARD: 'TEAM_MERGE_WARD_TARGET_NOT_WARD',
   /** The source follows ward requests for PC02: a ward unit cannot follow them. */
   FOLLOW_UP_TARGET_WARD: 'TEAM_MERGE_FOLLOW_UP_TARGET_WARD',
+  /** The source is in charge of wards: a ward unit cannot be (the charges would move to it). */
+  WARD_CHARGE_TARGET_WARD: 'TEAM_MERGE_WARD_CHARGE_TARGET_WARD',
   /**
    * Undoing would leave a ward request in a state the ward commands refuse (something was done since the merge): naming
    * an investigator of another unit, in a unit of the wrong kind, or re-assigning a request of another ward unit.
    */
   UNDO_WARD_CONFLICT: 'TEAM_MERGE_UNDO_WARD_CONFLICT',
+  /** Undoing would give wards in charge back to a team that is now a ward unit, or that stays archived. */
+  UNDO_WARD_CHARGE_CONFLICT: 'TEAM_MERGE_UNDO_WARD_CHARGE_CONFLICT',
 } as const;
 
 /**
@@ -60,6 +64,10 @@ const STRATEGY: Record<string, Strategy> = {
   'ward_assignments.followUpTeamId': 'repoint',
   'ward_investigators.teamId': 'repoint',
   'ward_assignment_decisions.followUpTeamId': 'history',
+  // The wards a PC02 team is in charge of go with it to the target, which must not be a ward unit
+  // (checkWardCompatibility). A ward has ONE charge (UNIQUE ward), so the target can never already hold the same ward:
+  // there is no duplicate to drop. A created-by stays as it was; undo puts the manager back like any repointed row.
+  'team_ward_charges.managerTeamId': 'repoint',
 };
 const keyOf = (ref: TeamReference) => `${ref.table}.${ref.column}`;
 
@@ -271,12 +279,16 @@ export class TeamMergeService {
    * request or an investigator refuses any other unit; a merge must not make what creation forbids.)
    */
   private async checkWardCompatibility(db: Tx | PrismaService, sourceId: string, targetId: string): Promise<void> {
-    const [row] = await db.$queryRaw<{ ward_refs: number; follow_refs: number; target_ward: boolean }[]>`
+    const [row] = await db.$queryRaw<{ ward_refs: number; follow_refs: number; charges: number; target_ward: boolean }[]>`
       SELECT
         (SELECT count(*)::int FROM ward_assignments WHERE "assignedTeamId" = ${sourceId})
           + (SELECT count(*)::int FROM ward_investigators WHERE "teamId" = ${sourceId}) AS ward_refs,
         (SELECT count(*)::int FROM ward_assignments WHERE "followUpTeamId" = ${sourceId}) AS follow_refs,
+        (SELECT count(*)::int FROM team_ward_charges WHERE "managerTeamId" = ${sourceId}) AS charges,
         (SELECT "wardId" IS NOT NULL FROM teams WHERE id = ${targetId}) AS target_ward`;
+    if (Number(row.charges ?? 0) > 0 && row.target_ward) {
+      throw new ConflictException({ code: MERGE_ERROR.WARD_CHARGE_TARGET_WARD, details: [{ count: Number(row.charges) }] });
+    }
     if (Number(row.ward_refs) > 0 && !row.target_ward) {
       throw new ConflictException({ code: MERGE_ERROR.WARD_TARGET_NOT_WARD, details: [{ count: Number(row.ward_refs) }] });
     }
@@ -471,6 +483,16 @@ export class TeamMergeService {
       if (present.find((r) => r.id === S)?.status === 'ARCHIVED') {
         await this.lifecycle.applyStatus(tx, S, 'ACTIVE', actorId);
         if (op.sourcePreviousStatus === 'INACTIVE') await this.lifecycle.applyStatus(tx, S, 'INACTIVE', actorId);
+      }
+
+      // 6. wards in charge go back only to a PC02 team: not to one that became a ward unit since the merge, nor to one
+      // left archived (an archived team holds no ward). Refused whole, as step 4 refuses ward requests that no longer fit.
+      // A paused team may hold wards (pausing keeps them), so the source going back to INACTIVE is fine.
+      const [charges] = await tx.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM team_ward_charges c JOIN teams t ON t.id = c."managerTeamId"
+         WHERE t.id IN (${S}, ${T}) AND (t."wardId" IS NOT NULL OR t.status = 'ARCHIVED')`;
+      if (Number(charges.n) > 0) {
+        throw new ConflictException({ code: MERGE_ERROR.UNDO_WARD_CHARGE_CONFLICT, details: [{ count: Number(charges.n) }] });
       }
       await tx.teamMergeOperation.update({
         where: { id: operationId },
