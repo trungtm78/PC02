@@ -19,8 +19,11 @@ import type { TemplateDoc } from './documents';
  *   STARTER_WARD_INTAKE the shared desk at PC02: ward officers enter their unit's requests on one account; it reaches
  *                      its own records only, and the `intake` marker lets it enter for any ward unit and hides a request
  *                      once submitted.
+ *   STARTER_TEAM_ONLY  everything the role holds, on records of exactly the person's team plus their own records
+ *                      (TEAM_OWN): a unit sees only its own work, and what an officer entered without a team stays
+ *                      visible to them. Never the teams under it, never another person's unassigned records.
  *
- * The last three are not built from the officer role either: the role holds nothing about ward requests.
+ * The three ward templates are not built from the officer role either: the role holds nothing about ward requests.
  *
  * They are ordinary templates once created: renamed, edited, archived, deleted like any other. The names are data
  * (an administrator renames them), which is why they are written here and not in a locale file.
@@ -33,6 +36,7 @@ export const STARTER_TEMPLATES = [
   { code: 'STARTER_WARD_SUBMIT', name: 'Phường/xã: trình phân công', description: 'Lập, trình, sửa, trình lại và rút lại hồ sơ phân công của đơn vị mình. Không duyệt.' },
   { code: 'STARTER_WARD_REVIEW', name: 'PC02: thẩm định phân công', description: 'Xem và thẩm định hồ sơ phân công của mọi phường/xã, xem đối tượng trùng ở đơn vị khác. Không sửa nội dung hồ sơ.' },
   { code: 'STARTER_WARD_INTAKE', name: 'PC02: bàn nhập hồ sơ phường/xã', description: 'Tài khoản dùng chung để cán bộ phường/xã nhập hồ sơ phân công cho đơn vị mình tại PC02. Trình duyệt xong thì không còn thấy hồ sơ. Không duyệt.' },
+  { code: 'STARTER_TEAM_ONLY', name: 'Cán bộ: chỉ tổ mình', description: 'Mọi quyền của vai trò cán bộ, nhưng chỉ trên hồ sơ giao cho đúng tổ mình và hồ sơ do chính mình nhập hoặc phụ trách. Không thấy hồ sơ của tổ khác, của tổ cấp dưới, hay hồ sơ chưa giao tổ do người khác nhập.' },
 ] as const;
 
 export type StarterCode = (typeof STARTER_TEMPLATES)[number]['code'];
@@ -87,5 +91,6 @@ export function starterTemplates(rolePermissions: readonly string[]): Record<Sta
     STARTER_WARD_SUBMIT: doc('STARTER_WARD_SUBMIT', fixed(WARD_SUBMIT_PERMISSIONS, 'TEAM_TREE')),
     STARTER_WARD_REVIEW: doc('STARTER_WARD_REVIEW', fixed(WARD_REVIEW_PERMISSIONS, 'ALL')),
     STARTER_WARD_INTAKE: doc('STARTER_WARD_INTAKE', fixed(WARD_INTAKE_PERMISSIONS, 'OWN')),
+    STARTER_TEAM_ONLY: doc('STARTER_TEAM_ONLY', entries(() => true, 'TEAM_OWN')),
   };
 }

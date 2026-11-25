@@ -2531,6 +2531,44 @@ model TeamMergeItem {
   @@map("team_merge_items")
 }
 
+/// One move of a team's people and records to another team that is NOT a merge: the source team stays as it is and
+/// keeps everything else (its configuration, its ward requests, its history). Made by `src/authz/cli/ap-so-do-pc02.ts`
+/// and undone by it. Team and user ids are plain text on purpose, as for merges: the log must survive a later delete
+/// of either team, and a foreign key would make the teams look "referenced" to the delete and merge checks.
+model TeamRecordMove {
+  id           String          @id @default(cuid())
+  sourceTeamId String
+  targetTeamId String
+  reason       String
+  status       TeamMergeStatus @default(APPLIED)
+  movedById    String
+  movedAt      DateTime        @default(now())
+  undoneById   String?
+  undoneAt     DateTime?
+  /// Counts only: what moved per table, and what an undo put back or left alone.
+  summary      Json
+  items        TeamRecordMoveItem[]
+
+  @@index([sourceTeamId])
+  @@index([targetTeamId])
+  @@map("team_record_moves")
+}
+
+/// One row the move changed, with the column as it was and as the move left it (an undo puts back only a row that is
+/// still as the move left it).
+model TeamRecordMoveItem {
+  id        String         @id @default(cuid())
+  moveId    String
+  move      TeamRecordMove @relation(fields: [moveId], references: [id], onDelete: Cascade)
+  tableName String
+  recordKey Json
+  before    Json
+  after     Json
+
+  @@index([moveId, tableName])
+  @@map("team_record_move_items")
+}
+
 // ─────────────────────────────────────────────
 // Data Access Grant (Ủy quyền truy cập dữ liệu)
 // ─────────────────────────────────────────────
@@ -5027,6 +5065,7 @@ model OcrFieldOutcome {
 enum PermissionReach {
   OWN
   TEAM
+  TEAM_OWN
   TEAM_TREE
   ALL
 }

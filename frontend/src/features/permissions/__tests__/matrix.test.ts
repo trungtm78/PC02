@@ -38,8 +38,8 @@ function widerThanView(entries: Entries): string[] {
 }
 
 describe('reaches of a resource', () => {
-  it('a record-scoped resource allows all four, anything else only ALL', () => {
-    expect(allowedReaches(petitions)).toEqual([REACH.OWN, REACH.TEAM, REACH.TEAM_TREE, REACH.ALL]);
+  it('a record-scoped resource allows all five, anything else only ALL', () => {
+    expect(allowedReaches(petitions)).toEqual([REACH.OWN, REACH.TEAM, REACH.TEAM_OWN, REACH.TEAM_TREE, REACH.ALL]);
     expect(allowedReaches(calendar)).toEqual([REACH.ALL]);
     expect(defaultReach(petitions)).toBe(REACH.TEAM_TREE);
     expect(defaultReach(calendar)).toBe(REACH.ALL);

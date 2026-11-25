@@ -132,7 +132,7 @@ describe('explainError', () => {
 
 describe('override rows', () => {
   it('reach choices follow the resource', () => {
-    expect(reachChoices(index, 'read:Case')).toEqual([REACH.OWN, REACH.TEAM, REACH.TEAM_TREE, REACH.ALL]);
+    expect(reachChoices(index, 'read:Case')).toEqual([REACH.OWN, REACH.TEAM, REACH.TEAM_OWN, REACH.TEAM_TREE, REACH.ALL]);
     expect(reachChoices(index, 'read:Calendar')).toEqual([REACH.ALL]);
     expect(reachChoices(index, 'fly:Moon')).toEqual([REACH.ALL]);
   });

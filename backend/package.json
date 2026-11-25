@@ -23,6 +23,7 @@
     "gen:enums": "node scripts/generate-shared-enums.cjs",
     "gen:processing-codes": "ts-node --transpile-only scripts/gen-processing-codes.ts",
     "proc:apply-flows": "ts-node --transpile-only src/processing-flow/cli/apply-flows-to-open-records.ts",
+    "authz:so-do-pc02": "ts-node --transpile-only src/authz/cli/ap-so-do-pc02.ts",
     "gen:catalog": "node scripts/generate-catalog.cjs",
     "gen:dr-engine": "node scripts/gen-dr-engine.cjs",
     "gen:tim-kiem": "ts-node --transpile-only src/common/tim-kiem/cli/gen-tim-kiem.ts",

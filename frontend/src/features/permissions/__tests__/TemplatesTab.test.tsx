@@ -182,8 +182,13 @@ describe('TemplatesTab', () => {
     renderTab();
     fireEvent.click(await screen.findByTestId('template-add'));
     expect(screen.queryByTestId('perm-view-petitions-TEAM')).toBeNull();
+    expect(screen.queryByTestId('perm-view-petitions-TEAM_OWN')).toBeNull();
     fireEvent.click(screen.getByTestId('template-advanced'));
     expect(screen.getByTestId('perm-view-petitions-TEAM')).toBeInTheDocument();
+    // "Exactly this team + one's own" sits between "exactly this team" and "the whole team", in rank order.
+    const order = screen.getAllByRole('radio').filter((r) => r.getAttribute('name') === 'perm-view-petitions').map((r) => r.getAttribute('data-testid'));
+    expect(order).toEqual(['NONE', 'OWN', 'TEAM', 'TEAM_OWN', 'TEAM_TREE', 'ALL'].map((reach) => `perm-view-petitions-${reach}`));
+    expect(screen.getByTestId('perm-view-petitions-TEAM_OWN').closest('label')).toHaveTextContent('Đúng tổ + của mình');
   });
 
   it('editing sends the whole document with the revision it was read at', async () => {

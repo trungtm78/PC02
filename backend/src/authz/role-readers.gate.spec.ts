@@ -69,6 +69,13 @@ const NOT_A_DECISION_ABOUT_A_PERSON = [
   // each person holds (the very thing `keysOf` answers from).
   'authz/authz.service.ts::select: { id: true, name: true, permissions: { select: { permission: { select: { action: true, subject: true, conditions: true } } } } },',
   'authz/authz.service.ts::rolePermissions: role?.permissions ?? [],',
+  // The PC02 unit chart CLI (an operator's tool, no request): the officer role's permissions build the template it
+  // creates, and its independent count of who reads what restates the engine from the same inputs (it judges nobody;
+  // it is compared WITH the engine after a run).
+  'authz/cli/ap-so-do-pc02.ts::select: { permissions: { select: { permission: { select: { action: true, subject: true } } } } },',
+  'authz/cli/ap-so-do-pc02.ts::return role?.permissions.map((p) => pair(p.permission)) ?? [];',
+  'authz/cli/reach-oracle.ts::select: { id: true, username: true, isActive: true, canDispatch: true, role: { select: { name: true, permissions: { select: { permission: { select: { action: true, subject: true } } } } } } },',
+  'authz/cli/reach-oracle.ts::users.map((u) => [u.id, { username: u.username, roleName: u.role.name, rolePermissions: new Set(u.role.permissions.map((p) => pair(p.permission))), canDispatch: u.canDispatch, isActive: u.isActive }]),',
   // Test support compiled with the source: fills in a `rolePermission` delegate on a fake transaction.
   'admin/test-authority-fixture.ts::rolePermission: db.rolePermission?.findMany ? db.rolePermission : { ...db.rolePermission, findMany: jest.fn().mockResolvedValue([]) },',
 

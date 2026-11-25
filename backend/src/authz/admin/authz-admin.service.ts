@@ -498,7 +498,12 @@ export class AuthzAdminService {
    * Creates the starter templates that do not exist yet (by code), from what the officer role holds in this
    * database. One change set, judged like any other save; they are ordinary templates afterwards.
    */
-  async createStarterTemplates(actorId: string, meta?: Meta): Promise<CommitResult & { created: { id: string; code: string }[]; existing: string[] }> {
+  async createStarterTemplates(
+    actorId: string,
+    meta?: Meta,
+    /** What the history says the change was for; a scripted change names itself. */
+    reason = 'Starter templates built from the officer role',
+  ): Promise<CommitResult & { created: { id: string; code: string }[]; existing: string[] }> {
     const role = await this.prisma.role.findUnique({
       where: { name: ROLE_NAMES.OFFICER },
       select: { permissions: { select: { permission: { select: { action: true, subject: true } } } } },
@@ -516,7 +521,7 @@ export class AuthzAdminService {
       actorId,
       'STARTER_TEMPLATES_CREATED',
       created.map((c) => ({ type: 'template' as const, id: c.id, after: docs[c.code as keyof typeof docs] })),
-      { reason: 'Starter templates built from the officer role', meta },
+      { reason, meta },
     );
     return { ...result, created, existing };
   }

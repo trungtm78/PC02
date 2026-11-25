@@ -63,7 +63,7 @@ run('AuthzModeService on PostgreSQL', () => {
 
   beforeAll(async () => {
     const u = new URL(url!);
-    if (u.hostname !== '127.0.0.1' || !['/pc02_dynamic_reports_test', '/pc02_goiy_scope_test'].includes(u.pathname)) {
+    if (u.hostname !== '127.0.0.1' || !['/pc02_dynamic_reports_test', '/pc02_goiy_scope_test', '/pc02_unit_chart_test'].includes(u.pathname)) {
       throw new Error('Refused: DYN_REPORTS_DATABASE_URL must point at a local scratch database');
     }
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url! }) });

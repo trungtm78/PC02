@@ -14,7 +14,7 @@ import {
 } from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
-const REACHES = ['OWN', 'TEAM', 'TEAM_TREE', 'ALL'] as const;
+const REACHES = ['OWN', 'TEAM', 'TEAM_OWN', 'TEAM_TREE', 'ALL'] as const;
 
 export class OverrideDto {
   @IsString() @IsNotEmpty() @MaxLength(120) permission!: string;
