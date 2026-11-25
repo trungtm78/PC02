@@ -11,6 +11,11 @@ export const WARD_ALERT_ERROR = {
   CONCLUSION_INVALID: 'WARD_MATCH_CONCLUSION_INVALID',
   /** A period bound that is not a calendar day (`YYYY-MM-DD`), or `from` after `to`. */
   STATS_RANGE_INVALID: 'WARD_STATS_RANGE_INVALID',
+  /**
+   * An approval while a subject has the same identity number as a person of another record and nobody has said
+   * whether it is the same person (details: the matches). Concluding "the same" or "not the same" lets it through.
+   */
+  MATCH_REVIEW_REQUIRED: 'WARD_MATCH_REVIEW_REQUIRED',
 } as const;
 
 export const WARD_ALERT_AUDIT = {

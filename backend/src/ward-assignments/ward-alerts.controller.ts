@@ -7,7 +7,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
 import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
-import { WardMatchConclusionDto, WardStatsQueryDto } from './dto/ward-alerts.dto';
+import { WardMatchConclusionDto, WardMatchPreviewQuery, WardStatsQueryDto } from './dto/ward-alerts.dto';
 import { WARD_ERROR } from './ward-assignment.codes';
 import { wardBody } from './ward-errors';
 import { WardMatchingService } from './ward-matching.service';
@@ -42,6 +42,13 @@ export class WardAlertsController {
   @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
   matches(@Param('id') id: string, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
     return this.matching.matches(scopeOf(req), user.id, id);
+  }
+
+  /** The other record of one match, read only (only a pair the person sees as a match now; 404 otherwise). */
+  @Get(':id/subject-matches/preview')
+  @RequirePermissions({ action: 'read', subject: 'WardAssignment' })
+  preview(@Param('id') id: string, @Query() query: WardMatchPreviewQuery, @CurrentUser() user: { id: string }, @Req() req: ScopedRequest) {
+    return this.matching.preview(scopeOf(req), user.id, id, query.source, query.recordId);
   }
 
   @Post(':id/subject-matches/conclusions')

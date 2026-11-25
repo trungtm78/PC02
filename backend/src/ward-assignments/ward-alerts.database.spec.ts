@@ -309,6 +309,66 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       spy.mockRestore();
       expect(await db.wardSubjectMatchConclusion.count({ where: { assignmentId: row.id } })).toBe(0);
     });
+
+    // ── The review of 26/11/2026: near matches, reasons, the other record read only, what stops an approval ──
+
+    it('the same name with no birth year on the other side is NEAR, and each line says what is the same', async () => {
+      await request('nearNoYear', id.W, [{ fullName: 'Nguyễn Văn Tèo', fullNameNorm: 'nguyen van teo' }]);
+      const found = await matching.matches(scope.reviewerMatch, id.reviewerMatch, id.A);
+      expect(found.find((m) => m.recordId === id.nearNoYear)).toMatchObject({ subjectPosition: 1, level: 'NEAR', reasons: ['NAME'] });
+      expect(found.find((m) => m.recordId === id.K1)).toMatchObject({ level: 'CERTAIN', reasons: expect.arrayContaining(['ID_NUMBER', 'NAME', 'BIRTH_YEAR']) as unknown });
+      expect(found.find((m) => m.recordId === id.P1)).toMatchObject({ level: 'POSSIBLE', reasons: ['NAME_IN_TEXT'] });
+    });
+
+    it('many namesakes never push out the match of the same identity number (it is searched apart, with no limit)', async () => {
+      const cccd = `${tag}CROWD`;
+      // The one that matters, written FIRST (the name search is newest first and capped).
+      await request('crowdTwin', id.W, [{ fullName: 'Người Song Sinh', fullNameNorm: 'nguoi song sinh', birthYear: 1975, idNumberNorm: cccd }]);
+      const many = Array.from({ length: 230 }, (_, i) => `${tag}-crowd-${i}`);
+      await db.wardAssignment.createMany({
+        data: many.map((code) => ({ code, status: 'SUBMITTED', assignedTeamId: id.W, enteredById: id.wardy, caseType: 'CASE', summary: code, content: 'c', entryOfficerName: 'x' })),
+      });
+      const rows = await db.wardAssignment.findMany({ where: { code: { in: many } }, select: { id: true } });
+      await db.wardAssignmentSubject.createMany({
+        data: rows.map((r) => ({ assignmentId: r.id, position: 1, fullName: 'Phạm Văn Đông', fullNameNorm: 'pham van dong', birthYear: 1980, createdAt: new Date(Date.now() + 5000) })),
+      });
+      await request('crowd', id.W, [{ fullName: 'Phạm Văn Đông', fullNameNorm: 'pham van dong', birthYear: 1980, idNumberNorm: cccd }]);
+      const found = await matching.matches(scope.reviewerMatch, id.reviewerMatch, id.crowd);
+      expect(found.find((m) => m.recordId === id.crowdTwin)).toMatchObject({ level: 'CERTAIN', reasons: ['ID_NUMBER'] });
+      expect(found.filter((m) => m.level === 'POSSIBLE').length).toBeGreaterThan(0);
+    });
+
+    it('a case subject changed after "not the same person" brings the pair back (the conclusion was about what it said then)', async () => {
+      await matching.conclude(scope.reviewerMatch, id.reviewerMatch, id.A, { subjectPosition: 1, otherSource: 'CASE', otherRecordId: id.K3, samePerson: false });
+      expect((await matching.matches(scope.reviewerMatch, id.reviewerMatch, id.A)).some((m) => m.recordId === id.K3)).toBe(false);
+      const subject = await db.subject.findFirstOrThrow({ where: { caseId: id.K3 } });
+      await db.subject.update({ where: { id: subject.id }, data: { address: 'địa chỉ mới', updatedAt: new Date(Date.now() + 2000) } });
+      expect((await matching.matches(scope.reviewerMatch, id.reviewerMatch, id.A)).find((m) => m.recordId === id.K3)).toMatchObject({ concluded: false });
+    });
+
+    it('the other record is shown read only, only for a pair the person sees as a match now', async () => {
+      const kase = await matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'CASE', id.K1);
+      expect(kase).toMatchObject({ source: 'CASE', recordId: id.K1, summary: `${tag}-K1` });
+      expect(kase.people).toEqual([expect.objectContaining({ name: 'Nguyễn Văn Tèo', birthYear: 1990, idNumber: '079-090-000-111' })]);
+      const other = await matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'WARD_ASSIGNMENT', id.C);
+      expect(other).toMatchObject({ code: `${tag}-C`, unitName: `${tag} CAP V`, people: [expect.objectContaining({ name: 'Ng. V. Tèo', birthYear: 1991 })] });
+      // Outside the petition reach (P2), a record that is no match (D for subject 1 is a match of subject 2 only: still a
+      // match of the request), another unit's request for a ward officer: as if it did not exist.
+      await expect(matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'PETITION', id.P2)).rejects.toMatchObject({ status: 404 });
+      await expect(matching.preview(scope.wardy, id.wardy, id.A, 'WARD_ASSIGNMENT', id.C)).rejects.toMatchObject({ status: 404 });
+      await expect(matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'CASE', id.K2)).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('what stops an approval: the same identity number nobody has concluded on; "the same" and "not the same" both clear it', async () => {
+      const open = (await matching.unreviewedCertain(scope.reviewerMatch, id.reviewerMatch, id.A)).map((m) => m.recordId);
+      // C was concluded "the same person" above; K1 has not been.
+      expect(open).toEqual([id.K1]);
+      await matching.conclude(scope.reviewerMatch, id.reviewerMatch, id.A, { subjectPosition: 1, otherSource: 'CASE', otherRecordId: id.K1, samePerson: false });
+      expect(await matching.unreviewedCertain(scope.reviewerMatch, id.reviewerMatch, id.A)).toEqual([]);
+      const reviewed = await matching.reviewedForApproval(scope.reviewerMatch, id.reviewerMatch, id.A);
+      expect(reviewed.samePerson).toEqual([expect.objectContaining({ source: 'WARD_ASSIGNMENT', recordId: id.C, level: 'CERTAIN' })]);
+      expect(reviewed.notSamePerson).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe('the deadline alert of the list: the filter count is the rows, each row carries the level filtered on', () => {

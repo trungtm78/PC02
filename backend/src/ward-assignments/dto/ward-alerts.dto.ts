@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import type { WardMatchSource } from '@prisma/client';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf } from 'class-validator';
 
 /** Shapes only; the rules are the services'. */
@@ -9,6 +10,11 @@ export class WardStatsQueryDto {
   @IsOptional() @IsString() @MaxLength(100) teamId?: string;
   @IsOptional() @IsString() @MaxLength(100) crimeId?: string;
   @IsOptional() @IsIn(['INCIDENT', 'CASE']) caseType?: 'INCIDENT' | 'CASE';
+}
+
+export class WardMatchPreviewQuery {
+  @IsIn(['WARD_ASSIGNMENT', 'PETITION', 'CASE', 'INCIDENT']) source!: WardMatchSource;
+  @IsString() @MaxLength(100) recordId!: string;
 }
 
 export class WardMatchConclusionDto {

@@ -51,7 +51,7 @@ run('ward assignment requests: PC02 review, on PostgreSQL', () => {
   });
   const input = (over: Partial<WardAssignmentInput> = {}): WardAssignmentInput => ({
     caseType: 'CASE', kind: 'NEW', crimeId: id.crime, summary: `${tag} Nhóm đánh bạc`, content: 'Nội dung', subjectsUnknown: true, subjects: [],
-    proposedInvestigatorId: id.invW, entryOfficerName: 'Phạm Thị D', ...over,
+    place: 'Phường Vườn Lài', proposedInvestigatorId: id.invW, entryOfficerName: 'Phạm Thị D', ...over,
   });
   const fails = async (promise: Promise<unknown>) => {
     try {

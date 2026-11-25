@@ -67,6 +67,7 @@ describe('what must be filled in before submitting', () => {
     content: 'Nội dung',
     crimeId: 'crime-1',
     crimeOther: null,
+    place: 'Hẻm 12 đường Vườn Lài',
     proposedInvestigatorId: 'inv-1',
     entryOfficerName: 'Phạm Thị D',
     subjectsUnknown: false,
@@ -81,8 +82,13 @@ describe('what must be filled in before submitting', () => {
 
   it('every required field is named when missing or blank', () => {
     expect(
-      missingForSubmission({ ...complete, caseType: null, kind: ' ', summary: '', content: '  ', proposedInvestigatorId: undefined, entryOfficerName: null }),
-    ).toEqual(['caseType', 'kind', 'summary', 'content', 'proposedInvestigatorId', 'entryOfficerName']);
+      missingForSubmission({ ...complete, caseType: null, kind: ' ', summary: '', content: '  ', place: ' ', proposedInvestigatorId: undefined, entryOfficerName: null }),
+    ).toEqual(['caseType', 'kind', 'summary', 'content', 'place', 'proposedInvestigatorId', 'entryOfficerName']);
+  });
+
+  it('where it happened is required (owner, 26/11/2026)', () => {
+    expect(missingForSubmission({ ...complete, place: null })).toEqual(['place']);
+    expect(missingForSubmission({ ...complete, place: '   ' })).toEqual(['place']);
   });
 
   it('a crime from the catalogue or one written out; one of the two is required', () => {

@@ -12,6 +12,8 @@ import type { Actor } from './ward-assignment-command.service';
 import { wardBody } from './ward-errors';
 import { lockedForDecision, lockedRequest } from './ward-locks';
 import { deleteWardAlertRows, WardNotifier } from './ward-notifier';
+import { WARD_ALERT_ERROR } from './ward-alerts.codes';
+import { WardMatchingService } from './ward-matching.service';
 import { decisionInForce, normaliseRequirements, resultDueFrom, returnRevocable, vnDay } from './ward-review.rules';
 
 type Tx = Prisma.TransactionClient;
@@ -100,6 +102,7 @@ export class WardReviewService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Optional() private readonly notifier?: WardNotifier,
+    @Optional() private readonly matching?: WardMatchingService,
   ) {}
 
   returnReasons() {
@@ -185,6 +188,19 @@ export class WardReviewService {
 
   /** "Duyệt và phân công": the investigator who acts, the PC02 person and unit who follow; the deadline starts. */
   async approve(actor: Actor, scope: Scope, id: string, input: ApproveInput, now: Date = new Date()): Promise<WardAssignment> {
+    // The subjects are screened before an approval, as a petition's duplicates are before it is saved: a person with
+    // the same identity number in another record must be concluded on ("the same" / "not the same") first. Read before
+    // the transaction (the matching reads several modules); what was reviewed goes into the approval's audit line.
+    let reviewed: Awaited<ReturnType<WardMatchingService['reviewedForApproval']>> | null = null;
+    if (this.matching) {
+      const open = await this.matching.unreviewedCertain(scope, actor.id, id);
+      if (open.length > 0) {
+        throw new ConflictException(
+          wardBody(WARD_ALERT_ERROR.MATCH_REVIEW_REQUIRED, ...open.map((m) => ({ subjectPosition: m.subjectPosition, source: m.source, recordId: m.recordId }))),
+        );
+      }
+      reviewed = await this.matching.reviewedForApproval(scope, actor.id, id);
+    }
     let ring: () => void = () => undefined;
     const approved = await this.prisma.$transaction(async (tx) => {
       const row = await lockedForDecision(tx, scope, actor.id, id, input.expectedUpdatedAt);
@@ -216,7 +232,7 @@ export class WardReviewService {
         },
       });
       await this.audit.log(
-        { userId: actor.id, action: WARD_AUDIT.APPROVED, subject: 'WardAssignment', subjectId: row.id, metadata: { decisionId: decision.id, round: round.sequence, followUpTeamId, requirements: requirements.length } },
+        { userId: actor.id, action: WARD_AUDIT.APPROVED, subject: 'WardAssignment', subjectId: row.id, metadata: { decisionId: decision.id, round: round.sequence, followUpTeamId, requirements: requirements.length, ...(reviewed && { matchesReviewed: reviewed }) } },
         tx,
       );
       if (this.notifier) ring = await this.notifier.recordEvent(tx, { kind: 'APPROVED', assignmentId: row.id, decisionId: decision.id });
