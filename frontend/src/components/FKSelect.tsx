@@ -7,24 +7,7 @@ import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import { useDirectoryOptions } from "@/hooks/useDirectoryOptions";
 import { useMasterClassOptions } from "@/hooks/useMasterClassOptions";
 
-import { khopKhongDau as fuzzyMatch } from "@/lib/bo-dau";
-
-function matchesAbbreviation(text: string, query: string): boolean {
-  if (!query || query.length < 2) return false;
-  const initials = text
-    .split(/\s+/)
-    .map((w) => w[0] ?? "")
-    .join("")
-    .toLowerCase();
-  return initials.includes(query.toLowerCase());
-}
-
-function smartMatch(text: string, query: string): boolean {
-  if (!query) return true;
-  if (fuzzyMatch(text, query)) return true;
-  if (matchesAbbreviation(text, query)) return true;
-  return false;
-}
+import { smartMatch } from "@/components/fk-match";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

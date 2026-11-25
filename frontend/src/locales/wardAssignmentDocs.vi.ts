@@ -30,7 +30,8 @@ export const wardAssignmentDocs = {
     defaultsFailed: 'Không tải được thông tin phiếu. Vẫn có thể in: ô người ký để trống sẽ lấy tên trên phiếu gần nhất.',
     templateMissing: 'Chưa có mẫu Phiếu yêu cầu đang dùng nên chưa in được. Hãy báo quản trị kích hoạt mẫu ở Cấu hình → Mẫu chứng từ.',
     missingTitle: 'Phiếu sẽ để trống các mục sau (hồ sơ chưa có):',
-    missing: { discoveredOn: 'Ngày phát hiện', place: 'Nơi xảy ra' } as Record<string, string>,
+    // wardChargeTeam: no PC02 team is in charge of the ward; the slip's last item then reads "(qua Đội 1)".
+    missing: { discoveredOn: 'Ngày phát hiện', place: 'Nơi xảy ra', wardChargeTeam: 'Tổ phụ trách phường/xã' } as Record<string, string>,
     revoked: 'Kết luận này đã bị thu hồi nên không phát hành phiếu được.',
     close: 'Đóng',
     signersTitle: 'Người ký trên phiếu',
