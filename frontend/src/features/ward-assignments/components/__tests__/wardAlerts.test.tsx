@@ -66,6 +66,11 @@ describe('SubjectMatches', () => {
     // The status in words, never the server's code.
     expect(screen.getByTestId('ward-match-preview')).toHaveTextContent('Đã duyệt');
     expect(screen.getByTestId('ward-match-preview')).not.toHaveTextContent('APPROVED');
+    // Closed and opened again: read again (another officer may have corrected the record meanwhile).
+    fireEvent.click(screen.getByTestId('ward-match-preview-close'));
+    get.mockResolvedValueOnce({ data: { source: 'WARD_ASSIGNMENT', recordId: 'w1', code: '2026-00012', unitName: 'CAP Tân Định', status: 'APPROVED', day: '2026-11-10', summary: 'Trộm xe', people: [{ name: 'Nguyễn Văn Tèo', birthYear: 1990, idNumber: '079090000111', address: 'Địa chỉ đã sửa' }] } });
+    fireEvent.click(within(rows[0]).getByTestId('ward-match-open-WARD_ASSIGNMENT-w1'));
+    expect(await screen.findByText('Địa chỉ đã sửa')).toBeInTheDocument();
     expect(screen.getByTestId('ward-match-preview-open')).toHaveAttribute('href', '/ho-so-phan-cong/w1');
     expect(screen.getByTestId('ward-match-preview-open')).toHaveAttribute('target', '_blank');
     expect(within(rows[0]).getByText('Trùng chắc chắn (CCCD)')).toBeInTheDocument();

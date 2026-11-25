@@ -191,19 +191,24 @@ export class WardReviewService {
     // The subjects are screened before an approval, as a petition's duplicates are before it is saved: a person with
     // the same identity number in another record must be concluded on ("the same" / "not the same") first. Read before
     // the transaction (the matching reads several modules); what was reviewed goes into the approval's audit line.
-    let reviewed: Awaited<ReturnType<WardMatchingService['reviewedForApproval']>> | null = null;
-    if (this.matching) {
-      const open = await this.matching.unreviewedCertain(scope, actor.id, id);
+    let reviewed: Omit<Awaited<ReturnType<WardMatchingService['screenForApproval']>>, 'open'> | null = null;
+    const screen = async () => {
+      if (!this.matching) return;
+      const { open, ...rest } = await this.matching.screenForApproval(scope, actor.id, id);
       if (open.length > 0) {
         throw new ConflictException(
           wardBody(WARD_ALERT_ERROR.MATCH_REVIEW_REQUIRED, ...open.map((m) => ({ subjectPosition: m.subjectPosition, source: m.source, recordId: m.recordId }))),
         );
       }
-      reviewed = await this.matching.reviewedForApproval(scope, actor.id, id);
-    }
+      reviewed = rest;
+    };
+    await screen();
     let ring: () => void = () => undefined;
     const approved = await this.prisma.$transaction(async (tx) => {
       const row = await lockedForDecision(tx, scope, actor.id, id, input.expectedUpdatedAt);
+      // Screened again once the request is locked: a person given the same number elsewhere in the meantime is not
+      // approved past. (Other modules' rows are not locked: the window left is this transaction's own few milliseconds.)
+      await screen();
       const round = await this.pendingRound(tx, row);
       const [investigator] = await tx.$queryRaw<{ teamId: string; isActive: boolean }[]>`
         SELECT "teamId", "isActive" FROM "ward_investigators" WHERE id = ${input.assignedInvestigatorId} FOR SHARE`;

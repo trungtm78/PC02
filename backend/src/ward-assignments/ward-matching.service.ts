@@ -95,7 +95,7 @@ interface SubjectRow {
  * A match as found, with when the other side last changed (its subject row, the case subject, the petition): a
  * conclusion made before that is about another person and stops counting.
  */
-type Found = SubjectMatch & { otherSince?: Date };
+type Found = SubjectMatch & { otherSince?: Date; otherSubjectId?: string };
 
 /** The level and the reasons of one pair, from what both sides say; null = not a match. */
 export function judge(
@@ -164,12 +164,17 @@ export class WardMatchingService {
     return (await this.matches(scope, actorId, id)).filter((m) => m.level === 'CERTAIN' && !m.concluded);
   }
 
-  /** The conclusions in force on the request ("the same person" ones; "not the same" are counted apart), for the audit. */
-  async reviewedForApproval(scope: Scope, actorId: string, id: string) {
+  /**
+   * What an approval needs, from ONE read of the matches: the certain matches still open (they stop it) and, for its
+   * audit line, the conclusions in force ("the same person" listed, "not the same" counted).
+   */
+  async screenForApproval(scope: Scope, actorId: string, id: string) {
     const listed = await this.matches(scope, actorId, id);
+    const open = listed.filter((m) => m.level === 'CERTAIN' && !m.concluded);
     const { row } = await this.readable(scope, id);
     const notSame = await this.prisma.wardSubjectMatchConclusion.count({ where: { assignmentId: row.id, samePerson: false } });
     return {
+      open,
       samePerson: listed.filter((m) => m.concludedSame).map((m) => ({ subjectPosition: m.subjectPosition, source: m.source, recordId: m.recordId, level: m.level })),
       notSamePerson: notSame,
       shown: listed.length,
@@ -181,9 +186,10 @@ export class WardMatchingService {
    * now (the sources' own read rules are part of finding it), otherwise 404 as if it did not exist.
    */
   async preview(scope: Scope, actorId: string, id: string, source: WardMatchSource, recordId: string): Promise<MatchPreview> {
-    const { row, subjects } = await this.readable(scope, id);
-    const visible = await this.matchesIgnoringConclusions(scope, actorId, row, subjects);
-    if (!visible.some((m) => m.source === source && m.recordId === recordId)) throw new NotFoundException(wardBody(WARD_ALERT_ERROR.MATCH_NOT_FOUND));
+    // Only a pair LISTED now: one concluded "not the same person" is gone from the list, and from here too.
+    const listed = await this.matches(scope, actorId, id);
+    if (!listed.some((m) => m.source === source && m.recordId === recordId)) throw new NotFoundException(wardBody(WARD_ALERT_ERROR.MATCH_NOT_FOUND));
+    const { subjects } = await this.readable(scope, id);
     const day = (d: Date | null | undefined) => (d ? new Date(d.getTime() + 7 * 3_600_000).toISOString().slice(0, 10) : null);
     if (source === 'WARD_ASSIGNMENT') {
       const r = await this.prisma.wardAssignment.findUniqueOrThrow({
@@ -199,13 +205,27 @@ export class WardMatchingService {
       };
     }
     if (source === 'CASE') {
+      if (!this.caseAccess) throw new NotFoundException(wardBody(WARD_ALERT_ERROR.MATCH_NOT_FOUND));
       const r = await this.prisma.case.findUniqueOrThrow({
         where: { id: recordId },
-        select: { name: true, status: true, createdAt: true, assignedTeam: { select: { name: true } }, subjects: { where: { deletedAt: null }, select: { fullName: true, dateOfBirth: true, idNumber: true, address: true } } },
+        select: { name: true, status: true, createdAt: true, assignedTeam: { select: { name: true } }, subjects: { where: { deletedAt: null }, select: { fullName: true, dateOfBirth: true, idNumber: true } } },
       });
+      // The case's own field policy (sensitivity, representation): what the person may not see of the case is not
+      // shown here either.
+      const safe = (await this.caseAccess.serialize(recordId, { case: { name: r.name, status: r.status, createdAt: r.createdAt } }, actorId)).case as
+        | Partial<{ name: string; status: string; createdAt: Date }>
+        | undefined;
+      // Of its people: only what the matching already compares (name, birth year) and an identity number the request
+      // itself names. No address, no other number.
+      const known = new Set(subjects.map((s) => s.idNumberNorm).filter((v): v is string => !!v));
       return {
-        source, recordId, code: null, unitName: r.assignedTeam?.name ?? null, status: r.status, day: day(r.createdAt), summary: r.name,
-        people: r.subjects.map((x) => ({ name: x.fullName, birthYear: x.dateOfBirth ? vnYearOf(x.dateOfBirth) : null, idNumber: x.idNumber, address: x.address })),
+        source, recordId, code: null, unitName: r.assignedTeam?.name ?? null, status: safe?.status ?? null, day: day(safe?.createdAt ?? null), summary: safe?.name ?? null,
+        people: r.subjects.map((x) => ({
+          name: x.fullName,
+          birthYear: x.dateOfBirth ? vnYearOf(x.dateOfBirth) : null,
+          idNumber: known.has(digitsOf(x.idNumber)) ? x.idNumber : null,
+          address: null,
+        })),
       };
     }
     const r = await this.prisma.petition.findUniqueOrThrow({
@@ -240,7 +260,8 @@ export class WardMatchingService {
     }
     const key = { assignmentId: row.id, subjectPosition: input.subjectPosition, otherSource: input.otherSource, otherRecordId: input.otherRecordId };
     const seen = subjects.find((x) => x.position === input.subjectPosition)!;
-    const seenOther = visible.find((m) => m.subjectPosition === input.subjectPosition && m.source === input.otherSource && m.recordId === input.otherRecordId)?.otherSince;
+    const seenPair = visible.find((m) => m.subjectPosition === input.subjectPosition && m.source === input.otherSource && m.recordId === input.otherRecordId);
+    const seenOther = seenPair?.otherSince;
     return this.prisma.$transaction(async (tx) => {
       // The requests concluded about, locked for share (in id order) for the rest of the transaction: an edit of their
       // subjects or a delete with data (which lock them for update) either waits for this conclusion or has already
@@ -255,9 +276,11 @@ export class WardMatchingService {
         const other = await tx.wardAssignmentSubject.findFirst({ where: { assignmentId: input.otherRecordId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
         if (!other || other.createdAt.getTime() > seenOther.getTime()) throw new ConflictException(wardBody(WARD_ERROR.CONFLICT));
       }
-      // A case subject or a petition changed since it was shown: the conclusion would be about what it said before.
-      if (input.otherSource !== 'WARD_ASSIGNMENT' && seenOther && (await this.changedSince(tx, input.otherSource, input.otherRecordId, seenOther))) {
-        throw new ConflictException(wardBody(WARD_ERROR.CONFLICT));
+      // The matched case subject changed (or was removed) since it was shown: the conclusion would be about what it said
+      // before. Only THAT subject counts, never another person of the same case.
+      if (input.otherSource === 'CASE' && seenOther && seenPair?.otherSubjectId) {
+        const now = await tx.subject.findUnique({ where: { id: seenPair.otherSubjectId }, select: { updatedAt: true, deletedAt: true } });
+        if (!now || now.deletedAt || now.updatedAt.getTime() > seenOther.getTime()) throw new ConflictException(wardBody(WARD_ERROR.CONFLICT));
       }
       const saved = await tx.wardSubjectMatchConclusion.upsert({
         where: { assignmentId_subjectPosition_otherSource_otherRecordId: key },
@@ -276,19 +299,6 @@ export class WardMatchingService {
       );
       return saved;
     });
-  }
-
-  /** Whether the other record (its case subjects, the petition) changed after `since`. */
-  private async changedSince(tx: Prisma.TransactionClient, source: WardMatchSource, recordId: string, since: Date): Promise<boolean> {
-    if (source === 'CASE') {
-      const latest = await tx.subject.findFirst({ where: { caseId: recordId }, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } });
-      return !latest || latest.updatedAt.getTime() > since.getTime();
-    }
-    if (source === 'PETITION') {
-      const p = await tx.petition.findUnique({ where: { id: recordId }, select: { updatedAt: true } });
-      return !p || p.updatedAt.getTime() > since.getTime();
-    }
-    return false;
   }
 
   private async matchesIgnoringConclusions(scope: Scope, actorId: string, row: { id: string; assignedTeamId: string; enteredById: string }, subjects: SubjectRow[]): Promise<Found[]> {
@@ -412,7 +422,7 @@ export class WardMatchingService {
       ],
     }));
     const select = {
-      fullName: true, idNumber: true, dateOfBirth: true, address: true, updatedAt: true,
+      id: true, fullName: true, idNumber: true, dateOfBirth: true, address: true, updatedAt: true,
       case: { select: { id: true, name: true, assignedTeam: { select: { name: true } } } },
     } as const;
     // The same identity number apart, no limit: many namesakes must not push it out.
@@ -427,7 +437,7 @@ export class WardMatchingService {
         if (!judged) continue;
         out.push({
           subjectPosition: s.position, level: judged.level, reasons: judged.reasons, source: 'CASE', recordId: o.case.id, code: null,
-          unitName: o.case.assignedTeam?.name ?? null, name: o.fullName, concludedSame: false, concluded: false, otherSince: o.updatedAt,
+          unitName: o.case.assignedTeam?.name ?? null, name: o.fullName, concludedSame: false, concluded: false, otherSince: o.updatedAt, otherSubjectId: o.id,
         });
       }
     }
@@ -447,14 +457,16 @@ export class WardMatchingService {
       const words = new RegExp(wordsPattern(s.fullNameNorm));
       const rows = await this.prisma.petition.findMany({
         where: { AND: [{ deletedAt: null }, { suspectedPersonBd: { contains: s.fullNameNorm } }, ...(filter ? [filter] : [])] },
-        select: { id: true, stt: true, suspectedPerson: true, suspectedPersonBd: true, updatedAt: true, assignedTeam: { select: { name: true } } },
+        select: { id: true, stt: true, suspectedPerson: true, suspectedPersonBd: true, assignedTeam: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
         take: CASE_CANDIDATES_MAX,
       });
       for (const p of rows.filter((r) => words.test(r.suspectedPersonBd ?? '')).slice(0, MATCHES_MAX)) {
         out.push({
           subjectPosition: s.position, level: 'POSSIBLE', reasons: ['NAME_IN_TEXT'], source: 'PETITION', recordId: p.id, code: p.stt,
-          unitName: p.assignedTeam?.name ?? null, name: p.suspectedPerson ?? '', concludedSame: false, concluded: false, otherSince: p.updatedAt,
+          // No freshness: a petition has no time of its own for the suspect's words, and any other edit would bring a
+          // dismissed pair back. When the words change, the pair is found again only if the name is still there.
+          unitName: p.assignedTeam?.name ?? null, name: p.suspectedPerson ?? '', concludedSame: false, concluded: false,
         });
       }
     }

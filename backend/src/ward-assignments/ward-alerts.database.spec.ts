@@ -69,6 +69,7 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
   /** The scope of a person of the suite, by user id (`scope` is keyed by the fixture's names). */
   const scopeOfUser = (userId: string): DataScope | undefined => scope[Object.keys(id).find((k) => id[k] === userId) ?? ''];
 
+  const hiddenCaseFields = new Set<string>();
   /** The case rule as the governance core gives it for these scopes (the core's own suite proves the core). */
   const caseAccess = {
     entity: jest.fn(async (_s: string, _a: string, actorId: string) => {
@@ -78,6 +79,11 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       if (!keys[actorId]?.includes('read:Case')) throw new ForbiddenException('no');
       return buildScopeFilter(scopeOfUser(actorId), 'read', 'Case') ?? {};
     }),
+    // The case's field policy: as is, unless a test hides a field (`hiddenCaseFields`).
+    serialize: jest.fn(async (_caseId: string, row: { case: Record<string, unknown> }) => ({
+      ...row,
+      case: Object.fromEntries(Object.entries(row.case).filter(([k]) => !hiddenCaseFields.has(k))),
+    })),
   } as unknown as CaseChildAccessService;
 
   const request = async (key: string, teamId: string, subjects: { fullName: string; fullNameNorm: string; birthYear?: number; idNumberNorm?: string }[], extra: Record<string, unknown> = {}) => {
@@ -352,6 +358,13 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       expect(kase.people).toEqual([expect.objectContaining({ name: 'Nguyễn Văn Tèo', birthYear: 1990, idNumber: '079-090-000-111' })]);
       const other = await matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'WARD_ASSIGNMENT', id.C);
       expect(other).toMatchObject({ code: `${tag}-C`, unitName: `${tag} CAP V`, people: [expect.objectContaining({ name: 'Ng. V. Tèo', birthYear: 1991 })] });
+      // The case's own field policy is applied: a restricted name is not shown as the summary; of its people only what
+      // the matching compares, the address never.
+      hiddenCaseFields.add('name');
+      const hidden = await matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'CASE', id.K1);
+      hiddenCaseFields.clear();
+      expect(hidden.summary).toBeNull();
+      expect(hidden.people.every((p) => p.address === null)).toBe(true);
       // Outside the petition reach (P2), a record that is no match (D for subject 1 is a match of subject 2 only: still a
       // match of the request), another unit's request for a ward officer: as if it did not exist.
       await expect(matching.preview(scope.reviewerMatch, id.reviewerMatch, id.A, 'PETITION', id.P2)).rejects.toMatchObject({ status: 404 });
@@ -365,7 +378,8 @@ run('ward assignment requests, lane D: matching, alerts, notices, statistics (Po
       expect(open).toEqual([id.K1]);
       await matching.conclude(scope.reviewerMatch, id.reviewerMatch, id.A, { subjectPosition: 1, otherSource: 'CASE', otherRecordId: id.K1, samePerson: false });
       expect(await matching.unreviewedCertain(scope.reviewerMatch, id.reviewerMatch, id.A)).toEqual([]);
-      const reviewed = await matching.reviewedForApproval(scope.reviewerMatch, id.reviewerMatch, id.A);
+      const reviewed = await matching.screenForApproval(scope.reviewerMatch, id.reviewerMatch, id.A);
+      expect(reviewed.open).toEqual([]);
       expect(reviewed.samePerson).toEqual([expect.objectContaining({ source: 'WARD_ASSIGNMENT', recordId: id.C, level: 'CERTAIN' })]);
       expect(reviewed.notSamePerson).toBeGreaterThanOrEqual(2);
     });

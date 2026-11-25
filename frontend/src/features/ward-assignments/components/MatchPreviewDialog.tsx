@@ -32,6 +32,11 @@ export function MatchPreviewDialog({ assignmentId, match, onClose }: { assignmen
     queryKey: ['ward-assignments', 'match-preview', assignmentId, match.source, match.recordId],
     queryFn: () => wardAlertsApi.preview(assignmentId, match.source, match.recordId),
     retry: false,
+    // Read fresh every time it opens: a conclusion is made against what the officer was shown, and another officer
+    // may have corrected the other record meanwhile.
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
   });
   const title = `${t.matches.source[match.source] ?? match.source}${match.code ? ` ${match.code}` : ''}`;
   return (
