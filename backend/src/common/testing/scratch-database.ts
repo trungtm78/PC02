@@ -4,7 +4,7 @@ import { Client } from 'pg';
 import { takeTurnOnSharedRow } from './shared-row-turn';
 
 /** The scratch databases a database suite may write to. Anything else is refused before the first query. */
-const SCRATCH_DATABASES = ['/pc02_dynamic_reports_test', '/pc02_goiy_scope_test'];
+const SCRATCH_DATABASES = ['/pc02_dynamic_reports_test', '/pc02_goiy_scope_test', '/pc02_unit_chart_test'];
 
 export interface ScratchDatabase {
   db: PrismaClient;

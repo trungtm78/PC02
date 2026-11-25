@@ -30,9 +30,10 @@ const membersOf = (org: OrgSnapshot, teamIds: Iterable<string>): Set<string> => 
 /**
  * How far one permission reaches over records, for one person.
  *
- * The four reaches stay apart on purpose. "The team's records OR its members' records" is what TEAM_TREE means
+ * The reaches stay apart on purpose. "The team's records OR its members' records" is what TEAM_TREE means
  * (today's behaviour); if OWN or TEAM were folded into that, a member of A handling a record assigned to B would make
- * it visible to all of A, and unassigned records would leak to people limited to their own.
+ * it visible to all of A, and unassigned records would leak to people limited to their own. TEAM_OWN is exactly OWN
+ * and TEAM together: the person's own records and the granting team's, never its members' records elsewhere.
  *
  * `write` adds the data access grants that allow changing (WRITE); reading takes READ and WRITE grants. Grants and
  * the dispatcher flag are additions kept exactly as they work today.
@@ -54,8 +55,8 @@ export function recordScope(
   for (const g of grants) {
     // A grant with no team of its own (a personal grant) is measured from every team of the person.
     const from = g.teamId ? [g.teamId] : effective.activeTeamIds;
-    if (g.reach === 'OWN') own = true;
-    if (g.reach === 'TEAM') for (const t of from) exact.add(t);
+    if (g.reach === 'OWN' || g.reach === 'TEAM_OWN') own = true;
+    if (g.reach === 'TEAM' || g.reach === 'TEAM_OWN') for (const t of from) exact.add(t);
     if (g.reach === 'TEAM_TREE') {
       tree = true;
       for (const t of from) {

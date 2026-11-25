@@ -1,10 +1,13 @@
 /** Shapes and constants of "permissions by team" (`/authz` on the server). Enum strings are declared once, here. */
 
-export const REACH = { OWN: 'OWN', TEAM: 'TEAM', TEAM_TREE: 'TEAM_TREE', ALL: 'ALL' } as const;
+export const REACH = { OWN: 'OWN', TEAM: 'TEAM', TEAM_OWN: 'TEAM_OWN', TEAM_TREE: 'TEAM_TREE', ALL: 'ALL' } as const;
 export type Reach = (typeof REACH)[keyof typeof REACH];
-/** Narrowest first. */
-export const REACH_ORDER: readonly Reach[] = [REACH.OWN, REACH.TEAM, REACH.TEAM_TREE, REACH.ALL];
-/** The three choices of the plain screen; "exactly this team" (TEAM) is an advanced one. */
+/** Narrowest first (the server's `depthRank`): TEAM_OWN is TEAM and OWN together, TEAM_TREE reaches all of it. */
+export const REACH_ORDER: readonly Reach[] = [REACH.OWN, REACH.TEAM, REACH.TEAM_OWN, REACH.TEAM_TREE, REACH.ALL];
+/**
+ * The three choices of the plain screen; "exactly this team" (TEAM) and "exactly this team + one's own" (TEAM_OWN) are
+ * advanced ones (a saved one is always shown).
+ */
 export const PLAIN_REACHES: readonly Reach[] = [REACH.OWN, REACH.TEAM_TREE, REACH.ALL];
 
 export const AUTHZ_MODE = { OFF: 'OFF', SHADOW: 'SHADOW', ENFORCE: 'ENFORCE' } as const;

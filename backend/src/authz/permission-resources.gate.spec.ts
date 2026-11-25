@@ -237,7 +237,9 @@ describe('the catalogue is well formed', () => {
   });
 
   it('depths are ordered from none to all', () => {
-    expect(PERMISSION_DEPTHS.map(depthRank)).toEqual([0, 1, 2, 3, 4]);
+    expect(PERMISSION_DEPTHS.map(depthRank)).toEqual([0, 1, 2, 3, 4, 5]);
+    // "Exactly the team + one's own" reaches all of OWN and of TEAM, and the whole team reaches all of it.
+    expect([...PERMISSION_DEPTHS]).toEqual(['NONE', 'OWN', 'TEAM', 'TEAM_OWN', 'TEAM_TREE', 'ALL']);
   });
 
   it('knows which grants need a reason', () => {

@@ -38,7 +38,7 @@ import {
   UpdateTemplateDto,
 } from './dto';
 
-const REACHES: readonly string[] = ['OWN', 'TEAM', 'TEAM_TREE', 'ALL'];
+const REACHES: readonly string[] = ['OWN', 'TEAM', 'TEAM_OWN', 'TEAM_TREE', 'ALL'];
 const meta = (req: Request) => ({ ipAddress: req.ip, userAgent: req.headers['user-agent'] });
 
 /** The revision a delete was decided at, from the query string: removing something is a save like any other. */

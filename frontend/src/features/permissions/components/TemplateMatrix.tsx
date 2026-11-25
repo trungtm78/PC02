@@ -17,6 +17,7 @@ import {
   ACTION_CAPABILITIES,
   PLAIN_REACHES,
   REACH,
+  REACH_ORDER,
   RESOURCE_GROUPS,
   type CatalogueResource,
   type Entries,
@@ -27,7 +28,7 @@ interface Props {
   resources: readonly CatalogueResource[];
   entries: Entries;
   onChange: (entries: Entries) => void;
-  /** Shows the fourth reach, "exactly this team". */
+  /** Shows the advanced reaches, "exactly this team" and "exactly this team + one's own". */
   advanced: boolean;
   readOnly: boolean;
 }
@@ -73,9 +74,8 @@ export function TemplateMatrix({ resources, entries, onChange, advanced, readOnl
         </label>
       );
     }
-    const reaches: (Reach | null)[] = [null, ...PLAIN_REACHES];
-    // "Exactly this team" is an advanced choice, but one already saved is never hidden.
-    if (advanced || current === REACH.TEAM) reaches.splice(2, 0, REACH.TEAM);
+    // "Exactly this team" (and "+ one's own") are advanced choices, but one already saved is never hidden.
+    const reaches: (Reach | null)[] = [null, ...REACH_ORDER.filter((reach) => advanced || PLAIN_REACHES.includes(reach) || current === reach)];
     return (
       <span role="radiogroup" aria-label={M.viewOf(resourceLabel(resource.key))} className="inline-flex flex-wrap gap-x-3 gap-y-1">
         {reaches.map((reach) => (

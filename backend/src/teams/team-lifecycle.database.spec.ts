@@ -38,7 +38,7 @@ run('Team status on PostgreSQL', () => {
     const u = new URL(url!);
     if (
       u.hostname !== '127.0.0.1' ||
-      !['/pc02_dynamic_reports_test', '/pc02_goiy_scope_test'].includes(u.pathname)
+      !['/pc02_dynamic_reports_test', '/pc02_goiy_scope_test', '/pc02_unit_chart_test'].includes(u.pathname)
     ) {
       throw new Error(
         'Refused: DYN_REPORTS_DATABASE_URL must point at 127.0.0.1/pc02_dynamic_reports_test or pc02_goiy_scope_test',

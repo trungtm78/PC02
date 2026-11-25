@@ -163,6 +163,49 @@ describe('compile: a team that has its own configuration', () => {
   });
 });
 
+describe('TEAM_OWN: exactly the team, plus the person\'s own records wherever they are', () => {
+  const o = org([{ id: 'A' }, { id: 'A1', parentId: 'A' }, { id: 'B' }], { A: ['u1', 'u2'], A1: ['u3'], B: ['u9'] });
+  const teamOwn = template('teamOwn', { 'read:Case': 'TEAM_OWN', 'edit:Case': 'TEAM_OWN', 'read:Petition': 'TEAM_OWN' });
+  const cfg = config([{ teamId: 'A', memberTemplateId: 'teamOwn' }], [teamOwn]);
+
+  it('reaches the granting team exactly and the person\'s own records, never a team under it, never unassigned records', () => {
+    const e = compile(o, cfg, user({ memberships: [{ teamId: 'A', isLeader: false }] }), NOW);
+    expect(recordScope(o, e, 'read:Case', 'read')).toEqual({ all: false, own: true, exactTeamIds: ['A'], tree: null });
+    expect(recordScope(o, e, 'edit:Case', 'write')).toEqual({ all: false, own: true, exactTeamIds: ['A'], tree: null });
+    expect(widestReach(e, 'read:Case')).toBe('TEAM_OWN');
+  });
+
+  it('a member of a team under A gets exactly their own team (A1), not A', () => {
+    const e = compile(o, cfg, user({ id: 'u3', memberships: [{ teamId: 'A1', isLeader: false }] }), NOW);
+    expect(recordScope(o, e, 'read:Petition', 'read')).toEqual({ all: false, own: true, exactTeamIds: ['A1'], tree: null });
+  });
+
+  it('with a second, unconfigured team, that team keeps today\'s reach and A is still reached exactly', () => {
+    const e = compile(o, cfg, user({ memberships: [{ teamId: 'A', isLeader: false }, { teamId: 'B', isLeader: false }] }), NOW);
+    const scope = recordScope(o, e, 'read:Case', 'read') as Exclude<RecordScope, { all: true }>;
+    expect(scope.own).toBe(true);
+    expect(scope.exactTeamIds).toEqual(['A']);
+    expect(scope.tree).toEqual({ teamIds: ['B'], userIds: expect.arrayContaining(['u1', 'u9']), includeUnassigned: true });
+  });
+
+  it('is not said in the shape of today\'s filters (it has OWN and TEAM parts): the precise scope must be used', () => {
+    const e = compile(o, cfg, user({ memberships: [{ teamId: 'A', isLeader: false }] }), NOW);
+    expect(toLegacyScope(e, recordScope(o, e, 'read:Case', 'read'), recordScope(o, e, 'edit:Case', 'write'))).toBeUndefined();
+  });
+
+  it('ranks between TEAM and TEAM_TREE: wider than OWN and TEAM, narrower than the whole team', () => {
+    expect(entryProblems(new Map<string, Reach>([['read:Case', 'TEAM_OWN'], ['edit:Case', 'OWN']]))).toEqual([]);
+    expect(entryProblems(new Map<string, Reach>([['read:Case', 'TEAM_OWN'], ['edit:Case', 'TEAM']]))).toEqual([]);
+    expect(entryProblems(new Map<string, Reach>([['read:Case', 'TEAM_OWN'], ['edit:Case', 'TEAM_TREE']]))).toMatchObject([{ code: 'WIDER_THAN_VIEW' }]);
+    expect(entryProblems(new Map<string, Reach>([['read:Case', 'TEAM'], ['edit:Case', 'TEAM_OWN']]))).toMatchObject([{ code: 'WIDER_THAN_VIEW' }]);
+  });
+
+  it('a permission that is not about records cannot be TEAM_OWN (it grants nothing)', () => {
+    const odd = config([{ teamId: 'A', memberTemplateId: 'odd' }], [template('odd', { 'read:Directory': 'TEAM_OWN' })]);
+    expect(compile(o, odd, user({ memberships: [{ teamId: 'A', isLeader: false }] }), NOW).keys).toEqual([]);
+  });
+});
+
 describe('compile: overrides', () => {
   const o = org([{ id: 'A' }], { A: ['u1'] });
   const base = template('t', { 'read:Case': 'TEAM', 'edit:Case': 'TEAM' });
@@ -405,16 +448,17 @@ describe('properties of compile', () => {
     );
   });
 
-  it('OWN and TEAM never reach unassigned records or other people\'s records', () => {
+  it('OWN, TEAM and TEAM_OWN never reach unassigned records or other people\'s records', () => {
     fc.assert(
-      fc.property(arbOrg(false), arbMemberships, fc.constantFrom<Reach>('OWN', 'TEAM'), (o, memberships, reach) => {
+      fc.property(arbOrg(false), arbMemberships, fc.constantFrom<Reach>('OWN', 'TEAM', 'TEAM_OWN'), (o, memberships, reach) => {
         const cfg = config(TEAM_IDS.map((teamId) => ({ teamId, memberTemplateId: 'm' })), [template('m', { 'read:Case': reach })]);
         const e = compile(o, cfg, user({ memberships }), NOW);
         const scope = recordScope(o, e, 'read:Case', 'read');
         if (e.activeTeamIds.length === 0) return; // falls back to the role: not this property's subject
         expect(scope).toMatchObject({ all: false, tree: null });
-        if (!scope.all && reach === 'TEAM') expect(sorted(scope.exactTeamIds)).toEqual(sorted(e.activeTeamIds));
+        if (!scope.all && reach !== 'OWN') expect(sorted(scope.exactTeamIds)).toEqual(sorted(e.activeTeamIds));
         if (!scope.all && reach === 'OWN') expect(scope.exactTeamIds).toEqual([]);
+        if (!scope.all) expect(scope.own).toBe(reach !== 'TEAM');
       }),
       { numRuns: 200 },
     );

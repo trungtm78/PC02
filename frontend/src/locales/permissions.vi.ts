@@ -120,13 +120,14 @@ export const permissions = {
   reaches: {
     OWN: 'Chỉ của mình',
     TEAM: 'Chỉ đúng tổ',
+    TEAM_OWN: 'Đúng tổ + của mình',
     TEAM_TREE: 'Cả tổ',
     ALL: 'Toàn bộ',
   } as Record<string, string>,
   reachNone: 'Không',
   /** For a permission that is all or nothing. */
   reachOn: 'Có',
-  teamOnlyHint: 'Chỉ đúng tổ: không gồm các tổ con.',
+  teamOnlyHint: 'Chỉ đúng tổ: không gồm các tổ con. Đúng tổ + của mình: thêm hồ sơ do chính mình nhập hoặc phụ trách, kể cả hồ sơ chưa giao tổ.',
   changeKinds: {
     TEMPLATE_CREATED: 'Thêm mẫu quyền',
     TEMPLATE_UPDATED: 'Sửa mẫu quyền',

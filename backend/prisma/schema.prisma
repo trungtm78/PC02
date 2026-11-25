@@ -5004,6 +5004,7 @@ model OcrFieldOutcome {
 enum PermissionReach {
   OWN
   TEAM
+  TEAM_OWN
   TEAM_TREE
   ALL
 }

@@ -10,11 +10,29 @@ const EVERYTHING: string[] = PERMISSION_RESOURCES.flatMap(pairsOf);
 const aboutRecords = new Set<string>(PERMISSION_RESOURCES.filter((r) => scopeSubjectOf(r)).flatMap(pairsOf));
 const views = new Set(PERMISSION_RESOURCES.flatMap((r) => (r.basic.view ? [r.basic.view as string] : [])));
 const problemsOf = (entries: Record<string, Reach>) => entryProblems(new Map(Object.entries(entries)));
+const ALL_CODES = [
+  'STARTER_AS_TODAY',
+  'STARTER_OWN_ONLY',
+  'STARTER_VIEW_ONLY',
+  'STARTER_LEADERSHIP',
+  'STARTER_WARD_SUBMIT',
+  'STARTER_WARD_REVIEW',
+  'STARTER_WARD_INTAKE',
+  'STARTER_TEAM_ONLY',
+];
 
 describe('starter templates', () => {
-  it('there are seven, with distinct codes and names', () => {
-    expect(STARTER_TEMPLATES.map((t) => t.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW', 'STARTER_WARD_INTAKE']);
-    expect(new Set(STARTER_TEMPLATES.map((t) => t.name)).size).toBe(7);
+  it('there are eight, with distinct codes and names', () => {
+    expect(STARTER_TEMPLATES.map((t) => t.code)).toEqual(ALL_CODES);
+    expect(new Set(STARTER_TEMPLATES.map((t) => t.name)).size).toBe(8);
+  });
+
+  it('"team only": the officer role\'s permissions, records of exactly the team plus the person\'s own', () => {
+    const meta = STARTER_TEMPLATES.find((t) => t.code === 'STARTER_TEAM_ONLY')!;
+    expect(meta.name).toBe('Cán bộ: chỉ tổ mình');
+    expect(meta.description).toMatch(/tổ mình/);
+    const made = starterTemplates(['read:Petition', 'edit:Petition', 'read:Case', 'read:Directory']);
+    expect(made.STARTER_TEAM_ONLY.entries).toEqual({ 'edit:Petition': 'TEAM_OWN', 'read:Case': 'TEAM_OWN', 'read:Directory': 'ALL', 'read:Petition': 'TEAM_OWN' });
   });
 
   it('the leadership template sees every kind of record at ALL, holds the steps of the flows, and holds nothing that writes', () => {
@@ -88,6 +106,14 @@ describe('starter templates', () => {
       }
     });
 
+    it('"team only": the same permissions as "as today", records at TEAM_OWN, the rest simply held', () => {
+      const entries = made.STARTER_TEAM_ONLY.entries;
+      expect(Object.keys(entries).sort()).toEqual(Object.keys(made.STARTER_AS_TODAY.entries).sort());
+      for (const [permission, reach] of Object.entries(entries)) {
+        expect(reach).toBe(aboutRecords.has(permission) ? 'TEAM_OWN' : 'ALL');
+      }
+    });
+
     it('"view only": the view permission of each resource the role may open, and nothing that changes anything', () => {
       const keys = Object.keys(made.STARTER_VIEW_ONLY.entries);
       expect(keys.sort()).toEqual([...new Set(held)].filter((p) => views.has(p)).sort());
@@ -130,23 +156,30 @@ describe('AuthzAdminService.createStarterTemplates', () => {
     expect(actorId).toBe('admin-1');
     expect(kind).toBe('STARTER_TEMPLATES_CREATED');
     expect(options).toMatchObject({ reason: expect.any(String) as unknown, meta: { ipAddress: '10.0.0.1' } });
-    expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW', 'STARTER_WARD_INTAKE']);
+    expect(wanted.map((w) => (w.after as { code: string }).code)).toEqual(ALL_CODES);
     expect((wanted[1].after as { entries: Record<string, string> }).entries).toEqual({ 'edit:Petition': 'OWN', 'read:Petition': 'OWN' });
     expect((wanted[2].after as { entries: Record<string, string> }).entries).toEqual({ 'read:Petition': 'TEAM_TREE' });
-    expect(result.created.map((c) => c.code)).toEqual(['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW', 'STARTER_WARD_INTAKE']);
-    expect(new Set(result.created.map((c) => c.id)).size).toBe(7);
+    expect((wanted[7].after as { entries: Record<string, string> }).entries).toEqual({ 'edit:Petition': 'TEAM_OWN', 'read:Petition': 'TEAM_OWN' });
+    expect(result.created.map((c) => c.code)).toEqual(ALL_CODES);
+    expect(new Set(result.created.map((c) => c.id)).size).toBe(8);
     expect(result.existing).toEqual([]);
+  });
+
+  it('a caller may give the reason the history shows (a scripted change says what it is for)', async () => {
+    const { service, commit } = build();
+    await service.createStarterTemplates('admin-1', undefined, 'Sơ đồ PC02 26/11/2026');
+    expect(commit.mock.calls[0][3]).toMatchObject({ reason: 'Sơ đồ PC02 26/11/2026' });
   });
 
   it('one that exists already (also renamed or archived: the code is what counts) is left alone', async () => {
     const { service, commit } = build({ existingCodes: ['STARTER_OWN_ONLY'] });
     const result = await service.createStarterTemplates('admin-1');
-    expect(commit.mock.calls[0][2].map((w) => (w.after as { code: string }).code)).toEqual(['STARTER_AS_TODAY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW', 'STARTER_WARD_INTAKE']);
+    expect(commit.mock.calls[0][2].map((w) => (w.after as { code: string }).code)).toEqual(ALL_CODES.filter((c) => c !== 'STARTER_OWN_ONLY'));
     expect(result.existing).toEqual(['STARTER_OWN_ONLY']);
   });
 
-  it('all seven exist: nothing is written and it says so', async () => {
-    const { service, commit } = build({ existingCodes: ['STARTER_AS_TODAY', 'STARTER_OWN_ONLY', 'STARTER_VIEW_ONLY', 'STARTER_LEADERSHIP', 'STARTER_WARD_SUBMIT', 'STARTER_WARD_REVIEW', 'STARTER_WARD_INTAKE'] });
+  it('all eight exist: nothing is written and it says so', async () => {
+    const { service, commit } = build({ existingCodes: ALL_CODES });
     await expect(service.createStarterTemplates('admin-1')).resolves.toMatchObject({ changed: false, created: [], changeSetId: null });
     expect(commit).not.toHaveBeenCalled();
   });

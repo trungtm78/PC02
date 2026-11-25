@@ -21,10 +21,15 @@ export type PermissionKey = `${string}:${string}`;
  *   NONE       not granted
  *   OWN        records the person owns (see `RecordScope.ownerField`); never unassigned records
  *   TEAM       records assigned to the very team that gives the grant; never unassigned records
+ *   TEAM_OWN   TEAM and OWN together: the very team's records plus the person's own records wherever they are (one
+ *              they entered without a team stays visible to them); never another person's unassigned records
  *   TEAM_TREE  that team, the teams under it, its members' records and unassigned records: what a member sees today
  *   ALL        every record
+ *
+ * The order is the rank (`depthRank`): TEAM_OWN reaches everything OWN and TEAM reach, and TEAM_TREE everything
+ * TEAM_OWN reaches (a person is always among their team's people).
  */
-export const PERMISSION_DEPTHS = ['NONE', 'OWN', 'TEAM', 'TEAM_TREE', 'ALL'] as const;
+export const PERMISSION_DEPTHS = ['NONE', 'OWN', 'TEAM', 'TEAM_OWN', 'TEAM_TREE', 'ALL'] as const;
 export type PermissionDepth = (typeof PERMISSION_DEPTHS)[number];
 
 /** Narrowest to widest: a wider depth includes every narrower one. */
@@ -51,7 +56,7 @@ export interface PermissionResource {
   basic: Partial<Record<BasicCapability, PermissionKey>>;
   /** Anything else the resource can be allowed, by a stable key of its own. */
   extras?: Readonly<Record<string, PermissionKey>>;
-  /** Present when the grant can be limited to OWN / TEAM / TEAM_TREE; absent = the grant is all or nothing. */
+  /** Present when the grant can be limited to OWN / TEAM / TEAM_OWN / TEAM_TREE; absent = the grant is all or nothing. */
   recordScope?: RecordScope;
   /** Pairs whose grant needs a reason (they reach personal data in bulk, or the permission system itself). */
   sensitive?: readonly PermissionKey[];
